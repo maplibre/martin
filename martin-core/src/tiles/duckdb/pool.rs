@@ -250,7 +250,7 @@ impl Manager for DuckDBPoolManager {
         &self,
         conn: &mut Self::Type,
         _metrics: &Metrics,
-    ) -> impl Future<Output = RecycleResult<Self::Error>> {
+    ) -> impl Future<Output = RecycleResult<Self::Error>> + Send {
         std::future::ready(conn.execute_batch("SELECT 1").map_err(|source| {
             HealthCheck {
                 source: source.into(),

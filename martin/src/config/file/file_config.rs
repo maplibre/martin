@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
-use std::marker::PhantomData;
+#[cfg(feature = "_tiles")]
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -12,9 +12,11 @@ use futures::stream::{self, StreamExt as _};
 pub use martin_config_macros::ConfigurationLivecycleHooks;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::BoxedSource;
-use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
-use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use martin_core::tiles::BackendSource;
+#[cfg(feature = "_tiles")]
+use martin_tile_utils::TileGrid;
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{self, MapAccess, Visitor};
 use serde::ser::{Error as _, SerializeMap as _};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "_tiles")]
@@ -22,17 +24,19 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::ContourProcessConfig;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGrids;
 #[cfg(feature = "_tiles")]
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
     CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
@@ -40,7 +44,7 @@ use crate::config::file::{ResolutionResult, TileSourceWarning};
 use crate::config::file::{SourceBuildError, SourceBuildResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
-use crate::config::primitives::OptOneMany;
+use crate::config::primitives::one_or_many;
 
 /// Lifecycle hooks for configuring the application
 ///
@@ -72,7 +76,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     #[must_use]
     fn cache(&self) -> CachePolicy;
 
-    /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
+    /// Asynchronously creates a new `BackendSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
     /// `cache` contains per-source zoom bounds, already merged with defaults.
@@ -81,9 +85,9 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send;
 
-    /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
+    /// Asynchronously creates a new `BackendSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
     /// `cache` contains per-source zoom bounds, already merged with defaults.
@@ -92,32 +96,45 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> impl Future<Output = SourceBuildResult<BoxedSource>> + Send;
+    ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, CollectUnrecognizedKeys)]
-#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-#[serde(untagged)]
-pub enum FileConfigEnum<T> {
-    #[default]
-    None,
-    Path(PathBuf),
-    Paths(Vec<PathBuf>),
-    Config(FileConfig<T>),
-}
+/// The accepted shapes of a [`FileConfig`] field deserialized via [`path_or_config::deserialize`].
+pub mod path_or_config {
+    use std::fmt;
+    use std::marker::PhantomData;
+    use std::path::PathBuf;
 
-impl<'de, T> Deserialize<'de> for FileConfigEnum<T>
-where
-    T: Deserialize<'de> + Default,
-{
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct FileConfigEnumVisitor<T>(PhantomData<T>);
+    use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+    use serde::de::{self, MapAccess, SeqAccess, Visitor};
+    use serde::{Deserialize, Deserializer};
 
-        impl<'de, T> Visitor<'de> for FileConfigEnumVisitor<T>
+    use super::FileConfig;
+
+    /// A path, a list of paths, or a configuration map.
+    #[cfg(feature = "unstable-schemas")]
+    #[derive(schemars::JsonSchema)]
+    #[serde(untagged)]
+    pub enum FileConfigShape<T> {
+        None,
+        Path(PathBuf),
+        Paths(Vec<PathBuf>),
+        Config(FileConfig<T>),
+    }
+
+    /// Deserializes nothing, a path, a list of paths, or a configuration map into a [`FileConfig`].
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<FileConfig<T>, D::Error>
+    where
+        T: Deserialize<'de> + Default,
+        D: Deserializer<'de>,
+    {
+        struct PathOrConfigVisitor<T>(PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for PathOrConfigVisitor<T>
         where
             T: Deserialize<'de> + Default,
         {
-            type Value = FileConfigEnum<T>;
+            type Value = FileConfig<T>;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(
@@ -126,167 +143,55 @@ where
                 )
             }
 
-            fn visit_unit<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
-                Ok(FileConfigEnum::None)
+            fn visit_unit<E: de::Error>(self) -> Result<FileConfig<T>, E> {
+                Ok(FileConfig::default())
             }
 
-            fn visit_none<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
-                Ok(FileConfigEnum::None)
+            fn visit_none<E: de::Error>(self) -> Result<FileConfig<T>, E> {
+                Ok(FileConfig::default())
             }
 
-            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfigEnum<T>, E> {
-                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfig<T>, E> {
+                Ok(FileConfig::new(vec![PathBuf::from(value)]))
             }
 
-            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfigEnum<T>, E> {
-                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfig<T>, E> {
+                Ok(FileConfig::new(vec![PathBuf::from(value)]))
             }
 
-            fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<FileConfigEnum<T>, S::Error> {
-                let paths: Vec<PathBuf> =
-                    Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
-                Ok(FileConfigEnum::Paths(paths))
+            fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<FileConfig<T>, S::Error> {
+                Deserialize::deserialize(SeqAccessDeserializer::new(seq)).map(FileConfig::new)
             }
 
-            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigEnum<T>, M::Error> {
-                let cfg = FileConfig::<T>::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(FileConfigEnum::Config(cfg))
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfig<T>, M::Error> {
+                FileConfig::<T>::deserialize(MapAccessDeserializer::new(map))
             }
-
-            // Numbers / booleans fall through to serde's default `invalid_type` path,
-            // which is what attaches the source span via saphyr's deserializer.
         }
 
-        deserializer.deserialize_any(FileConfigEnumVisitor(PhantomData))
+        deserializer.deserialize_any(PathOrConfigVisitor(PhantomData))
     }
 }
 
-impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
-    #[must_use]
-    pub fn new(paths: Vec<PathBuf>) -> Self {
-        Self::new_extended(paths, vec![], BTreeMap::new(), T::default())
-    }
-
-    #[must_use]
-    pub fn new_extended(
-        paths: Vec<PathBuf>,
-        collections: Vec<PathBuf>,
-        configs: BTreeMap<String, FileConfigSrc>,
-        custom: T,
-    ) -> Self {
-        // Collapse to the simpler `Path` / `Paths` / `None` variants only when `collections`,
-        // `configs` and `custom` carry no information; otherwise preserve them by emitting `Config`.
-        // Without this, custom settings (e.g. `pmtiles.reload_interval` or s3 options
-        // needed by the reloader) would silently disappear after `resolve_files` rebuilds
-        // the enum for an empty source set.
-        if collections.is_empty() && configs.is_empty() && custom == T::default() {
-            match paths.len() {
-                0 => Self::None,
-                1 => Self::Path(paths.into_iter().next().expect("one path exists")),
-                _ => Self::Paths(paths),
-            }
-        } else {
-            Self::Config(FileConfig {
-                paths: OptOneMany::new(paths),
-                collections: OptOneMany::new(collections),
-                sources: if configs.is_empty() {
-                    None
-                } else {
-                    Some(configs)
-                },
-                custom,
-            })
-        }
-    }
-
-    /// Records one source entry, promoting the enum to its `Config` form when needed.
-    pub fn insert_source(&mut self, id: String, src: FileConfigSrc) {
-        if let Self::Config(cfg) = self {
-            cfg.sources.get_or_insert_default().insert(id, src);
-            return;
-        }
-        let paths = match mem::take(self) {
-            Self::None => vec![],
-            Self::Path(path) => vec![path],
-            Self::Paths(paths) => paths,
-            Self::Config(_) => unreachable!("handled above"),
-        };
-        *self = Self::new_extended(paths, vec![], BTreeMap::from([(id, src)]), T::default());
-    }
-
-    #[must_use]
-    pub const fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::None => true,
-            Self::Path(_) => false,
-            Self::Paths(v) => v.is_empty(),
-            Self::Config(c) => c.is_empty(),
-        }
-    }
-
-    pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
-        match self {
-            Self::None => None,
-            Self::Path(path) => Some(FileConfig {
-                paths: OptOneMany::One(mem::take(path)),
-                ..FileConfig::default()
-            }),
-            Self::Paths(paths) => Some(FileConfig {
-                paths: OptOneMany::Many(mem::take(paths)),
-                ..Default::default()
-            }),
-            Self::Config(cfg) => Some(mem::take(cfg)),
-        }
-    }
-
-    /// convert path/paths and the config enums
-    #[must_use]
-    pub fn into_config(self) -> Self {
-        match self {
-            Self::Path(path) => Self::Config(FileConfig {
-                paths: OptOneMany::One(path),
-                collections: OptOneMany::NoVals,
-                sources: None,
-                custom: T::default(),
-            }),
-            Self::Paths(paths) => Self::Config(FileConfig {
-                paths: OptOneMany::Many(paths),
-                collections: OptOneMany::NoVals,
-                sources: None,
-                custom: T::default(),
-            }),
-            c @ (Self::None | Self::Config(_)) => c,
-        }
-    }
-}
-
-impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigEnum<T> {
-    async fn finalize(&mut self) -> ConfigFileResult<()> {
-        if let Self::Config(cfg) = self {
-            cfg.finalize().await
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub paths: OptOneMany<PathBuf>,
+    #[serde(default, deserialize_with = "one_or_many::deserialize")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PathBuf>")
+    )]
+    pub paths: Vec<PathBuf>,
     /// A list of directories whose subdirectories are each published under the subdirectory's name
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub collections: OptOneMany<PathBuf>,
+    #[serde(default, deserialize_with = "one_or_many::deserialize")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PathBuf>")
+    )]
+    pub collections: Vec<PathBuf>,
     /// A map of source IDs to file paths or config objects
-    pub sources: Option<BTreeMap<String, FileConfigSrc>>,
+    #[serde(default)]
+    pub sources: BTreeMap<String, FileConfigSrc>,
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
     pub custom: T,
@@ -298,14 +203,14 @@ impl<T: Serialize> Serialize for FileConfig<T> {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(None)?;
-        if !self.paths.is_none() {
+        if !self.paths.is_empty() {
             map.serialize_entry("paths", &self.paths)?;
         }
-        if !self.collections.is_none() {
+        if !self.collections.is_empty() {
             map.serialize_entry("collections", &self.collections)?;
         }
-        if let Some(sources) = &self.sources {
-            map.serialize_entry("sources", sources)?;
+        if !self.sources.is_empty() {
+            map.serialize_entry("sources", &self.sources)?;
         }
         let custom = serde_json::to_value(&self.custom).map_err(S::Error::custom)?;
         let custom = custom.as_object().ok_or_else(|| {
@@ -318,13 +223,28 @@ impl<T: Serialize> Serialize for FileConfig<T> {
     }
 }
 
+impl<T: Default> FileConfig<T> {
+    #[must_use]
+    pub fn new(paths: Vec<PathBuf>) -> Self {
+        Self {
+            paths,
+            ..Self::default()
+        }
+    }
+}
+
 impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none()
-            && self.collections.is_none()
-            && self.sources.is_none()
+        self.paths.is_empty()
+            && self.collections.is_empty()
+            && self.sources.is_empty()
             && self.get_unrecognized_keys().is_empty()
+    }
+
+    #[must_use]
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
     }
 }
 
@@ -333,9 +253,9 @@ impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
 /// Files and hidden directories are skipped.
 #[cfg(any(
     feature = "_file_kinds",
-    feature = "sprites",
-    feature = "styles",
-    feature = "fonts"
+    feature = "resources",
+    feature = "resources",
+    feature = "resources"
 ))]
 pub fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf)>> {
     let mut found = Vec::new();
@@ -352,19 +272,19 @@ pub fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf
 }
 
 #[cfg(feature = "_tiles")]
-impl<T: TileSourceConfiguration> FileConfigEnum<T> {
+impl<T: TileSourceConfiguration> FileConfig<T> {
     /// The kind level cache bounds over the top level ones.
     #[must_use]
     pub fn cache_or(&self, global: CachePolicy) -> CachePolicy {
-        match self {
-            Self::Config(cfg) => cfg.custom.cache().or(global),
-            Self::None | Self::Path(_) | Self::Paths(_) => global,
-        }
+        self.custom.cache().or(global)
     }
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
+        if self.is_default() {
+            return Ok(());
+        }
         self.custom.finalize().await
     }
 }
@@ -479,14 +399,21 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    /// Tile grid this source's tiles are on \[default: `WebMercatorQuad`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or a built-in one.
+    /// Only `MBTiles` and `PMTiles` sources can be declared to be on another grid.
+    #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
     /// MLT->MVT conversion settings for this source.
     /// Overrides source-type and global `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Hillshade settings for this source.
@@ -494,7 +421,7 @@ pub struct FileConfigSource {
     /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
     /// See the hillshade documentation for the knobs.
     /// Settable per source only, since it describes what this source serves rather than a server-wide policy.
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Trace contour lines from this source's tiles.
@@ -502,7 +429,7 @@ pub struct FileConfigSource {
     /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
     /// See the contour documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_contour: Option<ContourProcessConfig>,
     /// Zoom-level bounds for tile caching.
@@ -518,12 +445,13 @@ pub struct FileConfigSource {
 
 #[cfg(feature = "_tiles")]
 pub async fn resolve_files<T: TileSourceConfiguration>(
-    config: &mut FileConfigEnum<T>,
+    config: &mut FileConfig<T>,
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
-    resolve_int(config, idr, extension, default_cache).await
+    resolve_int(config, idr, extension, default_cache, tile_grids).await
 }
 
 /// How many tile sources are opened at once at startup and on reload.
@@ -535,15 +463,13 @@ pub const MAX_CONCURRENT_SOURCE_INITS: usize = 64;
 
 #[cfg(feature = "_tiles")]
 async fn resolve_int<T: TileSourceConfiguration>(
-    config: &mut FileConfigEnum<T>,
+    config: &mut FileConfig<T>,
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
     let default_cache = config.cache_or(default_cache);
-    let Some(cfg) = config.extract_file_config() else {
-        return Ok((vec![], vec![]));
-    };
 
     let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
@@ -551,27 +477,26 @@ async fn resolve_int<T: TileSourceConfiguration>(
     let mut directories = Vec::new();
     let mut planned = Vec::new();
 
-    if let Some(sources) = cfg.sources {
-        for (id, source) in sources {
-            match plan_one_source(
-                T::parse_urls(),
-                idr,
-                &id,
-                source,
-                &mut files,
-                &mut configs,
-                default_cache,
-            ) {
-                Ok(p) => planned.push(p),
-                Err(err) => warnings.push(TileSourceWarning::SourceError {
-                    source_id: id,
-                    error: err.to_string(),
-                }),
-            }
+    for (id, source) in mem::take(&mut config.sources) {
+        match plan_one_source(
+            T::parse_urls(),
+            idr,
+            &id,
+            source,
+            &mut files,
+            &mut configs,
+            default_cache,
+            tile_grids,
+        ) {
+            Ok(p) => planned.push(p),
+            Err(err) => warnings.push(TileSourceWarning::SourceError {
+                source_id: id,
+                error: err.to_string(),
+            }),
         }
     }
 
-    for path in cfg.paths {
+    for path in mem::take(&mut config.paths) {
         match plan_one_path(
             T::parse_urls(),
             idr,
@@ -590,7 +515,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
         }
     }
 
-    let custom = &cfg.custom;
+    let custom = &config.custom;
     let opened = stream::iter(planned)
         .map(|p| async move {
             let result = p.open(custom).await;
@@ -604,6 +529,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     for (p, result) in opened {
         match result {
             Ok(src) => {
+                let src = src.boxed_on(p.grid.as_ref());
                 p.log_configured();
                 if !p.from_sources
                     && let Target::File { path, .. } = &p.target
@@ -616,8 +542,8 @@ async fn resolve_int<T: TileSourceConfiguration>(
         }
     }
 
-    let collections = cfg.collections.into_iter().collect();
-    *config = FileConfigEnum::new_extended(directories, collections, configs, cfg.custom);
+    config.paths = directories;
+    config.sources = configs;
 
     Ok((results, warnings))
 }
@@ -641,6 +567,8 @@ struct Planned {
     id: String,
     target: Target,
     cache: CachePolicy,
+    /// The grid the config declares this source to be on, when it is not Web Mercator.
+    grid: Option<TileGrid>,
     /// From `sources` rather than `paths`: failures are reported by id instead of path, and
     /// discovered files only enter the config once they open, so one bad file in a directory
     /// does not take its siblings with it.
@@ -650,7 +578,10 @@ struct Planned {
 
 #[cfg(feature = "_tiles")]
 impl Planned {
-    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> SourceBuildResult<BoxedSource> {
+    async fn open<T: TileSourceConfiguration>(
+        &self,
+        custom: &T,
+    ) -> SourceBuildResult<BackendSource> {
         match &self.target {
             Target::Url { url, .. } => {
                 custom
@@ -712,6 +643,7 @@ impl Planned {
 
 /// Resolves the id of one configured source (a URL or a file) and records it, without opening it.
 #[cfg(feature = "_tiles")]
+#[expect(clippy::too_many_arguments)]
 fn plan_one_source(
     parse_urls: bool,
     idr: &IdResolver,
@@ -720,12 +652,14 @@ fn plan_one_source(
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
+    tile_grids: Option<&TileGrids>,
 ) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
+    let grid = declared_tile_grid(id, &source, tile_grids)?;
     if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
         let duplicate = files.insert(key.clone(), key.clone()).is_some();
-        let id = idr.resolve(id, url.to_string());
+        let id = idr.resolve(id, sanitize_url(&url));
         configs.insert(id.clone(), source);
         return Ok(Planned {
             id,
@@ -734,6 +668,7 @@ fn plan_one_source(
                 configured: key,
             },
             cache,
+            grid,
             from_sources: true,
             duplicate,
         });
@@ -749,9 +684,41 @@ fn plan_one_source(
             canonical: can,
         },
         cache,
+        grid,
         from_sources: true,
         duplicate,
     })
+}
+
+/// The grid a configured source declares, resolved by name.
+///
+/// Discovered files never declare one.
+/// A kind that cannot be served on another grid passes `None` for `tile_grids`, which makes any declaration an error.
+#[cfg(feature = "_tiles")]
+pub(crate) fn declared_tile_grid(
+    id: &str,
+    source: &FileConfigSrc,
+    tile_grids: Option<&TileGrids>,
+) -> ConfigFileResult<Option<TileGrid>> {
+    let FileConfigSrc::Obj(obj) = source else {
+        return Ok(None);
+    };
+    let Some(name) = obj.tile_grid.as_deref() else {
+        return Ok(None);
+    };
+    let Some(grids) = tile_grids else {
+        return Err(ConfigFileError::TileGridNotSupported {
+            what: format!("Source {id}"),
+        });
+    };
+    let grid = grids
+        .get(name)
+        .ok_or_else(|| ConfigFileError::UnknownTileGrid {
+            what: format!("Source {id}"),
+            grid: name.to_owned(),
+            known: grids.names().join(", "),
+        })?;
+    Ok((!grid.is_web_mercator()).then(|| grid.clone()))
 }
 
 /// Resolves the ids under one configured path (a URL, a file, or a directory) and records them,
@@ -776,7 +743,7 @@ fn plan_one_path(
             // A URL whose path doesn't end with one of the target extensions is treated as
             // a prefix to be discovered by the format-specific reloader (e.g. PmtilesReloader
             // polling `s3://bucket/`). Push it back into `directories` so the rebuilt
-            // FileConfigEnum preserves it for the reloader to see.
+            // config preserves it for the reloader to see.
             info!(
                 source.url = %sanitize_url(&url),
                 "URL does not end with a known extension; treating as a prefix for the reloader to discover"
@@ -795,7 +762,7 @@ fn plan_one_path(
             })
             .unwrap_or("web_source");
 
-        let id = idr.resolve(id, url.to_string());
+        let id = idr.resolve(id, sanitize_url(&url));
         configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
         return Ok(vec![Planned {
             id,
@@ -804,6 +771,7 @@ fn plan_one_path(
                 configured: path,
             },
             cache: default_cache,
+            grid: None,
             from_sources: false,
             duplicate: false,
         }]);
@@ -843,6 +811,7 @@ fn plan_one_path(
             canonical: can,
         },
         cache: default_cache,
+        grid: None,
         from_sources: false,
         duplicate: false,
     }])
@@ -1339,7 +1308,7 @@ mod deserialize_tests {
     use super::*;
     use crate::config::test_helpers::{parse_yaml, render_failure};
 
-    /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in success-path
+    /// Inner config used to instantiate `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
     #[derive(
         Clone,
@@ -1357,46 +1326,52 @@ mod deserialize_tests {
     }
 
     // Failure-path tests run through the full `parse_config` pipeline using realistic
-    // `Config` fields (e.g. `pmtiles:` for `FileConfigEnum`, `mbtiles.sources` for
+    // `Config` fields (e.g. `pmtiles:` for `FileConfig`, `mbtiles.sources` for
     // `FileConfigSrc`, `cache:` for the cache deserializers) so each snapshot mirrors what
     // the user sees on the command line.
 
-    // ----- FileConfigEnum<T> -----
+    // ----- FileConfig<T> -----
 
-    #[test]
-    fn file_config_enum_null_is_none() {
-        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("null");
-        assert_eq!(cfg, FileConfigEnum::None);
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct Section(
+        #[serde(deserialize_with = "path_or_config::deserialize")] FileConfig<TestCustom>,
+    );
+
+    fn parse_section(yaml: &str) -> FileConfig<TestCustom> {
+        parse_yaml::<Section>(yaml).0
     }
 
     #[test]
-    fn file_config_enum_string_is_path() {
-        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("/tmp/tiles");
-        assert_eq!(cfg, FileConfigEnum::Path(PathBuf::from("/tmp/tiles")));
+    fn path_or_config_null_is_default() {
+        assert_eq!(parse_section("null"), FileConfig::default());
     }
 
     #[test]
-    fn file_config_enum_seq_is_paths() {
-        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("[/a, /b]");
+    fn path_or_config_string_is_one_path() {
         assert_eq!(
-            cfg,
-            FileConfigEnum::Paths(vec![PathBuf::from("/a"), PathBuf::from("/b")])
+            parse_section("/tmp/tiles"),
+            FileConfig::new(vec![PathBuf::from("/tmp/tiles")])
         );
     }
 
     #[test]
-    fn file_config_enum_map_is_config() {
-        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("{ paths: [/a], flag: true }");
-        let FileConfigEnum::Config(file_config) = cfg else {
-            panic!("expected Config variant");
-        };
-        assert_eq!(file_config.paths, OptOneMany::One(PathBuf::from("/a")));
-        assert!(file_config.custom.flag);
+    fn path_or_config_seq_is_paths() {
+        assert_eq!(
+            parse_section("[/a, /b]"),
+            FileConfig::new(vec![PathBuf::from("/a"), PathBuf::from("/b")])
+        );
+    }
+
+    #[test]
+    fn path_or_config_map_is_config() {
+        let cfg = parse_section("{ paths: [/a], flag: true }");
+        assert_eq!(cfg.paths, vec![PathBuf::from("/a")]);
+        assert!(cfg.custom.flag);
     }
 
     #[test]
     #[cfg(feature = "pmtiles")]
-    fn file_config_enum_rejects_integer() {
+    fn path_or_config_rejects_integer() {
         insta::assert_snapshot!(render_failure("pmtiles: 42\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
@@ -1414,7 +1389,7 @@ mod deserialize_tests {
 
     #[test]
     #[cfg(feature = "pmtiles")]
-    fn file_config_enum_rejects_bool() {
+    fn path_or_config_rejects_bool() {
         insta::assert_snapshot!(render_failure("pmtiles: true\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
@@ -1432,7 +1407,7 @@ mod deserialize_tests {
 
     #[test]
     #[cfg(feature = "pmtiles")]
-    fn file_config_enum_path_list_with_nested_map_fails() {
+    fn path_or_config_path_list_with_nested_map_fails() {
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"
                 pmtiles:
@@ -1635,7 +1610,7 @@ mod deserialize_tests {
     }
 
     #[test]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     fn cache_size_rejects_other_string() {
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"
@@ -1660,7 +1635,7 @@ mod deserialize_tests {
     }
 
     #[test]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     fn cache_size_rejects_integer() {
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"
@@ -1697,19 +1672,19 @@ mod deserialize_tests {
         use crate::config::file::mbtiles::MbtConfig;
 
         let global = CachePolicy::new(CacheZoomRange::new(Some(1), Some(10)));
-        let kind = FileConfigEnum::Config(FileConfig {
+        let kind = FileConfig {
             custom: MbtConfig {
                 cache: CachePolicy::new(CacheZoomRange::new(None, Some(5))),
                 ..MbtConfig::default()
             },
             ..FileConfig::default()
-        });
+        };
         assert_eq!(
             kind.cache_or(global).zoom(),
             CacheZoomRange::new(Some(1), Some(5))
         );
         assert_eq!(
-            FileConfigEnum::<MbtConfig>::None.cache_or(global).zoom(),
+            FileConfig::<MbtConfig>::default().cache_or(global).zoom(),
             global.zoom()
         );
     }
@@ -1745,15 +1720,22 @@ mod mbtiles_tests {
             "test_source".to_owned(),
             FileConfigSrc::Path(invalid_source.clone()),
         );
-        let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
-            paths: OptOneMany::One(invalid_path.clone()),
-            collections: OptOneMany::NoVals,
-            sources: Some(file_sources),
+        let mut config = FileConfig {
+            paths: vec![invalid_path.clone()],
+            collections: Vec::new(),
+            sources: file_sources,
             custom: MbtConfig::default(),
-        });
+        };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default()).await;
+        let result = resolve_files(
+            &mut config,
+            &idr,
+            &["mbtiles"],
+            CachePolicy::default(),
+            None,
+        )
+        .await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -1804,7 +1786,7 @@ mod plan_one_path_tests {
     fn a_url_ending_with_a_known_extension_is_a_match() {
         let (planned, directories) = plan("https://example.com/image.tif");
         assert_eq!(planned.len(), 1);
-        assert!(directories.is_empty());
+        assert_eq!(directories, [] as [PathBuf; 0]);
     }
 }
 
@@ -1824,15 +1806,22 @@ mod pmtiles_tests {
             "test_source".to_owned(),
             FileConfigSrc::Path(invalid_source.clone()),
         );
-        let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
-            paths: OptOneMany::One(invalid_path.clone()),
-            collections: OptOneMany::NoVals,
-            sources: Some(file_sources),
+        let mut config = FileConfig {
+            paths: vec![invalid_path.clone()],
+            collections: Vec::new(),
+            sources: file_sources,
             custom: PmtConfig::default(),
-        });
+        };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default()).await;
+        let result = resolve_files(
+            &mut config,
+            &idr,
+            &["pmtiles"],
+            CachePolicy::default(),
+            None,
+        )
+        .await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

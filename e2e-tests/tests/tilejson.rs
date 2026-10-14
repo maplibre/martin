@@ -3,14 +3,6 @@
 use martin_e2e_tests::Martin;
 use rstest::rstest;
 
-async fn martin_with_a_pmtiles_source() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/pmtiles2")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 async fn tiles_url(martin: &Martin, path: &str, headers: &[(&str, &str)]) -> String {
     let response = martin.get_with_headers(path, headers).await;
     assert_eq!(response.status(), 200);
@@ -23,7 +15,11 @@ async fn tiles_url(martin: &Martin, path: &str, headers: &[(&str, &str)]) -> Str
 
 #[tokio::test]
 async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/webp2").await;
     assert_eq!(response.status(), 200);
@@ -36,8 +32,7 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
-    let tilejson = serde_json::from_str::<serde_json::Value>(&martin.redact(&response.text()))
-        .expect("response body is not valid json");
+    let tilejson = martin.redacted_json(&response);
     insta::assert_json_snapshot!(tilejson, @r#"
     {
       "basename": "ne2sr.mbtiles",
@@ -69,12 +64,15 @@ async fn a_tilejson_carries_the_source_metadata_and_a_tiles_url() {
     "#);
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn a_tilejson_answers_head_without_a_body() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.head("/webp2").await;
     assert_eq!(response.status(), 200);
@@ -82,7 +80,6 @@ async fn a_tilejson_answers_head_without_a_body() {
     assert!(response.body().is_empty(), "HEAD must not return a body");
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[rstest]
@@ -100,17 +97,24 @@ async fn proxy_headers_set_the_scheme_and_authority(
     #[case] headers: &[(&str, &str)],
     #[case] expected: &str,
 ) {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(tiles_url(&martin, "/webp2", headers).await, expected);
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn an_x_forwarded_for_does_not_change_the_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tiles_url(&martin, "/webp2", &[("x-forwarded-for", "192.168.1.100")]).await,
@@ -118,7 +122,6 @@ async fn an_x_forwarded_for_does_not_change_the_url() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[rstest]
@@ -129,17 +132,24 @@ async fn a_rewrite_header_replaces_the_path(
     #[case] headers: &[(&str, &str)],
     #[case] expected: &str,
 ) {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(tiles_url(&martin, "/webp2", headers).await, expected);
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let headers = [
         ("x-rewrite-url", "/footiles/webp2"),
@@ -151,12 +161,15 @@ async fn x_rewrite_url_wins_over_x_forwarded_prefix() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn only_the_path_of_a_rewrite_header_is_used() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let headers = [(
         "x-rewrite-url",
@@ -168,12 +181,15 @@ async fn only_the_path_of_a_rewrite_header_is_used() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn the_request_query_string_is_carried_into_the_tiles_url() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles2")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tiles_url(&martin, "/webp2?foo=bar&token=martin", &[]).await,
@@ -181,7 +197,6 @@ async fn the_request_query_string_is_carried_into_the_tiles_url() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[rstest]
@@ -204,7 +219,6 @@ async fn base_path_sets_the_path_prefix(#[case] headers: &[(&str, &str)]) {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[rstest]
@@ -226,7 +240,6 @@ async fn route_prefix_sets_the_path_prefix(#[case] headers: &[(&str, &str)]) {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -247,5 +260,4 @@ async fn base_path_wins_over_route_prefix() {
     );
 
     martin.stop().await;
-    martin.assert_startup_warnings();
 }

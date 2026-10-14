@@ -6,8 +6,9 @@ use tracing::debug;
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
 use crate::{
-    MbtType, create_cache_tables, create_flat_tables, create_flat_with_hash_tables,
-    create_normalized_tables, create_tiles_with_hash_view,
+    MbtError, MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables,
+    create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
+    create_tiles_with_hash_view,
 };
 
 /// Returns true if the database is empty (no tables/indexes/...)
@@ -21,18 +22,19 @@ where
         .is_none())
 }
 
-/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL:
-/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...` (idempotent; `SQLite` strips
-/// `IF NOT EXISTS` from the stored DDL), and each `CREATE TABLE` gets a `STRICT` table-option when
+/// Execute a schema-init `.sql` script, decorating each statement to match the runtime DDL.
+///
+/// every `CREATE TABLE`/`CREATE VIEW` becomes `... IF NOT EXISTS ...`
+/// `SQLite` strips `IF NOT EXISTS` from the stored DDL, and each `CREATE TABLE` gets a `STRICT` table-option when
 /// `strict` is set. `STRICT` is comma-joined with any options already present after the closing `)`
 /// (e.g. `WITHOUT ROWID`), producing a valid `... ) STRICT, WITHOUT ROWID`.
 ///
-/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs. Splitting
-/// on `;` is safe because these files are ours and contain no embedded semicolons.
+/// The scripts live in `mbtiles/sql/` and are the single source of truth shared with the docs.
 pub async fn create_schema<T>(conn: &mut T, sql: &str, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    // Splitting on `;` is safe because these files are ours and contain no embedded semicolons.
     for stmt in sql.split(';') {
         let stmt = stmt.trim();
         if stmt.is_empty() {
@@ -90,13 +92,20 @@ where
     match mbt_type {
         MbtType::Flat => create_flat_tables(&mut *conn, strict).await,
         MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn, strict).await,
-        MbtType::Normalized { hash_view, .. } => {
+        MbtType::Normalized {
+            hash_view,
+            schema: NormalizedSchema::Hash,
+        } => {
             create_normalized_tables(&mut *conn, strict).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
             Ok(())
         }
+        MbtType::Normalized {
+            schema: NormalizedSchema::DedupId,
+            ..
+        } => create_dedup_id_normalized_tables(&mut *conn, strict).await,
         MbtType::Cache => create_cache_tables(&mut *conn, strict).await,
     }
 }
@@ -106,7 +115,7 @@ pub async fn detach_db<T>(conn: &mut T, name: &str) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!("Detaching {name}");
+    debug!(sqlite.schema = %name, "Detaching database");
     query(AssertSqlSafe(format!("DETACH DATABASE {name}")))
         .execute(conn)
         .await?;
@@ -151,10 +160,12 @@ SELECT (SELECT min(zoom_level) FROM tiles) AS min_zoom,
     }
 }
 
-pub async fn action_with_rusqlite(
+/// Runs `action` on the connection's raw rusqlite handle. A transaction `action` leaves open would
+/// silently swallow every later statement of `conn`, so it is rolled back and reported instead.
+pub async fn action_with_rusqlite<R>(
     conn: &mut SqliteConnection,
-    action: impl FnOnce(&Connection) -> MbtResult<()>,
-) -> MbtResult<()> {
+    action: impl FnOnce(&Connection) -> MbtResult<R>,
+) -> MbtResult<R> {
     // SAFETY: This must be scoped to make sure the handle is dropped before we continue using conn
     // Make sure not to execute any other queries while the handle is locked
     let mut handle_lock = conn.lock_handle().await?;
@@ -163,7 +174,16 @@ pub async fn action_with_rusqlite(
     // SAFETY: this is safe as long as handle_lock is valid. We will drop the lock.
     let rusqlite_conn = unsafe { Connection::from_handle(handle) }?;
 
-    action(&rusqlite_conn)
+    // Inside a caller's own sqlx transaction, that transaction is theirs to end.
+    let was_autocommit = rusqlite_conn.is_autocommit();
+    let result = action(&rusqlite_conn);
+    if was_autocommit && !rusqlite_conn.is_autocommit() {
+        rusqlite_conn.execute_batch("ROLLBACK")?;
+        // A failed action's own error explains the open transaction better.
+        result?;
+        return Err(MbtError::TransactionLeftOpen);
+    }
+    result
 }
 
 #[cfg(test)]

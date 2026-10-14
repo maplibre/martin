@@ -3,7 +3,7 @@
 /// How much of the frame the log pane takes.
 ///
 /// The string serialization is the title the log pane wears in that size.
-#[derive(Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, strum::IntoStaticStr)]
 pub enum LogSize {
     /// The log sits under the panels.
     #[default]

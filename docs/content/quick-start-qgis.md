@@ -1,4 +1,5 @@
 ---
+description: Adding a Martin vector tile connection in QGIS
 icon: simple/qgis
 tags:
   - getting-started

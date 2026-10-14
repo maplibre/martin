@@ -1,4 +1,4 @@
-#![cfg(feature = "sprites")]
+#![cfg(feature = "resources")]
 #![expect(clippy::panic)]
 #![expect(clippy::unwrap_used)]
 

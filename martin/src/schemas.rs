@@ -1,11 +1,6 @@
 //! Experimental schema generation for the config file (JSON Schema, via `schemars`)
 //! and the HTTP API (`OpenAPI`, via `utoipa`).
 
-#![expect(
-    clippy::needless_for_each,
-    reason = "noise from inside utoipa's OpenApi derive expansion"
-)]
-
 use schemars::schema_for;
 use utoipa::OpenApi;
 
@@ -119,7 +114,7 @@ mod config_doc {
                 )
             }
             Value::Array(items) => Value::Array(items.into_iter().map(sort_keys).collect()),
-            other => other,
+            other @ (Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_)) => other,
         }
     }
 

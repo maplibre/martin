@@ -1,0 +1,109 @@
+name: Hotpath benchmark
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'bench')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      HOTPATH_ALLOC_SELF: true
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - run: rustup update stable && rustup default stable
+      - uses: $/.github/actions/setup-rust
+        with: { toolchain: none, tools: 'just,oha' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
+
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+
+      - name: Build
+        run: just build-hotpath --features hotpath-cloud
+
+      - name: Benchmark and upload baseline
+        if: github.event_name == 'push'
+        env:
+          HOTPATH_UPLOAD: fail-on-error
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},profile=release
+          HOTPATH_OUTPUT_FORMAT: none
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          set -o pipefail
+          just bench-hotpath all --features hotpath-cloud 2>&1 | tee /tmp/hotpath-run.log
+          scenarios=$(just --justfile tests/bench/justfile --dump --dump-format json | jq '.recipes.all.dependencies | length')
+          test "$(grep -c '^hotpath: uploaded report ' /tmp/hotpath-run.log)" -eq "$scenarios"
+
+      - name: Benchmark and write report
+        if: github.event_name == 'pull_request'
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},profile=release
+          HOTPATH_OUTPUT_DIR: /tmp/hotpath
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          mkdir -p /tmp/hotpath
+          just bench-hotpath all --features hotpath-cloud
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'pull_request'
+        with:
+          name: hotpath-report
+          path: /tmp/hotpath/
+          retention-days: 1
+          if-no-files-found: error

@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.16.0"
+version = "2.0.0-beta.3"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -35,11 +35,6 @@ assets = [
     [
     "target/release/martin",
     "/usr/bin/martin",
-    "755",
-  ],
-    [
-    "target/release/martin-cp",
-    "/usr/bin/martin-cp",
     "755",
   ],
     [
@@ -80,11 +75,6 @@ name = "martin"
 path = "src/bin/martin.rs"
 
 [[bin]]
-name = "martin-cp"
-path = "src/bin/martin-cp.rs"
-required-features = ["mbtiles"]
-
-[[bin]]
 name = "gen-schemas"
 path = "src/bin/gen-schemas.rs"
 required-features = ["unstable-schemas"]
@@ -101,22 +91,16 @@ required-features = ["postgres"]
 
 [features]
 default = [
-    "fonts",
     "lambda",
     "mbtiles",
     "metrics",
     "passthrough",
     "pmtiles",
     "postgres",
-    "rendering",
-    "sprites",
-    "styles",
-    "webui",
-    "geojson",
-    "mlt",
-    "hillshade",
-    "contour",
+    "processing",
+    "resources",
     "tui",
+    "webui",
 ]
 unstable-cog = [
     "martin-core/unstable-cog",
@@ -128,8 +112,15 @@ unstable-cog = [
     "_file_kinds",
 ]
 overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
-rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
-fonts = ["martin-core/fonts", "_catalog"]
+rendering = [
+    "resources",
+    "overlay",
+    "martin-core/rendering",
+    "dep:fnv",
+    "dep:image",
+    "dep:png",
+    "dep:quantizr",
+]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
@@ -153,20 +144,32 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
-geojson = ["martin-core/geojson", "_tiles", "mlt", "_file_kinds"]
-hillshade = ["martin-core/hillshade", "_tiles", "_process", "dep:base64"]
-contour = ["martin-core/contour", "_tiles", "_process", "dep:base64"]
-sprites = ["martin-core/sprites", "_catalog"]
-styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
+processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
+resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-mlt = ["dep:mlt-core", "_process"]
-_tiles = ["martin-core/_tiles", "_catalog"]
-_process = []
+unstable-generate = [
+    "_tiles",
+    "mbtiles",
+    "postgres",
+    "martin-core/unstable-generate",
+    "dep:cel",
+    "dep:indexmap",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+]
+unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
+_tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
 _file_kinds = []
 unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
-unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
+unstable-duckdb = [
+    "dep:cql2",
+    "martin-core/unstable-duckdb",
+    "dep:duckdb",
+    "dep:enum-display",
+    "_tiles",
+]
 hotpath = [
     "hotpath/hotpath",
     "hotpath-alloc",
@@ -175,10 +178,11 @@ hotpath = [
     "hotpath/futures",
 ]
 hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 test-duckdb = ["unstable-duckdb"]
-test-minio = ["pmtiles"]
+test-s3 = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -192,18 +196,23 @@ async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
+bytesize.workspace = true
+cel = { workspace = true, optional = true }
 clap.workspace = true
+compact_str = { workspace = true, optional = true }
 cql2 = { workspace = true, optional = true }
 crossterm = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
+fnv = { workspace = true, optional = true }
 futures.workspace = true
 geojson = { workspace = true, optional = true }
 hotpath = { workspace = true, features = ["tokio"] }
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
@@ -212,15 +221,18 @@ log.workspace = true
 martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
-mlt-core = { workspace = true, optional = true }
+mlt-core.workspace = true
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+quantizr = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
@@ -228,6 +240,7 @@ serde.workspace = true
 serde-saphyr.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
+smallvec = { version = "1.15", features = ["const_new", "union"] }
 static-files = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
@@ -260,11 +273,14 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+approx.workspace = true
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
+flate2.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
+martin-core = { workspace = true, features = ["_testing"] }
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true

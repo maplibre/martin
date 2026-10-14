@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+#[cfg(feature = "mbtiles")]
+use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 
@@ -14,25 +16,25 @@ use crate::config::args::PostgresArgs;
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing"
 ))]
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "sprites",
-    feature = "styles",
-    feature = "geojson",
+    feature = "resources",
+    feature = "resources",
+    feature = "processing",
 ))]
-use crate::config::file::FileConfigEnum;
-#[cfg(feature = "fonts")]
+use crate::config::file::FileConfig;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::duckdb::{DuckDbDatabaseEntry, DuckDbSourceEntry, GeoParquetEntry};
+#[cfg(feature = "resources")]
 use crate::config::file::fonts::FontConfig;
-#[cfg(feature = "postgres")]
-use crate::config::file::warn_legacy_env_vars;
 use crate::config::file::{Config, OnInvalid};
-#[cfg(feature = "postgres")]
-use crate::config::primitives::env::Env;
+#[cfg(feature = "mbtiles")]
+use crate::cp::CopierArgs;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -41,14 +43,19 @@ const HELP_STYLES: Styles = Styles::styled()
     .literal(AnsiColor::White.on_default())
     .placeholder(AnsiColor::Green.on_default());
 
-#[derive(Parser, Debug, PartialEq, Eq, Default)]
+#[derive(Parser, Debug, PartialEq, Default)]
 #[command(
     about,
     version,
+    propagate_version = true,
+    args_conflicts_with_subcommands = true,
     after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct Args {
+    #[cfg(feature = "mbtiles")]
+    #[command(subcommand)]
+    pub command: Option<Command>,
     #[command(flatten)]
     pub meta: MetaArgs,
     #[command(flatten)]
@@ -58,6 +65,16 @@ pub struct Args {
     #[cfg(feature = "postgres")]
     #[command(flatten)]
     pub pg: Option<PostgresArgs>,
+}
+
+#[cfg(feature = "mbtiles")]
+#[derive(Subcommand, Debug, PartialEq)]
+pub enum Command {
+    /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
+    Cp(CopierArgs),
+    /// Generate a tileset from whole tables in one pass (bulk generation)
+    #[cfg(feature = "unstable-generate")]
+    Generate(crate::generate::GeneratorArgs),
 }
 
 // None of these params will be transferred to the config
@@ -78,10 +95,10 @@ pub struct MetaArgs {
     /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
     #[arg(long)]
     pub on_invalid: Option<OnInvalid>,
-    /// Show a live dashboard of the server in this terminal instead of the log stream
+    /// Print the log stream instead of the live dashboard an interactive terminal gets by default
     #[arg(long)]
     #[cfg(feature = "tui")]
-    pub tui: bool,
+    pub no_tui: bool,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Eq, Default)]
@@ -89,33 +106,26 @@ pub struct MetaArgs {
 pub struct ExtraArgs {
     /// Export a directory with SVG files as a sprite source. Can be specified multiple times.
     #[arg(short = 's', long)]
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprite: Vec<PathBuf>,
     /// Export a font file or a directory with font files as a font source (recursive). Can be specified multiple times.
     #[arg(short, long)]
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub font: Vec<PathBuf>,
     /// Export a style file or a directory with style files as a style source (recursive). Can be specified multiple times.
     #[arg(short = 'S', long)]
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     pub style: Vec<PathBuf>,
 }
 
 impl Args {
-    pub fn merge_into_config(
-        self,
-        config: &mut Config,
-        #[cfg(feature = "postgres")] env: &impl Env,
-    ) -> ArgsResult<()> {
+    pub fn merge_into_config(self, config: &mut Config) -> ArgsResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnections(self.meta.connection));
         }
 
-        #[cfg(feature = "postgres")]
-        warn_legacy_env_vars(env);
-
-        if self.srv.cache_size.is_some() {
-            config.cache.size_mb = self.srv.cache_size;
+        if let Some(bytes) = self.srv.cache_size {
+            config.cache.size_mb = Some(bytes.div_ceil(bytesize::MB));
         }
         if self.srv.cache_expiry.is_some() {
             config.cache.expiry = self.srv.cache_expiry;
@@ -135,8 +145,9 @@ impl Args {
                 feature = "postgres",
                 feature = "mbtiles",
                 feature = "pmtiles",
-                feature = "geojson",
-                feature = "unstable-cog"
+                feature = "processing",
+                feature = "unstable-cog",
+                feature = "unstable-duckdb"
             )),
             expect(
                 unused_mut,
@@ -148,8 +159,8 @@ impl Args {
         #[cfg(feature = "postgres")]
         {
             let pg_args = self.pg.unwrap_or_default();
-            if config.postgres.is_none() {
-                config.postgres = pg_args.into_config(&mut cli_strings, env);
+            if config.postgres.is_empty() {
+                config.postgres = pg_args.into_config(&mut cli_strings);
             } else {
                 // config was loaded from a file, we can only apply a few CLI overrides to it
                 pg_args.override_config(&mut config.postgres);
@@ -166,7 +177,7 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
-        #[cfg(feature = "geojson")]
+        #[cfg(feature = "processing")]
         if !cli_strings.is_empty() {
             config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
         }
@@ -176,17 +187,39 @@ impl Args {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
         }
 
-        #[cfg(feature = "styles")]
+        #[cfg(feature = "unstable-duckdb")]
+        if !cli_strings.is_empty() {
+            let geoparquet =
+                parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
+                    .into_iter()
+                    .map(|path| {
+                        DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
+                            geoparquet: path.to_string_lossy().into_owned(),
+                            ..GeoParquetEntry::default()
+                        }))
+                    });
+            let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
+                .into_iter()
+                .map(|database| {
+                    DuckDbSourceEntry::Database(Box::new(DuckDbDatabaseEntry {
+                        database,
+                        ..DuckDbDatabaseEntry::default()
+                    }))
+                });
+            config.duckdb.sources.extend(geoparquet.chain(databases));
+        }
+
+        #[cfg(feature = "resources")]
         if !self.extras.style.is_empty() {
-            config.styles = FileConfigEnum::new(self.extras.style);
+            config.styles = FileConfig::new(self.extras.style);
         }
 
-        #[cfg(feature = "sprites")]
+        #[cfg(feature = "resources")]
         if !self.extras.sprite.is_empty() {
-            config.sprites = FileConfigEnum::new(self.extras.sprite);
+            config.sprites = FileConfig::new(self.extras.sprite);
         }
 
-        #[cfg(feature = "fonts")]
+        #[cfg(feature = "resources")]
         if !self.extras.font.is_empty() {
             config.fonts = FontConfig::new(self.extras.font);
         }
@@ -200,7 +233,8 @@ impl Args {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing",
+    feature = "unstable-duckdb"
 ))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
@@ -231,7 +265,8 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing",
+    feature = "unstable-duckdb"
 ))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
@@ -250,16 +285,35 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
-    feature = "geojson"
+    feature = "processing"
 ))]
 pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
-) -> FileConfigEnum<T> {
+) -> FileConfig<T> {
+    FileConfig::new(parse_file_paths(cli_strings, extensions, allow_url, true))
+}
+
+/// Claim the unclaimed CLI arguments that are files with one of `extensions`.
+///
+/// Directories are shared with other consumers when `share_dirs` is set, and otherwise left unclaimed.
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "processing",
+    feature = "unstable-duckdb"
+))]
+fn parse_file_paths(
+    cli_strings: &mut Arguments,
+    extensions: &[&str],
+    allow_url: bool,
+    share_dirs: bool,
+) -> Vec<PathBuf> {
     use super::State::{Ignore, Share, Take};
 
-    let paths = cli_strings.process(|s| {
+    cli_strings.process(|s| {
         let path = PathBuf::from(s);
         if allow_url && is_url(s, extensions) {
             Take(path)
@@ -267,7 +321,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
             // Handle file: scheme URIs (SQLite connection strings) as valid paths
             Take(path)
         } else if path.is_dir() {
-            Share(path)
+            if share_dirs { Share(path) } else { Ignore }
         } else if path.is_file()
             && extensions.iter().any(|&expected_ext| {
                 path.extension()
@@ -278,9 +332,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
         } else {
             Ignore
         }
-    });
-
-    FileConfigEnum::new(paths)
+    })
 }
 
 #[cfg(test)]
@@ -290,18 +342,12 @@ mod tests {
     use super::*;
     use crate::config::args::ArgsError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
-    #[cfg(feature = "postgres")]
-    use crate::config::primitives::env::FauxEnv;
 
     fn parse(args: &[&str]) -> ArgsResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )?;
+        args.merge_into_config(&mut config)?;
         Ok((config, meta))
     }
 
@@ -316,7 +362,6 @@ mod tests {
     #[test]
     fn cli_with_config() {
         use crate::config::file::postgres::PostgresConfig;
-        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -335,10 +380,10 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PostgresConfig {
+            postgres: vec![PostgresConfig {
                 connection_string: Some("postgres://connection".to_owned()),
                 ..Default::default()
-            }),
+            }],
             ..Default::default()
         };
         let meta = MetaArgs {
@@ -370,6 +415,23 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
+    #[rstest::rstest]
+    #[case::bare_number_is_mb("512", 512)]
+    #[case::disable("0", 0)]
+    #[case::si("2GB", 2000)]
+    #[case::iec_rounds_up("1GiB", 1074)]
+    #[case::lowercase_with_space("64 mb", 64)]
+    fn cli_cache_size(#[case] arg: &str, #[case] size_mb: u64) {
+        let (config, _) = parse(&["martin", "--cache-size", arg]).unwrap();
+        assert_eq!(config.cache.size_mb, Some(size_mb));
+    }
+
+    #[test]
+    fn cli_cache_size_rejects_unknown_unit() {
+        let err = Args::try_parse_from(["martin", "--cache-size", "1 parsec"]).unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
+    }
+
     #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
     fn detects_file_scheme_uri() {
@@ -397,6 +459,38 @@ mod tests {
         assert!(!is_file_scheme_uri("", &["mbtiles"]));
     }
 
+    #[cfg(feature = "mbtiles")]
+    #[test]
+    fn cli_cp_subcommand() {
+        let args = Args::parse_from([
+            "martin",
+            "cp",
+            "--output-file",
+            "out.mbtiles",
+            "--max-zoom",
+            "3",
+            "tiles.mbtiles",
+        ]);
+        let Some(Command::Cp(cp)) = args.command else {
+            panic!("expected the cp subcommand, got {args:?}");
+        };
+        assert_eq!(cp.copy.output_file, PathBuf::from("out.mbtiles"));
+        assert_eq!(cp.copy.max_zoom, Some(3));
+        assert_eq!(cp.meta.connection, vec!["tiles.mbtiles".to_owned()]);
+
+        let res = Args::try_parse_from([
+            "martin",
+            "--config",
+            "c.toml",
+            "cp",
+            "--output-file",
+            "out.mbtiles",
+            "--max-zoom",
+            "3",
+        ]);
+        assert!(res.is_err(), "server args must not mix with cp: {res:?}");
+    }
+
     #[test]
     fn cli_bad_arguments() {
         for params in [
@@ -414,9 +508,7 @@ mod tests {
         let args = Args::parse_from(["martin", "--config", "c.toml", "postgres://a"]);
 
         let mut config = Config::default();
-        let err = args
-            .merge_into_config(&mut config, &FauxEnv::default())
-            .unwrap_err();
+        let err = args.merge_into_config(&mut config).unwrap_err();
         assert_matches!(err, ConfigAndConnections(..));
     }
 
@@ -425,13 +517,7 @@ mod tests {
         let args = Args::parse_from(["martin", "foobar"]);
 
         let mut config = Config::default();
-        let err = args
-            .merge_into_config(
-                &mut config,
-                #[cfg(feature = "postgres")]
-                &FauxEnv::default(),
-            )
-            .unwrap_err();
+        let err = args.merge_into_config(&mut config).unwrap_err();
         let bad = vec!["foobar".to_owned()];
         assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
@@ -445,16 +531,12 @@ mod tests {
             "s3://bucket/imagery/ortho.tiff",
         ]);
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
+        args.merge_into_config(&mut config).unwrap();
 
         insta::assert_yaml_snapshot!(config.cog, @r#"
-        - "https://example.org/imagery/vienna.tif"
-        - "s3://bucket/imagery/ortho.tiff"
+        paths:
+          - "https://example.org/imagery/vienna.tif"
+          - "s3://bucket/imagery/ortho.tiff"
         "#);
     }
 
@@ -474,12 +556,7 @@ mod tests {
         ]);
 
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
+        args.merge_into_config(&mut config).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
@@ -495,11 +572,7 @@ mod tests {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
         let mut config = Config::default();
-        let err = args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        );
+        let err = args.merge_into_config(&mut config);
         err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
@@ -509,7 +582,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[test]
     fn cli_geojson_file() {
         let args = Args::parse_from([
@@ -518,48 +591,11 @@ mod tests {
         ]);
 
         let mut config = Config::default();
-        args.merge_into_config(
-            &mut config,
-            #[cfg(feature = "postgres")]
-            &FauxEnv::default(),
-        )
-        .unwrap();
-        insta::assert_yaml_snapshot!(config, @r#"geojson: "../tests/fixtures/geojson/feature_collection_1.geojson""#);
-    }
-
-    /// The deprecation warning does not disable the legacy env var it warns about -- `DATABASE_URL`
-    /// still configures Postgres exactly as it does today.
-    #[cfg(feature = "postgres")]
-    #[test]
-    #[tracing_test::traced_test]
-    fn legacy_env_var_still_configures_postgres_and_warns() {
-        use std::ffi::OsString;
-
-        use crate::config::primitives::OptOneMany;
-
-        let env: FauxEnv = [(
-            "DATABASE_URL",
-            OsString::from("postgres://localhost:5432/from-env"),
-        )]
-        .into_iter()
-        .collect();
-
-        let args = Args::parse_from(["martin"]);
-        let mut config = Config::default();
-        args.merge_into_config(&mut config, &env).unwrap();
-
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
-        };
-        assert_eq!(
-            pg.connection_string.as_deref(),
-            Some("postgres://localhost:5432/from-env")
-        );
-        assert!(logs_contain(
-            "Environment variable DATABASE_URL is deprecated"
-        ));
+        args.merge_into_config(&mut config).unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
+        geojson:
+          paths:
+            - "../tests/fixtures/geojson/feature_collection_1.geojson"
+        "#);
     }
 }

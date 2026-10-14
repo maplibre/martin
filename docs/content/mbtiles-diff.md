@@ -1,4 +1,5 @@
 ---
+description: Comparing two MBTiles files and applying the resulting patch
 icon: material/database-sync
 tags:
   - mbtiles
@@ -14,6 +15,8 @@ The diff file can
 be [applied](#mbtiles-apply-patch) to the `src_file.mbtiles` elsewhere, to avoid copying/transmitting the entire
 modified dataset. The delta file will contain all tiles that are different between the two files (modifications,
 insertions, and deletions as `NULL` values), for both the tile and metadata tables.
+
+--8<-- "images/mbtiles/diff.svg"
 
 ```bash
 # This command will compare `file1.mbtiles` and `file2.mbtiles`,

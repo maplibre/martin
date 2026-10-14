@@ -1,6 +1,6 @@
 //! A dashboard for the terminal Martin was started from.
 //!
-//! `martin --tui` replaces the log stream with a live view of the server.
+//! In an interactive terminal it replaces the log stream with a live view of the server unless `--no-tui` keeps the log.
 //! It shows the sources and how often each is asked for, the request rate, where on the world tiles are being requested, and the log itself.
 //! `l` gives the log the whole screen and the arrow keys scroll it, for reading it without leaving the dashboard.
 
@@ -9,9 +9,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tokio::sync::oneshot;
 use tracing::error;
+
+use crate::logging::LogFormat;
 
 mod data;
 mod log;
@@ -28,7 +30,7 @@ use state::LogView;
 /// How many lines the page keys move the log by.
 const PAGE: usize = 10;
 
-/// The dashboard of this process, once `--tui` installed it.
+/// The dashboard of this process, once installed at startup.
 static DASHBOARD: OnceLock<Arc<Dashboard>> = OnceLock::new();
 
 /// Whether the dashboard thread is drawing on the terminal right now.
@@ -44,9 +46,9 @@ pub fn is_available() -> bool {
 ///
 /// # Panics
 /// Panics if a dashboard was installed before.
-pub fn install(log_filter: &str) -> Arc<Dashboard> {
-    let dashboard = Arc::new(Dashboard::new());
-    crate::logging::init_tracing_into(log_filter, dashboard.log());
+pub fn install(log_filter: &str, log_format: LogFormat) -> Arc<Dashboard> {
+    let dashboard = Arc::new(Dashboard::new(log_format));
+    crate::logging::init_tracing_into(log_filter, log_format, dashboard.log());
     assert!(
         DASHBOARD.set(Arc::clone(&dashboard)).is_ok(),
         "the dashboard is installed once per process"
@@ -54,7 +56,7 @@ pub fn install(log_filter: &str) -> Arc<Dashboard> {
     dashboard
 }
 
-/// Whether `--tui` installed a dashboard, so requests are worth observing.
+/// Whether a dashboard is installed, so requests are worth observing.
 #[must_use]
 pub fn is_installed() -> bool {
     DASHBOARD.get().is_some()
@@ -82,7 +84,7 @@ pub fn run(dashboard: Arc<Dashboard>, quit: oneshot::Sender<()>) {
             let result = show(&mut terminal, &dashboard);
             restore_terminal();
             if let Err(e) = result {
-                error!("The dashboard stopped: {e}");
+                error!(error = %e, "The dashboard stopped");
             }
             let _ = quit.send(());
         })
@@ -104,31 +106,45 @@ fn show(terminal: &mut ratatui::DefaultTerminal, dashboard: &Dashboard) -> std::
         if key.kind != KeyEventKind::Press {
             continue;
         }
-        let control = key.modifiers.contains(KeyModifiers::CONTROL);
-        if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
-            || (control && key.code == KeyCode::Char('c'))
-        {
+        if press(key, dashboard, &mut log, view.log.len()) == Flow::Quit {
             return Ok(());
         }
-        if key.code == KeyCode::Char('c') {
-            dashboard.clear();
-        }
-        if key.code == KeyCode::Char('l') {
-            log.toggle_size();
-        }
-        let lines = view.log.len();
-        if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
-            log.scroll_back(1, lines);
-        } else if key.code == KeyCode::PageUp {
-            log.scroll_back(PAGE, lines);
-        } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
-            log.scroll_forward(1, lines);
-        } else if key.code == KeyCode::PageDown {
-            log.scroll_forward(PAGE, lines);
-        } else if key.code == KeyCode::Home {
-            log.scroll_to_oldest(lines);
-        } else if key.code == KeyCode::End {
-            log.follow();
-        }
     }
+}
+
+/// Whether the dashboard keeps running after a key press.
+#[derive(Debug, PartialEq, Eq)]
+enum Flow {
+    Continue,
+    Quit,
+}
+
+/// Applies a pressed key to the dashboard and the log view of `lines` lines.
+fn press(key: KeyEvent, dashboard: &Dashboard, log: &mut LogView, lines: usize) -> Flow {
+    let control = key.modifiers.contains(KeyModifiers::CONTROL);
+    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
+        || (control && key.code == KeyCode::Char('c'))
+    {
+        return Flow::Quit;
+    }
+    if key.code == KeyCode::Char('c') {
+        dashboard.clear();
+    }
+    if key.code == KeyCode::Char('l') {
+        log.toggle_size();
+    }
+    if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
+        log.scroll_back(1, lines);
+    } else if key.code == KeyCode::PageUp {
+        log.scroll_back(PAGE, lines);
+    } else if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
+        log.scroll_forward(1, lines);
+    } else if key.code == KeyCode::PageDown {
+        log.scroll_forward(PAGE, lines);
+    } else if key.code == KeyCode::Home {
+        log.scroll_to_oldest(lines);
+    } else if key.code == KeyCode::End {
+        log.follow();
+    }
+    Flow::Continue
 }

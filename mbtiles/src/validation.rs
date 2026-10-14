@@ -34,7 +34,7 @@ pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
 
 /// metadata key naming the algorithm used to hash tiles and compute [`AGG_TILES_HASH`].
 ///
-/// old `mbtiles`/`martin-cp`/`tilelive-copy` always used md5 and never stored this,
+/// old `mbtiles`/`martin cp`/`tilelive-copy` always used md5 and never stored this,
 /// so an absent key means md5. other tools like `tippecanoe` use e.g. `fnv1a`, which
 /// used to show up as a confusing [`AGG_TILES_HASH`] mismatch (#1086).
 pub const HASH_ALGORITHM: &str = "hash_algorithm";
@@ -47,7 +47,7 @@ pub const HASH_ALGORITHM: &str = "hash_algorithm";
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum HashAlgorithm {
-    /// `MD5`, what `mbtiles`, `martin-cp` and `tilelive-copy` write, and the default when the key is absent.
+    /// `MD5`, what `mbtiles`, `martin cp` and `tilelive-copy` write, and the default when the key is absent.
     #[default]
     Md5,
     /// 64-bit `FNV-1a` as 16 hex characters.
@@ -145,9 +145,9 @@ impl std::fmt::Display for HashAlgorithm {
 /// Describes the naming convention used by a normalized `MBTiles` schema.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
 pub enum NormalizedSchema {
-    /// Standard: `map` + `images` tables, `tile_id` TEXT (md5 hash of `tile_data`)
+    /// `map` + `images` tables, `tile_id` TEXT (hash of `tile_data`)
     Hash,
-    /// Alternative: `tiles_shallow` + `tiles_data` tables, `tile_data_id` INTEGER
+    /// `tiles_shallow` + `tiles_data` tables, `tile_data_id` INTEGER, the schema new files get
     DedupId,
 }
 
@@ -183,6 +183,25 @@ impl NormalizedSchema {
             Self::Hash => "tile_id",
             Self::DedupId => "tile_data_id",
         }
+    }
+
+    /// SQL creating `temp.tile_ids`, the hash to id map of the `tiles_data` blobs that a writer keeps while its connection lives
+    pub(crate) fn create_tile_ids_sql(algorithm: HashAlgorithm) -> String {
+        let hash = algorithm.sql_hash("tile_data");
+        format!(
+            "
+    CREATE TEMP TABLE IF NOT EXISTS tile_ids (tile_data_id INTEGER PRIMARY KEY, tile_hash UNIQUE);
+
+    INSERT OR IGNORE INTO tile_ids (tile_data_id, tile_hash)
+    SELECT tile_data_id, {hash}
+    FROM tiles_data
+    WHERE NOT EXISTS (SELECT 1 FROM tile_ids);
+
+    -- A blob stored twice keeps only its first id above, so the highest id in use is added
+    -- for new ids to continue after it
+    INSERT OR IGNORE INTO tile_ids (tile_data_id)
+    SELECT tile_data_id FROM tiles_data ORDER BY tile_data_id DESC LIMIT 1;"
+        )
     }
 
     /// Build a `SELECT zoom_level, tile_column, tile_row, tile_data, <id> AS <alias>`
@@ -225,7 +244,7 @@ pub enum MbtType {
     /// The mapping table contains a foreign key column linking to the tile data table.
     ///
     /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
-    /// The `schema` argument describes the naming convention (standard `map`/`images` or alternative `tiles_shallow`/`tiles_data`).
+    /// The `schema` argument describes the naming convention (`tiles_shallow`/`tiles_data` or the older `map`/`images`).
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized {
@@ -312,7 +331,8 @@ impl Mbtiles {
     /// Validate the integrity of the mbtiles file by:
     /// - sqlite internal integrity check
     /// - tiles' table has the expected column, row, zoom, and data values
-    /// - each tile has the correct hash stored
+    /// - each tile has the correct hash stored, for schemas that store one
+    /// - each `map` or `tiles_shallow` row refers to an existing `images` or `tiles_data` row
     ///
     /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
     #[hotpath::measure]
@@ -421,8 +441,8 @@ impl Mbtiles {
                 && tilejson.vector_layers.is_some()
             {
                 warn!(
-                    "{} has vector_layers metadata value, but the tiles are not MVT/MLT",
-                    self.filename()
+                    mbtiles.file = %self.filename(),
+                    "File has vector_layers metadata value, but the tiles are not MVT/MLT"
                 );
             }
             Ok(Some(info))
@@ -440,7 +460,7 @@ impl Mbtiles {
             let file = self.filename();
             match (tile_info, Format::parse(fmt)) {
                 (_, None) => {
-                    warn!("Unknown format value in metadata: {fmt}");
+                    warn!(mbtiles.file = %file, metadata.format = %fmt, "Unknown format value in metadata");
                 }
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
@@ -489,7 +509,7 @@ impl Mbtiles {
             let file = self.filename();
             match Encoding::parse(cmp) {
                 None => {
-                    warn!("Unknown compression value in metadata: {cmp} in file {file}");
+                    warn!(mbtiles.file = %file, metadata.compression = %cmp, "Unknown compression value in metadata");
                 }
                 Some(enc) => match tile_info {
                     None => {
@@ -547,15 +567,16 @@ impl Mbtiles {
         if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
             let info = TileInfo::detect(&tile);
             debug!(
-                "Tile {z}/{x}/{} is detected as {info} in file {}",
-                {
+                mbtiles.file = %self.filename(),
+                tile.coord = %format!("{z}/{x}/{}", {
                     if let (Ok(z), Ok(y)) = (u8::try_from(z), u32::try_from(y)) {
                         invert_y_value(z, y).to_string()
                     } else {
                         format!("{y} (invalid values, cannot invert Y)")
                     }
-                },
-                self.filename(),
+                }),
+                tile.info = %info,
+                "Detected tile format"
             );
             Some(info)
         } else {
@@ -571,7 +592,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Detecting MBTiles type for {self}");
+        debug!(mbtiles.file = %self, "Detecting MBTiles type");
         let typ = self.detect_layout(&mut *conn).await?;
 
         self.check_for_uniqueness_constraint(&mut *conn, typ)
@@ -925,9 +946,13 @@ LIMIT 1;"
                             computed: row.get(1),
                         });
                     }
+                    info!(mbtiles.file = %self, "All tile hashes are valid");
+                } else {
+                    info!(
+                        mbtiles.file = %self,
+                        "All tile references are valid, this normalized file stores no per-tile hashes"
+                    );
                 }
-
-                info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
             MbtType::Cache => {
@@ -978,7 +1003,8 @@ LIMIT 1;"
                 ));
             }
             warn!(
-                "File {self} has no {AGG_TILES_HASH} metadata field, probably because it was created by an older version of the `mbtiles` tool.  Use this command to update the value:\nmbtiles validate --agg-hash update {self}"
+                mbtiles.file = %self,
+                "File has no agg_tiles_hash metadata field, probably because it was created by an older version of the `mbtiles` tool. Run `mbtiles validate --agg-hash update <file>` to update the value"
             );
         } else if info.agg_tiles_hash_before_apply.is_some()
             || info.agg_tiles_hash_after_apply.is_some()
@@ -987,7 +1013,8 @@ LIMIT 1;"
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_owned()));
             }
             warn!(
-                "File {self} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata field, indicating it is a patch file which should not be diffed with another file."
+                mbtiles.file = %self,
+                "File has agg_tiles_hash_before_apply or agg_tiles_hash_after_apply metadata field, indicating it is a patch file which should not be diffed with another file"
             );
         }
         Ok(())
@@ -1000,7 +1027,10 @@ LIMIT 1;"
         ) {
             (Some(before), Some(after)) => {
                 info!(
-                    "The patch file {self} expects to be applied to a tileset with {AGG_TILES_HASH}={before}, and should result in hash {after} after applying",
+                    mbtiles.file = %self,
+                    agg_tiles_hash.before_apply = %before,
+                    agg_tiles_hash.after_apply = %after,
+                    "Patch file expects to be applied to a tileset with the before_apply agg_tiles_hash, and should result in the after_apply hash"
                 );
             }
             (None, Some(_)) => {
@@ -1010,7 +1040,8 @@ LIMIT 1;"
                     ));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_BEFORE_APPLY} metadata field, probably because it was created by an older version of the `mbtiles` tool."
+                    mbtiles.file = %self,
+                    "Patch file has no agg_tiles_hash_before_apply metadata field, probably because it was created by an older version of the `mbtiles` tool"
                 );
             }
             _ => {
@@ -1018,7 +1049,8 @@ LIMIT 1;"
                     return Err(MbtError::PatchFileHasNoHashes(self.filepath().to_owned()));
                 }
                 warn!(
-                    "The patch file {self} has no {AGG_TILES_HASH_AFTER_APPLY} metadata field, probably because it was not properly created by the `mbtiles` tool."
+                    mbtiles.file = %self,
+                    "Patch file has no agg_tiles_hash_after_apply metadata field, probably because it was not properly created by the `mbtiles` tool"
                 );
             }
         }

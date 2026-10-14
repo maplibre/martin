@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use flume::{Receiver, Sender, bounded};
+use flume::{Receiver, SendError, Sender, bounded};
 use futures::TryStreamExt as _;
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
@@ -178,6 +178,21 @@ where
             return Err(MbtError::TranscodeError(
                 "the cache schema is not supported for transcoding; copy it to a standard schema first".to_owned(),
             ));
+        }
+        if matches!(
+            src_type,
+            MbtType::Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            }
+        ) && matches!(
+            dst_type,
+            MbtType::Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            }
+        ) {
+            return Err(MbtError::CannotTranscodeNormalizedToDedupId);
         }
 
         let algorithm = src.get_hash_algorithm(&mut src_conn).await?;
@@ -389,14 +404,14 @@ async fn normalized_reader(
             raw_tx
                 .send_async(full)
                 .await
-                .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
         }
     }
     if !batch.is_empty() {
         raw_tx
             .send_async(batch)
             .await
-            .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+            .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
     }
     Ok(())
 }
@@ -434,7 +449,7 @@ where
             enc_tx
                 .send_async(enc_batch)
                 .await
-                .map_err(|_| MbtError::TranscodeError("writer stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("writer stage closed".into()))?;
         }
     }
     Ok(())
@@ -494,7 +509,7 @@ async fn normalized_writer(
             unique_encoded += chunk.len();
         }
         tx.commit().await?;
-        debug!("{unique_encoded} unique encoded, {rows_written} rows written");
+        debug!(unique_encoded, rows_written, "Wrote normalized batch");
     }
 
     // Normalized destination still needs its map table populated. One
@@ -674,14 +689,14 @@ async fn general_reader(
             raw_tx
                 .send_async(full)
                 .await
-                .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
         }
     }
     if !batch.is_empty() {
         raw_tx
             .send_async(batch)
             .await
-            .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+            .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
     }
     Ok(())
 }
@@ -729,7 +744,7 @@ where
             enc_tx
                 .send_async(enc_batch)
                 .await
-                .map_err(|_| MbtError::TranscodeError("writer stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("writer stage closed".into()))?;
         }
     }
     Ok(())
@@ -798,7 +813,7 @@ async fn general_writer(
 
     while let Ok(batch) = enc_rx.recv_async().await {
         for (coord, data) in batch {
-            pending.push((coord.z, coord.x, coord.y, data));
+            pending.push((coord.z(), coord.x(), coord.y(), data));
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
@@ -812,7 +827,7 @@ async fn general_writer(
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
-            debug!("{total} tiles written");
+            debug!(tiles_written = total, "Flushed tile batch");
         }
     }
 
@@ -837,7 +852,6 @@ async fn general_writer(
 }
 
 #[cfg(test)]
-#[expect(clippy::unwrap_used)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -961,6 +975,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(count, 6);
+    }
+
+    #[actix_rt::test]
+    async fn transcode_hash_normalized_to_dedup_id_is_refused() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_norm_dedup_id", script).await;
+        let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
+        let err = MbtilesTranscoder::new(&src_file, &dst_file, |data| Ok(Bytes::from(data)))
+            .dst_type(MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            })
+            .run()
+            .await
+            .unwrap_err();
+        assert!(matches!(err, MbtError::CannotTranscodeNormalizedToDedupId));
+        insta::assert_snapshot!(err.to_string(), @"Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first");
     }
 
     #[actix_rt::test]

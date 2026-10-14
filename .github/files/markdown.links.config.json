@@ -8,7 +8,7 @@
         "Accept-Language": "en",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0"
       },
-      "urls": ["https://crates.io", "https://ghcr.io", "https://github.com"]
+      "urls": ["https://crates.io", "https://ghcr.io"]
     }
   ],
   "ignorePatterns": [
@@ -19,14 +19,29 @@
       "pattern": "^http://localhost"
     },
     {
+      "pattern": "^http://0.0.0.0"
+    },
+    {
+      "__comment__": "GitHub throttles link checks from Actions runners (503, then socket hang up), which fails every docs build on whichever github.com links it drops",
+      "pattern": "^https://github.com/"
+    },
+    {
       "pattern": "^https://ghcr.io/maplibre/martin($|/|\\?)"
     },
     {
       "pattern": "^http://opensource.org"
     },
     {
+      "__comment__": "The AUR drops the checker's connection (socket disconnected before TLS), which fails every docs build that links the installation page",
+      "pattern": "^https://aur.archlinux.org"
+    },
+    {
       "__comment__": "Geofabrik drops the checker's connection (socket hang up), which fails every docs build that links a download page",
       "pattern": "^https://download.geofabrik.de"
+    },
+    {
+      "__comment__": "nav.tum.de times out on its API preview image (ETIMEDOUT, which markdown-link-check does not retry), which fails every docs build that includes the changelog entry embedding it",
+      "pattern": "^https://nav.tum.de"
     },
     {
       "__comment__": "DigitalOcean drops the checker's connection (socket hang up) on its product pages, which fails every docs build that links the managed Postgres recipe",
@@ -42,5 +57,5 @@
   ],
   "retryCount": 10,
   "retryOn429": true,
-  "timeout": "3s"
+  "timeout": "30s"
 }

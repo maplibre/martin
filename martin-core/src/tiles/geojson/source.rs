@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 
-use async_trait::async_trait;
 use geo::MapCoords as _;
 use geo_index::rtree::{RTree, RTreeIndex as _};
 use geo_types::{Coord, Geometry};
@@ -21,7 +21,7 @@ use crate::tiles::geojson::process::{
     PreparedFeature, Preprocessed, add_properties, preprocess_geojson,
 };
 use crate::tiles::geojson::rect::Rect;
-use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `GeoJSON` files
 ///
@@ -128,7 +128,6 @@ impl Debug for GeoJsonSource {
     }
 }
 
-#[async_trait]
 impl Source for GeoJsonSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -140,10 +139,6 @@ impl Source for GeoJsonSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
     fn get_version(&self) -> Option<String> {
         self.tilejson.version.clone()
@@ -157,12 +152,18 @@ impl Source for GeoJsonSource {
         self.cache_zoom
     }
 
-    async fn get_tile(
+    fn get_tile(
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
-        let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z, self.extent, self.buffer);
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send {
+        std::future::ready(self.tile_now(xyz))
+    }
+}
+
+impl GeoJsonSource {
+    fn tile_now(&self, xyz: TileCoord) -> MartinCoreResult<TileData> {
+        let mut rect = Rect::from_xyz(xyz.x(), xyz.y(), xyz.z(), self.extent, self.buffer);
         rect.add_buffer();
 
         let indices = self
@@ -170,11 +171,8 @@ impl Source for GeoJsonSource {
             .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
 
         if indices.is_empty() {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
-            );
-            return Ok(Vec::new());
+            trace!(source.id = %self.id, tile.coord = %xyz, "Couldn't find tile data");
+            return Ok(TileData::new());
         }
 
         // Clip and snap to the integer MVT grid in parallel, so the f64 -> i32 conversion happens
@@ -213,8 +211,8 @@ fn encode_features(
     extent: MvtExtent,
     features: Vec<PreparedFeature<i32>>,
 ) -> Result<TileData, GeoJsonError> {
-    let mut layer = MvtTileBuilder::with_capacity(1)
-        .layer_with_capacity(layer_name, features.len())
+    let mut layer = MvtTileBuilder::new()
+        .layer(layer_name)
         .map_err(GeoJsonError::MvtError)?;
     layer.extent(extent);
     for f in features {
@@ -224,7 +222,7 @@ fn encode_features(
         }
         layer = feature.end();
     }
-    Ok(layer.end().encode())
+    Ok(layer.end().encode().into())
 }
 
 /// Convert a tile-space geometry whose coordinates are already floored to integer grid positions
@@ -320,11 +318,11 @@ mod tests {
 
         // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
         // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
-        let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
+        let tile_coord = TileCoord::new_unchecked(1, 1, 0);
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         assert!(!tile.is_empty(), "expected a non-empty MVT tile");
 
-        let decoded = MvtReaderRef::new(tile.as_slice())
+        let decoded = MvtReaderRef::new(&tile)
             .and_then(|r| r.to_tile())
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);

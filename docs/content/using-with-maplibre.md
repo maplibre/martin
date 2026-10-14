@@ -1,4 +1,5 @@
 ---
+description: Adding a Martin vector source to a MapLibre GL JS map
 icon: simple/maplibre
 tags:
   - map-renderer

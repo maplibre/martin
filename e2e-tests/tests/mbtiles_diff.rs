@@ -2,7 +2,7 @@
 //! between schemas, and the patch files that turn one tileset into another.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use martin_e2e_tests::{
     MbtilesCli, Tile, gunzip, mbtiles_fixture, metadata, open_read_only, open_read_write,
@@ -52,26 +52,6 @@ fn redact(dir: &TempDir, output: &str) -> String {
         .into_owned()
 }
 
-/// Build `world_cities` and `world_cities_modified` in `dir` and cut a patch between them.
-/// Returns the tileset the patch applies to, the one it produces, and the patch itself.
-async fn patch_fixtures(dir: &Path, extra_args: &[&str]) -> (PathBuf, PathBuf, PathBuf) {
-    let source = mbtiles_fixture(dir, "world_cities").await;
-    let modified = mbtiles_fixture(dir, "world_cities_modified").await;
-    let patch = dir.join("patch.mbtiles");
-
-    let mut command = MbtilesCli::new("copy")
-        .arg(&source)
-        .arg(&patch)
-        .arg("--diff-with-file")
-        .arg(&modified);
-    for arg in extra_args {
-        command = command.arg(*arg);
-    }
-    command.run().await;
-
-    (source, modified, patch)
-}
-
 #[tokio::test]
 async fn copying_through_the_cache_schema_keeps_every_tile() {
     let dir = temp_dir();
@@ -87,7 +67,7 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
         .run()
         .await;
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO copy: Copying [TMP]/world_cities.mbtiles (flat) to a new file [TMP]/cache.mbtiles (cache)
+    INFO copy: Copying mbtiles file src.path=[TMP]/world_cities.mbtiles src.type=flat dst.path=[TMP]/cache.mbtiles dst.type=cache dst.new=true copy.type=all
     INFO copy: Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
     ");
 
@@ -137,7 +117,10 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
         .run()
         .await;
 
-    assert!(patch_tiles(&patch).await.is_empty());
+    assert_eq!(
+        patch_tiles(&patch).await,
+        [] as [(i64, i64, i64, Option<Vec<u8>>); 0]
+    );
     // The hash of an empty tileset, which is how the differ reports "no changes".
     assert_eq!(
         metadata(&patch).await["agg_tiles_hash"],
@@ -184,6 +167,33 @@ async fn purging_a_cache_keeps_the_entries_that_have_not_expired() {
     let output = MbtilesCli::new("cache-purge").arg(&cache).run().await;
 
     insta::assert_snapshot!(redact(&dir, &output), @"Removed 0 expired tile entries");
+    assert_eq!(tiles(&cache).await.len(), 8);
+}
+
+#[tokio::test]
+async fn purging_to_a_size_with_a_unit_keeps_a_cache_that_fits() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let cache = dir.path().join("cache.mbtiles");
+
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&cache)
+        .arg("--mbtiles-type")
+        .arg("cache")
+        .run()
+        .await;
+    let output = MbtilesCli::new("cache-purge")
+        .arg(&cache)
+        .arg("--max-size")
+        .arg("1GiB")
+        .run()
+        .await;
+
+    insta::assert_snapshot!(redact(&dir, &output), @"
+    Removed 0 expired tile entries
+    Evicted 0 tile entries to fit under 1.1 GB
+    ");
     assert_eq!(tiles(&cache).await.len(), 8);
 }
 
@@ -341,7 +351,18 @@ async fn the_checked_in_bin_diff_fixture_still_applies() {
 #[tokio::test]
 async fn a_freshly_cut_bin_diff_matches_the_checked_in_one() {
     let dir = temp_dir();
-    let (_, _, cut) = patch_fixtures(dir.path(), &["--patch-type", "bin-diff-gz"]).await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let modified = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let cut = dir.path().join("patch.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&cut)
+        .arg("--diff-with-file")
+        .arg(&modified)
+        .arg("--patch-type")
+        .arg("bin-diff-gz")
+        .run()
+        .await;
     let checked_in = mbtiles_fixture(dir.path(), "world_cities_bindiff").await;
 
     assert_eq!(patch_tiles(&cut).await, patch_tiles(&checked_in).await);
@@ -352,8 +373,19 @@ async fn a_freshly_cut_bin_diff_matches_the_checked_in_one() {
 #[tokio::test]
 async fn applying_a_patch_announces_the_hashes_it_expects() {
     let dir = temp_dir();
-    let (source, _, patch) = patch_fixtures(dir.path(), &["--patch-type", "bin-diff-gz"]).await;
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let modified = mbtiles_fixture(dir.path(), "world_cities_modified").await;
+    let patch = dir.path().join("patch.mbtiles");
     let applied = dir.path().join("applied.mbtiles");
+    MbtilesCli::new("copy")
+        .arg(&source)
+        .arg(&patch)
+        .arg("--diff-with-file")
+        .arg(&modified)
+        .arg("--patch-type")
+        .arg("bin-diff-gz")
+        .run()
+        .await;
 
     let output = MbtilesCli::new("copy")
         .arg(&source)
@@ -366,8 +398,8 @@ async fn applying_a_patch_announces_the_hashes_it_expects() {
     // Re-gzip-ing may change the bytes, so the resulting hash is deliberately not validated,
     // and the run says so.
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO copy: The patch file [TMP]/patch.mbtiles expects to be applied to a tileset with agg_tiles_hash=84792BF4EE9AEDDC5B1A60E707011FEE, and should result in hash 578FB5BD64746C39E3D344662947FD0D after applying
-    INFO copy: Applying patch from [TMP]/patch.mbtiles (flat) to [TMP]/world_cities.mbtiles (flat) into a new file [TMP]/applied.mbtiles (flat) with bin-diff on gzip-ed tiles
+    INFO copy: Patch file expects to be applied to a tileset with the before_apply agg_tiles_hash, and should result in the after_apply hash mbtiles.file=[TMP]/patch.mbtiles agg_tiles_hash.before_apply=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.after_apply=578FB5BD64746C39E3D344662947FD0D
+    INFO copy: Applying patch into a new file diff.path=[TMP]/patch.mbtiles diff.type=flat src.path=[TMP]/world_cities.mbtiles src.type=flat dst.path=[TMP]/applied.mbtiles dst.type=flat copy.type=all patch.type=bin-diff-gz
     INFO copy: Processing bindiff patches bindiff.cpus=[CPUS]
     INFO copy: Finished processing bindiff tiles bindiff.inserted=0
     INFO copy: Adding a new metadata value agg_tiles_hash mbtiles.file=[TMP]/applied.mbtiles agg_tiles_hash=72D8C992AF67EC97093B0087933FA160

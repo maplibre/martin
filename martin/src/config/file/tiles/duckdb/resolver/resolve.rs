@@ -1,33 +1,30 @@
+use std::collections::HashMap;
+
 use futures::future::{BoxFuture, join_all, ready};
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::info;
 
+use crate::config::file::process::ProcessConfig;
+use crate::config::file::tiles::duckdb::resolver::database::resolve_database_entry;
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbDatabaseEntry, GeoParquetEntry, GeoParquetLocation,
-};
+use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
-use crate::config::file::{CachePolicy, ResolutionResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
-/// One resolved `DuckDB` source entry: a live source, or a per-source warning.
+/// One resolved `DuckDB` source: a live source, or a per-source warning.
 type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>;
 
-fn resolve_database_entry(entry: &DuckDbDatabaseEntry, id_resolver: &IdResolver) -> ResolvedSource {
-    let name = entry
-        .database
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.is_empty())
-        .unwrap_or("duckdb");
-    let source_id = id_resolver.resolve(name, entry.database.to_string_lossy().into_owned());
-    Box::pin(ready(Err(TileSourceWarning::SourceError {
-        source_id,
-        error: "DuckDB database sources are not yet supported; entry skipped".into(),
-    })))
-}
+/// Every source one config entry resolves to.
+type ResolvedEntry = BoxFuture<'static, Vec<Result<BoxedSource, TileSourceWarning>>>;
+
+pub type DuckDbResolution = SourceBuildResult<(
+    Vec<BoxedSource>,
+    Vec<TileSourceWarning>,
+    HashMap<String, ProcessConfig>,
+)>;
 
 fn resolve_geoparquet_entry(
     entry: &GeoParquetEntry,
@@ -91,11 +88,18 @@ fn resolve_source_entry(
     source: &DuckDbSourceEntry,
     id_resolver: &IdResolver,
     default_cache: CachePolicy,
-) -> ResolvedSource {
+) -> ResolvedEntry {
     match source {
-        DuckDbSourceEntry::Database(entry) => resolve_database_entry(entry, id_resolver),
+        DuckDbSourceEntry::Database(entry) => {
+            let entry = entry.clone();
+            let id_resolver = id_resolver.clone();
+            Box::pin(
+                async move { resolve_database_entry(&entry, &id_resolver, default_cache).await },
+            )
+        }
         DuckDbSourceEntry::GeoParquet(entry) => {
-            resolve_geoparquet_entry(entry, id_resolver, default_cache)
+            let source = resolve_geoparquet_entry(entry, id_resolver, default_cache);
+            Box::pin(async move { vec![source.await] })
         }
     }
 }
@@ -103,62 +107,88 @@ fn resolve_source_entry(
 impl DuckDbConfig {
     /// Resolve configured `DuckDB` sources into live tile sources.
     pub async fn resolve(
-        &mut self,
+        &self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-    ) -> ResolutionResult {
+    ) -> DuckDbResolution {
         let default_cache = self.cache.or(default_cache);
         let pending = self
             .sources
             .iter()
             .map(|source| resolve_source_entry(source, &id_resolver, default_cache))
             .collect::<Vec<_>>();
-        Ok(join_all(pending).await.into_iter().partition_result())
+        let resolved = join_all(pending).await;
+        let process = self
+            .sources
+            .iter()
+            .zip(&resolved)
+            .flat_map(|(source, results)| {
+                let process = source.process_config();
+                results
+                    .iter()
+                    .flatten()
+                    .map(move |src| (src.get_id().to_owned(), process.clone()))
+            })
+            .collect();
+        let (sources, warnings) = resolved.into_iter().flatten().partition_result();
+        Ok((sources, warnings, process))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use martin_core::tiles::Source;
+    use std::collections::BTreeMap;
 
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
-    use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, GeoParquetEntry};
+    use crate::config::file::tiles::duckdb::sources::{
+        DuckDbDatabaseEntry, DuckDbTableEntry, GeoParquetEntry, MvtLayerOptions,
+    };
+
+    const DATABASE_FIXTURE: &str = "../tests/fixtures/duckdb/database.duckdb";
+
+    fn database_with_table(source_id: &str, schema: &str, table: &str) -> DuckDbSourceEntry {
+        DuckDbSourceEntry::Database(Box::new(DuckDbDatabaseEntry {
+            database: DATABASE_FIXTURE.into(),
+            tables: Some(BTreeMap::from([(
+                source_id.to_owned(),
+                DuckDbTableEntry {
+                    schema: Some(schema.to_owned()),
+                    table: table.to_owned(),
+                    layer: MvtLayerOptions {
+                        srid: Some(4326),
+                        ..MvtLayerOptions::default()
+                    },
+                    ..DuckDbTableEntry::default()
+                },
+            )])),
+            ..DuckDbDatabaseEntry::default()
+        }))
+    }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn colliding_stems_get_suffixes_even_when_the_entries_fail_to_resolve() {
+    async fn colliding_table_ids_across_database_entries_get_suffixes() {
         let mut cfg = DuckDbConfig {
             sources: vec![
-                DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
-                    database: "/a/tiles.duckdb".into(),
-                    ..DuckDbDatabaseEntry::default()
-                }),
-                DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
-                    database: "/b/tiles.duckdb".into(),
-                    ..DuckDbDatabaseEntry::default()
-                }),
+                database_with_table("polygons", "main", "polygons"),
+                database_with_table("polygons", "places", "points"),
             ],
             ..DuckDbConfig::default()
         };
         cfg.finalize().await.expect("finalize");
 
-        let (sources, warnings) = cfg
+        let (sources, warnings, _) = cfg
             .resolve(IdResolver::default(), CachePolicy::default())
             .await
-            .expect("resolution succeeds with warnings");
+            .expect("resolution succeeds");
 
-        assert!(sources.is_empty());
+        assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(
-            warnings
+            sources
                 .iter()
-                .map(|warning| match warning {
-                    TileSourceWarning::SourceError { source_id, .. } => source_id.as_str(),
-                    other @ TileSourceWarning::PathError { .. } => {
-                        panic!("expected SourceError, got {other:?}")
-                    }
-                })
+                .map(|source| source.get_id())
                 .collect::<Vec<_>>(),
-            ["tiles", "tiles.1"]
+            ["polygons", "polygons.1"]
         );
     }
 
@@ -166,43 +196,68 @@ mod tests {
     async fn a_failing_entry_warns_and_leaves_its_valid_siblings_resolved() {
         let mut cfg = DuckDbConfig {
             sources: vec![
-                DuckDbSourceEntry::Database(DuckDbDatabaseEntry {
-                    database: "/data/tiles.duckdb".into(),
-                    ..DuckDbDatabaseEntry::default()
-                }),
-                DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+                database_with_table("missing", "main", "no_such_table"),
+                DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
                     geoparquet: "../tests/fixtures/duckdb/geoparquet_polygons.parquet".into(),
-                    srid: Some(4326),
+                    layer: MvtLayerOptions {
+                        srid: Some(4326),
+                        ..MvtLayerOptions::default()
+                    },
                     ..GeoParquetEntry::default()
-                }),
+                })),
             ],
             ..DuckDbConfig::default()
         };
         cfg.finalize().await.expect("finalize");
 
-        let (sources, warnings) = cfg
+        let (sources, warnings, _) = cfg
             .resolve(IdResolver::default(), CachePolicy::default())
             .await
             .expect("resolution succeeds despite warnings");
 
         assert_eq!(sources.len(), 1);
-        assert_eq!(Source::get_id(sources[0].as_ref()), "geoparquet_polygons");
+        assert_eq!(sources[0].get_id(), "geoparquet_polygons");
         assert_eq!(warnings.len(), 1);
+        let TileSourceWarning::SourceError { source_id, error } = &warnings[0] else {
+            panic!("expected SourceError, got {:?}", warnings[0]);
+        };
+        assert_eq!(source_id, "missing");
+        assert!(error.contains("no_such_table"), "{error}");
     }
 
     #[tokio::test]
     async fn missing_geoparquet_file_fails_finalize() {
         let mut cfg = DuckDbConfig {
-            sources: vec![DuckDbSourceEntry::GeoParquet(GeoParquetEntry {
+            sources: vec![DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
                 geoparquet: "/no/such/file.parquet".into(),
-                srid: Some(4326),
+                layer: MvtLayerOptions {
+                    srid: Some(4326),
+                    ..MvtLayerOptions::default()
+                },
                 ..GeoParquetEntry::default()
-            })],
+            }))],
             ..DuckDbConfig::default()
         };
         let err = cfg.finalize().await.expect_err("missing file");
         assert!(
             err.to_string().contains("no/such/file.parquet")
+                || err.to_string().contains("No such file"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn missing_database_file_fails_finalize() {
+        let mut cfg = DuckDbConfig {
+            sources: vec![DuckDbSourceEntry::Database(Box::new(DuckDbDatabaseEntry {
+                database: "/no/such/file.duckdb".into(),
+                ..DuckDbDatabaseEntry::default()
+            }))],
+            ..DuckDbConfig::default()
+        };
+        let err = cfg.finalize().await.expect_err("missing file");
+        assert!(
+            err.to_string().contains("no/such/file.duckdb")
                 || err.to_string().contains("No such file"),
             "unexpected error: {err}"
         );

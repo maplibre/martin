@@ -8,6 +8,7 @@ use actix_web::http::StatusCode;
 use martin_tile_utils::{MAX_ZOOM, xyz_to_bbox};
 
 use super::log::{LogBuffer, LogLine};
+use crate::logging::LogFormat;
 
 /// How many of the latest tile requests the map keeps.
 const RECENT_TILES: usize = 2_000;
@@ -31,6 +32,7 @@ pub struct TileRequest {
 pub struct Dashboard {
     started: Instant,
     log: LogBuffer,
+    log_format: LogFormat,
     stats: Mutex<Stats>,
 }
 
@@ -78,6 +80,8 @@ pub struct Snapshot {
     pub tiles: Vec<TileDot>,
     /// The latest log lines, oldest first.
     pub log: Vec<LogLine>,
+    /// The format the log lines are written in.
+    pub log_format: LogFormat,
 }
 
 /// One source's row in the table.
@@ -101,14 +105,15 @@ pub struct TileDot {
 
 impl Dashboard {
     #[must_use]
-    pub fn new() -> Self {
-        Self::started_at(Instant::now())
+    pub fn new(log_format: LogFormat) -> Self {
+        Self::started_at(Instant::now(), log_format)
     }
 
-    pub(super) fn started_at(started: Instant) -> Self {
+    pub(super) fn started_at(started: Instant, log_format: LogFormat) -> Self {
         Self {
             started,
             log: LogBuffer::default(),
+            log_format,
             stats: Mutex::default(),
         }
     }
@@ -259,16 +264,11 @@ impl Dashboard {
             sources,
             tiles,
             log: self.log.tail(LOG_LINES),
+            log_format: self.log_format,
         }
     }
 
     fn lock(&self) -> MutexGuard<'_, Stats> {
         self.stats.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-impl Default for Dashboard {
-    fn default() -> Self {
-        Self::new()
     }
 }

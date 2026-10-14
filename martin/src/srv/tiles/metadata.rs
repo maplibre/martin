@@ -7,13 +7,12 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use itertools::Itertools as _;
-use martin_core::tiles::BoxedSource;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
-use crate::config::file::ResolvedProcess;
 use crate::config::file::srv::SrvConfig;
+use crate::source::SourceEntry;
 use crate::tile_source_manager::TileSourceManager;
 
 #[derive(Deserialize)]
@@ -49,6 +48,7 @@ pub async fn get_source_info(
     manager: Data<TileSourceManager>,
     srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
+    manager.wait_for_sources(&path.source_ids).await;
     let resolved = manager.tile_sources().get_sources(&path.source_ids, None)?;
 
     // Determine the path prefix for tile URLs in TileJSON responses
@@ -114,7 +114,7 @@ pub async fn get_source_info(
 
 /// Merges what each source advertises after post-processing into one [`TileJSON`].
 #[must_use]
-pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: String) -> TileJSON {
+pub fn merge_tilejson(sources: &[SourceEntry], tiles_url: String) -> TileJSON {
     let mut advertised: Vec<TileJSON> = sources
         .iter()
         .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
@@ -212,19 +212,20 @@ pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: Str
 #[cfg(test)]
 pub mod tests {
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
+    use martin_core::tiles::Source as _;
+    use martin_core::tiles::testing::TestSource;
     use martin_tile_utils::Format;
     use tilejson::{Bounds, VectorLayer};
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
 
     #[test]
     fn merges_tilejson() {
         let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_owned();
-        let src1 = TestSource {
-            id: "id",
-            tj: tilejson! {
+        let src1 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
                 tiles: vec![],
                 name: "layer1".to_owned(),
                 minzoom: 5,
@@ -236,28 +237,19 @@ pub mod tests {
                         ("a".to_owned(), "x1".to_owned()),
                     ]))
                 ],
-            },
-            data: Vec::default(),
-            format: Format::Mvt,
-        };
-        let tj = merge_tilejson(
-            &[(
-                Box::new(src1.clone()) as BoxedSource,
-                ResolvedProcess::default(),
-            )],
-            url.clone(),
-        );
+            })
+            .with_format(Format::Mvt);
+        let tj = merge_tilejson(&[(src1.clone().boxed(), Arc::default())], url.clone());
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
-                ..src1.tj.clone()
+                ..src1.get_tilejson().clone()
             },
             tj
         );
 
-        let src2 = TestSource {
-            id: "id",
-            tj: tilejson! {
+        let src2 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
                 tiles: vec![],
                 name: "layer2".to_owned(),
                 minzoom: 7,
@@ -269,18 +261,13 @@ pub mod tests {
                         ("b".to_owned(), "x2".to_owned()),
                     ]))
                 ],
-            },
-            data: Vec::default(),
-            format: Format::Mvt,
-        };
+            })
+            .with_format(Format::Mvt);
 
         let tj = merge_tilejson(
             &[
-                (
-                    Box::new(src1.clone()) as BoxedSource,
-                    ResolvedProcess::default(),
-                ),
-                (Box::new(src2) as BoxedSource, ResolvedProcess::default()),
+                (src1.clone().boxed(), Arc::default()),
+                (src2.boxed(), Arc::default()),
             ],
             url.clone(),
         );

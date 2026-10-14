@@ -1,9 +1,4 @@
-#![cfg(all(
-    feature = "test-pg",
-    not(feature = "fonts"),
-    not(feature = "sprites"),
-    not(feature = "styles")
-))]
+#![cfg(all(feature = "test-pg", not(feature = "resources")))]
 
 use std::assert_matches;
 
@@ -13,7 +8,6 @@ use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_b
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
-use martin::config::primitives::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -27,7 +21,7 @@ macro_rules! create_app {
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(
-                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        #[cfg(feature = "resources")]
                         &state,
                     )
                     .unwrap(),
@@ -71,18 +65,30 @@ postgres:
       antimeridian:
         content_type: application/x-protobuf
         description: public.antimeridian.geom
+      array_props:
+        content_type: application/x-protobuf
+        description: "Array and jsonb columns, which ST_AsMVT writes as text and as one property per top-level key"
       auto_table:
         content_type: application/x-protobuf
         description: autodetect.auto_table.geom
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      constrained_geometry:
+        content_type: application/x-protobuf
+        description: An untyped geometry column whose SRID and type come from CHECK constraints
       curves:
         content_type: application/x-protobuf
         description: public.curves.geom
       curves_untyped:
         content_type: application/x-protobuf
         description: public.curves_untyped.geom
+      dimensioned_shapes:
+        content_type: application/x-protobuf
+        description: "Every geometry type, in XY, XYZ, XYM and XYZM"
+      domain_props:
+        content_type: application/x-protobuf
+        description: "A domain column and a domain over a domain, which a query returns as the integer under them"
       empty_bounds:
         content_type: application/x-protobuf
         description: public.empty_bounds.geom
@@ -158,6 +164,12 @@ postgres:
       linestring_bounds_vertical:
         content_type: application/x-protobuf
         description: public.linestring_bounds_vertical.geom
+      measured_shapes:
+        content_type: application/x-protobuf
+        description: "Geometries carrying an M ordinate, in every property type martin serves"
+      nz_points:
+        content_type: application/x-protobuf
+        description: public.nz_points.geom
       point_bounds:
         content_type: application/x-protobuf
         description: public.point_bounds.geom
@@ -1186,7 +1198,7 @@ tables:
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
                 ::martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .unwrap(),
@@ -1197,9 +1209,7 @@ tables:
     )
     .await;
 
-    let OptOneMany::One(cfg) = cfg.postgres else {
-        panic!()
-    };
+    let [cfg] = <[_; 1]>::try_from(cfg.postgres).unwrap();
     for (name, _) in cfg.tables.unwrap_or_default() {
         let req = test_get(format!("/{name}/0/0/0").as_str());
         let response = call_service(&app, req).await;

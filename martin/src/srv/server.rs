@@ -1,7 +1,11 @@
+#[cfg(all(feature = "webui", not(docsrs)))]
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
+#[cfg(all(feature = "webui", not(docsrs)))]
+use actix_web::guard::fn_guard;
 use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
 use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
@@ -15,18 +19,20 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::config::file::srv::{
+    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
+};
 use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::srv::admin::{get_index_ui_disabled, webui};
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use crate::srv::fonts;
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use crate::srv::sprites;
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 use crate::srv::styles;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
@@ -49,7 +55,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 /// The status comes from the error's own `ErrorKind`, so a failure mode is classified once
 /// where it is defined rather than at each handler that can surface it. Only failures the
 /// caller cannot act on are logged.
-#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+#[cfg(any(feature = "_tiles", feature = "resources"))]
 pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
     use actix_web::error::{
         ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,
@@ -111,7 +117,11 @@ impl DebouncedWarning {
     )
 )]
 #[route("/health", method = "GET", method = "HEAD")]
-pub async fn get_health() -> impl Responder {
+pub async fn get_health(
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    tile_manager.wait_until_loaded().await;
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
@@ -164,7 +174,7 @@ fn register_services(
         }
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     cfg.service(sprites::get_sprite_sdf_json)
         .service(sprites::redirect_sdf_sprites_json)
         .service(sprites::get_sprite_json)
@@ -174,13 +184,13 @@ fn register_services(
         .service(sprites::get_sprite_png)
         .service(sprites::redirect_sprites_png);
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     // Register the glyph file-extension redirect BEFORE the main font route
     cfg.service(fonts::redirect_font_ext)
         .service(fonts::get_font)
         .service(fonts::redirect_fonts);
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
@@ -193,21 +203,44 @@ fn register_services(
         .service(styles_rendering::get_rendered_tile_style);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
-    {
-        // TODO: this can probably be simplified with a wrapping middleware,
-        //       which would share usr_cfg from Data<> with all routes.
-        if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
-            cfg.service(actix_web_static_files::ResourceFiles::new(
-                "/",
-                webui::generate(),
-            ));
-        } else {
+    match usr_cfg.web_ui.unwrap_or_default() {
+        WebUiMode::EnableForAll => {
+            cfg.service(webui_scope());
+        }
+        WebUiMode::Enable => {
+            let guard = fn_guard(|c| {
+                c.head()
+                    .peer_addr
+                    .is_some_and(|addr| addr.ip().is_loopback())
+            });
+            cfg.service(webui_scope().guard(guard))
+                .service(get_index_ui_disabled);
+        }
+        WebUiMode::Disable => {
             cfg.service(get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(get_index_no_ui);
+}
+
+#[cfg(all(feature = "webui", not(docsrs)))]
+fn webui_scope() -> actix_web::Scope {
+    use actix_web_static_files::ResourceFiles;
+
+    let mut files = webui::generate();
+    let index = files
+        .remove_entry("index.html")
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+    let assets = files
+        .into_iter()
+        .filter_map(|(path, file)| Some((path.strip_prefix("_/assets/")?, file)))
+        .collect::<HashMap<_, _>>();
+    web::scope("")
+        .service(web::scope("/").service(ResourceFiles::new("", index)))
+        .service(web::scope("/_/assets").service(ResourceFiles::new("", assets)))
 }
 
 type Server = Pin<Box<dyn Future<Output = Result<(), ServerStartError>>>>;
@@ -250,11 +283,12 @@ pub fn new_server(
             .map_err(ServerStartError::MetricsInitialisation)?
     };
     let catalog = Catalog::new(
-        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+        #[cfg(feature = "resources")]
         &state,
     )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
+    let shutdown_timeout = config.shutdown_timeout.unwrap_or(DEFAULT_SHUTDOWN_TIMEOUT);
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
@@ -264,6 +298,13 @@ pub fn new_server(
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;
     cors_config.log_current_configuration();
+
+    // only build a span for each request when the log filter keeps it
+    let request_spans = tracing::enabled!(
+        kind: tracing::metadata::Kind::SPAN,
+        target: "tracing_actix_web::root_span_builder",
+        tracing::Level::INFO
+    );
 
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
@@ -275,17 +316,17 @@ pub fn new_server(
         #[cfg(feature = "_tiles")]
         let app = app.app_data(Data::new(state.tile_manager.clone()));
 
-        #[cfg(feature = "sprites")]
+        #[cfg(feature = "resources")]
         let app = app
             .app_data(Data::new(state.sprites.clone()))
             .app_data(Data::new(state.sprite_cache.clone()));
 
-        #[cfg(feature = "fonts")]
+        #[cfg(feature = "resources")]
         let app = app
             .app_data(Data::new(state.fonts.clone()))
             .app_data(Data::new(state.font_cache.clone()));
 
-        #[cfg(feature = "styles")]
+        #[cfg(feature = "resources")]
         let app = app.app_data(Data::new(state.styles.clone()));
 
         let app = app.wrap(middleware::Condition::new(
@@ -302,10 +343,13 @@ pub fn new_server(
             middleware::from_fn(crate::tui::observe),
         ));
 
-        app.wrap(TracingLogger::default())
-            .wrap(cache_control_middleware(cache_control.clone()))
-            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| router(c, &config))
+        app.wrap(middleware::Condition::new(
+            request_spans,
+            TracingLogger::default(),
+        ))
+        .wrap(cache_control_middleware(cache_control.clone()))
+        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+        .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
@@ -325,10 +369,27 @@ pub fn new_server(
 
     let server = server
         .keep_alive(keep_alive)
-        .shutdown_timeout(0)
+        .shutdown_timeout(shutdown_timeout)
         .workers(worker_processes)
-        .run()
-        .err_into();
+        .run();
 
-    Ok((Box::pin(server), listen_addresses))
+    #[cfg(windows)]
+    tokio::spawn(stop_gracefully_on_ctrl_break(server.handle()));
+
+    Ok((Box::pin(server.err_into()), listen_addresses))
+}
+
+/// Stop the server gracefully on Ctrl+Break, the Windows counterpart of `SIGTERM`.
+/// actix only listens for Ctrl+C there, which it handles like `SIGINT` with a forced shutdown.
+#[cfg(windows)]
+async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
+    match tokio::signal::windows::ctrl_break() {
+        Ok(mut ctrl_break) => {
+            if ctrl_break.recv().await.is_some() {
+                tracing::info!("Ctrl+Break received; starting graceful shutdown");
+                server.stop(true).await;
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "Ctrl+Break will not stop martin gracefully"),
+    }
 }

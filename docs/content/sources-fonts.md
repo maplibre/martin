@@ -1,4 +1,5 @@
 ---
+description: Serving glyph ranges from OTF, TTF and TTC font files
 icon: material/format-font
 tags:
   - fonts
@@ -27,6 +28,8 @@ Make sure to URL-escape font names as they usually contain spaces.
 When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback
 to the next font if the glyph is not available in the first font, etc.
 The glyph range will be empty if none of the fonts contain the glyph.
+
+--8<-- "images/fonts/fallback.svg"
 
 |         | Composite Font Request with fallbacks                        |
 |---------|--------------------------------------------------------------|

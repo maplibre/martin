@@ -1,4 +1,5 @@
 ---
+description: Filtering, merging, diffing and patching MBTiles files
 icon: material/database-export
 tags:
   - mbtiles

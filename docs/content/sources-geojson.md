@@ -1,4 +1,5 @@
 ---
+description: Serving GeoJSON files as vector tiles
 icon: material/vector-polygon
 tags:
   - geojson

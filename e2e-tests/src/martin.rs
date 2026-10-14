@@ -10,11 +10,13 @@ use std::{env, fs};
 use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
-use image::{ImageFormat, ImageReader};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, tile_bbox, webmercator_to_wgs84};
+use image::{ColorType, ImageFormat, ImageReader};
+use martin_tile_utils::{
+    EARTH_CIRCUMFERENCE, decode_zlib, decode_zstd, tile_bbox, webmercator_to_wgs84,
+};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
-use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
-use mlt_core::{Decoder, Layer, Parser, TileLayer};
+use mlt_core::geo_types::{Coord, Geometry, LineString, MultiPolygon, Polygon};
+use mlt_core::{Decoder, Parser, TileLayer};
 use regex::Regex;
 use reqwest::{Client, Method, redirect};
 use tempfile::TempDir;
@@ -23,7 +25,7 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 
-use crate::{binary_command, workspace_root};
+use crate::{binary_command, pg_ssl_args, workspace_root};
 
 const READY_TIMEOUT: Duration = Duration::from_mins(1);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -46,13 +48,9 @@ fn ready_timeout() -> Duration {
 }
 
 const ALLOWED_LOG_LINES: &[&str] = &[
-    "Margin parameter in ST_TileEnvelope is not supported",
-    "PostgreSQL is older than the recommended minimum 12.0.0",
-    "In the used version, some geometry may be hidden on some zoom levels.",
-    "Unable to deserialize SQL comment on public.points2 as tilejson",
+    "Unable to deserialize SQL comment as tilejson",
     "Discovering tables in PostgreSQL database",
-    "ST_EstimatedExtent on",
-    "Environment variable DATABASE_URL is deprecated",
+    "ST_EstimatedExtent failed",
     "aborting query. Use --auto-bounds=calc",
 ];
 
@@ -108,7 +106,7 @@ impl MartinBuilder {
         self
     }
 
-    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at.
+    /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
         let url = env::var("DATABASE_URL")
@@ -126,9 +124,7 @@ impl MartinBuilder {
         cmd.current_dir(workspace_root())
             // The environment the justfile runs the tests under.
             .env_remove("DATABASE_URL")
-            .env_remove("AWS_PROFILE")
             .env("RUST_LOG_FORMAT", "bare")
-            .env("AWS_SKIP_CREDENTIALS", "1")
             .env("AWS_REGION", "eu-central-1")
             .arg("--listen-addresses")
             .arg("127.0.0.1:0")
@@ -137,11 +133,17 @@ impl MartinBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        #[cfg(windows)]
+        cmd.creation_flags(windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP);
         for (key, value) in &self.envs {
             cmd.env(key, value);
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);
+            if !self.args.iter().any(|arg| arg == "--config") {
+                cmd.arg(url);
+            }
+            cmd.args(pg_ssl_args());
         }
 
         let mut child = cmd.spawn().map_err(StartError::Spawn)?;
@@ -222,8 +224,8 @@ impl Subprocess {
     /// `--route-prefix` (as an argument or through a config file) moves the
     /// endpoints around.
     async fn wait_ready(&mut self, client: &Client) -> Result<String, StartError> {
-        let announced =
-            Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
+        let announced = Regex::new(r"Martin server is now active.*server.url=http://([^/]+)/")
+            .expect("valid regex");
         let deadline = Instant::now() + ready_timeout();
         let addr = loop {
             let announced = self
@@ -263,8 +265,8 @@ impl Subprocess {
         Ok(())
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
-    /// the end, so the assertions on it see every line. Idempotent.
+    /// Stop martin with [`terminate`] and read its log to the end, so the assertions on it see
+    /// every line. Idempotent.
     async fn stop(&mut self) {
         if self.stopped {
             return;
@@ -276,20 +278,14 @@ impl Subprocess {
             .expect("failed to poll martin")
             .is_none()
         {
-            terminate(&self.child);
-            match timeout(STOP_TIMEOUT, self.child.wait()).await {
-                Ok(status) => {
-                    status.expect("failed to wait for martin");
-                }
-                Err(_timed_out) => self.child.kill().await.expect("failed to kill martin"),
-            }
+            terminate(&mut self.child).await;
         }
         self.drain_readers().await;
     }
 
     /// Remove every log line containing `needle` and return them in the order
     /// martin logged them.
-    fn take_log_lines(&mut self, needle: &str) -> Vec<String> {
+    fn take_log_lines(&self, needle: &str) -> Vec<String> {
         self.log
             .lock()
             .expect("log lock poisoned")
@@ -346,12 +342,22 @@ impl Martin {
         text.replace(&self.addr, "[ADDR]")
     }
 
+    /// [`TestResponse::json`] of `response` with this instance's `host:port` redacted.
+    #[must_use]
+    pub fn redacted_json(&self, response: &TestResponse) -> serde_json::Value {
+        let mut json: serde_json::Value = serde_json::from_str(&self.redact(&response.text()))
+            .expect("response body is not valid json");
+        json.sort_all_objects();
+        json
+    }
+
     /// Perform a GET request, advertising `Accept-Encoding: br, gzip`; the body is
     /// transparently decompressed while the raw headers stay observable.
     pub async fn get(&self, path: &str) -> TestResponse {
         self.get_with_headers(path, &[]).await
     }
 
+    /// [`Self::get`] with extra headers, where an `accept-encoding` replaces the default one.
     pub async fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         self.request(Method::GET, path, headers).await
     }
@@ -397,8 +403,13 @@ impl Martin {
         let mut request = self
             .client
             .request(method.clone(), &url)
-            .header("accept-encoding", "br, gzip")
             .body(body.to_vec());
+        if !headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("accept-encoding"))
+        {
+            request = request.header("accept-encoding", "br, gzip");
+        }
         for (name, value) in headers {
             request = request.header(*name, *value);
         }
@@ -484,7 +495,7 @@ impl Martin {
         }
     }
 
-    /// Gracefully stop martin (`SIGTERM`, then `SIGKILL` after a timeout) and read its log to
+    /// Gracefully stop martin (`SIGTERM`, or Ctrl+Break on Windows) and read its log to
     /// the end, so the assertion dropping this instance makes sees every line. Idempotent, but
     /// every test has to call it: dropping a martin that was never stopped fails the test.
     pub async fn stop(&mut self) {
@@ -505,14 +516,6 @@ impl Martin {
             "log does not contain {needle:?}; log:\n{}",
             self.raw_log()
         );
-    }
-
-    /// Assert the warnings a martin start that resolves pmtiles configuration emits under this
-    /// harness: `pmtiles.allow_http` defaults, plus the deprecation of the `AWS_SKIP_CREDENTIALS`
-    /// variable [`MartinBuilder::start`] sets.
-    pub fn assert_startup_warnings(&mut self) {
-        self.assert_log_contains("Defaulting `pmtiles.allow_http` to `true`");
-        self.assert_log_contains("Environment variable AWS_SKIP_CREDENTIALS is deprecated");
     }
 
     fn raw_log(&self) -> String {
@@ -541,22 +544,194 @@ impl Drop for Martin {
     }
 }
 
-#[cfg(unix)]
-fn terminate(child: &Child) {
-    let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) else {
+/// Gracefully stop martin with [`ask_to_stop`], then kill it if it is still running after
+/// [`STOP_TIMEOUT`], or right away if it could not be asked.
+async fn terminate(child: &mut Child) {
+    if ask_to_stop(child)
+        && let Ok(status) = timeout(STOP_TIMEOUT, child.wait()).await
+    {
+        status.expect("failed to wait for martin");
         return;
+    }
+    child.kill().await.expect("failed to kill martin");
+}
+
+/// Send martin `SIGTERM`.
+#[cfg(unix)]
+fn ask_to_stop(child: &Child) -> bool {
+    if let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()) {
+        // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
+        // process already exited) are handled by the caller's wait.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+    }
+    true
+}
+
+/// Send Ctrl+Break, the Windows counterpart of `SIGTERM`, to the process group
+/// [`MartinBuilder::start`] gives martin alone. Fails without a console to send it through.
+#[cfg(windows)]
+fn ask_to_stop(child: &Child) -> bool {
+    use windows_sys::Win32::System::Console::{CTRL_BREAK_EVENT, GenerateConsoleCtrlEvent};
+    child.id().is_some_and(|pid| {
+        // SAFETY: no pointers are passed; martin's pid is its process group id.
+        unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) != 0 }
+    })
+}
+
+/// Decode `MapLibre` tile bytes into their layers, wherever the bytes came from.
+#[must_use]
+pub fn mlt_layers(bytes: &[u8]) -> Vec<TileLayer> {
+    let mut parser = Parser::default();
+    let mut decoder = Decoder::default();
+    parser
+        .parse_layers(bytes)
+        .expect("not a maplibre tile")
+        .into_iter()
+        .map(|layer| {
+            layer
+                .into_tile(&mut decoder)
+                .expect("a layer is not decodable")
+                .expect("a layer is of an unknown kind")
+        })
+        .collect()
+}
+
+/// Vector tile bytes in `mvt dump`'s text form.
+#[must_use]
+pub fn mvt_dump(bytes: &[u8]) -> String {
+    format!("{:?}", MvtReaderRef::new(bytes).expect("not a vector tile"))
+}
+
+/// `MapLibre` tile layers as text: a line per layer, then a line per feature.
+///
+/// The features, and the properties of each, are sorted, because an encoder is free to order them
+/// as it likes and two encodings of the same tile only agree on the set of features. A layer with
+/// vertex-scoped columns lists each feature's values for them after its properties.
+#[must_use]
+pub fn mlt_dump(layers: &[TileLayer]) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    for layer in layers {
+        writeln!(
+            out,
+            "layer {} extent {}",
+            layer.name(),
+            layer.extent().get()
+        )
+        .expect("writing to a String cannot fail");
+        let mut rows: Vec<String> = layer
+            .features()
+            .iter()
+            .map(|feature| {
+                let mut props: Vec<String> = layer
+                    .property_names()
+                    .iter()
+                    .zip(feature.properties())
+                    .map(|(name, value)| format!("{name}={value:?}"))
+                    .collect();
+                props.sort();
+                format!(
+                    "  id={:?} geom={:?} props=[{}]{}{}",
+                    feature.id(),
+                    feature.geometry(),
+                    props.join(", "),
+                    vertex_values(layer, feature),
+                    nested_values(layer, feature)
+                )
+            })
+            .collect();
+        rows.sort();
+        out.push_str(&rows.join("\n"));
+        out.push('\n');
+    }
+    out
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn vertex_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.m_value_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .m_value_names()
+        .iter()
+        .zip(feature.m_values())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" vertex=[{}]", values.join(", "))
+}
+
+#[cfg(feature = "test-mlt-v2")]
+fn nested_values(layer: &TileLayer, feature: &mlt_core::TileFeature) -> String {
+    if layer.nested_names().is_empty() {
+        return String::new();
+    }
+    let values: Vec<String> = layer
+        .nested_names()
+        .iter()
+        .zip(feature.nested())
+        .map(|(name, value)| format!("{name}={value:?}"))
+        .collect();
+    format!(" nested=[{}]", values.join(", "))
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn nested_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
+}
+
+#[cfg(not(feature = "test-mlt-v2"))]
+fn vertex_values(_layer: &TileLayer, _feature: &mlt_core::TileFeature) -> String {
+    String::new()
+}
+
+/// `geometry` with every polygon ring started at its smallest vertex.
+#[must_use]
+pub fn rings_from_smallest_vertex(geometry: &Geometry<i32>) -> Geometry<i32> {
+    let polygon = |polygon: &Polygon<i32>| {
+        Polygon::new(
+            ring_from_smallest_vertex(polygon.exterior()),
+            polygon
+                .interiors()
+                .iter()
+                .map(ring_from_smallest_vertex)
+                .collect(),
+        )
     };
-    // SAFETY: sending SIGTERM to the child we spawned; errors (e.g. the
-    // process already exited) are handled by the caller's wait.
-    unsafe {
-        libc::kill(pid, libc::SIGTERM);
+    match geometry {
+        Geometry::Polygon(p) => Geometry::Polygon(polygon(p)),
+        Geometry::MultiPolygon(mp) => {
+            Geometry::MultiPolygon(MultiPolygon(mp.iter().map(polygon).collect()))
+        }
+        other @ (Geometry::Point(_)
+        | Geometry::Line(_)
+        | Geometry::LineString(_)
+        | Geometry::MultiPoint(_)
+        | Geometry::MultiLineString(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_)) => other.clone(),
     }
 }
 
-#[cfg(not(unix))]
-fn terminate(child: &Child) {
-    // No SIGTERM on this platform; the caller falls back to kill().
-    let _ = child;
+fn ring_from_smallest_vertex(ring: &LineString<i32>) -> LineString<i32> {
+    let open = match ring.0.as_slice() {
+        [head @ .., last] if ring.0.first() == Some(last) => head,
+        all => all,
+    };
+    let Some(start) = (0..open.len()).min_by_key(|&i| (open[i].x, open[i].y)) else {
+        return ring.clone();
+    };
+    let mut coords: Vec<Coord<i32>> = open[start..]
+        .iter()
+        .chain(&open[..start])
+        .copied()
+        .collect();
+    coords.push(open[start]);
+    LineString(coords)
 }
 
 pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
@@ -575,6 +750,8 @@ pub fn decompress(raw: &[u8], encoding: Option<&str>) -> Vec<u8> {
                 .read_to_end(&mut body)
                 .expect("failed to decompress a gzip body");
         }
+        Some("deflate") => body = decode_zlib(raw).expect("failed to decompress a deflate body"),
+        Some("zstd") => body = decode_zstd(raw).expect("failed to decompress a zstd body"),
         _ => body.extend_from_slice(raw),
     }
     body
@@ -614,10 +791,13 @@ impl TestResponse {
         String::from_utf8(self.body.clone()).expect("response body is not valid utf-8")
     }
 
-    /// Decompressed response body parsed as JSON.
+    /// Decompressed response body parsed as JSON with the keys of every object sorted.
     #[must_use]
     pub fn json(&self) -> serde_json::Value {
-        serde_json::from_slice(&self.body).expect("response body is not valid json")
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&self.body).expect("response body is not valid json");
+        json.sort_all_objects();
+        json
     }
 
     /// Decompressed response body decoded as a vector tile.
@@ -632,30 +812,13 @@ impl TestResponse {
     /// Decompressed response body decoded as a `MapLibre` tile.
     #[must_use]
     pub fn mlt(&self) -> Vec<TileLayer> {
-        let mut parser = Parser::default();
-        let mut decoder = Decoder::default();
-        parser
-            .parse_layers(&self.body)
-            .expect("response body is not a maplibre tile")
-            .into_iter()
-            .map(|layer| {
-                let Layer::Tag01(layer) = layer else {
-                    panic!("response body has a layer that is not MVT-compatible");
-                };
-                layer
-                    .into_tile(&mut decoder)
-                    .expect("response body has an undecodable layer")
-            })
-            .collect()
+        mlt_layers(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile, in `mvt dump`'s text form.
     #[must_use]
     pub fn mvt_dump(&self) -> String {
-        format!(
-            "{:?}",
-            MvtReaderRef::new(&self.body).expect("response body is not a vector tile")
-        )
+        mvt_dump(&self.body)
     }
 
     /// Decompressed response body decoded as a vector tile and put back on the globe, as a WGS84 `GeoJSON` `FeatureCollection`.
@@ -724,6 +887,15 @@ impl TestResponse {
         self.image_reader()
             .format()
             .expect("response body is not a raster image")
+    }
+
+    /// Channels and bit depth the decompressed response body stores its pixels in.
+    #[must_use]
+    pub fn image_color(&self) -> ColorType {
+        self.image_reader()
+            .decode()
+            .expect("response body is not a raster image")
+            .color()
     }
 
     fn image_reader(&self) -> ImageReader<Cursor<&Vec<u8>>> {
@@ -896,8 +1068,8 @@ mod tests {
 
         use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-        let mut layer = MvtTileBuilder::with_capacity(1)
-            .layer_with_capacity("contour", 1)
+        let mut layer = MvtTileBuilder::new()
+            .layer("contour")
             .expect("failed to open a layer");
         layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
         let geometry = Geometry::LineString(LineString::from(line.to_vec()));

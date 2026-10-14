@@ -4,9 +4,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
-use martin_core::tiles::postgres::PostgresError::{InvalidFilter, PostgresError};
-use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
-use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
+#[cfg(feature = "unstable-generate")]
+use martin_core::generate::source::Crs;
+use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
+use martin_core::tiles::postgres::{
+    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
+};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
@@ -15,7 +19,7 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PostgresInfo as _, TableInfo};
+use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -26,15 +30,20 @@ const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
 ///
+/// Only the lowercased `schemas` are read, or every schema if it is `None`.
 /// The reported tables are filtered by the `restrict_to_tables` parameter.
 pub async fn query_available_tables(
     pool: &PostgresPool,
+    schemas: Option<Vec<String>>,
     restrict_to_tables: Option<HashSet<(String, String)>>,
 ) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
-        .query(include_str!("scripts/query_available_tables.sql"), &[])
+        .query(
+            include_str!("scripts/query_available_tables.sql"),
+            &[&schemas],
+        )
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 
@@ -57,14 +66,19 @@ pub async fn query_available_tables(
                 Ok(v) => Some(v),
                 Err(e) => {
                     warn!(
-                        "Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}"
+                        schema = %schema,
+                        table = %table,
+                        error = %e,
+                        "Unable to deserialize SQL comment as tilejson, the automatically generated tilejson would be used"
                     );
                     None
                 }
             }
         } else {
             debug!(
-                "Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically"
+                schema = %schema,
+                table = %table,
+                "Unable to find a SQL comment, the tilejson would be generated automatically"
             );
             None
         };
@@ -73,26 +87,33 @@ pub async fn query_available_tables(
             schema,
             table,
             geometry_column: row.get("geom"),
-            geometry_index: row.get("geom_idx"),
-            relkind: row
-                .get::<_, Option<i8>>("relkind")
-                .and_then(|r| u8::try_from(r).ok().map(char::from)),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(
                 serde_json::from_value(row.get("properties"))
                     .expect("properties column should be a valid JSON object with string values"),
             ),
-            tilejson,
+            discovered: DiscoveredTable {
+                geometry_index: row.get("geom_idx"),
+                relkind: row
+                    .get::<_, Option<i8>>("relkind")
+                    .and_then(|r| u8::try_from(r).ok().map(char::from)),
+                column_types: serde_json::from_value(row.get("column_types"))
+                    .expect("column_types column should be a valid JSON object with string values"),
+                tilejson,
+                ..Default::default()
+            },
             ..Default::default()
         };
 
         // Warn for missing geometry indices.
         // Ignore views since those can't have indices and will generally refer to table columns.
-        if info.geometry_index == Some(false) && info.relkind != Some('v') {
+        if info.discovered.geometry_index == Some(false) && info.discovered.relkind != Some('v') {
             warn!(
-                "Table {}.{} has no spatial index on column {}",
-                info.schema, info.table, info.geometry_column
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                "Table has no spatial index on the geometry column"
             );
         }
 
@@ -103,11 +124,19 @@ pub async fn query_available_tables(
             .or_default()
             .insert(info.geometry_column.clone(), info)
         {
-            warn!("Unexpected duplicate table {}", v.format_id());
+            warn!(table.id = %v.format_id(), "Unexpected duplicate table");
         }
     }
 
     Ok(res)
+}
+
+/// The id and property snippets on their own indented line, or nothing at all when there are none.
+fn indented_columns(id_field: &str, properties: &str) -> String {
+    if id_field.is_empty() && properties.is_empty() {
+        return String::new();
+    }
+    format!("\n    {id_field}{properties}")
 }
 
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
@@ -125,7 +154,27 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+/// The same snippet, with a `::text` cast for the types a tile property cannot hold.
+///
+/// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
+/// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
+/// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
+fn escape_with_alias_as_property(
+    mapping: &HashMap<String, String>,
+    field: &str,
+    pg_type: &str,
+) -> String {
+    if is_typed_property(pg_type) {
+        return escape_with_alias(mapping, field);
+    }
+    let column = mapping.get(field).map_or(field, |v| v.as_str());
+    format!(
+        ", {}::text AS {}",
+        escape_identifier(column),
+        escape_identifier(field),
+    )
+}
+
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
@@ -134,21 +183,33 @@ pub async fn table_to_query(
     pool: PostgresPool,
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
+    grid: &PgTileGrid,
 ) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
     let srid = info.srid;
 
-    if info.bounds.is_none() {
+    if info.bounds.is_none() && grid.grid().is_simple() {
+        // plain planar units have no place in WGS84 bounds
+        debug!(
+            source.id = %id,
+            tile_grid = %grid.grid().id(),
+            "Not computing the bounds: tile grid is not geographic"
+        );
+    } else if info.bounds.is_none()
+        && bounds_type != BoundsCalcType::Skip
+        && transforms_to_wgs84(&pool, &info, srid).await?
+    {
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
-                debug!("Computing {} table bounds for {id}", info.format_id());
+                debug!(source.id = %id, table.id = %info.format_id(), "Computing table bounds");
                 info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
-                    "Computing {} table bounds with {}s timeout for {id}",
-                    info.format_id(),
-                    DEFAULT_BOUNDS_TIMEOUT.as_secs()
+                    source.id = %id,
+                    table.id = %info.format_id(),
+                    timeout.secs = DEFAULT_BOUNDS_TIMEOUT.as_secs(),
+                    "Computing table bounds with timeout"
                 );
                 let bounds = {
                     let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
@@ -160,8 +221,9 @@ pub async fn table_to_query(
                     info.bounds = bounds?;
                 } else {
                     warn!(
-                        "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
-                        info.format_id(),
+                        source.id = %id,
+                        table.id = %info.format_id(),
+                        "Timeout computing bounds, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices."
                     );
                 }
             }
@@ -169,108 +231,266 @@ pub async fn table_to_query(
 
         if let Some(bounds) = info.bounds {
             debug!(
-                "The computed bounds for {id} from {} are {bounds}",
-                info.format_id()
+                source.id = %id,
+                table.id = %info.format_id(),
+                bounds = %bounds,
+                "Computed table bounds"
             );
         }
     }
 
-    let properties = if let Some(props) = &info.properties {
-        props
-            .keys()
-            .map(|column| escape_with_alias(&info.prop_mapping, column))
-            .collect::<String>()
-    } else {
-        String::new()
+    let sql = table_query_sql(&id, &info, &pool, max_feature_count, grid).await?;
+    let row_query = PostgresRowQuery {
+        sql_query: sql.row_query(false),
+        measured_sql_query: sql.row_query(true),
+        has_id_column: info.id_column.is_some(),
+        layer_name: info.layer_id.as_deref().unwrap_or(&id).to_owned(),
+        extent: sql.extent,
     };
-
-    let (id_name, id_field) = if let Some(id_column) = &info.id_column {
-        (
-            format!(", {}", escape_literal(id_column)),
-            escape_with_alias(&info.prop_mapping, id_column),
-        )
-    } else {
-        (String::new(), String::new())
-    };
-
-    let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
-    let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
-    let margin = f64::from(buffer) / f64::from(extent);
-
-    // When calculating the bounding box to search within, a few considerations must be made when
-    // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857.
-    // For SRID 4326, ST_Expand is used and provided with SRID 4326 specific units (degrees).
-    // If the table uses a non-standard SRID, it will fall back to existing behavior.
-    //
-    // For more context, if SRID 4326 were to be used with ST_TileEnvelope and margin
-    // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
-    // incorrectly. For example, with a margin of 2 units, the antimeridian edge would transform
-    // from -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
-    // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
-    // resulting bbox covers none of the original tile. In contrast, for this example, ST_Expand
-    // will result in a westernmost edge (minus margin) of -182.
-    let bbox_search = if buffer == 0 {
-        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
-    } else if pool.supports_tile_margin() && srid == 3857 {
-        format!(
-            "ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => {margin}), {srid})"
-        )
-    } else if srid == 4326 {
-        format!(
-            "ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
-        )
-    } else {
-        format!("ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), {srid})")
-    };
-
-    let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
-    let filter = row_filter(&info, "AND")?;
-    let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
-    let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
-    let geometry_column = escape_identifier(&info.geometry_column);
-    // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
-    let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
-        format!("ST_CurveToLine({geometry_column}::geometry)")
-    } else {
-        format!("{geometry_column}::geometry")
-    };
-    let query = format!(
-        r"
-SELECT
-  ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
-FROM (
-  SELECT
-    ST_AsMVTGeom(
-        ST_Transform({geometry}, 3857),
-        ST_TileEnvelope($1::integer, $2::integer, $3::integer),
-        {extent}, {buffer}, {clip_geom}
-    ) AS geom
-    {id_field}{properties}
-  FROM
-    {schema}.{table}
-  WHERE
-    {geometry_column} && {bbox_search}{filter}
-  {limit_clause}
-) AS tile;
-"
-    )
-    .trim()
-    .to_owned();
 
     Ok((
         id,
         PostgresSqlInfo::new(
-            query,
+            sql.mvt_query(),
             false,
             // a table tile is empty only when no geometry intersects its envelope, which contains the envelopes of its children
             true,
             info.format_id(),
             false,
-        ),
+        )
+        .with_row_query(row_query),
         info,
     ))
+}
+
+/// Build the fragments of a table query, asking the database what only it can answer.
+async fn table_query_sql(
+    id: &str,
+    info: &TableInfo,
+    pool: &PostgresPool,
+    max_feature_count: Option<usize>,
+    grid: &PgTileGrid,
+) -> PostgresResult<TableQuerySql> {
+    let table_wrap = if grid.is_web_mercator() || info.srid == grid.srid() {
+        None
+    } else {
+        wrap_width(pool, info.srid).await
+    };
+    TableQuerySql::new(id, info, max_feature_count, grid, table_wrap)
+}
+
+/// The SQL fragments every shape of a table tile query is assembled from.
+struct TableQuerySql {
+    layer_id: String,
+    id_name: String,
+    id_field: String,
+    properties: String,
+    row_properties: String,
+    geometry: String,
+    envelope: String,
+    bbox_search: String,
+    geometry_column: String,
+    schema: String,
+    table: String,
+    filter: String,
+    limit_clause: String,
+    extent: u32,
+    buffer: u32,
+    clip_geom: bool,
+}
+
+impl TableQuerySql {
+    fn new(
+        id: &str,
+        info: &TableInfo,
+        max_feature_count: Option<usize>,
+        grid: &PgTileGrid,
+        table_wrap: Option<f64>,
+    ) -> PostgresResult<Self> {
+        let properties: String = info
+            .properties
+            .iter()
+            .flatten()
+            .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
+            .collect();
+        let row_properties = row_properties(info);
+
+        let (id_name, id_field) = if let Some(id_column) = &info.id_column {
+            (
+                format!(", {}", escape_literal(id_column)),
+                escape_with_alias(&info.discovered.prop_mapping, id_column),
+            )
+        } else {
+            (String::new(), String::new())
+        };
+
+        let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
+        let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
+        let margin = f64::from(buffer) / f64::from(extent);
+        let geometry_column = escape_identifier(&info.geometry_column);
+        let geometry = linear_geometry(info);
+        let GridSql {
+            geometry,
+            envelope,
+            bbox_search,
+        } = grid_sql(grid, info.srid, &geometry, buffer, margin, table_wrap);
+
+        Ok(Self {
+            layer_id: escape_literal(info.layer_id.as_deref().unwrap_or(id)),
+            id_name,
+            id_field,
+            properties,
+            row_properties,
+            geometry,
+            envelope,
+            bbox_search,
+            geometry_column,
+            schema: escape_identifier(&info.schema),
+            table: escape_identifier(&info.table),
+            filter: row_filter(info, "AND")?,
+            limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
+            extent,
+            buffer,
+            clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
+        })
+    }
+
+    /// The whole tile as a single MVT blob, encoded by `PostGIS`.
+    fn mvt_query(&self) -> String {
+        let Self {
+            layer_id,
+            id_name,
+            extent,
+            properties,
+            ..
+        } = self;
+        let features = self.feature_select(&self.tile_geometry(), "geom", properties);
+        format!(
+            r"
+SELECT
+  ST_AsMVT(tile, {layer_id}, {extent}, 'geom'{id_name})
+FROM (
+{features}
+) AS tile;
+"
+        )
+        .trim()
+        .to_owned()
+    }
+
+    /// One row per feature, the geometry as WKB in tile coordinates.
+    ///
+    /// Features whose geometry falls outside the tile are dropped, as `ST_AsMVT` does implicitly.
+    /// The drop happens outside the `LIMIT`, so `max_feature_count` counts the same rows as in [`Self::mvt_query`].
+    /// The geometry is aliased out of the way of the table's own columns, one of which may be
+    /// called `geom`, which would make the outer `IS NOT NULL` an ambiguous column reference.
+    ///
+    /// `keep_measures` keeps the M ordinates of polygons, see [`Self::measured_row_geometry`].
+    fn row_query(&self, keep_measures: bool) -> String {
+        let geometry = if keep_measures {
+            self.measured_row_geometry()
+        } else {
+            format!("ST_AsBinary({})", self.tile_geometry())
+        };
+        let features = self.feature_select(&geometry, r#""__martin_geom""#, &self.row_properties);
+        format!(
+            r#"
+SELECT
+  *
+FROM (
+{features}
+) AS tile
+WHERE "__martin_geom" IS NOT NULL;
+"#
+        )
+        .trim()
+        .to_owned()
+    }
+
+    /// The rows both tile queries are built from: every feature the tile covers, its geometry
+    /// as `geometry` aliased to `alias`, followed by `properties`.
+    fn feature_select(&self, geometry: &str, alias: &str, properties: &str) -> String {
+        let Self {
+            id_field,
+            bbox_search,
+            geometry_column,
+            schema,
+            table,
+            filter,
+            limit_clause,
+            ..
+        } = self;
+        let columns = indented_columns(id_field, properties);
+        format!(
+            "  SELECT
+    {geometry} AS {alias}{columns}
+  FROM
+    {schema}.{table}
+  WHERE
+    {geometry_column} && {bbox_search}{filter}
+  {limit_clause}"
+        )
+    }
+
+    /// The measured row query's geometry as WKB in tile coordinates: `ST_AsMVTGeom`, except for a
+    /// polygon carrying M ordinates, which `ST_AsMVTGeom` strips while making it valid.
+    ///
+    /// Such a polygon is scaled into tile space, clipped, snapped to the integer grid and oriented
+    /// the way `ST_AsMVTGeom` orients its polygons, and is dropped when nothing of it is left.
+    /// Its rings may start at another vertex than `ST_AsMVTGeom` would start them at.
+    fn measured_row_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            geometry_column,
+            ..
+        } = self;
+        let scaled = format!(
+            "ST_TransScale(
+          ST_CollectionExtract({geometry}, 3),
+          -ST_XMin(e), -ST_YMax(e),
+          {extent} / (ST_XMax(e) - ST_XMin(e)), -{extent} / (ST_YMax(e) - ST_YMin(e))
+        )"
+        );
+        let clipped = if *clip_geom {
+            let far = u64::from(*extent) + u64::from(*buffer);
+            format!("ST_ClipByBox2D({scaled}, ST_MakeEnvelope(-{buffer}, -{buffer}, {far}, {far}))")
+        } else {
+            scaled
+        };
+        format!(
+            "CASE WHEN ST_HasM({geometry_column}::geometry) AND ST_Dimension({geometry_column}::geometry) = 2 THEN (
+      SELECT CASE WHEN ST_IsEmpty(measured) THEN NULL ELSE ST_AsBinary(measured) END
+      FROM (
+        SELECT ST_ForcePolygonCCW(ST_SnapToGrid({clipped}, 1)) AS measured
+        FROM (SELECT {envelope} AS e) AS tile_envelope
+      ) AS measured_tile
+    ) ELSE ST_AsBinary({}) END",
+            self.tile_geometry()
+        )
+    }
+
+    /// `ST_AsMVTGeom` over the table's geometry column, in the tile's coordinate space.
+    fn tile_geometry(&self) -> String {
+        let Self {
+            geometry,
+            envelope,
+            extent,
+            buffer,
+            clip_geom,
+            ..
+        } = self;
+        format!(
+            "ST_AsMVTGeom(
+        {geometry},
+        {envelope},
+        {extent}, {buffer}, {clip_geom}
+    )"
+        )
+    }
 }
 
 /// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.
@@ -283,6 +503,85 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
     let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
     Ok(format!(" {keyword} ({sql})"))
+}
+
+/// The query `martin generate` streams a whole table with.
+#[cfg(feature = "unstable-generate")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanSql {
+    pub sql: String,
+    pub crs: Crs,
+    pub has_id: bool,
+    pub properties: Vec<String>,
+}
+
+/// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
+/// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
+/// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+///
+/// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
+#[cfg(feature = "unstable-generate")]
+pub fn scan_sql(info: &TableInfo, bbox: Option<Bounds>) -> PostgresResult<ScanSql> {
+    let row_properties = row_properties(info);
+    let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
+        escape_with_alias(&info.discovered.prop_mapping, id)
+    });
+    let column = escape_identifier(&info.geometry_column);
+    let geometry = format!("ST_Force2D({})", linear_geometry(info));
+    let (geometry, crs) = match info.srid {
+        4326 => (geometry, Crs::Wgs84),
+        3857 => (geometry, Crs::WebMercator),
+        _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
+    };
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let filter = row_filter(info, "AND")?;
+    let bbox = bbox.map_or_else(String::new, |bbox| {
+        let envelope = format!(
+            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
+            bbox.left, bbox.bottom, bbox.right, bbox.top
+        );
+        match info.srid {
+            4326 => format!(" AND {column} && {envelope}"),
+            srid => format!(" AND {column} && ST_Transform({envelope}, {srid})"),
+        }
+    });
+    Ok(ScanSql {
+        sql: format!(
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
+        ),
+        crs,
+        has_id: info.id_column.is_some(),
+        properties: info
+            .properties
+            .iter()
+            .flatten()
+            .map(|(column, _)| column.clone())
+            .collect(),
+    })
+}
+
+/// The properties as tile row queries select them, cast by the type each column is returned as.
+fn row_properties(info: &TableInfo) -> String {
+    info.properties
+        .iter()
+        .flatten()
+        .map(|(column, label)| {
+            let pg_type = info.column_type(column).unwrap_or(label);
+            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
+        })
+        .collect()
+}
+
+/// The geometry column as `geometry`; `ST_AsMVTGeom` cannot encode arcs, so a column that may hold them
+/// is linearized.
+fn linear_geometry(info: &TableInfo) -> String {
+    let column = escape_identifier(&info.geometry_column);
+    if may_contain_arcs(info.geometry_type.as_deref()) {
+        format!("ST_CurveToLine({column}::geometry)")
+    } else {
+        format!("{column}::geometry")
+    }
 }
 
 /// Whether a column of this geometry type can hold circular arcs.
@@ -301,6 +600,121 @@ fn may_contain_arcs(geometry_type: Option<&str>) -> bool {
         base,
         "POINT" | "MULTIPOINT" | "LINESTRING" | "MULTILINESTRING" | "POLYGON" | "MULTIPOLYGON"
     )
+}
+
+/// The three SQL fragments of a table query that depend on the grid it is served in.
+struct GridSql {
+    /// The geometry, in the grid's CRS.
+    geometry: String,
+    /// The requested tile's envelope, in the grid's CRS.
+    envelope: String,
+    /// What the table's geometry column is index-searched against, in the table's CRS.
+    bbox_search: String,
+}
+
+/// Builds the grid-dependent parts of a table query.
+///
+/// The envelope and the search box are scalar subqueries, so a generic plan computes them once per tile instead of once per row.
+/// For the default Web Mercator grid the expressions inside them are the ones martin has always generated.
+/// Every grid skips the geometry transform when the table already stores the grid's CRS.
+/// Any other grid passes its zoom-0 square to `ST_TileEnvelope` as the `bounds` argument.
+/// It densifies the envelope before transforming it into the table's CRS, so that edges which curve in that CRS still cover the tile.
+/// `table_wrap` is the width of the world in the table's CRS when that CRS cuts the world open at the antimeridian, see [`wrap_width`].
+fn grid_sql(
+    grid: &PgTileGrid,
+    table_srid: i32,
+    geometry: &str,
+    buffer: u32,
+    margin: f64,
+    table_wrap: Option<f64>,
+) -> GridSql {
+    const TILE: &str = "$1::integer, $2::integer, $3::integer";
+    if grid.is_web_mercator() {
+        // When calculating the bounding box to search within, a few considerations must be made when
+        // using a margin. The ST_TileEnvelope margin parameter is for use with SRID 3857.
+        // For SRID 4326, ST_Expand is used and provided with SRID 4326 specific units (degrees).
+        // If the table uses a non-standard SRID, it will fall back to existing behavior.
+        //
+        // For more context, if SRID 4326 were to be used with ST_TileEnvelope and margin
+        // parameter, the resultant bounding box for tiles on the antimeridian would be calculated
+        // incorrectly. For example, with a margin of 2 units, the antimeridian edge would transform
+        // from -180 to +178. This results in a bbox that stretches from the easternmost edge of a tile
+        // (plus margin) around the map to the westernmost edge of the tile (minus margin). The
+        // resulting bbox covers none of the original tile. In contrast, for this example, ST_Expand
+        // will result in a westernmost edge (minus margin) of -182.
+        let bbox_search = if buffer == 0 {
+            format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
+        } else if table_srid == 3857 {
+            format!("ST_Transform(ST_TileEnvelope({TILE}, margin => {margin}), {table_srid})")
+        } else if table_srid == 4326 {
+            format!(
+                "ST_Expand(ST_Transform(ST_TileEnvelope({TILE}), {table_srid}), ({margin} * {EARTH_CIRCUMFERENCE_DEGREES}) / 2^$1::integer)"
+            )
+        } else {
+            format!("ST_Transform(ST_TileEnvelope({TILE}), {table_srid})")
+        };
+        let geometry = if table_srid == 3857 {
+            geometry.to_owned()
+        } else {
+            format!("ST_Transform({geometry}, 3857)")
+        };
+        return GridSql {
+            geometry,
+            envelope: format!("(SELECT ST_TileEnvelope({TILE}))"),
+            bbox_search: format!("(SELECT {bbox_search})"),
+        };
+    }
+
+    let grid_srid = grid.srid();
+    let [x0, y0] = grid.grid().origin();
+    let extent_at_zoom0 = grid.grid().extent_at_zoom0();
+    // the zoom-0 square, spelled with the configured numbers so the query reads like the config
+    let envelope = if grid.grid().matrix_at_zoom0() == [1, 1] {
+        format!(
+            "ST_TileEnvelope({TILE}, ST_MakeEnvelope({x0}, {y0} - {extent_at_zoom0}, {x0} + {extent_at_zoom0}, {y0}, {grid_srid}))"
+        )
+    } else {
+        // two tiles at zoom 0 are one zoom level of a square twice the size, anchored at the same corner
+        format!(
+            "ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope({x0}, {y0} - 2 * {extent_at_zoom0}, {x0} + 2 * {extent_at_zoom0}, {y0}, {grid_srid}))"
+        )
+    };
+    let geometry = if table_srid == grid_srid {
+        geometry.to_owned()
+    } else {
+        format!("ST_Transform({geometry}, {grid_srid})")
+    };
+    // the margin is applied in grid units, like the 4326 branch above does in degrees
+    let search = if buffer == 0 {
+        envelope.clone()
+    } else {
+        format!("ST_Expand({envelope}, ({margin} * {extent_at_zoom0}) / 2^$1::integer)")
+    };
+    // a transformed envelope is only as good as its vertices: eight per side keeps curved edges covered
+    let bbox_search = if table_srid == grid_srid {
+        format!("(SELECT {search})")
+    } else {
+        let transformed = format!(
+            "ST_Transform(ST_Segmentize({search}, {extent_at_zoom0} / 2^$1::integer / 8), {table_srid})"
+        );
+        match table_wrap {
+            // a tile across the cut has vertices at both ends of the world once transformed, so its
+            // bounding box lands on the wrong side and misses the strip next to the cut; search the
+            // whole width of the world at the tile's height instead, and let ST_AsMVTGeom clip
+            Some(width) => {
+                let half = width / 2.0;
+                format!(
+                    "(SELECT CASE WHEN ST_XMax(search) - ST_XMin(search) > {half} THEN ST_MakeEnvelope(-{half}, ST_YMin(search), {half}, ST_YMax(search), {table_srid}) ELSE search END FROM (SELECT {transformed} AS search) AS s)"
+                )
+            }
+            None => format!("(SELECT {transformed})"),
+        }
+    };
+    GridSql {
+        geometry,
+        envelope: format!("(SELECT {envelope})"),
+        bbox_search,
+    }
 }
 
 /// How [`calc_bounds`] should compute a table's geometry bounds.
@@ -356,8 +770,10 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
             return Ok(polygon_to_bbox(&bounds));
         }
         warn!(
-            "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
-            info.geometry_column
+            schema = %schema,
+            table = %table,
+            geometry_column = %info.geometry_column,
+            "ST_EstimatedExtent failed, trying slower method to compute bounds"
         );
     }
 
@@ -384,6 +800,80 @@ FROM {schema}.{table}{filter};"),
         .and_then(|p| polygon_to_bbox(&p)))
 }
 
+/// Whether `PostGIS` can transform `srid` into WGS84, which `TileJSON` bounds are expressed in.
+///
+/// EPSG systems always can. A CRS from another authority, such as a planetary one, need not map onto WGS84 at all.
+/// That table can still be served, it just cannot advertise bounds, and the warning says so.
+async fn transforms_to_wgs84(
+    pool: &PostgresPool,
+    info: &TableInfo,
+    srid: i32,
+) -> PostgresResult<bool> {
+    let Some(authority) = non_epsg_authority(pool, srid).await else {
+        return Ok(true);
+    };
+    match pool.check_transform(srid, 4326).await {
+        Ok(()) => Ok(true),
+        Err(CannotTransform(refusal, ..)) => {
+            warn!(
+                table.id = %info.format_id(),
+                srid = srid,
+                srid.authority = %authority,
+                error = %refusal.message(),
+                "Not computing the bounds: SRID is not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them."
+            );
+            Ok(false)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// The `AUTHORITY:CODE` of `srid` when `spatial_ref_sys` knows it under an authority other than EPSG.
+async fn non_epsg_authority(pool: &PostgresPool, srid: i32) -> Option<String> {
+    let row = pool
+        .get()
+        .await
+        .ok()?
+        .query_opt(
+            "SELECT auth_name, auth_srid FROM spatial_ref_sys WHERE srid = $1",
+            &[&srid],
+        )
+        .await
+        .ok()??;
+    let authority: Option<String> = row.get("auth_name");
+    let code: Option<i32> = row.get("auth_srid");
+    let authority = authority?;
+    if authority.eq_ignore_ascii_case("EPSG") {
+        return None;
+    }
+    Some(code.map_or_else(|| authority.clone(), |code| format!("{authority}:{code}")))
+}
+
+/// The width of the world in the units of `srid`, when that CRS cuts the world open at the antimeridian.
+///
+/// Geographic systems are 360 degrees wide and Web Mercator one earth circumference.
+/// Other systems with such a cut are not recognised, and a database failure counts as "no cut", since this only widens a search.
+async fn wrap_width(pool: &PostgresPool, srid: i32) -> Option<f64> {
+    match srid {
+        3857 => return Some(EARTH_CIRCUMFERENCE),
+        4326 => return Some(f64::from(EARTH_CIRCUMFERENCE_DEGREES)),
+        _ => {}
+    }
+    let row = pool
+        .get()
+        .await
+        .ok()?
+        .query_opt(
+            "SELECT proj4text LIKE '%+proj=longlat%' OR srtext LIKE 'GEOGC%' FROM spatial_ref_sys WHERE srid = $1",
+            &[&srid],
+        )
+        .await
+        .ok()??;
+    row.get::<_, Option<bool>>(0)
+        .unwrap_or(false)
+        .then_some(f64::from(EARTH_CIRCUMFERENCE_DEGREES))
+}
+
 #[must_use]
 pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     use postgis::{LineString as _, Point as _, Polygon as _};
@@ -401,4 +891,156 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
             None
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_tile_utils::TileGrid;
+    use rstest::rstest;
+
+    use super::*;
+
+    const MARGIN: f64 = 64.0 / 4096.0;
+
+    fn nztm2000quad() -> PgTileGrid {
+        PgTileGrid::new(
+            TileGrid::new(
+                "NZTM2000Quad",
+                "EPSG:2193",
+                [-3_260_586.728_4, 10_438_190.165_2],
+                10_018_754.171_4,
+            )
+            .unwrap(),
+            2193,
+        )
+    }
+
+    #[rstest]
+    #[case::mercator_table_with_margin(3857, 64,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)",
+        r#"ST_CurveToLine("geom"::geometry)"#)]
+    #[case::wgs84_table(4326, 64,
+        r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#)]
+    #[case::other_table(
+        25832,
+        64,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 25832)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
+    )]
+    #[case::no_buffer(
+        4326,
+        0,
+        r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326)",
+        r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#
+    )]
+    fn web_mercator_sql_for_each_table_crs(
+        #[case] table_srid: i32,
+        #[case] buffer: u32,
+        #[case] bbox_search: &str,
+        #[case] geometry: &str,
+    ) {
+        let sql = grid_sql(
+            &PgTileGrid::web_mercator(),
+            table_srid,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            buffer,
+            MARGIN,
+            None,
+        );
+        assert_eq!(sql.geometry, geometry);
+        assert_eq!(
+            sql.envelope,
+            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer))"
+        );
+        assert_eq!(sql.bbox_search, format!("(SELECT {bbox_search})"));
+    }
+
+    #[test]
+    fn a_table_stored_in_the_grid_crs_is_never_transformed() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            2193,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            64,
+            MARGIN,
+            None,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer))");
+    }
+
+    #[test]
+    fn a_table_in_another_crs_is_transformed_and_searched_through_a_densified_envelope() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            27700,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            64,
+            MARGIN,
+            None,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_Transform(ST_CurveToLine("geom"::geometry), 2193)"#);
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 27700))");
+    }
+
+    /// `NZTM2000Quad` reaches across 180 degrees, where longitude and latitude cut the world open.
+    /// A tile there has vertices at both ends of the world once transformed, so the search falls back to the whole width of the world at the tile's height.
+    #[test]
+    fn a_table_in_a_crs_with_an_antimeridian_cut_is_searched_across_the_whole_width_when_the_tile_crosses_it()
+     {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            4326,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            64,
+            MARGIN,
+            Some(360.0),
+        );
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT CASE WHEN ST_XMax(search) - ST_XMin(search) > 180 THEN ST_MakeEnvelope(-180, ST_YMin(search), 180, ST_YMax(search), 4326) ELSE search END FROM (SELECT ST_Transform(ST_Segmentize(ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer), 10018754.1714 / 2^$1::integer / 8), 4326) AS search) AS s)");
+    }
+
+    #[test]
+    fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
+        let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
+        let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, None);
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer))");
+    }
+
+    #[test]
+    fn a_simple_grid_needs_no_transform_at_all() {
+        let plan = TileGrid::new(
+            "floor",
+            martin_tile_utils::SIMPLE_CRS,
+            [0.0, 1000.0],
+            1000.0,
+        )
+        .unwrap();
+        let sql = grid_sql(
+            &PgTileGrid::new(plan, 0),
+            0,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            0,
+            0.0,
+            None,
+        );
+        insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
+    }
+
+    #[test]
+    fn no_buffer_means_no_expansion() {
+        let sql = grid_sql(
+            &nztm2000quad(),
+            4326,
+            "ST_CurveToLine(\"geom\"::geometry)",
+            0,
+            0.0,
+            None,
+        );
+        insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Transform(ST_Segmentize(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), 10018754.1714 / 2^$1::integer / 8), 4326))");
+    }
 }

@@ -41,8 +41,8 @@ pub(crate) fn parse_yaml<T: DeserializeOwned>(yaml: &str) -> T {
 /// Run `yaml` through the full [`parse_config`] pipeline, expect a failure, and return the
 /// rendered miette diagnostic at a fixed terminal width with no ANSI styling.
 ///
-/// This exercises the same plumbing as production - variable substitution, deprecated-key
-/// migration, saphyr parsing, and `ConfigFileError::to_miette_report` - but renders through
+/// This exercises the same plumbing as production - variable substitution, saphyr parsing,
+/// and `ConfigFileError::to_miette_report` - but renders through
 /// a `GraphicalReportHandler` pinned to [`SNAPSHOT_WIDTH`] with `unicode_nocolor`, so the
 /// resulting string is byte-identical across developer machines and CI regardless of
 /// terminal width.

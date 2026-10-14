@@ -1,0 +1,35 @@
+name: Hotpath relay
+
+on:
+  # zizmor: ignore[dangerous-triggers] intentional two-workflow split: fork PRs
+  # get no OIDC token, so this one uploads the report artifact without checking
+  # out PR code.
+  workflow_run:
+    workflows: ["Hotpath benchmark"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  relay:
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - mbtiles-miss
+          - pmtiles-miss
+          - postgres-function-miss
+          - postgres-function-mlt-miss
+          - postgres-table-miss
+          - composite-miss
+          - cache-hit
+          - composite-hit
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
+    permissions:
+      actions: read
+      id-token: write
+      pull-requests: read
+    with:
+      benchmark: ${{ matrix.scenario }}
+      artifact_name: hotpath-report
+      report_file: ${{ matrix.scenario }}.json

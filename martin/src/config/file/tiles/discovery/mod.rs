@@ -1,5 +1,5 @@
-//! The `Discovery` trait and its implementations: `FsDiscovery` for the file-backed kinds and
-//! `ObjectStoreDiscovery` for remote `PMTiles` prefixes.
+//! The `Discovery` trait and its implementations: `FsDiscovery` for file-backed kinds,
+//! configured remote-object discovery, and object-store prefix discovery.
 
 mod discovery_trait;
 pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
@@ -7,22 +7,24 @@ pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles"
 ))]
 mod fs;
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
+    feature = "processing",
     feature = "pmtiles"
 ))]
 pub use fs::{FsDiscovery, FsSourceBuilder};
 
-#[cfg(feature = "pmtiles")]
+#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
 mod object_store;
-#[cfg(feature = "pmtiles")]
-pub use object_store::{ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder};
+#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+pub use object_store::{
+    ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,
+};
 
 #[cfg(feature = "postgres")]
 mod postgres;

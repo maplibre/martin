@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use duckdb::{Connection, OptionalExt as _, named_params};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
@@ -7,7 +6,7 @@ use tracing::{instrument, trace};
 use crate::CacheZoomRange;
 use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
 use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `DuckDB File` tile source that executes SQL queries to generate tiles.
@@ -42,7 +41,6 @@ impl DuckDBSource {
     }
 }
 
-#[async_trait]
 impl Source for DuckDBSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -54,10 +52,6 @@ impl Source for DuckDBSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn support_url_query(&self) -> bool {
@@ -78,9 +72,9 @@ impl Source for DuckDBSource {
         skip_all,
         fields(
             source.id = %self.id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
+            tile.z = xyz.z(),
+            tile.x = xyz.x(),
+            tile.y = xyz.y(),
         ),
         err(Debug),
     )]
@@ -143,15 +137,16 @@ fn execute_tile_query(
     let tile = stmt
         .query_one(
             named_params! {
-                "z": i16::from(xyz.z),
-                "x": i64::from(xyz.x),
-                "y": i64::from(xyz.y),
+                "z": i16::from(xyz.z()),
+                "x": i64::from(xyz.x()),
+                "y": i64::from(xyz.y()),
             },
-            |row| row.get::<_, Option<TileData>>(0),
+            |row| row.get::<_, Option<Vec<u8>>>(0),
         )
         .optional()
         .map_err(|e| GetTileError(e.into(), source_id.to_owned(), xyz))?
         .flatten()
+        .map(TileData::from)
         .unwrap_or_default();
 
     Ok(tile)

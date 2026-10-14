@@ -4,12 +4,13 @@ expression: saved
 ---
 listen_addresses: 127.0.0.1:0
 postgres:
-  connection_string: [DATABASE_URL]
+- connection_string: [DATABASE_URL]
   default_srid: 4326
   pool_size: 1
   auto_publish:
     tables:
-      from_schemas: autodetect
+      from_schemas:
+      - autodetect
       id_columns:
       - feat_id
       - big_feat_id
@@ -17,7 +18,8 @@ postgres:
       buffer: 3
       extent: 9000
     functions:
-      from_schemas: MixedCase
+      from_schemas:
+      - MixedCase
   tables:
     MixPoints:
       schema: MixedCase

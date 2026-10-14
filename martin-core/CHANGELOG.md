@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/maplibre/martin/compare/martin-core-v0.12.2...martin-core-v0.13.0) - 2026-10-09
+
+### Added
+
+- *(pmtiles)* tag object store log lines with the source id ([#3502](https://github.com/maplibre/martin/pull/3502))
+- [**breaking**] require x86-64-v3 CPU ([#3464](https://github.com/maplibre/martin/pull/3464))
+- [**breaking**] merge cargo features and make mlt always-on ([#3466](https://github.com/maplibre/martin/pull/3466))
+- *(rendering)* configurable tile size (256 or 512 px) ([#3457](https://github.com/maplibre/martin/pull/3457))
+- *(rendering)* keep several renderers per worker ([#3454](https://github.com/maplibre/martin/pull/3454))
+- *(rendering)* serve @{n}x pixel ratios on rendered tiles ([#3453](https://github.com/maplibre/martin/pull/3453))
+- *(rendering)* [**breaking**] serve rendered PNGs as indexed (palette) images ([#3456](https://github.com/maplibre/martin/pull/3456))
+
+### Fixed
+
+- *(fonts)* draw a font stack's shared characters from its first font ([#3524](https://github.com/maplibre/martin/pull/3524))
+- fmt/lint ([#3491](https://github.com/maplibre/martin/pull/3491))
+- *(pmtiles)* don't crash when a served archive is rewritten in place ([#3487](https://github.com/maplibre/martin/pull/3487))
+- *(pmtiles)* reload a remote source whose leaf directories moved ([#3450](https://github.com/maplibre/martin/pull/3450))
+
+### Other
+
+- *(cache)* stop recompressing composite tiles on every request ([#3523](https://github.com/maplibre/martin/pull/3523))
+- *(deps)* update rust crate mlt-core to 0.19.0 ([#3483](https://github.com/maplibre/martin/pull/3483))
+- *(cog)* read local tiles without reopening the file ([#3477](https://github.com/maplibre/martin/pull/3477))
+- *(fonts)* serve cached glyph ranges without compressing them again ([#3472](https://github.com/maplibre/martin/pull/3472))
+
+## [0.12.2](https://github.com/maplibre/martin/compare/martin-core-v0.12.1...martin-core-v0.12.2) - 2026-10-01
+
+> [!IMPORTANT]
+> This release contains the fix for https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j
+> Which is an fairly trivial DOS attack IF your operating system has out of date dependencies.
+
+### Fixed
+
+- clippy issues ([#3442](https://github.com/maplibre/martin/pull/3442))
+
+## [0.12.1](https://github.com/maplibre/martin/compare/martin-core-v0.12.0...martin-core-v0.12.1) - 2026-09-30
+
+### Other
+
+- *(pmtiles)* stop formatting the file's version on every read ([#3428](https://github.com/maplibre/martin/pull/3428))
+- *(deps)* update rust crate mlt-core to 0.16.0 ([#3418](https://github.com/maplibre/martin/pull/3418))
+
+## [0.12.0](https://github.com/maplibre/martin/compare/martin-core-v0.11.2...martin-core-v0.12.0) - 2026-09-29
+
+### Added
+
+- *(cp)* encode MLT from PostgreSQL rows ([#3358](https://github.com/maplibre/martin/pull/3358))
+- serve sources on tile grids other than Web Mercator ([#3261](https://github.com/maplibre/martin/pull/3261))
+- *(rendering)* mark server-side style rendering as stable ([#3354](https://github.com/maplibre/martin/pull/3354))
+- [**breaking**] merge `martin-cp` into `martin` as the `cp` subcommand ([#3327](https://github.com/maplibre/martin/pull/3327))
+
+### Fixed
+
+- *(rendering)* rebuild a render worker after a panic instead of losing it ([#3375](https://github.com/maplibre/martin/pull/3375))
+- *(postgres)* skip a table PostGIS cannot convert to its tile grid ([#3360](https://github.com/maplibre/martin/pull/3360))
+- oversized tiles in contour ([#3292](https://github.com/maplibre/martin/pull/3292))
+
+### Other
+
+- *(pmtiles)* share cached directories instead of copying them ([#3402](https://github.com/maplibre/martin/pull/3402))
+- *(postgres)* [**breaking**] discover tables while PostGIS loads ([#3400](https://github.com/maplibre/martin/pull/3400))
+- split AnySource into a two-layer enum ([#3387](https://github.com/maplibre/martin/pull/3387))
+- *(duckdb)* lint the feature and clarify CLI usage ([#3381](https://github.com/maplibre/martin/pull/3381))
+- *(martin-core)* [**breaking**] mark CatalogSourceEntry as non-exhaustive ([#3378](https://github.com/maplibre/martin/pull/3378))
+- dispatch tile sources through a closed AnySource enum ([#3362](https://github.com/maplibre/martin/pull/3362))
+- stop deep-cloning the source on every tile request ([#3359](https://github.com/maplibre/martin/pull/3359))
+- publish the changelog as its own page ([#3347](https://github.com/maplibre/martin/pull/3347))
+- *(postgres)* cover the TLS verifiers with an in-process handshake ([#3318](https://github.com/maplibre/martin/pull/3318))
+- *(unstable-cog)* cover the requirements a COG has to meet ([#3300](https://github.com/maplibre/martin/pull/3300))
+- refactor the caching subsystem with less cloning ([#3294](https://github.com/maplibre/martin/pull/3294))
+- *(pmtiles)* read local files in place instead of through object_store ([#3293](https://github.com/maplibre/martin/pull/3293))
+- reduce public API of `TileCoord` ([#3290](https://github.com/maplibre/martin/pull/3290))
+- Change to Box<str> where no resizing is necessary ([#3289](https://github.com/maplibre/martin/pull/3289))
+- migrate the test suite to integration tests ([#3288](https://github.com/maplibre/martin/pull/3288))
+- fix a few clippy lints findings ([#3273](https://github.com/maplibre/martin/pull/3273))
+
 ## [0.11.2](https://github.com/maplibre/martin/compare/martin-core-v0.11.1...martin-core-v0.11.2) - 2026-09-06
 
 ### Added
@@ -138,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- share code accross the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
+- share code across the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
 
 ## [0.6.0](https://github.com/maplibre/martin/compare/martin-core-v0.5.4...martin-core-v0.6.0) - 2026-05-16
 
@@ -264,7 +341,7 @@ The human-readable message text was shortened in the process, so any downstream 
 
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
 
-- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artifacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
 
 ## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
@@ -331,7 +408,7 @@ This release migrates to the new usage.
 
 ## [0.1.1](https://github.com/maplibre/martin/compare/martin-core-v0.1.0...martin-core-v0.1.1) - 2025-09-27
 
-- fix release not working for some packages due to outdated dependedncy definitions
+- fix release not working for some packages due to outdated dependency definitions
 - update documentation to reflect the features better
 
 ## [0.1.0](https://github.com/maplibre/martin/releases/tag/martin-core-v0.1.0) - 2025-09-26
@@ -344,11 +421,11 @@ The motivation for this split is mostly to be able to not couple the SemVer prom
 - *(release)* bump pmtiles ([#2232](https://github.com/maplibre/martin/pull/2232))
 - *(core)* remove the last bit of the onetime use utils ([#2227](https://github.com/maplibre/martin/pull/2227))
 - *(ci)* Split tests and lints in CI ([#2225](https://github.com/maplibre/martin/pull/2225))
-- *(core)* be consistent in posgres naming ([#2215](https://github.com/maplibre/martin/pull/2215))
+- *(core)* be consistent in Postgres naming ([#2215](https://github.com/maplibre/martin/pull/2215))
 - *(core)* more consistently use `#[non_exhaustive]` and `#[source]` in our public `thiserror` errors ([#2217](https://github.com/maplibre/martin/pull/2217))
 - *(core)* move error types to more appropriate places ([#2213](https://github.com/maplibre/martin/pull/2213))
 - *(core)* fix MartinCoreError being a `Box<dyn Error>` ([#2216](https://github.com/maplibre/martin/pull/2216))
-- *(core)* minimise the dependedncy Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
+- *(core)* minimize the dependency Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
 - apply the no `use super::..` except in tests guidance ([#2193](https://github.com/maplibre/martin/pull/2193))
 - *(core)* move postgres' `PgPool` and `PgSource` to the core ([#2191](https://github.com/maplibre/martin/pull/2191))
 - *(core)* move config handling out of the pool ([#2185](https://github.com/maplibre/martin/pull/2185))

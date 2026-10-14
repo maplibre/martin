@@ -1,4 +1,5 @@
 ---
+description: Inspecting MBTiles contents and reading or editing metadata
 icon: material/database-search
 tags:
   - mbtiles

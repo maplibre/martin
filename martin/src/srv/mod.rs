@@ -6,9 +6,9 @@
 // `unstable-schemas` feature gate, and `martin::schemas` addresses them via
 // `crate::srv::*`.
 
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 mod fonts;
-#[cfg(all(feature = "fonts", feature = "unstable-schemas"))]
+#[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use fonts::{__path_get_font, get_font};
 
 mod server;
@@ -16,6 +16,8 @@ mod server;
 pub use server::{__path_get_health, get_health};
 mod error;
 pub use error::ServerStartError;
+#[cfg(feature = "_tiles")]
+pub use error::TileError;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
@@ -33,24 +35,24 @@ pub(crate) mod tiles;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::content::{__path_get_tile, get_tile};
 #[cfg(feature = "_tiles")]
-pub use tiles::content::{DynTileSource, TileRequestHeaders};
+pub use tiles::content::{AcceptedFormats, DynTileSource, TileRequestHeaders};
 #[cfg(feature = "_tiles")]
 pub use tiles::metadata::merge_tilejson;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::metadata::{__path_get_source_info, get_source_info};
 
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 mod sprites;
-#[cfg(all(feature = "sprites", feature = "unstable-schemas"))]
+#[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use sprites::{
     __path_get_sprite_json, __path_get_sprite_png, __path_get_sprite_sdf_json,
     __path_get_sprite_sdf_png, get_sprite_json, get_sprite_png, get_sprite_sdf_json,
     get_sprite_sdf_png,
 };
 
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 mod styles;
-#[cfg(all(feature = "styles", feature = "unstable-schemas"))]
+#[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use styles::{__path_get_style_json, get_style_json};
 
 #[cfg(feature = "rendering")]

@@ -1,4 +1,4 @@
-#![cfg(feature = "geojson")]
+#![cfg(feature = "processing")]
 #![allow(clippy::unwrap_used)]
 
 use std::assert_matches;
@@ -112,7 +112,7 @@ async fn source_with(id: &str, gj: &GeoJson, extent: NonZeroU32, buffer: u32) ->
 }
 
 fn xyz(z: u8, x: u32, y: u32) -> TileCoord {
-    TileCoord { z, x, y }
+    TileCoord::new_unchecked(z, x, y)
 }
 
 fn decode(bytes: &[u8]) -> MvtTile {

@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::time::Duration;
 
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::passthrough::{PassthroughSource, TemplateMeta, Transport, Upstream};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::Format;
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -11,18 +11,18 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tilejson::Bounds;
 use tracing::info;
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::ContourProcessConfig;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
     ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{IdResolver, OptOneMany};
+use crate::config::primitives::{IdResolver, one_or_many};
 
 /// Default per-request timeout for upstream fetches.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -60,13 +60,13 @@ fn passthrough_sources_example() -> serde_json::Value {
 pub struct PassthroughConfig {
     /// MVT->MLT encoder settings for all passthrough sources.
     /// Overrides global; overridden by per-source `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all passthrough sources.
     /// Overrides global; overridden by per-source `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -102,7 +102,7 @@ impl PassthroughConfig {
     pub fn is_empty(&self) -> bool {
         let empty = self.sources.as_ref().is_none_or(BTreeMap::is_empty)
             && self.get_unrecognized_keys().is_empty();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         let empty = empty && self.convert_to_mlt.is_none() && self.convert_to_mvt.is_none();
         empty
     }
@@ -125,12 +125,7 @@ impl PassthroughConfig {
             let mut resolved = BTreeMap::new();
             for (id, src) in sources {
                 let cfg = src.to_config();
-                let dedup_key = cfg
-                    .url
-                    .as_slice()
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| id.clone());
+                let dedup_key = cfg.url.first().cloned().unwrap_or_else(|| id.clone());
                 let id = idr.resolve(&id, dedup_key);
                 match cfg.build(id.clone(), default_cache).await {
                     Ok(source) => {
@@ -160,7 +155,13 @@ impl ConfigurationLivecycleHooks for PassthroughConfig {}
 #[serde(untagged)]
 pub enum PassthroughSrc {
     /// Shorthand: an upstream URL template, a `TileJSON` URL, or a list of URL templates.
-    Shorthand(OptOneMany<String>),
+    Shorthand(
+        #[cfg_attr(
+            feature = "unstable-schemas",
+            schemars(with = "one_or_many::OneOrMany<String>")
+        )]
+        Vec<String>,
+    ),
     /// A configuration object with headers, timeout, format, and metadata.
     /// Boxed because it is much larger than the shorthand variant.
     Detailed(Box<PassthroughSourceConfig>),
@@ -195,16 +196,16 @@ impl<'de> Deserialize<'de> for PassthroughSrc {
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<PassthroughSrc, E> {
-                Ok(PassthroughSrc::Shorthand(OptOneMany::One(value.to_owned())))
+                Ok(PassthroughSrc::Shorthand(vec![value.to_owned()]))
             }
 
             fn visit_string<E: de::Error>(self, value: String) -> Result<PassthroughSrc, E> {
-                Ok(PassthroughSrc::Shorthand(OptOneMany::One(value)))
+                Ok(PassthroughSrc::Shorthand(vec![value]))
             }
 
             fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<PassthroughSrc, S::Error> {
                 let urls: Vec<String> = Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
-                Ok(PassthroughSrc::Shorthand(OptOneMany::new(urls)))
+                Ok(PassthroughSrc::Shorthand(urls))
             }
 
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<PassthroughSrc, M::Error> {
@@ -223,8 +224,12 @@ impl<'de> Deserialize<'de> for PassthroughSrc {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PassthroughSourceConfig {
     /// Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL.
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub url: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub url: Vec<String>,
 
     /// HTTP headers sent with every upstream request (e.g. `Authorization`).
     /// Values support `${ENV_VAR}` substitution via the config loader.
@@ -270,12 +275,12 @@ pub struct PassthroughSourceConfig {
 
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
     /// MLT->MVT conversion settings for this source.
     /// Overrides source-type and global `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Hillshade settings for this source.
@@ -283,7 +288,7 @@ pub struct PassthroughSourceConfig {
     /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
     /// See the hillshade documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (raster data in Mapzen format).
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_hillshade: Option<HillshadeProcessConfig>,
     /// Trace contour lines from this source's tiles.
@@ -291,7 +296,7 @@ pub struct PassthroughSourceConfig {
     /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
     /// See the contour documentation for the knobs.
     /// Settable per source only, since it is tied to what this source serves (elevation data in Terrarium format).
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[serde(default)]
     pub convert_to_contour: Option<ContourProcessConfig>,
 
@@ -303,7 +308,7 @@ pub struct PassthroughSourceConfig {
 impl Default for PassthroughSourceConfig {
     fn default() -> Self {
         Self {
-            url: OptOneMany::default(),
+            url: Vec::new(),
             headers: BTreeMap::default(),
             timeout: DEFAULT_TIMEOUT,
             format: None,
@@ -313,13 +318,13 @@ impl Default for PassthroughSourceConfig {
             attribution: None,
             cache: CachePolicy::default(),
             cache_control: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_hillshade: None,
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_contour: None,
             unrecognized: UnrecognizedValues::default(),
         }
@@ -349,15 +354,14 @@ impl PassthroughSourceConfig {
             bounds: self.bounds,
             attribution: self.attribution.clone(),
         };
-        let urls = self.url.as_slice().to_vec();
-        let upstream = Upstream::from_config(&id, &urls, format, meta)?;
+        let upstream = Upstream::from_config(&id, &self.url, format, meta)?;
         let transport = Transport::from_string_headers(
             self.timeout,
             self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
         )?;
         let cache = self.cache.or(default_cache);
         let source = PassthroughSource::new(id, upstream, transport, cache.zoom()).await?;
-        Ok(Box::new(source))
+        Ok(BackendSource::Passthrough(source).boxed())
     }
 }
 
@@ -380,9 +384,9 @@ mod tests {
         let src = &cfg.sources.as_ref().unwrap()["osm"];
         assert_eq!(
             src,
-            &PassthroughSrc::Shorthand(OptOneMany::One(
+            &PassthroughSrc::Shorthand(vec![
                 "https://tiles.example.com/{z}/{x}/{y}.pbf".to_owned()
-            ))
+            ])
         );
     }
 
@@ -395,7 +399,7 @@ mod tests {
                 - https://b.example.com/{z}/{x}/{y}.pbf
         "});
         let src = &cfg.sources.as_ref().unwrap()["osm"];
-        let PassthroughSrc::Shorthand(OptOneMany::Many(urls)) = src else {
+        let PassthroughSrc::Shorthand(urls) = src else {
             panic!("expected a list shorthand, got {src:?}");
         };
         assert_eq!(urls.len(), 2);
@@ -421,7 +425,7 @@ mod tests {
         };
         assert_eq!(
             obj.url,
-            OptOneMany::One("https://api.example.com/v1/{z}/{x}/{y}.mvt".to_owned())
+            vec!["https://api.example.com/v1/{z}/{x}/{y}.mvt".to_owned()]
         );
         assert_eq!(obj.headers["Authorization"], "Bearer token");
         assert_eq!(obj.timeout, Duration::from_secs(45));

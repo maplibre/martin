@@ -1,4 +1,5 @@
 ---
+description: Config file format, environment variables and JSON Schema validation
 icon: material/file-cog
 tags:
   - configuration
@@ -17,10 +18,6 @@ default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}
 ```bash
 martin --config config.yaml
 ```
-
-!!! warning "Deprecation of single-colon interpolation"
-    The legacy single-colon default `${MY_DATABASE_URL:postgres://postgres@localhost/db}` is still
-    accepted for backward compatibility, but is deprecated in favor of the `:-` form shown above.
 
 !!! tip "auto-generate a config file with `--save-config`"
     You can generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.

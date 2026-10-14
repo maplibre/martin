@@ -40,17 +40,24 @@ pub mod passthrough;
 #[cfg(feature = "_raster")]
 pub(crate) mod raster_codecs;
 
-#[cfg(feature = "contour")]
+#[cfg(feature = "processing")]
 pub mod contour;
 
-#[cfg(feature = "hillshade")]
+#[cfg(feature = "processing")]
 pub mod hillshade;
 
 #[cfg(feature = "_neighbourhood")]
 pub mod neighbourhood;
 
+pub mod any;
 mod source;
+#[cfg(feature = "_testing")]
+pub mod testing;
+pub use any::{AnySource, BackendSource};
 pub use source::{BoxedSource, Source, UrlQuery};
+
+mod declared_grid;
+pub use declared_grid::DeclaredGridSource;
 
 mod error;
 pub use error::{MartinCoreError, MartinCoreResult};
@@ -61,6 +68,6 @@ pub use tile::Tile;
 mod cache;
 pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache, TileCacheKey};
 
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 /// Implementation of `GeoJSON`' [`Source`]
 pub mod geojson;

@@ -10,12 +10,15 @@ use std::sync::Arc;
 use clap::Parser as _;
 use martin::StartupResult;
 use martin::config::args::Args;
+#[cfg(feature = "mbtiles")]
+use martin::config::args::Command;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
     feature = "unstable-cog",
-    feature = "geojson",
+    feature = "unstable-duckdb",
+    feature = "processing",
     feature = "pmtiles",
     feature = "postgres"
 ))]
@@ -36,28 +39,27 @@ use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[hotpath::measure]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the startup steps in the order they run"
+)]
 async fn start(
     args: Args,
     #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
 ) -> StartupResult<()> {
-    info!("Starting Martin v{VERSION}");
+    info!(martin.version = %VERSION, "Starting Martin");
 
     let env = OsEnv;
     let save_config = args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
-        info!("Using {}", cfg_filename.display());
+        info!(config.path = %cfg_filename.display(), "Using config file");
         read_config(cfg_filename, &env)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
     };
 
-    args.merge_into_config(
-        &mut config,
-        #[cfg(feature = "postgres")]
-        &env,
-    )?;
+    args.merge_into_config(&mut config)?;
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
@@ -74,11 +76,17 @@ async fn start(
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
-        feature = "geojson",
+        feature = "unstable-duckdb",
+        feature = "processing",
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    let reloaders = TileReloaders::init(&config, &sources.tile_manager, &resolver).await?;
+    let reloaders = if save_config.is_some() {
+        // The saved config lists every source, so they load before it is written.
+        Some(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?)
+    } else {
+        None
+    };
 
     if let Some(file_name) = save_config {
         config.save_to_file(
@@ -90,14 +98,26 @@ async fn start(
         info!("Use --save-config to save or print Martin configuration.");
     }
 
+    // Otherwise the sources load while the server starts.
     #[cfg(any(
         feature = "mbtiles",
         feature = "unstable-cog",
-        feature = "geojson",
+        feature = "unstable-duckdb",
+        feature = "processing",
         feature = "pmtiles",
         feature = "postgres"
     ))]
-    reloaders.start();
+    let loading = match reloaders {
+        Some(reloaders) => {
+            reloaders.start();
+            None
+        }
+        None => Some(TileReloaders::load(
+            config.clone(),
+            sources.tile_manager.clone(),
+            resolver.clone(),
+        )),
+    };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
@@ -114,17 +134,41 @@ async fn start(
         format!("http://{listen_addresses}/")
     };
 
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "processing",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    let Some(server) = serve_while_loading(server, loading).await? else {
+        return Ok(());
+    };
     #[cfg(all(feature = "webui", not(docsrs)))]
-    if web_ui_mode == WebUiMode::EnableForAll {
-        tracing::info!("Martin server is now active at {base_url}");
-    } else {
-        info!("Martin server is now active. See {base_url}catalog to see available services");
-        info!(
-            "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
-        );
+    match web_ui_mode {
+        WebUiMode::EnableForAll => info!(server.url = %base_url, "Martin server is now active"),
+        WebUiMode::Enable => {
+            info!(server.url = %base_url, "Martin server is now active");
+            info!(
+                "Web UI is only served to localhost connections. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
+            );
+        }
+        WebUiMode::Disable => {
+            info!(
+                server.url = %base_url,
+                "Martin server is now active. See /catalog for available services"
+            );
+            info!(
+                "Web UI is disabled. Use `--webui enable` or `--webui enable-for-all` in CLI or a config value to enable it."
+            );
+        }
     }
     #[cfg(not(all(feature = "webui", not(docsrs))))]
-    info!("Martin server is now active. See {base_url}catalog to see available services");
+    info!(
+        server.url = %base_url,
+        "Martin server is now active. See /catalog for available services"
+    );
 
     #[cfg(feature = "tui")]
     if let Some(dashboard) = dashboard {
@@ -143,19 +187,82 @@ async fn start(
     Ok(server.await?)
 }
 
+/// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "unstable-duckdb",
+    feature = "processing",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+async fn serve_while_loading<S, E>(
+    mut server: S,
+    loading: Option<tokio::task::JoinHandle<StartupResult<()>>>,
+) -> StartupResult<Option<S>>
+where
+    S: Future<Output = Result<(), E>> + Unpin,
+    martin::StartupError: From<E>,
+{
+    let Some(loading) = loading else {
+        return Ok(Some(server));
+    };
+    tokio::select! {
+        result = &mut server => {
+            result?;
+            Ok(None)
+        }
+        loaded = loading => {
+            loaded.expect("loading the sources panicked")?;
+            Ok(Some(server))
+        }
+    }
+}
+
 #[tokio::main]
 #[hotpath::main]
 async fn main() {
     let args = Args::parse();
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    let log_format = LogFormat::from_env();
-    #[cfg(feature = "tui")]
-    let dashboard = if args.meta.tui {
-        if !tui::is_available() {
-            eprintln!("--tui needs an interactive terminal");
-            std::process::exit(2);
+
+    #[cfg(feature = "mbtiles")]
+    if let Some(Command::Cp(copy_args)) = args.command {
+        let log_format = LogFormat::from_env();
+        init_tracing(&filter, log_format, true);
+        if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
+            let rendered = e.render_diagnostic_with(log_format);
+            if tracing::event_enabled!(tracing::Level::ERROR) {
+                error!("{rendered}");
+            } else {
+                eprintln!("{rendered}");
+            }
+            std::process::exit(1);
         }
-        Some(tui::install(&filter))
+        return;
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    if let Some(Command::Generate(generate_args)) = args.command {
+        init_tracing(&filter, LogFormat::from_env(), true);
+        if let Err(e) = Box::pin(martin::generate::start(generate_args)).await {
+            error!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    #[cfg(feature = "tui")]
+    let use_dashboard = !args.meta.no_tui && tui::is_available();
+    #[cfg(not(feature = "tui"))]
+    let use_dashboard = false;
+    let log_format = if use_dashboard {
+        LogFormat::from_env_or(LogFormat::Pretty)
+    } else {
+        LogFormat::from_env()
+    };
+    #[cfg(feature = "tui")]
+    let dashboard = if use_dashboard {
+        Some(tui::install(&filter, log_format))
     } else {
         init_tracing(&filter, log_format, false);
         None

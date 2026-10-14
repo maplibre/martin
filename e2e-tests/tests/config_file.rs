@@ -2,13 +2,8 @@
 
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, MartinBuilder};
-
-const PMTILES_SOURCE: &str = "
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-";
 
 async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
     builder
@@ -18,16 +13,16 @@ async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
         .expect("failed to start martin")
 }
 
-/// The keys named by every `Ignoring unrecognized configuration key '<key>'` line, sorted.
+/// The `config.key` of every `Ignoring unrecognized configuration key` line, sorted.
 /// The lines are consumed, so the assertion [`Martin`] drops with no longer sees them.
 fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
     let mut keys = martin
         .take_log_lines("Ignoring unrecognized configuration key")
         .iter()
         .map(|line| {
-            line.split('\'')
-                .nth(1)
-                .expect("the warning quotes the key it ignored")
+            line.split_once("config.key=")
+                .and_then(|(_, rest)| rest.split_whitespace().next())
+                .expect("the warning names the key it ignored")
                 .to_owned()
         })
         .collect::<Vec<_>>();
@@ -39,33 +34,33 @@ fn unrecognized_keys(martin: &mut Martin) -> Vec<String> {
 async fn every_section_reports_its_unrecognized_keys_by_full_path() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-warning: 'unrecognized'
-observability:
-  warning: 'unrecognized'
-  metrics:
-    warning: 'unrecognized'
-cors:
-  warning: 'unrecognized'
-  origin: ['*']
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-mbtiles:
-  warning: 'unrecognized'
-geojson:
-  warning: 'unrecognized'
-sprites:
-  warning: 'unrecognized'
-  paths: tests/fixtures/sprites/src1
-styles:
-  warning: 'unrecognized'
-  sources:
-    maplibre: tests/fixtures/styles/maplibre_demo.json
-fonts:
-  warning: 'unrecognized'
-",
+        indoc! {"
+            warning: 'unrecognized'
+            observability:
+              warning: 'unrecognized'
+              metrics:
+                warning: 'unrecognized'
+            cors:
+              warning: 'unrecognized'
+              origin: ['*']
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+            mbtiles:
+              warning: 'unrecognized'
+            geojson:
+              warning: 'unrecognized'
+            sprites:
+              warning: 'unrecognized'
+              paths: tests/fixtures/sprites/src1
+            styles:
+              warning: 'unrecognized'
+              sources:
+                maplibre: tests/fixtures/styles/maplibre_demo.json
+            fonts:
+              warning: 'unrecognized'
+        "},
     )
     .await;
 
@@ -82,20 +77,19 @@ fonts:
     styles.warning
     warning
     ");
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn an_unrecognized_key_does_not_stop_the_configured_sources_from_being_served() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-warning: 'unrecognized'
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            warning: 'unrecognized'
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -118,19 +112,20 @@ pmtiles:
         unrecognized_keys(&mut martin),
         ["pmtiles.warning", "warning"]
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
-        &format!(
-            "
-cog:
-  warning: 'unrecognized'
-{PMTILES_SOURCE}"
-        ),
+        indoc! {"
+            cog:
+              warning: 'unrecognized'
+
+            pmtiles:
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -140,34 +135,32 @@ cog:
         keys == ["cog"] || keys == ["cog.warning"],
         "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
 async fn an_object_store_option_is_reported_when_its_value_is_not_a_scalar() {
     let mut martin = start_with_config(
         Martin::builder(),
-        "
-pmtiles:
-  connect_timeout: 5s
-  timeout:
-    nested: 1
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            pmtiles:
+              connect_timeout: 5s
+              timeout:
+                nested: 1
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
     martin.stop().await;
     martin.assert_log_contains(
-        r#"Ignoring unrecognized configuration key 'pmtiles.timeout': Object {"nested": Number(1)}. Only boolean, string or number values are allowed here."#,
+        r#"Ignoring unrecognized configuration key: only boolean, string or number values are allowed here. Please check your configuration file for typos. config.key=pmtiles.timeout config.value=Object {"nested": Number(1)}"#,
     );
     assert_eq!(
         unrecognized_keys(&mut martin),
         Vec::<String>::new(),
         "`connect_timeout` names the same object store option set, so its scalar value is accepted"
     );
-    martin.assert_startup_warnings();
 }
 
 #[tokio::test]
@@ -176,13 +169,13 @@ async fn unrecognized_keys_are_left_out_of_the_saved_config() {
     let save_config = dir.path().join("save_config.yaml");
     let mut martin = start_with_config(
         Martin::builder().arg("--save-config").arg(&save_config),
-        "
-warning: 'unrecognized'
-pmtiles:
-  warning: 'unrecognized'
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-",
+        indoc! {"
+            warning: 'unrecognized'
+            pmtiles:
+              warning: 'unrecognized'
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+        "},
     )
     .await;
 
@@ -199,7 +192,6 @@ pmtiles:
         unrecognized_keys(&mut martin),
         ["pmtiles.warning", "warning"]
     );
-    martin.assert_startup_warnings();
 }
 
 #[cfg(feature = "test-pg")]
@@ -207,35 +199,35 @@ pmtiles:
 async fn the_postgres_section_reports_its_unrecognized_keys_per_source() {
     let mut martin = start_with_config(
         Martin::builder().with_postgres(),
-        "
-postgres:
-  warning: 'unrecognized'
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  tables:
-    points1:
-      warning: 'unrecognized'
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-  functions:
-    function_zxy_query:
-      warning: 'unrecognized'
-      schema: public
-      function: function_zxy_query
-",
+        indoc! {"
+            postgres:
+              warning: 'unrecognized'
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              tables:
+                points1:
+                  warning: 'unrecognized'
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+              functions:
+                function_zxy_query:
+                  warning: 'unrecognized'
+                  schema: public
+                  function: function_zxy_query
+        "},
     )
     .await;
 
     martin.stop().await;
     insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
-    postgres.functions.function_zxy_query.warning
-    postgres.tables.points1.warning
-    postgres.warning
+    postgres[0].functions.function_zxy_query.warning
+    postgres[0].tables.points1.warning
+    postgres[0].warning
     ");
 }
 
@@ -244,33 +236,26 @@ postgres:
 async fn the_postgres_auto_publish_section_reports_its_unrecognized_keys() {
     let mut martin = start_with_config(
         Martin::builder().with_postgres(),
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  auto_publish:
-    warning: 'unrecognized'
-    tables:
-      warning: 'unrecognized'
-      from_schemas: MixedCase
-    functions:
-      warning: 'unrecognized'
-      from_schemas: MixedCase
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              auto_publish:
+                warning: 'unrecognized'
+                tables:
+                  warning: 'unrecognized'
+                  from_schemas: MixedCase
+                functions:
+                  warning: 'unrecognized'
+                  from_schemas: MixedCase
+        "},
     )
     .await;
 
     martin.stop().await;
     insta::assert_snapshot!(unrecognized_keys(&mut martin).join("\n"), @"
-    postgres.auto_publish.functions.warning
-    postgres.auto_publish.tables.warning
-    postgres.auto_publish.warning
+    postgres[0].auto_publish.functions.warning
+    postgres[0].auto_publish.tables.warning
+    postgres[0].auto_publish.warning
     ");
-    for unindexed in [
-        "Table public.mat_view has no spatial index on column geom",
-        "Table public.table_source has no spatial index on column geom",
-        "Table public.table_source_geog has no spatial index on column geog",
-    ] {
-        martin.assert_log_contains(unindexed);
-    }
 }

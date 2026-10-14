@@ -1,4 +1,5 @@
 ---
+description: Combining several tile sources into one tile request
 icon: material/layers-triple
 tags:
   - tile-sources
@@ -12,6 +13,8 @@ Composite Sources allows combining multiple sources into one.
 Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
 
 Each source in a composite source can be accessed with its `{source_name}` as a `source-layer` property.
+
+--8<-- "images/sources/composite.svg"
 
 Composite source [TileJSON](https://github.com/mapbox/tilejson-spec) endpoint is available
 at `/{source1},...,{sourceN}`, and tiles are available at `/{source1},...,{sourceN}/{z}/{x}/{y}`.

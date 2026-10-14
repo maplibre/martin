@@ -1,4 +1,5 @@
 ---
+description: Logging with RUST_LOG and fixing common problems
 icon: material/lifebuoy
 tags:
   - troubleshooting

@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.19.3"
+version = "0.21.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level Mbtiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -11,6 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 homepage = "https://maplibre.org/martin/tools.html#mbtiles"
 
+[package.metadata.binstall]
+# the prebuilt archives are the martin ones, which hold both the `martin` and `mbtiles` binaries
+pkg-url = "{ repo }/releases/download/mbtiles-v{ version }/martin-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+
 [lib]
 path = "src/lib.rs"
 
@@ -18,6 +23,10 @@ path = "src/lib.rs"
 name = "mbtiles"
 path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
+
+[[bench]]
+name = "bulk"
+harness = false
 
 [[bench]]
 name = "transcode"
@@ -28,6 +37,7 @@ required-features = ["transcode"]
 default = ["cli"]
 cli = [
     "dep:anyhow",
+    "dep:bytesize",
     "dep:clap",
     "dep:indicatif",
     "dep:serde-saphyr",
@@ -40,12 +50,13 @@ hotpath = [
     "hotpath/tokio",
     "hotpath/futures",
 ]
-transcode = ["dep:bytes", "dep:rayon", "dep:moka"]
+transcode = ["dep:rayon", "dep:moka"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
-bytes = { workspace = true, optional = true }
+bytes.workspace = true
+bytesize = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 flume.workspace = true

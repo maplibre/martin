@@ -20,6 +20,7 @@ pub async fn purge_source(
     source_id: Path<String>,
     tile_manager: Data<TileSourceManager>,
 ) -> actix_web::Result<impl Responder> {
+    tile_manager.wait_for_sources(&source_id).await;
     tile_manager.tile_sources().get_source(&source_id)?;
     let Some(cache) = tile_manager.tile_cache() else {
         return Ok(HttpResponse::Ok().body(format!(

@@ -6,15 +6,19 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
+#[cfg(feature = "unstable-generate")]
+use super::deserialize_checked_tables;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
+#[cfg(feature = "unstable-generate")]
+use crate::config::file::tiling;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, UnrecognizedValues,
+    ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{OptBoolObj, OptOneMany};
+use crate::config::primitives::{OptBoolObj, one_or_many};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
 /// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
@@ -73,6 +77,11 @@ pub struct PostgresConfig {
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub default_srid: Option<i32>,
+    /// Tile grid the sources of this connection are served in, unless a source names its own \[default: `WebMercatorQuad`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
     /// Specify how bounds should be computed for the spatial PG tables \[default: quick\]
     ///
     /// Options:
@@ -132,7 +141,17 @@ pub struct PostgresConfig {
     /// - null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
+    /// Default `prefetch` for tables tiled by Martin's engine:
+    /// a cache miss renders the N×N block around the tile and caches the neighbours (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prefetch: Option<tiling::Prefetch>,
     /// Associative arrays of table sources
+    #[cfg_attr(
+        feature = "unstable-generate",
+        serde(default, deserialize_with = "deserialize_checked_tables")
+    )]
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
@@ -145,7 +164,7 @@ pub struct PostgresConfig {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -157,7 +176,7 @@ pub struct PostgresConfig {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -178,6 +197,7 @@ impl Default for PostgresConfig {
             connection_string: None,
             ssl_certificates: PostgresSslCerts::default(),
             default_srid: None,
+            tile_grid: None,
             auto_bounds: None,
             max_feature_count: None,
             pool_size: None,
@@ -185,11 +205,13 @@ impl Default for PostgresConfig {
             retry_timeout: None,
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
+            #[cfg(feature = "unstable-generate")]
+            prefetch: None,
             tables: None,
             functions: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
             unrecognized: UnrecognizedValues::default(),
         }
@@ -211,8 +233,12 @@ impl Default for PostgresConfig {
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Here we enable both tables and functions auto discovery.
     /// You can also enable just one of them by not mentioning the other, or
     /// setting it to false. Setting one to true disables the other one as well.
@@ -243,8 +269,12 @@ pub struct PostgresCfgPublish {
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
     #[serde(alias = "id_format")]
@@ -259,8 +289,12 @@ pub struct PostgresCfgPublishTables {
     /// If a list of strings is given, the first found column will be treated as a
     /// feature ID.
     #[serde(alias = "id_column")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub id_columns: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
@@ -293,8 +327,12 @@ pub struct PostgresCfgPublishTables {
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub from_schemas: OptOneMany<String>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<String>")
+    )]
+    pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the function's
     /// name and schema
     #[serde(alias = "id_format")]
@@ -307,6 +345,38 @@ pub struct PostgresCfgPublishFuncs {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+impl PostgresConfig {
+    /// Errors if this connection, or one of its sources, names a tile grid that is not configured.
+    pub fn check_tile_grids(&self, grids: &TileGrids) -> ConfigFileResult<()> {
+        let connection = self
+            .tile_grid
+            .as_deref()
+            .map(|grid| ("The connection's tile_grid".to_owned(), grid));
+        let tables = self.tables.iter().flatten().filter_map(|(id, table)| {
+            let grid = table.tile_grid.as_deref()?;
+            Some((format!("Table source {id}"), grid))
+        });
+        let functions = self
+            .functions
+            .iter()
+            .flatten()
+            .filter_map(|(id, function)| {
+                let grid = function.tile_grid.as_deref()?;
+                Some((format!("Function source {id}"), grid))
+            });
+        for (what, grid) in connection.into_iter().chain(tables).chain(functions) {
+            if grids.get(grid).is_none() {
+                return Err(ConfigFileError::UnknownTileGrid {
+                    what,
+                    grid: grid.to_owned(),
+                    known: grids.names().join(", "),
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 impl ConfigurationLivecycleHooks for PostgresConfig {
@@ -338,7 +408,6 @@ mod tests {
     use super::*;
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
-    use crate::config::primitives::OptOneMany::{Many, One};
     use crate::config::test_helpers::render_finalize_failure;
 
     pub fn parse_cfg(yaml: &str) -> Config {
@@ -351,6 +420,63 @@ mod tests {
         let res = config.get_unrecognized_keys();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_with_layers_is_tiled_by_the_engine() {
+        let config = parse_cfg(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              prefetch: 2
+              tables:
+                roads:
+                  schema: public
+                  table: roads
+                  srid: 4326
+                  geometry_column: geom
+                  prefetch: 1
+                  layers:
+                    roads: { simplify: 1, min_size: 0.5 }
+                cities:
+                  schema: public
+                  table: cities
+                  srid: 4326
+                  geometry_column: geom
+        "});
+        let pg = &config.postgres[0];
+        let tables = pg.tables.as_ref().unwrap();
+        assert_eq!(pg.prefetch.unwrap().tiles_per_side(), 2);
+        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side(), 1);
+        assert_eq!(tables["cities"].layers, None);
+        let expected: tiling::Layers =
+            serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
+        assert_eq!(tables["roads"].layers.as_deref(), Some(&expected));
+        assert!(config.get_unrecognized_keys().is_empty());
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_names_its_layer_one_way_only() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  tables:
+                    roads:
+                      schema: public
+                      table: roads
+                      srid: 4326
+                      geometry_column: geom
+                      layer_id: streets
+                      layers:
+                        roads: {}
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id` at line 4, column 5");
     }
 
     #[tokio::test]
@@ -401,11 +527,11 @@ mod tests {
               connection_string: 'postgresql://postgres@localhost/db'
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -423,12 +549,12 @@ mod tests {
                 maxzoom: 10
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     cache: CachePolicy::new(martin_core::CacheZoomRange::new(Some(1), Some(10))),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -444,12 +570,12 @@ mod tests {
               retry_timeout: infinite
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_owned()),
                     retry_timeout: Some(RetryTimeout::Infinite),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )
@@ -465,7 +591,7 @@ mod tests {
               - connection_string: 'postgresql://postgres@localhost:5433/db'
         "},
             &Config {
-                postgres: Many(vec![
+                postgres: vec![
                     PostgresConfig {
                         connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                         auto_publish: OptBoolObj::Bool(true),
@@ -478,7 +604,7 @@ mod tests {
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
-                ]),
+                ],
                 ..Default::default()
             },
         )
@@ -522,7 +648,7 @@ mod tests {
                   bounds: [-180.0, -90.0, 180.0, 90.0]
         "},
             &Config {
-                postgres: One(PostgresConfig {
+                postgres: vec![PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
                     default_srid: Some(4326),
                     pool_size: NonZeroUsize::new(20),
@@ -560,7 +686,7 @@ mod tests {
                         ),
                     )])),
                     ..Default::default()
-                }),
+                }],
                 ..Default::default()
             },
         )

@@ -1,13 +1,15 @@
 //! The generic [`ReloadDriver`] reconcile loop.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
-use crate::config::file::{SourceBuildError, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    MAX_CONCURRENT_SOURCE_INITS, SourceBuildError, SourceBuildResult, TileSourceWarning,
+};
 use crate::reload::ReloadAdvisory;
 
 /// What the catalog already holds for a driver's sources when it starts.
@@ -51,16 +53,31 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         &self.discovery
     }
 
-    /// Loads everything discovered into the sink and records it as the baseline, so the catalog
-    /// is populated by exactly one observation before serving starts.
+    /// Loads everything discovered into the sink a chunk at a time and records it as the baseline,
+    /// so the catalog is populated by exactly one observation.
     ///
     /// Construction and discovery warnings are returned for the caller's `on_invalid` policy.
     /// A discovery or apply error leaves the baseline unset and is returned.
     pub async fn init(&mut self) -> SourceBuildResult<Vec<TileSourceWarning>> {
         let discovered = self.discovery.discover().await?;
-        let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &discovered.sources).await;
-        self.sink.apply_changes(advisory).await?;
-        self.baseline = Some(discovered.sources);
+        let mut failed = BTreeSet::new();
+        // Published a chunk at a time, so a request for an early source does not wait for all of them.
+        let ids: Vec<&String> = discovered.sources.keys().collect();
+        for chunk in ids.chunks(MAX_CONCURRENT_SOURCE_INITS) {
+            let next = chunk
+                .iter()
+                .map(|&id| (id.clone(), discovered.sources[id].clone()))
+                .collect();
+            let advisory = Self::advisory(&self.discovery, &BTreeMap::new(), &next).await;
+            failed.extend(self.sink.apply_changes(advisory).await?.failed);
+            // Lets the tasks queued on this worker run, since building never waits on anything.
+            tokio::task::yield_now().await;
+        }
+        self.baseline = Some(Self::commit_applied(
+            &BTreeMap::new(),
+            &discovered.sources,
+            &failed,
+        ));
         let mut warnings = self.discovery.construction_warnings();
         warnings.extend(discovered.warnings);
         Ok(warnings)
@@ -80,11 +97,17 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         })
     }
 
-    /// Records the startup state without applying; the catalog was already populated at
-    /// startup, so applying would double-add.
+    /// Records the sources already installed during startup without applying them again.
     async fn seed(&mut self) {
         match self.discovery.discover().await {
-            Ok(next) => self.baseline = Some(next.sources),
+            Ok(next) => {
+                self.baseline = Some(
+                    next.sources
+                        .into_iter()
+                        .filter(|(id, _)| self.sink.contains(id))
+                        .collect(),
+                );
+            }
             Err(error) => {
                 tracing::warn!(?error, "reload seed discovery failed; baseline deferred");
             }
@@ -113,11 +136,32 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
 
         let advisory = Self::advisory(&self.discovery, prev, &next).await;
         match self.sink.apply_changes(advisory).await {
-            Ok(()) => self.baseline = Some(next),
+            Ok(outcome) => {
+                self.baseline = Some(Self::commit_applied(prev, &next, &outcome.failed));
+            }
             Err(error) => {
                 tracing::warn!(?error, "reload apply failed; retaining baseline for retry");
             }
         }
+    }
+
+    fn commit_applied(
+        prev: &BTreeMap<String, (Version, D::Args)>,
+        next: &BTreeMap<String, (Version, D::Args)>,
+        failed: &BTreeSet<String>,
+    ) -> BTreeMap<String, (Version, D::Args)> {
+        let mut baseline = next.clone();
+        for id in failed {
+            match prev.get(id) {
+                Some(entry) => {
+                    baseline.insert(id.clone(), entry.clone());
+                }
+                None => {
+                    baseline.remove(id);
+                }
+            }
+        }
+        baseline
     }
 
     async fn advisory(
@@ -157,58 +201,14 @@ mod tests {
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
 
-    use async_trait::async_trait;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use martin_core::tiles::BoxedSource;
+    use martin_core::tiles::testing::TestSource;
     use rstest::rstest;
-    use tilejson::{TileJSON, tilejson};
 
     use super::*;
     use crate::config::file::ResolvedProcess;
     use crate::config::file::tiles::discovery::Discovered;
-
-    /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    impl TestSource {
-        fn new(id: impl Into<String>) -> Self {
-            Self {
-                id: id.into(),
-                tj: tilejson! { tiles: vec!["https://example.com".to_owned()] },
-            }
-        }
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(vec![1, 2, 3])
-        }
-    }
+    use crate::config::file::tiles::driver::ApplyOutcome;
 
     /// Projects a [`ReloadAdvisory`] to the source ids in each bucket, for order-sensitive equality.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -277,7 +277,7 @@ mod tests {
             id: &str,
             _args: &(),
         ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
-            let source: BoxedSource = Box::new(TestSource::new(id));
+            let source: BoxedSource = TestSource::empty(id).boxed();
             std::future::ready(Ok(source.into()))
         }
 
@@ -311,11 +311,12 @@ mod tests {
         }
     }
 
-    /// Records every applied advisory and replays scripted results.
     #[derive(Clone)]
     struct SpySink {
         applied: Arc<Mutex<Vec<AdvisorySnapshot>>>,
         results: Arc<Mutex<VecDeque<SourceBuildResult<()>>>>,
+        served: Arc<Mutex<BTreeSet<String>>>,
+        failing: Arc<Mutex<BTreeSet<String>>>,
     }
 
     impl SpySink {
@@ -323,13 +324,31 @@ mod tests {
             Self {
                 applied: Arc::new(Mutex::new(Vec::new())),
                 results: Arc::new(Mutex::new(VecDeque::new())),
+                served: Arc::new(Mutex::new(BTreeSet::new())),
+                failing: Arc::new(Mutex::new(BTreeSet::new())),
             }
         }
 
         fn with_results(results: Vec<SourceBuildResult<()>>) -> Self {
-            let s = Self::new();
-            *s.results.lock().expect("SpySink results mutex poisoned") = results.into();
-            s
+            let sink = Self::new();
+            *sink.results.lock().expect("SpySink results mutex poisoned") = results.into();
+            sink
+        }
+
+        fn with_state(served: &[&str], failing: &[&str]) -> Self {
+            let sink = Self::new();
+            *sink.served.lock().expect("SpySink served mutex poisoned") =
+                served.iter().map(|id| (*id).to_owned()).collect();
+            *sink.failing.lock().expect("SpySink failing mutex poisoned") =
+                failing.iter().map(|id| (*id).to_owned()).collect();
+            sink
+        }
+
+        fn fail(&self, id: &str) {
+            self.failing
+                .lock()
+                .expect("SpySink failing mutex poisoned")
+                .insert(id.to_owned());
         }
 
         fn recorded(&self) -> Arc<Mutex<Vec<AdvisorySnapshot>>> {
@@ -338,26 +357,57 @@ mod tests {
     }
 
     impl Sink for SpySink {
+        fn contains(&self, id: &str) -> bool {
+            self.served
+                .lock()
+                .expect("SpySink served mutex poisoned")
+                .contains(id)
+        }
+
         fn apply_changes(
             &self,
             advisory: ReloadAdvisory,
-        ) -> impl Future<Output = SourceBuildResult<()>> + Send {
+        ) -> impl Future<Output = SourceBuildResult<ApplyOutcome>> + Send {
             self.applied
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
-            let result = self
+            if let Some(Err(error)) = self
                 .results
                 .lock()
                 .expect("SpySink results mutex poisoned")
                 .pop_front()
-                .unwrap_or(Ok(()));
-            std::future::ready(result)
+            {
+                return std::future::ready(Err(error));
+            }
+
+            let failing = self.failing.lock().expect("SpySink failing mutex poisoned");
+            let mut served = self.served.lock().expect("SpySink served mutex poisoned");
+            let mut failed = BTreeSet::new();
+            for source in advisory.additions.iter().chain(&advisory.updates) {
+                if failing.contains(&source.id) {
+                    failed.insert(source.id.clone());
+                } else {
+                    served.insert(source.id.clone());
+                }
+            }
+            for source in &advisory.removals {
+                served.remove(&source.id);
+            }
+            std::future::ready(Ok(ApplyOutcome { failed }))
         }
     }
 
     fn ids(v: &[&str]) -> Vec<String> {
         v.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn advisory(additions: &[&str], updates: &[&str], removals: &[&str]) -> AdvisorySnapshot {
+        AdvisorySnapshot {
+            additions: ids(additions),
+            updates: ids(updates),
+            removals: ids(removals),
+        }
     }
 
     /// One tick diffs the seeded baseline against the next discovery and applies a single advisory.
@@ -391,8 +441,10 @@ mod tests {
         #[case] updates: Vec<String>,
         #[case] removals: Vec<String>,
     ) {
-        let discovery = FakeDiscovery::new(vec![Ok(before), Ok(after)]);
         let sink = SpySink::new();
+        *sink.served.lock().expect("SpySink served mutex poisoned") =
+            before.keys().cloned().collect();
+        let discovery = FakeDiscovery::new(vec![Ok(before), Ok(after)]);
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
@@ -440,7 +492,7 @@ mod tests {
     async fn seed_does_not_apply() {
         // No triggers: the driver only seeds, which must not apply (catalog already populated).
         let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
-        let sink = SpySink::new();
+        let sink = SpySink::with_state(&["a"], &[]);
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
@@ -461,7 +513,7 @@ mod tests {
                 ("b", Version::Tracked(1)),
             ])),
         ]);
-        let sink = SpySink::new();
+        let sink = SpySink::with_state(&["a", "b"], &[]);
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
@@ -540,7 +592,7 @@ mod tests {
                 ("b", Version::Tracked(1)),
             ])),
         ]);
-        let sink = SpySink::new();
+        let sink = SpySink::with_state(&["a"], &[]);
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
@@ -556,6 +608,134 @@ mod tests {
                 removals: ids(&[]),
             }]
         );
+    }
+
+    #[tokio::test]
+    async fn init_retries_a_skipped_build() {
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+        ]);
+        let sink = SpySink::with_state(&[], &["b"]);
+        let recorded = sink.recorded();
+        let mut driver = ReloadDriver::new(discovery, sink);
+
+        driver.init().await.expect("init");
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![advisory(&["a", "b"], &[], &[]), advisory(&["b"], &[], &[])]
+        );
+    }
+
+    #[tokio::test]
+    async fn init_applies_in_chunks_and_retries_skipped_builds_from_each() {
+        let source_ids: Vec<String> = (0..=MAX_CONCURRENT_SOURCE_INITS)
+            .map(|i| format!("s{i:02}"))
+            .collect();
+        let entries: Vec<(&str, Version)> = source_ids
+            .iter()
+            .map(|id| (id.as_str(), Version::Tracked(1)))
+            .collect();
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&entries)), Ok(snapshot(&entries))]);
+        let (first_chunk, second_chunk) = source_ids.split_at(MAX_CONCURRENT_SOURCE_INITS);
+        let skipped = [first_chunk[0].as_str(), second_chunk[0].as_str()];
+        let sink = SpySink::with_state(&[], &skipped);
+        let recorded = sink.recorded();
+        let mut driver = ReloadDriver::new(discovery, sink);
+
+        driver.init().await.expect("init");
+        driver
+            .spawn(ManualTrigger::new(1), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                AdvisorySnapshot {
+                    additions: first_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                AdvisorySnapshot {
+                    additions: second_chunk.to_vec(),
+                    updates: ids(&[]),
+                    removals: ids(&[]),
+                },
+                advisory(&skipped, &[], &[]),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn reconcile_retries_only_the_skipped_update() {
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(2)),
+                ("b", Version::Tracked(2)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(2)),
+                ("b", Version::Tracked(2)),
+            ])),
+        ]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+        let mut driver = ReloadDriver::new(discovery, sink.clone());
+
+        driver.init().await.expect("init");
+        sink.fail("b");
+        driver
+            .spawn(ManualTrigger::new(2), Baseline::Initialized)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![
+                advisory(&["a", "b"], &[], &[]),
+                advisory(&[], &["a", "b"], &[]),
+                advisory(&[], &["b"], &[]),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn seed_excludes_sources_missing_from_the_sink() {
+        let discovery = FakeDiscovery::new(vec![
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
+        ]);
+        let sink = SpySink::with_state(&["a"], &["b"]);
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(*recorded.lock().unwrap(), vec![advisory(&["b"], &[], &[])]);
     }
 
     #[tokio::test]

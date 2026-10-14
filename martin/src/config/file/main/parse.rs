@@ -1,8 +1,5 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
-
-use tracing::warn;
 
 use super::Config;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
@@ -15,66 +12,11 @@ pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config>
     parse_config(&contents, &env.as_property_map(), file_name)
 }
 
-/// Postgres env vars Martin still reads implicitly, but will stop in the future
-#[cfg(feature = "postgres")]
-const LEGACY_ENV_VARS: [(&str, &str, &str); 5] = [
-    (
-        "DATABASE_URL",
-        r#"martin "$DATABASE_URL""#,
-        "postgres.connection_string: ${DATABASE_URL}",
-    ),
-    (
-        "DEFAULT_SRID",
-        r#"--default-srid "$DEFAULT_SRID""#,
-        "postgres.default_srid: ${DEFAULT_SRID}",
-    ),
-    (
-        "PGSSLCERT",
-        r#"--ssl-cert "$PGSSLCERT""#,
-        "postgres.ssl_cert: ${PGSSLCERT}",
-    ),
-    (
-        "PGSSLKEY",
-        r#"--ssl-key "$PGSSLKEY""#,
-        "postgres.ssl_key: ${PGSSLKEY}",
-    ),
-    (
-        "PGSSLROOTCERT",
-        r#"--ca-root-file "$PGSSLROOTCERT""#,
-        "postgres.ssl_root_cert: ${PGSSLROOTCERT}",
-    ),
-];
-
-/// Warn once at startup about legacy Postgres env vars Martin still reads implicitly.
-#[cfg(feature = "postgres")]
-pub fn warn_legacy_env_vars(env: &impl Env) {
-    for (name, cli, config_key) in LEGACY_ENV_VARS {
-        if env.var_os(name).is_some() {
-            warn!(
-                "Environment variable {name} is deprecated; use `{config_key}` in your configuration file (or `{cli}` on the command line) instead. See https://maplibre.org/martin/env-vars/"
-            );
-        }
-    }
-}
-
 pub fn parse_config(
     contents: &str,
     properties: &HashMap<String, String>,
     file_name: &Path,
 ) -> ConfigFileResult<Config> {
-    let contents = rewrite_legacy_substitution_syntax(contents);
-    let migrated = if needs_deprecated_migration(&contents) {
-        match serde_saphyr::from_str::<serde_json::Value>(&contents) {
-            Ok(mut value) => {
-                migrate_deprecated_config(&mut value);
-                serde_saphyr::to_string(&value).unwrap_or_else(|_| contents.to_string())
-            }
-            Err(_) => contents.to_string(),
-        }
-    } else {
-        contents.to_string()
-    };
-
     // `with_snippet: false` keeps saphyr's hardcoded `<input>` source name out of the
     // diagnostic -- `ConfigFileError::to_miette_report` re-attaches a snippet against
     // our own NamedSource carrying the real file path.
@@ -84,173 +26,20 @@ pub fn parse_config(
     }
     .with_properties(properties.clone());
 
-    serde_saphyr::from_str_with_options::<Config>(&migrated, options)
-        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
-}
-
-/// Rewrites the legacy single-colon default `${VAR:default}` to serde-saphyr's `${VAR:-default}`,
-/// warning once when anything changes.
-///
-/// Martin <= 1.10 used the `subst` crate's single-colon syntax; serde-saphyr rejects it outright,
-/// so without this those configs fail to load. Substitution inside quoted scalars and `subst`'s
-/// backslash escaping are not restored -- both are unrelated to the single-colon default.
-fn rewrite_legacy_substitution_syntax(contents: &str) -> Cow<'_, str> {
-    static WARNED: std::sync::Once = std::sync::Once::new();
-
-    if !contents.contains("${") {
-        return Cow::Borrowed(contents);
-    }
-
-    // One segment per reference body, so nested `${a:x${b:y}}` splits into its own body.
-    let mut segments = contents.split("${");
-    let first = segments.next().unwrap_or("");
-    let mut out = String::with_capacity(contents.len() + 8);
-    out.push_str(first);
-
-    let mut prev = first;
-    let mut rewrites = 0usize;
-    for body in segments {
-        out.push_str("${");
-        // A `${` after an odd run of `$` is escaped (`$$` -> literal `$`), not a reference.
-        let escaped = prev.bytes().rev().take_while(|&b| b == b'$').count() % 2 == 1;
-        match rewrite_reference_body(body).filter(|_| !escaped) {
-            Some(rewritten) => {
-                out.push_str(&rewritten);
-                rewrites += 1;
-            }
-            None => out.push_str(body),
-        }
-        prev = body;
-    }
-
-    if rewrites == 0 {
-        return Cow::Borrowed(contents);
-    }
-
-    WARNED.call_once(|| {
-        warn!(
-            deprecated_tokens = rewrites,
-            "Deprecated `${{VAR:default}}` substitution syntax in config; use `${{VAR:-default}}`. Support for the single-colon form will be removed in a future release."
-        );
-    });
-    Cow::Owned(out)
-}
-
-/// Rewrites the operator colon (the first `:` before the closing `}`) of one `${...}` body from
-/// `:default` to `:-default`, returning `None` when it is already an operator or absent.
-fn rewrite_reference_body(body: &str) -> Option<String> {
-    let end = body.find('}').unwrap_or(body.len());
-    let (name, default) = body.get(..end)?.split_once(':')?;
-    if default.starts_with(['-', '+', '?']) {
-        return None;
-    }
-    let rest = body.get(end..).unwrap_or_default();
-    Some(format!("{name}:-{default}{rest}"))
-}
-
-/// Cheap pre-check: does the YAML mention any deprecated cache key?
-///
-/// False positives are harmless (the fast path is identical to the slow path's no-op
-/// migration), so a substring search is sufficient.
-fn needs_deprecated_migration(yaml: &str) -> bool {
-    yaml.contains("cache_size_mb")
-        || yaml.contains("tile_cache_size_mb")
-        || yaml.contains("directory_cache_size_mb")
-}
-
-/// Migrates deprecated cache configuration keys in raw YAML before deserialization.
-///
-/// This runs on the `serde_json::Value` directly, so the `Config` struct
-/// never needs to know about deprecated field names.
-fn migrate_deprecated_config(value: &mut serde_json::Value) {
-    let Some(root) = value.as_object_mut() else {
-        return;
-    };
-
-    migrate_json_key(root, "cache_size_mb", &["cache", "size_mb"]);
-    migrate_json_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
-
-    for section in ["sprites", "fonts"] {
-        if let Some(mapping) = root.get_mut(section).and_then(|v| v.as_object_mut()) {
-            migrate_json_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
-        }
-    }
-
-    if let Some(mapping) = root.get_mut("pmtiles").and_then(|v| v.as_object_mut()) {
-        migrate_json_key(
-            mapping,
-            "directory_cache_size_mb",
-            &["directory_cache", "size_mb"],
-        );
-    }
-}
-
-/// Moves a deprecated key in a JSON map to a new nested location.
-///
-/// `new_path` is a slice of keys describing the nested destination,
-/// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
-///
-/// If the new key already exists, the old value is dropped with a warning.
-/// If only the old key exists, it is moved to the new location.
-fn migrate_json_key(
-    mapping: &mut serde_json::Map<String, serde_json::Value>,
-    old_key: &str,
-    new_path: &[&str],
-) {
-    debug_assert!(!new_path.is_empty(), "new_path must not be empty");
-
-    let Some(old_value) = mapping.remove(old_key) else {
-        return;
-    };
-
-    let new_key_display = new_path.join(".");
-
-    let [parents @ .., leaf] = new_path else {
-        return;
-    };
-    let mut current = &mut *mapping;
-    for &segment in parents {
-        if !current.contains_key(segment) {
-            current.insert(
-                segment.to_owned(),
-                serde_json::Value::Object(serde_json::Map::default()),
-            );
-        }
-        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_object_mut()) else {
-            warn!(
-                "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
-                 Please remove `{old_key}` from your configuration"
-            );
-            return;
-        };
-        current = nested;
-    }
-
-    if current.contains_key(*leaf) {
-        warn!(
-            "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
-             Please remove `{old_key}` from your configuration"
-        );
-    } else {
-        current.insert((*leaf).to_owned(), old_value);
-    }
+    serde_saphyr::from_str_with_options::<Config>(contents, options)
+        .map_err(|e| ConfigFileError::yaml_parse(e, contents.to_owned(), file_name))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches;
-    use std::collections::HashMap;
+    use std::collections::{BTreeSet, HashMap};
     use std::path::Path;
     use std::time::Duration;
 
     use rstest::rstest;
 
     use super::*;
-    #[cfg(any(feature = "sprites", feature = "fonts"))]
-    use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
-    #[cfg(feature = "postgres")]
-    use crate::config::primitives::OptOneMany;
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -272,10 +61,6 @@ mod tests {
     fn parse_with_env(yaml: &str, env: &HashMap<String, String>) -> Config {
         parse_config(yaml, env, Path::new("test.yaml")).unwrap()
     }
-
-    // ----- `parse_config` pipeline diagnostics: failures that don't belong to a single
-    // ----- field's deserializer (raw YAML syntax, ${VAR} substitution, derive-`Deserialize`
-    // ----- enums) live here next to the function under test.
 
     #[test]
     fn syntax_error_unbalanced_quote() {
@@ -320,7 +105,7 @@ mod tests {
 
     #[test]
     fn substitution_undefined_variable() {
-        insta::assert_snapshot!(render_failure("cache_size_mb: ${UNDEFINED_VAR}\n"), @"
+        insta::assert_snapshot!(render_failure("cache:\n  size_mb: ${UNDEFINED_VAR}\n"), @"
         martin::config::substitution (https://maplibre.org/martin/config-file/)
 
           × missing property `UNDEFINED_VAR`
@@ -329,6 +114,22 @@ mod tests {
          2 │   size_mb: ${UNDEFINED_VAR}
            ·            ────────┬───────
            ·                    ╰── missing property `UNDEFINED_VAR`
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        ");
+    }
+
+    #[test]
+    fn substitution_single_colon_default() {
+        insta::assert_snapshot!(render_failure("base_path: ${BASE:fallback}\n"), @"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Invalid name: '${BASE:fallback}'
+           ╭─[config.yaml:1:12]
+         1 │ base_path: ${BASE:fallback}
+           ·            ────────┬───────
+           ·                    ╰── Invalid name: '${BASE:fallback}'
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -366,7 +167,7 @@ mod tests {
 
     #[test]
     fn substitution_failure_renders_as_json() {
-        let json = render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
+        let json = render_failure_json("cache:\n  size_mb: ${UNDEFINED_VAR}\n");
         let parsed: serde_json::Value =
             serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
@@ -382,28 +183,19 @@ mod tests {
     }
 
     #[test]
-    fn cache_migrates_old_to_new_cache_config_key() {
-        let config = parse_yaml("cache_size_mb: 512");
-        assert_eq!(config.cache.size_mb, Some(512));
-    }
+    fn deprecated_cache_keys_are_unrecognized() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
 
-    #[test]
-    fn migrate_tile_cache_size_mb_to_cache_tile_size_mb() {
-        let config = parse_yaml("tile_cache_size_mb: 256");
-        assert_eq!(config.cache.tile_size_mb, Some(256));
-    }
-
-    #[test]
-    fn migrate_both_old_cache_keys() {
         let config = parse_yaml("cache_size_mb: 512\ntile_cache_size_mb: 256");
-        assert_eq!(config.cache.size_mb, Some(512));
-        assert_eq!(config.cache.tile_size_mb, Some(256));
-    }
-
-    #[test]
-    fn new_cache_key_overrides_old() {
-        let config = parse_yaml("cache_size_mb: 100\ncache:\n  size_mb: 200");
-        assert_eq!(config.cache.size_mb, Some(200));
+        assert_eq!(config.cache, GlobalCacheConfig::default());
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "cache_size_mb",
+            "tile_cache_size_mb",
+        }
+        "#);
     }
 
     #[test]
@@ -412,41 +204,6 @@ mod tests {
             parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
         assert_eq!(config.cache.size_mb, Some(512));
         assert_eq!(config.cache.tile_size_mb, Some(256));
-    }
-
-    #[cfg(feature = "sprites")]
-    #[test]
-    fn migrate_sprites_cache_size_mb() {
-        let config = parse_yaml("sprites:\n  cache_size_mb: 64\n  paths: /tmp");
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(64));
-    }
-
-    #[cfg(feature = "fonts")]
-    #[test]
-    fn migrate_fonts_cache_size_mb() {
-        let config = parse_yaml("fonts:\n  cache_size_mb: 32\n  paths: /tmp");
-        let FileConfigEnum::Config(cfg) = &config.fonts else {
-            panic!("expected fonts config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(32));
-    }
-
-    #[test]
-    fn migrate_skips_non_mapping_intermediate() {
-        // `cache: true` is not a mapping, so migration of cache_size_mb should
-        // gracefully skip rather than panic, and the parse should still succeed
-        // (cache will be deserialized from whatever value it has).
-        let result = parse_config(
-            "cache: true\ncache_size_mb: 100",
-            &HashMap::<String, String>::new(),
-            Path::new("test.yaml"),
-        );
-        // The parse may fail (cache: true is not a valid GlobalCacheConfig),
-        // but it must not panic.
-        let _ = result;
     }
 
     #[test]
@@ -468,14 +225,11 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[test]
     fn cache_disable_sprites() {
         let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(0));
+        assert_eq!(config.sprites.custom.cache.size_mb, Some(0));
     }
 
     #[test]
@@ -505,18 +259,16 @@ mod tests {
         assert_eq!(config.cache.tile_idle_timeout, None);
     }
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[test]
     fn cache_expiry_sprites() {
         let config = parse_yaml(
             "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
         );
-        let FileConfigEnum::Config(cfg) = &config.sprites else {
-            panic!("expected sprites config");
-        };
-        assert_eq!(cfg.custom.cache.size_mb, Some(64));
-        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
-        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
+        let cache = &config.sprites.custom.cache;
+        assert_eq!(cache.size_mb, Some(64));
+        assert_eq!(cache.expiry, Some(Duration::from_hours(2)));
+        assert_eq!(cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 
     #[rstest]
@@ -544,78 +296,13 @@ mod tests {
         let env = props(&[("BASE", "/my/path")]);
         let yaml = format!("postgres:\n  connection_string: {input}\n");
         let config = parse_with_env(&yaml, &env);
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [pg] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
-    }
-
-    #[rstest]
-    #[case::var_set("${BASE:fallback}", "/my/path")]
-    #[case::var_unset("${UNSET:fallback}", "fallback")]
-    fn substitution_single_colon_default_is_translated(
-        #[case] input: &str,
-        #[case] expected: &str,
-    ) {
-        let env = props(&[("BASE", "/my/path")]);
-        let config = parse_with_env(&format!("base_path: {input}\n"), &env);
-        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
-    }
-
-    #[rstest]
-    #[case::braced("base_path: ${BASE}\n")]
-    #[case::bare("base_path: $BASE\n")]
-    #[case::dash_default("base_path: ${BASE:-fallback}\n")]
-    #[case::plus_alternate("base_path: ${BASE:+set}\n")]
-    #[case::error_if_unset("connection_string: ${DB:?required}\n")]
-    #[case::bare_dash("base_path: ${BASE-fallback}\n")]
-    #[case::escaped_dollar("escaped: $$BASE\n")]
-    #[case::escaped_braced("escaped: $${a:b}\n")]
-    #[case::plain("plain: no substitution here\n")]
-    fn rewrite_legacy_substitution_syntax_borrows_when_unchanged(#[case] input: &str) {
-        assert_matches!(
-            rewrite_legacy_substitution_syntax(input),
-            Cow::Borrowed(_),
-            "should not rewrite: {input:?}"
-        );
-    }
-
-    #[rstest]
-    #[case::simple("${BASE:fallback}", "${BASE:-fallback}")]
-    #[case::colon_in_default("${UNSET:postgres://h:5432/db}", "${UNSET:-postgres://h:5432/db}")]
-    #[case::nested("${a:x${b:y}}", "${a:-x${b:-y}}")]
-    #[case::prefix_and_suffix("prefix-${BASE:def}-suffix", "prefix-${BASE:-def}-suffix")]
-    #[case::escaped_prefix("$$${a:b}", "$$${a:-b}")]
-    fn rewrite_legacy_substitution_syntax_translates_single_colon(
-        #[case] input: &str,
-        #[case] expected: &str,
-    ) {
-        match rewrite_legacy_substitution_syntax(input) {
-            Cow::Owned(s) => assert_eq!(s, expected, "input {input:?}"),
-            Cow::Borrowed(_) => panic!("expected rewrite for {input:?}"),
-        }
-    }
-
-    #[cfg(feature = "postgres")]
-    #[test]
-    fn substitution_legacy_single_colon_connection_string() {
-        let config = parse_with_env(
-            "postgres:\n  connection_string: ${UNSET:postgres://postgres@localhost:5432/db}\n",
-            &HashMap::new(),
-        );
-        let pg = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
-        };
-        assert_eq!(
-            pg.connection_string.as_deref(),
-            Some("postgres://postgres@localhost:5432/db")
-        );
     }
 
     #[rstest]
@@ -645,45 +332,15 @@ mod tests {
             Path::new("config.yaml"),
         )
         .expect("comments containing ${VAR} must not trigger substitution");
-        let one = match config.postgres {
-            OptOneMany::One(pg) => pg,
-            other @ (OptOneMany::NoVals | OptOneMany::Many(_)) => {
-                panic!("expected exactly one postgres config, got: {other:?}")
-            }
+        let [one] = config.postgres.as_slice() else {
+            panic!(
+                "expected exactly one postgres config, got: {:?}",
+                config.postgres
+            )
         };
         assert_eq!(
             one.connection_string.as_deref(),
             Some("postgres://postgres:postgres@db:5432/ehrenamtskarte"),
         );
-    }
-
-    #[rstest]
-    #[case::braced_in_migrated_key(
-        &[("SIZE", "512")],
-        "cache_size_mb: ${SIZE}\n",
-        Some(512), None, None,
-    )]
-    #[case::sibling_to_migrated_key(
-        &[("SIZE", "256"), ("BASE", "/served")],
-        "tile_cache_size_mb: ${SIZE}\nbase_path: ${BASE}\n",
-        None, Some(256), Some("/served"),
-    )]
-    #[case::bare_in_migrated_key(
-        &[("SIZE", "1024"), ("BASE", "/p")],
-        "cache_size_mb: $SIZE\nbase_path: $BASE\n",
-        Some(1024), None, Some("/p"),
-    )]
-    fn substitution_survives_deprecated_migration(
-        #[case] env_pairs: &[(&str, &str)],
-        #[case] yaml: &str,
-        #[case] expected_size_mb: Option<u64>,
-        #[case] expected_tile_size_mb: Option<u64>,
-        #[case] expected_base_path: Option<&str>,
-    ) {
-        let env = props(env_pairs);
-        let config = parse_with_env(yaml, &env);
-        assert_eq!(config.cache.size_mb, expected_size_mb);
-        assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
-        assert_eq!(config.srv.base_path.as_deref(), expected_base_path);
     }
 }

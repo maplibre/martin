@@ -8,7 +8,7 @@ use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
     CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError,
-    SourceBuildResult,
+    SourceBuildResult, TileGrids,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::SourceProvenance;
@@ -26,6 +26,8 @@ pub struct PostgresDiscovery {
     process: ProcessConfig,
     /// The connection level resolved, for every source without its own settings.
     resolved: ResolvedProcess,
+    /// The grids sources may be served in.
+    tile_grids: TileGrids,
     builder: OnceCell<PostgresAutoDiscoveryBuilder>,
 }
 
@@ -37,6 +39,7 @@ impl PostgresDiscovery {
         id_resolver: IdResolver,
         default_cache: CachePolicy,
         process: ProcessConfig,
+        tile_grids: TileGrids,
     ) -> Self {
         Self {
             config,
@@ -46,6 +49,7 @@ impl PostgresDiscovery {
                 .resolve()
                 .expect("the connection level carries no range-checked settings"),
             process,
+            tile_grids,
             builder: OnceCell::new(),
         }
     }
@@ -77,6 +81,7 @@ impl PostgresDiscovery {
                     &self.config,
                     self.id_resolver.clone(),
                     self.default_cache,
+                    &self.tile_grids,
                 )
                 .await
                 .map_err(SourceBuildError::from)
@@ -131,25 +136,25 @@ fn per_source_process(
 ) -> Result<ResolvedProcess, ProcessResolveError> {
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: info.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         },
         SourceSpec::Function(info, _) => ProcessConfig {
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: info.convert_to_mlt.clone(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: info.convert_to_mvt.clone(),
             cache_control: info.cache_control.clone(),
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         },
     };
@@ -159,7 +164,7 @@ fn per_source_process(
 fn log_published(id: &str, spec: &SourceSpec) {
     match spec {
         SourceSpec::Table(info) => {
-            let kind = match info.relkind {
+            let kind = match info.discovered.relkind {
                 Some('v') => "view",
                 Some('m') => "materialized view",
                 _ => "table",
@@ -214,6 +219,7 @@ mod tests {
             IdResolver::default(),
             CachePolicy::default(),
             ProcessConfig::default(),
+            TileGrids::default(),
         )
     }
 
@@ -334,7 +340,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
     #[test]
     fn per_source_convert_overrides_the_connection_level() {
         use crate::config::file::postgres::TableInfo;
@@ -344,9 +349,9 @@ mod tests {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
             cache_control: None,
-            #[cfg(feature = "hillshade")]
+            #[cfg(feature = "processing")]
             convert_to_hillshade: None,
-            #[cfg(feature = "contour")]
+            #[cfg(feature = "processing")]
             convert_to_contour: None,
         };
 

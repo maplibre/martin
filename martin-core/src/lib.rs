@@ -15,13 +15,17 @@ pub use cache_zoom_range::CacheZoomRange;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
+/// The reader contract of the tile generator.
+#[cfg(feature = "unstable-generate-source")]
+pub mod generate;
+
 /// Tile sources
 #[cfg(feature = "_tiles")]
 pub mod tiles;
 
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 mod resources;
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 pub use resources::*;
 
 /// Draw vector overlays (paths, markers) onto a rendered raster.

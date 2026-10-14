@@ -1,10 +1,12 @@
-use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::tiles::duckdb::sources::DuckDbSourceSettings;
+#[cfg(feature = "_tiles")]
+use crate::config::file::MltProcessConfig;
+use crate::config::file::process::ProcessConfig;
+use crate::config::file::tiles::duckdb::sources::{DuckDbSourceSettings, MvtLayerOptions};
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, SourceLocation, UnrecognizedValues,
 };
@@ -100,25 +102,13 @@ pub struct GeoParquetEntry {
     pub(crate) location: Option<GeoParquetLocation>,
     /// Optional output source/layer identifier override.
     pub layer_id: Option<String>,
-    /// Optional feature id column to use as MVT feature id.
-    pub id_column: Option<String>,
-    /// Optional geometry column name. Auto-detected when omitted.
-    pub geometry_column: Option<String>,
-    /// Optional source SRID. Auto-detected when omitted.
-    /// Non-positive values are treated as unset and fall back to auto-detection.
-    pub srid: Option<i32>,
-    /// Optional minimum zoom for source metadata.
-    pub minzoom: Option<u8>,
-    /// Optional maximum zoom for source metadata.
-    pub maxzoom: Option<u8>,
-    /// Optional tile extent (MVT coordinate space).
-    pub extent: Option<NonZeroU32>,
-    /// Optional geometry buffer in tile coordinate space.
-    pub buffer: Option<u32>,
-    /// Optional geometry clipping toggle.
-    pub clip_geom: Option<bool>,
+    #[serde(flatten)]
+    pub layer: MvtLayerOptions,
     #[serde(flatten)]
     pub settings: DuckDbSourceSettings,
+    #[cfg(feature = "_tiles")]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
     /// Unknown keys preserved for diagnostics.
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -126,23 +116,20 @@ pub struct GeoParquetEntry {
 }
 
 impl GeoParquetEntry {
-    pub fn finalize(&mut self) -> ConfigFileResult<()> {
-        if self.id_column.as_deref() == Some("") {
-            self.id_column = None;
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(feature = "_tiles")]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            ..ProcessConfig::default()
         }
+    }
+
+    pub fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.layer_id.as_deref() == Some("") {
             self.layer_id = None;
         }
-        if self.geometry_column.as_deref() == Some("") {
-            self.geometry_column = None;
-        }
-        if let Some(srid) = self.srid
-            && srid <= 0
-        {
-            // Treat non-positive values as "unset" so SRID falls back to auto-detection.
-            self.srid = None;
-        }
-
+        self.layer.finalize();
         self.location = Some(GeoParquetLocation::from_config(&self.geoparquet)?);
         Ok(())
     }
@@ -165,16 +152,19 @@ mod tests {
         let mut entry = GeoParquetEntry {
             geoparquet: path.to_string_lossy().into_owned(),
             layer_id: Some(String::new()),
-            id_column: Some(String::new()),
-            geometry_column: Some(String::new()),
+            layer: MvtLayerOptions {
+                id_column: Some(String::new()),
+                geometry_column: Some(String::new()),
+                ..MvtLayerOptions::default()
+            },
             ..GeoParquetEntry::default()
         };
 
         entry.finalize().expect("finalize");
 
         assert_eq!(entry.layer_id, None);
-        assert_eq!(entry.id_column, None);
-        assert_eq!(entry.geometry_column, None);
+        assert_eq!(entry.layer.id_column, None);
+        assert_eq!(entry.layer.geometry_column, None);
         assert_matches!(entry.location, Some(GeoParquetLocation::Local(_)));
     }
 

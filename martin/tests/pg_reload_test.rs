@@ -8,9 +8,9 @@ use actix_web::test::{TestRequest, call_service, init_service, read_body_json};
 use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
-use martin::config::file::ProcessConfig;
 use martin::config::file::reload::postgres::PostgresReloader;
 use martin::config::file::srv::SrvConfig;
+use martin::config::file::{ProcessConfig, TileGrids};
 use martin::config::primitives::IdResolver;
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 use serde_json::Value;
@@ -27,7 +27,7 @@ const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
 async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
     let container = Postgres::default()
         .with_name("postgis/postgis")
-        .with_tag("11-3.0") // purposely very old and stable
+        .with_tag("15-3.5") // purposely very old and stable
         .start()
         .await
         .expect("PostGIS container failed to start (is Docker running?)");
@@ -148,12 +148,12 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
         resolver,
         config
             .postgres
-            .iter()
-            .next()
+            .first()
             .cloned()
             .expect("one postgres config"),
         config.cache.policy(),
         &ProcessConfig::default(),
+        &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
     );
     let warnings = reloader.init().await.expect("init postgres sources");
     assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
@@ -167,7 +167,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
         actix_web::App::new()
             .app_data(Data::new(
                 martin::srv::Catalog::new(
-                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    #[cfg(feature = "resources")]
                     &state,
                 )
                 .expect("catalog"),

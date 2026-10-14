@@ -41,9 +41,6 @@ const HELP_STYLES: Styles = Styles::styled()
     styles = HELP_STYLES
 )]
 pub struct Args {
-    /// Display detailed information
-    #[arg(short, long, hide = true)]
-    verbose: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -155,8 +152,8 @@ enum Commands {
         /// Tile-cache `MBTiles` file to purge
         file: PathBuf,
         /// Also evict entries (soonest-expiring first) until the file's live size
-        /// is at most this many MB
-        #[arg(long)]
+        /// is at most this, e.g. `512MB` or `1GiB`. A bare number is in MB
+        #[arg(long, value_parser = parse_byte_size)]
         max_size: Option<u64>,
     },
     /// Unpack an `MBTiles` file into a directory tree of tiles
@@ -417,7 +414,14 @@ async fn main_int() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()> {
+fn parse_byte_size(s: &str) -> Result<u64, String> {
+    if let Ok(mb) = s.parse::<u64>() {
+        return Ok(mb.saturating_mul(bytesize::MB));
+    }
+    s.parse::<bytesize::ByteSize>().map(|size| size.as_u64())
+}
+
+async fn cache_purge(file: &Path, max_size: Option<u64>) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open().await?;
     if !mbt.is_cache(&mut conn).await? {
@@ -425,11 +429,12 @@ async fn cache_purge(file: &Path, max_size_mb: Option<u64>) -> anyhow::Result<()
     }
     let removed = mbt.purge_expired(&mut conn, UnixSeconds::now()).await?;
     println!("Removed {removed} expired tile entries");
-    if let Some(max_size_mb) = max_size_mb {
-        let evicted = mbt
-            .purge_cache_to_size(&mut conn, max_size_mb * 1_000_000)
-            .await?;
-        println!("Evicted {evicted} tile entries to fit under {max_size_mb} MB");
+    if let Some(max_size) = max_size {
+        let evicted = mbt.purge_cache_to_size(&mut conn, max_size).await?;
+        println!(
+            "Evicted {evicted} tile entries to fit under {}",
+            bytesize::ByteSize(max_size).display().si()
+        );
     }
     Ok(())
 }
@@ -560,7 +565,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "copy", "src_file", "dst_file"]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -575,7 +579,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "copy", "a", "b", "c", "dst_file"]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("a"), PathBuf::from("b"), PathBuf::from("c")],
                     dst_file: PathBuf::from("dst_file"),
@@ -600,7 +603,6 @@ mod tests {
         assert_eq!(
             args,
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -620,7 +622,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--strict"]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -684,7 +685,6 @@ mod tests {
                 "3,7,1"
             ]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -710,7 +710,6 @@ mod tests {
                 "no_file",
             ]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -733,7 +732,6 @@ mod tests {
                 "override"
             ]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -754,7 +752,6 @@ mod tests {
                 "mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"
             ]),
             Args {
-                verbose: false,
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
                     dst_file: PathBuf::from("dst_file"),
@@ -781,7 +778,6 @@ mod tests {
                 "override"
             ]),
             Args {
-                verbose: false,
                 command: Diff(DiffArgs {
                     file1: PathBuf::from("file1.mbtiles"),
                     file2: PathBuf::from("file2.mbtiles"),
@@ -811,7 +807,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-get", "src_file", "key"]),
             Args {
-                verbose: false,
                 command: MetaGetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_owned(),
@@ -835,7 +830,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-set", "src_file", "key"]),
             Args {
-                verbose: false,
                 command: MetaSetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_owned(),
@@ -850,7 +844,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "meta-set", "src_file", "key", "value"]),
             Args {
-                verbose: false,
                 command: MetaSetValue {
                     file: PathBuf::from("src_file"),
                     key: "key".to_owned(),
@@ -865,7 +858,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "apply-diff", "src_file", "diff_file"]),
             Args {
-                verbose: false,
                 command: ApplyPatch {
                     base_file: PathBuf::from("src_file"),
                     patch_file: PathBuf::from("diff_file"),
@@ -880,7 +872,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "validate", "src_file", "--agg-hash", "off"]),
             Args {
-                verbose: false,
                 command: Validate {
                     file: PathBuf::from("src_file"),
                     integrity_check: IntegrityCheckType::Quick,
@@ -902,7 +893,6 @@ mod tests {
         assert_eq!(
             Args::parse_from(["mbtiles", "pack", "src_dir", "out.mbtiles"]),
             Args {
-                verbose: false,
                 command: Pack {
                     input_directory: PathBuf::from("src_dir"),
                     output_file: PathBuf::from("out.mbtiles"),
@@ -927,7 +917,6 @@ mod tests {
                 "none",
             ]),
             Args {
-                verbose: false,
                 command: Pack {
                     input_directory: PathBuf::from("src_dir"),
                     output_file: PathBuf::from("out.mbtiles"),
@@ -960,7 +949,6 @@ mod tests {
                 "tms"
             ]),
             Args {
-                verbose: false,
                 command: Unpack {
                     input_file: PathBuf::from("in.mbtiles"),
                     output_directory: PathBuf::from("out_dir"),

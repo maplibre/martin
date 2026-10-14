@@ -12,7 +12,6 @@ use tracing::{debug, info, trace, warn};
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
-use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{
     BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name,
@@ -95,7 +94,7 @@ struct MbtileCopierInt {
 impl MbtilesCopier {
     #[hotpath::measure]
     pub async fn run(self) -> MbtResult<SqliteConnection> {
-        MbtileCopierInt::new(self)?.run().await
+        Box::pin(MbtileCopierInt::new(self)?.run()).await
     }
 
     pub(crate) fn dst_type(&self) -> Option<MbtType> {
@@ -104,8 +103,8 @@ impl MbtilesCopier {
                 MbtTypeCli::Flat => Flat,
                 MbtTypeCli::FlatWithHash => FlatWithHash,
                 MbtTypeCli::Normalized => Normalized {
-                    hash_view: true,
-                    schema: NormalizedSchema::Hash,
+                    hash_view: false,
+                    schema: NormalizedSchema::DedupId,
                 },
                 MbtTypeCli::Cache => Cache,
             })
@@ -168,7 +167,7 @@ impl MbtileCopierInt {
     async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
         let src_type = self.src_mbt.detect_type(&mut conn).await?;
-        let algorithm = self.dst_algorithm(&mut conn).await?;
+        let src_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
         conn.close().await?;
 
         conn = self.dst_mbt.open_or_new().await?;
@@ -182,32 +181,42 @@ impl MbtileCopierInt {
             return Err(MbtError::DestinationFileExists(self.options.dst_file));
         };
 
+        // A new file takes the requested algorithm or the source's, an existing file keeps its own
+        let algorithm = if is_empty_db {
+            self.options.hash_algorithm.unwrap_or(src_algorithm)
+        } else {
+            let destination = self.dst_mbt.get_hash_algorithm(&mut conn).await?;
+            if let Some(requested) = self.options.hash_algorithm
+                && requested != destination
+            {
+                return Err(MbtError::HashAlgorithmMismatch {
+                    requested,
+                    destination,
+                    filepath: self.options.dst_file,
+                });
+            }
+            destination
+        };
+        // Stored hashes are only forwarded when the destination keeps their algorithm
+        let rehash = algorithm != src_algorithm;
+        let hash_src_type = if rehash { Flat } else { src_type };
+
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
         let dst_type = if is_empty_db {
-            let mut dt = self.options.dst_type().unwrap_or(src_type);
-            // When copying from a DedupId source, always create standard Hash schema in destination
-            if let Normalized {
-                hash_view,
-                schema: NormalizedSchema::DedupId,
-            } = dt
-            {
-                dt = Normalized {
-                    hash_view,
-                    schema: NormalizedSchema::Hash,
-                };
-            }
-            dt
+            self.options.dst_type().unwrap_or(src_type)
         } else {
             self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
         };
 
         info!(
-            "Copying {src_mbt} ({src_type}) {what}to a {is_new} file {dst_mbt} ({dst_type})",
-            src_mbt = self.src_mbt,
-            what = self.copy_text(),
-            is_new = if is_empty_db { "new" } else { "existing" },
-            dst_mbt = self.dst_mbt,
+            src.path = %self.src_mbt,
+            src.type = %src_type,
+            dst.path = %self.dst_mbt,
+            dst.type = %dst_type,
+            dst.new = is_empty_db,
+            copy.type = %self.options.copy,
+            "Copying mbtiles file"
         );
 
         if is_empty_db {
@@ -215,12 +224,15 @@ impl MbtileCopierInt {
                 .await?;
         }
 
+        let map_algorithm = self.map_algorithm(hash_src_type, algorithm).await?;
         self.copy_with_rusqlite(
             &mut conn,
             on_duplicate,
             src_type,
             dst_type,
-            &get_select_from(src_type, dst_type, algorithm),
+            map_algorithm,
+            &get_select_from(hash_src_type, dst_type, algorithm),
+            rehash,
         )
         .await?;
 
@@ -269,14 +281,15 @@ impl MbtileCopierInt {
         }
 
         info!(
-            "Comparing {src_mbt} ({src_type}) and {dif_path} ({dif_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
-            src_mbt = self.src_mbt,
-            src_type = src_info.mbt_type,
-            dif_path = dif_mbt.filepath(),
-            dif_type = dif_info.mbt_type,
-            what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath(),
-            patch = patch_type_str(patch_type),
+            src.path = %self.src_mbt,
+            src.type = %src_info.mbt_type,
+            diff.path = %dif_mbt.filepath(),
+            diff.type = %dif_info.mbt_type,
+            dst.path = %self.dst_mbt.filepath(),
+            dst.type = %dst_type,
+            copy.type = %self.options.copy,
+            patch.type = patch_type.map(tracing::field::display),
+            "Comparing mbtiles files into a new diff file"
         );
 
         self.init_schema(&mut conn, src_info.mbt_type, dst_type, algorithm)
@@ -286,7 +299,9 @@ impl MbtileCopierInt {
             CopyDuplicateMode::Override,
             src_info.mbt_type,
             dst_type,
+            self.map_algorithm(src_info.mbt_type, algorithm).await?,
             &get_select_from_with_diff(dif_info.mbt_type, dst_type, patch_type, algorithm),
+            false,
         )
         .await?;
 
@@ -360,13 +375,15 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         info!(
-            "Applying patch from {dif_path} ({dif_type}) to {src_mbt} ({src_type}) {what}into a new file {dst_path} ({dst_type}){patch}",
-            dif_path = dif_mbt.filepath(),
-            dif_type = dif_info.mbt_type,
-            src_mbt = self.src_mbt,
-            what = self.copy_text(),
-            dst_path = self.dst_mbt.filepath(),
-            patch = patch_type_str(dif_info.patch_type),
+            diff.path = %dif_mbt.filepath(),
+            diff.type = %dif_info.mbt_type,
+            src.path = %self.src_mbt,
+            src.type = %src_type,
+            dst.path = %self.dst_mbt.filepath(),
+            dst.type = %dst_type,
+            copy.type = %self.options.copy,
+            patch.type = dif_info.patch_type.map(tracing::field::display),
+            "Applying patch into a new file"
         );
 
         self.init_schema(&mut conn, src_type, dst_type, algorithm)
@@ -376,7 +393,9 @@ impl MbtileCopierInt {
             CopyDuplicateMode::Override,
             src_type,
             dst_type,
+            self.map_algorithm(src_type, algorithm).await?,
             &get_select_from_apply_patch(src_type, &dif_info, dst_type, algorithm),
+            false,
         )
         .await?;
 
@@ -400,7 +419,7 @@ impl MbtileCopierInt {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
             if matches!(dif_info.patch_type, Some(BinDiffGz)) {
                 info!(
-                    "Skipping {AGG_TILES_HASH_AFTER_APPLY} validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
+                    "Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
                 );
             } else {
                 let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
@@ -456,25 +475,30 @@ impl MbtileCopierInt {
         Ok(src_info)
     }
 
-    const fn copy_text(&self) -> &str {
-        match self.options.copy {
-            CopyType::All => "",
-            CopyType::Tiles => "tiles data ",
-            CopyType::Metadata => "metadata ",
-        }
-    }
-
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call per copy path, a parameter struct would be built once each"
+    )]
     async fn copy_with_rusqlite(
         &self,
         conn: &mut SqliteConnection,
         on_duplicate: CopyDuplicateMode,
         src_type: MbtType,
         dst_type: MbtType,
+        map_algorithm: HashAlgorithm,
         select_from: &str,
+        rehash: bool,
     ) -> Result<(), MbtError> {
         if self.options.copy.copy_tiles() {
             action_with_rusqlite(conn, |c| {
-                self.copy_tiles(c, src_type, dst_type, on_duplicate, select_from)
+                self.copy_tiles(
+                    c,
+                    src_type,
+                    dst_type,
+                    on_duplicate,
+                    map_algorithm,
+                    select_from,
+                )
             })
             .await?;
         } else {
@@ -482,7 +506,7 @@ impl MbtileCopierInt {
         }
 
         if self.options.copy.copy_metadata() {
-            action_with_rusqlite(conn, |c| self.copy_metadata(c, on_duplicate)).await
+            action_with_rusqlite(conn, |c| self.copy_metadata(c, on_duplicate, rehash)).await
         } else {
             debug!("Skipping copying metadata");
             Ok(())
@@ -493,6 +517,7 @@ impl MbtileCopierInt {
         &self,
         rusqlite_conn: &Connection,
         on_duplicate: CopyDuplicateMode,
+        rehash: bool,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
         let sql;
@@ -515,7 +540,7 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}')"
             );
-            debug!("Copying metadata, taking into account diff file with {sql}");
+            debug!(sql = %sql, "Copying metadata, taking into account diff file");
         } else if self.options.apply_patch.is_some() {
             sql = format!(
                 "
@@ -530,13 +555,21 @@ impl MbtileCopierInt {
         ) joinedMD
         WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}')"
             );
-            debug!("Copying metadata, and applying the diff file with {sql}");
+            debug!(sql = %sql, "Copying metadata, and applying the diff file");
         } else {
+            // The source's aggregate hash is meaningless under another algorithm
+            let skipped = if rehash {
+                format!("'{HASH_ALGORITHM}', '{AGG_TILES_HASH}'")
+            } else {
+                format!("'{HASH_ALGORITHM}'")
+            };
             sql = format!(
                 "
-    INSERT {on_dupl} INTO metadata SELECT name, value FROM sourceDb.metadata"
+    INSERT {on_dupl} INTO metadata
+        SELECT name, value FROM sourceDb.metadata
+        WHERE name NOT IN ({skipped})"
             );
-            debug!("Copying metadata with {sql}");
+            debug!(sql = %sql, "Copying metadata");
         }
         rusqlite_conn.execute(&sql, [])?;
         Ok(())
@@ -548,6 +581,7 @@ impl MbtileCopierInt {
         src_type: MbtType,
         dst_type: MbtType,
         on_duplicate: CopyDuplicateMode,
+        map_algorithm: HashAlgorithm,
         select_from: &str,
     ) -> Result<(), MbtError> {
         let on_dupl = on_duplicate.to_sql();
@@ -571,7 +605,35 @@ impl MbtileCopierInt {
     {select_from} {where_clause} {sql_cond}"
                 )
             }
-            Normalized { .. } => {
+            Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
+                let create_tile_ids = NormalizedSchema::create_tile_ids_sql(map_algorithm);
+                format!(
+                    "
+    {create_tile_ids}
+
+    INSERT OR IGNORE INTO tile_ids
+           (tile_hash)
+    SELECT tile_hash
+    FROM ({select_from} {where_clause});
+
+    INSERT OR IGNORE INTO tiles_data
+           (tile_data_id, tile_data)
+    SELECT tile_data_id, tile_data
+    FROM ({select_from} {where_clause}) JOIN tile_ids USING (tile_hash);
+
+    INSERT {on_dupl} INTO tiles_shallow
+           (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT zoom_level, tile_column, tile_row, tile_data_id
+    FROM ({select_from} {where_clause} {sql_cond}) JOIN tile_ids USING (tile_hash);"
+                )
+            }
+            Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            } => {
                 let sql = format!(
                     "
     INSERT OR IGNORE INTO images
@@ -579,7 +641,7 @@ impl MbtileCopierInt {
     SELECT tile_hash as tile_id, tile_data
     FROM ({select_from} {where_clause})"
                 );
-                debug!("Copying to {dst_type} with {sql}");
+                debug!(dst.type = %dst_type, sql = %sql, "Copying tiles");
                 rusqlite_conn.execute(&sql, [])?;
 
                 format!(
@@ -615,8 +677,8 @@ impl MbtileCopierInt {
             }
         };
 
-        debug!("Copying to {dst_type} with {sql}");
-        rusqlite_conn.execute(&sql, [])?;
+        debug!(dst.type = %dst_type, sql = %sql, "Copying tiles");
+        rusqlite_conn.execute_batch(&sql)?;
 
         Ok(())
     }
@@ -670,7 +732,7 @@ impl MbtileCopierInt {
             for row in sql_objects {
                 let obj_type = row.get::<&str, _>(2);
                 let tbl_name = row.get::<&str, _>(1);
-                debug!("Creating {obj_type} {tbl_name}...");
+                debug!(sqlite.object.type = %obj_type, sqlite.object.name = %tbl_name, "Creating schema object");
                 let Some(sql) = row.get::<Option<String>, _>(0) else {
                     continue;
                 };
@@ -687,7 +749,7 @@ impl MbtileCopierInt {
                 };
                 query(AssertSqlSafe(sql)).execute(&mut *conn).await?;
             }
-            if dst.is_normalized() {
+            if dst.normalized_schema() == Some(NormalizedSchema::Hash) {
                 // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
@@ -701,20 +763,41 @@ impl MbtileCopierInt {
         Ok(())
     }
 
-    /// The algorithm the destination is hashed with, from the option or else the source file it is copied from.
-    async fn dst_algorithm(&self, src_conn: &mut SqliteConnection) -> MbtResult<HashAlgorithm> {
-        match self.options.hash_algorithm {
-            Some(algorithm) => Ok(algorithm),
-            None => self.src_mbt.get_hash_algorithm(src_conn).await,
-        }
-    }
-
-    /// [`Self::dst_algorithm`] on a connection of its own.
+    /// The algorithm a diff or patch is hashed with, from the option or else the source file.
     async fn src_algorithm(&self) -> MbtResult<HashAlgorithm> {
         let mut conn = self.src_mbt.open_readonly().await?;
-        let algorithm = self.dst_algorithm(&mut conn).await?;
+        let algorithm = match self.options.hash_algorithm {
+            Some(algorithm) => algorithm,
+            None => self.src_mbt.get_hash_algorithm(&mut conn).await?,
+        };
         conn.close().await?;
         Ok(algorithm)
+    }
+
+    /// The algorithm the `tile_hash` column read from the source is in, the source's own when it stores hashes, else the `algorithm` they are computed with.
+    async fn map_algorithm(
+        &self,
+        src_type: MbtType,
+        algorithm: HashAlgorithm,
+    ) -> MbtResult<HashAlgorithm> {
+        match src_type {
+            FlatWithHash
+            | Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            } => {
+                let mut conn = self.src_mbt.open_readonly().await?;
+                let stored = self.src_mbt.get_hash_algorithm(&mut conn).await?;
+                conn.close().await?;
+                Ok(stored)
+            }
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => Ok(algorithm),
+        }
     }
 
     /// Returns WHERE condition SQL depending on the override and destination type
@@ -723,7 +806,11 @@ impl MbtileCopierInt {
             CopyDuplicateMode::Ignore | CopyDuplicateMode::Override => String::new(),
             CopyDuplicateMode::Abort => {
                 let (main_table, tile_identifier) = match dst_type {
-                    Flat => ("tiles", "tile_data"),
+                    Flat
+                    | Normalized {
+                        schema: NormalizedSchema::DedupId,
+                        ..
+                    } => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
                     Normalized { schema, .. } => (schema.map_table(), schema.tile_id_column()),
                     Cache => ("tile_cache", "tile_data"),
@@ -770,7 +857,13 @@ impl MbtileCopierInt {
                 let (min_x, min_y, max_x, max_y) =
                     bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, MAX_ZOOM);
                 trace!(
-                    "Bounding box {bbox} converted to {min_x},{min_y},{max_x},{max_y} at zoom {MAX_ZOOM}"
+                    bbox = %bbox,
+                    tile.min_x = min_x,
+                    tile.min_y = min_y,
+                    tile.max_x = max_x,
+                    tile.max_y = max_y,
+                    tile.zoom = MAX_ZOOM,
+                    "Converted bounding box to tile range"
                 );
                 let (min_y, max_y) = (
                     invert_y_value(MAX_ZOOM, max_y),
@@ -808,8 +901,13 @@ fn get_select_from_apply_patch(
         match to_type {
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
-                // A Cache source/patch file is read via its `tiles` view, like Flat
-                Flat | Cache => {
+                // A Cache or dedup-id source/patch file is read via its `tiles` view, like Flat
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash("tile_data");
                     format!(
                         "
@@ -836,11 +934,16 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType, algorithm: HashAlgorithm) -> String {
             match typ {
-                Flat | Cache => {
+                Flat
+                | Cache
+                | Normalized {
+                    schema: NormalizedSchema::DedupId,
+                    ..
+                } => {
                     let hash = algorithm.sql_hash(&format!("{tbl}.tile_data"));
                     format!("IIF({tbl}.tile_data ISNULL, NULL, {hash})")
                 }
-                FlatWithHash | Normalized { .. } => format!("{tbl}.tile_hash"),
+                FlatWithHash | Normalized { .. } => format!("upper({tbl}.tile_hash)"),
             }
         }
 
@@ -895,36 +998,53 @@ fn get_select_from_with_diff(
     patch_type: Option<PatchType>,
     algorithm: HashAlgorithm,
 ) -> String {
-    let tile_hash_expr: String;
-    let diff_tiles: String;
-    if dst_type == Flat {
-        tile_hash_expr = String::new();
-        diff_tiles = "diffDb.tiles".to_owned();
-    } else {
-        tile_hash_expr = match dif_type {
-            Flat | Cache => {
-                let hash = algorithm.sql_hash("difTiles.tile_data");
-                format!(", COALESCE({hash}, '') as tile_hash")
-            }
-            FlatWithHash | Normalized { .. } => {
-                ", COALESCE(difTiles.tile_hash, '') as tile_hash".to_owned()
-            }
-        };
-        diff_tiles = match dif_type {
-            Flat | Cache => "diffDb.tiles".to_owned(),
+    let tile_hash_expr: String = match (dst_type, dif_type) {
+        (Flat, _) => String::new(),
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => {
+            let hash = algorithm.sql_hash("difTiles.tile_data");
+            format!(", COALESCE({hash}, '') as tile_hash")
+        }
+        (_, FlatWithHash | Normalized { .. }) => {
+            ", COALESCE(upper(difTiles.tile_hash), '') as tile_hash".to_owned()
+        }
+    };
+
+    let diff_tiles: String = match (dst_type, dif_type) {
+        (
+            _,
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            },
+        ) => "diffDb.tiles".to_owned(),
+        (
+            _,
             Normalized {
                 hash_view: true, ..
             }
-            | FlatWithHash => "diffDb.tiles_with_hash".to_owned(),
+            | FlatWithHash,
+        ) => "diffDb.tiles_with_hash".to_owned(),
+        (
+            _,
             Normalized {
                 hash_view: false,
                 schema,
-            } => format!(
-                "({})",
-                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
-            ),
-        };
-    }
+            },
+        ) => format!(
+            "({})",
+            schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+        ),
+    };
 
     let sql_cond = if patch_type.is_some() {
         ""
@@ -955,9 +1075,14 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
             .to_owned()
     } else {
         match src_type {
-            // A Cache source has no md5 hashes, so like Flat it is read via the
+            // Cache and dedup-id sources store no hashes, so like Flat they are read via the
             // `tiles` view with hashes computed on the fly
-            Flat | Cache => {
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
                 let hash = algorithm.sql_hash("tile_data");
                 format!(
                     "
@@ -967,7 +1092,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
                 )
             }
             FlatWithHash => "
-        SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(tile_hash) AS tile_hash
         FROM sourceDb.tiles_with_hash
         WHERE TRUE"
                 .to_owned(),
@@ -979,7 +1104,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
                 );
                 format!(
                     "
-        SELECT zoom_level, tile_column, tile_row, tile_data, {map}.{id} AS tile_hash
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper({map}.{id}) AS tile_hash
         FROM sourceDb.{map} JOIN sourceDb.{img}
           ON sourceDb.{map}.{id} = sourceDb.{img}.{id}
         WHERE TRUE"
@@ -989,25 +1114,16 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType, algorithm: HashAlgorith
     }
 }
 
-const fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
-    if let Some(v) = patch_type {
-        match v {
-            BinDiffGz => " with bin-diff on gzip-ed tiles",
-            BinDiffRaw => " with bin-diff-raw",
-        }
-    } else {
-        ""
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
 
     use insta::assert_snapshot;
+    use rstest::rstest;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
+    use crate::PatchType::BinDiffRaw;
     use crate::metadata::temp_named_mbtiles;
 
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);
@@ -1016,6 +1132,14 @@ mod tests {
     const NORM_WITH_VIEW: MbtType = Normalized {
         hash_view: true,
         schema: NormalizedSchema::Hash,
+    };
+    const NORM_WITHOUT_VIEW: MbtType = Normalized {
+        hash_view: false,
+        schema: NormalizedSchema::Hash,
+    };
+    const DEDUP_ID: MbtType = Normalized {
+        hash_view: false,
+        schema: NormalizedSchema::DedupId,
     };
 
     async fn get_one<T>(conn: &mut SqliteConnection, sql: &str) -> T
@@ -1167,12 +1291,20 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn copy_dedup_id_tables() {
+        let src = PathBuf::from("file:src_dedup_id_tables_mem_db?mode=memory&cache=shared");
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let dst = PathBuf::from("file:copy_dedup_id_tables_mem_db?mode=memory&cache=shared");
+        verify_copy_all(src, script, dst, None, DEDUP_ID).await;
+    }
+
+    #[actix_rt::test]
     async fn copy_normalized_from_flat_tables() {
         let src = PathBuf::from("file:src_norm_from_flat_tables_mem_db?mode=memory&cache=shared");
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let dst =
             PathBuf::from("file:copy_normalized_from_flat_tables_mem_db?mode=memory&cache=shared");
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+        verify_copy_all(src, script, dst, NORM_CLI, DEDUP_ID).await;
     }
 
     #[actix_rt::test]
@@ -1183,7 +1315,231 @@ mod tests {
         let dst = PathBuf::from(
             "file:copy_normalized_from_flat_with_hash_tables_mem_db?mode=memory&cache=shared",
         );
-        verify_copy_all(src, script, dst, NORM_CLI, NORM_WITH_VIEW).await;
+        verify_copy_all(src, script, dst, NORM_CLI, DEDUP_ID).await;
+    }
+
+    #[rstest]
+    #[case::flat_with_hash("flat_with_hash", FlatWithHash)]
+    #[case::normalized("normalized", NORM_WITH_VIEW)]
+    #[actix_rt::test]
+    async fn copy_from_dedup_id_stores_valid_tile_hashes(
+        #[case] name: &str,
+        #[case] dst_type: MbtType,
+    ) {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles(&format!("src_copy_from_dedup_id_{name}_mem"), script).await;
+        let dst_file = PathBuf::from(format!(
+            "file:copy_from_dedup_id_{name}_mem_db?mode=memory&cache=shared"
+        ));
+
+        let opt = MbtilesCopier {
+            src_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(dst_type),
+            ..Default::default()
+        };
+        let mut dst_conn = opt.run().await.unwrap();
+
+        Mbtiles::new(dst_file)
+            .unwrap()
+            .check_each_tile_hash(&mut dst_conn)
+            .await
+            .unwrap();
+    }
+
+    #[rstest]
+    #[case::from_flat(
+        "flat",
+        include_str!("../../tests/fixtures/mbtiles/world_cities.sql"),
+        8,
+        4
+    )]
+    #[case::from_dedup_id(
+        "dedup_id",
+        include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql"),
+        5,
+        5
+    )]
+    #[actix_rt::test]
+    async fn copy_to_dedup_id_stores_each_distinct_tile_once(
+        #[case] name: &str,
+        #[case] script: &str,
+        #[case] tiles: i32,
+        #[case] distinct_tiles: i32,
+    ) {
+        let (src_mbt, _conn, src_file) =
+            temp_named_mbtiles(&format!("src_copy_to_dedup_id_{name}_mem"), script).await;
+        let dst_file = PathBuf::from(format!(
+            "file:copy_to_dedup_id_{name}_mem_db?mode=memory&cache=shared"
+        ));
+
+        let opt = MbtilesCopier {
+            src_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(DEDUP_ID),
+            ..Default::default()
+        };
+        let mut dst_conn = opt.run().await.unwrap();
+
+        assert_eq!(
+            Mbtiles::new(dst_file)
+                .unwrap()
+                .detect_type(&mut dst_conn)
+                .await
+                .unwrap(),
+            DEDUP_ID
+        );
+        src_mbt.attach_to(&mut dst_conn, "testSrcDb").await.unwrap();
+        assert!(
+            dst_conn
+                .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles_shallow;").await,
+            tiles
+        );
+        assert_eq!(
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles_data;").await,
+            distinct_tiles
+        );
+    }
+
+    #[actix_rt::test]
+    async fn copy_to_dedup_id_numbers_new_tiles_after_a_repeated_blob() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (src_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_after_a_repeated_blob_mem", script).await;
+
+        let script = format!(
+            "{}
+             INSERT INTO tiles_data VALUES(6,X'ffd8ffffFFD9');
+             INSERT INTO tiles_shallow VALUES(2,0,0,6);",
+            include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql")
+        );
+        let (_mbt, _conn, dst_file) =
+            temp_named_mbtiles("dst_copy_after_a_repeated_blob_mem", &script).await;
+
+        let opt = MbtilesCopier {
+            src_file,
+            dst_file,
+            on_duplicate: Some(CopyDuplicateMode::Override),
+            ..Default::default()
+        };
+        let mut dst_conn = opt.run().await.unwrap();
+
+        src_mbt.attach_to(&mut dst_conn, "testSrcDb").await.unwrap();
+        assert!(
+            dst_conn
+                .fetch_optional("SELECT * FROM testSrcDb.tiles EXCEPT SELECT * FROM tiles")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn copy_with_hash_into_existing_dedup_id_stores_each_blob_once() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, flat_file) =
+            temp_named_mbtiles("flat_copy_with_hash_into_existing_dedup_id_mem_db", script).await;
+        let with_hash_file = PathBuf::from(
+            "file:with_hash_copy_with_hash_into_existing_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let _with_hash_conn = MbtilesCopier {
+            src_file: flat_file.clone(),
+            dst_file: with_hash_file.clone(),
+            dst_type: Some(FlatWithHash),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let dst_file = PathBuf::from(
+            "file:copy_with_hash_into_existing_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let _dst_conn = MbtilesCopier {
+            src_file: flat_file,
+            dst_file: dst_file.clone(),
+            dst_type: Some(DEDUP_ID),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let mut dst_conn = MbtilesCopier {
+            src_file: with_hash_file,
+            dst_file,
+            on_duplicate: Some(CopyDuplicateMode::Override),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert_eq!(
+            get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM tiles_data;").await,
+            4
+        );
+    }
+
+    #[actix_rt::test]
+    async fn diff_and_patch_from_dedup_id_store_valid_tile_hashes() {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (_mbt, _conn, v1_file) =
+            temp_named_mbtiles("v1_diff_and_patch_from_dedup_id_mem", script).await;
+        let script =
+            format!("{script}\nUPDATE tiles_data SET tile_data = X'0102' WHERE tile_data_id = 1;");
+        let (_mbt, _conn, v2_file) =
+            temp_named_mbtiles("v2_diff_and_patch_from_dedup_id_mem", &script).await;
+
+        let diff_file =
+            PathBuf::from("file:diff_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared");
+        let mut diff_conn = MbtilesCopier {
+            src_file: v1_file.clone(),
+            dst_file: diff_file.clone(),
+            dst_type: Some(NORM_WITHOUT_VIEW),
+            diff_with_file: Some((v2_file, None)),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let diff_mbt = Mbtiles::new(&diff_file).unwrap();
+        assert_eq!(
+            diff_mbt.detect_type(&mut diff_conn).await.unwrap(),
+            NORM_WITHOUT_VIEW
+        );
+        diff_mbt.check_each_tile_hash(&mut diff_conn).await.unwrap();
+
+        let patched_file = PathBuf::from(
+            "file:patched_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared",
+        );
+        let mut patched_conn = MbtilesCopier {
+            src_file: v1_file,
+            dst_file: patched_file.clone(),
+            dst_type: Some(NORM_WITHOUT_VIEW),
+            apply_patch: Some(diff_file),
+            force: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        let patched_mbt = Mbtiles::new(patched_file).unwrap();
+        assert_eq!(
+            patched_mbt.detect_type(&mut patched_conn).await.unwrap(),
+            NORM_WITHOUT_VIEW
+        );
+        patched_mbt
+            .check_each_tile_hash(&mut patched_conn)
+            .await
+            .unwrap();
     }
 
     #[actix_rt::test]
@@ -1400,23 +1756,34 @@ mod tests {
         assert_matches!(opt.run().await.unwrap_err(), MbtError::RusqliteError(..));
     }
 
+    #[rstest]
+    #[case::same_type_as_the_source("flat", None)]
+    #[case::dedup_id("dedup_id", Some(DEDUP_ID))]
     #[actix_rt::test]
-    async fn copy_to_existing_override_mode() {
+    async fn copy_to_existing_override_mode(#[case] name: &str, #[case] dst_type: Option<MbtType>) {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        let (_mbt, _conn, src_file) =
-            temp_named_mbtiles("src_copy_to_existing_override_mode_mem_db", script).await;
+        let (_mbt, _conn, src_file) = temp_named_mbtiles(
+            &format!("src_copy_to_existing_override_mode_{name}_mem_db"),
+            script,
+        )
+        .await;
 
         // Copy the dst file to an in-memory DB
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (_mbt, _conn, dst_file) =
-            temp_named_mbtiles("dst_copy_to_existing_override_mode_mem_db", script).await;
+        let (_mbt, _conn, dst_file) = temp_named_mbtiles(
+            &format!("dst_copy_to_existing_override_mode_{name}_mem_db"),
+            script,
+        )
+        .await;
 
-        let dst =
-            PathBuf::from("file:copy_to_existing_override_mode_mem_db?mode=memory&cache=shared");
+        let dst = PathBuf::from(format!(
+            "file:copy_to_existing_override_mode_{name}_mem_db?mode=memory&cache=shared"
+        ));
 
         let _dst_conn = MbtilesCopier {
             src_file: dst_file.clone(),
             dst_file: dst.clone(),
+            dst_type,
             ..Default::default()
         }
         .run()

@@ -7,9 +7,11 @@ on:
   release:
     types: [ published ]
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'release' }}
 
 defaults:
@@ -23,17 +25,51 @@ jobs:
   changes:
     name: Decide which suites this change can affect
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
-      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
-      ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
-      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
-      demo: ${{ github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true' }}
-      schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
-      run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
+      rust: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true') }}
+      ui: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true') }}
+      docs: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true') }}
+      demo: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true') }}
+      schemas: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true') }}
+      actions: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true') }}
+      cargo-deps: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true') }}
+      deps: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true') }}
+      codeql-languages: ${{ steps.due.outputs.due != 'false' && steps.codeql.outputs.languages || '[]' }}
+      run-heavy: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
+      run-release-builds: ${{ steps.due.outputs.due != 'false' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-pending.outputs.pending == 'true' || startsWith(github.head_ref, 'release-plz-')) }}
     steps:
+      - name: Decide whether main moved since the last nightly
+        id: due
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          last=$(gh run list --workflow ci.yml --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [[ "$last" == "$SHA" ]]; then echo due=false; else echo due=true; fi >> "$GITHUB_OUTPUT"
+      - name: Checkout sources
+        if: github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Check whether a crate version on main has not been released yet
+        id: release-pending
+        if: github.event_name == 'push'
+        run: |
+          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | "\(.name)-v\(.version)"')
+          pending=false
+          for tag in $tags; do
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+              echo "$tag is not released yet"
+              pending=true
+            fi
+          done
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
@@ -42,12 +78,20 @@ jobs:
             shared: &shared
               - '.github/**'
               - 'justfile'
-            rust:
-              - *shared
+            cargo-manifests: &cargo-manifests
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - 'clippy.toml'
+              - '**/Cargo.toml'
               - 'deny.toml'
+            npm-manifests: &npm-manifests
+              - 'martin/martin-ui/package.json'
+              - 'martin/martin-ui/package-lock.json'
+              - 'demo/frontend/package.json'
+              - 'demo/frontend/package-lock.json'
+            rust:
+              - *shared
+              - *cargo-manifests
+              - 'clippy.toml'
               - 'release-plz.toml'
               - 'docker-compose.yml'
               - 'debian/**'
@@ -76,6 +120,27 @@ jobs:
               - 'schemas/**'
               - 'docs/content/files/generated_config.md'
               - 'e2e-tests/tests/snapshots/save_config__*'
+            actions:
+              - *shared
+            cargo-deps:
+              - *shared
+              - *cargo-manifests
+            deps:
+              - *shared
+              - *cargo-manifests
+              - *npm-manifests
+      - name: Collect the CodeQL languages worth analysing
+        id: codeql
+        env:
+          ACTIONS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+          JS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' || steps.filter.outputs.demo == 'true' }}
+          RUST: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+        run: |
+          languages=()
+          if [[ "$ACTIONS" == 'true' ]]; then languages+=('"actions"'); fi
+          if [[ "$JS" == 'true' ]]; then languages+=('"javascript-typescript"'); fi
+          if [[ "$RUST" == 'true' ]]; then languages+=('"rust"'); fi
+          printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
 
   rust:
     needs: changes
@@ -83,6 +148,7 @@ jobs:
     uses: $/.github/workflows/rust.yml
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
+      run-release-builds: ${{ needs.changes.outputs.run-release-builds == 'true' }}
     permissions:
       contents: read
       id-token: write
@@ -119,6 +185,22 @@ jobs:
     permissions:
       contents: read
 
+  security:
+    needs: changes
+    uses: $/.github/workflows/security.yml
+    with:
+      run-actions: ${{ needs.changes.outputs.actions == 'true' }}
+      run-cargo-deps: ${{ needs.changes.outputs.cargo-deps == 'true' }}
+      run-dependency-review: ${{ needs.changes.outputs.deps == 'true' }}
+      codeql-languages: ${{ needs.changes.outputs.codeql-languages }}
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+      actions: read
+      issues: write
+      checks: write
+
   # Packaging and publishing. Gated on the suites rather than on `done`, which
   # in turn waits for this job, so a broken release process still blocks merge.
   release:
@@ -126,7 +208,6 @@ jobs:
       - changes
       - rust
       - ui
-      - docs
       - schemas
     if: |
       always()
@@ -136,10 +217,11 @@ jobs:
       && github.event_name != 'pull_request'
     uses: $/.github/workflows/release.yml
     with:
-      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' && needs.changes.outputs.run-release-builds == 'true' }}
     secrets:
       GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
-      RELEASE_PLZ_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      RELEASE_PLZ_APP_ID: ${{ secrets.RELEASE_PLZ_APP_ID }}
+      RELEASE_PLZ_APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
     permissions:
       contents: write
       id-token: write
@@ -156,9 +238,11 @@ jobs:
       - docs
       - schemas
       - demo
+      - security
       - release
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions: {}
     steps:
       - name: Result of the needed steps

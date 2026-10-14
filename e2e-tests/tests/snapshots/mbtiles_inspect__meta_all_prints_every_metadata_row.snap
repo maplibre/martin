@@ -5,7 +5,7 @@ expression: "redact(&dir, &output)"
 id: world_cities
 layer_type: overlay
 tilejson:
-  tilejson: 3.0.0
+  tilejson: "3.0.0"
   tiles: []
   vector_layers:
   - id: cities

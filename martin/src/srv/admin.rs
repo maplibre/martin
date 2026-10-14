@@ -8,7 +8,7 @@ use actix_web::{HttpResponse, Responder, middleware, route};
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-#[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+#[cfg(feature = "resources")]
 use crate::config::file::ServerState;
 use crate::srv::ServerStartError;
 
@@ -25,13 +25,13 @@ pub struct Catalog {
     #[cfg(feature = "_tiles")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub tiles: TileCatalog,
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub sprites: martin_core::sprites::SpriteCatalog,
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub fonts: martin_core::fonts::FontCatalog,
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub styles: martin_core::styles::StyleCatalog,
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
@@ -46,27 +46,31 @@ pub struct Catalog {
 )]
 pub struct CatalogSettings {
     /// Whether server-side style rendering endpoints are enabled.
-    #[cfg(all(feature = "rendering", feature = "styles"))]
+    #[cfg(all(feature = "rendering", feature = "resources"))]
     pub rendering: bool,
 }
 
 impl Catalog {
     pub fn new(
-        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))] state: &ServerState,
+        #[cfg(feature = "resources")] state: &ServerState,
     ) -> Result<Self, ServerStartError> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
             tiles: BTreeMap::default(),
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             sprites: state.sprites.get_catalog()?,
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             fonts: state.fonts.get_catalog(),
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             styles: state.styles.get_catalog(),
             settings: CatalogSettings {
-                #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+                #[cfg(all(feature = "rendering", feature = "resources", target_os = "linux"))]
                 rendering: state.styles.is_rendering_enabled(),
-                #[cfg(all(feature = "rendering", feature = "styles", not(target_os = "linux")))]
+                #[cfg(all(
+                    feature = "rendering",
+                    feature = "resources",
+                    not(target_os = "linux")
+                ))]
                 rendering: false,
             },
         })
@@ -95,6 +99,7 @@ pub async fn get_catalog(
 ) -> impl Responder {
     #[cfg(feature = "_tiles")]
     let catalog = {
+        tile_manager.wait_until_loaded().await;
         let mut catalog = catalog.as_ref().clone();
         catalog.tiles = tile_manager.tile_sources().get_catalog();
         catalog
@@ -123,8 +128,9 @@ async fn get_index_no_ui() -> &'static str {
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
 async fn get_index_ui_disabled() -> &'static str {
-    "Martin server is running.\n\n
-    The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
+    "Martin server is running.\n\n\
+    The WebUI is served to localhost connections by default (--webui enable). \
+    Use --webui enable-for-all in CLI or in the config file to serve it to all connections.\n\n\
     A list of all available sources is available at http://<host>/catalog\n\n\
     See documentation https://github.com/maplibre/martin"
 }

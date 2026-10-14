@@ -59,6 +59,7 @@ impl MbtilesCli {
 
     /// Run the command, require it to succeed, and parse what it printed as JSON.
     /// The CLI logs to stderr, leaving stdout to the reported document alone.
+    /// The keys of every object are sorted.
     pub async fn run_json(self) -> serde_json::Value {
         let (status, stdout, stderr) = self.output().await;
         assert!(
@@ -66,12 +67,14 @@ impl MbtilesCli {
             "`mbtiles {}` failed with {status}; output:\n{stdout}{stderr}",
             display_args(&self.args)
         );
-        serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        let mut json: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
             panic!(
                 "`mbtiles {}` did not print json: {e}; output:\n{stdout}",
                 display_args(&self.args)
             )
-        })
+        });
+        json.sort_all_objects();
+        json
     }
 
     /// Run the command, require it to fail, and return its output.
@@ -153,9 +156,10 @@ pub fn summary(path: impl AsRef<Path>) -> MbtilesCli {
         .arg(path.as_ref())
 }
 
-/// The insta filters a summary document needs to be snapshotted: the file lives in a temp
-/// directory, its page geometry depends on the sqlite build that wrote it, and the bounding box
-/// is computed by trigonometry, so its last digits differ between machines.
+/// The insta filters a summary document needs to be snapshotted.
+///
+/// The file lives in a temp directory, its page geometry depends on the sqlite build that wrote it,
+/// and the bounding box is computed by trigonometry, so its last digits differ between machines.
 #[must_use]
 pub fn summary_filters() -> Vec<(&'static str, &'static str)> {
     vec![
@@ -207,6 +211,39 @@ pub async fn tiles(path: impl AsRef<Path>) -> Vec<Tile> {
             (z, x, y, data)
         })
         .collect()
+}
+
+/// Every tile in the file as `z/x/y` with its size, one per line, ordered by zoom, column and row.
+///
+/// The row is the TMS row the file stores, not the XYZ one an HTTP request names.
+pub async fn tile_listing(path: impl AsRef<Path>) -> String {
+    tiles(path)
+        .await
+        .iter()
+        .map(|(z, x, y, data)| format!("{z}/{x}/{y} {} bytes", data.len()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Every row of the `metadata` table as `name = value` lines, with the `json` row's own document
+/// expanded so that a snapshot of it is readable and its keys are sorted.
+pub async fn metadata_listing(path: impl AsRef<Path>) -> String {
+    metadata(path)
+        .await
+        .into_iter()
+        .map(|(name, value)| {
+            let value = if name == "json" {
+                let mut json: serde_json::Value =
+                    serde_json::from_str(&value).expect("the `json` metadata row is not json");
+                json.sort_all_objects();
+                serde_json::to_string_pretty(&json).expect("a parsed document re-serializes")
+            } else {
+                value
+            };
+            format!("{name} = {value}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Every row of a patch file's `tiles` table, ordered by zoom, column and row,

@@ -1,12 +1,11 @@
-use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
-use tracing::{trace, warn};
+use tracing::trace;
 use url::Url;
 
 use crate::config::file::{
@@ -14,7 +13,7 @@ use crate::config::file::{
     ConfigurationLivecycleHooks, ObjectStoreConfig, SourceBuildResult, TileSourceConfiguration,
     UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 /// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
@@ -73,13 +72,13 @@ pub struct PmtConfig {
 
     /// MVT->MLT encoder settings for all `PMTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all `PMTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -112,9 +111,9 @@ impl Default for PmtConfig {
             directory_cache: CacheSizeConfig::default(),
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             object_store: ObjectStoreConfig::default(),
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             convert_to_mvt: None,
             recursive: None,
             cache: CachePolicy::default(),
@@ -140,11 +139,11 @@ impl Serialize for PmtConfig {
             )?;
         }
         self.object_store.serialize_entries(&mut map)?;
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         if let Some(config) = &self.convert_to_mlt {
             map.serialize_entry("convert_to_mlt", config)?;
         }
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         if let Some(config) = &self.convert_to_mvt {
             map.serialize_entry("convert_to_mvt", config)?;
         }
@@ -166,7 +165,7 @@ impl PartialEq for PmtConfig {
             && self.recursive == other.recursive
             && self.cache == other.cache
             && self.unrecognized == other.unrecognized;
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         let base = base
             && self.convert_to_mlt == other.convert_to_mlt
             && self.convert_to_mvt == other.convert_to_mvt;
@@ -192,66 +191,11 @@ impl std::ops::DerefMut for PmtConfig {
 impl ConfigurationLivecycleHooks for PmtConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
         self.object_store.prepare(&mut self.unrecognized, "pmtiles");
-        self.migrate_pmtiles_legacy_env();
         self.object_store.finalize_runtime("pmtiles").await;
         Ok(())
     }
 }
 
-impl PmtConfig {
-    /// Retains PMTiles-only environment migrations while object-store behavior lives in
-    /// [`ObjectStoreConfig`].
-    fn migrate_pmtiles_legacy_env(&mut self) {
-        if self.unrecognized.contains_key("dir_cache_size_mb") {
-            warn!(
-                "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
-                 Use `cache.size_mb` in the root of the config file, \
-                 or `pmtiles.directory_cache.size_mb` to override the PMTiles directory cache size"
-            );
-        }
-
-        if let Ok(force_path_style) =
-            env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
-        {
-            let virtual_hosted_style_request = !force_path_style;
-            self.object_store.migrate_aws_value(
-                "Environment variable",
-                "AWS_S3_FORCE_PATH_STYLE",
-                "virtual_hosted_style_request",
-                virtual_hosted_style_request.to_string(),
-                "pmtiles",
-            );
-        }
-
-        // `AWS_NO_CREDENTIALS` was the name in early PMTiles documentation.
-        for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
-            if let Ok(skip_credentials) =
-                env::var(env).map(|v| v == "1" || v.to_lowercase() == "true")
-            {
-                self.object_store.migrate_aws_value(
-                    "Environment variable",
-                    env,
-                    "skip_signature",
-                    skip_credentials.to_string(),
-                    "pmtiles",
-                );
-            }
-        }
-
-        if let Ok(profile) = env::var("AWS_PROFILE") {
-            if self.object_store.profile.is_some() {
-                warn!(
-                    "Environment variable AWS_PROFILE is ignored in favor of the configuration value pmtiles.profile."
-                );
-            } else {
-                warn!(
-                    "Environment variable AWS_PROFILE is deprecated. Please use pmtiles.profile in the configuration file instead."
-                );
-                self.object_store.profile = Some(profile);
-            }
-        }
-    }
-}
 impl TileSourceConfiguration for PmtConfig {
     fn parse_urls() -> bool {
         true
@@ -266,23 +210,12 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
             .map_err(|e| ConfigFileError::IoError(e, path))?;
-        // path->url conversion requires absolute path, otherwise it errors
-        let path = std::path::absolute(&path).map_err(|e| ConfigFileError::IoError(e, path))?;
-        // windows needs unix style paths, I.e. replace backslashes with forward slashes
-        // a simple "add file://" does not work on windows
-        // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
-        let url = Url::from_file_path(&path)
-            .or(Err(ConfigFileError::PathNotConvertibleToUrl(path.clone())))?;
-        trace!(
-            "Pmtiles source {id} ({}) will be loaded as {url}",
-            path.display()
-        );
-        self.new_sources_url(id, url, cache).await
+        self.new_local_source(id, path, cache).await
     }
 
     async fn new_sources_url(
@@ -290,13 +223,36 @@ impl TileSourceConfiguration for PmtConfig {
         id: String,
         url: Url,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
+        if url.scheme() == "file"
+            && let Ok(path) = url.to_file_path()
+        {
+            return self.new_local_source(id, path, cache).await;
+        }
         let (store, path) = self
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
-        Ok(Box::new(source))
+        Ok(BackendSource::Pmtiles(source))
+    }
+}
+
+impl PmtConfig {
+    /// Builds a source that reads the file at `path` in place.
+    async fn new_local_source(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> SourceBuildResult<BackendSource> {
+        trace!(source.id = %id, source.path = %path.display(), "Pmtiles source will be read from local file");
+        let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
+        // Opening parses the archive's metadata, so it runs on a worker and archives open in parallel.
+        let source = tokio::spawn(PmtilesSource::new_local(dir_cache, id, path, cache.zoom()))
+            .await
+            .expect("opening a PMTiles archive panicked")?;
+        Ok(BackendSource::Pmtiles(source))
     }
 }
 

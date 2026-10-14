@@ -1,4 +1,4 @@
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::mbtiles::MbtSource;
 
 use crate::TileSourceManager;
@@ -6,7 +6,9 @@ use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
-use crate::config::file::{CachePolicy, FileConfigEnum, SourceBuildResult, TileSourceWarning};
+use crate::config::file::{
+    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceWarning,
+};
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
@@ -21,45 +23,32 @@ impl MbtilesReloader {
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<MbtConfig>,
+        config: &FileConfig<MbtConfig>,
         default_cache: CachePolicy,
         global_process: &ProcessConfig,
+        tile_grids: &TileGrids,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
-        #[cfg(feature = "_process")]
         let process = {
-            let source_type = match config {
-                FileConfigEnum::Config(cfg) => ProcessConfig {
-                    #[cfg(feature = "mlt")]
-                    convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
-                    #[cfg(feature = "mlt")]
-                    convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
-                    ..Default::default()
-                },
-                FileConfigEnum::None | FileConfigEnum::Path(_) | FileConfigEnum::Paths(_) => {
-                    ProcessConfig::default()
-                }
+            let source_type = ProcessConfig {
+                convert_to_mlt: config.custom.convert_to_mlt.clone(),
+                convert_to_mvt: config.custom.convert_to_mvt.clone(),
+                ..Default::default()
             };
             ProcessConfig::layered(global_process, &source_type, &ProcessConfig::default())
-        };
-        #[cfg(not(feature = "_process"))]
-        let process = {
-            let _ = (config, global_process);
-            ProcessConfig::default()
         };
 
         // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
         // `Box::pin(async {..})` erases the future to `BoxFuture`.
-        // `Box::new(src) as BoxedSource` erases the source to `dyn Source`.
         // This builder captures nothing.
         // We still `Box::new` it because `FsSourceBuilder` is a boxed `dyn Fn` that `PMTiles` needs (see its docs).
         let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
-                Ok(Box::new(src) as BoxedSource)
+                Ok(BackendSource::Mbtiles(src))
             })
         });
-        let recursive = matches!(config, FileConfigEnum::Config(cfg) if cfg.custom.recursive.unwrap_or_default());
+        let recursive = config.custom.recursive.unwrap_or_default();
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             config,
@@ -69,6 +58,7 @@ impl MbtilesReloader {
             default_cache,
             &process,
             build,
+            Some(tile_grids),
         );
 
         Self {

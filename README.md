@@ -5,7 +5,6 @@
 [![](https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack)](https://slack.openstreetmap.us/)
 [![GitHub](https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github)](https://github.com/maplibre/martin)
 [![crates.io version](https://img.shields.io/crates/v/martin.svg)](https://crates.io/crates/martin)
-[![Security audit](https://github.com/maplibre/martin/workflows/Security%20audit/badge.svg)](https://github.com/maplibre/martin/security)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
@@ -25,7 +24,7 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
 * [Passthrough](https://maplibre.org/martin/sources-passthrough/) tiles from an upstream HTTP tile server
 * [Combine](https://maplibre.org/martin/sources-composite/) multiple tile sources into one
 * Serve [styles](https://maplibre.org/martin/sources-styles/) and generate [sprites](https://maplibre.org/martin/sources-sprites/) or [font glyphs](https://maplibre.org/martin/sources-fonts/) on the fly
-* Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp/) tool
+* Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with the [martin cp](https://maplibre.org/martin/martin-cp/) subcommand
 * Examine, copy, validate, compare, and apply diffs between `MBTiles` files with [mbtiles](https://maplibre.org/martin/tools/#mbtiles) tool
 
 ## Documentation

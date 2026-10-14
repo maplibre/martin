@@ -26,8 +26,9 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
-        feature = "geojson",
-        feature = "unstable-cog"
+        feature = "processing",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb"
     ))]
     #[must_use]
     pub const fn is_empty(&self) -> bool {
@@ -38,8 +39,9 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
-        feature = "geojson",
-        feature = "unstable-cog"
+        feature = "processing",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb"
     ))]
     /// Process input params in the original order, but only if no prior consumer has claimed it.
     /// Each consumer can either take it (no other consumer will see it),

@@ -3,7 +3,9 @@ use std::time::Duration;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+use crate::config::file::srv::{
+    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
+};
 
 #[allow(
     clippy::doc_markdown,
@@ -14,6 +16,8 @@ use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, Srv
 pub struct SrvArgs {
     #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]
     pub keep_alive: Option<u64>,
+    #[arg(help = format!("Seconds to wait for in-flight requests to finish on SIGTERM. [DEFAULT: {DEFAULT_SHUTDOWN_TIMEOUT}]"), long)]
+    pub shutdown_timeout: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {DEFAULT_LISTEN_ADDRESSES}]"), short, long)]
     pub listen_addresses: Option<String>,
     /// Set URL path prefix for all API routes.
@@ -44,7 +48,7 @@ pub struct SrvArgs {
     /// `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
     #[arg(long)]
     pub preferred_encoding: Option<PreferredEncoding>,
-    /// Control Martin web UI. [DEFAULT: disabled]
+    /// Control Martin web UI. [DEFAULT: enable]
     #[arg(short = 'u', long = "webui")]
     #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<WebUiMode>,
@@ -55,8 +59,8 @@ pub struct SrvArgs {
     #[arg(long)]
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
-    /// Main cache size (in MB)
-    #[arg(short = 'C', long)]
+    /// Main cache size, e.g. `512MB` or `1GiB`. A bare number is in MB
+    #[arg(short = 'C', long, value_parser = parse_byte_size)]
     pub cache_size: Option<u64>,
     /// Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
     #[arg(long, value_parser = parse_duration)]
@@ -71,19 +75,25 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
     humantime::parse_duration(s).map_err(|e| e.to_string())
 }
 
+pub(crate) fn parse_byte_size(s: &str) -> Result<u64, String> {
+    if let Ok(mb) = s.parse::<u64>() {
+        return Ok(mb.saturating_mul(bytesize::MB));
+    }
+    s.parse::<bytesize::ByteSize>().map(|size| size.as_u64())
+}
+
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
-    /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
-    #[default]
+    /// Disable Web UI interface
     #[serde(alias = "false")]
     Disable,
-    // /// Enable Web UI interface on connections from the localhost
-    // #[default]
-    // #[serde(alias = "true")]
-    // Enable,
+    /// Enable Web UI interface on connections from the localhost
+    #[default]
+    #[serde(alias = "true")]
+    Enable,
     /// Enable Web UI interface on all connections
     #[serde(alias = "enable-for-all")]
     #[clap(alias("enable-for-all"))]
@@ -105,6 +115,9 @@ impl SrvArgs {
         // Override config values with the ones from the command line
         if self.keep_alive.is_some() {
             srv_config.keep_alive = self.keep_alive;
+        }
+        if self.shutdown_timeout.is_some() {
+            srv_config.shutdown_timeout = self.shutdown_timeout;
         }
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;

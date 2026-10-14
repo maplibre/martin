@@ -1,4 +1,5 @@
 ---
+description: Serving vector tiles from PostgreSQL functions
 icon: simple/postgresql
 tags:
   - postgresql

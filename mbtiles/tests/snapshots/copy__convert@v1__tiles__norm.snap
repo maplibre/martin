@@ -3,55 +3,43 @@ source: mbtiles/tests/copy.rs
 expression: actual_value
 ---
 - type: table
-  tbl_name: images
-  sql: "CREATE TABLE images (\n    tile_id TEXT NOT NULL PRIMARY KEY,\n    tile_data BLOB\n)"
-  values:
-    - "(  \"0F6969D7052DA9261E31DDB6E88C136E\", blob(remove)  )"
-    - "(  \"51037A4A37730F52C8732586D3AAA316\", blob(same)  )"
-    - "(  \"535A5575B48444EDEB926815AB26EC9B\", blob(1-keep-1-rm)  )"
-    - "(  \"63A9F0EA7BB98050796B649E85481845\", blob(root)  )"
-    - "(  \"720C02778717818CC0A869955BA2AFB6\", blob(non-empty)  )"
-    - "(  \"D41D8CD98F00B204E9800998ECF8427E\", blob()  )"
-    - "(  \"EFE0AE5FD114DE99855BC2838BE97E1D\", blob(edit-v1)  )"
-- type: table
-  tbl_name: map
-  sql: "CREATE TABLE map (\n    zoom_level INTEGER NOT NULL,\n    tile_column INTEGER NOT NULL,\n    tile_row INTEGER NOT NULL,\n    tile_id TEXT,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n)"
-  values:
-    - "(  3, 6, 7, \"63A9F0EA7BB98050796B649E85481845\"  )"
-    - "(  5, 0, 0, \"51037A4A37730F52C8732586D3AAA316\"  )"
-    - "(  5, 0, 1, \"D41D8CD98F00B204E9800998ECF8427E\"  )"
-    - "(  5, 1, 1, \"EFE0AE5FD114DE99855BC2838BE97E1D\"  )"
-    - "(  5, 1, 2, \"D41D8CD98F00B204E9800998ECF8427E\"  )"
-    - "(  5, 1, 3, \"720C02778717818CC0A869955BA2AFB6\"  )"
-    - "(  5, 2, 2, \"0F6969D7052DA9261E31DDB6E88C136E\"  )"
-    - "(  5, 2, 3, \"D41D8CD98F00B204E9800998ECF8427E\"  )"
-    - "(  6, 0, 3, \"51037A4A37730F52C8732586D3AAA316\"  )"
-    - "(  6, 0, 5, \"535A5575B48444EDEB926815AB26EC9B\"  )"
-    - "(  6, 1, 4, \"EFE0AE5FD114DE99855BC2838BE97E1D\"  )"
-    - "(  6, 2, 6, \"535A5575B48444EDEB926815AB26EC9B\"  )"
-- type: table
   tbl_name: metadata
   sql: "CREATE TABLE metadata (\n    name TEXT NOT NULL PRIMARY KEY,\n    value TEXT\n)"
   values:
     - "(  \"agg_tiles_hash\", \"9ED9178D7025276336C783C2B54D6258\"  )"
     - "(  \"hash_algorithm\", \"md5\"  )"
-- type: index
-  tbl_name: images
-  sql: ~
-  values: ~
-- type: index
-  tbl_name: map
-  sql: ~
-  values: ~
+- type: table
+  tbl_name: tiles_data
+  sql: "CREATE TABLE tiles_data (\n    tile_data_id INTEGER PRIMARY KEY,\n    tile_data BLOB\n)"
+  values:
+    - "(  1, blob()  )"
+    - "(  2, blob(1-keep-1-rm)  )"
+    - "(  3, blob(edit-v1)  )"
+    - "(  4, blob(non-empty)  )"
+    - "(  5, blob(remove)  )"
+    - "(  6, blob(root)  )"
+    - "(  7, blob(same)  )"
+- type: table
+  tbl_name: tiles_shallow
+  sql: "CREATE TABLE tiles_shallow (\n    zoom_level INTEGER,\n    tile_column INTEGER,\n    tile_row INTEGER,\n    tile_data_id INTEGER,\n    PRIMARY KEY (zoom_level, tile_column, tile_row)\n) WITHOUT ROWID"
+  values:
+    - "(  3, 6, 7, 6  )"
+    - "(  5, 0, 0, 7  )"
+    - "(  5, 0, 1, 1  )"
+    - "(  5, 1, 1, 3  )"
+    - "(  5, 1, 2, 1  )"
+    - "(  5, 1, 3, 4  )"
+    - "(  5, 2, 2, 5  )"
+    - "(  5, 2, 3, 1  )"
+    - "(  6, 0, 3, 7  )"
+    - "(  6, 0, 5, 2  )"
+    - "(  6, 1, 4, 3  )"
+    - "(  6, 2, 6, 2  )"
 - type: index
   tbl_name: metadata
   sql: ~
   values: ~
 - type: view
   tbl_name: tiles
-  sql: "CREATE VIEW tiles AS\nSELECT\n    map.zoom_level,\n    map.tile_column,\n    map.tile_row,\n    images.tile_data\nFROM map\nINNER JOIN images ON map.tile_id = images.tile_id"
-  values: ~
-- type: view
-  tbl_name: tiles_with_hash
-  sql: "CREATE VIEW tiles_with_hash AS\nSELECT\n    map.zoom_level,\n    map.tile_column,\n    map.tile_row,\n    images.tile_data,\n    images.tile_id AS tile_hash\nFROM map\nINNER JOIN images ON map.tile_id = images.tile_id"
+  sql: "CREATE VIEW tiles AS\nSELECT\n    tiles_shallow.zoom_level,\n    tiles_shallow.tile_column,\n    tiles_shallow.tile_row,\n    tiles_data.tile_data\nFROM tiles_shallow\nINNER JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id"
   values: ~

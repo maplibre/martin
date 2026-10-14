@@ -1,21 +1,28 @@
 use std::sync::Arc;
 
-use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use dashmap::DashMap;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
-use martin_core::tiles::{BoxedSource, Source};
+use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::TileInfo;
+use smallvec::SmallVec;
 use tracing::{debug, info};
 
 use crate::config::file::ResolvedProcess;
+use crate::srv::TileError;
 
 /// Maximum number of comma-separated source ids accepted in a single
 /// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
 const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
+/// A source with its process config, which is shared so a request never copies it.
+pub type SourceEntry = (BoxedSource, Arc<ResolvedProcess>);
+
+/// The sources of one request, inline for the common single-source case.
+pub type SourceList = SmallVec<[SourceEntry; 1]>;
+
 /// Result of resolving multiple sources for a composite tile request.
 pub struct ResolvedSources {
-    pub sources: Vec<(BoxedSource, ResolvedProcess)>,
+    pub sources: SourceList,
     pub use_url_query: bool,
     pub info: TileInfo,
 }
@@ -73,7 +80,7 @@ pub enum TileAliasError {
 /// Each source is paired with its resolved [`ResolvedProcess`].
 #[derive(Default, Clone)]
 pub struct TileSources {
-    sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+    sources: Arc<DashMap<String, SourceEntry>>,
     /// Map of alias name to the tile source ids it combines.
     aliases: Arc<DashMap<String, Vec<String>>>,
 }
@@ -105,7 +112,7 @@ impl TileSources {
                 sources
                     .into_iter()
                     .flatten()
-                    .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
+                    .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
                     .collect(),
             ),
             aliases: Arc::default(),
@@ -115,7 +122,7 @@ impl TileSources {
     /// Creates a registry backed by existing shared maps.
     #[must_use]
     pub(crate) fn from_maps(
-        sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+        sources: Arc<DashMap<String, SourceEntry>>,
         aliases: Arc<DashMap<String, Vec<String>>>,
     ) -> Self {
         Self { sources, aliases }
@@ -146,11 +153,11 @@ impl TileSources {
             };
             let (src, pc) = member.value();
             let info = pc.advertised_tile_info(src.get_tile_info());
-            let entry = CatalogSourceEntry {
-                content_type: info.format.content_type().to_owned(),
-                content_encoding: info.encoding.compression().map(str::to_owned),
-                ..CatalogSourceEntry::default()
-            };
+            let mut entry = CatalogSourceEntry::default();
+            info.format
+                .content_type()
+                .clone_into(&mut entry.content_type);
+            entry.content_encoding = info.encoding.compression().map(str::to_owned);
             catalog.insert(alias.key().clone(), entry);
         }
         catalog
@@ -225,11 +232,11 @@ impl TileSources {
     }
 
     /// Gets a source and its process config by ID, returning 404 error if not found.
-    pub fn get_source(&self, id: &str) -> actix_web::Result<(BoxedSource, ResolvedProcess)> {
+    pub fn get_source(&self, id: &str) -> Result<SourceEntry, TileError> {
         Ok(self
             .sources
             .get(id)
-            .ok_or_else(|| ErrorNotFound(format!("Source {id} does not exist")))?
+            .ok_or_else(|| TileError::UnknownSource(id.to_owned()))?
             .value()
             .clone())
     }
@@ -245,26 +252,41 @@ impl TileSources {
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> actix_web::Result<ResolvedSources> {
-        let ids: Vec<&str> = source_ids.split(',').collect();
-        if ids.len() > MAX_SOURCE_IDS_PER_REQUEST {
-            return Err(ErrorBadRequest(format!(
-                "Requested {} source ids, but at most {MAX_SOURCE_IDS_PER_REQUEST} are allowed per request",
-                ids.len()
-            )));
+    ) -> Result<ResolvedSources, TileError> {
+        let id_count = source_ids.split(',').count();
+        if id_count > MAX_SOURCE_IDS_PER_REQUEST {
+            return Err(TileError::TooManySources {
+                requested: id_count,
+                max: MAX_SOURCE_IDS_PER_REQUEST,
+            });
         }
 
-        let mut sources = Vec::new();
+        let mut sources = SourceList::new();
         let mut info: Option<TileInfo> = None;
+        let mut grid: Option<BoxedSource> = None;
         let mut use_url_query = false;
 
-        for id in ids {
+        for id in source_ids.split(',') {
             if let Some(alias) = self.aliases.get(id) {
                 for member in alias.value() {
-                    self.collect_source(member, zoom, &mut sources, &mut info, &mut use_url_query)?;
+                    self.collect_source(
+                        member,
+                        zoom,
+                        &mut sources,
+                        &mut info,
+                        &mut grid,
+                        &mut use_url_query,
+                    )?;
                 }
             } else {
-                self.collect_source(id, zoom, &mut sources, &mut info, &mut use_url_query)?;
+                self.collect_source(
+                    id,
+                    zoom,
+                    &mut sources,
+                    &mut info,
+                    &mut grid,
+                    &mut use_url_query,
+                )?;
             }
         }
 
@@ -275,15 +297,16 @@ impl TileSources {
         })
     }
 
-    /// Adds one source to a composite resolution, checking its format against the others.
+    /// Adds one source to a composite resolution, checking its format and tile grid against the others.
     fn collect_source(
         &self,
         id: &str,
         zoom: Option<u8>,
-        sources: &mut Vec<(BoxedSource, ResolvedProcess)>,
+        sources: &mut SourceList,
         info: &mut Option<TileInfo>,
+        grid: &mut Option<BoxedSource>,
         use_url_query: &mut bool,
-    ) -> actix_web::Result<()> {
+    ) -> Result<(), TileError> {
         let (src, pc) = self.get_source(id)?;
         let src_inf = pc.advertised_tile_info(src.get_tile_info());
         *use_url_query |= src.support_url_query();
@@ -293,16 +316,29 @@ impl TileSources {
         match *info {
             Some(inf) if inf == src_inf => {}
             Some(inf) => {
-                return Err(ErrorNotFound(format!(
-                    "Cannot merge sources with {inf} with {src_inf}"
-                )));
+                return Err(TileError::MismatchedSources {
+                    left: inf,
+                    right: src_inf,
+                });
             }
             None => *info = Some(src_inf),
         }
 
+        // and in the same tile grid, or the same z/x/y would name different ground
+        match grid {
+            Some(g) if g.tile_grid() == src.tile_grid() => {}
+            Some(g) => {
+                return Err(TileError::MismatchedGrids {
+                    left: g.tile_grid().id().to_owned(),
+                    right: src.tile_grid().id().to_owned(),
+                });
+            }
+            None => *grid = Some(BoxedSource::clone(&src)),
+        }
+
         // TODO: Use chained-if-let once available
         if match zoom {
-            Some(zoom) if Self::check_zoom(&*src, id, zoom) => true,
+            Some(zoom) if Self::check_zoom(&src, id, zoom) => true,
             None => true,
             _ => false,
         } {
@@ -313,7 +349,7 @@ impl TileSources {
 
     /// Validates zoom level support for a source
     #[must_use]
-    pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
+    pub fn check_zoom(src: &AnySource, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
             let tilejson = src.get_tilejson();
@@ -328,7 +364,7 @@ impl TileSources {
         is_valid
     }
 
-    /// Returns if any source benefits from concurrent scraping by martin-cp
+    /// Returns if any source benefits from concurrent scraping by `martin cp`
     #[must_use]
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.sources
@@ -339,18 +375,20 @@ impl TileSources {
 
 #[cfg(test)]
 mod tests {
-    use tilejson::tilejson;
+
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
 
     fn sources_with_one_valid() -> TileSources {
-        TileSources::new(vec![vec![Box::new(TestSource {
-            id: "valid",
-            tj: tilejson! { tiles: vec![] },
-            data: vec![1, 2, 3],
-            format: martin_tile_utils::Format::Mvt,
-        })]])
+        TileSources::new(vec![vec![
+            TestSource::new(
+                "valid",
+                martin_tile_utils::TileData::from_static(&[1, 2, 3]),
+            )
+            .with_format(martin_tile_utils::Format::Mvt)
+            .boxed(),
+        ]])
     }
 
     #[test]

@@ -9,8 +9,8 @@
       "path": ".cspell/project-words.txt"
     }
   ],
-  "files": ["docs/**/*.md"],
-  "ignoreRegExpList": ["Urls", "HexValues", "Base64"],
+  "files": ["README.md", "docs/**/*.md", "*/CHANGELOG.md"],
+  "ignoreRegExpList": ["Urls", "HexValues", "Base64", "/@[A-Za-z0-9-]+/g", "/GHSA-[0-9A-Za-z-]+/g"],
   "language": "en",
   "version": "0.2"
 }

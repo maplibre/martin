@@ -1,16 +1,16 @@
 use std::path::{Path, PathBuf};
 
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use martin_core::fonts::FontError;
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use martin_core::sprites::SpriteError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::contour::ContourRangeError;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::hillshade::HillshadeRangeError;
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -30,7 +30,7 @@ pub enum ConfigFileError {
     ConfigWriteError(#[source] std::io::Error, PathBuf),
 
     #[error(
-        "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+        "No tile sources found. Set sources by giving a database connection string on command line or a config file."
     )]
     NoSources,
     #[error("Source path is not a file: {0}")]
@@ -63,7 +63,7 @@ pub enum ConfigFileError {
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 
-    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[error("Source {source_id} has an invalid hillshade configuration: {source}")]
     InvalidHillshade {
         source_id: String,
@@ -71,7 +71,7 @@ pub enum ConfigFileError {
         source: Box<HillshadeRangeError>,
     },
 
-    #[cfg(all(feature = "contour", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[error("Source {source_id} has an invalid contour configuration: {source}")]
     InvalidContour {
         source_id: String,
@@ -79,7 +79,7 @@ pub enum ConfigFileError {
         source: Box<ContourRangeError>,
     },
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(#[source] walkdir::Error, PathBuf),
 
@@ -91,15 +91,15 @@ pub enum ConfigFileError {
     #[error("Failed to create postgres pool: {0}")]
     PostgresPoolCreationFailed(#[source] PostgresError),
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] FontError, PathBuf),
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[error("Failed to configure font alias: {0}")]
     FontAliasResolutionFailed(#[source] FontError),
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[error("Failed to configure sprite alias: {0}")]
     SpriteAliasResolutionFailed(#[source] SpriteError),
 
@@ -118,6 +118,42 @@ pub enum ConfigFileError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
+
+    #[cfg(feature = "_tiles")]
+    #[error(
+        "Tile grid {0} is built in, refer to it by name without defining it, or pick another name"
+    )]
+    TileGridRedefinesBuiltIn(String),
+
+    #[cfg(feature = "_tiles")]
+    #[error(transparent)]
+    InvalidTileGrid(#[from] martin_tile_utils::TileGridError),
+
+    #[cfg(feature = "_tiles")]
+    #[error(
+        "{what} names a tile grid, but only PostgreSQL, MBTiles and PMTiles sources can be served on one"
+    )]
+    TileGridNotSupported { what: String },
+
+    #[cfg(feature = "_tiles")]
+    #[error("{what} refers to tile grid {grid}, which is not configured. Known grids: {known}")]
+    UnknownTileGrid {
+        what: String,
+        grid: String,
+        known: String,
+    },
+
+    #[cfg(feature = "postgres")]
+    #[error("Tile grid {grid} uses {crs}, whose code is not an integer")]
+    TileGridCrsCodeNotNumeric { grid: String, crs: String },
+
+    #[cfg(feature = "postgres")]
+    #[error("Tile grid {grid} uses {crs}, which has no spatial_ref_sys row in the database")]
+    TileGridCrsNotInDatabase { grid: String, crs: String },
+
+    #[cfg(feature = "postgres")]
+    #[error("Failed to resolve tile grid {1} against the database: {0}")]
+    TileGridResolution(Box<PostgresError>, String),
 }
 
 /// Boxed payload for [`ConfigFileError::YamlParseError`].
@@ -282,21 +318,21 @@ impl Diagnostic for ConfigFileError {
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
             Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
             Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidContour { .. } => "martin::config::contour::invalid",
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             Self::DirectoryWalking(..) => "martin::config::styles::walk",
             #[cfg(feature = "postgres")]
             Self::PostgresConnectionStringMissing => "martin::config::postgres::connection_string",
             #[cfg(feature = "postgres")]
             Self::PostgresPoolCreationFailed(_) => "martin::config::postgres::pool_creation",
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontAliasResolutionFailed(_) => "martin::config::fonts::alias",
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
             #[cfg(feature = "_tiles")]
             Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
@@ -306,6 +342,22 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
+            #[cfg(feature = "_tiles")]
+            Self::TileGridRedefinesBuiltIn(_) => "martin::config::tile_grids::redefines_built_in",
+            #[cfg(feature = "_tiles")]
+            Self::InvalidTileGrid(_) => "martin::config::tile_grids::invalid",
+            #[cfg(feature = "_tiles")]
+            Self::UnknownTileGrid { .. } => "martin::config::tile_grids::unknown",
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => "martin::config::tile_grids::unsupported_kind",
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotNumeric { .. } => "martin::config::tile_grids::crs_code",
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsNotInDatabase { .. } => {
+                "martin::config::tile_grids::crs_not_in_database"
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridResolution(..) => "martin::config::tile_grids::resolution",
         };
         Some(Box::new(code))
     }
@@ -313,7 +365,7 @@ impl Diagnostic for ConfigFileError {
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let help: &'static str = match self {
             Self::NoSources => {
-                "Provide tile sources via --connection, environment variables (e.g. DATABASE_URL), or a config file passed with --config."
+                "Provide tile sources as connection arguments (e.g. `martin postgres://...`), or in a config file passed with --config."
             }
             Self::CorsNoOriginsConfigured => {
                 "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block."
@@ -330,29 +382,29 @@ impl Diagnostic for ConfigFileError {
             | Self::InvalidSourceFilePath(..)
             | Self::InvalidBasePath(_)
             | Self::TileResolutionWarningsIssued => return None,
-            #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => {
                 "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."
             }
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidContour { .. } => {
                 "Check the `contour` block of the named source: every parameter must lie inside the range given above."
             }
             #[cfg(feature = "passthrough")]
             Self::InvalidPassthroughFormat { .. } => return None,
-            #[cfg(feature = "styles")]
+            #[cfg(feature = "resources")]
             Self::DirectoryWalking(..) => return None,
             #[cfg(feature = "postgres")]
             Self::PostgresConnectionStringMissing | Self::PostgresPoolCreationFailed(_) => {
                 return None;
             }
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontResolutionFailed(..) => return None,
-            #[cfg(feature = "fonts")]
+            #[cfg(feature = "resources")]
             Self::FontAliasResolutionFailed(_) => {
                 "Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases."
             }
-            #[cfg(feature = "sprites")]
+            #[cfg(feature = "resources")]
             Self::SpriteAliasResolutionFailed(_) => {
                 "Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases."
             }
@@ -364,6 +416,32 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
+            #[cfg(feature = "_tiles")]
+            Self::TileGridRedefinesBuiltIn(_) => {
+                "A `tile_grid` can name a built-in grid without an entry under `tile_grids`. Rename the entry if it is a different grid."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::InvalidTileGrid(_) => {
+                "Check the `tile_grids` block: each grid needs a `crs` like `EPSG:2193`, an `origin` `[x, y]` and a positive `extent_at_zoom0`, all in CRS units."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::UnknownTileGrid { .. } => {
+                "A `tile_grid` must name a grid defined under the top-level `tile_grids`, or a built-in one."
+            }
+            #[cfg(feature = "_tiles")]
+            Self::TileGridNotSupported { .. } => {
+                "COG, GeoJSON and DuckDB sources produce Web Mercator tiles. Remove the `tile_grid` from this source."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotNumeric { .. } => {
+                "Write the CRS as `AUTHORITY:CODE` with an integer code, for example `EPSG:2193` or `IAU_2015:49900`."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsNotInDatabase { .. } => {
+                "PostGIS only knows the coordinate reference systems in its `spatial_ref_sys` table. Insert a row whose `auth_name` and `auth_srid` are the two halves of the CRS identifier, with its `proj4text` or `srtext`, or use an EPSG code."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridResolution(..) => return None,
         };
         Some(Box::new(help))
     }
@@ -383,5 +461,496 @@ impl Diagnostic for ConfigFileError {
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    fn object_store_error() -> object_store::Error {
+        object_store::Error::NotImplemented {
+            operation: "list".to_owned(),
+            implementer: "test".to_owned(),
+        }
+    }
+
+    fn config_yaml() -> PathBuf {
+        PathBuf::from("config.yaml")
+    }
+
+    fn describe(err: &ConfigFileError) -> String {
+        let some_or_none = |is_some: bool| if is_some { "some" } else { "none" };
+        format!(
+            "message: {err}\ncode: {}\nhelp: {}\nurl: {}\nlabels: {}\nsource_code: {}\nmiette_report: {}",
+            err.code().expect("a code"),
+            err.help()
+                .map_or_else(|| "none".to_owned(), |h| h.to_string()),
+            err.url().expect("a url"),
+            some_or_none(err.labels().is_some()),
+            some_or_none(err.source_code().is_some()),
+            some_or_none(err.to_miette_report().is_some()),
+        )
+    }
+
+    #[test]
+    fn io_error() {
+        let err = ConfigFileError::IoError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: IO error boom: config.yaml
+        code: martin::config::io
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn config_load_error() {
+        let err = ConfigFileError::ConfigLoadError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Unable to load config file config.yaml: boom
+        code: martin::config::io::load
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn config_write_error() {
+        let err = ConfigFileError::ConfigWriteError(std::io::Error::other("boom"), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Unable to write config file config.yaml: boom
+        code: martin::config::io::write
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn no_sources() {
+        let err = ConfigFileError::NoSources;
+        insta::assert_snapshot!(describe(&err), @"
+        message: No tile sources found. Set sources by giving a database connection string on command line or a config file.
+        code: martin::config::no_sources
+        help: Provide tile sources as connection arguments (e.g. `martin postgres://...`), or in a config file passed with --config.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn invalid_file_path() {
+        let err = ConfigFileError::InvalidFilePath(config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source path is not a file: config.yaml
+        code: martin::config::invalid_file_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn invalid_source_url() {
+        let err =
+            ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Error empty host while parsing URL http://
+        code: martin::config::invalid_source_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn path_not_convertible_to_url() {
+        let err = ConfigFileError::PathNotConvertibleToUrl(config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Could not parse source path config.yaml as a URL
+        code: martin::config::path_not_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn invalid_source_file_path() {
+        let err = ConfigFileError::InvalidSourceFilePath("src".to_owned(), config_yaml());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src uses bad file config.yaml
+        code: martin::config::invalid_source_file_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "passthrough")]
+    #[test]
+    fn invalid_passthrough_format() {
+        let err = ConfigFileError::InvalidPassthroughFormat {
+            source_id: "src".to_owned(),
+            tile_format: "tiff".to_owned(),
+        };
+        insta::assert_snapshot!(describe(&err), @r#"
+        message: Passthrough source src has an unknown tile format "tiff"; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif
+        code: martin::config::passthrough::invalid_format
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        "#);
+    }
+
+    #[test]
+    fn cors_no_origins_configured() {
+        let err = ConfigFileError::CorsNoOriginsConfigured;
+        insta::assert_snapshot!(describe(&err), @"
+        message: At least one 'origin' must be specified in the 'cors' configuration
+        code: martin::config::cors::no_origins
+        help: Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn invalid_base_path() {
+        let err = ConfigFileError::InvalidBasePath("no-slash".to_owned());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Base path must be a valid URL path, and must begin with a '/' symbol, but is 'no-slash'
+        code: martin::config::invalid_base_path
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[test]
+    fn tile_resolution_warnings_issued() {
+        let err = ConfigFileError::TileResolutionWarningsIssued;
+        insta::assert_snapshot!(describe(&err), @"
+        message: warnings issued during tile source resolution
+        code: martin::config::tile_resolution_warnings
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[test]
+    fn invalid_hillshade() {
+        let err = ConfigFileError::InvalidHillshade {
+            source_id: "src".to_owned(),
+            source: Box::new(HillshadeRangeError {
+                name: "azimuth".to_owned(),
+                value: "400".to_owned(),
+                low: "0".to_owned(),
+                high: "360".to_owned(),
+            }),
+        };
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`
+        code: martin::config::hillshade::invalid
+        help: Check the `hillshade` block of the named source: every parameter must lie inside the range given above.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
+    #[test]
+    fn invalid_contour() {
+        let err = ConfigFileError::InvalidContour {
+            source_id: "src".to_owned(),
+            source: Box::new(ContourRangeError {
+                name: "interval".to_owned(),
+                value: "-1".to_owned(),
+                low: "0".to_owned(),
+                high: "10000".to_owned(),
+            }),
+        };
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source src has an invalid contour configuration: Contour parameter interval must be between `0` and `10000`, but was `-1`
+        code: martin::config::contour::invalid
+        help: Check the `contour` block of the named source: every parameter must lie inside the range given above.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "resources")]
+    #[test]
+    fn directory_walking() {
+        let walk_err = walkdir::WalkDir::new("/definitely/not/here")
+            .into_iter()
+            .next()
+            .expect("a missing root yields an entry")
+            .expect_err("a missing root yields an error");
+        let os_error = walk_err
+            .io_error()
+            .expect("a missing root is an IO error")
+            .to_string();
+        let err = ConfigFileError::DirectoryWalking(walk_err, config_yaml());
+        let described = describe(&err).replace(&os_error, "<OS ERROR>");
+        insta::assert_snapshot!(described, @"
+        message: Walk directory error IO error for operation on /definitely/not/here: <OS ERROR>: config.yaml
+        code: martin::config::styles::walk
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn postgres_connection_string_missing() {
+        let err = ConfigFileError::PostgresConnectionStringMissing;
+        insta::assert_snapshot!(describe(&err), @"
+        message: A postgres connection string must be provided
+        code: martin::config::postgres::connection_string
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn postgres_pool_creation_failed() {
+        let err = ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter(
+            "x".to_owned(),
+            "y".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to create postgres pool: Filter 'x' is not valid CQL2: y
+        code: martin::config::postgres::pool_creation
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "resources")]
+    #[test]
+    fn font_resolution_failed() {
+        let err = ConfigFileError::FontResolutionFailed(
+            FontError::FontNotFound("Roboto".to_owned()),
+            config_yaml(),
+        );
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to load fonts from config.yaml: Font Roboto not found
+        code: martin::config::fonts::resolution
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "resources")]
+    #[test]
+    fn font_alias_resolution_failed() {
+        let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
+            "Roboto".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to configure font alias: Font Roboto not found
+        code: martin::config::fonts::alias
+        help: Check the `fonts.aliases` block: every alias must list at least one discovered font by its catalog name, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "resources")]
+    #[test]
+    fn sprite_alias_resolution_failed() {
+        let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound(
+            "icons".to_owned(),
+        ));
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to configure sprite alias: Sprite icons not found
+        code: martin::config::sprites::alias
+        help: Check the `sprites.aliases` block: every alias must list at least one configured sprite source by its id, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn tile_alias_resolution_failed() {
+        let err = ConfigFileError::TileAliasResolutionFailed(
+            crate::source::TileAliasError::EmptyAlias("all".to_owned()),
+        );
+        insta::assert_snapshot!(describe(&err), @r#"
+        message: Failed to configure tile source alias: Tile source alias "all" does not reference any tile sources
+        code: martin::config::aliases
+        help: Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases.
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        "#);
+    }
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[test]
+    fn object_store_url_parsing() {
+        let err =
+            ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to parse object store URL of s3://bucket: Operation list not yet implemented by test.
+        code: martin::config::pmtiles::object_store_url
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[test]
+    fn object_store_list() {
+        let err = ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned());
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to list objects under s3://bucket: Operation list not yet implemented by test.
+        code: martin::config::pmtiles::object_store_list
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[test]
+    fn renderer_pool_spawn_failed() {
+        let err = ConfigFileError::RendererPoolSpawnFailed(std::io::Error::other("boom"));
+        insta::assert_snapshot!(describe(&err), @"
+        message: Failed to start style render pool: boom
+        code: martin::config::styles::render_pool_spawn
+        help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    fn yaml_error(yaml: &str, with_snippet: bool) -> ConfigFileError {
+        let options = serde_saphyr::options! {
+            with_snippet: with_snippet,
+            property_syntax: serde_saphyr::options::PropertySyntax::BracedOrBare,
+        }
+        .with_properties(HashMap::new());
+        let err = serde_saphyr::from_str_with_options::<HashMap<String, String>>(yaml, options)
+            .expect_err("the yaml is invalid");
+        ConfigFileError::yaml_parse(err, yaml.to_owned(), Path::new("config.yaml"))
+    }
+
+    #[test]
+    fn yaml_parse_error_carries_the_source() {
+        let err = yaml_error("key: [unterminated", false);
+        assert_eq!(
+            err.code().expect("a code").to_string(),
+            "martin::config::yaml"
+        );
+        assert!(err.help().is_some());
+        assert!(err.source_code().is_some());
+        assert!(
+            err.to_string()
+                .starts_with("Unable to parse YAML in config file config.yaml")
+        );
+
+        let report = err
+            .to_miette_report()
+            .expect("yaml errors render as reports");
+        let diag: &dyn Diagnostic = report.as_ref();
+        assert_eq!(
+            diag.code().expect("a code").to_string(),
+            "martin::config::yaml"
+        );
+        assert!(
+            diag.help()
+                .expect("help")
+                .to_string()
+                .contains("highlighted token")
+        );
+        assert_eq!(
+            diag.url().expect("a url").to_string(),
+            "https://maplibre.org/martin/config-file/"
+        );
+        assert!(diag.source_code().is_some());
+        assert!(diag.labels().is_some());
+        assert!(diag.related().is_none());
+        assert!(diag.diagnostic_source().is_none());
+        assert!(diag.severity().is_none());
+        assert_ne!(report.to_string(), "");
+    }
+
+    #[test]
+    fn unresolved_substitution_is_reported_as_such_with_and_without_snippet() {
+        for with_snippet in [false, true] {
+            let err = yaml_error("key: ${MARTIN_TEST_UNSET_VARIABLE}", with_snippet);
+            let report = err.to_miette_report().expect("a report");
+            let diag: &dyn Diagnostic = report.as_ref();
+            assert_eq!(
+                diag.code().expect("a code").to_string(),
+                "martin::config::substitution",
+                "with_snippet={with_snippet}"
+            );
+            assert!(diag.help().expect("help").to_string().contains("${VAR}"));
+        }
     }
 }

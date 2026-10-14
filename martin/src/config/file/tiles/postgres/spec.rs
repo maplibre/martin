@@ -30,6 +30,7 @@ impl SourceSpec {
                 info.schema.hash(&mut hasher);
                 info.table.hash(&mut hasher);
                 info.srid.hash(&mut hasher);
+                info.tile_grid.hash(&mut hasher);
                 info.geometry_column.hash(&mut hasher);
                 info.id_column.hash(&mut hasher);
                 info.minzoom.hash(&mut hasher);
@@ -40,9 +41,9 @@ impl SourceSpec {
                 info.filter.hash(&mut hasher);
                 info.geometry_type.hash(&mut hasher);
                 info.properties.hash(&mut hasher);
-                hash_tilejson(info.tilejson.as_ref(), &mut hasher);
+                hash_tilejson(info.discovered.tilejson.as_ref(), &mut hasher);
 
-                let mut prop_mapping: Vec<_> = info.prop_mapping.iter().collect();
+                let mut prop_mapping: Vec<_> = info.discovered.prop_mapping.iter().collect();
                 prop_mapping.sort();
                 prop_mapping.hash(&mut hasher);
             }
@@ -50,6 +51,7 @@ impl SourceSpec {
                 1u8.hash(&mut hasher);
                 info.schema.hash(&mut hasher);
                 info.function.hash(&mut hasher);
+                info.tile_grid.hash(&mut hasher);
                 info.minzoom.hash(&mut hasher);
                 info.maxzoom.hash(&mut hasher);
                 hash_tilejson(info.tilejson.as_ref(), &mut hasher);
@@ -83,7 +85,8 @@ mod tests {
 
     use super::*;
     use crate::config::file::CachePolicy;
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use crate::config::file::postgres::DiscoveredTable;
+    #[cfg(feature = "_tiles")]
     use crate::config::primitives::AutoOption;
 
     /// Mutates one field of a [`TableInfo`] in place, so a test can isolate its effect on the fingerprint.
@@ -117,7 +120,10 @@ mod tests {
             clip_geom: Some(true),
             geometry_type: Some("LINESTRING".to_owned()),
             properties: Some(BTreeMap::from([("name".to_owned(), "text".to_owned())])),
-            tilejson: Some(serde_json::json!({ "attribution": "abc" })),
+            discovered: DiscoveredTable {
+                tilejson: Some(serde_json::json!({ "attribution": "abc" })),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
@@ -138,6 +144,7 @@ mod tests {
     #[case::schema(|t: &mut TableInfo|t.schema = "other".to_owned())]
     #[case::table(|t: &mut TableInfo|t.table = "other".to_owned())]
     #[case::srid(|t: &mut TableInfo|t.srid = 3857)]
+    #[case::tile_grid(|t: &mut TableInfo|t.tile_grid = Some("NZTM2000Quad".to_owned()))]
     #[case::geometry_column(|t: &mut TableInfo|t.geometry_column = "shape".to_owned())]
     #[case::id_column(|t: &mut TableInfo|t.id_column = Some("fid".to_owned()))]
     #[case::minzoom(|t: &mut TableInfo|t.minzoom = Some(2))]
@@ -151,11 +158,12 @@ mod tests {
         t.properties = Some(BTreeMap::from([("kind".to_owned(), "text".to_owned())]));
     })]
     #[case::prop_mapping(|t: &mut TableInfo|{
-        t.prop_mapping
+        t.discovered
+            .prop_mapping
             .insert("name".to_owned(), "name_col".to_owned());
     })]
     #[case::tilejson(|t: &mut TableInfo|{
-        t.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
+        t.discovered.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
     })]
     fn flipping_an_included_field_changes_fingerprint(#[case] mutate: TableMutator) {
         let mut info = full_table();
@@ -169,8 +177,8 @@ mod tests {
 
     #[rstest]
     #[case::bounds(|t: &mut TableInfo|t.bounds = Some(Bounds::new(-1.0, -2.0, 3.0, 4.0)))]
-    #[case::relkind(|t: &mut TableInfo|t.relkind = Some('m'))]
-    #[case::geometry_index(|t: &mut TableInfo|t.geometry_index = Some(false))]
+    #[case::relkind(|t: &mut TableInfo|t.discovered.relkind = Some('m'))]
+    #[case::geometry_index(|t: &mut TableInfo|t.discovered.geometry_index = Some(false))]
     #[case::cache(|t: &mut TableInfo|t.cache = Some(CachePolicy::disabled()))]
     #[case::unrecognized(|t: &mut TableInfo|{
         t.unrecognized.insert(
@@ -188,7 +196,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[rstest]
     #[case::convert_to_mlt(|t: &mut TableInfo|t.convert_to_mlt = Some(AutoOption::Disabled))]
     #[case::convert_to_mvt(|t: &mut TableInfo|t.convert_to_mvt = Some(AutoOption::Disabled))]
@@ -235,6 +243,7 @@ mod tests {
     #[rstest]
     #[case::schema(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.schema = "other".to_owned())]
     #[case::function(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.function = "other".to_owned())]
+    #[case::tile_grid(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.tile_grid = Some("NZTM2000Quad".to_owned()))]
     #[case::minzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.minzoom = Some(3))]
     #[case::maxzoom(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|f.maxzoom = Some(20))]
     #[case::tilejson(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|{

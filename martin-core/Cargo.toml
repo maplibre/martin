@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.11.2"
+version = "0.13.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -14,31 +14,29 @@ homepage.workspace = true
 [[bench]]
 name = "geojson_tiles"
 harness = false
-required-features = ["geojson"]
+required-features = ["processing"]
 
 [[bench]]
 name = "hillshade"
 harness = false
-required-features = ["hillshade"]
+required-features = ["processing"]
 
 [features]
 default = [
-    "contour",
-    "fonts",
-    "hillshade",
     "mbtiles",
     "metrics",
     "passthrough",
     "pmtiles",
     "postgres",
-    "sprites",
-    "styles",
+    "processing",
+    "resources",
     "unstable-cog",
-    "geojson",
 ]
-hillshade = ["_neighbourhood", "_raster", "_tiles", "dep:multiversion"]
-geojson = [
+_testing = ["_tiles"]
+processing = [
+    "_neighbourhood",
     "_tiles",
+    "dep:contour",
     "dep:geo",
     "dep:geo-index",
     "dep:geo-types",
@@ -49,19 +47,14 @@ geojson = [
     "dep:tokio",
     "tokio/fs",
 ]
-contour = [
-    "_neighbourhood",
-    "_tiles",
-    "dep:contour",
-    "dep:geo",
-    "dep:geo-types",
-    "dep:mlt-core",
-]
-
+unstable-generate = ["postgres", "dep:futures", "unstable-generate-source"]
 metrics = ["dep:prometheus"]
+unstable-generate-source = ["dep:geo-traits", "dep:geo-types", "dep:lasso", "dep:mlt-core", "dep:wkb"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:geo-traits",
     "dep:humantime",
+    "dep:mlt-core",
     "dep:postgres",
     "dep:regex",
     "dep:rustls",
@@ -74,11 +67,13 @@ postgres = [
     "dep:tokio",
     "tokio/sync",
     "tokio/time",
+    "compact_str/sqlx-postgres",
+    "dep:wkb",
     "_tiles",
 ]
+unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 unstable-cog = [
     "dep:async-tiff",
-    "dep:bytes",
     "dep:futures",
     "dep:object_store",
     "dep:png",
@@ -89,26 +84,21 @@ unstable-cog = [
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]
-rendering = ["styles", "overlay", "dep:maplibre_native", "dep:flume"]
-fonts = [
+rendering = ["resources", "overlay", "dep:maplibre_native", "dep:flume"]
+resources = [
+    "dep:actix-web",
     "dep:bit-set",
+    "dep:dashmap",
+    "dep:futures",
+    "dep:itertools",
     "dep:pbf_font_tools",
     "dep:regex",
-    "dep:itertools",
-    "dep:dashmap",
-    "dep:walkdir",
-    "dep:strum",
-]
-sprites = [
-    "dep:actix-web",
     "dep:spreet",
+    "dep:strum",
     "dep:tokio",
-    "tokio/fs",
-    "dep:futures",
-    "dep:dashmap",
     "dep:walkdir",
+    "tokio/fs",
 ]
-styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 passthrough = ["dep:reqwest", "dep:serde_json", "_tiles"]
@@ -121,7 +111,7 @@ unstable-duckdb = [
     "tokio/rt",
     "tokio/rt-multi-thread",
 ]
-_tiles = ["dep:base64"]
+_tiles = ["dep:base64", "dep:compact_str", "dep:serde_json"]
 _raster = ["dep:image", "dep:jxl-oxide", "dep:zune-core", "dep:zune-jpegxl"]
 _neighbourhood = ["_raster", "_tiles"]
 test-pg = ["postgres"]
@@ -137,8 +127,9 @@ async-trait.workspace = true
 backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
-bytes = { workspace = true, optional = true }
+bytes.workspace = true
 chrono.workspace = true
+compact_str = { workspace = true, optional = true }
 contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
@@ -149,6 +140,7 @@ flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
+geo-traits = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
 hotpath.workspace = true
@@ -156,14 +148,14 @@ humantime = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 jxl-oxide = { workspace = true, optional = true }
+lasso = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
-multiversion = { workspace = true, optional = true }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
-pmtiles = { workspace = true, optional = true }
+pmtiles = { workspace = true, optional = true, features = ["tilejson", "object-store", "mmap-async-tokio"] }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
@@ -189,6 +181,7 @@ tracing.workspace = true
 url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+wkb = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 zune-core = { workspace = true, optional = true }
 zune-jpegxl = { workspace = true, optional = true }
@@ -197,10 +190,10 @@ zune-jpegxl = { workspace = true, optional = true }
 actix-web.workspace = true
 approx.workspace = true
 backon.workspace = true
-bytes.workspace = true
 criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
+image.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rcgen.workspace = true
 rstest.workspace = true

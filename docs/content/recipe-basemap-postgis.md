@@ -1,4 +1,5 @@
 ---
+description: Planetiler basemap with PostGIS point overlay
 icon: material/map-search
 tags:
   - postgresql

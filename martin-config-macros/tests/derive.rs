@@ -190,7 +190,7 @@ enum Variants {
 
 #[test]
 fn enum_dispatches_to_active_variant() {
-    assert!(keys(&Variants::Empty).is_empty());
+    assert_eq!(keys(&Variants::Empty), [] as [String; 0]);
     assert_eq!(keys(&Variants::Wrapped(inner(&["typo"]))), ["typo"]);
 }
 
@@ -214,7 +214,7 @@ struct UnitStruct;
 
 #[test]
 fn unit_structs_collect_nothing() {
-    assert!(keys(&UnitStruct).is_empty());
+    assert_eq!(keys(&UnitStruct), [] as [String; 0]);
 }
 
 #[derive(CollectUnrecognizedKeys)]

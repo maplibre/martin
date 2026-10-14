@@ -1,5 +1,6 @@
 //! Font glyph ranges rendered from `.ttf`/`.otf` files.
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, StartError, TestResponse, fixture};
 use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs};
@@ -7,15 +8,6 @@ use rstest::rstest;
 
 const REGULAR: &str = "Overpass%20Mono%20Regular";
 const LIGHT: &str = "Overpass%20Mono%20Light";
-
-async fn martin_with_font_dir() -> Martin {
-    Martin::builder()
-        .arg("--font")
-        .arg(fixture("fonts"))
-        .start()
-        .await
-        .expect("failed to start martin")
-}
 
 fn fontstack(response: &TestResponse) -> Fontstack {
     Glyphs::decode(response.body())
@@ -28,7 +20,12 @@ fn fontstack(response: &TestResponse) -> Fontstack {
 
 #[tokio::test]
 async fn a_font_directory_is_discovered_recursively() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["fonts"], @r#"
     {
@@ -82,20 +79,96 @@ async fn a_single_font_file_publishes_only_that_font() {
 
 #[tokio::test]
 async fn a_glyph_range_is_served_as_compressed_protobuf() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/0-255")).await;
     assert_eq!(response.status(), 200);
-    insta::with_settings!({filters => vec![(r"(?m)^etag: .*$", "etag: [ETAG]")]}, {
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
         insta::assert_snapshot!(response.headers_snapshot(), @"
         content-encoding: br
+        content-length: [LENGTH]
         content-type: application/x-protobuf
         etag: [ETAG]
-        transfer-encoding: chunked
         vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         ");
     });
     assert_eq!(fontstack(&response).name, "Overpass Mono Regular");
+
+    let head = martin.head(&format!("/font/{REGULAR}/0-255")).await;
+    assert_eq!(head.status(), 200);
+    insta::with_settings!({filters => vec![
+        (r"(?m)^etag: .*$", "etag: [ETAG]"),
+        (r"(?m)^content-length: .*$", "content-length: [LENGTH]"),
+    ]}, {
+        insta::assert_snapshot!(head.headers_snapshot(), @"
+        content-encoding: br
+        content-length: [LENGTH]
+        content-type: application/x-protobuf
+        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        ");
+    });
+    assert_eq!(head.body(), b"");
+
+    martin.stop().await;
+}
+
+#[rstest]
+#[case::identity("identity", None)]
+#[case::gzip("gzip", Some("gzip"))]
+#[case::deflate("deflate", Some("deflate"))]
+#[case::brotli("br", Some("br"))]
+#[case::zstd("zstd", Some("zstd"))]
+#[case::highest_quality("br;q=0.5, gzip;q=0.8", Some("gzip"))]
+#[tokio::test]
+async fn a_glyph_range_is_served_in_the_negotiated_encoding(
+    #[case] accept_encoding: &str,
+    #[case] content_encoding: Option<&str>,
+) {
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", accept_encoding)],
+        )
+        .await;
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.header("content-encoding"), content_encoding);
+    assert_eq!(fontstack(&response).glyphs.len(), 192);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_client_accepting_no_encoding_is_refused() {
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin
+        .get_with_headers(
+            &format!("/font/{REGULAR}/0-255"),
+            &[("accept-encoding", "identity;q=0")],
+        )
+        .await;
+    assert_eq!(response.status(), 406);
+    assert_eq!(response.text(), "br, gzip, deflate, zstd");
 
     martin.stop().await;
 }
@@ -109,7 +182,12 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
     #[case] range: &str,
     #[case] glyphs: usize,
 ) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 200);
@@ -121,19 +199,61 @@ async fn a_glyph_range_carries_every_codepoint_the_font_covers(
 }
 
 #[tokio::test]
-async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
-    let mut martin = martin_with_font_dir().await;
+async fn a_fontstack_takes_each_glyph_from_the_first_font_that_has_it() {
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let regular = fontstack(&martin.get(&format!("/font/{REGULAR}/0-255")).await);
     let light = fontstack(&martin.get(&format!("/font/{LIGHT}/0-255")).await);
-    let stack = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
+    let regular_first = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
+    let light_first = fontstack(&martin.get(&format!("/font/{LIGHT},{REGULAR}/0-255")).await);
 
-    assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
-    assert_eq!(stack.range, "0-255");
     assert_eq!(
-        stack.glyphs.len(),
-        regular.glyphs.len() + light.glyphs.len()
+        regular_first.name,
+        "Overpass Mono Regular, Overpass Mono Light"
     );
+    assert_eq!(regular_first.range, "0-255");
+    assert_eq!(regular_first.glyphs, regular.glyphs);
+    assert_eq!(
+        light_first.name,
+        "Overpass Mono Light, Overpass Mono Regular"
+    );
+    assert_eq!(light_first.glyphs, light.glyphs);
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_fontstack_takes_what_its_first_font_lacks_from_the_next() {
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .arg("--font")
+        .arg(fixture("fonts2/u+3320.ttf"))
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let fallback = fontstack(
+        &martin
+            .get("/font/DummyTestFont%20Regular/13056-13311")
+            .await,
+    );
+    let stack = fontstack(
+        &martin
+            .get(&format!(
+                "/font/{REGULAR},DummyTestFont%20Regular/13056-13311"
+            ))
+            .await,
+    );
+
+    let ids: Vec<u32> = fallback.glyphs.iter().map(|g| g.id).collect();
+    assert_eq!(ids, [0x3320]);
+    assert_eq!(stack.glyphs, fallback.glyphs);
 
     martin.stop().await;
 }
@@ -143,18 +263,22 @@ async fn a_fontstack_concatenates_the_glyphs_of_every_font() {
 #[case::inside_a_fontstack("Overpass%20Mono%20Regular,Nonexistent")]
 #[tokio::test]
 async fn an_unknown_font_is_not_found(#[case] fontstack: &str) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{fontstack}/0-255")).await;
     assert_eq!(response.status(), 404);
     assert_eq!(response.text(), "Font Nonexistent not found");
     insta::allow_duplicates! {
         insta::assert_snapshot!(response.headers_snapshot(), @r#"
-        content-encoding: br
+        content-length: 26
         content-type: text/plain; charset=utf-8
         etag: W/"1a-v2HxsjSSPxQe7xjbF9rAaw=="
-        transfer-encoding: chunked
-        vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+        vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
         "#);
     }
 
@@ -195,7 +319,12 @@ async fn a_range_outside_the_256_codepoint_grid_is_rejected(
     #[case] message: &str,
     #[case] logged: &str,
 ) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(&format!("/font/{REGULAR}/{range}")).await;
     assert_eq!(response.status(), 400);
@@ -208,7 +337,12 @@ async fn a_range_outside_the_256_codepoint_grid_is_rejected(
 
 #[tokio::test]
 async fn a_glyph_range_answers_conditional_requests() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/font/{REGULAR}/0-255");
     let first = martin.get(&path).await;
@@ -221,7 +355,7 @@ async fn a_glyph_range_answers_conditional_requests() {
         .get_with_headers(&path, &[("if-none-match", &etag)])
         .await;
     assert_eq!(cached.status(), 304);
-    assert!(cached.body().is_empty());
+    assert_eq!(cached.body(), b"");
 
     let stale = martin
         .get_with_headers(
@@ -237,7 +371,12 @@ async fn a_glyph_range_answers_conditional_requests() {
 
 #[tokio::test]
 async fn the_plural_fonts_path_redirects() {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/fonts/{REGULAR}/0-255");
     for response in [martin.get(&path).await, martin.head(&path).await] {
@@ -263,7 +402,12 @@ async fn the_plural_fonts_path_redirects() {
 #[case::plural("fonts")]
 #[tokio::test]
 async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
-    let mut martin = martin_with_font_dir().await;
+    let mut martin = Martin::builder()
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let path = format!("/{segment}/{REGULAR}/0-255.pbf");
     for response in [martin.get(&path).await, martin.head(&path).await] {
@@ -315,14 +459,12 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
 #[tokio::test]
 async fn an_alias_serves_the_fonts_it_combines() {
     let mut martin = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono: [Overpass Mono Regular, Overpass Mono Light]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono: [Overpass Mono Regular, Overpass Mono Light]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -368,14 +510,12 @@ fonts:
 #[tokio::test]
 async fn an_alias_may_shadow_the_font_it_extends() {
     let mut martin = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono Regular: [Overpass Mono Regular, Overpass Mono Light]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono Regular: [Overpass Mono Regular, Overpass Mono Light]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -394,14 +534,12 @@ fonts:
 #[tokio::test]
 async fn an_alias_naming_an_unknown_font_fails_startup() {
     let error = Martin::builder()
-        .config(
-            "
-fonts:
-  paths: tests/fixtures/fonts
-  aliases:
-    Overpass Mono: [Overpass Mono Regular, Nonexistent]
-",
-        )
+        .config(indoc! {"
+            fonts:
+              paths: tests/fixtures/fonts
+              aliases:
+                Overpass Mono: [Overpass Mono Regular, Nonexistent]
+        "})
         .start()
         .await
         .expect_err("martin must reject an alias naming an unknown font");

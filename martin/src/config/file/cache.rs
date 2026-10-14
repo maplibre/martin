@@ -1,9 +1,9 @@
 use std::num::NonZeroU64;
 use std::time::Duration;
 
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use martin_core::fonts::{FontCache, OptFontCache};
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use martin_core::sprites::{OptSpriteCache, SpriteCache};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::TileCache;
@@ -28,9 +28,9 @@ pub struct CacheConfig {
     pub tiles: Option<SubCacheSetting>,
     #[cfg(feature = "pmtiles")]
     pub pmtiles: Option<SubCacheSetting>,
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprites: Option<SubCacheSetting>,
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub fonts: Option<SubCacheSetting>,
 }
 
@@ -41,8 +41,8 @@ impl CacheConfig {
     pub fn create_tile_cache(&self) -> Option<TileCache> {
         if let Some(setting) = &self.tiles {
             tracing::info!(
-                "Initializing tile cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing tile cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(TileCache::new(size, setting.expiry, setting.idle_timeout))
@@ -58,8 +58,8 @@ impl CacheConfig {
     pub fn create_pmtiles_cache(&self) -> PmtCache {
         if let Some(setting) = &self.pmtiles {
             tracing::info!(
-                "Initializing PMTiles directory cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing PMTiles directory cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             PmtCache::new(size, setting.expiry, setting.idle_timeout)
@@ -71,13 +71,13 @@ impl CacheConfig {
     }
 
     /// Creates sprite cache if configured.
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     #[must_use]
     pub fn create_sprite_cache(&self) -> OptSpriteCache {
         if let Some(setting) = &self.sprites {
             tracing::info!(
-                "Initializing sprite cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing sprite cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(SpriteCache::new(size, setting.expiry, setting.idle_timeout))
@@ -88,13 +88,13 @@ impl CacheConfig {
     }
 
     /// Creates font cache if configured.
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     #[must_use]
     pub fn create_font_cache(&self) -> OptFontCache {
         if let Some(setting) = &self.fonts {
             tracing::info!(
-                "Initializing font cache with maximum size {} MB",
-                setting.size_mb
+                cache.size_mb = setting.size_mb.get(),
+                "Initializing font cache"
             );
             let size = setting.size_mb.get() * 1000 * 1000;
             Some(FontCache::new(size, setting.expiry, setting.idle_timeout))

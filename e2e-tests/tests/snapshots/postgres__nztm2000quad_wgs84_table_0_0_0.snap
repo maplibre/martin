@@ -1,0 +1,43 @@
+---
+source: e2e-tests/tests/postgres.rs
+expression: dump
+---
+layer: 0
+  name: points1_nztm
+  version: 2
+  extent: 4096
+  feature: 0
+    id: (none)
+    geometry: POINT(2504,115)
+    properties:
+      gid = 21 (uint)
+  feature: 1
+    id: (none)
+    geometry: POINT(3495,3438)
+    properties:
+      gid = 4 (uint)
+  feature: 2
+    id: (none)
+    geometry: POINT(3569,3802)
+    properties:
+      gid = 18 (uint)
+  feature: 3
+    id: (none)
+    geometry: POINT(2615,2536)
+    properties:
+      gid = 28 (uint)
+  feature: 4
+    id: (none)
+    geometry: POINT(1292,3156)
+    properties:
+      gid = 10 (uint)
+  feature: 5
+    id: (none)
+    geometry: POINT(1195,3309)
+    properties:
+      gid = 22 (uint)
+  feature: 6
+    id: (none)
+    geometry: POINT(1221,583)
+    properties:
+      gid = 19 (uint)

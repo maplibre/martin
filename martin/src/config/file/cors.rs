@@ -123,16 +123,16 @@ impl CorsConfig {
                     max_age,
                     unrecognized: _,
                 } = CorsProperties::default();
-                info!("CORS enabled with defaults (origin={origin:?}, max_age={max_age:?})");
+                info!(cors.origin = ?origin, cors.max_age = ?max_age, "CORS enabled with defaults");
             }
             Self::Properties(props) => {
-                info!("CORS enabled with custom properties: {props:?}");
+                info!(cors.properties = ?props, "CORS enabled with custom properties");
             }
         }
     }
 
     /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
-    pub fn validate(&self) -> ConfigFileResult<()> {
+    pub const fn validate(&self) -> ConfigFileResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
             Self::Properties(properties) => properties.validate(),

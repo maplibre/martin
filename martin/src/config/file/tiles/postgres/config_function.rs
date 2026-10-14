@@ -12,7 +12,7 @@ use crate::config::file::postgres::utils::patch_json;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
@@ -28,6 +28,13 @@ pub struct FunctionInfo {
     /// Function name (required)
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"function_zxy_query"))]
     pub function: String,
+
+    /// Tile grid the function's tiles are in \[default: the connection's `tile_grid`\]
+    ///
+    /// The function is trusted to produce tiles in that grid.
+    /// Martin only advertises it in the `TileJSON`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
 
     /// An integer specifying the minimum zoom level
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
@@ -71,7 +78,7 @@ pub struct FunctionInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -83,7 +90,7 @@ pub struct FunctionInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -153,8 +160,10 @@ impl PostgresInfo for FunctionInfo {
             TileInfo::from(format)
         } else {
             warn!(
-                "Unrecognized content_type '{}' in SQL comment for {}.{}, defaulting to MVT",
-                content_type, self.schema, self.function
+                content_type = %content_type,
+                schema = %self.schema,
+                function = %self.function,
+                "Unrecognized content_type in SQL comment, defaulting to MVT"
             );
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }

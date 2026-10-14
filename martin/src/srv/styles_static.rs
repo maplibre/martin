@@ -28,6 +28,8 @@ use serde::Deserialize;
 use tracing::error;
 use tracing::{debug, warn};
 
+#[cfg(feature = "unstable-schemas")]
+use crate::srv::overlay_body::StaticStyleOverlay;
 use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::ImageFormatRequest;
@@ -290,7 +292,10 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /style/{style_id}/static/{camera}/{size}.jpeg caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
+                style.id = %style_id,
+                style.camera = %camera,
+                style.size = %size,
+                "Request to a .jpeg static image caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
             );
         })
         .await;
@@ -315,7 +320,7 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         path = "/style/{style_id}/static/{camera}/{size}.{format}",
         params(StaticImagePath),
         request_body(
-            content = crate::srv::overlay_body::StaticStyleOverlay,
+            content = StaticStyleOverlay,
             content_type = "application/json",
             description = "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
         ),
@@ -418,7 +423,7 @@ async fn handle_static_request(
 
     #[cfg(target_os = "linux")]
     let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
-        Ok(image) => encode_image_response(image.as_image(), path.format),
+        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
         Err(resp) => *resp,
     };
     #[cfg(not(target_os = "linux"))]
@@ -529,7 +534,7 @@ async fn render_with_overlays(
         Box::new(match e {
             StyleError::RenderingIsDisabled => rendering_disabled(),
             StyleError::OverlayApply(err) => {
-                warn!("Overlay application failed: {err}");
+                warn!(error = %err, "Overlay application failed");
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
                     .body(format!("Overlay application failed: {err}"))
@@ -538,8 +543,9 @@ async fn render_with_overlays(
             | StyleError::StyleLoadError(_)
             | StyleError::RenderingError(_)
             | StyleError::FailedToSendRequest
-            | StyleError::FailedToReceiveResponse) => {
-                error!("Failed to render static image: {other}");
+            | StyleError::FailedToReceiveResponse
+            | StyleError::RenderingPanicked) => {
+                error!(error = %other, "Failed to render static image");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())
                     .body("Failed to render static image")

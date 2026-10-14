@@ -1,4 +1,5 @@
 ---
+description: Rendering styles to raster tiles and static images
 icon: material/image
 tags:
   - styles
@@ -12,23 +13,73 @@ Martin can render a [style](index.md) into raster images server-side:
 as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
-    This feature is included in the default build on Linux.
-    Its behavior may change in patch releases.
+    Rendering is **not** part of the default build.
+    It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements.
+    We only ship it where we control the runtime environment.
+    You get it by either:
+
+    - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
+    - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
+
+    The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.
 
     Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
       To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
-    - Currently, martin does not cache style rendered requests and
-    - does not support concurrency for this feature.
+    - Martin does not cache rendered requests.
 
-    We welcome contributions to help stabilize this feature!
-
-To enable rendering, turn it on in the configuration file:
+To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
 
 ```yaml
 styles:
     rendering: true
+```
+
+Renders run on a dedicated thread pool.
+`rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), and the highest [pixel ratio](#pixel-ratio) tiles are served at:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        workers: 4
+        # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
+        renderers_per_worker: 8
+        # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
+        tile_size: 512
+        # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
+        max_pixel_ratio: 4
+        # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
+        png_palette:
+            max_colors: 128
+```
+
+## Indexed (palette) PNG
+
+Rendered PNG tiles and static images are indexed (palette) PNGs.
+For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference.
+JPEG and WebP are not affected.
+
+Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128).
+Encoding a tile this way takes a few milliseconds of CPU.
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        png_palette:
+            max_colors: 64
+```
+
+Set `png_palette: false` for full-color RGBA PNGs, for example for imagery or styles with smooth gradients:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        png_palette: false
 ```
 
 ## Rendered XYZ tiles
@@ -37,6 +88,29 @@ We support generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
 
+### Tile size
+
+Tiles are 512×512 px by default, the size MapLibre uses.
+Set `tile_size: 256` to serve 256×256 px tiles, the size most other raster clients (such as Leaflet or OpenLayers) expect by default.
+Any other value fails at startup.
+
+### Pixel ratio
+
+For high-density (retina) screens, add `@{n}x` after the row to draw the same tile at `n` times the pixels:
+`/style/<style_id>/{z}/{x}/{y}@2x.png` is twice `tile_size` wide and high (1024×1024 px with the default 512), `@3x` three times.
+`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured): `@5x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
+
+In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
+
+### Renderers per worker
+
+Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
+Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
+With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
+
+Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
+Each renderer holds its own memory: lower `renderers_per_worker` or `max_pixel_ratio` to reduce memory usage.
+
 ## Static images
 
 !!! info
@@ -44,8 +118,7 @@ After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filety
     We are working on adding this feature and are very open to contributions if you want to help!
 
 !!! warning
-    Static rendering shares the limitations listed above (Linux only, no caching, no concurrency).
-    The HTTP shape may still change in patch releases.
+    Static rendering shares the limitations listed above (Linux only, no caching).
 
 Martin can render a single PNG/JPEG/WebP of a style at a chosen camera.
 The same URL is served by two methods:
@@ -65,17 +138,12 @@ An empty or missing body is equivalent to `GET`.
 
 The `{camera}` segment chooses what the image looks at:
 
-| Form                            | Meaning                                              |
-| ------------------------------- | ---------------------------------------------------- |
-| `lon,lat,zoom`                  | Center at `(lon, lat)` and `zoom` (north up, flat).  |
-| `lon,lat,zoom@bearing`          | Center + bearing in degrees (clockwise from north).  |
-| `lon,lat,zoom@bearing,pitch`    | Center + bearing + pitch in degrees.                 |
-| `minLon,minLat,maxLon,maxLat`   | Fit the given bounding box to the requested size.    |
+--8<-- "images/styles/camera.svg"
 
 !!! info
-    The image is always rendered INSIDE of the requested size.
-    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at `1°,-1°`.
-    We will not expand the image outside the bbox.
+    The whole bounding box is always visible.
+    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image is centered on `0,0` and spans the full 20° of longitude, with extra map above and below the bbox.
+    A bounding box always renders north up and flat.
 
 ### Size and format
 

@@ -19,12 +19,12 @@ pub const NO_TILE_CACHE: OptTileCache = None;
 pub enum TileCacheKey {
     /// A particular request shapes the bytes that would be served
     Dynamic {
-        /// Source the tile belongs to.
-        source_id: String,
+        /// Source the tile belongs to, or the comma-separated sources of a composite.
+        source_id: Box<str>,
         /// Tile coordinate.
         xyz: TileCoord,
         /// Request query string, when the source consumes one.
-        query: Option<String>,
+        query: Option<Box<str>>,
         /// Format requested via the `Accept` header
         /// `None` if absent.
         format: Option<Format>,
@@ -36,7 +36,7 @@ pub enum TileCacheKey {
     /// A tile exactly as its source produced it, before any post-cache processing.
     Static {
         /// Source the tile belongs to.
-        source_id: String,
+        source_id: Box<str>,
         /// Tile coordinate.
         xyz: TileCoord,
     },
@@ -46,9 +46,9 @@ impl TileCacheKey {
     /// Key for the bytes a particular request shape produces.
     #[must_use]
     pub fn new_request_dynamic(
-        source_id: impl Into<String>,
+        source_id: impl Into<Box<str>>,
         xyz: TileCoord,
-        query: Option<String>,
+        query: Option<Box<str>>,
         format: Option<Format>,
         encoding: Option<Encoding>,
     ) -> Self {
@@ -63,7 +63,7 @@ impl TileCacheKey {
 
     /// Key for a source's own bytes, independent of any request shape.
     #[must_use]
-    pub fn new_request_static(source_id: impl Into<String>, xyz: TileCoord) -> Self {
+    pub fn new_request_static(source_id: impl Into<Box<str>>, xyz: TileCoord) -> Self {
         Self::Static {
             source_id: source_id.into(),
             xyz,
@@ -79,7 +79,6 @@ impl TileCacheKey {
     }
 
     /// The coordinate this entry is for.
-    #[must_use]
     pub const fn xyz(&self) -> TileCoord {
         match self {
             Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => *xyz,
@@ -91,7 +90,7 @@ impl CacheKey for TileCacheKey {
     const CACHE_NAME: &'static str = "tile";
 
     fn matches_source(&self, source_id: &str) -> bool {
-        self.source_id() == source_id
+        self.source_id().split(',').any(|s| s == source_id)
     }
 
     fn record_outcome(&self, hit: bool) {
@@ -100,7 +99,7 @@ impl CacheKey for TileCacheKey {
             .with_label_values(&[
                 Self::CACHE_NAME,
                 crate::cache::hit_miss_label(hit),
-                crate::metrics::ZOOM_LABELS[self.xyz().z as usize],
+                crate::metrics::ZOOM_LABELS[self.xyz().z() as usize],
             ])
             .inc();
         #[allow(clippy::if_same_then_else)]

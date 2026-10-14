@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use async_trait::async_trait;
+use compact_str::CompactString;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use reqwest::StatusCode;
 use reqwest::header::{
@@ -15,7 +15,7 @@ use crate::tiles::passthrough::PassthroughError;
 use crate::tiles::passthrough::url::{
     UrlTemplate, derive_format, is_template, select_url, substitute,
 };
-use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
+use crate::tiles::{MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
 #[derive(Clone, Debug)]
@@ -190,7 +190,7 @@ struct FetchedTile {
     data: TileData,
     info: TileInfo,
     /// The upstream `ETag` header verbatim, if any (so large tiles are not re-hashed).
-    etag: Option<String>,
+    etag: Option<CompactString>,
 }
 
 impl PassthroughSource {
@@ -254,21 +254,23 @@ impl PassthroughSource {
             });
         }
 
-        let etag = header_str(response.headers(), &ETAG).and_then(|raw| usable_strong_etag(&raw));
-        let content_type = header_str(response.headers(), &CONTENT_TYPE);
-        let content_encoding = header_str(response.headers(), &CONTENT_ENCODING);
-        let data = response.bytes().await?.to_vec();
-        let info = response_tile_info(
-            self.tile_info.format,
-            content_type.as_deref(),
-            content_encoding.as_deref(),
-            &data,
-        );
+        let etag = header_str(response.headers(), &ETAG)
+            .and_then(usable_strong_etag)
+            .map(CompactString::from);
+        let encoding = header_str(response.headers(), &CONTENT_ENCODING)
+            .and_then(Encoding::parse)
+            .unwrap_or(Encoding::Uncompressed);
+        let content_type =
+            header_str(response.headers(), &CONTENT_TYPE).and_then(content_type_format);
+        let data = response.bytes().await?;
+        let format = content_type
+            .or_else(|| sniff_format(&data))
+            .unwrap_or(self.tile_info.format);
+        let info = TileInfo::new(format, encoding);
         Ok(FetchedTile { data, info, etag })
     }
 }
 
-#[async_trait]
 impl Source for PassthroughSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -280,10 +282,6 @@ impl Source for PassthroughSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
@@ -317,7 +315,7 @@ impl Source for PassthroughSource {
         Ok(tile)
     }
 
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
+    async fn try_reload(&self) -> MartinCoreResult<Self> {
         Self::new(
             self.id.clone(),
             self.upstream.clone(),
@@ -325,7 +323,6 @@ impl Source for PassthroughSource {
             self.cache_zoom,
         )
         .await
-        .map(|s| Box::new(s) as BoxedSource)
         .map_err(MartinCoreError::from)
     }
 }
@@ -387,24 +384,6 @@ fn build_template_tilejson(templates: &[String], meta: &TemplateMeta) -> TileJSO
     tj
 }
 
-/// Determine a response's [`TileInfo`] from its headers, falling back to a byte sniff and finally
-/// the source-level `declared` format. The upstream `Content-Encoding` is preserved verbatim.
-fn response_tile_info(
-    declared: Format,
-    content_type: Option<&str>,
-    content_encoding: Option<&str>,
-    body: &[u8],
-) -> TileInfo {
-    let encoding = content_encoding
-        .and_then(Encoding::parse)
-        .unwrap_or(Encoding::Uncompressed);
-    let format = content_type
-        .and_then(content_type_format)
-        .or_else(|| sniff_format(body))
-        .unwrap_or(declared);
-    TileInfo::new(format, encoding)
-}
-
 /// Parse a `Content-Type` header value (ignoring any `; charset=…` suffix) into a [`Format`].
 fn content_type_format(content_type: &str) -> Option<Format> {
     let mime = content_type.split(';').next()?.trim();
@@ -422,11 +401,8 @@ fn sniff_format(body: &[u8]) -> Option<Format> {
 }
 
 /// Read a header as an owned `String`, ignoring values that are not valid UTF-8.
-fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
-    headers
-        .get(name)
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned)
+fn header_str<'a>(headers: &'a HeaderMap, name: &HeaderName) -> Option<&'a str> {
+    headers.get(name)?.to_str().ok()
 }
 
 /// Strip an upstream strong `ETag`'s wire quotes so it can be served verbatim.

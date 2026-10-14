@@ -3,6 +3,7 @@
 ####
 
 **/*.pending-snap
+**/*.snap.new
 **/*.rs.bk
 **/dist/
 **/node_modules/

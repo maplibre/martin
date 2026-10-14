@@ -1,3 +1,5 @@
+#[cfg(feature = "_tiles")]
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -7,25 +9,17 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "geojson",
-    feature = "styles",
-    feature = "sprites",
-    feature = "fonts",
-))]
-use crate::config::file::FileConfigEnum;
 #[cfg(feature = "_tiles")]
 use crate::config::file::SourceBuildResult;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGridsConfig;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::DuckDbConfig;
-#[cfg(feature = "fonts")]
+#[cfg(feature = "resources")]
 use crate::config::file::fonts::FontConfig;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
@@ -35,19 +29,29 @@ use crate::config::file::passthrough::PassthroughConfig;
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::PostgresConfig;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
-#[cfg(feature = "sprites")]
+#[cfg(feature = "resources")]
 use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
     CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
     UnrecognizedValues,
 };
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "processing",
+    feature = "resources",
+    feature = "resources",
+    feature = "resources",
+))]
+use crate::config::file::{FileConfig, path_or_config};
 #[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
+use crate::config::primitives::one_or_many;
 #[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 
@@ -68,17 +72,17 @@ pub struct ServerState {
     #[cfg(feature = "_tiles")]
     pub tile_manager: TileSourceManager,
 
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprites: martin_core::sprites::SpriteSources,
-    #[cfg(feature = "sprites")]
+    #[cfg(feature = "resources")]
     pub sprite_cache: martin_core::sprites::OptSpriteCache,
 
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub fonts: martin_core::fonts::FontSources,
-    #[cfg(feature = "fonts")]
+    #[cfg(feature = "resources")]
     pub font_cache: martin_core::fonts::OptFontCache,
 
-    #[cfg(feature = "styles")]
+    #[cfg(feature = "resources")]
     pub styles: martin_core::styles::StyleSources,
 }
 
@@ -111,6 +115,21 @@ pub struct Config {
     #[serde(flatten)]
     pub srv: SrvConfig,
 
+    /// Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
+    ///
+    /// A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+    /// Sources refer to a grid by its name here.
+    /// ```yaml
+    /// tile_grids:
+    ///   DutchRD:
+    ///     crs: EPSG:28992
+    ///     origin: [-285401.92, 903401.92]
+    ///     extent_at_zoom0: 880803.84
+    /// ```
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tile_grids: TileGridsConfig,
+
     /// Database configuration
     ///
     /// This can also be a list of PG configs, for example:
@@ -122,18 +141,38 @@ pub struct Config {
     ///     default_srid: 3857
     /// ```
     #[cfg(feature = "postgres")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<PostgresConfig>,
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PostgresConfig>")
+    )]
+    pub postgres: Vec<PostgresConfig>,
 
     /// Publish `PMTiles` files from local disk or proxy to a web server
     #[cfg(feature = "pmtiles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<PmtConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<PmtConfig>")
+    )]
+    pub pmtiles: FileConfig<PmtConfig>,
 
     /// Publish `MBTiles` files
     #[cfg(feature = "mbtiles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<MbtConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<MbtConfig>")
+    )]
+    pub mbtiles: FileConfig<MbtConfig>,
 
     /// Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
     /// Each upstream is configured under `sources`.
@@ -142,8 +181,16 @@ pub struct Config {
     pub passthrough: PassthroughConfig,
 
     #[cfg(feature = "unstable-cog")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<CogConfig>,
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<CogConfig>")
+    )]
+    pub cog: FileConfig<CogConfig>,
 
     /// Publish `DuckDB` / `GeoParquet` sources (unstable)
     #[cfg(feature = "unstable-duckdb")]
@@ -151,9 +198,17 @@ pub struct Config {
     pub duckdb: DuckDbConfig,
 
     /// Publish `GeoJSON` files as vector tile sources
-    #[cfg(feature = "geojson")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub geojson: FileConfigEnum<GeoJsonConfig>,
+    #[cfg(feature = "processing")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<GeoJsonConfig>")
+    )]
+    pub geojson: FileConfig<GeoJsonConfig>,
 
     /// Named combinations of tile sources.
     ///
@@ -162,23 +217,53 @@ pub struct Config {
     /// Aliases may only reference tile sources, not other aliases.
     /// An alias sharing the name of a tile source takes precedence over it.
     #[cfg(feature = "_tiles")]
-    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    pub aliases: std::collections::BTreeMap<String, Vec<String>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub aliases: BTreeMap<String, Vec<String>>,
 
     /// Sprite configuration
-    #[cfg(feature = "sprites")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>"
+        )
+    )]
     pub sprites: SpriteConfig,
 
     /// Publish `MapLibre` style files
     /// You can also configure us to render the styles on the server side.
-    #[cfg(feature = "styles")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>"
+        )
+    )]
     pub styles: StyleConfig,
 
     /// Font configuration
-    #[cfg(feature = "fonts")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(
+            with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>"
+        )
+    )]
     pub fonts: FontConfig,
 
     /// Encoder settings for MVT->MLT conversion (global level).
@@ -188,7 +273,7 @@ pub struct Config {
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -199,7 +284,7 @@ pub struct Config {
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -244,12 +329,16 @@ impl OnInvalid {
         }
         match warnings {
             [warning] => match self {
-                Self::Warn => warn!("Tile source resolution warning: {warning}"),
-                Self::Abort => error!("Tile source resolution warning: {warning}"),
+                Self::Warn => warn!(warning = %warning, "Tile source resolution warning"),
+                Self::Abort => error!(warning = %warning, "Tile source resolution warning"),
             },
             warnings => match self {
-                Self::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
-                Self::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                Self::Warn => {
+                    warn!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
+                Self::Abort => {
+                    error!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
             },
         }
 

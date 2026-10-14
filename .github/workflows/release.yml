@@ -13,8 +13,11 @@ on:
       GH_HOMEBREW_MARTIN_TOKEN:
         description: Fine-grained PAT for maplibre/homebrew-martin, see below
         required: false
-      RELEASE_PLZ_TOKEN:
-        description: PAT release-plz publishes releases and release PRs with
+      RELEASE_PLZ_APP_ID:
+        description: ID of the GitHub App release-plz publishes releases and release PRs as
+        required: false
+      RELEASE_PLZ_APP_PRIVATE_KEY:
+        description: Private key of the GitHub App release-plz publishes releases and release PRs as
         required: false
   workflow_dispatch:
     inputs:
@@ -34,6 +37,7 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       # for writing attestations
       id-token: write
@@ -52,7 +56,7 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - name: Download build artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { pattern: 'build-*', path: 'target' }
 
       - name: Package
@@ -64,6 +68,36 @@ jobs:
             mv "$dir" "target/$target"
             just package-assets "$target"
           done
+      - name: Save the packaged binaries for release-plz
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with: { name: 'release-files', path: 'target/files/*', retention-days: 1 }
+
+      # release-plz attaches the binaries before it publishes, so a release event
+      # only has to upload them when someone published a draft by hand.
+      - name: Look up the release
+        if: github.event_name == 'release'
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          assets=$(gh release view "$RELEASE_TAG_NAME" --json assets --jq '.assets | length')
+          if [[ "$assets" -gt 0 ]]; then
+            echo "has_assets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_assets=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Use the published binaries for the Homebrew checksums
+        if: github.event_name == 'release' && steps.release.outputs.has_assets == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          rm -rf target/files
+          gh release download "$RELEASE_TAG_NAME" --dir target/files
 
       - name: Create Homebrew config
         run: |
@@ -86,18 +120,19 @@ jobs:
           GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name || 'not-a-release' }}
 
       - name: Save Homebrew Config
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Generate SLSA build provenance attestation
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && steps.release.outputs.has_assets == 'false'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
-        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && steps.release.outputs.has_assets == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          RELEASE_IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           set -euo pipefail
           if ! compgen -G "target/files/*" > /dev/null; then
@@ -105,7 +140,8 @@ jobs:
             exit 1
           fi
           gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
+          if [[ "$RELEASE_IS_PRERELEASE" == true ]]; then latest=false; else latest=true; fi
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest="$latest"
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
         env:
@@ -141,7 +177,7 @@ jobs:
           data_file: target/homebrew_config.yaml
 
       - name: Create a PR for maplibre/homebrew-martin
-        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
@@ -162,14 +198,16 @@ jobs:
     needs: [ package ]
     if: |
       always()
-      && needs.package.result == 'success'
+      && (needs.package.result == 'success' || needs.package.result == 'skipped')
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write
+      attestations: write
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
@@ -178,15 +216,92 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { rendering: true }
+      # A GitHub App token, so that the tags, releases and PRs release-plz creates
+      # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
+      - name: Generate GitHub token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: generate-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+          # tags and releases, and the release PRs
+          permission-contents: write
+          permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         id: release
         with: { command: release }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+      - name: Download the packaged binaries
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: 'release-files', path: 'target/files' }
+      - name: Generate SLSA build provenance attestation
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with: { subject-path: 'target/files/*' }
+      - name: Attach the binaries and publish the drafted releases
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        env:
+          # The app token, so that publishing fires `release: published` for the docker tags
+          # and the Homebrew PR. Events created with GITHUB_TOKEN start no workflow.
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          RELEASES: ${{ steps.release.outputs.releases }}
+        run: |
+          set -euo pipefail
+          for tag in $(jq -r '.[].tag' <<< "$RELEASES"); do
+            state=$(gh release view "$tag" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' || true)
+            if [[ "$state" != "true "* ]]; then
+              echo "$tag has no draft release to publish, skipping"
+              continue
+            fi
+            if [[ "$tag" == martin-v* || "$tag" == mbtiles-v* ]]; then
+              gh release upload "$tag" target/files/* --clobber
+            fi
+            if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
+            gh release edit "$tag" --verify-tag --draft=false --latest="$latest"
+          done
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Install uv
+        continue-on-error: true
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Setup Node.js
+        continue-on-error: true
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24 }
+      # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
+      # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Generate the files that follow martin's next version
+        id: generate
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # release-plz is on the PATH from the release step
+          release-plz update --package martin
+          mapfile -t bumped < <(git diff --name-only)
+          # what pre-commit.ci and the autofix.yml jobs push, in the order they push it
+          uvx pre-commit run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
+          just fmt-toml
+          npm --prefix demo/frontend install --package-lock-only --no-fund
+          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+          just gen-schemas
+          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          # release-pr bumps these itself
+          if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
+          just update-lockfile
+          git status --short
+      - if: ${{ steps.generate.outcome == 'failure' }}
+        name: Hand release-pr a clean tree
+        run: git reset --hard && git clean -fd
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         with: { command: release-pr }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
+          MLN_PRECOMPILE: 1

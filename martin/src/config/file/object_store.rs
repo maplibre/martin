@@ -187,7 +187,6 @@ impl ObjectStoreConfig {
     pub(crate) fn prepare(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
         self.persist_profile = self.profile.is_some();
         self.partition_options(unrecognized, namespace);
-        self.migrate_deprecated_keys(unrecognized, namespace);
     }
 
     pub(crate) async fn finalize_runtime(&mut self, namespace: &'static str) {
@@ -232,7 +231,8 @@ impl ObjectStoreConfig {
                 );
             } else {
                 warn!(
-                    "Region from {namespace}.profile is ignored in favor of explicit region configuration."
+                    config.key = %format_args!("{namespace}.profile"),
+                    "Region from profile is ignored in favor of explicit region configuration."
                 );
             }
         } else if let Some(region) = sdk_config.region() {
@@ -283,12 +283,14 @@ impl ObjectStoreConfig {
                 );
             } else {
                 warn!(
-                    "Credentials from {namespace}.profile are ignored in favor of explicit credential-provider configuration."
+                    config.key = %format_args!("{namespace}.profile"),
+                    "Credentials from profile are ignored in favor of explicit credential-provider configuration."
                 );
             }
         } else if skips_signature {
             warn!(
-                "Credentials from {namespace}.profile are ignored because request signing is disabled."
+                config.key = %format_args!("{namespace}.profile"),
+                "Credentials from profile are ignored because request signing is disabled."
             );
         } else if let Some(provider) = sdk_config.credentials_provider() {
             self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider { provider }));
@@ -335,8 +337,29 @@ impl ObjectStoreConfig {
                 Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
             }
             ObjectStoreScheme::Http => {
-                let origin = &url[..url::Position::BeforePath];
-                Box::new(with_options!(HttpBuilder, origin).build()?)
+                // object_store keeps its boolean parser private, these are the spellings it accepts
+                let allow_http = self.options.get("allow_http").is_some_and(|value| {
+                    matches!(
+                        value.to_ascii_lowercase().as_str(),
+                        "1" | "true" | "on" | "yes" | "y"
+                    )
+                });
+                if url.scheme() == "http" && !allow_http {
+                    return Err(object_store::Error::Generic {
+                        store: "HttpStore",
+                        source: "plain http is refused unless `allow_http` is set to `true`".into(),
+                    });
+                }
+                // Carry the URL query onto every request: the backend stores only the origin and
+                // builds per-object URLs by extending the path, so a query (e.g. a presigned or
+                // token-authenticated URL) must be pinned onto the base. The fragment is auth
+                // local and must never be sent.
+                let mut base = url[..url::Position::BeforePath].to_string();
+                if let Some(query) = url.query() {
+                    base.push('?');
+                    base.push_str(query);
+                }
+                Box::new(with_options!(HttpBuilder, base).build()?)
             }
             _ => return object_store::parse_url_opts(url, &self.options),
         };
@@ -361,7 +384,9 @@ impl ObjectStoreConfig {
                 | serde_json::Value::Array(_)
                 | serde_json::Value::Object(_)) => {
                     warn!(
-                        "Ignoring unrecognized configuration key '{namespace}.{key}': {value:?}. Only boolean, string or number values are allowed here. Please check your configuration file for typos."
+                        config.key = %format_args!("{namespace}.{key}"),
+                        config.value = ?value,
+                        "Ignoring unrecognized configuration key: only boolean, string or number values are allowed here. Please check your configuration file for typos."
                     );
                     None
                 }
@@ -369,46 +394,6 @@ impl ObjectStoreConfig {
             if let Some(runtime_value) = runtime_value {
                 self.persisted_options.insert(key.clone(), value);
                 self.options.insert(key, runtime_value);
-            }
-        }
-    }
-
-    fn migrate_deprecated_keys(&mut self, unrecognized: &mut UnrecognizedValues, namespace: &str) {
-        if !self.options.contains_key("allow_http") {
-            warn!(
-                "Defaulting `{namespace}.allow_http` to `true`. This may become an error in the future."
-            );
-            self.options
-                .insert("allow_http".to_owned(), "true".to_owned());
-        }
-        for key in ["aws_s3_force_path_style", "force_path_style"] {
-            if let Some(Some(force)) = unrecognized.remove(key).map(|v| v.as_bool())
-                && self.migrate_aws_value(
-                    "Configuration option",
-                    &format!("{namespace}.{key}"),
-                    "virtual_hosted_style_request",
-                    (!force).to_string(),
-                    namespace,
-                )
-            {
-                self.persisted_options.insert(
-                    "virtual_hosted_style_request".to_owned(),
-                    serde_json::Value::Bool(!force),
-                );
-            }
-        }
-        for key in ["aws_skip_credentials", "aws_no_credentials"] {
-            if let Some(Some(skip)) = unrecognized.remove(key).map(|v| v.as_bool())
-                && self.migrate_aws_value(
-                    "Configuration option",
-                    &format!("{namespace}.{key}"),
-                    "skip_signature",
-                    skip.to_string(),
-                    namespace,
-                )
-            {
-                self.persisted_options
-                    .insert("skip_signature".to_owned(), serde_json::Value::Bool(skip));
             }
         }
     }
@@ -426,28 +411,6 @@ impl ObjectStoreConfig {
                 self.adopt_aws_value("Environment variable", env_key, bare, value, namespace);
             }
         }
-        if let Ok(profile) = env::var("AWS_PROFILE")
-            && self.profile.is_none()
-        {
-            self.profile = Some(profile);
-        }
-    }
-
-    pub(crate) fn migrate_aws_value(
-        &mut self,
-        kind: &str,
-        key: &str,
-        new_key: &str,
-        value: String,
-        namespace: &str,
-    ) -> bool {
-        let adopted = self.adopt_aws_value(kind, key, new_key, value, namespace);
-        if adopted {
-            warn!(
-                "{kind} {key} is deprecated. Please use {namespace}.{new_key} in the configuration file instead."
-            );
-        }
-        adopted
     }
 
     fn adopt_aws_value(
@@ -461,12 +424,18 @@ impl ObjectStoreConfig {
         let prefixed = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
             warn!(
-                "{kind} {key} is ignored in favor of the new configuration value {namespace}.{new_key}."
+                ignored.kind = %kind,
+                ignored.key = %key,
+                config.key = %format_args!("{namespace}.{new_key}"),
+                "Value is ignored in favor of the explicit configuration value"
             );
             false
         } else if self.options.contains_key(&prefixed) {
             warn!(
-                "{kind} {key} is ignored in favor of the new configuration value {namespace}.{prefixed}."
+                ignored.kind = %kind,
+                ignored.key = %key,
+                config.key = %format_args!("{namespace}.{prefixed}"),
+                "Value is ignored in favor of the explicit configuration value"
             );
             false
         } else {
@@ -489,7 +458,11 @@ impl ObjectStoreConfig {
             if self.options.contains_key(prefixed) || self.options.contains_key(bare) {
                 continue;
             }
-            info!("Using {env_key} from the environment as {namespace}.{bare} for S3 credentials.");
+            info!(
+                env.key = %env_key,
+                config.key = %format_args!("{namespace}.{bare}"),
+                "Using environment variable for S3 credentials"
+            );
             self.options.insert(bare.to_owned(), value);
         }
     }
@@ -497,6 +470,9 @@ impl ObjectStoreConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -509,6 +485,20 @@ mod tests {
         config.prepare(&mut unrecognized, "pmtiles");
         assert!(unrecognized.keys().next().is_none());
         config
+    }
+
+    #[rstest]
+    #[case::unset(None, false)]
+    #[case::disabled(Some(json!(false)), false)]
+    #[case::enabled(Some(json!(true)), true)]
+    #[case::enabled_as_a_word(Some(json!("yes")), true)]
+    fn plain_http_needs_allow_http(
+        #[case] allow_http: Option<serde_json::Value>,
+        #[case] accepted: bool,
+    ) {
+        let config = prepared(allow_http.map(|value| ("allow_http", value)));
+        let url = Url::parse("http://example.com/tiles.pmtiles").unwrap();
+        assert_eq!(config.parse_url_opts(&url).is_ok(), accepted);
     }
 
     #[test]
@@ -555,19 +545,27 @@ mod tests {
     }
 
     #[test]
-    fn migrated_boolean_options_remain_booleans_when_saved() {
-        let config = prepared([
+    fn legacy_aws_keys_are_unrecognized() {
+        let mut config = ObjectStoreConfig::default();
+        let mut unrecognized = [
             ("aws_s3_force_path_style", json!(true)),
-            ("aws_skip_credentials", json!(false)),
-        ]);
-
-        assert_eq!(
-            serde_json::to_value(config).unwrap(),
-            json!({
-                "skip_signature": false,
-                "virtual_hosted_style_request": false,
-            })
-        );
+            ("force_path_style", json!(true)),
+            ("aws_skip_credentials", json!(true)),
+            ("aws_no_credentials", json!(true)),
+        ]
+        .into_iter()
+        .collect::<UnrecognizedValues>();
+        config.prepare(&mut unrecognized, "pmtiles");
+        assert_eq!(serde_json::to_value(config).unwrap(), json!({}));
+        let unrecognized = unrecognized.keys().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "aws_no_credentials",
+            "aws_s3_force_path_style",
+            "aws_skip_credentials",
+            "force_path_style",
+        }
+        "#);
     }
 }
 
@@ -618,7 +616,7 @@ mod cog_tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::config::file::cog::CogConfig;
-    use crate::config::file::{Config, ConfigurationLivecycleHooks as _, FileConfigEnum};
+    use crate::config::file::{Config, ConfigurationLivecycleHooks as _};
     use crate::config::primitives::IdResolver;
     use crate::srv::RESERVED_KEYWORDS;
 
@@ -648,9 +646,7 @@ mod cog_tests {
         )
         .unwrap();
         config.finalize().await.unwrap();
-        let FileConfigEnum::Config(cog) = &config.cog else {
-            panic!("COG config must be expanded during finalization");
-        };
+        let cog = &config.cog;
         assert_eq!(
             cog.custom.object_store.options["aws_endpoint"],
             "http://localhost:9000"
@@ -685,6 +681,8 @@ mod cog_tests {
             .await;
 
         let mut cog = CogConfig::default();
+        cog.unrecognized
+            .insert("allow_http".to_owned(), serde_json::json!(true));
         cog.finalize().await.unwrap();
         let config = &cog.object_store;
         let url = url::Url::parse(&format!("{}/image.tif", server.uri())).unwrap();

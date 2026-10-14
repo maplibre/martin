@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "z!",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "zoom_level",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Integer"
+      },
+      {
+        "name": "x!",
+        "ordinal": 1,
+        "origin": {
+          "Table": {
+            "name": "tile_column",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Integer"
+      },
+      {
+        "name": "y!",
+        "ordinal": 2,
+        "origin": {
+          "Table": {
+            "name": "tile_row",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Integer"
+      },
+      {
+        "name": "data!",
+        "ordinal": 3,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Blob"
+      }
+    ],
+    "nullable": [true, true, true, true],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "5f85bdd34fbd8df200e259818d1ed6293066c4548a6211c57c2ad702dd439dc5",
+  "query": "SELECT zoom_level AS \"z!\", tile_column AS \"x!\", tile_row AS \"y!\", tile_data AS \"data!\"\n               FROM tiles ORDER BY 1, 2, 3"
+}

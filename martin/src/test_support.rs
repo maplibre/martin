@@ -12,19 +12,19 @@ pub(crate) mod pg {
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
     use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 
-    use crate::config::file::CachePolicy;
     use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
+    use crate::config::file::{CachePolicy, TileGrids};
     use crate::config::primitives::IdResolver;
 
     /// Launches the pinned, purposely-old `PostGIS` image, retrying a few times for flaky CI pulls.
-    pub(crate) async fn start_postgres_11_with_posgis_3_container() -> ContainerAsync<Postgres> {
+    pub(crate) async fn start_postgres_15_with_postgis_3_5_container() -> ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("11-3.0") // purposely very old and stable
+                .with_tag("15-3.5") // purposely very old and stable
                 .start()
                 .await
         })
@@ -61,7 +61,7 @@ pub(crate) mod pg {
         ContainerAsync<Postgres>,
         String,
     ) {
-        let container = start_postgres_11_with_posgis_3_container().await;
+        let container = start_postgres_15_with_postgis_3_5_container().await;
         let connection_string = connection_string(&container).await;
 
         let mut config: PostgresConfig =
@@ -72,6 +72,7 @@ pub(crate) mod pg {
             &config,
             IdResolver::default(),
             CachePolicy::default(),
+            &TileGrids::default(),
         )
         .await
         .expect("create PostgresAutoDiscoveryBuilder");

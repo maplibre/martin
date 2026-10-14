@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use sqlite_hashes::rusqlite;
 
-use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtType};
+use crate::{
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtType,
+};
 
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
@@ -28,6 +30,12 @@ pub enum MbtError {
 
     #[error(transparent)]
     RusqliteError(#[from] rusqlite::Error),
+
+    #[error("A raw SQLite action left a transaction open; it was rolled back")]
+    TransactionLeftOpen,
+
+    #[error("Tiles written with dedup key {0} have different bytes")]
+    DedupKeyMismatch(u64),
 
     #[error(transparent)]
     JsonSerdeError(#[from] serde_json::Error),
@@ -96,6 +104,15 @@ pub enum MbtError {
     )]
     UnsupportedHashAlgorithm {
         algorithm: String,
+        filepath: PathBuf,
+    },
+
+    #[error(
+        "Cannot copy with hash algorithm `{requested}` into {filepath}, which stores its hashes as `{destination}`"
+    )]
+    HashAlgorithmMismatch {
+        requested: HashAlgorithm,
+        destination: HashAlgorithm,
         filepath: PathBuf,
     },
 
@@ -227,6 +244,11 @@ pub enum MbtError {
     #[cfg(feature = "transcode")]
     #[error("Transcoding error: {0}")]
     TranscodeError(String),
+
+    #[error(
+        "Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first"
+    )]
+    CannotTranscodeNormalizedToDedupId,
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

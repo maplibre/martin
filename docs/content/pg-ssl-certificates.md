@@ -1,4 +1,5 @@
 ---
+description: Certificate authentication for PostgreSQL connections
 icon: simple/postgresql
 tags:
   - postgresql
@@ -22,18 +23,9 @@ Use SSL certificates for:
 
 ## SSL Modes
 
-| sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection       | Statement                                                                                                                                   |
-|---------------|------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `disable`     | ⛔                                 | ⛔                         | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
-| `allow`       | 🤷                                 | ⛔                         | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
-| `prefer`      | 🤷                                 | ⛔                         | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
-| `require`     | ✅                                 | ⛔                         | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
-| `verify-ca`   | ✅                                 | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
-| `verify-full` | ✅                                 | ✅                         | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
+--8<-- "images/pg/sslmode.svg"
 
-Our recommendation: **`verify-full` or `allow`**.
-There are not many cases where anything in between makes sense.
-
+There are not many cases where anything between the two recommended modes makes sense.
 In particular, the default mode (`prefer`) does not make much sense.
 From the postgres documentation:
 
@@ -174,16 +166,9 @@ SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
 
 ## Martin Configuration
 
-Martin can be configured using environment variables, [the CLI](run-with-cli.md), or the [configuration file](config-file/index.md).
+Martin can be configured using [the CLI](run-with-cli.md) or the [configuration file](config-file/index.md).
 Which of them you choose is up to you.
 You do not need to configure things twice.
-
-??? "Environment Variables (click to expand)"
-    ```bash
-    export PGSSLROOTCERT=./ca-cert.pem
-    export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
-    martin
-    ```
 
 ??? "Configuration File (click to expand)"
     ```yaml
@@ -209,14 +194,14 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
+RUST_LOG=debug RUST_LOG_FORMAT=pretty martin --ca-root-file ./ca-cert.pem postgres://...
 ```
 
 These are the errors that can occur:
 
 ??? "Certificate verification failed (click to expand)"
     - Check server certificate is signed by the CA
-    - Verify CA certificate path in `PGSSLROOTCERT`
+    - Verify the CA certificate path given as `--ca-root-file` or `ssl_root_cert`
     - Ensure certificate files are readable
 
 ??? "Hostname verification failed (click to expand)"

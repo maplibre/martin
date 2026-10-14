@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CopyDuplicateMode, HashAlgorithm, MbtType, NormalizedSchema, invert_y_value};
+use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -141,7 +141,7 @@ pub struct PatchFileInfo {
 /// let mut stream = mbt.stream_tiles(&mut conn);
 /// while let Some(tile) = stream.next().await {
 ///     let (coord, data) = tile?;
-///     println!("Tile at {}/{}/{}: {} bytes", coord.z, coord.x, coord.y, data.map(|bytes| bytes.len()).unwrap_or_default());
+///     println!("Tile at {}/{}/{}: {} bytes", coord.z(), coord.x(), coord.y(), data.map(|bytes| bytes.len()).unwrap_or_default());
 /// }
 /// # Ok(())
 /// # }
@@ -215,7 +215,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening w/ defaults {self}");
+        debug!(mbtiles.file = %self, "Opening with defaults");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
@@ -247,7 +247,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening or creating {self}");
+        debug!(mbtiles.file = %self, "Opening or creating");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .create_if_missing(true);
@@ -285,7 +285,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening as readonly {self}");
+        debug!(mbtiles.file = %self, "Opening as readonly");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .read_only(true);
@@ -316,7 +316,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Attaching {self} as {name}");
+        debug!(mbtiles.file = %self, sqlite.schema = %name, "Attaching database");
         query(AssertSqlSafe(format!("ATTACH DATABASE ? AS {name}")))
             .bind(self.filepath())
             .execute(conn)
@@ -403,7 +403,7 @@ impl Mbtiles {
                 tile_column: format!("{x:?}"),
                 tile_row: format!("{y:?}"),
             })?;
-            Ok((coord, row.tile_data))
+            Ok((coord, row.tile_data.map(bytes::Bytes::from)))
         }))
     }
 
@@ -487,8 +487,9 @@ impl Mbtiles {
     /// at the given coordinates. The hash behavior depends on the schema type:
     ///
     /// - [`MbtType::Flat`]: Hash is always `None` (no hash column exists)
-    /// - [`MbtType::FlatWithHash`]: Returns the stored MD5 hash
-    /// - [`MbtType::Normalized`]: Returns the `tile_id` (MD5 hash) from the images table
+    /// - [`MbtType::FlatWithHash`]: Returns the stored hash
+    /// - [`MbtType::Normalized`] with [`NormalizedSchema::Hash`]: Returns the `tile_id` from the `images` table
+    /// - [`MbtType::Normalized`] with [`NormalizedSchema::DedupId`]: Hash is always `None` (`tiles_data` stores none)
     ///
     /// # Returns
     ///
@@ -611,7 +612,7 @@ impl Mbtiles {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn insert_tiles<D: AsRef<[u8]>>(
+    pub async fn insert_tiles<D: AsRef<[u8]> + Sync>(
         &self,
         conn: &mut SqliteConnection,
         mbt_type: MbtType,
@@ -619,31 +620,52 @@ impl Mbtiles {
         batch: &[(u8, u32, u32, D)],
     ) -> MbtResult<()> {
         debug!(
-            "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
-            batch.len()
+            tiles.count = batch.len(),
+            mbtiles.type = %mbt_type,
+            on_duplicate = %on_duplicate,
+            "Inserting a batch of tiles"
         );
         let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let mut tx = conn.begin().await?;
-        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate, algorithm);
-        if let Some(sql2) = sql2 {
+        if mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
+            let sql = NormalizedSchema::create_tile_ids_sql(algorithm);
+            sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+        }
+        let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
+        let needs_hash = match mbt_type {
+            MbtType::Flat | MbtType::Cache => false,
+            MbtType::FlatWithHash | MbtType::Normalized { .. } => true,
+        };
+        let mut hashes = Vec::with_capacity(if needs_hash { batch.len() } else { 0 });
+        for sql2 in sql2 {
             let sql2 = tx.prepare(to_sql_str(sql2)).await?;
-            for (_, _, _, tile_data) in batch {
+            for (i, (_, _, _, tile_data)) in batch.iter().enumerate() {
+                if hashes.len() == i {
+                    hashes.push(algorithm.hash(tile_data.as_ref()));
+                }
                 sql2.query()
                     .bind(tile_data.as_ref())
+                    .bind(&hashes[i])
                     .execute(&mut *tx)
                     .await?;
             }
         }
         let sql1 = tx.prepare(to_sql_str(sql1)).await?;
-        for (z, x, y, tile_data) in batch {
-            sql1.query()
+        for (i, (z, x, y, tile_data)) in batch.iter().enumerate() {
+            let mut query = sql1
+                .query()
                 .bind(z)
                 .bind(x)
                 .bind(invert_y_value(*z, *y))
-                .bind(tile_data.as_ref())
-                .execute(&mut *tx)
-                .await?;
+                .bind(tile_data.as_ref());
+            if needs_hash {
+                if hashes.len() == i {
+                    hashes.push(algorithm.hash(tile_data.as_ref()));
+                }
+                query = query.bind(&hashes[i]);
+            }
+            query.execute(&mut *tx).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -681,14 +703,12 @@ impl Mbtiles {
         Ok(row.is_some())
     }
 
-    fn get_insert_sql(
+    /// The statements that insert one tile, with parameters bound by [`Self::insert_tiles`].
+    pub(crate) fn get_insert_sql(
         src_type: MbtType,
         on_duplicate: CopyDuplicateMode,
-        algorithm: HashAlgorithm,
-    ) -> (String, Option<String>) {
+    ) -> (String, Vec<String>) {
         let on_duplicate = on_duplicate.to_sql();
-        let hash4 = algorithm.sql_hash("?4");
-        let hash1 = algorithm.sql_hash("?1");
         match src_type {
             MbtType::Flat => (
                 format!(
@@ -696,27 +716,52 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO tiles (zoom_level, tile_column, tile_row, tile_data)
     VALUES (?1, ?2, ?3, ?4);"
                 ),
-                None,
+                vec![],
             ),
             MbtType::FlatWithHash => (
                 format!(
                     "
     INSERT {on_duplicate} INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-    VALUES (?1, ?2, ?3, ?4, {hash4});"
+    VALUES (?1, ?2, ?3, ?4, ?5);"
                 ),
-                None,
+                vec![],
             ),
-            MbtType::Normalized { .. } => (
+            MbtType::Normalized {
+                schema: NormalizedSchema::Hash,
+                ..
+            } => (
                 format!(
                     "
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
-    VALUES (?1, ?2, ?3, {hash4});"
+    VALUES (?1, ?2, ?3, ?5);"
                 ),
-                Some(format!(
+                // Blobs are keyed by their content, so a repeated one is no duplicate tile.
+                vec![
                     "
-    INSERT {on_duplicate} INTO images (tile_id, tile_data)
-    VALUES ({hash1}, ?1);"
-                )),
+    INSERT OR IGNORE INTO images (tile_id, tile_data)
+    VALUES (?2, ?1);"
+                        .to_owned(),
+                ],
+            ),
+            MbtType::Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => (
+                format!(
+                    "
+    INSERT {on_duplicate} INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT ?1, ?2, ?3, tile_data_id FROM tile_ids WHERE tile_hash = ?5;"
+                ),
+                vec![
+                    "
+    INSERT OR IGNORE INTO tile_ids (tile_hash)
+    VALUES (?2);"
+                        .to_owned(),
+                    "
+    INSERT OR IGNORE INTO tiles_data (tile_data_id, tile_data)
+    SELECT tile_data_id, ?1 FROM tile_ids WHERE tile_hash = ?2;"
+                        .to_owned(),
+                ],
             ),
             // Bulk-inserted cache entries get NULL fetched/expires/etag (unknown fetch time, never expire)
             MbtType::Cache => (
@@ -725,7 +770,7 @@ impl Mbtiles {
     INSERT {on_duplicate} INTO tile_cache (zoom_level, tile_column, tile_row, tile_data)
     VALUES (?1, ?2, ?3, ?4);"
                 ),
-                None,
+                vec![],
             ),
         }
     }

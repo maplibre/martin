@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use backon::{FibonacciBuilder, Retryable as _};
 use derive_debug::Dbg;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
@@ -16,7 +15,7 @@ use tracing::{debug, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
 #[derive(Clone, Dbg)]
@@ -71,9 +70,9 @@ impl MbtSource {
             .when(is_sqlite_busy)
             .notify(|_err, dur| {
                 warn!(
-                    "Database file {:?} locked (SQLITE_BUSY). Retrying in {:.2}s...",
-                    path.display(),
-                    dur.as_secs_f64()
+                    source.path = ?path.display(),
+                    retry.delay = ?dur,
+                    "Database file locked (SQLITE_BUSY), retrying"
                 );
             })
             .await
@@ -106,7 +105,6 @@ impl MbtSource {
     }
 }
 
-#[async_trait]
 impl Source for MbtSource {
     fn get_id(&self) -> &str {
         &self.id
@@ -118,10 +116,6 @@ impl Source for MbtSource {
 
     fn get_tile_info(&self) -> TileInfo {
         self.tile_info
-    }
-
-    fn clone_source(&self) -> BoxedSource {
-        Box::new(self.clone())
     }
 
     fn get_version(&self) -> Option<String> {
@@ -144,17 +138,14 @@ impl Source for MbtSource {
     ) -> MartinCoreResult<TileData> {
         if let Some(tile) = self
             .mbtiles
-            .get_tile(xyz.z, xyz.x, xyz.y)
+            .get_tile(xyz.z(), xyz.x(), xyz.y())
             .await
             .map_err(|e| MbtilesError::AcquireConnError(self.id.clone(), Box::new(e)))?
         {
-            Ok(tile)
+            Ok(tile.into())
         } else {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
-            );
-            Ok(Vec::new())
+            trace!(source.id = %self.id, tile.coord = %xyz, "Couldn't find tile data");
+            Ok(TileData::new())
         }
     }
 }

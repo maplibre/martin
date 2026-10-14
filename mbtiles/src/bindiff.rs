@@ -81,7 +81,7 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
             let patcher = Arc::clone(&patcher);
             tokio::spawn(async move {
                 if let Err(e) = patcher.query(sql_where, tx_wrk).await {
-                    error!("Failed to query bindiff data: {e}");
+                    error!(error = %e, "Failed to query bindiff data");
                     has_errors.store(true, Relaxed);
                 }
             });
@@ -155,7 +155,7 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
                 if match patcher.process(wrk) {
                     Ok(res) => tx_ins.send_async(res).await.is_err(),
                     Err(e) => {
-                        error!("Failed to process bindiff data: {e}");
+                        error!(error = %e, "Failed to process bindiff data");
                         true
                     }
                 } {
@@ -248,16 +248,12 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
 
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
-        debug!("Querying source data with {sql}");
+        debug!(sql = %sql, "Querying source data");
         let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = DifferBefore {
-                coord: TileCoord {
-                    z: row.get(0),
-                    x: row.get(1),
-                    y: row.get(2),
-                },
+                coord: TileCoord::new_unchecked(row.get(0), row.get(1), row.get(2)),
                 old_tile_data: row.get(3),
                 new_tile_data: row.get(4),
             };
@@ -301,9 +297,9 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
             reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
         )]
         query(AssertSqlSafe(self.insert_sql.clone()))
-            .bind(value.coord.z)
-            .bind(value.coord.x)
-            .bind(value.coord.y)
+            .bind(value.coord.z())
+            .bind(value.coord.x())
+            .bind(value.coord.y())
             .bind(value.data)
             .bind(value.new_tile_hash as i64)
             .execute(&mut *conn)
@@ -371,16 +367,12 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
-        debug!("Querying {tbl} table with {sql}");
+        debug!(sqlite.table = %tbl, sql = %sql, "Querying bindiff table");
         let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = ApplierBefore {
-                coord: TileCoord {
-                    z: row.get(0),
-                    x: row.get(1),
-                    y: row.get(2),
-                },
+                coord: TileCoord::new_unchecked(row.get(0), row.get(1), row.get(2)),
                 old_tile: row.get(3),
                 patch_data: row.get(4),
                 #[expect(clippy::cast_sign_loss)]
@@ -450,9 +442,9 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
                 v @ (Normalized { .. } | Cache) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
-        .bind(value.coord.z)
-        .bind(value.coord.x)
-        .bind(value.coord.y)
+        .bind(value.coord.z())
+        .bind(value.coord.x())
+        .bind(value.coord.y())
         .bind(value.new_tile);
 
         if self.dst_type == FlatWithHash {
@@ -481,7 +473,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     let tbl = get_bsdiff_tbl_name(patch_type);
-    debug!("Creating if needed bin-diff table: {tbl}(z,x,y,data,hash)");
+    debug!(sqlite.table = %tbl, "Creating bin-diff table if needed");
     let s = if strict { " STRICT" } else { "" };
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS {tbl} (

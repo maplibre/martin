@@ -79,8 +79,8 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
                 if !keep {
                     warned_about_dirs.call_once(|| {
                         tracing::info!(
-                            "Skipping {} and similarly-named directories; expected numeric `z`/`x` directory names",
-                            entry.path().display()
+                            src.path = %entry.path().display(),
+                            "Skipping this and similarly-named directories; expected numeric `z`/`x` directory names"
                         );
                     });
                 }
@@ -95,8 +95,8 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
                 if !keep {
                     warned_about_files.call_once(|| {
                         tracing::info!(
-                            "Skipping {} and similarly-named files; expected numeric `y.<ext>` file names",
-                            entry.path().display()
+                            src.path = %entry.path().display(),
+                            "Skipping this and similarly-named files; expected numeric `y.<ext>` file names"
                         );
                     });
                 }
@@ -261,20 +261,20 @@ pub async fn unpack(
             };
 
             let y = match scheme {
-                TileScheme::Xyz => coord.y,
-                TileScheme::Tms => invert_y_value(coord.z, coord.y),
+                TileScheme::Xyz => coord.y(),
+                TileScheme::Tms => invert_y_value(coord.z(), coord.y()),
             };
 
             // Vector tiles are stored gzip-compressed; write them back out decompressed.
             let data = if TileInfo::detect(&data).encoding == Encoding::Gzip {
-                decode_gzip(&data)?
+                decode_gzip(&data)?.into()
             } else {
                 data
             };
 
             let tile_dir = output_directory
-                .join(coord.z.to_string())
-                .join(coord.x.to_string());
+                .join(coord.z().to_string())
+                .join(coord.x().to_string());
             tokio::fs::create_dir_all(&tile_dir).await?;
             tokio::fs::write(tile_dir.join(format!("{y}.{extension}")), &data).await?;
             Ok(())

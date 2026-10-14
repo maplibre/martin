@@ -6,7 +6,9 @@
 
 use std::f64::consts::PI;
 use std::fmt::{Display, Formatter};
+use std::io::Read;
 
+use flate2::read::{MultiGzDecoder, ZlibDecoder};
 use strum::EnumIter;
 
 /// circumference of the earth in meters
@@ -21,58 +23,19 @@ pub const MAX_ZOOM: u8 = 30;
 
 mod decoders;
 pub use decoders::*;
+mod grid;
+pub use grid::{
+    BUILT_IN_GRIDS, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
+    UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID,
+    WGS1984_QUAD_ID, WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
+};
 mod rectangle;
 pub use rectangle::{TileRect, append_rect};
+mod coordinate;
+pub use coordinate::TileCoord;
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub struct TileCoord {
-    pub z: u8,
-    pub x: u32,
-    pub y: u32,
-}
-
-pub type TileData = Vec<u8>;
+pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);
-
-impl Display for TileCoord {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            write!(f, "{}/{}/{}", self.z, self.x, self.y)
-        } else {
-            write!(f, "{},{},{}", self.z, self.x, self.y)
-        }
-    }
-}
-
-impl TileCoord {
-    /// Checks provided coordinates for validity
-    /// before constructing [`TileCoord`] instance.
-    ///
-    /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
-    #[must_use]
-    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<Self> {
-        Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
-    }
-
-    /// Constructs [`TileCoord`] instance from arguments without checking that the tiles can exist.
-    ///
-    /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
-    #[must_use]
-    pub const fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
-        Self { z, x, y }
-    }
-
-    /// Checks that zoom `z` is plausibily small and `x`/`y` is possible on said zoom level
-    #[must_use]
-    pub const fn is_possible_on_zoom_level(z: u8, x: u32, y: u32) -> bool {
-        if z > MAX_ZOOM {
-            return false;
-        }
-
-        let side_len = 1_u32 << z;
-        x < side_len && y < side_len
-    }
-}
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, EnumIter)]
 pub enum Format {
@@ -132,8 +95,8 @@ impl Format {
     }
 
     #[must_use]
-    pub const fn content_type(&self) -> &str {
-        match *self {
+    pub const fn content_type(self) -> &'static str {
+        match self {
             Self::Gif => "image/gif",
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
@@ -278,8 +241,12 @@ impl TileInfo {
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
         match Encoding::detect(value) {
-            Some(encoding @ Encoding::Gzip) => Self::detect_inner(decode_gzip(value), encoding),
-            Some(encoding @ Encoding::Zlib) => Self::detect_inner(decode_zlib(value), encoding),
+            Some(encoding @ Encoding::Gzip) => {
+                Self::detect_inner(&mut MultiGzDecoder::new(value), encoding)
+            }
+            Some(encoding @ Encoding::Zlib) => {
+                Self::detect_inner(&mut ZlibDecoder::new(value), encoding)
+            }
             _ => match Self::detect_raster_formats(value) {
                 Some(raster_format) => Self::new(raster_format, Encoding::Internal),
                 None => Self::detect_vectorish_format(value).into(),
@@ -289,8 +256,20 @@ impl TileInfo {
 
     /// Detect the format carried inside a compressed payload, assuming MVT if it cannot be
     /// decompressed.
-    fn detect_inner(decompressed: std::io::Result<Vec<u8>>, encoding: Encoding) -> Self {
-        let format = decompressed.map_or(Format::Mvt, |d| Self::detect_vectorish_format(&d));
+    fn detect_inner(decoder: &mut impl Read, encoding: Encoding) -> Self {
+        let mut decompressed = Vec::new();
+        let format = if decoder
+            .by_ref()
+            .take(DETECT_PREFIX_LEN)
+            .read_to_end(&mut decompressed)
+            .is_err()
+            || rules_out_mlt_and_json(&decompressed)
+            || decoder.read_to_end(&mut decompressed).is_err()
+        {
+            Format::Mvt
+        } else {
+            Self::detect_vectorish_format(&decompressed)
+        };
         Self::new(format, encoding)
     }
 
@@ -301,7 +280,9 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
             v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
-            v if v.starts_with(b"\xFF\x0A") => Some(Format::Jxl),
+            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, &[0x1]).is_err() => {
+                Some(Format::Jxl)
+            }
             v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => {
                 Some(Format::Jxl)
             }
@@ -370,8 +351,8 @@ enum SevenBitDecodingError {
     /// The size of the tile is too large to be decoded
     #[error("The size of the tile is too large to be decoded")]
     SizeOverflow,
-    /// The size of the tile is lower than the number of bytes for the size and tag
-    #[error("The size of the tile is lower than the number of bytes for the size and tag")]
+    /// The size of the tile is lower than the one byte for the tag
+    #[error("The size of the tile is lower than the one byte for the tag")]
     SizeUnderflow,
     /// Expected a size, but got nothing
     #[error("Expected a size, but got nothing")]
@@ -405,13 +386,11 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                 return Err(SevenBitDecodingError::SizeOverflow);
             }
             // decode size
-            size <<= 7;
             let seven_bit_mask = !0x80;
-            size |= u64::from(*b & seven_bit_mask);
+            size |= u64::from(*b & seven_bit_mask) << ((header_bit_count - 1) * 7);
             // 0 => no further size
             if b & 0x80 == 0 {
                 // need to check tag
-                header_bit_count += 1;
                 let Some(tag) = tile_iter.next() else {
                     return Err(SevenBitDecodingError::TruncatedTag);
                 };
@@ -420,7 +399,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                 }
                 // need to check data-length
                 let payload_len = size
-                    .checked_sub(header_bit_count)
+                    .checked_sub(1)
                     .ok_or(SevenBitDecodingError::SizeUnderflow)?;
                 for i in 0..payload_len {
                     if tile_iter.next().is_none() {
@@ -444,6 +423,20 @@ fn is_valid_json(tile: &[u8]) -> bool {
     tile.starts_with(b"{")
         && tile.ends_with(b"}")
         && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
+}
+
+/// How many decompressed bytes detection reads before it decides whether it needs the rest
+const DETECT_PREFIX_LEN: u64 = 16;
+
+/// Whether the first decompressed bytes of a tile already rule out both MLT and JSON
+fn rules_out_mlt_and_json(prefix: &[u8]) -> bool {
+    !prefix.starts_with(b"{")
+        && matches!(
+            decode_7bit_length_and_tag(prefix, &[0x1]),
+            Err(SevenBitDecodingError::UnexpectedTag(_)
+                | SevenBitDecodingError::SizeOverflow
+                | SevenBitDecodingError::SizeUnderflow)
+        )
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
@@ -529,172 +522,22 @@ pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    use approx::assert_relative_eq;
     use rstest::rstest;
 
     use super::*;
 
     #[rstest]
-    #[case::png(
-        include_bytes!("../fixtures/world.png"),
-        TileInfo::new(Format::Png, Encoding::Internal)
-    )]
-    #[case::jpg(
-        include_bytes!("../fixtures/world.jpg"),
-        TileInfo::new(Format::Jpeg, Encoding::Internal)
-    )]
-    #[case::webp(
-        include_bytes!("../fixtures/dc.webp"),
-        TileInfo::new(Format::Webp, Encoding::Internal)
-    )]
-    #[case::jxl_codestream(
-        &[0xFF, 0x0A, 0x00, 0x00],
-        TileInfo::new(Format::Jxl, Encoding::Internal)
-    )]
-    #[case::jxl_container(
-        &[0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A],
-        TileInfo::new(Format::Jxl, Encoding::Internal)
-    )]
-    #[case::json(
-        br#"{"foo":"bar"}"#,
-        TileInfo::new(Format::Json, Encoding::Uncompressed)
-    )]
-    // we have no way of knowing what is an MVT -> we just say it is out of the
-    // fact that it is not something else
-    #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
-    fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
-        assert_eq!(TileInfo::detect(data), expected);
-    }
-
-    #[test]
-    fn encoding_detect_reads_the_leading_bytes_only() {
-        assert_eq!(
-            Encoding::detect(b"\x1f\x8b\x08\x00rest"),
-            Some(Encoding::Gzip)
-        );
-        // every zlib compression level with the usual 32K window
-        for header in [b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"] {
-            assert_eq!(
-                Encoding::detect(header),
-                Some(Encoding::Zlib),
-                "{header:02x?}"
-            );
-        }
-        // a smaller window is a zlib header too
-        assert_eq!(Encoding::detect(b"\x68\x81"), Some(Encoding::Zlib));
-        // a failed FCHECK, a non-deflate method, and a window over 32K are not
-        assert_eq!(Encoding::detect(b"\x78\x00"), None);
-        assert_eq!(Encoding::detect(b"\x79\x9c"), None);
-        assert_eq!(Encoding::detect(b"\x88\x98"), None);
-        assert_eq!(Encoding::detect(b"\x89PNG\r\n\x1a\n"), None);
-        assert_eq!(Encoding::detect(b"\x78"), None);
-        assert_eq!(Encoding::detect(b""), None);
-    }
-
-    /// Test detection of compressed content (JSON, MLT, MVT)
-    #[test]
-    fn compressed_json_gzip() {
-        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
-        let compressed = encode_gzip(json_data).unwrap();
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Gzip));
-    }
-
-    #[test]
-    fn compressed_json_zlib() {
-        use std::io::Write as _;
-
-        use flate2::write::ZlibEncoder;
-
-        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
-        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(json_data).unwrap();
-        let compressed = encoder.finish().unwrap();
-
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Zlib));
-    }
-
-    #[test]
-    fn raw_mlt_encoding_internal() {
-        // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
-        // to prevent the serve path from applying heavyweight gzip/brotli on top.
-        let mlt_data = &[0x02, 0x01];
-        let result = TileInfo::detect(mlt_data);
-        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Internal));
-    }
-
-    #[test]
-    fn compressed_mlt_gzip() {
-        // MLT tile: length=2 (0x02), version=1 (0x01)
-        let mlt_data = &[0x02, 0x01];
-        let compressed = encode_gzip(mlt_data).unwrap();
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Gzip));
-    }
-
-    #[test]
-    fn compressed_mlt_zlib() {
-        use std::io::Write as _;
-
-        use flate2::write::ZlibEncoder;
-
-        // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
-        let mlt_data = &[0x05, 0x01, 0xaa, 0xbb, 0xcc];
-        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(mlt_data).unwrap();
-        let compressed = encoder.finish().unwrap();
-
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Zlib));
-    }
-
-    #[test]
-    fn compressed_mvt_gzip_fallback() {
-        // Random data that doesn't match any known format => should be detected as MVT
-        let random_data = &[0x1a, 0x2b, 0x3c, 0x4d];
-        let compressed = encode_gzip(random_data).unwrap();
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
-    }
-
-    #[test]
-    fn compressed_mvt_zlib_fallback() {
-        use std::io::Write as _;
-
-        use flate2::write::ZlibEncoder;
-
-        // Random data that doesn't match any known format => should be detected as MVT
-        let random_data = &[0xaa, 0xbb, 0xcc, 0xdd];
-        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(random_data).unwrap();
-        let compressed = encoder.finish().unwrap();
-
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Zlib));
-    }
-
-    #[test]
-    fn invalid_json_in_gzip() {
-        // Data that looks like JSON but isn't valid => should fall back to MVT
-        let invalid_json = b"{this is not valid json}";
-        let compressed = encode_gzip(invalid_json).unwrap();
-        let result = TileInfo::detect(&compressed);
-        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
-    }
-
-    #[rstest]
-    #[case::minimal_tile(&[0x02, 0x01], Ok(()))]
-    #[case::one_byte_length(&[0x03, 0x01, 0xaa], Ok(()))]
-    #[case::two_byte_length(&[0x80, 0x04, 0x01, 0xaa], Ok(()))]
-    #[case::multi_byte_length(&[0x80, 0x80, 0x05, 0x01, 0xdd], Ok(()))]
+    #[case::minimal_tile(&[0x01, 0x01], Ok(()))]
+    #[case::one_byte_length(&[0x02, 0x01, 0xaa], Ok(()))]
+    #[case::two_byte_length(&[[0xac_u8, 0x02, 0x01].as_slice(), &[0xaa; 299]].concat(), Ok(()))]
+    #[case::multi_byte_length(&[[0x80_u8, 0x80, 0x01, 0x01].as_slice(), &[0xdd; 16383]].concat(), Ok(()))]
     #[case::wrong_version(&[0x03, 0x02, 0xaa], Err(SevenBitDecodingError::UnexpectedTag(0x02)))]
     #[case::empty_input(&[], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::size_overflow(&[0xFF; 64], Err(SevenBitDecodingError::SizeOverflow))]
     #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
-    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 1, actual: 0 }))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 2, actual: 0 }))]
     fn test_decode_7bit_length_and_tag(
         #[case] tile: &[u8],
         #[case] expected: Result<(), SevenBitDecodingError>,
@@ -706,250 +549,9 @@ mod tests {
         if tile.is_empty() {
             return;
         }
-        let mut tile_with_two_layers = vec![0x02, 0x01];
+        let mut tile_with_two_layers = vec![0x01, 0x01];
         tile_with_two_layers.extend_from_slice(tile);
         let decoded = decode_7bit_length_and_tag(&tile_with_two_layers, allowed_versions);
         assert_eq!(decoded, expected, "can decode two layers correctly");
-    }
-
-    #[rstest]
-    #[case(-180.0, 85.0511, 0, (0,0))]
-    #[case(-180.0, 85.0511, 1, (0,0))]
-    #[case(-180.0, 85.0511, 2, (0,0))]
-    #[case(0.0, 0.0, 0, (0,0))]
-    #[case(0.0, 0.0, 1, (1,1))]
-    #[case(0.0, 0.0, 2, (2,2))]
-    #[case(0.0, 1.0, 0, (0,0))]
-    #[case(0.0, 1.0, 1, (1,0))]
-    #[case(0.0, 1.0, 2, (2,1))]
-    fn test_tile_colrow(
-        #[case] lng: f64,
-        #[case] lat: f64,
-        #[case] zoom: u8,
-        #[case] expected: (u32, u32),
-    ) {
-        assert_eq!(
-            expected,
-            tile_index(lng, lat, zoom),
-            "{lng},{lat}@z{zoom} should be {expected:?}"
-        );
-    }
-
-    #[rstest]
-    // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
-    #[case(0, 0, 0, 0, 0, [-180.0,-85.051_128_779_806_6,180.0,85.051_128_779_806_6])]
-    #[case(1, 0, 0, 0, 0, [-180.0,0.0,0.0,85.051_128_779_806_6])]
-    #[case(5, 1, 1, 2, 2, [-168.75,81.093_213_852_608_37,-146.25,83.979_259_498_862_05])]
-    #[case(5, 1, 3, 2, 5, [-168.75,74.019_543_311_502_26,-146.25,81.093_213_852_608_37])]
-    fn test_xyz_to_bbox(
-        #[case] zoom: u8,
-        #[case] min_x: u32,
-        #[case] min_y: u32,
-        #[case] max_x: u32,
-        #[case] max_y: u32,
-        #[case] expected: [f64; 4],
-    ) {
-        let bbox = xyz_to_bbox(zoom, min_x, min_y, max_x, max_y);
-        assert_relative_eq!(bbox[0], expected[0], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], expected[1], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], expected[2], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], expected[3], epsilon = f64::EPSILON * 2.0);
-    }
-
-    #[rstest]
-    #[case(0, 0, 0, [-20_037_508.342_789_25, -20_037_508.342_789_25, 20_037_508.342_789_25, 20_037_508.342_789_25])]
-    #[case(1, 0, 0, [-20_037_508.342_789_25, 0.0, 0.0, 20_037_508.342_789_25])]
-    #[case(1, 1, 1, [0.0, -20_037_508.342_789_25, 20_037_508.342_789_25, 0.0])]
-    #[case(2, 0, 0, [-20_037_508.342_789_25, 10_018_754.171_394_625, -10_018_754.171_394_625, 20_037_508.342_789_25])]
-    #[case(2, 2, 2, [0.0, -10_018_754.171_394_625, 10_018_754.171_394_625, 0.0])]
-    fn test_tile_bbox(
-        #[case] zoom: u8,
-        #[case] x: u32,
-        #[case] y: u32,
-        #[case] expected: [f64; 4],
-    ) {
-        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
-        let bbox = tile_bbox(x, y, tile_length);
-        assert_relative_eq!(bbox[0], expected[0], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[1], expected[1], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2], expected[2], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3], expected[3], epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[2] - bbox[0], tile_length, epsilon = f64::EPSILON * 2.0);
-        assert_relative_eq!(bbox[3] - bbox[1], tile_length, epsilon = f64::EPSILON * 2.0);
-    }
-
-    #[rstest]
-    #[case(0, (0, 0, 0, 0))]
-    #[case(1, (0, 1, 0, 1))]
-    #[case(2, (0, 3, 0, 3))]
-    #[case(3, (0, 7, 0, 7))]
-    #[case(4, (0, 14, 1, 15))]
-    #[case(5, (0, 29, 2, 31))]
-    #[case(6, (0, 58, 5, 63))]
-    #[case(7, (0, 116, 11, 126))]
-    #[case(8, (0, 233, 23, 253))]
-    #[case(9, (0, 466, 47, 507))]
-    #[case(10, (1, 933, 94, 1_014))]
-    #[case(11, (3, 1_866, 188, 2_029))]
-    #[case(12, (6, 3_732, 377, 4_059))]
-    #[case(13, (12, 7_465, 755, 8_119))]
-    #[case(14, (25, 14_931, 1_510, 16_239))]
-    #[case(15, (51, 29_863, 3_020, 32_479))]
-    #[case(16, (102, 59_727, 6_041, 64_958))]
-    #[case(17, (204, 119_455, 12_083, 129_917))]
-    #[case(18, (409, 238_911, 24_166, 259_834))]
-    #[case(19, (819, 477_823, 48_332, 519_669))]
-    #[case(20, (1_638, 955_647, 96_665, 1_039_339))]
-    #[case(21, (3_276, 1_911_295, 193_331, 2_078_678))]
-    #[case(22, (6_553, 3_822_590, 386_662, 4_157_356))]
-    #[case(23, (13_107, 7_645_181, 773_324, 8_314_713))]
-    #[case(24, (26_214, 15_290_363, 1_546_649, 16_629_427))]
-    #[case(25, (52_428, 30_580_726, 3_093_299, 33_258_855))]
-    #[case(26, (104_857, 61_161_453, 6_186_598, 66_517_711))]
-    #[case(27, (209_715, 122_322_907, 12_373_196, 133_035_423))]
-    #[case(28, (419_430, 244_645_814, 24_746_393, 266_070_846))]
-    #[case(29, (838_860, 489_291_628, 49_492_787, 532_141_692))]
-    #[case(30, (1_677_721, 978_583_256, 98_985_574, 1_064_283_385))]
-    fn test_box_to_xyz(#[case] zoom: u8, #[case] expected_xyz: (u32, u32, u32, u32)) {
-        let actual_xyz = bbox_to_xyz(
-            -179.437_499_999_999_55,
-            -84.769_878_779_806_56,
-            -146.812_499_999_999_6,
-            -81.374_463_852_608_33,
-            zoom,
-        );
-        assert_eq!(
-            actual_xyz, expected_xyz,
-            "zoom {zoom} does not have the right xyz"
-        );
-    }
-
-    #[rstest]
-    // test data via https://epsg.io/transform#s_srs=4326&t_srs=3857
-    #[case((0.0,0.0), (0.0,0.0))]
-    #[case((30.0,0.0), (3_339_584.723_798_207,0.0))]
-    #[case((-30.0,0.0), (-3_339_584.723_798_207,0.0))]
-    #[case((0.0,30.0), (0.0,3_503_549.843_504_375_3))]
-    #[case((0.0,-30.0), (0.0,-3_503_549.843_504_375_3))]
-    #[case((38.897_957,-77.036_560), (4_330_100.766_138_651, -13_872_207.775_755_845))] // white house
-    #[case((-180.0,-85.0), (-20_037_508.342_789_244, -19_971_868.880_408_566))]
-    #[case((180.0,85.0), (20_037_508.342_789_244, 19_971_868.880_408_566))]
-    #[case((0.026_949_458_523_585_632,0.080_848_348_740_973_67), (3000.0, 9000.0))]
-    fn test_coordinate_syste_conversion(
-        #[case] wgs84: (f64, f64),
-        #[case] webmercator: (f64, f64),
-    ) {
-        // epsg produces the expected values with f32 precision, grrr..
-        let epsilon = f64::from(f32::EPSILON);
-
-        let actual_wgs84 = webmercator_to_wgs84(webmercator.0, webmercator.1);
-        assert_relative_eq!(actual_wgs84.0, wgs84.0, epsilon = epsilon);
-        assert_relative_eq!(actual_wgs84.1, wgs84.1, epsilon = epsilon);
-
-        let actual_webmercator = wgs84_to_webmercator(wgs84.0, wgs84.1);
-        assert_relative_eq!(actual_webmercator.0, webmercator.0, epsilon = epsilon);
-        assert_relative_eq!(actual_webmercator.1, webmercator.1, epsilon = epsilon);
-    }
-
-    #[rstest]
-    #[case(0..11, 0)]
-    #[case(11..14, 1)]
-    #[case(14..17, 2)]
-    #[case(17..21, 3)]
-    #[case(21..24, 4)]
-    #[case(24..27, 5)]
-    #[case(27..30, 6)]
-    fn test_get_zoom_precision(
-        #[case] zoom: std::ops::Range<u8>,
-        #[case] expected_precision: usize,
-    ) {
-        for z in zoom {
-            let actual_precision = get_zoom_precision(z);
-            assert_eq!(
-                actual_precision, expected_precision,
-                "Zoom level {z} should have precision {expected_precision}, but was {actual_precision}"
-            );
-        }
-    }
-
-    #[test]
-    fn tile_coord_zoom_range() {
-        for z in 0..=MAX_ZOOM {
-            assert!(TileCoord::is_possible_on_zoom_level(z, 0, 0));
-            assert_eq!(
-                TileCoord::new_checked(z, 0, 0),
-                Some(TileCoord { z, x: 0, y: 0 })
-            );
-        }
-        assert!(!TileCoord::is_possible_on_zoom_level(MAX_ZOOM + 1, 0, 0));
-        assert_eq!(TileCoord::new_checked(MAX_ZOOM + 1, 0, 0), None);
-    }
-
-    #[test]
-    fn tile_coord_new_checked_xy_for_zoom() {
-        assert!(TileCoord::is_possible_on_zoom_level(5, 0, 0));
-        assert_eq!(
-            TileCoord::new_checked(5, 0, 0),
-            Some(TileCoord { z: 5, x: 0, y: 0 })
-        );
-        assert!(TileCoord::is_possible_on_zoom_level(5, 31, 31));
-        assert_eq!(
-            TileCoord::new_checked(5, 31, 31),
-            Some(TileCoord { z: 5, x: 31, y: 31 })
-        );
-        assert!(!TileCoord::is_possible_on_zoom_level(5, 31, 32));
-        assert_eq!(TileCoord::new_checked(5, 31, 32), None);
-        assert!(!TileCoord::is_possible_on_zoom_level(5, 32, 31));
-        assert_eq!(TileCoord::new_checked(5, 32, 31), None);
-    }
-
-    #[test]
-    /// Any (u8, u32, u32) values can be put inside [`TileCoord`], of course, but some
-    /// functions may panic at runtime (e.g. [`mbtiles::invert_y_value`]) if they are impossible,
-    /// so let's not do that.
-    fn tile_coord_new_unchecked() {
-        assert_eq!(
-            TileCoord::new_unchecked(u8::MAX, u32::MAX, u32::MAX),
-            TileCoord {
-                z: u8::MAX,
-                x: u32::MAX,
-                y: u32::MAX
-            }
-        );
-    }
-
-    #[test]
-    fn xyz_format() {
-        let xyz = TileCoord { z: 1, x: 2, y: 3 };
-        assert_eq!(format!("{xyz}"), "1,2,3");
-        assert_eq!(format!("{xyz:#}"), "1/2/3");
-    }
-
-    #[rstest]
-    #[case("none", Some(Encoding::Uncompressed))]
-    #[case("identity", Some(Encoding::Uncompressed))]
-    #[case("IDENTITY", Some(Encoding::Uncompressed))]
-    #[case("gzip", Some(Encoding::Gzip))]
-    #[case("GZIP", Some(Encoding::Gzip))]
-    #[case("deflate", Some(Encoding::Zlib))]
-    #[case("zlib", Some(Encoding::Zlib))]
-    #[case("br", Some(Encoding::Brotli))]
-    #[case("brotli", Some(Encoding::Brotli))]
-    #[case("zstd", Some(Encoding::Zstd))]
-    #[case("unknown", None)]
-    #[case("", None)]
-    fn test_encoding_parse(#[case] input: &str, #[case] expected: Option<Encoding>) {
-        assert_eq!(Encoding::parse(input), expected);
-    }
-
-    #[rstest]
-    #[case(Encoding::Uncompressed, None)]
-    #[case(Encoding::Internal, None)]
-    #[case(Encoding::Gzip, Some("gzip"))]
-    #[case(Encoding::Zlib, Some("deflate"))]
-    #[case(Encoding::Brotli, Some("br"))]
-    #[case(Encoding::Zstd, Some("zstd"))]
-    fn test_compression(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
-        assert_eq!(encoding.compression(), expected);
     }
 }

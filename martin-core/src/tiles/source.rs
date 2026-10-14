@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 
-use async_trait::async_trait;
-use martin_tile_utils::{TileCoord, TileData, TileInfo};
+use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo, WEB_MERCATOR_QUAD};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
-#[cfg(feature = "postgres")]
-use crate::tiles::postgres::ActiveQueryRegistry;
 use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
@@ -17,7 +15,6 @@ pub type UrlQuery = HashMap<String, String>;
 /// Core trait for tile sources providing data to Martin
 ///
 /// Implementors can serve tiles from databases, files, or other backends.
-#[async_trait]
 pub trait Source: Send + Sync + Debug {
     /// Unique source identifier used in URLs.
     fn get_id(&self) -> &str;
@@ -28,8 +25,10 @@ pub trait Source: Send + Sync + Debug {
     /// Technical tile information (format, encoding, etc.).
     fn get_tile_info(&self) -> TileInfo;
 
-    /// Creates a boxed clone for trait object storage.
-    fn clone_source(&self) -> BoxedSource;
+    /// The tile grid this source's `z/x/y` addresses refer to, Web Mercator unless a source says otherwise.
+    fn tile_grid(&self) -> &TileGrid {
+        &WEB_MERCATOR_QUAD
+    }
 
     /// A version string for this source, if available. Default: None.
     /// If available, this string is appended to tile URLs as a query parameter,
@@ -43,7 +42,7 @@ pub trait Source: Send + Sync + Debug {
         false
     }
 
-    /// Whether martin-cp should use concurrent scraping. Default: false.
+    /// Whether `martin cp` should use concurrent scraping. Default: false.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         false
     }
@@ -51,14 +50,6 @@ pub trait Source: Send + Sync + Debug {
     /// Whether an empty tile implies that all tiles below it are empty. Default: false.
     fn empty_tile_implies_empty_children(&self) -> bool {
         false
-    }
-
-    /// Returnes the cancellation registry for queries
-    ///
-    /// Only works for postgresql sources for now
-    #[cfg(feature = "postgres")]
-    fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        None
     }
 
     /// Zoom-level bounds for tile caching.
@@ -69,11 +60,11 @@ pub trait Source: Send + Sync + Debug {
     /// # Arguments
     /// * `xyz` - Tile coordinates (x, y, zoom)
     /// * `url_query` - Optional query parameters for dynamic tiles
-    async fn get_tile(
+    fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData>;
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send;
 
     /// Retrieves tile with etag for the given coordinates.
     ///
@@ -83,13 +74,15 @@ pub trait Source: Send + Sync + Debug {
     /// # Arguments
     /// * `xyz` - Tile coordinates (x, y, zoom)
     /// * `url_query` - Optional query parameters for dynamic tiles
-    async fn get_tile_with_etag(
+    fn get_tile_with_etag(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
-        let data = self.get_tile(xyz, url_query).await?;
-        Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+    ) -> impl Future<Output = MartinCoreResult<Tile>> + Send {
+        async move {
+            let data = self.get_tile(xyz, url_query).await?;
+            Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+        }
     }
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
@@ -105,8 +98,11 @@ pub trait Source: Send + Sync + Debug {
     /// implement this method.
     ///
     /// The default implementation asserts.
-    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        unreachable!()
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<Self>> + Send
+    where
+        Self: Sized,
+    {
+        async { unreachable!() }
     }
 
     /// Generates catalog entry for this source.
@@ -114,12 +110,14 @@ pub trait Source: Send + Sync + Debug {
         let id = self.get_id();
         let tilejson = self.get_tilejson();
         let info = self.get_tile_info();
+        let grid = self.tile_grid();
         CatalogSourceEntry {
             content_type: info.format.content_type().to_owned(),
             content_encoding: info.encoding.compression().map(str::to_owned),
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
+            tile_grid: (!grid.is_web_mercator()).then(|| grid.id().to_owned()),
             // FIXME: surface `tilejson.vector_layers.len()` once we always have it.
             layer_count: None,
             // FIXME: surface the source's mtime (mbtiles/pmtiles modtime, etc.).
@@ -128,11 +126,5 @@ pub trait Source: Send + Sync + Debug {
     }
 }
 
-/// Boxed tile source trait object for storage in collections.
-pub type BoxedSource = Box<dyn Source>;
-
-impl Clone for BoxedSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
-    }
-}
+/// A shared handle to any tile source the server can serve.
+pub type BoxedSource = std::sync::Arc<crate::tiles::AnySource>;

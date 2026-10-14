@@ -23,34 +23,42 @@ pub use srv::CacheControlHeader;
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 mod contour;
-#[cfg(all(feature = "contour", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 pub use contour::{
     ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings,
     FilteredThreshold, ResolvedContour,
 };
 
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 mod hillshade;
-#[cfg(all(feature = "hillshade", feature = "_tiles"))]
+#[cfg(all(feature = "processing", feature = "_tiles"))]
 pub use hillshade::{
     HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
     ResolvedHillshade,
 };
 
 pub mod process;
-#[cfg(any(feature = "postgres", feature = "_file_kinds"))]
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+
+#[cfg(feature = "unstable-generate")]
+#[doc(hidden)]
+pub mod tiling;
+
+#[cfg(feature = "_tiles")]
+mod tile_grids;
+#[cfg(feature = "_tiles")]
 pub use process::{
     MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,
     MvtProcessConfig,
 };
 pub use process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
+#[cfg(feature = "_tiles")]
+pub use tile_grids::{TileGridConfig, TileGrids, TileGridsConfig};
 
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 mod resources;
-#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(feature = "resources")]
 pub use resources::*;
 
 #[cfg(feature = "_tiles")]

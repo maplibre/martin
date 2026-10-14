@@ -1,12 +1,15 @@
 ---
+description: How the tile server is put together and how it answers requests
 icon: material/sitemap
 tags:
   - development
 ---
 
-# Architecture
+# Serving Architecture
 
-This document provides a high-level overview of Martin's architecture, describing its major components, how they interact, and the rationale behind key design decisions.
+How the Martin tile server is put together and how it answers requests.
+[Source Architecture](architecture-sources.md) covers how each kind of source works and how sources reload at runtime,
+and [Generation Architecture](architecture-generate.md) covers `martin generate`.
 
 ## Overview
 
@@ -64,15 +67,13 @@ graph TB
     Cache -.->|Cached Tiles/Resources| Client
 ```
 
-## Core Components
+## Crates
 
-Martin's architecture is organized into four main Rust crates, each with distinct responsibilities:
+Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:
 
-=== "martin (Martin Server)"
+=== "martin"
 
     **Purpose**: The main tile server binary and HTTP service layer.
-
-    **Location**: `/martin`
 
     **Key Responsibilities**:
 
@@ -83,26 +84,9 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Runtime source reloading (filesystem watch / polling) without a restart
     - Serving the Web UI for tile inspection
 
-    **Main Modules**:
-
-    - `src/bin/martin.rs` - Server entry point
-    - `src/bin/martin-cp.rs` - Bulk tile copying tool
-    - `src/srv/` - HTTP service handlers
-    - `server.rs` - Main server setup and routing
-    - `tiles/` - Tile serving endpoints
-    - `fonts.rs` - Font glyph serving
-    - `sprites.rs` - Sprite serving
-    - `styles.rs` - Style serving
-    - `src/config/` - Configuration management
-    - `args/` - CLI argument parsing
-    - `file/` - Config file parsing
-    - `martin-ui/` - React-based web interface
-
-=== "martin-core (Library)"
+=== "martin-core"
 
     **Purpose**: Core abstractions and implementations for tile sources and supporting resources.
-
-    **Location**: `/martin-core`
 
     **Key Responsibilities**:
 
@@ -114,25 +98,9 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Sprite, font, and style resource generation
     - Tile format handling (MVT protocol buffers)
 
-    **Main Modules**:
-
-    - `src/tiles/` - Tile source implementations
-    - `postgres/` - PostGIS table and function sources
-    - `mbtiles/` - MBTiles file source
-    - `pmtiles/` - PMTiles file source
-    - `cog/` - Cloud Optimized GeoTIFF source
-    - `duckdb/` - DuckDB / GeoParquet tile source
-    - `catalog.rs` - Source registry and management
-    - `src/resources/` - Supporting resources
-    - `sprites/` - SVG sprite generation
-    - `fonts/` - Font glyph generation
-    - `styles/` - MapLibre style handling
-
-=== "mbtiles (Library and CLI)"
+=== "mbtiles"
 
     **Purpose**: MBTiles format support and manipulation tools.
-
-    **Location**: `/mbtiles`
 
     **Key Responsibilities**:
 
@@ -143,17 +111,9 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Diff/patch operations between MBTiles files
     - Schema management
 
-    **Main Modules**:
-
-    - `src/lib.rs` - Core MBTiles library
-    - `src/bin/mbtiles.rs` - CLI tool
-    - `sql/` - SQL schema and migrations
-
 === "martin-tile-utils"
 
     **Purpose**: Low-level tile manipulation and conversion utilities.
-
-    **Location**: `/martin-tile-utils`
 
     **Key Responsibilities**:
 
@@ -162,9 +122,22 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Tile format utilities
     - Bounding box calculations
 
-## Data Flow
+=== "martin-tilegen"
 
-=== "Tile Request Flows"
+    **Purpose**: The bulk tile generation engine behind `martin generate`.
+
+    **Key Responsibilities**:
+
+    - Compiling layers and their CEL expressions into a plan
+    - Rendering every feature at every zoom into tile pieces
+    - Sorting the pieces on disk by tile, and merging them back
+    - Encoding tiles in parallel and writing them in archive order
+
+    See [Generation Architecture](architecture-generate.md).
+
+## Requests and startup
+
+=== "Tile requests"
 
     ```mermaid
     sequenceDiagram
@@ -195,7 +168,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
         end
     ```
 
-=== "Configuration and Initialization Flow"
+=== "Startup"
 
     ```mermaid
     sequenceDiagram
@@ -224,7 +197,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
         alt DuckDB Sources
             Discovery->>Discovery: Read duckdb.sources from config
             Discovery->>Discovery: Introspect GeoParquet metadata
-            Discovery->>Sources: Register GeoParquet sources
+            Discovery->>Discovery: Discover database tables & macros
+            Discovery->>Sources: Register DuckDB sources
         end
 
         Sources-->>Server: Source catalog
@@ -232,7 +206,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
         Server->>Server: Start HTTP listener
     ```
 
-=== "Resource Generation Flow"
+=== "Sprites and fonts"
 
     ```mermaid
     sequenceDiagram
@@ -261,375 +235,51 @@ Martin's architecture is organized into four main Rust crates, each with distinc
         Server-->>Client: PBF response
     ```
 
-## Key Design Decisions
-
-🧠 This section provides **background and context**, not required knowledge.
-You don't need to understand or remember all of this to use or contribute to Martin.
-Read it when you're curious **why** certain choices were made.
-
-??? "Why Rust"
-    Martin is written in Rust to balance high performance with strong safety guarantees.
-
-    - Near-C performance without manual memory management
-    - Memory safety (no null pointers or buffer overflows)
-    - Safe concurrency without data races
-    - Zero-cost abstractions that compile to efficient code
-
-??? "Actix-Web as the chosen web framework"
-    It offers a fast, production-ready async HTTP stack.
-
-    - High-performance async request handling
-    - Mature middleware ecosystem
-    - Built-in compression and caching headers
-    - Easy Prometheus metrics integration
-
-??? "Async-first architecture"
-    Allows Martin to handle many concurrent requests efficiently.
-
-    - Handles hundreds of thousands of concurrent connections
-    - Avoids blocking database queries
-    - Enables efficient file and network I/O
-    - Keeps thread usage low under load
-
-??? "Specific crates splitting"
-    The codebase is split into crates with clear responsibilities
-
-    - **martin-core** - reusable core logic and tile sources
-    - **mbtiles** - standalone MBTiles tooling
-    - **martin** - HTTP server, configuration, and runtime wiring
-    - **martin-tile-utils** - shared low-level tile utilities
-
-    This makes it easier to:
-
-    - Embed Martin as a library in other Rust projects
-    - Use MBTiles tools independently
-    - Maintain clear API boundaries and versioning
-
-??? "Why connection pooling"
-    Reuse database connections instead of reconnecting per request
-
-    - Uses `deadpool-postgres`
-    - Avoids per-request connection overhead
-    - Configurable pool sizing
-    - Automatic connection health checks
-
-??? "In-Memory Tile Caching"
-
-    Avoid regenerating frequently requested tiles.
-
-    - Fast LRU cache with optional TTLs
-    - Automatic eviction of least-used entries
-    - Configurable memory limits (default: 512 MB)
-    - Thread-safe concurrent access
-    - Significant performance improvements for repeated requests
-
-??? "Automatic Source Discovery"
-
-    Martin tries to work out of the box with minimal configuration.
-    It can currently automatically detect:
-
-    - PostgreSQL tables with geometry columns
-    - PostgreSQL functions that return MVT
-    - MBTiles and PMTiles files in configured directories
-
-    This keeps common setups close to zero-config.
-
-??? "Multi-Protocol Tile Support"
-
-    Different workloads benefit from different storage models.
-    This lets operators pick the best format for their use case:
-
-    === "PostgreSQL"
-          Dynamic tiles generated from live data.
-          Best for frequently changing datasets.
-
-    === "MBTiles"
-        Pre-generated tile archives.
-        Simple and fast for static datasets.
-
-    === "PMTiles"
-        Single-file, cloud-native archives optimized for HTTP range requests.
-
-    === "COG"
-        Direct tile serving from Cloud Optimized GeoTIFFs.
-
-    === "DuckDB"
-        On-the-fly vector tiles from GeoParquet via DuckDB.
-        Best for semi-static parquet datasets without a pre-generated archive.
-
-??? "Why generate resources (sprites, fonts) dynamically"
-
-    Sprites, fonts, and styles are created on demand.
-
-    - No pre-processing step required
-    - Simpler deployments (just provide source files)
-    - URL-based customization
-    - Less storage overhead
-
-??? "Why layered configuration"
-
-    Martin supports multiple configuration sources.
-
-    - CLI flags for quick testing and overrides
-    - Environment variables for containerized deployments
-    - Config files for larger or more complex setups
-    - Clear precedence between configuration layers
-
-## Component Interactions
-
-=== "PostgreSQL Integration"
-
-    ```mermaid
-    graph TB
-        Martin[Martin Server]
-        Pool[Connection Pool<br/>deadpool-postgres]
-
-        subgraph PostgreSQL
-            Tables[Tables with<br/>Geometry Columns]
-            Functions[MVT Functions]
-            PostGIS[PostGIS Extension]
-        end
-
-        Martin --> Pool
-        Pool --> Tables
-        Pool --> Functions
-        Tables --> PostGIS
-        Functions --> PostGIS
-    ```
-
-    **How it works**:
-
-    1. Martin connects to PostgreSQL using connection string
-    2. Queries `geometry_columns` view to discover tables
-    3. Queries `pg_proc` to discover MVT-returning functions
-    4. Publishes them through the Reload Driver, which re-runs discovery every `reload_interval`
-    5. Maintains connection pool for efficient query execution
-    6. Generates tile SQL queries with bbox parameters
-    7. Returns results as MVT tiles
-
-=== "File Source Integration"
-
-    ```mermaid
-    graph TB
-        Martin[Martin Server]
-
-        subgraph "Local Files"
-            MBT[MBTiles<br/>SQLite]
-            PMT[PMTiles<br/>Binary Format]
-            COG[GeoTIFF<br/>Cloud Optimized]
-        end
-
-        subgraph "Remote Files"
-            S3MBT[S3/Azure/GCP<br/>MBTiles]
-            S3PMT[S3/Azure/GCP<br/>PMTiles]
-            S3COG[S3/Azure/GCP<br/>GeoTIFF]
-        end
-
-        Martin --> MBT
-        Martin --> PMT
-        Martin --> COG
-        Martin --> S3MBT
-        Martin --> S3PMT
-        Martin --> S3COG
-    ```
-
-    **How it works**:
-
-    1. Martin scans configured directories for tile files
-    2. Opens MBTiles with SQLite (using `sqlx`)
-    3. Opens PMTiles with custom parser (HTTP range requests for remote)
-    4. Opens COG with TIFF parser (HTTP range requests for remote)
-    5. Uses `object_store` crate for S3/Azure/GCP access
-    6. Serves tiles directly from file format
-
-=== "GeoJSON Integration"
-
-    Unlike the other file sources, GeoJSON files hold raw geometry rather than pre-baked tiles.
-    Martin loads the whole file once, reprojects and indexes it in memory, then clips and encodes an MVT tile on every request.
-
-    ```mermaid
-    graph TB
-        subgraph Load["Load time (once per source)"]
-            File[".geojson / .json file"]
-            Parse["Parse (geojson crate)<br/>-> geo_types::Geometry"]
-            Reproject["Reproject WGS84 -> WebMercator"]
-            RTree["Packed Hilbert R-tree<br/>(geo_index)"]
-        end
-
-        subgraph Request["Per tile request"]
-            Rect["Tile Rect + buffer<br/>(WebMercator bbox)"]
-            Query["R-tree candidate lookup"]
-            Clip["Parallel clip + transform<br/>(geo, rayon)"]
-            Encode["MVT encode<br/>(fast-mvt)"]
-        end
-
-        File --> Parse --> Reproject --> RTree
-        RTree -.->|in-memory features| Query
-        Rect --> Query --> Clip --> Encode
-    ```
-
-    **Load time** (`GeoJsonSource::new` in `martin-core/src/tiles/geojson/`):
-
-    1. The entire file is read into memory and parsed with the `geojson` crate; each feature's geometry becomes a `geo_types::Geometry<f64>`.
-    2. Every geometry is reprojected once from WGS84 to Web Mercator, so all per-tile work stays in Mercator.
-    3. A packed Hilbert R-tree (`geo_index`) is built over the feature bounding boxes for fast spatial lookup, and the union of all boxes becomes the TileJSON `bounds`.
-    4. Features (Mercator geometry + JSON properties) are held in memory for the lifetime of the source.
-
-    **Per request** (`GeoJsonSource::get_tile`):
-
-    1. The requested `z/x/y` is converted to a Web Mercator tile `Rect`, grown outward by the configurable `buffer` (as a `buffer / extent` fraction) so geometry near the edge survives clipping.
-    2. The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (`204 No Content`).
-    3. Candidates are clipped in parallel (`rayon`): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (`extent` units, y flipped for MVT).
-    4. Surviving features are encoded into a single MVT layer named after the source id (`fast-mvt`); properties are mapped to MVT values (JSON arrays/objects serialized to strings, nulls dropped).
-    5. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
-
-    **Configuration** (`GeoJsonConfig`, both `.json` and `.geojson` extensions are discovered):
-
-    - `extent` (default `4096`) - side length of the MVT integer coordinate grid a tile is encoded into.
-      A `NonZeroU32`, so `0` is rejected at parse time.
-    - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighboring tiles.
-
-    Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed `.geojson`/`.json` files.
-
-=== "DuckDB / GeoParquet Integration"
-
-    Unlike tile archives, GeoParquet files hold raw geometry rather than pre-baked tiles.
-    Martin uses DuckDB to read the parquet file, clip geometry to the requested tile, and encode an MVT tile on every request.
-
-    ```mermaid
-    graph TB
-        subgraph Load["Load time (once per source)"]
-            File[".parquet file or HTTP URL"]
-            Pool["DuckDBPool<br/>in-memory + spatial"]
-            Describe["DESCRIBE read_parquet"]
-            CRS["ST_CRS / configured SRID"]
-            Bounds["auto_bounds<br/>ST_Extent_Approx / ST_Extent"]
-        end
-
-        subgraph Request["Per tile request"]
-            XYZ["z / x / y"]
-            SQL["ST_Transform + ST_AsMVTGeom"]
-            MVT["ST_AsMVT"]
-        end
-
-        File --> Pool --> Describe --> CRS --> Bounds
-        Pool -.->|pooled connection| SQL
-        XYZ --> SQL --> MVT
-    ```
-
-    **Load time** (`DuckDBSource` in `martin-core/src/tiles/duckdb/`, resolver in `martin/src/config/file/tiles/duckdb/`):
-
-    1. Martin creates a DuckDB connection pool. Local GeoParquet uses an in-memory database with the `spatial` extension; remote `http(s)` URLs also load `httpfs`.
-    2. Columns are discovered with `DESCRIBE SELECT * FROM read_parquet(...)`. The geometry column is taken from config, or auto-detected when there is exactly one geometry column.
-    3. SRID is taken from config, or from `ST_CRS` on the first non-null geometry (EPSG and `OGC:CRS84` only).
-    4. TileJSON bounds are computed according to `auto_bounds` (`quick`, `calc`, or `skip`).
-    5. An MVT SQL query is built once and executed per tile with `z`, `x`, `y` parameters.
-
-    **Per request** (`DuckDBSource::get_tile`):
-
-    1. A connection is taken from the pool and the tile query runs on a blocking thread.
-    2. Geometry is stamped with the source CRS, transformed to Web Mercator (`EPSG:3857`), filtered to the tile envelope (expanded by `buffer`), clipped with `ST_AsMVTGeom`, and encoded with `ST_AsMVT`.
-    3. Non-geometry columns become MVT feature properties. `id_column`, if set, becomes the MVT feature id.
-    4. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
-
-    **Configuration** (`DuckDbConfig`, config-file only; requires `--features=unstable-duckdb`):
-
-    - `pool_size` (default `4`) - DuckDB connection pool size per source.
-    - `auto_bounds` (default `quick`) - how TileJSON bounds are computed.
-    - Per-source `geoparquet` path or URL, plus optional `layer_id`, `geometry_column`, `srid`, `extent`, `buffer`, and `clip_geom`.
-
-    DuckDB sources do not currently hot-reload.
-    Database file entries (`database:`) parse in the config but are skipped at resolve time.
-
-== Runtime Source Reloading
-
-    After startup, Martin keeps the catalog in sync with its sources without a restart.
-    One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
-
-    ```mermaid
-    graph LR
-        Trigger["Trigger<br/>(when)"] -->|fires| Driver[Reload Driver]
-        Driver -->|discover| Discovery["Discovery<br/>(what should exist)"]
-        Discovery -->|"(Version, Args) per id"| Driver
-        Driver -->|"diff vs baseline, build changed"| Advisory["ReloadAdvisory<br/>add / update / remove"]
-        Advisory -->|apply| Sink["Sink<br/>(where)"]
-        Sink --> Catalog[("Catalog<br/>TileSourceManager")]
-    ```
-
-    The traits are:
-
-    - **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing).
-      Returns one `(Version, Args)` per source id.
-      `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
-      `Args` is the kind-specific payload used to build the source on demand.
-    - **`Trigger`** - decides **when to reconcile**.
-      `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
-    - **`Sink`** - where the diff is **applied**.
-      `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
-
-    They interact in this loop:
-
-    1. **Init or seed**.
-       PostgreSQL drivers `init()`: run Discovery once, apply everything, record it as the baseline before serving.
-       `fs` sources loaded during configuration resolution, so their drivers only seed (record a baseline, apply nothing).
-    2. **Reconcile**.
-       On each Trigger, re-run Discovery.
-       Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
-       Build only the changed ids.
-       Apply through the Sink.
-    3. **Commit / retain**.
-       Advance the baseline only on a successful apply.
-       A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
-
-    Each kind has at least one Reload Driver instance.
-    Adding reload support for a new kind means writing one `Discovery` adapter.
-    The loop, triggers, and sink are reused.
-
-## Deployment Patterns
+## Deployment
 
 Martin supports multiple deployment patterns:
 
-=== "Standalone Server"
+=== "Standalone"
 
     - Single binary with embedded WebUI
     - Direct PostgreSQL connection
     - Local file serving
     - Suitable for small to medium deployments
 
-=== "Container Deployment"
+=== "Containers"
 
     - Docker image with all dependencies
     - Configuration via environment variables
     - Health check endpoints
     - Suitable for Kubernetes and container orchestrators
 
-=== "Serverless (AWS Lambda)"
+=== "AWS Lambda"
 
     - Lambda adapter for Actix-Web
     - Cold start optimization
     - Stateless operation
     - Suitable for sporadic traffic
 
-=== "Behind Reverse Proxy"
+=== "Reverse proxy"
 
     - NGINX or Apache fronting Martin
     - Additional caching layer
     - SSL termination
     - Load balancing across multiple Martin instances
 
-## Performance Characteristics
+## Performance
 
-=== "PostgreSQL Queries"
+=== "PostgreSQL queries"
 
     - **Bottleneck**: Complex geometry queries on large tables
     - **Optimization**: Spatial indexes (GIST), connection pooling, query tuning
 
-=== "Tile Encoding"
+=== "Tile encoding"
 
     - **Bottleneck**: MVT encoding CPU time
     - **Optimization**: Tile caching, pre-generated MBTiles for static data
 
-=== "Network (I/O)"
+=== "Network"
 
     - **Bottleneck**: High tile request rate
     - **Optimization**: Async I/O, connection keep-alive, compression
@@ -641,45 +291,45 @@ Martin supports multiple deployment patterns:
 
 <!-- New Tab Group -->
 
-=== "Vertical Scaling"
+=== "Vertical scaling"
 
     - Increase CPU for faster tile generation
     - Increase memory for larger tile cache
     - Faster disk I/O for file sources
 
-=== "Horizontal Scaling"
+=== "Horizontal scaling"
 
     - Run multiple Martin instances behind load balancer
     - Each instance maintains its own cache
     - Shared PostgreSQL database with connection pooling
     - CDN for tile distribution
 
-## Security considerations
+## Security
 
-=== "Input Validation"
+=== "Input validation"
 
     - All tile coordinates validated (z/x/y bounds)
     - SQL injection prevention through parameterized queries
     - Path traversal prevention for file sources
     - URL parsing with strict validation
 
-=== "Database Access"
+=== "Database access"
 
     - Read-only database user recommended
     - Connection string security (avoid logging)
     - SSL/TLS support for PostgreSQL connections
     - Certificate validation for secure connections
 
-=== "Network Security"
+=== "Network security"
 
     - CORS configuration for cross-origin requests
     - Rate limiting (via reverse proxy)
     - Authentication/authorization (via reverse proxy)
     - HTTPS termination (via reverse proxy)
 
-## Extensibility Points
+## Extending Martin
 
-=== "Adding New Tile Sources"
+=== "A new tile source"
 
     To add a new tile source type:
 
@@ -693,16 +343,16 @@ Martin supports multiple deployment patterns:
     - Vector tile rendering from raster data
     - Integration with other spatial databases
 
-=== "Adding New Resource Types"
+=== "A new resource type"
 
     To add new resource endpoints:
 
     1. Implement resource generator in `martin-core`
-    2. Add HTTP handler in `martin/src/srv/`
+    2. Add an HTTP handler in `martin`
     3. Add configuration support
     4. Update catalog/discovery
 
-=== "Custom Authentication/Authorization"
+=== "Authentication"
 
     Martin doesn't include built-in auth, but supports:
 
@@ -710,7 +360,7 @@ Martin supports multiple deployment patterns:
     - Custom Actix-Web middleware
     - Token-based access control via proxy
 
-## Operations considerations
+## Monitoring
 
 These are the current monitoring and observability options:
 
@@ -722,7 +372,7 @@ These are the current monitoring and observability options:
 
     If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
 
-=== "Health Checks"
+=== "Health checks"
 
     We allow health checks via `/health` and `/catalog` endpoints:
 
@@ -734,10 +384,3 @@ These are the current monitoring and observability options:
     - logging via `env_logger`
     - Configurable log levels
     - Request/response logging
-
-## Related Documentation
-
-- [Development Guide](development/index.md) - Contributing to Martin
-- [Configuration](config-file/index.md) - Detailed configuration options
-- [API Documentation](using.md) - HTTP API reference
-- [Sources Documentation](sources-tiles/index.md) - Tile source configuration

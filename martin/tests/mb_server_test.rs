@@ -22,7 +22,7 @@ macro_rules! create_app {
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(
-                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        #[cfg(feature = "resources")]
                         &state,
                     )
                     .unwrap(),
@@ -333,7 +333,7 @@ async fn mbt_get_raw_mlt() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING), None);
     let body = read_body(response).await;
-    assert_eq!(body.iter().as_slice(), &[0x02, 0x01]);
+    assert_eq!(body.iter().as_slice(), &[0x01, 0x01]);
 }
 
 /// get an uncompressed MVT tile with accepted gzip

@@ -78,7 +78,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     {
         let entry = self
             .inner
-            .entry(key.clone())
+            .entry_by_ref(&key)
             .or_try_insert_with(async move { compute().await })
             .await?;
 
@@ -86,13 +86,14 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         key.record_outcome(hit);
         if hit {
             trace!(
-                "{} cache HIT for {key:?} (entries={entries}, size={size}B)",
-                K::CACHE_NAME,
-                entries = self.inner.entry_count(),
-                size = self.inner.weighted_size()
+                cache.name = %K::CACHE_NAME,
+                cache.key = ?key,
+                cache.entries = self.inner.entry_count(),
+                cache.size = self.inner.weighted_size(),
+                "Cache hit"
             );
         } else {
-            trace!("{} cache MISS for {key:?}", K::CACHE_NAME);
+            trace!(cache.name = %K::CACHE_NAME, cache.key = ?key, "Cache miss");
         }
 
         Ok(entry.into_value())
@@ -118,8 +119,9 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
             .invalidate_entries_if(move |key, _| key.matches_source(&source_id_owned))
             .expect("invalidate_entries_if predicate should not error");
         info!(
-            "Invalidated {} cache for source: {source_id}",
-            K::CACHE_NAME
+            cache.name = %K::CACHE_NAME,
+            source.id = %source_id,
+            "Invalidated cache for source"
         );
     }
 
@@ -128,7 +130,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     /// Flush the cache via [`Self::run_pending_tasks`].
     pub fn invalidate_all(&self) {
         self.inner.invalidate_all();
-        info!("Invalidated all {} cache entries", K::CACHE_NAME);
+        info!(cache.name = %K::CACHE_NAME, "Invalidated all cache entries");
     }
 
     /// Returns the approximate number of cached entries (per moka's

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "unstable-cog")]
 use martin_core::tiles::cog::CogError;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 use martin_core::tiles::geojson::GeoJsonError;
 #[cfg(feature = "mbtiles")]
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -22,6 +22,8 @@ use martin_core::tiles::pmtiles::PmtilesError;
 use martin_core::tiles::postgres::PostgresError;
 
 use crate::config::file::ConfigFileError;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::tiles::duckdb::resolver::DuckDbSourceError;
 
 /// A convenience [`Result`] for the tile source build seam.
 pub type SourceBuildResult<T> = Result<T, SourceBuildError>;
@@ -49,7 +51,7 @@ pub enum SourceBuildError {
     #[error(transparent)]
     Cog(#[from] CogError),
 
-    #[cfg(feature = "geojson")]
+    #[cfg(feature = "processing")]
     #[error(transparent)]
     GeoJson(#[from] GeoJsonError),
 
@@ -66,4 +68,8 @@ pub enum SourceBuildError {
 
     #[error("Source path is not a file: {0}")]
     InvalidFilePath(PathBuf),
+
+    #[cfg(feature = "unstable-duckdb")]
+    #[error(transparent)]
+    DuckDb(#[from] DuckDbSourceError),
 }

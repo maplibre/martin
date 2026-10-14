@@ -7,20 +7,22 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::BackendSource;
+use martin_tile_utils::TileGrid;
 use tokio::fs::{self, DirEntry};
 
+use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
-    SourceBuildResult, TileSourceWarning, subdirectories,
+    CachePolicy, FileConfig, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
+    SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
 };
-use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::reload::{FileKind, SourceProvenance};
+use crate::config::primitives::IdResolver;
+use crate::reload::FileKind;
 
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
-type BuildFuture = BoxFuture<'static, SourceBuildResult<BoxedSource>>;
+type BuildFuture = BoxFuture<'static, SourceBuildResult<BackendSource>>;
 
 /// Opens one discovered file as a source.
 ///
@@ -41,6 +43,8 @@ struct ConfiguredSource {
     /// Per-source `convert_to_*` / `cache_control` override layered over the kind level.
     /// Resolved when the source is built so a bad parameter fails that source alone.
     process: Option<ProcessConfig>,
+    /// The grid the config declares the source to be on, when it is not Web Mercator.
+    grid: Option<TileGrid>,
     /// The entry as configured, preserved verbatim for `--save-config`.
     src: FileConfigSrc,
 }
@@ -70,45 +74,46 @@ pub struct FsDiscovery {
 impl FsDiscovery {
     /// Collects the local watch directories and per-path config entries.
     /// Remote URLs are skipped.
+    /// `tile_grids` is `None` for kinds that only produce Web Mercator tiles.
     #[expect(
         clippy::too_many_arguments,
         reason = "one call per file kind, and every argument is a distinct kind-level input"
     )]
     pub fn from_config<C>(
         kind: FileKind,
-        config: &FileConfigEnum<C>,
+        config: &FileConfig<C>,
         recursive: bool,
         extensions: &'static [&'static str],
         id_resolver: IdResolver,
         default_cache: CachePolicy,
         process: &ProcessConfig,
         build: FsSourceBuilder,
+        tile_grids: Option<&TileGrids>,
     ) -> Self {
         let mut directories: Vec<PathBuf> = vec![];
         let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
         let mut configured: BTreeMap<PathBuf, ConfiguredSource> = BTreeMap::new();
 
-        if let FileConfigEnum::Config(cfg) = config
-            && let Some(sources) = &cfg.sources
-        {
-            for (id, src) in sources {
-                let path = src.get_path();
-                let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
-                    continue;
-                };
-                let Ok(canonical) = path.canonicalize() else {
-                    tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
-                    continue;
-                };
-                configured.insert(
-                    canonical,
-                    ConfiguredSource {
-                        policy: src.cache_zoom().or(default_cache),
-                        process: per_source_process(process, src),
-                        src: src.clone(),
-                    },
-                );
-            }
+        for (id, src) in &config.sources {
+            let path = src.get_path();
+            let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
+                continue;
+            };
+            let Ok(canonical) = path.canonicalize() else {
+                tracing::warn!(source.id = %id, path = ?path, "failed to canonicalize tile source path");
+                continue;
+            };
+            // finalize() already rejected unknown names, so a miss here only means "no grid"
+            let grid = declared_tile_grid(id, src, tile_grids).ok().flatten();
+            configured.insert(
+                canonical,
+                ConfiguredSource {
+                    policy: src.cache_zoom().or(default_cache),
+                    process: per_source_process(process, src),
+                    grid,
+                    src: src.clone(),
+                },
+            );
         }
 
         let mut warnings: Vec<TileSourceWarning> = vec![];
@@ -131,7 +136,7 @@ impl FsDiscovery {
                 }
             }
         };
-        let mut push_local = |path: &PathBuf| {
+        let push_local = |path: &PathBuf| {
             if let Some(canonical) = readable(path)
                 && seen.insert(canonical)
             {
@@ -139,36 +144,24 @@ impl FsDiscovery {
             }
         };
 
-        match config {
-            FileConfigEnum::Config(cfg) => match &cfg.paths {
-                OptOneMany::One(path) => push_local(path),
-                OptOneMany::Many(paths) => paths.iter().for_each(&mut push_local),
-                OptOneMany::NoVals => {}
-            },
-            FileConfigEnum::Path(path) => push_local(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(push_local),
-            FileConfigEnum::None => {}
-        }
+        config.paths.iter().for_each(push_local);
 
         let mut collections: Vec<PathBuf> = vec![];
-        if let FileConfigEnum::Config(cfg) = config {
-            let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
-            for collection in cfg.collections.iter() {
-                if !matches!(
-                    SourceLocation::classify_path(collection),
-                    Ok(SourceLocation::Local(_))
-                ) {
-                    tracing::warn!(collection = ?collection, "a collection must be a local directory");
-                    continue;
-                }
-                if let Some(canonical) = readable(collection)
-                    && seen.insert(canonical)
-                {
-                    collections.push(collection.clone());
-                }
+        let mut seen_collections: BTreeSet<PathBuf> = BTreeSet::new();
+        for collection in &config.collections {
+            if !matches!(
+                SourceLocation::classify_path(collection),
+                Ok(SourceLocation::Local(_))
+            ) {
+                tracing::warn!(collection = ?collection, "a collection must be a local directory");
+                continue;
+            }
+            if let Some(canonical) = readable(collection)
+                && seen_collections.insert(canonical)
+            {
+                collections.push(collection.clone());
             }
         }
-
         Self {
             kind,
             directories,
@@ -224,19 +217,22 @@ impl FsDiscovery {
 }
 
 /// Per-source `convert_to_*` and `cache_control` settings layered over the kind-level [`ProcessConfig`].
-fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
+pub(crate) fn per_source_process(
+    kind_level: &ProcessConfig,
+    src: &FileConfigSrc,
+) -> Option<ProcessConfig> {
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
     let per_source = ProcessConfig {
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         convert_to_mlt: obj.convert_to_mlt.clone(),
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        #[cfg(feature = "_tiles")]
         convert_to_mvt: obj.convert_to_mvt.clone(),
         cache_control: obj.cache_control.clone(),
-        #[cfg(feature = "hillshade")]
+        #[cfg(feature = "processing")]
         convert_to_hillshade: obj.convert_to_hillshade.clone(),
-        #[cfg(all(feature = "contour", feature = "_tiles"))]
+        #[cfg(all(feature = "processing", feature = "_tiles"))]
         convert_to_contour: obj.convert_to_contour.clone(),
     };
     if per_source == ProcessConfig::default() {
@@ -292,20 +288,15 @@ impl Discovery for FsDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
-        let process = self
-            .configured
-            .get(&args.0)
-            .and_then(|cfg| cfg.process.as_ref())
-            .map(|pc| pc.resolve().map_err(|e| e.for_source(id.to_owned())))
-            .transpose()?;
-        Ok(BuiltSource {
+        let configured = self.configured.get(&args.0);
+        let source = source.boxed_on(configured.and_then(|cfg| cfg.grid.as_ref()));
+        BuiltSource::with_file_config(
             source,
-            process,
-            provenance: Some(SourceProvenance::File {
-                kind: self.kind,
-                src: self.config_entry(&args.0),
-            }),
-        })
+            id,
+            configured.and_then(|config| config.process.as_ref()),
+            self.kind,
+            self.config_entry(&args.0),
+        )
     }
 
     fn process(&self) -> ResolvedProcess {
@@ -360,7 +351,12 @@ fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
     let raw = entry.path();
 
     let Ok(path) = raw.canonicalize() else {
-        tracing::warn!(path = ?raw, "failed to canonicalize path");
+        // A file listed a moment ago can be gone by the time it is resolved, and the event for
+        // its removal brings the next scan.
+        match raw.symlink_metadata() {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            _ => tracing::warn!(path = ?raw, "failed to canonicalize path"),
+        }
         return None;
     };
 
@@ -437,12 +433,9 @@ impl FsDiscovery {
 mod tests {
     use std::fs::File;
 
-    use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
     use crate::TileSourceManager;
@@ -451,38 +444,6 @@ mod tests {
 
     /// Files whose stem starts with this prefix fail to build.
     const BAD_PREFIX: &str = "bad_";
-
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(vec![])
-        }
-    }
 
     /// Opens every file as a [`TestSource`] except the `bad_` ones, which fail to build.
     fn fake_builder() -> FsSourceBuilder {
@@ -493,10 +454,7 @@ mod tests {
                         path,
                     )));
                 }
-                Ok(Box::new(TestSource {
-                    id,
-                    tj: tilejson! { tiles: vec![] },
-                }) as BoxedSource)
+                Ok(TestSource::empty(id).into())
             })
         })
     }
@@ -522,13 +480,14 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let snapshot = discovery.discover().await.expect("discover").sources;
@@ -555,13 +514,14 @@ mod tests {
 
         let recursive = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             true,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
         let mut ids: Vec<String> = recursive
             .discover()
@@ -575,13 +535,14 @@ mod tests {
 
         let flat = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
         let ids: Vec<String> = flat
             .discover()
@@ -606,13 +567,14 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Warn);
         ReloadDriver::new(discovery, catalog.clone())
@@ -634,13 +596,14 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         let catalog = TileSourceManager::new(None, OnInvalid::Abort);
         let error = ReloadDriver::new(discovery, catalog)
@@ -666,7 +629,6 @@ mod tests {
     #[tokio::test]
     async fn discovered_files_take_the_kind_level_cache_bounds() {
         use crate::config::file::{FileConfig, FileConfigSource};
-        use crate::config::primitives::OptOneMany;
 
         let dir = tempfile::tempdir().expect("tempdir");
         let scanned = dir.path().join("scanned.mbtiles");
@@ -674,26 +636,27 @@ mod tests {
         File::create(&scanned).expect("create scanned");
         File::create(&configured).expect("create configured");
 
-        let config = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::One(dir.path().to_path_buf()),
-            sources: Some(BTreeMap::from([(
+        let config = FileConfig {
+            paths: vec![dir.path().to_path_buf()],
+            sources: BTreeMap::from([(
                 "configured".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
                     path: configured.clone(),
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mlt: None,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mvt: None,
                     cache_control: None,
-                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_hillshade: None,
-                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
+                    tile_grid: None,
                 })),
-            )])),
+            )]),
             ..FileConfig::<()>::default()
-        });
+        };
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
@@ -703,6 +666,7 @@ mod tests {
             CachePolicy::new(CacheZoomRange::new(Some(1), Some(10))),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let snapshot = discovery.discover().await.expect("discover").sources;
@@ -716,7 +680,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "mlt", feature = "hillshade", feature = "_tiles"))]
+    #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
         use crate::config::file::{FileConfig, FileConfigSource};
@@ -728,31 +692,32 @@ mod tests {
         File::create(&overridden).expect("create overridden");
         File::create(&plain).expect("create plain");
 
-        let config = FileConfigEnum::Config(FileConfig {
-            sources: Some(BTreeMap::from([
+        let config = FileConfig {
+            sources: BTreeMap::from([
                 (
                     "overridden".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: overridden.clone(),
                         convert_to_mlt: Some(AutoOption::Disabled),
                         convert_to_mvt: None,
                         cache_control: None,
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                     })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
-            ])),
+            ]),
             ..FileConfig::<()>::default()
-        });
+        };
         let kind_level = ProcessConfig {
             convert_to_mlt: Some(AutoOption::Auto),
             convert_to_mvt: None,
             cache_control: None,
             convert_to_hillshade: None,
-            #[cfg(all(feature = "contour", feature = "_tiles"))]
+            #[cfg(all(feature = "processing", feature = "_tiles"))]
             convert_to_contour: None,
         };
         let discovery = FsDiscovery::from_config(
@@ -764,6 +729,7 @@ mod tests {
             CachePolicy::default(),
             &kind_level,
             unreachable_builder(),
+            None,
         );
 
         let configured = |path: &PathBuf| {
@@ -791,27 +757,28 @@ mod tests {
         let pinned = dir.path().join("pinned.mbtiles");
         File::create(&pinned).expect("create pinned");
 
-        let config = FileConfigEnum::Config(FileConfig {
-            sources: Some(BTreeMap::from([(
+        let config = FileConfig {
+            sources: BTreeMap::from([(
                 "pinned".to_owned(),
                 FileConfigSrc::Obj(Box::new(FileConfigSource {
+                    tile_grid: None,
                     path: pinned.clone(),
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mlt: None,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    #[cfg(feature = "_tiles")]
                     convert_to_mvt: None,
-                    #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_hillshade: None,
-                    #[cfg(all(feature = "contour", feature = "_tiles"))]
+                    #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_contour: None,
                     cache_control: Some(
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),
                     ),
                     cache: CachePolicy::default(),
                 })),
-            )])),
+            )]),
             ..FileConfig::<()>::default()
-        });
+        };
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
             &config,
@@ -821,6 +788,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let canonical = pinned.canonicalize().expect("canonicalize");
@@ -847,7 +815,7 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Paths(vec![
+            &FileConfig::<()>::new(vec![
                 readable.path().to_path_buf(),
                 unreadable.path().to_path_buf(),
             ]),
@@ -857,6 +825,7 @@ mod tests {
             CachePolicy::default(),
             &ProcessConfig::default(),
             fake_builder(),
+            None,
         );
         std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o755))
             .expect("restore permissions");
@@ -889,13 +858,14 @@ mod tests {
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfigEnum::<()>::Path(dir.path().to_path_buf()),
+            &FileConfig::<()>::new(vec![dir.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
             CachePolicy::default(),
             &ProcessConfig::default(),
             unreachable_builder(),
+            None,
         );
 
         let canonical = dir

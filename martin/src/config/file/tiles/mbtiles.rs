@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::BackendSource;
 use martin_core::tiles::mbtiles::MbtSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -10,7 +10,7 @@ use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
     TileSourceConfiguration, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
@@ -29,13 +29,13 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 pub struct MbtConfig {
     /// MVT->MLT encoder settings for all `MBTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all `MBTiles` sources.
     /// Overrides global; overridden by per-source `convert_to_mvt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -70,8 +70,10 @@ impl TileSourceConfiguration for MbtConfig {
         id: String,
         path: PathBuf,
         cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
-        Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
+    ) -> SourceBuildResult<BackendSource> {
+        Ok(BackendSource::Mbtiles(
+            MbtSource::new(id, path, cache.zoom()).await?,
+        ))
     }
 
     #[expect(
@@ -83,7 +85,7 @@ impl TileSourceConfiguration for MbtConfig {
         _id: String,
         _url: Url,
         _cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    ) -> SourceBuildResult<BackendSource> {
         unreachable!()
     }
 }
@@ -98,13 +100,13 @@ mod tests {
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _,
-        FileConfigEnum, FileConfigSource, FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
+        FileConfigSource, FileConfigSrc,
     };
 
     #[tokio::test]
     async fn parse() {
-        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfig<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -129,12 +131,8 @@ mod tests {
             unrecognised.is_empty(),
             "unrecognized config: {unrecognised:?}"
         );
-        let FileConfigEnum::Config(cfg) = cfg else {
-            panic!();
-        };
-        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
         assert_eq!(
-            paths,
+            cfg.paths,
             vec![
                 PathBuf::from("/dir-path"),
                 PathBuf::from("/path/to/file2.ext"),
@@ -143,7 +141,7 @@ mod tests {
         );
         assert_eq!(
             cfg.sources,
-            Some(BTreeMap::from_iter(vec![
+            BTreeMap::from_iter(vec![
                 (
                     "pm-src1".to_owned(),
                     FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
@@ -151,14 +149,15 @@ mod tests {
                 (
                     "pm-src2".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("/tmp/file.ext"),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mlt: None,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mvt: None,
-                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
@@ -171,14 +170,15 @@ mod tests {
                 (
                     "pm-src4".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("https://example.org/file4.ext"),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mlt: None,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mvt: None,
-                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
@@ -187,20 +187,21 @@ mod tests {
                 (
                     "pm-src5".to_owned(),
                     FileConfigSrc::Obj(Box::new(FileConfigSource {
+                        tile_grid: None,
                         path: PathBuf::from("/tmp/cached.ext"),
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mlt: None,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        #[cfg(feature = "_tiles")]
                         convert_to_mvt: None,
-                        #[cfg(all(feature = "hillshade", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_hillshade: None,
-                        #[cfg(all(feature = "contour", feature = "_tiles"))]
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                         cache_control: None,
                     }))
                 ),
-            ]))
+            ])
         );
     }
 }

@@ -1,0 +1,19 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "count(*)",
+        "ordinal": 0,
+        "origin": "Expression",
+        "type_info": "Integer"
+      }
+    ],
+    "nullable": [false],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "bad67044fb3e4691fef0ffbcd2cb93dd495c30fcf1758fabac0d7ab566b00177",
+  "query": "SELECT count(*) FROM tiles"
+}

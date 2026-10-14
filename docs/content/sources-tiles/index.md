@@ -1,4 +1,5 @@
 ---
+description: Tile archives, GeoJSON, DuckDB and PostgreSQL as tile sources
 tags:
   - tile-sources
   - configuration
@@ -25,7 +26,7 @@ The difference between tile archives (*[MBTiles/PMTiles](../sources-files/index.
 
 !!! tip
     For most use cases, you may want a mix of both. We support this via [Composite Sources](../sources-composite.md)
-    For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the [`martin-cp`](../martin-cp.md) utility to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](../mbtiles-diff.md)
+    For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the [`martin cp`](../martin-cp.md) subcommand to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](../mbtiles-diff.md)
 
 The difference between MBTiles and PMTiles is that:
 
@@ -41,3 +42,10 @@ DuckDB / GeoParquet sources do not currently support postprocessing.
 
 Tile sources also accept a per-source `cache_control` configuration key that sets the `Cache-Control` response header for that source's tiles, overriding the top-level `cache_control` default.
 A composite tile request uses the per-source value only when every requested source is configured with the same one; otherwise the response falls back to the top-level default.
+
+!!! tip "`cache_control` handling"
+
+    When no `cache_control` is configured, PMTiles and MBTiles tiles set `max-age=0, stale-while-revalidate=86400`.
+    Therefore, a returning visitor's browser draws tiles it has cached right away and checks them with the server in the background.
+    A server side rewritten archive may only show up on the visitor's next load due to invalidation if the tiles are cached on the client and the `stale-while-revalidate`-check in the background suggests that the tiles martin offers are stale.
+    Set `cache_control: no-cache` if browsers should check every tile before drawing it.

@@ -1,4 +1,5 @@
 ---
+description: Installing Martin from binaries, Docker, Homebrew or source
 icon: material/download
 tags:
   - getting-started
@@ -7,36 +8,53 @@ tags:
 
 ### Prerequisites
 
-If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. PostGIS v3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
+
+On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer).
+Older CPUs can use the static `x86_64-unknown-linux-musl-legacycpu` tarball or the `:latest-legacycpu` / `:<version>-legacycpu` Docker image (`linux/amd64` only, no rendering), or [build Martin from source](development/index.md).
 
 ### Docker
 
 Martin is also available as a [Docker image](https://ghcr.io/maplibre/martin). You could either share a configuration
 file from the host with the container via the `-v` param, or you can let Martin auto-discover all sources e.g. by
-passing `DATABASE_URL` or specifying the .mbtiles/.pmtiles files or URLs to .pmtiles.
+passing a PostgreSQL connection string or the .mbtiles/.pmtiles files or URLs to .pmtiles.
+A configuration file can read a variable passed into the container, for example `connection_string: ${DATABASE_URL}`.
 
 ```bash
-export PGPASSWORD=postgres  # secret!
+export DATABASE_URL=postgres://user:password@host:port/db  # secret!
 
 docker run -p 3000:3000 \
-           -e PGPASSWORD \
-           -e DATABASE_URL=postgres://user@host:port/db \
+           -e DATABASE_URL \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.16.0 \
+           ghcr.io/maplibre/martin:2.0.0-beta.3 \
            --config /config/config.yaml
 ```
+
+!!! note
+    The default image is lean and does **not** include server-side style [rendering](sources-styles/rendering.md).
+    If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`.
+    It is larger because it bundles the `maplibre_native` runtime libraries.
 
 ### From Binary Distributions Manually
 
 You can download martin from [GitHub releases page](https://github.com/maplibre/martin/releases).
 
-| Platform | x64                                                                                              | ARM-64                                                                   |
-|----------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    |                                                                                                  | [.tar.gz][rl-macos-a64]                                                  |
-| Windows  | [.zip][rl-win64-zip]                                                                             |                                                                          |
+| Platform | x64                                                                                                                                          | ARM-64                                                                                                               |
+|----------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
+| macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]                                                                                              |
+| Windows  | [.zip][rl-win64-zip]                                                                                                                         |                                                                                                                      |
+
+!!! note
+    The standard binaries do **not** include server-side style [rendering](sources-styles/rendering.md).
+    The `-full` Linux-gnu tarballs do.
+    They add the `rendering` feature and its bundled native libraries.
 
 [rl-linux-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
+
+[rl-linux-x64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz
+
+[rl-linux-a64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz
 
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz
 
@@ -84,7 +102,7 @@ rm ./debian-x86_64.deb
 
 #### Arch Linux
 
-The [AUR](https://aur.archlinux.org/packages/martin) carries `martin` and `martin-cp`, maintained by the community.
+The [AUR](https://aur.archlinux.org/packages/martin) carries `martin`, maintained by the community.
 With an AUR helper such as `yay`:
 
 ```bash
@@ -120,6 +138,14 @@ cargo install martin --locked --features=unstable-duckdb
 
 The currently available unstable features are `unstable-cog` for [COG sources](sources-cog-files.md)
 and `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
+
+Server-side style [rendering](sources-styles/rendering.md) is also left out of the default feature set.
+To include it (Linux only), add the `rendering` feature.
+You will need its build dependencies first (`just install-dependencies`).
+
+```bash
+cargo install martin --locked --features rendering
+```
 
 #### Platform-Specific Build Notes
 

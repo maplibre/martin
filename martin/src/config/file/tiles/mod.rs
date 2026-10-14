@@ -5,7 +5,7 @@ pub use error::{SourceBuildError, SourceBuildResult};
 pub mod cog;
 #[cfg(feature = "unstable-duckdb")]
 pub mod duckdb;
-#[cfg(feature = "geojson")]
+#[cfg(feature = "processing")]
 pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;

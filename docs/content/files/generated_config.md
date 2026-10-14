@@ -77,6 +77,7 @@ cache:
 # The value is used for responses that do not define a more specific cache policy.
 # For example: `public, max-age=3600`.
 # Endpoints with an explicit policy, such as the health check, keep their own header.
+# When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
 cache_control: null
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
@@ -510,6 +511,10 @@ postgres:
   ssl_root_cert: ./root.crt
   # Associative arrays of table sources
   tables: {}
+  # Tile grid the sources of this connection are served in, unless a source names its own [default: `WebMercatorQuad`]
+  #
+  # One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+  tile_grid: WebMercatorQuad
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.
@@ -523,6 +528,10 @@ preferred_encoding: brotli
 # Must begin with a `/`.
 # Examples: `/tiles`, `/api/v1/tiles`
 route_prefix: null
+# Seconds to wait for in-flight requests to finish after `SIGTERM` before closing them [default: 5]
+#
+# New connections are refused as soon as the signal arrives and idle keep-alive connections are closed.
+shutdown_timeout: 5
 # Sprite configuration
 sprites:
   # Named combinations of sprite sources.
@@ -556,17 +565,20 @@ styles:
   collections: []
   # A list of file paths
   paths: []
-  # Allows static, server side, style rendering
-  #
-  # Note on EXPERIMENTAL status:
-  # We are not currently happy with the performance of this endpoint and intend to improve this in the future
-  # Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-  rendering:
-    enabled: false
-    # Number of render worker threads. Unset picks a platform default.
-    workers: null
   # A map of source IDs to file paths or config objects
   sources: {}
+# Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
+#
+# A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+# Sources refer to a grid by its name here.
+# ```yaml
+# tile_grids:
+#   DutchRD:
+#     crs: EPSG:28992
+#     origin: [-285401.92, 903401.92]
+#     extent_at_zoom0: 880803.84
+# ```
+tile_grids: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)
 # will be embedded in the `TileJSON` `tiles` URL, with the set identifier.
 # This is useful to give clients a better way to cache-bust a CDN:
@@ -585,10 +597,13 @@ styles:
 # `TileJSON` will be:
 # `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`
 tilejson_url_version_param: version
-# Enable or disable Martin web UI. [default: disable]
+# Control access to Martin's web UI. [default: enable]
 #
-# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
-# This may be undesirable in a production environment
+# - `enable` allows only connections from localhost.
+# - `enableforall` allows all connections.
+# - `disable` turns the web UI off.
+#
+# Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.
 web_ui: disable
 # Number of web server workers
 worker_processes: 8

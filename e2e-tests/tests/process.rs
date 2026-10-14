@@ -4,88 +4,51 @@
 
 use std::fs;
 
-use martin_e2e_tests::{Martin, StartError};
-use tempfile::TempDir;
+use indoc::{formatdoc, indoc};
+use martin_e2e_tests::Martin;
 
 const MLT_ACCEPT: &str = "application/vnd.maplibre-tile";
 
-const TESSELLATED: &str = "
-      convert_to_mlt:
-        tessellate: true";
-
-fn tile_sources(table_source_encoder: &str) -> String {
-    format!(
-        r"
-convert_to_mlt: auto
-postgres:
-  connection_string: ${{DATABASE_URL}}
-  default_srid: 4326
-  pool_size: 1
-  auto_bounds: skip
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4{table_source_encoder}
-    points2:
-      schema: public
-      table: points2
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-      convert_to_mlt:
-        try_spatial_hilbert_sort: true
-"
-    )
-}
-
-const PASSTHROUGH_SOURCE: &str = r"
-convert_to_mlt: auto
-passthrough:
-  sources:
-    passthrough_table:
-      url: http://UPSTREAM/table_source/{z}/{x}/{y}
-      format: mvt
-";
-
-async fn martin_serving_tiles() -> (TempDir, Martin) {
-    start(&tile_sources(TESSELLATED), true, None).await
-}
-
-async fn martin_proxying(upstream: &Martin) -> (TempDir, Martin) {
-    let config = PASSTHROUGH_SOURCE.replace("UPSTREAM", upstream.addr());
-    start(&config, false, None).await
-}
-
-async fn start(config: &str, postgres: bool, save_config: Option<&str>) -> (TempDir, Martin) {
-    let dir = tempfile::tempdir().expect("failed to create a temp dir");
-    let path = dir.path().join("config.yaml");
-    fs::write(&path, config).expect("failed to write the config file");
-
-    let mut builder = Martin::builder().arg("--config").arg(&path);
-    if postgres {
-        builder = builder.with_postgres();
-    }
-    if let Some(name) = save_config {
-        builder = builder.arg("--save-config").arg(dir.path().join(name));
-    }
-    let martin = builder.start().await.expect("failed to start martin");
-    (dir, martin)
-}
-
 fn assert_table_source_warning(martin: &mut Martin) {
-    martin.assert_log_contains("Table public.table_source has no spatial index on column geom");
+    martin.assert_log_contains("Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom");
 }
 
 #[tokio::test]
 async fn the_catalog_lists_every_configured_source() {
-    let (_dir, mut martin) = martin_serving_tiles().await;
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {
@@ -105,7 +68,43 @@ async fn the_catalog_lists_every_configured_source() {
 
 #[tokio::test]
 async fn the_saved_config_records_the_resolved_encoder_settings() {
-    let (dir, mut martin) = start(&tile_sources(TESSELLATED), true, Some("save_config.yaml")).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .arg("--save-config")
+        .arg(dir.path().join("save_config.yaml"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let saved = fs::read_to_string(dir.path().join("save_config.yaml"))
         .expect("martin did not write --save-config");
@@ -151,7 +150,40 @@ async fn the_saved_config_records_the_resolved_encoder_settings() {
 
 #[tokio::test]
 async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
-    let (_dir, mut martin) = martin_serving_tiles().await;
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let mvt = martin.get("/table_source/0/0/0").await;
     let mlt = martin
@@ -160,10 +192,10 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
 
     assert_eq!(mlt.status(), 200);
     insta::assert_snapshot!(mlt.headers_snapshot(), @r#"
-    content-length: 916
+    content-length: 927
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     let mvt_etag = mvt.header("etag").expect("the mvt response has no etag");
     assert_eq!(
@@ -187,8 +219,72 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
 
 #[tokio::test]
 async fn a_per_source_encoder_setting_overrides_the_global_default() {
-    let (_dir, mut tessellating) = martin_serving_tiles().await;
-    let (_plain_dir, mut plain) = start(&tile_sources(""), true, None).await;
+    let mut tessellating = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
+    let mut plain = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let with_triangles = tessellating
         .get_with_headers("/table_source/0/0/0", &[("accept", MLT_ACCEPT)])
@@ -216,8 +312,53 @@ async fn a_per_source_encoder_setting_overrides_the_global_default() {
 
 #[tokio::test]
 async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
-    let (_dir, mut upstream) = martin_serving_tiles().await;
-    let (_proxy_dir, mut proxy) = martin_proxying(&upstream).await;
+    let mut upstream = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
+    let upstream_addr = upstream.addr();
+    let mut proxy = Martin::builder()
+        .config(&formatdoc! {"
+            convert_to_mlt: auto
+            passthrough:
+              sources:
+                passthrough_table:
+                  url: http://{upstream_addr}/table_source/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(proxy.get("/catalog").await.json()["tiles"], @r#"
     {
@@ -232,10 +373,10 @@ async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
     assert_eq!(proxied.status(), 200);
     insta::assert_snapshot!(proxied.headers_snapshot(), @r#"
     content-encoding: gzip
-    content-length: 643
+    content-length: 678
     content-type: application/x-protobuf
     etag: "lDkxk7p2r2HsWFzhXDsD5A"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
     assert_eq!(proxied.header("etag"), direct.header("etag"));
     assert_eq!(proxied.body(), direct.body());
@@ -247,18 +388,63 @@ async fn a_passthrough_source_serves_the_upstream_tile_verbatim() {
 
 #[tokio::test]
 async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
-    let (_dir, mut upstream) = martin_serving_tiles().await;
-    let (_proxy_dir, mut proxy) = martin_proxying(&upstream).await;
+    let mut upstream = Martin::builder()
+        .config(indoc! {"
+            convert_to_mlt: auto
+            postgres:
+              connection_string: ${DATABASE_URL}
+              default_srid: 4326
+              pool_size: 1
+              auto_bounds: skip
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    tessellate: true
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                  convert_to_mlt:
+                    try_spatial_hilbert_sort: true
+        "})
+        .with_postgres()
+        .start()
+        .await
+        .expect("failed to start martin");
+    let upstream_addr = upstream.addr();
+    let mut proxy = Martin::builder()
+        .config(&formatdoc! {"
+            convert_to_mlt: auto
+            passthrough:
+              sources:
+                passthrough_table:
+                  url: http://{upstream_addr}/table_source/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let proxied = proxy
         .get_with_headers("/passthrough_table/0/0/0", &[("accept", MLT_ACCEPT)])
         .await;
     assert_eq!(proxied.status(), 200);
     insta::assert_snapshot!(proxied.headers_snapshot(), @r#"
-    content-length: 645
+    content-length: 696
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     let direct = upstream.get("/table_source/0/0/0").await;
@@ -273,18 +459,4 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     proxy.stop().await;
     upstream.stop().await;
     assert_table_source_warning(&mut upstream);
-}
-
-#[tokio::test]
-async fn the_dashboard_refuses_to_start_without_a_terminal() {
-    let error = Martin::builder()
-        .arg("--tui")
-        .start()
-        .await
-        .expect_err("martin must not start a dashboard on a pipe");
-    let StartError::EarlyExit { status, log } = error else {
-        panic!("expected an early exit, got: {error}");
-    };
-    assert!(!status.success(), "exit status must be a failure: {status}");
-    insta::assert_snapshot!(log, @"--tui needs an interactive terminal");
 }

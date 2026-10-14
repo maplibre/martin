@@ -1,13 +1,15 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
+use tokio::sync::watch;
 use tracing::{info, warn};
 
-use crate::config::file::driver::Sink;
+use crate::config::file::driver::{ApplyOutcome, Sink};
 use crate::config::file::{OnInvalid, ResolvedProcess, SourceBuildResult};
 use crate::reload::{NewSource, ReloadAdvisory, SourceProvenance};
-use crate::source::TileSources;
+use crate::source::{SourceEntry, TileSources};
 
 /// Manages the live set of tile sources and their caches.
 ///
@@ -18,13 +20,15 @@ use crate::source::TileSources;
 /// `TileSourceManager` is cheap to clone.
 #[derive(Clone)]
 pub struct TileSourceManager {
-    tile_sources: Arc<DashMap<String, (BoxedSource, ResolvedProcess)>>,
+    tile_sources: Arc<DashMap<String, SourceEntry>>,
     /// Named combinations of tile sources, served like a single source.
     aliases: Arc<DashMap<String, Vec<String>>>,
     /// Kept beside the serving map so `--save-config` can serialize what is actually served.
     provenance: Arc<DashMap<String, SourceProvenance>>,
     tile_cache: OptTileCache,
     on_invalid: OnInvalid,
+    /// Whether the sources have loaded, so a request for a source that is not published yet can wait for it.
+    loaded: Arc<watch::Sender<bool>>,
 }
 
 impl TileSourceManager {
@@ -37,6 +41,7 @@ impl TileSourceManager {
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
+            loaded: Arc::new(watch::Sender::new(true)),
         }
     }
 
@@ -49,10 +54,10 @@ impl TileSourceManager {
         on_invalid: OnInvalid,
         sources: Vec<Vec<(BoxedSource, ResolvedProcess)>>,
     ) -> Self {
-        let map: DashMap<String, (BoxedSource, ResolvedProcess)> = sources
+        let map: DashMap<String, SourceEntry> = sources
             .into_iter()
             .flatten()
-            .map(|(src, pc)| (src.get_id().to_owned(), (src, pc)))
+            .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -60,7 +65,36 @@ impl TileSourceManager {
             provenance: Arc::new(DashMap::new()),
             tile_cache,
             on_invalid,
+            loaded: Arc::new(watch::Sender::new(true)),
         }
+    }
+
+    /// Marks the sources as loading.
+    pub fn start_loading(&self) {
+        self.loaded.send_replace(false);
+    }
+
+    /// Marks the sources as loaded and releases the requests waiting for them.
+    pub fn finish_loading(&self) {
+        self.loaded.send_replace(true);
+    }
+
+    /// Waits until `source_ids` resolve or the sources have loaded.
+    pub async fn wait_for_sources(&self, source_ids: &str) {
+        let resolves = || self.tile_sources().get_sources(source_ids, None).is_ok();
+        if *self.loaded.borrow() || resolves() {
+            return;
+        }
+        let mut loaded = self.loaded.subscribe();
+        // The manager holds the sender, so the channel cannot close while this waits.
+        let _ = loaded.wait_for(|loaded| *loaded || resolves()).await;
+    }
+
+    /// Waits for the sources to load.
+    pub async fn wait_until_loaded(&self) {
+        let mut loaded = self.loaded.subscribe();
+        // The manager holds the sender, so the channel cannot close while this waits.
+        let _ = loaded.wait_for(|loaded| *loaded).await;
     }
 
     /// Returns a [`TileSources`] view for read-only tile serving.
@@ -103,7 +137,7 @@ impl TileSourceManager {
         if let Some(p) = provenance {
             self.provenance.insert(id.clone(), p);
         }
-        self.tile_sources.insert(id, (src, process));
+        self.tile_sources.insert(id, (src, Arc::new(process)));
     }
 }
 
@@ -119,9 +153,14 @@ impl Sink for TileSourceManager {
     /// 1. **Updates** - time-critical; invalidate cache then replace the source.
     /// 2. **Additions** - make new sources available.
     /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
-    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<()> {
+    fn contains(&self, id: &str) -> bool {
+        self.tile_sources.contains_key(id)
+    }
+
+    async fn apply_changes(&self, advisory: ReloadAdvisory) -> SourceBuildResult<ApplyOutcome> {
+        let mut failed = BTreeSet::new();
         if advisory.is_empty() {
-            return Ok(());
+            return Ok(ApplyOutcome { failed });
         }
 
         // 1. Updates: time-critical, invalidate cache then swap
@@ -144,6 +183,7 @@ impl Sink for TileSourceManager {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
                         warn!(source.id = %id, error = %err, "Skipping update");
+                        failed.insert(id);
                     }
                 },
             }
@@ -166,6 +206,7 @@ impl Sink for TileSourceManager {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
                         warn!(source.id = %id, error = %err, "Skipping addition");
+                        failed.insert(id);
                     }
                 },
             }
@@ -186,53 +227,22 @@ impl Sink for TileSourceManager {
             cache.run_pending_tasks().await;
         }
 
-        Ok(())
+        // 5. Wake the requests waiting for sources that may exist now
+        self.loaded.send_modify(|_| {});
+
+        Ok(ApplyOutcome { failed })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
+
     use insta::assert_yaml_snapshot;
-    use martin_core::CacheZoomRange;
-    use martin_core::tiles::{MartinCoreResult, Source, TileCache, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::{TileJSON, tilejson};
+    use martin_core::tiles::TileCache;
+    use martin_core::tiles::testing::TestSource;
 
     use super::*;
     use crate::reload::DeletedSource;
-
-    #[derive(Debug, Clone)]
-    struct TestSource {
-        id: String,
-        tj: TileJSON,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            &self.id
-        }
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-        fn cache_zoom(&self) -> CacheZoomRange {
-            CacheZoomRange::default()
-        }
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(vec![1, 2, 3])
-        }
-    }
 
     fn make_manager() -> TileSourceManager {
         let cache = TileCache::new(1024 * 1024, None, None); // 1 MB
@@ -242,10 +252,7 @@ mod tests {
     fn new_source(name: &str) -> NewSource {
         NewSource {
             id: name.to_owned(),
-            source: Ok(Box::new(TestSource {
-                id: name.to_owned(),
-                tj: tilejson! { tiles: vec![] },
-            })),
+            source: Ok(TestSource::empty(name.to_owned()).boxed()),
             process: ResolvedProcess::default(),
             provenance: None,
         }
@@ -284,7 +291,7 @@ mod tests {
         - src_b
         ");
 
-        let mut removals = std::collections::BTreeSet::new();
+        let mut removals = BTreeSet::new();
         removals.insert(DeletedSource {
             id: "src_a".to_owned(),
         });
@@ -320,12 +327,57 @@ mod tests {
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
     }
 
+    #[tokio::test]
+    async fn requests_for_missing_sources_wait_until_the_sources_load() {
+        let mgr = make_manager();
+        let advisory = ReloadAdvisory {
+            additions: vec![new_source("src_a")],
+            ..Default::default()
+        };
+        mgr.apply_changes(advisory).await.unwrap();
+        mgr.start_loading();
+        mgr.wait_for_sources("src_a").await;
+        let waiting = tokio::spawn({
+            let mgr = mgr.clone();
+            async move { mgr.wait_for_sources("src_b").await }
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !waiting.is_finished(),
+            "a missing source waits while the sources load"
+        );
+        mgr.finish_loading();
+        waiting
+            .await
+            .expect("a missing source stops waiting once the sources have loaded");
+    }
+
+    #[tokio::test]
+    async fn a_request_for_a_source_proceeds_once_the_source_is_published() {
+        let mgr = make_manager();
+        mgr.start_loading();
+        let waiting = tokio::spawn({
+            let mgr = mgr.clone();
+            async move { mgr.wait_for_sources("src_b").await }
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !waiting.is_finished(),
+            "a missing source waits while the sources load"
+        );
+        let advisory = ReloadAdvisory {
+            additions: vec![new_source("src_b")],
+            ..Default::default()
+        };
+        mgr.apply_changes(advisory).await.unwrap();
+        waiting
+            .await
+            .expect("a source published during the load ends the wait");
+    }
+
     #[test]
     fn from_sources_populates_map() {
-        let src = Box::new(TestSource {
-            id: "x".to_owned(),
-            tj: tilejson! { tiles: vec![] },
-        }) as BoxedSource;
+        let src = TestSource::empty("x".to_owned()).boxed() as BoxedSource;
         let mgr = TileSourceManager::from_sources(
             None,
             OnInvalid::Abort,
@@ -393,10 +445,7 @@ mod tests {
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            let source: BoxedSource = Box::new(TestSource {
-                id,
-                tj: tilejson! { tiles: vec![] },
-            });
+            let source: BoxedSource = TestSource::empty(id.clone()).boxed();
             Ok(source.into())
         }
 
@@ -415,14 +464,16 @@ mod tests {
                 ResolvedProcess::default(),
             )
             .await;
-            mgr.apply_changes(advisory)
+            let outcome = mgr
+                .apply_changes(advisory)
                 .await
                 .expect("warn policy must not abort on a bad file");
             *state = next;
+            outcome.failed
         };
 
         std::fs::write(dir.path().join("bad_a.tiles"), b"").unwrap();
-        tick(&mut state).await;
+        assert_eq!(tick(&mut state).await, BTreeSet::from(["bad_a".to_owned()]));
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
 
         std::fs::write(dir.path().join("good_x.tiles"), b"").unwrap();

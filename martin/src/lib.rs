@@ -1,7 +1,14 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![forbid(unsafe_code)]
+// Static dispatch over `AnySource` inlines every variant's tile future into the
+// request future, and the nesting outgrows rustc's default query depth.
+#![recursion_limit = "512"]
 
 pub mod config;
+#[cfg(feature = "mbtiles")]
+pub mod cp;
+#[cfg(feature = "unstable-generate")]
+pub mod generate;
 pub mod logging;
 
 #[cfg(feature = "_tiles")]
@@ -25,7 +32,7 @@ pub use error::{StartupError, StartupResult};
 #[cfg(all(test, feature = "_tiles"))]
 mod test_support;
 
-#[cfg(feature = "styles")]
+#[cfg(feature = "resources")]
 pub mod maplibre_style;
 
 pub mod srv;

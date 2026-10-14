@@ -1,4 +1,5 @@
 ---
+description: Flat, flat-with-hash and normalized MBTiles table layouts
 icon: material/database-outline
 tags:
   - mbtiles
@@ -8,6 +9,8 @@ tags:
 # MBTiles Schemas
 
 The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying different kinds of schema for `tiles` data. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
+
+--8<-- "images/mbtiles/schemas.svg"
 
 ## metadata
 
@@ -39,32 +42,31 @@ Use this schema when the tileset has no duplicate tiles, but you still want to b
 ## normalized
 
 Normalized schema is the most efficient when the tileset contains duplicate tiles.
-It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
-The `map` table contains a `tile_id` column that is a foreign key to the `images` table.
-The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the `flat-with-hash` schema, and also to optimize storage by storing each unique tile only once.
-
-```sql
---8<-- "files/init-normalized.sql"
-```
-
-Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_hash` view.
-All `normalized` files created by the `mbtiles` tool will contain this view.
-
-```sql
---8<-- "files/init-normalized-with-hash.sql"
-```
-
-### Alternative normalized schema (dedup-id)
-
-Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce a variation of the normalized schema that uses `tiles_shallow` and `tiles_data` tables with an integer `tile_data_id` column instead of the text-based `tile_id` (a content hash).
+It stores each distinct tile blob once in the `tiles_data` table, and stores the tile Z,X,Y coordinates in a `tiles_shallow` table.
+The `tiles_shallow` table contains a `tile_data_id` column that is a foreign key to the `tiles_data` table.
+[Planetiler](https://github.com/onthegomap/planetiler) writes the same layout.
 
 ```sql
 --8<-- "files/init-normalized-dedup-id.sql"
 ```
 
-Since tile IDs are integers rather than content hashes, per-tile validation checks foreign key integrity (every `tile_data_id` in `tiles_shallow` must exist in `tiles_data`) instead of recomputing content hashes.
-When copying from this schema to a new file, the `mbtiles` tool will produce the standard `map` + `images` normalized schema in the destination.
-In our next semver major, we plan to switch this default and produce `tiles_shallow`/`tiles_data` by default as well.
+The `tile_data_id` column is an integer rather than a content hash, so per-tile validation checks that every `tile_data_id` in `tiles_shallow` exists in `tiles_data` instead of recomputing content hashes.
+
+### Hash-based normalized schema
+
+Files made by older versions of the `mbtiles` tool, and by tools like [tilelive-copy](https://github.com/mapbox/TileLive#bintilelive-copy), store their tile blobs in an `images` table and the tile Z,X,Y coordinates in a `map` table.
+The `tile_id` column that links them is a hash of the `tile_data` column, making it possible to validate each individual tile like in the `flat-with-hash` schema.
+The `mbtiles` tool reads these files, and a copy made without `--dst-type` keeps their schema.
+
+```sql
+--8<-- "files/init-normalized.sql"
+```
+
+Optionally, such files can include a `tiles_with_hash` view.
+
+```sql
+--8<-- "files/init-normalized-with-hash.sql"
+```
 
 ## cache
 
@@ -81,6 +83,6 @@ The `mbtiles` tool treats `cache` as a first-class schema, with a few deliberate
 
 * `summary`, `validate`, `meta-*`, and serving the file with `martin` all work. Like `flat`, there are no hashes to check during per-tile validation.
 * `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `fetched`/`expires`/`etag` values are dropped, since standard schemas cannot store them.
-* `copy` **into** a cache file works from any schema (including `martin-cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
+* `copy` **into** a cache file works from any schema (including `martin cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
 * `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob column exposed through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
-* `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.
+* `cache-purge <file> [--max-size <SIZE>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.

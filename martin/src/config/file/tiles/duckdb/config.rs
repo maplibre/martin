@@ -4,6 +4,9 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
+#[cfg(feature = "_tiles")]
+use crate::config::file::MltProcessConfig;
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::{
     DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
 };
@@ -54,6 +57,10 @@ pub struct DuckDbConfig {
     /// Ordered source definitions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<DuckDbSourceEntry>,
+    #[cfg(feature = "_tiles")]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
     /// Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.
     /// Overrides the top-level `cache` bounds.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
@@ -75,6 +82,8 @@ impl Default for DuckDbConfig {
             memory_limit_mb: None,
             auto_bounds: BoundsCalcType::default(),
             sources: Vec::new(),
+            #[cfg(feature = "_tiles")]
+            convert_to_mlt: None,
             cache: CachePolicy::default(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -87,11 +96,18 @@ impl DuckDbConfig {
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }
+
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        ProcessConfig {
+            #[cfg(feature = "_tiles")]
+            convert_to_mlt: self.convert_to_mlt.clone(),
+            ..ProcessConfig::default()
+        }
+    }
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    // No `.await` below: every step is synchronous, so this returns an already-ready future
-    // instead of paying for an `async fn`'s state machine.
     fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
@@ -100,32 +116,30 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             auto_bounds: self.auto_bounds,
         };
 
-        let result = (|| {
-            for source in &mut self.sources {
+        let finalized = self
+            .sources
+            .iter_mut()
+            .try_for_each(|source| -> ConfigFileResult<()> {
                 source.finalize()?;
                 source.apply_defaults(defaults);
-            }
-            Ok(())
-        })();
+                Ok(())
+            });
 
-        std::future::ready(result)
+        std::future::ready(finalized)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
-    Database(DuckDbDatabaseEntry),
-    GeoParquet(GeoParquetEntry),
+    Database(Box<DuckDbDatabaseEntry>),
+    GeoParquet(Box<GeoParquetEntry>),
 }
 
 impl DuckDbSourceEntry {
     pub(crate) fn finalize(&mut self) -> ConfigFileResult<()> {
         match self {
-            Self::Database(v) => {
-                v.finalize();
-                Ok(())
-            }
+            Self::Database(v) => v.finalize(),
             Self::GeoParquet(v) => v.finalize(),
         }
     }
@@ -134,6 +148,14 @@ impl DuckDbSourceEntry {
         match self {
             Self::Database(v) => v.settings.apply_defaults(defaults),
             Self::GeoParquet(v) => v.settings.apply_defaults(defaults),
+        }
+    }
+
+    #[must_use]
+    pub fn process_config(&self) -> ProcessConfig {
+        match self {
+            Self::Database(v) => v.process_config(),
+            Self::GeoParquet(v) => v.process_config(),
         }
     }
 }
@@ -167,6 +189,10 @@ mod tests {
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one debug snapshot of both entry kinds"
+    )]
     fn source_list_may_mix_database_and_geoparquet() {
         let yaml = r"
 pool_size: 4
@@ -197,21 +223,40 @@ sources:
                 Database(
                     DuckDbDatabaseEntry {
                         database: "/data/tiles.duckdb",
+                        path: None,
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        auto_publish: Some(
-                            Object {
-                                "tables": Object {
-                                    "from_schemas": String("autodetect"),
-                                },
+                        auto_publish: Object(
+                            DuckDbCfgPublish {
+                                from_schemas: [],
+                                tables: Object(
+                                    DuckDbCfgPublishTables {
+                                        from_schemas: [
+                                            "autodetect",
+                                        ],
+                                        source_id_format: None,
+                                        id_columns: [],
+                                        clip_geom: None,
+                                        buffer: None,
+                                        extent: None,
+                                        unrecognized: UnrecognizedValues(
+                                            {},
+                                        ),
+                                    },
+                                ),
+                                macros: NoValue,
+                                unrecognized: UnrecognizedValues(
+                                    {},
+                                ),
                             },
                         ),
                         tables: None,
                         macros: None,
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {},
                         ),
@@ -224,38 +269,43 @@ sources:
                         layer_id: Some(
                             "buildings",
                         ),
-                        id_column: None,
-                        geometry_column: Some(
-                            "geom",
-                        ),
-                        srid: Some(
-                            4326,
-                        ),
-                        minzoom: Some(
-                            0,
-                        ),
-                        maxzoom: Some(
-                            14,
-                        ),
-                        extent: Some(
-                            4096,
-                        ),
-                        buffer: Some(
-                            64,
-                        ),
-                        clip_geom: None,
+                        layer: MvtLayerOptions {
+                            id_column: None,
+                            geometry_column: Some(
+                                "geom",
+                            ),
+                            srid: Some(
+                                4326,
+                            ),
+                            minzoom: Some(
+                                0,
+                            ),
+                            maxzoom: Some(
+                                14,
+                            ),
+                            extent: Some(
+                                4096,
+                            ),
+                            buffer: Some(
+                                64,
+                            ),
+                            clip_geom: None,
+                            filter: None,
+                        },
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {},
                         ),
                     },
                 ),
             ],
+            convert_to_mlt: None,
             cache: CachePolicy {
                 zoom: CacheZoomRange {
                     minzoom: None,
@@ -331,15 +381,17 @@ sources:
                 Database(
                     DuckDbDatabaseEntry {
                         database: "/data/tiles.duckdb",
+                        path: None,
                         settings: DuckDbSourceSettings {
                             pool_size: None,
                             threads: None,
                             memory_limit_mb: None,
                             auto_bounds: None,
                         },
-                        auto_publish: None,
+                        auto_publish: NoValue,
                         tables: None,
                         macros: None,
+                        convert_to_mlt: None,
                         unrecognized: UnrecognizedValues(
                             {
                                 "geoparquet": String("/data/buildings.parquet"),
@@ -348,6 +400,7 @@ sources:
                     },
                 ),
             ],
+            convert_to_mlt: None,
             cache: CachePolicy {
                 zoom: CacheZoomRange {
                     minzoom: None,

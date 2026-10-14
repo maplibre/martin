@@ -8,10 +8,12 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+#[cfg(feature = "unstable-generate")]
+use crate::config::file::tiling;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
 };
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 pub type TableInfoSources = BTreeMap<String, TableInfo>;
@@ -44,20 +46,15 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub srid: i32,
 
+    /// Tile grid this table is served in \[default: the connection's `tile_grid`\]
+    ///
+    /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"WebMercatorQuad"))]
+    pub tile_grid: Option<String>,
+
     /// Geometry column name (required)
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"geom"))]
     pub geometry_column: String,
-
-    /// Geometry column has a spatial index
-    #[serde(skip)]
-    pub geometry_index: Option<bool>,
-
-    /// Flag indicating the `PostgreSQL relkind`:
-    /// - `"t"`: Table
-    /// - `"v"`: View
-    /// - `"m"`: Materialized View
-    #[serde(skip)]
-    pub relkind: Option<char>,
 
     /// Feature id column name
     pub id_column: Option<String>,
@@ -100,6 +97,19 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
     pub geometry_type: Option<String>,
 
+    /// A cache miss renders the N×N block around the tile and caches the neighbours.
+    /// Only applies with `layers` (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prefetch: Option<tiling::Prefetch>,
+
+    /// Output layers, keyed by name. With `layers`, Martin's engine tiles the table instead of `ST_AsMVT` (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub layers: Option<Box<tiling::Layers>>,
+
     /// Zoom-level bounds for tile caching (overrides top-level cache).
     /// default: null (inherit from top-level default)
     /// Use `cache: disable` to disable caching for this source.
@@ -122,14 +132,9 @@ pub struct TableInfo {
     /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
     pub properties: Option<BTreeMap<String, String>>,
 
-    /// Mapping of properties to the actual table columns
-    #[serde(skip)]
-    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub prop_mapping: HashMap<String, String>,
-
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
@@ -141,7 +146,7 @@ pub struct TableInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
@@ -149,9 +154,54 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
-    /// `TileJSON` provider by the SQL comment. Shouldn't be serialized
+    /// What discovery found out about the table, which the config never sets
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub discovered: DiscoveredTable,
+}
+
+#[cfg(feature = "unstable-generate")]
+pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<TableInfoSources>, D::Error> {
+    struct CheckedTables(TableInfoSources);
+
+    impl<'de> Deserialize<'de> for CheckedTables {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            tiling::checked_map_with(deserializer, |tables: TableInfoSources| {
+                if let Some(id) = tables
+                    .iter()
+                    .find_map(|(id, t)| (t.layer_id.is_some() && t.layers.is_some()).then_some(id))
+                {
+                    return Err(tiling::TilingConfigError::LayerIdWithLayers(id.clone()));
+                }
+                Ok(Self(tables))
+            })
+        }
+    }
+
+    Option::<CheckedTables>::deserialize(deserializer).map(|tables| tables.map(|t| t.0))
+}
+
+/// What discovery found out about a table, which the config never sets.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct DiscoveredTable {
+    /// Geometry column has a spatial index
+    pub geometry_index: Option<bool>,
+
+    /// Flag indicating the `PostgreSQL relkind`:
+    /// - `"t"`: Table
+    /// - `"v"`: View
+    /// - `"m"`: Materialized View
+    pub relkind: Option<char>,
+
+    /// Mapping of properties to the actual table columns
+    pub prop_mapping: HashMap<String, String>,
+
+    /// The type a query returns each table column as, by column name
+    pub column_types: HashMap<String, String>,
+
+    /// `TileJSON` provider by the SQL comment
     pub tilejson: Option<serde_json::Value>,
 }
 
@@ -187,7 +237,7 @@ impl PostgresInfo for TableInfo {
             other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
-        patch_json(tilejson, self.tilejson.as_ref())
+        patch_json(tilejson, self.discovered.tilejson.as_ref())
     }
 
     fn tile_info(&self) -> TileInfo {
@@ -196,6 +246,17 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
+    /// The type a query returns `column` as, after mapping a property to its table column.
+    #[must_use]
+    pub fn column_type(&self, column: &str) -> Option<&str> {
+        let column = self
+            .discovered
+            .prop_mapping
+            .get(column)
+            .map_or(column, String::as_str);
+        self.discovered.column_types.get(column).map(String::as_str)
+    }
+
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
     pub fn append_cfg_info(
@@ -211,20 +272,23 @@ impl TableInfo {
             table: self.table.clone(),
             geometry_column: self.geometry_column.clone(),
             // These values are not serialized, so copy auto-detected values from the database
-            geometry_index: self.geometry_index,
-            relkind: self.relkind,
-            tilejson: self.tilejson.clone(),
+            discovered: DiscoveredTable {
+                prop_mapping: HashMap::new(),
+                ..self.discovered.clone()
+            },
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
-            prop_mapping: HashMap::new(),
             ..cfg_inf.clone()
         };
 
         match (&self.geometry_type, &cfg_inf.geometry_type) {
             (Some(src), Some(cfg)) if src != cfg => {
                 warn!(
-                    r"Table {} has geometry type={src}, but source {new_id} has {cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.geometry_type = %src,
+                    source.id = %new_id,
+                    source.geometry_type = %cfg,
+                    "Table geometry type does not match the configured source geometry type"
                 );
             }
             _ => {}
@@ -235,13 +299,13 @@ impl TableInfo {
 
         if let Some(id_column) = &cfg_inf.id_column {
             let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
-            inf.prop_mapping.insert(id_column.clone(), prop);
+            inf.discovered.prop_mapping.insert(id_column.clone(), prop);
         }
 
         if let Some(p) = &cfg_inf.properties {
             for key in p.keys() {
                 let prop = normalize_key(props, key.as_str(), "property", new_id)?;
-                inf.prop_mapping.insert(key.clone(), prop);
+                inf.discovered.prop_mapping.insert(key.clone(), prop);
             }
         }
 
@@ -256,22 +320,28 @@ impl TableInfo {
         match (self.srid, cfg_srid, default_srid) {
             (0, 0, Some(default_srid)) => {
                 info!(
-                    "Table {} has SRID=0, using provided default SRID={default_srid}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    srid.default = default_srid,
+                    "Table has SRID=0, using provided default SRID"
                 );
                 Some(default_srid)
             }
             (0, 0, None) => {
-                let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
-                warn!("Table {} has SRID=0, skipping. {info}", self.format_id());
+                warn!(
+                    table.id = %self.format_id(),
+                    "Table has SRID=0, skipping. To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=..."
+                );
                 None
             }
             (0, cfg, _) => Some(cfg), // Use the configured SRID
             (src, 0, _) => Some(src), // Use the source SRID
             (src, cfg, _) if src != cfg => {
                 warn!(
-                    "Table {} has SRID={src}, but source {new_id} has SRID={cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.srid = src,
+                    source.id = %new_id,
+                    source.srid = cfg,
+                    "Table SRID does not match the configured source SRID"
                 );
                 None
             }
