@@ -288,3 +288,26 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
     "#);
     assert!(output.exists());
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn sigterm_removes_the_partial_output() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::generate()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .run_until_terminated_once_created(&output)
+        .await;
+    let dir_path = regex::escape(&dir.path().display().to_string());
+    insta::with_settings!({ filters => vec![(dir_path.as_str(), "[DIR]")] }, {
+        insta::assert_snapshot!(log, @"ERROR Interrupted; removed the partial output [DIR]/out.mbtiles");
+    });
+    let left: Vec<_> = fs::read_dir(dir.path())
+        .expect("failed to list the output directory")
+        .map(|entry| entry.expect("failed to read a directory entry").file_name())
+        .collect();
+    insta::assert_debug_snapshot!(left, @"[]");
+}

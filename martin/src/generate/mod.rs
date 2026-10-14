@@ -16,6 +16,10 @@ use martin_tilegen::{
     TileGenError, TileGenResult, generate,
 };
 use tilejson::{Bounds, tilejson};
+#[cfg(unix)]
+use tokio::signal::unix::{Signal, SignalKind, signal};
+#[cfg(windows)]
+use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
 use tracing::{info, warn};
 
 use self::postgres::{PgScanSource, ScanLayer};
@@ -116,6 +120,8 @@ pub enum GenerateError {
     NoZooms(String, u8, u8),
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
+    #[error("Could not listen for interrupts: {0}")]
+    Signal(#[source] std::io::Error),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
@@ -165,6 +171,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     let generate_config = generate_config(&options, threads);
     let metadata = metadata(&options);
     let output = options.output_file;
+    let mut interrupt = Interrupt::register()?;
     let sink = {
         let (output, format, encoding) = (output.clone(), generate_config.format, options.encoding);
         tokio::task::spawn_blocking(move || Output::create(&output, format, encoding)).await??
@@ -180,7 +187,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     });
     let result = tokio::select! {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),
-        _ = tokio::signal::ctrl_c() => Err(GenerateError::Interrupted(output.clone())),
+        () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
     };
     reporter.abort();
     let summary = result.inspect_err(|_| remove_output(&output))?;
@@ -371,6 +378,50 @@ async fn select_sources(
     Ok((pools.swap_remove(pool), layers))
 }
 
+/// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.
+struct Interrupt {
+    #[cfg(unix)]
+    interrupt: Signal,
+    #[cfg(unix)]
+    terminate: Signal,
+    #[cfg(windows)]
+    ctrl_c: CtrlC,
+    #[cfg(windows)]
+    ctrl_break: CtrlBreak,
+}
+
+impl Interrupt {
+    fn register() -> GenerateResult<Self> {
+        #[cfg(unix)]
+        {
+            Ok(Self {
+                interrupt: signal(SignalKind::interrupt()).map_err(GenerateError::Signal)?,
+                terminate: signal(SignalKind::terminate()).map_err(GenerateError::Signal)?,
+            })
+        }
+        #[cfg(windows)]
+        {
+            Ok(Self {
+                ctrl_c: ctrl_c().map_err(GenerateError::Signal)?,
+                ctrl_break: ctrl_break().map_err(GenerateError::Signal)?,
+            })
+        }
+    }
+
+    async fn recv(&mut self) {
+        #[cfg(unix)]
+        tokio::select! {
+            _ = self.interrupt.recv() => {}
+            _ = self.terminate.recv() => {}
+        }
+        #[cfg(windows)]
+        tokio::select! {
+            _ = self.ctrl_c.recv() => {}
+            _ = self.ctrl_break.recv() => {}
+        }
+    }
+}
+
 async fn report(progress: Arc<Progress>) {
     let mut interval = tokio::time::interval(PROGRESS_EVERY);
     interval.tick().await;
@@ -394,6 +445,8 @@ fn remove_output(path: &Path) {
     for path in [
         path.to_path_buf(),
         PathBuf::from(format!("{}-journal", path.display())),
+        PathBuf::from(format!("{}-wal", path.display())),
+        PathBuf::from(format!("{}-shm", path.display())),
     ] {
         if path.exists()
             && let Err(err) = std::fs::remove_file(&path)
