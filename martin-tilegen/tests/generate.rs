@@ -11,7 +11,7 @@ use martin_core::generate::source::{
 };
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, TableDef, ValueDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, TableDef, ValueDef,
 };
 use martin_tilegen::{
     ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress,
@@ -27,8 +27,10 @@ const GRID: LayerGrid = LayerGrid {
 
 fn table(name: &str, keys: &[&str]) -> TableDef {
     TableDef {
-        columns: keys.iter().map(|&k| k.to_owned()).collect(),
-        dynamic_props: false,
+        columns: keys
+            .iter()
+            .map(|&k| ColumnDef::Value(k.to_owned()))
+            .collect(),
         layers: vec![LayerDef::new(name, 0..=4, GRID)],
     }
 }
@@ -309,8 +311,11 @@ fn one_table_feeds_layers_with_their_own_settings() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["name".to_owned(), "class".to_owned(), "lanes".to_owned()],
-        dynamic_props: false,
+        columns: vec![
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("lanes".to_owned()),
+        ],
         layers: vec![
             LayerDef {
                 simplify: PixelThreshold {
@@ -407,7 +412,6 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
-        dynamic_props: false,
         layers: vec![
             LayerDef {
                 geometry: Some(GeometryType::Point),
@@ -498,8 +502,11 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
     }
 
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["name".to_owned(), "rank".to_owned()],
-        dynamic_props: true,
+        columns: vec![
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Keys("tags".to_owned()),
+        ],
         layers: vec![
             LayerDef::new("all", 0..=4, GRID),
             LayerDef {
@@ -564,8 +571,10 @@ fn a_where_filter_picks_the_features_of_each_layer() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["class".to_owned(), "rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+        ],
         layers: vec![
             LayerDef {
                 filter: Some("class == 'primary'".to_owned()),
@@ -618,8 +627,7 @@ fn zoom_expressions_set_each_features_zooms() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             minzoom_expr: Some("rank >= 10 ? 0 : (rank > 0 ? 3 - rank : 20)".to_owned()),
             maxzoom_expr: Some("rank < 0 ? 0 : (rank == 10 ? 1 : null)".to_owned()),
@@ -679,12 +687,11 @@ fn computed_attributes_appear_at_their_own_zooms() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            "name".to_owned(),
-            "name:en".to_owned(),
-            "class".to_owned(),
-            "rank".to_owned(),
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name:en".to_owned()),
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
         ],
-        dynamic_props: false,
         layers: vec![LayerDef {
             attributes: AttributesDef::Computed {
                 attributes: vec![
@@ -747,8 +754,7 @@ fn an_id_expression_sets_the_feature_id() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["gid".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("gid".to_owned())],
         layers: vec![LayerDef {
             id: IdDef::Expr("gid == 0 ? null : gid * 10".to_owned()),
             ..LayerDef::new("places", 0..=0, GRID)
@@ -787,8 +793,7 @@ fn failing_expressions_count_as_null_and_are_counted() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["lanes".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("lanes".to_owned())],
         layers: vec![LayerDef {
             filter: Some("lanes != 1".to_owned()),
             attributes: AttributesDef::Computed {
@@ -850,10 +855,7 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
                 .map(|i| SourceFeature {
                     id: Some(i),
                     geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
-                    props: vec![
-                        (KeyId::new(0), Prop::Str(format!("place {i}"))),
-                        (keys[0].intern(&format!("tag{}", i % 2)), Prop::Bool(true)),
-                    ],
+                    props: vec![(keys[0].intern(&format!("tag{}", i % 2)), Prop::Bool(true))],
                 })
                 .collect();
             emit(FeatureBatch {
@@ -867,8 +869,7 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
     }
 
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["name".to_owned()],
-        dynamic_props: true,
+        columns: vec![ColumnDef::Keys("tags".to_owned())],
         layers: vec![LayerDef {
             filter: Some("tag1 == true".to_owned()),
             attributes: AttributesDef::Computed {
@@ -897,4 +898,91 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
         features,
         ["Some(1) [Bool(Some(true))]", "Some(3) [Bool(Some(true))]"]
     );
+}
+
+#[test]
+fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("name".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "label".to_owned(),
+                    value: ValueDef::Expr("name".to_owned()),
+                    zooms: 1..=30,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("water", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    assert_eq!(plan.columns(0), ["name"]);
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                props: vec![(KeyId::new(0), Prop::Str("Rhein".to_owned()))],
+            }],
+        }],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let layer = &decode(&row.3)[0];
+            format!(
+                "z{} {:?} {:?}",
+                row.0,
+                layer.property_names(),
+                layer.features()[0].properties()
+            )
+        })
+        .collect();
+    assert_eq!(
+        tiles,
+        [r#"z0 [] []"#, r#"z1 ["label"] [Str(Some("Rhein"))]"#]
+    );
+}
+
+#[test]
+fn a_json_key_named_like_its_column_is_kept() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Keys("tags".to_owned()),
+        ],
+        layers: vec![LayerDef::new("places", 0..=0, GRID)],
+    }])
+    .unwrap();
+    assert_eq!(plan.columns(0), ["name", "tags"]);
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                props: vec![
+                    (KeyId::new(0), Prop::Str("Bonn".to_owned())),
+                    (KeyId::new(1), Prop::Str("city".to_owned())),
+                ],
+            }],
+        }],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let layer = &decode(&rows[0].3)[0];
+    assert_eq!(layer.property_names(), ["name", "tags"]);
 }

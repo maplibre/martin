@@ -1,15 +1,13 @@
 //! Lowers table sources and their `layers` into the tables of a [`martin_tilegen::plan::Plan`].
 
-use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 
 use indexmap::IndexSet;
 use martin_core::generate::props::Prop;
-use martin_tilegen::expr::CompiledExpr;
 use martin_tilegen::plan::{
-    AttributesDef, ComputedAttr, GeometryType, IdDef, LayerDef, PlanError, TableDef, ValueDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, TableDef, ValueDef,
 };
-use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold, TileGenError};
+use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold};
 use tilejson::Bounds;
 use tracing::warn;
 
@@ -94,72 +92,21 @@ pub fn lower_table(
     if layers.is_empty() {
         return Ok(None);
     }
-    let reads = expression_reads(&layers, &static_columns, properties.iter().any(|p| p.1))?;
-    let selected: Vec<(&str, bool)> = properties
-        .into_iter()
-        .filter(|&(column, jsonb)| {
-            let read = if jsonb {
-                reads.other_keys
-            } else {
-                reads.columns.contains(column)
-            };
-            read || layers.iter().any(|layer| match &layer.attributes {
-                AttributesDef::All => true,
-                AttributesDef::None => false,
-                AttributesDef::Columns(keys) if jsonb => keys
-                    .iter()
-                    .any(|key| !static_columns.contains(&key.as_str())),
-                AttributesDef::Columns(keys) => keys.iter().any(|key| key == column),
-                AttributesDef::Computed { .. } if jsonb => false,
-                AttributesDef::Computed { prefixes, .. } => {
-                    prefixes.iter().any(|p| column.starts_with(p.as_str()))
+    let def = TableDef {
+        columns: properties
+            .into_iter()
+            .map(|(column, jsonb)| {
+                let column = column.to_owned();
+                if jsonb {
+                    ColumnDef::Keys(column)
+                } else {
+                    ColumnDef::Value(column)
                 }
             })
-        })
-        .collect();
-    let def = TableDef {
-        columns: selected.iter().map(|(c, _)| (*c).to_owned()).collect(),
-        dynamic_props: selected.iter().any(|(_, jsonb)| *jsonb),
+            .collect(),
         layers,
     };
     Ok(Some(ScanTable { info, def }))
-}
-
-#[derive(Default)]
-struct Reads<'a> {
-    columns: BTreeSet<&'a str>,
-    /// Whether some expression reads a key that is not a column, e.g. one inside a `jsonb` column.
-    other_keys: bool,
-}
-
-/// What the layers' expressions read, which the scan must keep.
-fn expression_reads<'a>(
-    layers: &[LayerDef],
-    static_columns: &[&'a str],
-    dynamic_props: bool,
-) -> GenerateResult<Reads<'a>> {
-    let mut reads = Reads::default();
-    for layer in layers {
-        for source in layer.expressions() {
-            let expr =
-                CompiledExpr::compile(source, static_columns, dynamic_props).map_err(|error| {
-                    TileGenError::Plan(PlanError::LayerExpr {
-                        layer: layer.name.clone(),
-                        error,
-                    })
-                })?;
-            reads.other_keys |= expr.needs_all_keys();
-            for name in expr.columns() {
-                match static_columns.iter().find(|column| **column == name) {
-                    Some(column) => {
-                        reads.columns.insert(column);
-                    }
-                    None => reads.other_keys = true,
-                }
-            }
-        }
-    }
-    Ok(reads)
 }
 
 fn lower_layer(
@@ -323,7 +270,6 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::config::file::postgres::resolver::scan_sql;
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
@@ -367,10 +313,13 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                "name",
-                "rank",
+                Value(
+                    "name",
+                ),
+                Value(
+                    "rank",
+                ),
             ],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads",
@@ -427,7 +376,6 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads_source",
@@ -505,10 +453,13 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                "class",
-                "name",
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
             ],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads",
@@ -627,18 +578,29 @@ mod tests {
             .map(|layer| (layer.name.as_str(), &layer.attributes))
             .collect();
         insta::assert_debug_snapshot!(
-            (&scan.def.columns, scan.def.dynamic_props, attributes),
+            (&scan.def.columns, attributes),
             @r#"
         (
             [
-                "class",
-                "name",
-                "name:de",
-                "name:en",
-                "rank",
-                "tags",
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
+                Value(
+                    "name:de",
+                ),
+                Value(
+                    "name:en",
+                ),
+                Value(
+                    "rank",
+                ),
+                Keys(
+                    "tags",
+                ),
             ],
-            true,
             [
                 (
                     "labels",
@@ -670,82 +632,6 @@ mod tests {
         )
         "#
         );
-    }
-
-    #[test]
-    fn only_the_columns_some_layer_needs_are_scanned() {
-        let scan = lower(
-            indoc! {r#"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                id_column: gid
-                properties:
-                  class: text
-                  name: text
-                  rank: int4
-                  tags: jsonb
-                layers:
-                  roads:
-                    attributes: [rank]
-                  road_labels:
-                    attributes: ["na*"]
-            "#},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(!scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "gid", "name", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn layers_without_attributes_scan_no_properties() {
-        let scan = lower(
-            indoc! {"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  name: text
-                  tags: jsonb
-                layers:
-                  roads:
-                    attributes: []
-                  road_shapes:
-                    attributes: []
-            "},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(!scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn a_table_without_layers_scans_every_property() {
-        let scan = lower(
-            indoc! {"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  name: text
-                  tags: jsonb
-            "},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "name", "tags" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
     #[test]
@@ -843,10 +729,18 @@ mod tests {
             @r#"
         (
             [
-                "class",
-                "name",
-                "name:en",
-                "rank",
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
+                Value(
+                    "name:en",
+                ),
+                Value(
+                    "rank",
+                ),
             ],
             0..=12,
             Some(
@@ -901,84 +795,6 @@ mod tests {
         )
         "#
         );
-    }
-
-    #[test]
-    fn expressions_keep_the_columns_they_read() {
-        let scan = lower(
-            indoc! {r#"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  class: text
-                  name: text
-                  rank: int4
-                  surface: text
-                  tags: jsonb
-                layers:
-                  roads:
-                    where: "class == 'primary'"
-                    minzoom: "rank > 3 ? 4 : 8"
-                    attributes:
-                      label: { expr: "name", minzoom: 10 }
-            "#},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(!scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "name", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn an_expression_reading_a_key_outside_the_columns_keeps_the_jsonb_column() {
-        let scan = lower(
-            indoc! {r#"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  class: text
-                  name: text
-                  tags: jsonb
-                layers:
-                  roads:
-                    where: "oneway == true"
-                    attributes: []
-            "#},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "tags" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn an_expression_reading_an_unknown_property_is_rejected() {
-        let err = lower(
-            indoc! {r#"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  class: text
-                layers:
-                  roads:
-                    attributes:
-                      kind: "highway"
-            "#},
-            0..=14,
-        )
-        .map(|_| ())
-        .expect_err("unknown property");
-        insta::assert_snapshot!(err, @"layer `roads`: `highway` references unknown property `highway`");
     }
 
     #[test]

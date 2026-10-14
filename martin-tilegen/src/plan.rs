@@ -48,11 +48,27 @@ pub enum PlanError {
 /// [`table`]: martin_core::generate::source::FeatureBatch::table
 #[derive(Clone, Debug)]
 pub struct TableDef {
-    /// Property keys known up front, in column order: column `i` is [`KeyId::new(i)`](KeyId::new).
-    pub columns: Vec<String>,
-    /// Whether features may carry keys beyond `columns`, e.g. from a JSON column.
-    pub dynamic_props: bool,
+    /// The table's columns. The source scans only those in [`Plan::columns`].
+    pub columns: Vec<ColumnDef>,
     pub layers: Vec<LayerDef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ColumnDef {
+    /// A property named after the column.
+    Value(String),
+    /// Properties under keys of their own, e.g. those of a JSON column.
+    /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
+    Keys(String),
+}
+
+impl ColumnDef {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Value(name) | Self::Keys(name) => name,
+        }
+    }
 }
 
 /// Expressions are CEL over the feature's properties (see [`expr`](crate::expr)), compiled by [`Plan::new`].
@@ -156,9 +172,10 @@ pub enum AttributesDef {
     #[default]
     All,
     None,
-    /// These keys, in this column order; a key that is not a table column needs `dynamic_props`.
+    /// These keys, in this order. a key that is not a [`ColumnDef::Value`] needs a [`ColumnDef::Keys`].
     Columns(Vec<String>),
-    /// `attributes` in this order, then the table columns starting with one of `prefixes`, in column order.
+    /// `attributes` in this order.
+    /// Then the [`ColumnDef::Value`]s starting with one of `prefixes`, in column order.
     Computed {
         attributes: Vec<ComputedAttr>,
         prefixes: Vec<String>,
@@ -271,6 +288,14 @@ impl Plan {
             let start = layers.len();
             let first_expr = exprs.len();
             let mut reads = BTreeSet::new();
+            let values: Vec<&str> = table
+                .columns
+                .iter()
+                .filter_map(|column| match column {
+                    ColumnDef::Value(name) => Some(name.as_str()),
+                    ColumnDef::Keys(_) => None,
+                })
+                .collect();
             for def in table.layers {
                 if !names.insert(def.name.clone()) {
                     return Err(PlanError::DuplicateLayer(def.name));
@@ -285,20 +310,56 @@ impl Plan {
                 let mut compiler = Compiler {
                     exprs: &mut exprs,
                     columns: &table.columns,
-                    dynamic_props: table.dynamic_props,
+                    values: &values,
+                    dynamic_props: values.len() < table.columns.len(),
                     reads: &mut reads,
                     layer: layers.len(),
                     name: def.name.clone(),
                 };
                 layers.push(plan_layer(index, def, &mut compiler)?);
             }
+            let table_layers = &mut layers[start..];
+            let all_keys = exprs[first_expr..]
+                .iter()
+                .any(|planned| planned.expr.needs_all_keys());
+            let other_keys = all_keys
+                || reads.iter().any(|name| !values.contains(&name.as_str()))
+                || table_layers.iter().any(|layer| match &layer.attributes {
+                    AttributesDef::All => true,
+                    AttributesDef::Columns(keys) => {
+                        keys.iter().any(|key| !values.contains(&key.as_str()))
+                    }
+                    AttributesDef::None | AttributesDef::Computed { .. } => false,
+                });
+            let mut kept = Vec::new();
+            let renumbered: Vec<Option<KeyId>> = table
+                .columns
+                .into_iter()
+                .enumerate()
+                .map(|(pos, column)| {
+                    let scanned = all_keys
+                        || table_layers.iter().any(|layer| layer.copy[pos].is_some())
+                        || match &column {
+                            ColumnDef::Value(name) => reads.contains(name),
+                            ColumnDef::Keys(_) => other_keys,
+                        };
+                    scanned.then(|| {
+                        kept.push(column);
+                        key_id(kept.len() - 1)
+                    })
+                })
+                .collect();
+            for layer in table_layers {
+                layer.renumber(&renumbered);
+            }
+            let columns: Vec<String> = kept.iter().map(|c| c.name().to_owned()).collect();
             planned_tables.push(PlannedTable {
                 reads: reads
                     .into_iter()
-                    .filter(|name| !table.columns.contains(name))
+                    .filter(|name| !columns.contains(name))
                     .collect(),
-                columns: table.columns,
-                dynamic_props: table.dynamic_props,
+                columns,
+                dynamic_props: kept.iter().any(|c| matches!(c, ColumnDef::Keys(_))),
                 layers: start..layers.len(),
                 evaluates: exprs.len() > first_expr,
             });
@@ -309,11 +370,40 @@ impl Plan {
             exprs,
         })
     }
+
+    /// The columns of table `table` that its layers use, in [`TableDef::columns`] order. The source
+    /// scans these, and gives column `i` the key [`KeyId::new(i)`](KeyId::new).
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[must_use]
+    pub fn columns(&self, table: usize) -> &[String] {
+        &self.tables[table].columns
+    }
+}
+
+impl PlannedLayer {
+    /// From candidate column positions to the scanned ones in `renumbered`.
+    fn renumber(&mut self, renumbered: &[Option<KeyId>]) {
+        self.copy = self
+            .copy
+            .iter()
+            .zip(renumbered)
+            .filter_map(|(copy, column)| column.map(|_| *copy))
+            .collect();
+        for attr in self.computed.iter_mut().chain(&mut self.banded) {
+            if let PlannedValue::Column(key) = &mut attr.value {
+                *key = renumbered[key.index()].expect("a column an attribute reads is scanned");
+            }
+        }
+    }
 }
 
 struct Compiler<'a> {
     exprs: &'a mut Vec<PlannedExpr>,
-    columns: &'a [String],
+    columns: &'a [ColumnDef],
+    values: &'a [&'a str],
     dynamic_props: bool,
     reads: &'a mut BTreeSet<String>,
     layer: usize,
@@ -321,17 +411,19 @@ struct Compiler<'a> {
 }
 
 impl Compiler<'_> {
-    fn compile(&self, source: &str) -> Result<CompiledExpr, PlanError> {
-        CompiledExpr::compile(source, self.columns, self.dynamic_props).map_err(|error| {
-            PlanError::LayerExpr {
-                layer: self.name.clone(),
-                error,
-            }
-        })
+    fn compile(&mut self, source: &str) -> Result<CompiledExpr, PlanError> {
+        let expr =
+            CompiledExpr::compile(source, self.values, self.dynamic_props).map_err(|error| {
+                PlanError::LayerExpr {
+                    layer: self.name.clone(),
+                    error,
+                }
+            })?;
+        self.reads.extend(expr.columns().map(str::to_owned));
+        Ok(expr)
     }
 
     fn add<R: Role>(&mut self, source: &str, expr: CompiledExpr, role: R) -> ExprRef<R> {
-        self.reads.extend(expr.columns().map(str::to_owned));
         self.exprs.push(PlannedExpr {
             expr,
             source: source.to_owned(),
@@ -346,8 +438,18 @@ impl Compiler<'_> {
         role: R,
     ) -> Result<Option<ExprRef<R>>, PlanError> {
         source
-            .map(|source| Ok(self.add(source, self.compile(source)?, role)))
+            .map(|source| {
+                let expr = self.compile(source)?;
+                Ok(self.add(source, expr, role))
+            })
             .transpose()
+    }
+
+    /// The position of the [`ColumnDef::Value`] named `name`.
+    fn value_position(&self, name: &str) -> Option<usize> {
+        self.columns
+            .iter()
+            .position(|column| matches!(column, ColumnDef::Value(value) if value == name))
     }
 }
 
@@ -360,7 +462,7 @@ fn plan_layer(
     def: LayerDef,
     compiler: &mut Compiler<'_>,
 ) -> Result<PlannedLayer, PlanError> {
-    let (keys, mut copy) = layer_keys(&def, compiler.columns, compiler.dynamic_props)?;
+    let (keys, mut copy) = layer_keys(&def, compiler)?;
     let (computed, banded) = plan_computed(&def, compiler, &mut copy)?;
     let mut bands: Vec<u8> = banded
         .iter()
@@ -421,9 +523,9 @@ fn plan_layer(
 /// The output layer's known keys, and the output key of each table column copied as it is.
 fn layer_keys(
     def: &LayerDef,
-    columns: &[String],
-    dynamic_props: bool,
+    compiler: &Compiler<'_>,
 ) -> Result<(Vec<String>, Vec<Option<KeyId>>), PlanError> {
+    let columns = compiler.columns;
     let check_duplicates = |keys: &mut dyn Iterator<Item = &String>| {
         let mut seen = HashSet::new();
         for key in keys {
@@ -437,11 +539,15 @@ fn layer_keys(
         Ok(())
     };
     let (keys, copied_from) = match &def.attributes {
-        AttributesDef::All => (columns.to_vec(), 0),
+        AttributesDef::All => (columns.iter().map(|c| c.name().to_owned()).collect(), 0),
         AttributesDef::None => (Vec::new(), 0),
         AttributesDef::Columns(keys) => {
             check_duplicates(&mut keys.iter())?;
-            if !dynamic_props && let Some(key) = keys.iter().find(|key| !columns.contains(key)) {
+            if !compiler.dynamic_props
+                && let Some(key) = keys
+                    .iter()
+                    .find(|key| !compiler.values.contains(&key.as_str()))
+            {
                 return Err(PlanError::UnknownColumn {
                     layer: def.name.clone(),
                     column: key.clone(),
@@ -456,11 +562,12 @@ fn layer_keys(
             check_duplicates(&mut attributes.iter().map(|attr| &attr.name))?;
             let mut keys: Vec<String> = attributes.iter().map(|attr| attr.name.clone()).collect();
             keys.extend(
-                columns
+                compiler
+                    .values
                     .iter()
                     .filter(|column| prefixes.iter().any(|p| column.starts_with(p.as_str())))
                     .filter(|column| !attributes.iter().any(|attr| attr.name == **column))
-                    .cloned(),
+                    .map(|column| (*column).to_owned()),
             );
             (keys, attributes.len())
         }
@@ -470,7 +577,7 @@ fn layer_keys(
         .map(|column| {
             keys.iter()
                 .skip(copied_from)
-                .position(|key| key == column)
+                .position(|key| key == column.name())
                 .map(|pos| key_id(copied_from + pos))
         })
         .collect();
@@ -503,7 +610,7 @@ fn plan_computed(
                 let expr = compiler.compile(source)?;
                 let column = expr
                     .as_property()
-                    .and_then(|name| compiler.columns.iter().position(|c| c == name));
+                    .and_then(|name| compiler.value_position(name));
                 match column {
                     Some(column) if everywhere && copy[column].is_none() => {
                         copy[column] = Some(key_id(pos));

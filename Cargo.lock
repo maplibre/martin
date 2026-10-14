@@ -5906,6 +5906,7 @@ dependencies = [
  "geo",
  "geo-types",
  "hotpath",
+ "insta",
  "map-tile-toolkit",
  "martin-core",
  "martin-tile-utils",

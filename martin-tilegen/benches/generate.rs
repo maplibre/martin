@@ -14,7 +14,7 @@ use martin_core::generate::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
 };
 use martin_tile_utils::Encoding;
-use martin_tilegen::plan::{LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{ColumnDef, LayerDef, Plan, TableDef};
 use martin_tilegen::{
     EncodedTile, GenerateConfig, LayerGrid, Progress, SortConfig, TileFormat, TileGenResult,
     TileOrder, TileSink, generate,
@@ -57,13 +57,15 @@ fn ring(center: Coord<f64>, radius: f64, vertices: u32, rng: &mut Rng) -> LineSt
 
 /// A city: buildings, roads, points of interest and land use around `CENTER`, plus one lake whose
 /// interior covers thousands of z14 tiles.
-fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
+fn city() -> Vec<(ColumnDef, TableDef, Vec<SourceFeature>)> {
     let mut rng = Rng(0x1234_5678);
     let mut layers: Vec<(TableDef, Vec<SourceFeature>)> = Vec::new();
     let mut layer = |name: &str, keys: &[&str], features: Vec<SourceFeature>| {
         let table = TableDef {
-            columns: keys.iter().map(|&k| k.to_owned()).collect(),
-            dynamic_props: false,
+            columns: keys
+                .iter()
+                .map(|&k| ColumnDef::Value(k.to_owned()))
+                .collect(),
             layers: vec![LayerDef::new(
                 name,
                 0..=14,
