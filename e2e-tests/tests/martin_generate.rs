@@ -289,6 +289,39 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
     assert!(output.exists());
 }
 
+#[tokio::test]
+async fn logs_the_postgres_error_when_a_scan_fails() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  filter: \"gid = 'abc'\"
+        "},
+    )
+    .expect("failed to write the config");
+    let log = MartinCp::generate()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @r#"ERROR Postgres error while starting a scan: db error: ERROR: invalid input syntax for type integer: "abc""#);
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn sigterm_removes_the_partial_output() {

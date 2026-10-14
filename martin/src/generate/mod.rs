@@ -32,6 +32,7 @@ use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{MartinCpError, check_bboxes};
+use crate::logging::LogFormat;
 use crate::srv::RESERVED_KEYWORDS;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -135,6 +136,26 @@ impl From<ConfigFileError> for GenerateError {
 impl From<ArgsError> for GenerateError {
     fn from(err: ArgsError) -> Self {
         Self::Startup(err.into())
+    }
+}
+
+impl GenerateError {
+    /// Renders the error for the terminal: config errors as diagnostics matching `log_format`, the rest with every cause.
+    #[must_use]
+    pub fn render_diagnostic_with(&self, log_format: LogFormat) -> String {
+        if let Self::Startup(err) = self {
+            return err.render_diagnostic_with(log_format);
+        }
+        let mut message = self.to_string();
+        let mut source = std::error::Error::source(self);
+        while let Some(err) = source {
+            let cause = err.to_string();
+            if !message.contains(&cause) {
+                message = format!("{message}: {cause}");
+            }
+            source = err.source();
+        }
+        message
     }
 }
 
