@@ -78,7 +78,7 @@ jobs:
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0119,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0049,RUSTSEC-2026-0097,RUSTSEC-2026-0098,RUSTSEC-2026-0099,RUSTSEC-2026-0104,RUSTSEC-2026-0105,RUSTSEC-2025-0141,RUSTSEC-2026-0145,RUSTSEC-2026-0179,RUSTSEC-2026-0180,RUSTSEC-2026-0178,RUSTSEC-2026-0189,RUSTSEC-2026-0194,RUSTSEC-2026-0195,RUSTSEC-2026-0258
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0119,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0049,RUSTSEC-2026-0097,RUSTSEC-2026-0098,RUSTSEC-2026-0099,RUSTSEC-2026-0104,RUSTSEC-2026-0105,RUSTSEC-2025-0141,RUSTSEC-2026-0145,RUSTSEC-2026-0179,RUSTSEC-2026-0180,RUSTSEC-2026-0178,RUSTSEC-2026-0189,RUSTSEC-2026-0194,RUSTSEC-2026-0195,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0192,RUSTSEC-2026-0206,RUSTSEC-2026-0253
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing side channels => not used exploitably
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0119 = number_prefix is unmaintained, but we need no change in this lib
@@ -100,6 +100,10 @@ jobs:
           # RUSTSEC-2026-0194 = quick-xml quadratic attribute-check dos; transitive via object_store 0.13 (quick-xml ^0.39), patched only in quick-xml 0.41 which needs a breaking object_store 0.14 bump
           # RUSTSEC-2026-0195 = quick-xml unbounded namespace-declaration dos; same object_store 0.13 pin, patched only in quick-xml 0.41
           # RUSTSEC-2026-0258 = h2 unbounded empty DATA frames dos; remaining leg is h2@0.3.27 pinned by actix-http (still on h2 "0.3" even at 3.13.3), no patched 0.3.x release exists
+          # RUSTSEC-2023-0089 = atomic-polyfill unmaintained; only in Cargo.lock via geo-types' optional rstar 0.9/0.10 features, never compiled
+          # RUSTSEC-2026-0192 = ttf-parser unmaintained; pinned by spreet 0.13.1 (latest) -> resvg 0.43, newer resvg moved to skrifa
+          # RUSTSEC-2026-0206 = rustybuzz unmaintained; same spreet 0.13.1 -> resvg 0.43 pin
+          # RUSTSEC-2026-0253 = lru@0.7.8 pop() panic safety; pulled in by tracing-log's interest-cache, whose keys never panic on drop
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 90
