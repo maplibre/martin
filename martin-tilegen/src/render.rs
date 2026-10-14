@@ -99,7 +99,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
-    /// Covering the whole world.
+    /// A layer with no [`bounds`](Self::bounds), so every tile in `zooms` is kept.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,

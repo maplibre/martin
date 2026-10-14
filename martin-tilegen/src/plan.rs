@@ -66,7 +66,7 @@ pub struct LayerDef {
 }
 
 impl LayerDef {
-    /// Covering the whole world, in source order, keeping ids and all attributes, with
+    /// A layer with no [`bounds`](Self::bounds), keeping ids and all attributes in source order, with
     /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
