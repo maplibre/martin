@@ -495,35 +495,46 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
     let config = dir.path().join("config.yaml");
     fs::write(
         &config,
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  auto_publish: false
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      id_column: gid
-      properties:
-        gid: int4
-      layers:
-        even:
-          where: 'gid % 2 == 0'
-          minzoom: 'gid > 8 ? 2 : 0'
-          id: 'gid * 100'
-          attributes:
-            number: gid
-            size: { expr: \"gid > 5 ? 'big' : 'small'\", minzoom: 2 }
-            ratio: '12 / (gid - 4)'
-            source: { value: fixture }
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    even:
+                      where: 'gid % 2 == 0'
+                      minzoom: 'gid > 8 ? 2 : 0'
+                      id: 'gid * 100'
+                      attributes:
+                        number: gid
+                        size: { expr: \"gid > 5 ? 'big' : 'small'\", minzoom: 2 }
+                        ratio: '12 / (gid - 4)'
+                        source: { value: fixture }
+        "},
     )
     .expect("failed to write the config");
     let output = dir.path().join("expressions.mbtiles");
-    let log = generate(&config, &output).run().await;
+    let log = MartinCp::generate()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
     assert!(
         log.contains("Layer `even`: `12 / (gid - 4)` failed"),
         "{log}"
