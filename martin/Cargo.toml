@@ -193,6 +193,7 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
+bytesize.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }

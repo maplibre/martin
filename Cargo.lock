@@ -1811,6 +1811,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bytesize"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7354288c522e7e980fafd2075d63d1285794c3a6a16cdd492f189ea406e5f18b"
+
+[[package]]
 name = "bytestring"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5677,6 +5683,7 @@ dependencies = [
  "aws-runtime",
  "backon",
  "base64 0.23.1",
+ "bytesize",
  "cel",
  "clap",
  "compact_str 0.10.0",
@@ -5948,6 +5955,7 @@ dependencies = [
  "actix-rt",
  "anyhow",
  "bytes",
+ "bytesize",
  "clap",
  "criterion",
  "enum-display",
