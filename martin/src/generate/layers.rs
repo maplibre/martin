@@ -837,9 +837,9 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let layer = &scan.table.layers[0];
+        let layer = &scan.def.layers[0];
         insta::assert_debug_snapshot!(
-            (&scan.table.columns, &layer.zooms, &layer.filter, &layer.minzoom_expr, &layer.maxzoom_expr, &layer.id, &layer.attributes),
+            (&scan.def.columns, &layer.zooms, &layer.filter, &layer.minzoom_expr, &layer.maxzoom_expr, &layer.id, &layer.attributes),
             @r#"
         (
             [
@@ -928,8 +928,8 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        assert!(!scan.table.dynamic_props);
+        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
+        assert!(!scan.def.dynamic_props);
         insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "name", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
@@ -954,8 +954,8 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        assert!(scan.table.dynamic_props);
+        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
+        assert!(scan.def.dynamic_props);
         insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "tags" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
