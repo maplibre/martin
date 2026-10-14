@@ -2,6 +2,7 @@
 
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, fixture};
 use rstest::rstest;
 use serde_json::Value;
@@ -584,7 +585,10 @@ async fn the_plural_styles_path_redirects() {
 #[tokio::test]
 async fn a_collection_publishes_each_subdirectory_as_a_project() {
     let mut martin = Martin::builder()
-        .config("styles:\n  collections: tests/fixtures/styles\n")
+        .config(indoc! {"
+            styles:
+              collections: tests/fixtures/styles
+        "})
         .start()
         .await
         .expect("failed to start martin");

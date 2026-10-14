@@ -286,6 +286,7 @@ mod postgres {
     use std::fs;
     use std::path::Path;
 
+    use indoc::indoc;
     use martin_e2e_tests::{
         GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
         summary, summary_filters, temp_dir, tiles,
@@ -453,56 +454,56 @@ mod postgres {
     /// ordinate the geometries carry is dropped either way.
     #[rstest::rstest]
     #[case::catalog_labels(
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    measured_shapes:
-      schema: public
-      table: measured_shapes
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        big: int8
-        small: int2
-        signed: int4
-        flag: bool
-        single: float4
-        double: float8
-        label: text
-        code: varchar
-        never_set: int4
-"
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 2
+              auto_publish: false
+              tables:
+                measured_shapes:
+                  schema: public
+                  table: measured_shapes
+                  srid: 4326
+                  geometry_column: geom
+                  id_column: feat_id
+                  bounds: [-180.0, -90.0, 180.0, 90.0]
+                  properties:
+                    big: int8
+                    small: int2
+                    signed: int4
+                    flag: bool
+                    single: float4
+                    double: float8
+                    label: text
+                    code: varchar
+                    never_set: int4
+        "}
     )]
     #[case::other_labels(
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    measured_shapes:
-      schema: public
-      table: measured_shapes
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        big: bigint
-        small: smallint
-        signed: integer
-        flag: boolean
-        single: real
-        double: double precision
-        label: text
-        code: character varying
-        never_set: integer
-"
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 2
+              auto_publish: false
+              tables:
+                measured_shapes:
+                  schema: public
+                  table: measured_shapes
+                  srid: 4326
+                  geometry_column: geom
+                  id_column: feat_id
+                  bounds: [-180.0, -90.0, 180.0, 90.0]
+                  properties:
+                    big: bigint
+                    small: smallint
+                    signed: integer
+                    flag: boolean
+                    single: real
+                    double: double precision
+                    label: text
+                    code: character varying
+                    never_set: integer
+        "}
     )]
     #[tokio::test]
     async fn copies_a_table_as_mlt_without_the_mvt_round_trip(#[case] config_yaml: &str) {
@@ -572,23 +573,23 @@ postgres:
     /// keep Z or M, so it holds x and y alone.
     #[tokio::test]
     async fn copies_every_geometry_type_in_every_dimension_as_mlt() {
-        let config_yaml = "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    dimensioned_shapes:
-      schema: public
-      table: dimensioned_shapes
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        dims: text
-        kind: text
-";
+        let config_yaml = indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 2
+              auto_publish: false
+              tables:
+                dimensioned_shapes:
+                  schema: public
+                  table: dimensioned_shapes
+                  srid: 4326
+                  geometry_column: geom
+                  id_column: feat_id
+                  bounds: [-180.0, -90.0, 180.0, 90.0]
+                  properties:
+                    dims: text
+                    kind: text
+        "};
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
         fs::write(&config, config_yaml).expect("failed to write the config");
@@ -675,6 +676,7 @@ postgres:
         use std::collections::BTreeMap;
         use std::fs;
 
+        use indoc::indoc;
         use martin_e2e_tests::{
             MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles,
         };
@@ -699,23 +701,23 @@ postgres:
             let config = dir.path().join("config.yaml");
             fs::write(
                 &config,
-                "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    dimensioned_shapes:
-      schema: public
-      table: dimensioned_shapes
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        dims: text
-        kind: text
-",
+                indoc! {"
+                    postgres:
+                      connection_string: ${DATABASE_URL}
+                      pool_size: 2
+                      auto_publish: false
+                      tables:
+                        dimensioned_shapes:
+                          schema: public
+                          table: dimensioned_shapes
+                          srid: 4326
+                          geometry_column: geom
+                          id_column: feat_id
+                          bounds: [-180.0, -90.0, 180.0, 90.0]
+                          properties:
+                            dims: text
+                            kind: text
+                "},
             )
             .expect("failed to write the config");
             let mut layers = Vec::new();
@@ -789,24 +791,24 @@ postgres:
             let config = dir.path().join("config.yaml");
             fs::write(
                 &config,
-                "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    array_props:
-      schema: public
-      table: array_props
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        tags: int4
-        label: text
-        doc: jsonb
-",
+                indoc! {"
+                    postgres:
+                      connection_string: ${DATABASE_URL}
+                      pool_size: 2
+                      auto_publish: false
+                      tables:
+                        array_props:
+                          schema: public
+                          table: array_props
+                          srid: 4326
+                          geometry_column: geom
+                          id_column: feat_id
+                          bounds: [-180.0, -90.0, 180.0, 90.0]
+                          properties:
+                            tags: int4
+                            label: text
+                            doc: jsonb
+                "},
             )
             .expect("failed to write the config");
             let output = dir.path().join("props.mbtiles");
@@ -862,30 +864,30 @@ postgres:
             let config = dir.path().join("config.yaml");
             fs::write(
                 &config,
-                "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    measured_shapes:
-      schema: public
-      table: measured_shapes
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        big: int8
-        small: int2
-        signed: int4
-        flag: bool
-        single: float4
-        double: float8
-        label: text
-        code: varchar
-        never_set: int4
-",
+                indoc! {"
+                    postgres:
+                      connection_string: ${DATABASE_URL}
+                      pool_size: 2
+                      auto_publish: false
+                      tables:
+                        measured_shapes:
+                          schema: public
+                          table: measured_shapes
+                          srid: 4326
+                          geometry_column: geom
+                          id_column: feat_id
+                          bounds: [-180.0, -90.0, 180.0, 90.0]
+                          properties:
+                            big: int8
+                            small: int2
+                            signed: int4
+                            flag: bool
+                            single: float4
+                            double: float8
+                            label: text
+                            code: varchar
+                            never_set: int4
+                "},
             )
             .expect("failed to write the config");
             let output = dir.path().join("clipped.mbtiles");
@@ -930,24 +932,24 @@ postgres:
     /// both without falling back to the MVT round-trip, and serves what that round-trip does.
     #[tokio::test]
     async fn copies_array_and_jsonb_columns_as_the_mvt_round_trip_does() {
-        let config_yaml = "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    array_props:
-      schema: public
-      table: array_props
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        tags: int4
-        label: text
-        doc: jsonb
-";
+        let config_yaml = indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 2
+              auto_publish: false
+              tables:
+                array_props:
+                  schema: public
+                  table: array_props
+                  srid: 4326
+                  geometry_column: geom
+                  id_column: feat_id
+                  bounds: [-180.0, -90.0, 180.0, 90.0]
+                  properties:
+                    tags: int4
+                    label: text
+                    doc: jsonb
+        "};
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
         fs::write(&config, config_yaml).expect("failed to write the config");
@@ -1015,23 +1017,23 @@ postgres:
     /// round-trip does.
     #[tokio::test]
     async fn copies_domain_columns_as_the_mvt_round_trip_does() {
-        let config_yaml = "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    domain_props:
-      schema: public
-      table: domain_props
-      srid: 4326
-      geometry_column: geom
-      id_column: feat_id
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        visitors: positive_count
-        floors: small_count
-";
+        let config_yaml = indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 2
+              auto_publish: false
+              tables:
+                domain_props:
+                  schema: public
+                  table: domain_props
+                  srid: 4326
+                  geometry_column: geom
+                  id_column: feat_id
+                  bounds: [-180.0, -90.0, 180.0, 90.0]
+                  properties:
+                    visitors: positive_count
+                    floors: small_count
+        "};
         let dir = temp_dir();
         let config = dir.path().join("config.yaml");
         fs::write(&config, config_yaml).expect("failed to write the config");
@@ -1099,24 +1101,24 @@ postgres:
         let config = dir.path().join("config.yaml");
         fs::write(
             &config,
-            "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 2
-  auto_publish: false
-  tables:
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      minzoom: 0
-      maxzoom: 30
-      clip_geom: false
-      bounds: [-180.0, -90.0, 180.0, 90.0]
-      properties:
-        gid: int4
-",
+            indoc! {"
+                postgres:
+                  connection_string: ${DATABASE_URL}
+                  pool_size: 2
+                  auto_publish: false
+                  tables:
+                    table_source:
+                      schema: public
+                      table: table_source
+                      srid: 4326
+                      geometry_column: geom
+                      minzoom: 0
+                      maxzoom: 30
+                      clip_geom: false
+                      bounds: [-180.0, -90.0, 180.0, 90.0]
+                      properties:
+                        gid: int4
+            "},
         )
         .expect("failed to write the config");
         let output = dir.path().join("unclipped.mbtiles");
@@ -1273,20 +1275,20 @@ async fn copies_a_source_on_another_tile_grid() {
     let config = dir.path().join("config.yaml");
     fs::write(
         &config,
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  pool_size: 1
-  tables:
-    nz_points:
-      schema: public
-      table: nz_points
-      srid: 2193
-      geometry_column: geom
-      tile_grid: NZTM2000Quad
-      properties:
-        city: text
-",
+        indoc::indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              tables:
+                nz_points:
+                  schema: public
+                  table: nz_points
+                  srid: 2193
+                  geometry_column: geom
+                  tile_grid: NZTM2000Quad
+                  properties:
+                    city: text
+        "},
     )
     .expect("write config");
     let output = dir.path().join("nz.mbtiles");

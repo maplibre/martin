@@ -1,47 +1,48 @@
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::Martin;
 use tempfile::TempDir;
 
-const CONFIG: &str = "
-keep_alive: 75
-shutdown_timeout: 10
-cache_control: public, max-age=3600
-cache:
-  size_mb: 8
-  minzoom: 0
-  maxzoom: 20
-observability:
-  metrics:
-    add_labels: {}
-cors:
-  origin:
-    - '*'
-  max_age: null
-tilejson_url_version_param: version
-pmtiles:
-  recursive: true
-  sources:
-    pmt:
-      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-      cache:
-        minzoom: 0
-        maxzoom: 3
-      cache_control: no-store
-geojson: {}
-sprites:
-  paths: tests/fixtures/sprites/src1
-  sources:
-    mysrc: tests/fixtures/sprites/src2
-styles:
-  sources:
-    maplibre: tests/fixtures/styles/maplibre_demo.json
-  paths:
-    - tests/fixtures/styles/src2
-fonts:
-  - tests/fixtures/fonts/overpass-mono-regular.ttf
-  - tests/fixtures/fonts
-";
+const CONFIG: &str = indoc! {"
+    keep_alive: 75
+    shutdown_timeout: 10
+    cache_control: public, max-age=3600
+    cache:
+      size_mb: 8
+      minzoom: 0
+      maxzoom: 20
+    observability:
+      metrics:
+        add_labels: {}
+    cors:
+      origin:
+        - '*'
+      max_age: null
+    tilejson_url_version_param: version
+    pmtiles:
+      recursive: true
+      sources:
+        pmt:
+          path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+          cache:
+            minzoom: 0
+            maxzoom: 3
+          cache_control: no-store
+    geojson: {}
+    sprites:
+      paths: tests/fixtures/sprites/src1
+      sources:
+        mysrc: tests/fixtures/sprites/src2
+    styles:
+      sources:
+        maplibre: tests/fixtures/styles/maplibre_demo.json
+      paths:
+        - tests/fixtures/styles/src2
+    fonts:
+      - tests/fixtures/fonts/overpass-mono-regular.ttf
+      - tests/fixtures/fonts
+"};
 
 #[tokio::test]
 async fn every_discovered_source_and_resource_is_spelled_out() {

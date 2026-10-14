@@ -3,6 +3,7 @@
 
 use std::fs;
 
+use indoc::indoc;
 use martin_e2e_tests::{MartinCp, MbtilesCli, metadata_listing, temp_dir, tile_listing};
 
 #[tokio::test]
@@ -11,29 +12,29 @@ async fn generates_a_valid_tileset() {
     let config = dir.path().join("config.yaml");
     fs::write(
         &config,
-        "
-postgres:
-  connection_string: ${DATABASE_URL}
-  auto_publish: false
-  tables:
-    points1:
-      schema: public
-      table: points1
-      srid: 4326
-      geometry_column: geom
-      geometry_type: POINT
-      properties:
-        gid: int4
-    table_source:
-      schema: public
-      table: table_source
-      srid: 4326
-      geometry_column: geom
-      geometry_type: GEOMETRY
-      properties:
-        gid: int4
-      layer_id: mixed
-",
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+                  layer_id: mixed
+        "},
     )
     .expect("failed to write the config");
     let output = dir.path().join("generated.mbtiles");

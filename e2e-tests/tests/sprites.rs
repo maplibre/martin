@@ -1,5 +1,6 @@
 //! Spritesheets generated from directories of SVG files.
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, StartError, fixture};
 use rstest::rstest;
 
@@ -292,15 +293,14 @@ async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location:
 #[tokio::test]
 async fn an_alias_serves_the_sources_it_combines() {
     let mut martin = Martin::builder()
-        .config(
-            "sprites:
-  paths:
-    - tests/fixtures/sprites/src1
-    - tests/fixtures/sprites/src2
-  aliases:
-    icons: [src1, src2]
-",
-        )
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                icons: [src1, src2]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -344,15 +344,14 @@ async fn an_alias_serves_the_sources_it_combines() {
 #[tokio::test]
 async fn an_alias_may_shadow_the_source_it_extends() {
     let mut martin = Martin::builder()
-        .config(
-            "sprites:
-  paths:
-    - tests/fixtures/sprites/src1
-    - tests/fixtures/sprites/src2
-  aliases:
-    src1: [src1, src2]
-",
-        )
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                src1: [src1, src2]
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -371,15 +370,14 @@ async fn an_alias_may_shadow_the_source_it_extends() {
 #[tokio::test]
 async fn an_alias_naming_an_unknown_source_fails_startup() {
     let error = Martin::builder()
-        .config(
-            "sprites:
-  paths:
-    - tests/fixtures/sprites/src1
-    - tests/fixtures/sprites/src2
-  aliases:
-    icons: [src1, nonexistent]
-",
-        )
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                icons: [src1, nonexistent]
+        "})
         .start()
         .await
         .expect_err("martin must reject an alias naming an unknown sprite source");
@@ -396,7 +394,10 @@ async fn an_alias_naming_an_unknown_source_fails_startup() {
 #[tokio::test]
 async fn a_collection_publishes_each_subdirectory_as_a_sprite() {
     let mut martin = Martin::builder()
-        .config("sprites:\n  collections: tests/fixtures/sprites\n")
+        .config(indoc! {"
+            sprites:
+              collections: tests/fixtures/sprites
+        "})
         .start()
         .await
         .expect("failed to start martin");
