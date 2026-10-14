@@ -506,8 +506,10 @@ pub struct ScanSql {
 /// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
 /// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
 /// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+///
+/// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
 #[cfg(feature = "unstable-generate")]
-pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
+pub fn scan_sql(info: &TableInfo, bbox: Option<Bounds>) -> PostgresResult<ScanSql> {
     let row_properties = row_properties(info);
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
         escape_with_alias(&info.discovered.prop_mapping, id)
@@ -519,14 +521,22 @@ pub fn scan_sql(info: &TableInfo) -> PostgresResult<ScanSql> {
         3857 => (geometry, Crs::WebMercator),
         _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
     };
-    let (schema, table) = (
-        escape_identifier(&info.schema),
-        escape_identifier(&info.table),
-    );
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
     let filter = row_filter(info, "AND")?;
+    let bbox = bbox.map_or_else(String::new, |bbox| {
+        let envelope = format!(
+            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
+            bbox.left, bbox.bottom, bbox.right, bbox.top
+        );
+        match info.srid {
+            4326 => format!(" AND {column} && {envelope}"),
+            srid => format!(" AND {column} && ST_Transform({envelope}, {srid})"),
+        }
+    });
     Ok(ScanSql {
         sql: format!(
-            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}"
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
         ),
         crs,
         has_id: info.id_column.is_some(),

@@ -106,7 +106,7 @@ layer's features by it, keeping the `Seq` order of equal values.
 
 ### External sort
 
-Each render worker owns a sort buffer of `--memory / threads` bytes, at least 16 MiB and at most 4 GiB.
+Each render worker owns a sort buffer of `--memory-mb / threads` MB, at least 16 MiB and at most 4 GiB.
 Records are appended to the buffer as they are rendered, and an index of 24-byte entries (key, offset,
 length) is kept beside them. The budget counts the index twice, because the radix sort needs a second
 copy of it while sorting. When the records and the index reach the budget, the worker spills the buffer:
@@ -189,7 +189,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | What             | Bound                                                                     |
 |------------------|---------------------------------------------------------------------------|
 | Feature queue    | `threads × 2` batches of up to 1024 features                              |
-| Sort buffers     | `--memory` in total, records plus index, but at least 16 MiB per worker   |
+| Sort buffers     | `--memory-mb` in total, records plus index, at least 16 MiB per worker    |
 | Run file writers | 1 MiB of write buffer for each run being written                          |
 | Merge            | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge     |
 | Encode window    | `threads × 4` batches of 256 tiles, plus the one being written            |

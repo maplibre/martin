@@ -5,6 +5,7 @@ use std::ops::{Range, RangeInclusive};
 
 use martin_core::generate::props::KeyId;
 use mlt_core::encoder::EncoderConfig;
+use tilejson::Bounds;
 
 use crate::{LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
@@ -57,13 +58,15 @@ pub struct LayerDef {
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
     pub min_size: PixelThreshold,
+    /// WGS84: only tiles intersecting it are generated.
+    pub bounds: Option<Bounds>,
     pub encoder: EncoderConfig,
     pub id: IdDef,
     pub attributes: AttributesDef,
 }
 
 impl LayerDef {
-    /// In source order, keeping ids and all attributes, with
+    /// A layer with no [`bounds`](Self::bounds), keeping ids and all attributes in source order, with
     /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
@@ -73,6 +76,7 @@ impl LayerDef {
             grid,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+            bounds: None,
             encoder: EncoderConfig::default(),
             id: IdDef::Keep,
             attributes: AttributesDef::All,
@@ -207,6 +211,10 @@ fn plan_layer(
             error,
         }
     })?;
+    let render = match def.bounds {
+        Some(bounds) => render.with_bounds(bounds),
+        None => render,
+    };
     Ok(PlannedLayer {
         render,
         info: LayerInfo {

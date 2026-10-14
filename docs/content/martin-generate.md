@@ -100,7 +100,7 @@ martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
 | `--min-zoom`    | `0`             | Lowest zoom, raised by a source's `minzoom`                          |
 | `--max-zoom`    | `14`            | Highest zoom, lowered by a source's `maxzoom`                        |
 | `--bbox`        | whole world     | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat`     |
-| `--memory`      | `2GiB`          | Memory for sorting, split over the threads                           |
+| `--memory-mb`   | `2048`          | Memory for sorting in MB, split over the threads                     |
 | `--temp-dir`    | system temp dir | Where sorted runs go, repeatable to spread them over several disks   |
 | `--threads`     | CPU count       | Worker threads                                                       |
 
@@ -117,8 +117,8 @@ A failed or interrupted run removes the output file. Temporary files are always 
 
 ## Sizing a run
 
-- `--memory` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
-  with many threads the total can exceed `--memory`. More memory means fewer, longer sorted runs. Up to
+- `--memory-mb` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
+  with many threads the total can exceed `--memory-mb`. More memory means fewer, longer sorted runs. Up to
   256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
   and writes the temporary data one more time.
 - The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows
