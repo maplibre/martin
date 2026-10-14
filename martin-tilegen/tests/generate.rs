@@ -948,10 +948,7 @@ fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
             )
         })
         .collect();
-    assert_eq!(
-        tiles,
-        [r#"z0 [] []"#, r#"z1 ["label"] [Str(Some("Rhein"))]"#]
-    );
+    assert_eq!(tiles, ["z0 [] []", r#"z1 ["label"] [Str(Some("Rhein"))]"#]);
 }
 
 #[test]

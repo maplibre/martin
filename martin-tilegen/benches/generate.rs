@@ -57,7 +57,7 @@ fn ring(center: Coord<f64>, radius: f64, vertices: u32, rng: &mut Rng) -> LineSt
 
 /// A city: buildings, roads, points of interest and land use around `CENTER`, plus one lake whose
 /// interior covers thousands of z14 tiles.
-fn city() -> Vec<(ColumnDef, TableDef, Vec<SourceFeature>)> {
+fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
     let mut rng = Rng(0x1234_5678);
     let mut layers: Vec<(TableDef, Vec<SourceFeature>)> = Vec::new();
     let mut layer = |name: &str, keys: &[&str], features: Vec<SourceFeature>| {

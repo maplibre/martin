@@ -116,27 +116,6 @@ impl LayerDef {
             attributes: AttributesDef::All,
         }
     }
-
-    /// The source of every expression of the layer.
-    pub fn expressions(&self) -> impl Iterator<Item = &str> {
-        let id = match &self.id {
-            IdDef::Expr(expr) => Some(expr),
-            IdDef::Keep | IdDef::Drop => None,
-        };
-        let computed = match &self.attributes {
-            AttributesDef::Computed { attributes, .. } => attributes.as_slice(),
-            AttributesDef::All | AttributesDef::None | AttributesDef::Columns(_) => &[],
-        };
-        [&self.filter, &self.minzoom_expr, &self.maxzoom_expr]
-            .into_iter()
-            .flatten()
-            .chain(id)
-            .chain(computed.iter().filter_map(|attr| match &attr.value {
-                ValueDef::Expr(expr) => Some(expr),
-                ValueDef::Literal(_) => None,
-            }))
-            .map(String::as_str)
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
