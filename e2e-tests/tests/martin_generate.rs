@@ -664,9 +664,12 @@ async fn features_whose_zooms_miss_the_generated_zooms_are_dropped() {
     let mut ids = std::collections::BTreeMap::<i64, std::collections::BTreeSet<u64>>::new();
     for (z, _, _, data) in tiles(&output).await {
         for layer in mlt_layers(&data) {
-            ids.entry(z)
-                .or_default()
-                .extend(layer.features().iter().filter_map(|f| f.id()));
+            ids.entry(z).or_default().extend(
+                layer
+                    .features()
+                    .iter()
+                    .filter_map(mlt_core::TileFeature::id),
+            );
         }
     }
     insta::assert_snapshot!(format!("{ids:?}"), @"{2: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}, 3: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}}");
