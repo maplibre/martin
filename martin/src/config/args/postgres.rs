@@ -4,6 +4,7 @@ use martin_core::tiles::postgres::RetryTimeout;
 use tracing::info;
 
 use super::bounds::BoundsCalcType;
+use super::order_by::OrderByType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::postgres::{
@@ -38,9 +39,9 @@ pub struct PostgresArgs {
     /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
-    /// Try sorting features by their feature ID in ascending order.
+    /// Specify how features should be sorted. [DEFAULT: No sorting]
     #[arg(long)]
-    pub try_id_sort: Option<bool>,
+    pub order_by: Option<OrderByType>,
     /// A file with a client SSL certificate.
     #[arg(long)]
     pub ssl_cert: Option<std::path::PathBuf>,
@@ -68,7 +69,7 @@ impl PostgresArgs {
                 tile_grid: None,
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
-                try_id_sort: self.try_id_sort,
+                order_by: self.order_by,
                 pool_size: self.pool_size,
                 cache: CachePolicy::default(),
                 retry_timeout: self.pg_retry_timeout,
@@ -96,7 +97,7 @@ impl PostgresArgs {
             pg_retry_timeout,
             auto_bounds,
             max_feature_count,
-            try_id_sort,
+            order_by,
             ca_root_file,
             ssl_cert,
             ssl_key,
@@ -142,12 +143,12 @@ impl PostgresArgs {
                 c.max_feature_count = max_feature_count;
             }
         }
-        if let Some(value) = try_id_sort {
+        if let Some(value) = order_by {
             info!(
-                "Overriding try_id_sort to {value} on all Postgres connections because of a CLI parameter"
+                "Overriding order_by to {value} on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
-                c.try_id_sort = try_id_sort;
+                c.order_by = order_by;
             }
         }
         if let Some(ref value) = ca_root_file {

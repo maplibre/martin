@@ -1564,9 +1564,17 @@
           "examples": ["WebMercatorQuad"],
           "type": ["string", "null"]
         },
-        "try_id_sort": {
-          "description": "Try sorting features by their feature ID in ascending order. \\[default: false\\]",
-          "type": ["boolean", "null"]
+        "sort_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrderByType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specify how features should be sorted. \\[default: No sorting\\]\n\nOptions:\n- `id-asc` Order features based on their id ascending.\n- `id-desc` Order features based on their id descending.",
+          "examples": ["id-asc"]
         }
       },
       "type": "object"
