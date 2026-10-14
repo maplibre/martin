@@ -730,7 +730,8 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-tile-utils
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
-    cargo nextest run --package martin-core
+    cargo nextest run --package martin-core --features unstable-generate
+    cargo nextest run --package martin-tilegen
     cargo nextest run --package martin --features unstable-mlt-v2,unstable-generate
     {{just}} test-e2e
 

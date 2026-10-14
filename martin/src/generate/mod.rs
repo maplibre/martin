@@ -9,25 +9,32 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use martin_core::tiles::postgres::{PostgresError, PostgresPool};
+use martin_core::tiles::postgres::{PostgresError, PostgresPool, RetryTimeout};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
 use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat,
     TileGenError, TileGenResult, generate,
 };
 use tilejson::{Bounds, tilejson};
+#[cfg(unix)]
+use tokio::signal::unix::{Signal, SignalKind, signal};
+#[cfg(windows)]
+use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
 use tracing::{info, warn};
 
 use self::postgres::{PgScanSource, ScanLayer};
 use crate::StartupError;
 use crate::config::args::{
-    Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
+    Args, ArgsError, BoundsCalcType, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs, parse_byte_size,
 };
-use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
-use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
+use crate::config::file::postgres::{
+    DEFAULT_POOL_SIZE, PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo,
+};
+use crate::config::file::{Config, ConfigFileError, OnInvalid, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{MartinCpError, check_bboxes};
+use crate::logging::LogFormat;
 use crate::srv::RESERVED_KEYWORDS;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -44,9 +51,73 @@ pub struct GeneratorArgs {
     #[command(flatten)]
     pub generate: GenerateArgs,
     #[command(flatten)]
-    pub meta: MetaArgs,
+    pub sources: GenerateSourceArgs,
     #[command(flatten)]
-    pub pg: Option<PostgresArgs>,
+    pub pg: Option<GeneratePgArgs>,
+}
+
+/// Where the tables come from: the subset of [`MetaArgs`] that `martin generate` uses.
+#[derive(clap::Args, Debug, PartialEq)]
+pub struct GenerateSourceArgs {
+    /// Path to config file. If set, no connection strings are allowed.
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
+    /// `PostgreSQL` connection strings, e.g. `postgres://...`
+    pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
+}
+
+impl From<GenerateSourceArgs> for MetaArgs {
+    fn from(args: GenerateSourceArgs) -> Self {
+        Self {
+            config: args.config,
+            connection: args.connection,
+            on_invalid: args.on_invalid,
+            ..Self::default()
+        }
+    }
+}
+
+/// The subset of [`PostgresArgs`] that `martin generate` uses.
+#[derive(clap::Args, Debug, PartialEq, Eq)]
+pub struct GeneratePgArgs {
+    /// Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
+    #[arg(short = 'b', long)]
+    pub auto_bounds: Option<BoundsCalcType>,
+    /// Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates.
+    #[arg(long)]
+    pub ca_root_file: Option<PathBuf>,
+    /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
+    #[arg(short, long)]
+    pub default_srid: Option<i32>,
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
+    pub pool_size: Option<NonZeroUsize>,
+    /// How long the first PostgreSQL connection is retried before startup fails, a duration like `30s` or `infinite`. [DEFAULT: 30s]
+    #[arg(long)]
+    pub pg_retry_timeout: Option<RetryTimeout>,
+    /// A file with a client SSL certificate.
+    #[arg(long)]
+    pub ssl_cert: Option<PathBuf>,
+    /// A file with the key for the client SSL certificate.
+    #[arg(long)]
+    pub ssl_key: Option<PathBuf>,
+}
+
+impl From<GeneratePgArgs> for PostgresArgs {
+    fn from(args: GeneratePgArgs) -> Self {
+        Self {
+            auto_bounds: args.auto_bounds,
+            ca_root_file: args.ca_root_file,
+            default_srid: args.default_srid,
+            pool_size: args.pool_size,
+            pg_retry_timeout: args.pg_retry_timeout,
+            max_feature_count: None,
+            ssl_cert: args.ssl_cert,
+            ssl_key: args.ssl_key,
+        }
+    }
 }
 
 #[derive(clap::Args, Debug, PartialEq)]
@@ -59,9 +130,10 @@ pub struct GenerateArgs {
     pub output_file: PathBuf,
     #[arg(long, value_enum, default_value = "mlt")]
     pub format: GenerateFormat,
-    /// Tile compression: `gzip`, `zstd`, `br`, `zlib` (`MBTiles` only) or `none`.
-    #[arg(long, default_value = "gzip", value_parser = parse_encoding)]
-    pub encoding: Encoding,
+    /// Tile compression: `gzip`, `zlib` or `none` for `MBTiles`; `gzip`, `br`, `zstd` or `none` for MVT in `PMTiles`;
+    /// only `none` for MLT in `PMTiles`. Defaults to `none` for MLT in `PMTiles`, otherwise `gzip`.
+    #[arg(long, value_parser = parse_encoding)]
+    pub encoding: Option<Encoding>,
     /// Lowest zoom to generate; a source's own `minzoom` raises it.
     #[arg(long, alias = "minzoom", default_value_t = 0)]
     pub min_zoom: u8,
@@ -114,8 +186,16 @@ pub enum GenerateError {
     NoSources,
     #[error("Source `{0}` has no zoom between {1} and {2}")]
     NoZooms(String, u8, u8),
+    #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
+    CompressedPmtilesMlt,
+    #[error(
+        "Martin cannot detect {0} compression in MBTiles; use `--encoding gzip`, `zlib` or `none`"
+    )]
+    UndetectableMbtilesEncoding(&'static str),
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
+    #[error("Could not listen for interrupts: {0}")]
+    Signal(#[source] std::io::Error),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
@@ -132,25 +212,46 @@ impl From<ArgsError> for GenerateError {
     }
 }
 
+impl GenerateError {
+    /// Renders the error for the terminal: config errors as diagnostics matching `log_format`, the rest with every cause.
+    #[must_use]
+    pub fn render_diagnostic_with(&self, log_format: LogFormat) -> String {
+        if let Self::Startup(err) = self {
+            return err.render_diagnostic_with(log_format);
+        }
+        let mut message = self.to_string();
+        let mut source = std::error::Error::source(self);
+        while let Some(err) = source {
+            let cause = err.to_string();
+            if !message.contains(&cause) {
+                message = format!("{message}: {cause}");
+            }
+            source = err.source();
+        }
+        message
+    }
+}
+
 pub type GenerateResult<T> = Result<T, GenerateError>;
 
 pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
     let options = args.generate;
+    let encoding = resolve_encoding(&options)?;
     if let Some(bbox) = options.bbox {
         check_bboxes(&WEB_MERCATOR_QUAD, vec![bbox])?;
     }
-    let mut config = match &args.meta.config {
+    let mut config = match &args.sources.config {
         Some(path) => read_config(path, &OsEnv)?,
         None => Config::default(),
     };
     Args {
         command: None,
-        meta: args.meta,
+        meta: args.sources.into(),
         extras: ExtraArgs::default(),
         srv: SrvArgs::default(),
-        pg: args.pg,
+        pg: args.pg.map(PostgresArgs::from),
     }
     .merge_into_config(&mut config)?;
     config.finalize().await?;
@@ -162,11 +263,12 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
         .or_else(|| std::thread::available_parallelism().ok())
         .map_or(1, NonZeroUsize::get);
     let source = PgScanSource::new(pool, layers)?;
-    let generate_config = generate_config(&options, threads);
+    let generate_config = generate_config(&options, threads, encoding);
     let metadata = metadata(&options);
     let output = options.output_file;
+    let mut interrupt = Interrupt::register()?;
     let sink = {
-        let (output, format, encoding) = (output.clone(), generate_config.format, options.encoding);
+        let (output, format) = (output.clone(), generate_config.format);
         tokio::task::spawn_blocking(move || Output::create(&output, format, encoding)).await??
     };
 
@@ -180,7 +282,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
     });
     let result = tokio::select! {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),
-        _ = tokio::signal::ctrl_c() => Err(GenerateError::Interrupted(output.clone())),
+        () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
     };
     reporter.abort();
     let summary = result.inspect_err(|_| remove_output(&output))?;
@@ -220,10 +322,7 @@ enum Output {
 
 impl Output {
     fn create(path: &Path, format: TileFormat, encoding: Encoding) -> TileGenResult<Self> {
-        if path
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
-        {
+        if is_pmtiles(path) {
             PmtilesSink::create(path, format, encoding).map(|sink| Self::Pmtiles(Box::new(sink)))
         } else {
             MbtilesSink::create(path).map(Self::Mbtiles)
@@ -248,7 +347,32 @@ impl Output {
     }
 }
 
-fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
+fn is_pmtiles(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
+}
+
+/// The tile compression to write, refusing any that Martin could not serve the output with.
+fn resolve_encoding(options: &GenerateArgs) -> GenerateResult<Encoding> {
+    let pmtiles_mlt = is_pmtiles(&options.output_file) && options.format == GenerateFormat::Mlt;
+    match options.encoding {
+        None if pmtiles_mlt => Ok(Encoding::Uncompressed),
+        None => Ok(Encoding::Gzip),
+        Some(encoding) if pmtiles_mlt && encoding.is_encoded() => {
+            Err(GenerateError::CompressedPmtilesMlt)
+        }
+        Some(encoding @ (Encoding::Brotli | Encoding::Zstd))
+            if !is_pmtiles(&options.output_file) =>
+        {
+            Err(GenerateError::UndetectableMbtilesEncoding(
+                encoding.compression().unwrap_or_default(),
+            ))
+        }
+        Some(encoding) => Ok(encoding),
+    }
+}
+
+fn generate_config(options: &GenerateArgs, threads: usize, encoding: Encoding) -> GenerateConfig {
     let temp_dirs = if options.temp_dir.is_empty() {
         vec![std::env::temp_dir()]
     } else {
@@ -268,7 +392,7 @@ fn generate_config(options: &GenerateArgs, threads: usize) -> GenerateConfig {
             GenerateFormat::Mlt => TileFormat::Mlt,
             GenerateFormat::Mvt => TileFormat::Mvt,
         },
-        encoding: options.encoding,
+        encoding,
         batch_tiles: 256,
         window: threads * 4,
     }
@@ -299,11 +423,13 @@ async fn select_sources(
     let mut pools = Vec::new();
     let mut tables: BTreeMap<String, (TableInfo, usize)> = BTreeMap::new();
     let mut functions = HashSet::new();
+    let mut warnings = Vec::new();
     for pg in &config.postgres {
         let builder =
             PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids)
                 .await?;
-        let (specs, _warnings) = builder.discover().await?;
+        let (specs, pg_warnings) = builder.discover().await?;
+        warnings.extend(pg_warnings);
         for (id, spec) in specs {
             match spec {
                 SourceSpec::Table(info) => {
@@ -316,6 +442,10 @@ async fn select_sources(
         }
         pools.push(builder.pool().clone());
     }
+    config
+        .on_invalid
+        .unwrap_or_default()
+        .handle_tile_warnings(&warnings)?;
     let requested: Vec<String> = if options.sources.is_empty() {
         tables.keys().cloned().collect()
     } else {
@@ -365,6 +495,50 @@ async fn select_sources(
     Ok((pools.swap_remove(pool), layers))
 }
 
+/// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.
+struct Interrupt {
+    #[cfg(unix)]
+    interrupt: Signal,
+    #[cfg(unix)]
+    terminate: Signal,
+    #[cfg(windows)]
+    ctrl_c: CtrlC,
+    #[cfg(windows)]
+    ctrl_break: CtrlBreak,
+}
+
+impl Interrupt {
+    fn register() -> GenerateResult<Self> {
+        #[cfg(unix)]
+        {
+            Ok(Self {
+                interrupt: signal(SignalKind::interrupt()).map_err(GenerateError::Signal)?,
+                terminate: signal(SignalKind::terminate()).map_err(GenerateError::Signal)?,
+            })
+        }
+        #[cfg(windows)]
+        {
+            Ok(Self {
+                ctrl_c: ctrl_c().map_err(GenerateError::Signal)?,
+                ctrl_break: ctrl_break().map_err(GenerateError::Signal)?,
+            })
+        }
+    }
+
+    async fn recv(&mut self) {
+        #[cfg(unix)]
+        tokio::select! {
+            _ = self.interrupt.recv() => {}
+            _ = self.terminate.recv() => {}
+        }
+        #[cfg(windows)]
+        tokio::select! {
+            _ = self.ctrl_c.recv() => {}
+            _ = self.ctrl_break.recv() => {}
+        }
+    }
+}
+
 async fn report(progress: Arc<Progress>) {
     let mut interval = tokio::time::interval(PROGRESS_EVERY);
     interval.tick().await;
@@ -388,6 +562,8 @@ fn remove_output(path: &Path) {
     for path in [
         path.to_path_buf(),
         PathBuf::from(format!("{}-journal", path.display())),
+        PathBuf::from(format!("{}-wal", path.display())),
+        PathBuf::from(format!("{}-shm", path.display())),
     ] {
         if path.exists()
             && let Err(err) = std::fs::remove_file(&path)

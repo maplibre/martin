@@ -243,9 +243,15 @@ async fn main() {
 
     #[cfg(feature = "unstable-generate")]
     if let Some(Command::Generate(generate_args)) = args.command {
-        init_tracing(&filter, LogFormat::from_env(), true);
+        let log_format = LogFormat::from_env();
+        init_tracing(&filter, log_format, true);
         if let Err(e) = Box::pin(martin::generate::start(generate_args)).await {
-            error!("{e}");
+            let rendered = e.render_diagnostic_with(log_format);
+            if tracing::event_enabled!(tracing::Level::ERROR) {
+                error!("{rendered}");
+            } else {
+                eprintln!("{rendered}");
+            }
             std::process::exit(1);
         }
         return;
