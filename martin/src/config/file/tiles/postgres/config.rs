@@ -6,8 +6,12 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
+#[cfg(feature = "unstable-generate")]
+use super::deserialize_checked_tables;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
+#[cfg(feature = "unstable-generate")]
+use crate::config::file::tiling;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
     ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
@@ -137,7 +141,17 @@ pub struct PostgresConfig {
     /// - null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
+    /// Default `prefetch` for tables tiled by Martin's engine:
+    /// a cache miss renders the N×N block around the tile and caches the neighbours (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prefetch: Option<tiling::Prefetch>,
     /// Associative arrays of table sources
+    #[cfg_attr(
+        feature = "unstable-generate",
+        serde(default, deserialize_with = "deserialize_checked_tables")
+    )]
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
@@ -191,6 +205,8 @@ impl Default for PostgresConfig {
             retry_timeout: None,
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
+            #[cfg(feature = "unstable-generate")]
+            prefetch: None,
             tables: None,
             functions: None,
             #[cfg(feature = "_tiles")]
@@ -404,6 +420,63 @@ mod tests {
         let res = config.get_unrecognized_keys();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_with_layers_is_tiled_by_the_engine() {
+        let config = parse_cfg(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              prefetch: 2
+              tables:
+                roads:
+                  schema: public
+                  table: roads
+                  srid: 4326
+                  geometry_column: geom
+                  prefetch: 1
+                  layers:
+                    roads: { simplify: 1, min_size: 0.5 }
+                cities:
+                  schema: public
+                  table: cities
+                  srid: 4326
+                  geometry_column: geom
+        "});
+        let pg = &config.postgres[0];
+        let tables = pg.tables.as_ref().unwrap();
+        assert_eq!(pg.prefetch.unwrap().tiles_per_side(), 2);
+        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side(), 1);
+        assert_eq!(tables["cities"].layers, None);
+        let expected: tiling::Layers =
+            serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
+        assert_eq!(tables["roads"].layers.as_deref(), Some(&expected));
+        assert!(config.get_unrecognized_keys().is_empty());
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_names_its_layer_one_way_only() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  tables:
+                    roads:
+                      schema: public
+                      table: roads
+                      srid: 4326
+                      geometry_column: geom
+                      layer_id: streets
+                      layers:
+                        roads: {}
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id` at line 4, column 5");
     }
 
     #[tokio::test]

@@ -19,6 +19,7 @@ circularstring
 clippy
 configtest
 csscolorparser
+ctid
 currval
 curvepolygon
 dbname
@@ -114,6 +115,7 @@ plpgsql
 pmtiles
 postgis
 qgis
+quadtree
 queryless
 reproject
 reprojected
@@ -127,6 +129,7 @@ schemafile
 serde
 setseed
 setsrid
+shapefile
 spreet
 spritesheet
 sqlx
@@ -135,6 +138,7 @@ sslinfo
 sslmode
 stackoverflow
 stmts
+Straße
 strs
 subpages
 subpaths
@@ -143,6 +147,7 @@ subtransaction
 sugla
 superyachts
 thiserror
+tilegen
 tilejson
 tilelive
 tileserver
@@ -160,3 +165,4 @@ workspaced
 zensical
 zstd
 zune
+ctid

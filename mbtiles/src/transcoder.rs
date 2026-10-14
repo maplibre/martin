@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use flume::{Receiver, Sender, bounded};
+use flume::{Receiver, SendError, Sender, bounded};
 use futures::TryStreamExt as _;
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
@@ -404,14 +404,14 @@ async fn normalized_reader(
             raw_tx
                 .send_async(full)
                 .await
-                .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
         }
     }
     if !batch.is_empty() {
         raw_tx
             .send_async(batch)
             .await
-            .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+            .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
     }
     Ok(())
 }
@@ -449,7 +449,7 @@ where
             enc_tx
                 .send_async(enc_batch)
                 .await
-                .map_err(|_| MbtError::TranscodeError("writer stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("writer stage closed".into()))?;
         }
     }
     Ok(())
@@ -509,7 +509,7 @@ async fn normalized_writer(
             unique_encoded += chunk.len();
         }
         tx.commit().await?;
-        debug!("{unique_encoded} unique encoded, {rows_written} rows written");
+        debug!(unique_encoded, rows_written, "Wrote normalized batch");
     }
 
     // Normalized destination still needs its map table populated. One
@@ -689,14 +689,14 @@ async fn general_reader(
             raw_tx
                 .send_async(full)
                 .await
-                .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
         }
     }
     if !batch.is_empty() {
         raw_tx
             .send_async(batch)
             .await
-            .map_err(|_| MbtError::TranscodeError("compute stage closed".into()))?;
+            .map_err(|SendError(_)| MbtError::TranscodeError("compute stage closed".into()))?;
     }
     Ok(())
 }
@@ -744,7 +744,7 @@ where
             enc_tx
                 .send_async(enc_batch)
                 .await
-                .map_err(|_| MbtError::TranscodeError("writer stage closed".into()))?;
+                .map_err(|SendError(_)| MbtError::TranscodeError("writer stage closed".into()))?;
         }
     }
     Ok(())
@@ -827,7 +827,7 @@ async fn general_writer(
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
-            debug!("{total} tiles written");
+            debug!(tiles_written = total, "Flushed tile batch");
         }
     }
 
@@ -852,7 +852,6 @@ async fn general_writer(
 }
 
 #[cfg(test)]
-#[expect(clippy::unwrap_used)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 

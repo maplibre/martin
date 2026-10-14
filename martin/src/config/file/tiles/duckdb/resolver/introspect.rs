@@ -93,16 +93,19 @@ fn select_property_columns(
         [] => {}
         [col] => {
             warn!(
-                "Ignoring {col} column of {source_label} with no MVT representation. \
+                source.label = %source_label,
+                columns = %col,
+                "Ignoring column with no MVT representation. \
              Vector tiles can only carry text, numeric and boolean properties."
             );
         }
         cols => {
             warn!(
-                "Ignoring {} columns of {source_label} with no MVT representation: {}. \
-             Vector tiles can only carry text, numeric and boolean properties.",
-                cols.len(),
-                cols.join(", ")
+                source.label = %source_label,
+                columns.count = cols.len(),
+                columns = %cols.join(", "),
+                "Ignoring columns with no MVT representation. \
+             Vector tiles can only carry text, numeric and boolean properties."
             );
         }
     }

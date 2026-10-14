@@ -46,6 +46,8 @@ Sources that produce other formats (raster, etc.) are unaffected.
 Conversion is negotiated per request: Martin only returns MLT if the client asks for it with `Accept: application/vnd.maplibre-tile`.
 A client that declares `"encoding": "mlt"` on a source but omits the header receives MVT bytes and fails to parse them.
 
+--8<-- "images/postprocess/accept.svg"
+
 !!! warning "MapLibre GL JS and Maplibre Native do not send the headers yet"
 
     Until [maplibre-gl-js#7483](https://github.com/maplibre/maplibre-gl-js/pull/7483) and [maplibre-native#4231](https://github.com/maplibre/maplibre-native/pull/4231) is released, add it yourself via the [`transformRequest`](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/RequestTransformFunction/) option or similar plugin facilities on native.

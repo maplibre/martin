@@ -84,11 +84,11 @@ pub(crate) async fn query_covering(
     let rows = match rows {
         Ok(Ok(rows)) => rows,
         Ok(Err(source)) => {
-            debug!("Could not read Parquet `geo` metadata of {source_label}: {source}");
+            debug!(source.label = %source_label, error = %source, "Could not read Parquet `geo` metadata");
             return None;
         }
         Err(source) => {
-            debug!("Could not read Parquet `geo` metadata of {source_label}: {source}");
+            debug!(source.label = %source_label, error = %source, "Could not read Parquet `geo` metadata");
             return None;
         }
     };
@@ -99,7 +99,9 @@ pub(crate) async fn query_covering(
 
     if covering.is_none() {
         debug!(
-            "{source_label} declares no GeoParquet `covering` for {geometry_column}; tile requests will scan every row group"
+            source.label = %source_label,
+            geometry_column = %geometry_column,
+            "No GeoParquet `covering` declared, tile requests will scan every row group"
         );
     }
     covering

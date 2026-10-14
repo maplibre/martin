@@ -219,12 +219,12 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 
 /// Resolves the configured sources and copies the requested tiles into the output file.
 pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
-    info!("Martin v{VERSION} tile copier");
+    info!(martin.version = %VERSION, "Starting Martin tile copier");
 
     let env = OsEnv;
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
-        info!("Using {}", cfg_filename.display());
+        info!(config.path = %cfg_filename.display(), "Using config file");
         read_config(cfg_filename, &env).map_err(StartupError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
@@ -263,7 +263,7 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
 
 /// On Web Mercator a bbox is longitude and latitude and must stay on the tiled world.
 /// On any other grid it is in the grid's CRS units, and the grid itself clamps it.
-fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
+pub(crate) fn check_bboxes(grid: &TileGrid, boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     if let Some(bb) = boxes
         .iter()
         .find(|bb| bb.left > bb.right || bb.bottom > bb.top)
@@ -413,8 +413,9 @@ async fn copy_as_mlt_directly(
         )) => {
             UNENCODABLE_FEATURE_WARNED.call_once(|| {
                 warn!(
-                    "Copying {} through MVT instead of encoding MLT from its rows: {reason}",
-                    source.get_id()
+                    source.id = %source.get_id(),
+                    reason = %reason,
+                    "Copying through MVT instead of encoding MLT from its rows"
                 );
             });
             return Ok(None);
@@ -464,8 +465,9 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let [min_x, min_y, max_x, max_y] = grid.bounds();
         let bounds = Bounds::new(min_x, min_y, max_x, max_y);
         info!(
-            "No bbox specified, copying the whole {} grid: {bounds}",
-            grid.id()
+            tile_grid.id = %grid.id(),
+            bounds = %bounds,
+            "No bbox specified, copying the whole grid"
         );
         return vec![bounds];
     }
@@ -496,18 +498,18 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
 
         if source_bounds.is_empty() {
             info!(
-                "No configured bounds for source, using: {}",
-                Bounds::MAX_TILED
+                bounds = %Bounds::MAX_TILED,
+                "No configured bounds for source, using the whole world"
             );
             vec![Bounds::MAX_TILED]
         } else {
             info!(
-                "No bbox specified, using source bounds: {}",
-                source_bounds
+                bounds = %source_bounds
                     .iter()
                     .map(|s| format!("[{s}]"))
                     .collect::<Vec<String>>()
-                    .join(", ")
+                    .join(", "),
+                "No bbox specified, using source bounds"
             );
             source_bounds
         }
@@ -546,7 +548,7 @@ fn write_tiles(
     // whole write is one poll of that future, so tokio's cooperative budget never resets: once spent,
     // a constrained receive would stay pending forever.
     while let Some(tile) = futures::executor::block_on(tokio::task::unconstrained(rx.recv())) {
-        debug!("Generated tile {tile:?}");
+        debug!(tile = ?tile, "Generated tile");
         if tile.data.is_empty() {
             // Empty tiles are counted but never written to disk.
             progress.increment_empty();
@@ -634,7 +636,7 @@ async fn produce_tiles(
     }
     let skipped = skipped.into_inner();
     if skipped > 0 {
-        info!("Skipped {skipped} tiles below empty tiles");
+        info!(tiles.skipped = skipped, "Skipped tiles below empty tiles");
     }
     Ok(())
 }
@@ -753,8 +755,11 @@ where
     // Shared with the spawned consumer (updates) and this task (finish / stats).
     let progress = Arc::new(TileCopyProgress::new(total_size));
     info!(
-        "Copying {total_size} {info} tiles from the source {source_id} to {out}",
-        out = args.output_file.display()
+        tiles.total = total_size,
+        tile.info = %info,
+        source.id = %source_id,
+        mbtiles.file = %args.output_file.display(),
+        "Copying tiles from the source"
     );
 
     // 4. Spawn the consumer: read tiles from the channel and write them to MBTiles.
@@ -815,7 +820,7 @@ where
     // 7. Finalise the output file
     mbt.update_metadata(&mut conn, GrowOnly).await?;
     for (key, value) in args.set_meta {
-        info!("Setting metadata key={key} value={value}");
+        info!(metadata.name = %key, metadata.value = %value, "Setting metadata");
         mbt.set_metadata_value(&mut conn, &key, value).await?;
     }
     if !args.skip_agg_tiles_hash {

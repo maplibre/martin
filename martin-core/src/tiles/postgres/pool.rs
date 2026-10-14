@@ -27,8 +27,8 @@ use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 /// `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
 /// See <https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788>
 const MINIMUM_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
-/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
-const MINIMUM_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
+/// Minimum version of postgres required for [`MINIMUM_POSTGIS_VERSION`] according to the [Support Matrix](https://www.postgresql.org/support/versioning/)
+const MINIMUM_POSTGRES_VERSION: Version = Version::new(15, 0, 0);
 /// Pause between two attempts at the first connection.
 const RETRY_INTERVAL: Duration = Duration::from_millis(500);
 /// How long the first connection may take before Martin says it is still retrying.
@@ -481,7 +481,8 @@ mod version_parsing_tests {
     }
 }
 
-#[cfg(all(test, feature = "test-pg"))]
+#[cfg(test)]
+#[cfg(feature = "test-pg")]
 mod tests {
     use std::time::Duration;
 
@@ -489,13 +490,15 @@ mod tests {
     use deadpool_postgres::tokio_postgres::Config;
     use deadpool_postgres::tokio_postgres::error::SqlState;
     use postgres::NoTls;
+    use rustls::crypto::aws_lc_rs::default_provider;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::ImageExt as _;
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+    use tokio::sync::oneshot;
 
     use super::*;
 
-    async fn start_postgres_12_with_postgis_3_5_container()
+    async fn start_postgres_15_with_postgis_3_5_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -503,7 +506,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("12-3.5") // purposely very old and stable
+                .with_tag("15-3.5") // purposely very old and stable
                 .start()
                 .await
         })
@@ -519,7 +522,7 @@ mod tests {
 
     #[tokio::test]
     async fn parse_version() {
-        let node = start_postgres_12_with_postgis_3_5_container().await;
+        let node = start_postgres_15_with_postgis_3_5_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())
@@ -546,8 +549,8 @@ mod tests {
         let pg_version = get_postgres_version(&conn)
             .await
             .expect("postgres version can be retrieved");
-        assert_eq!(pg_version.major, 12);
-        assert!(pg_version.minor >= 22); // we don't want to break this testcase just because postgis updates that image
+        assert_eq!(pg_version.major, 15);
+        assert!(pg_version.minor >= 13); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
 
         let postgis_version = get_postgis_version(&conn)
@@ -609,7 +612,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("12-3.5")
+                .with_tag("15-3.5")
                 .with_copy_to(
                     "/certs/server.crt".to_owned(),
                     certs.server_cert_pem.clone().into_bytes(),
@@ -637,9 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_ca_skips_hostname_check_but_verify_full_enforces_it() {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .ok();
+        default_provider().install_default().ok();
 
         let certs = generate_tls_certs_with_mismatched_hostname();
         let node = start_postgres_with_tls(&certs).await;
@@ -686,7 +687,7 @@ mod tests {
             .unwrap();
 
         let pool_for_sleep_task = pool.clone();
-        let (registered_tx, registered_rx) = tokio::sync::oneshot::channel();
+        let (registered_tx, registered_rx) = oneshot::channel();
         let sleep_task = tokio::spawn(async move {
             let conn = pool_for_sleep_task.get().await.unwrap();
             let _guard = pool_for_sleep_task

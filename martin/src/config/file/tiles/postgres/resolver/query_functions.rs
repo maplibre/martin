@@ -132,14 +132,19 @@ fn parse_variant(
             Ok(v) => Some(v),
             Err(e) => {
                 warn!(
-                    "Unable to deserialize SQL comment on {schema}.{function} as tilejson, a default description will be used: {e}"
+                    schema = %schema,
+                    function = %function,
+                    error = %e,
+                    "Unable to deserialize SQL comment as tilejson, a default description will be used"
                 );
                 None
             }
         }
     } else {
         debug!(
-            "Unable to find a SQL comment on {schema}.{function}, a default function description will be used"
+            schema = %schema,
+            function = %function,
+            "Unable to find a SQL comment, a default function description will be used"
         );
         None
     };

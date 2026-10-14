@@ -72,6 +72,9 @@ pub struct Args {
 pub enum Command {
     /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
     Cp(CopierArgs),
+    /// Generate a tileset from whole tables in one pass (bulk generation)
+    #[cfg(feature = "unstable-generate")]
+    Generate(crate::generate::GeneratorArgs),
 }
 
 // None of these params will be transferred to the config
@@ -121,8 +124,8 @@ impl Args {
             return Err(ConfigAndConnections(self.meta.connection));
         }
 
-        if self.srv.cache_size.is_some() {
-            config.cache.size_mb = self.srv.cache_size;
+        if let Some(bytes) = self.srv.cache_size {
+            config.cache.size_mb = Some(bytes.div_ceil(bytesize::MB));
         }
         if self.srv.cache_expiry.is_some() {
             config.cache.expiry = self.srv.cache_expiry;
@@ -410,6 +413,23 @@ mod tests {
             Some(PreferredEncoding::Gzip)
         );
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
+    }
+
+    #[rstest::rstest]
+    #[case::bare_number_is_mb("512", 512)]
+    #[case::disable("0", 0)]
+    #[case::si("2GB", 2000)]
+    #[case::iec_rounds_up("1GiB", 1074)]
+    #[case::lowercase_with_space("64 mb", 64)]
+    fn cli_cache_size(#[case] arg: &str, #[case] size_mb: u64) {
+        let (config, _) = parse(&["martin", "--cache-size", arg]).unwrap();
+        assert_eq!(config.cache.size_mb, Some(size_mb));
+    }
+
+    #[test]
+    fn cli_cache_size_rejects_unknown_unit() {
+        let err = Args::try_parse_from(["martin", "--cache-size", "1 parsec"]).unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
     }
 
     #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]

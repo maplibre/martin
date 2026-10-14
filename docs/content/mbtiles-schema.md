@@ -10,6 +10,8 @@ tags:
 
 The `mbtiles` tool builds on top of the original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) by specifying different kinds of schema for `tiles` data. The `mbtiles` tool can convert between these schemas, and can also generate a diff between two files of any schemas, as well as merge multiple schema files into one file.
 
+--8<-- "images/mbtiles/schemas.svg"
+
 ## metadata
 
 Every schema includes a shared `metadata` table that stores key/value pairs such as the tileset name, format, and bounds.
@@ -83,4 +85,4 @@ The `mbtiles` tool treats `cache` as a first-class schema, with a few deliberate
 * `copy` **from** a cache file to any schema works (reading via the `tiles` view); the per-tile `fetched`/`expires`/`etag` values are dropped, since standard schemas cannot store them.
 * `copy` **into** a cache file works from any schema (including `martin cp --mbtiles-type cache`); the copied entries get `NULL` `fetched`/`expires`/`etag` (unknown fetch time, never expire; identical copy runs stay byte-identical). Cache-to-cache copies preserve all cache metadata.
 * `diff`, `apply-patch`, and bin-diff **into or onto** a cache file are rejected: the `NOT NULL` blob column exposed through the `tiles` view cannot represent the `NULL` "deleted tile" markers a diff needs. A cache file *can* be the compared-against or patch-source side (it is read through the view).
-* `cache-purge <file> [--max-size <MB>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.
+* `cache-purge <file> [--max-size <SIZE>]` removes expired entries (and optionally evicts soonest-expiring entries until the file fits the size budget), then reclaims free pages via `PRAGMA incremental_vacuum`.

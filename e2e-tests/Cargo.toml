@@ -11,12 +11,16 @@ rust-version.workspace = true
 [features]
 test-cog = []
 test-duckdb = []
+test-generate = []
 test-mlt-v2 = ["mlt-core/unstable-v2"]
 test-pg = []
 test-rendering = []
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_System_Threading"] }
 
 [dependencies]
 brotli.workspace = true
@@ -27,7 +31,7 @@ image-compare.workspace = true
 jxl-oxide.workspace = true
 martin-tile-utils.workspace = true
 mlt-core.workspace = true
-pmtiles = { workspace = true, features = ["write"] }
+pmtiles = { workspace = true, features = ["tilejson", "object-store", "mmap-async-tokio", "write"] }
 regex.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true

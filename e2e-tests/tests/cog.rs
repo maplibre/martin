@@ -8,20 +8,13 @@
 use std::fs;
 
 use image::ImageFormat;
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
     CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture,
     round_floats, tag, temp_dir,
 };
 use rstest::rstest;
 use serde_json::Value;
-
-async fn martin_with_the_cog_dir() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/cog")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
 
 /// The tilejson of `id`, with the server address redacted and every float rounded to ten digits,
 /// which is as far as the extent arithmetic agrees across platforms.
@@ -151,13 +144,11 @@ async fn a_file_is_published_under_its_stem() {
 #[tokio::test]
 async fn a_configured_source_is_published_under_its_configured_id() {
     let mut martin = Martin::builder()
-        .config(
-            "\
-cog:
-  sources:
-    naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
-",
-        )
+        .config(indoc! {"
+            cog:
+              sources:
+                naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -180,25 +171,23 @@ async fn a_configured_cog_is_read_from_an_s3_compatible_store_using_ranges() {
     let save_config = tmp.path().join("save_config.yaml");
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  aws_endpoint: {}
-  aws_region: eu-central-1
-  aws_access_key_id: test-key
-  aws_secret_access_key: test-secret
-  skip_signature: true
-  virtual_hosted_style_request: false
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-    local: tests/fixtures/cog/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              aws_access_key_id: test-key
+              aws_secret_access_key: test-secret
+              skip_signature: true
+              virtual_hosted_style_request: false
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+                local: tests/fixtures/cog/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with an S3 COG");
@@ -210,7 +199,7 @@ cog:
     assert_eq!(remote.body(), local.body());
     martin.stop().await;
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
@@ -247,7 +236,7 @@ cog:
     assert_eq!(restarted.get("/remote/18/42712/97343").await.status(), 200);
     restarted.stop().await;
     restarted.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     assert_remote_reads_use_ranges(
@@ -264,20 +253,18 @@ async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics =
         StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a read-failing remote COG");
@@ -345,20 +332,18 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let fixture_path = fixture("cog/usda_naip_128_none_z2.tif");
     let statics = StaticFiles::serving(&[(key, fixture_path.clone())]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
@@ -413,19 +398,17 @@ cog:
 async fn a_replaced_remote_cog_is_detected_and_reloaded() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 1s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 1s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
@@ -433,7 +416,7 @@ cog:
     let tile_url = "/remote/19/85424/194685";
     let original = martin.get(tile_url).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     // While the object is unchanged, each poll costs one `HEAD` and no rebuild: the number of
     // tile `GET`s stays at what the initial load made, while polls keep arriving.
@@ -479,7 +462,7 @@ cog:
 
     let reloaded = martin.get(tile_url).await;
     assert_eq!(reloaded.status(), 204);
-    assert!(reloaded.body().is_empty());
+    assert_eq!(reloaded.body(), b"");
     martin.stop().await;
 }
 
@@ -494,19 +477,17 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
         (removed_key, original_fixture.clone()),
     ])
     .await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 2s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  paths:
-    - s3://cogtest/imagery/
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 2s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              paths:
+                - s3://cogtest/imagery/
+        "})
         .start()
         .await
         .expect("failed to start martin with a remote COG prefix");
@@ -516,7 +497,7 @@ cog:
     let first_tile = "/first/19/85424/194685";
     let original = martin.get(first_tile).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     statics.replace(
         first_key,
@@ -572,14 +553,12 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  sources:
-    usda_naip_512_webp_z5: {configured_url}
-"
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              sources:
+                usda_naip_512_webp_z5: {configured_url}
+        "})
         .start()
         .await
         .expect("failed to start martin with an HTTP COG");
@@ -629,7 +608,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
     #[case] tile_size: u32,
     #[case] format: &str,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, id).await;
     assert_eq!(tilejson["minzoom"], minzoom);
@@ -646,7 +629,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
 
 #[tokio::test]
 async fn the_tilejson_bounds_are_the_area_the_image_covers() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "usda_naip_512_webp_z5").await, @r#"
     {
@@ -713,7 +700,11 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
     #[case] format: ImageFormat,
     #[case] tile_size: u32,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get(&format!("/{path}")).await;
     assert_eq!(tile.status(), 200);
@@ -726,14 +717,18 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
 
 #[tokio::test]
 async fn the_shape_of_a_tile_response() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/42712/97343").await;
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     content-length: 5031
     content-type: image/png
     etag: "HzR-km-Kc313WfVG2_0Kew"
-    vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
     martin.stop().await;
@@ -741,7 +736,11 @@ async fn the_shape_of_a_tile_response() {
 
 #[tokio::test]
 async fn a_tile_the_image_does_not_cover_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/0/0").await;
     assert_eq!(tile.status(), 204);
@@ -755,7 +754,11 @@ async fn a_tile_the_image_does_not_cover_is_empty() {
 #[case::above_the_full_resolution_image("18/42704/97344")]
 #[tokio::test]
 async fn a_zoom_no_overview_resolves_to_is_rejected(#[case] coordinates: &str) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin
         .get(&format!("/usda_naip_512_jpeg_z5/{coordinates}"))
@@ -988,7 +991,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
         .start()
         .await
         .expect("failed to start martin");
-    let mut with_the_cog_dir = martin_with_the_cog_dir().await;
+    let mut with_the_cog_dir = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tilejson(&martin, "usda_naip_256_lzw_z3").await,
@@ -1004,7 +1011,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
 
 #[tokio::test]
 async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_256_lzw_rgb_z2/18/42709/97344").await;
     assert_eq!(tile.status(), 200);
@@ -1019,7 +1030,11 @@ async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
 /// tiles 10-11 of rows 14-16, so its very first tile is one of the gaps.
 #[tokio::test]
 async fn a_tile_the_image_leaves_out_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let stored = martin.get("/usda_naip_512_jpeg_z5/17/21354/48670").await;
     assert_eq!(stored.status(), 200);

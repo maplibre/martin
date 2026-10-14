@@ -246,7 +246,7 @@ impl PmtConfig {
         path: PathBuf,
         cache: CachePolicy,
     ) -> SourceBuildResult<BackendSource> {
-        trace!("Pmtiles source {id} will be read from {}", path.display());
+        trace!(source.id = %id, source.path = %path.display(), "Pmtiles source will be read from local file");
         let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         // Opening parses the archive's metadata, so it runs on a worker and archives open in parallel.
         let source = tokio::spawn(PmtilesSource::new_local(dir_cache, id, path, cache.zoom()))

@@ -164,8 +164,10 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
-                path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
+                font.fontstack = %path.fontstack,
+                font.start = path.start,
+                font.end = path.end,
+                "Request to /fonts caused unnecessary redirect. Use /font to avoid extra round-trip latency."
             );
         })
         .await;
@@ -204,7 +206,11 @@ pub async fn redirect_font_ext(path: Path<FontExtRequest>) -> HttpResponse {
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /font/{fontstack}/{start}-{end}.{ext} caused unnecessary redirect. Use /font/{fontstack}/{start}-{end} to avoid extra round-trip latency."
+                font.fontstack = %fontstack,
+                font.start = start,
+                font.end = end,
+                font.extension = %ext,
+                "Request to a font with a file extension caused unnecessary redirect. Omit the extension to avoid extra round-trip latency."
             );
         })
         .await;

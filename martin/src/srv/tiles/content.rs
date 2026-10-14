@@ -6,12 +6,13 @@ use actix_http::header::Quality;
 use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{
     Accept, AcceptEncoding, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG,
-    Encoding as HeaderEnc, EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference,
+    Encoding as HeaderEnc, EntityTag, HeaderValue, IfNoneMatch, LOCATION, Preference, VARY,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
+use itertools::Itertools as _;
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
@@ -235,7 +236,10 @@ pub async fn redirect_tile_ext(
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+                source.ids = %ids,
+                tile.coord = %format!("{z}/{x}/{y}"),
+                tile.extension = %ext,
+                "Request to a tile with a file extension caused unnecessary redirect. Omit the extension to avoid extra round-trip latency."
             );
         })
         .await;
@@ -268,7 +272,9 @@ pub async fn redirect_tiles(
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                tile.coord = %format!("{z}/{x}/{y}"),
+                "Request to /tiles caused unnecessary redirect. Omit the /tiles prefix to avoid extra round-trip latency."
             );
         })
         .await;
@@ -470,11 +476,13 @@ impl<'a> DynTileSource<'a> {
                 IfNoneMatch::Any => true,
                 IfNoneMatch::Items(items) => {
                     let etag = EntityTag::new_strong(etag.to_owned());
-                    items.iter().any(|e| e.strong_eq(&etag))
+                    items.iter().any(|e| e.weak_eq(&etag))
                 }
             };
             if dominated_by {
-                return Ok(HttpResponse::NotModified().finish());
+                return Ok(HttpResponse::NotModified()
+                    .insert_header((VARY, HeaderValue::from_static("accept-encoding")))
+                    .finish());
             }
         }
 
@@ -489,6 +497,7 @@ impl<'a> DynTileSource<'a> {
         if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, HeaderValue::from_static(val)));
         }
+        response.insert_header((VARY, HeaderValue::from_static("accept-encoding")));
         if let Some(cache_control) = self.cache_control_header() {
             response.insert_header((CACHE_CONTROL, cache_control));
         }
@@ -545,12 +554,12 @@ impl<'a> DynTileSource<'a> {
                 .try_collect()
                 .await?;
 
-            let produced = tiles.first().map(|t| t.info.encoding);
-            (produced, self.merge_tiles(tiles)?)
+            (None, self.merge_tiles(tiles)?)
         };
-        // Only a re-encoded tile earns a second entry, otherwise the produced one already is the response.
+        // A response in the negotiated encoding earns an entry of its own, unless the produced one already is that response.
         if let Some((cache, key)) = served
             && produced != Some(tile.info.encoding)
+            && self.negotiated_encoding() == Some(tile.info.encoding)
         {
             cache.insert(key, tile.clone()).await;
         }
@@ -558,17 +567,18 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// The key of this request's response in the encoding the client receives.
-    /// `None` when the response is merged or stitched after the cache, or not cached at all.
+    /// `None` when the response is stitched after the cache, or not cached at all.
     fn served_key(&self, xyz: TileCoord) -> Option<(&'a TileCache, TileCacheKey)> {
-        let [(s, pc)] = self.sources.as_slice() else {
-            return None;
-        };
-        if pc.is_post_processed() {
+        if self.sources.iter().any(|(_, pc)| pc.is_post_processed()) {
             return None;
         }
-        let cache = self.cache.filter(|_| s.cache_zoom().contains(xyz.z()))?;
+        let cache = self.cache.filter(|_| {
+            self.sources
+                .iter()
+                .all(|(s, _)| s.cache_zoom().contains(xyz.z()))
+        })?;
         let key = TileCacheKey::new_request_dynamic(
-            s.get_id(),
+            self.sources.iter().map(|(s, _)| s.get_id()).join(","),
             xyz,
             self.source_query().map(|q| q.0.into()),
             self.accepted_format,
@@ -1063,6 +1073,7 @@ mod tests {
     #[rstest]
     #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
     #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())])), None)]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_weak("O3OuMnabzuvUuMTLiOt3rA".to_owned())])), None)]
     #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_owned())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_owned())))]
     #[actix_rt::test]
     async fn test_etag(
@@ -1088,6 +1099,10 @@ mod tests {
         assert_eq!(
             etag,
             expected_etag.map(|e| e.try_into_value().unwrap()).as_ref()
+        );
+        assert_eq!(
+            resp.headers().get(VARY),
+            Some(&HeaderValue::from_static("accept-encoding"))
         );
     }
 
@@ -1284,23 +1299,65 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::uncompressed_merged_to_gzip(Encoding::Uncompressed, Encoding::Gzip, 3)]
+    #[case::gzip_merged_to_gzip(Encoding::Gzip, Encoding::Gzip, 3)]
+    #[case::zstd_frames_served_as_they_are(Encoding::Zstd, Encoding::Zstd, 2)]
     #[actix_rt::test]
-    async fn a_composite_keeps_only_the_produced_entries() {
+    async fn a_composite_is_cached_in_the_encoding_it_is_served_in(
+        #[case] produced: Encoding,
+        #[case] served: Encoding,
+        #[case] entries: u64,
+    ) {
+        let mgr = cached_test_manager(vec![
+            mvt_source("a", b"aaa", produced),
+            mvt_source("b", b"bbb", produced),
+        ]);
+        let headers = TileRequestHeaders {
+            accept_enc: Some(AcceptEncoding(
+                ["gzip", "deflate", "br", "zstd"]
+                    .iter()
+                    .map(|s| s.parse().unwrap())
+                    .collect(),
+            )),
+            ..Default::default()
+        };
+        let src = DynTileSource::new(&mgr, "a,b", None, "", headers).unwrap();
+
+        let tile = src.get_tile_content(ORIGIN).await.unwrap();
+        assert_eq!(tile.info.encoding, served);
+        assert_eq!(decompress_tile(&tile.data, served), b"aaabbb");
+
+        let cache = mgr.tile_cache().as_ref().unwrap();
+        cache.run_pending_tasks().await;
+        assert_eq!(cache.entry_count(), entries);
+        let composite_key =
+            TileCacheKey::new_request_dynamic("a,b", ORIGIN, None, None, Some(Encoding::Gzip));
+        assert_eq!(
+            cache.contains_key(&composite_key),
+            entries == 3,
+            "a merge is cached iff it is served in the negotiated encoding"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn purging_a_member_drops_the_cached_composite() {
         let mgr = cached_test_manager(vec![
             mvt_source("a", b"aaa", Encoding::Uncompressed),
             mvt_source("b", b"bbb", Encoding::Uncompressed),
         ]);
         let src = DynTileSource::new(&mgr, "a,b", None, "", accept(Some("gzip"))).unwrap();
-        let tile = src.get_tile_content(ORIGIN).await.unwrap();
-        assert_eq!(tile.info.encoding, Encoding::Gzip);
+        src.get_tile_content(ORIGIN).await.unwrap();
 
         let cache = mgr.tile_cache().as_ref().unwrap();
+        let composite_key =
+            TileCacheKey::new_request_dynamic("a,b", ORIGIN, None, None, Some(Encoding::Gzip));
+        assert!(cache.contains_key(&composite_key));
+
+        cache.invalidate_source("b");
         cache.run_pending_tasks().await;
-        assert_eq!(
-            cache.entry_count(),
-            2,
-            "the merge is re-encoded per request"
-        );
+        assert!(!cache.contains_key(&composite_key));
+        assert_eq!(cache.entry_count(), 1, "the produced entry of a stays");
     }
 
     #[actix_rt::test]

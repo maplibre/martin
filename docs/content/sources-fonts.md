@@ -29,6 +29,8 @@ When combining multiple fonts, the glyph range will contain glyphs from the firs
 to the next font if the glyph is not available in the first font, etc.
 The glyph range will be empty if none of the fonts contain the glyph.
 
+--8<-- "images/fonts/fallback.svg"
+
 |         | Composite Font Request with fallbacks                        |
 |---------|--------------------------------------------------------------|
 | Pattern | `/font/{name1},…,{nameN}/{start}-{end}`                      |

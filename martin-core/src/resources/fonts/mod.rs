@@ -68,9 +68,7 @@ fn split_and_dedup_ids(ids: &str) -> Vec<&str> {
 /// Normalizes a font id list so equivalent fontstacks share one cache entry.
 #[must_use]
 pub fn normalize_font_ids(ids: &str) -> String {
-    let mut unique_ids = split_and_dedup_ids(ids);
-    unique_ids.sort_unstable();
-    unique_ids.join(",")
+    split_and_dedup_ids(ids).join(",")
 }
 
 mod error;
@@ -367,6 +365,8 @@ impl FontSources {
 
         let lib = Library::init()?;
         let mut stack = Fontstack::default();
+        // Offsets into the range of the codepoints an earlier font in the stack already supplied.
+        let mut supplied = BitSet::with_capacity(CP_RANGE_SIZE);
 
         for id in fonts {
             let Some(font) = self.fonts.get(id) else {
@@ -392,7 +392,9 @@ impl FontSources {
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
             for codepoint in start..=end {
-                if !font.codepoints.contains(codepoint as usize) {
+                if !font.codepoints.contains(codepoint as usize)
+                    || !supplied.insert((codepoint - start) as usize)
+                {
                     continue;
                 }
                 let g = render_sdf_glyph(&face, codepoint, BUFFER_SIZE, RADIUS, CUTOFF)?;
@@ -577,8 +579,8 @@ mod tests {
     }
 
     #[test]
-    fn normalize_font_ids_collapses_order_and_duplicates() {
-        assert_eq!(normalize_font_ids("b,a,b"), "a,b");
+    fn normalize_font_ids_collapses_duplicates_and_keeps_order() {
+        assert_eq!(normalize_font_ids("b,a,b"), "b,a");
         assert_eq!(normalize_font_ids("a"), "a");
     }
 

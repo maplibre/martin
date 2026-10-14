@@ -48,7 +48,7 @@ export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 PGPARAMS := ''
 PGPORT := '5411'
 
-export DATABASE_URL := ('postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
+export DATABASE_URL := env('DATABASE_URL', 'postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
 export CARGO_TERM_COLOR := 'always'
 
 # Set the AWS region for testing pmtiles from S3
@@ -201,15 +201,16 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    {{insta_test}} --package martin-e2e-tests --features test-pg,test-mlt-v2 {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    {{insta_test}} --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 {{args}}
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
@@ -234,11 +235,15 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-build-release target: fetch
+# Pass true as the second argument for optimized native Linux Docker binaries.
+build-release target pgo='false': fetch
     #!/usr/bin/env bash
     set -euo pipefail
+    pgo={{quote(pgo)}}
     # on debian we need to build a deb package
-    if [[ "{{target}}" == "debian-x86_64" ]]; then
+    if [[ "$pgo" == true ]]; then
+        {{just}} pgo-build {{quote(target)}}
+    elif [[ "{{target}}" == "debian-x86_64" ]]; then
         {{just}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
@@ -246,6 +251,78 @@ build-release target: fetch
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
+
+# Install PGO tooling on native Ubuntu/Debian hosts. x86 BOLT matches Rust's LLVM.
+[linux]
+pgo-install target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    rustup component add llvm-tools-preview
+    cargo install cargo-pgo --version 0.3.0 --locked
+    sudo apt-get update
+    sudo apt-get install -y sqlite3 postgresql-client
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        llvm_major=$(rustc -vV | sed -n 's/^LLVM version: \([0-9]*\).*/\1/p')
+        source /etc/os-release
+        curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /usr/share/keyrings/llvm.asc > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/llvm.asc] https://apt.llvm.org/$VERSION_CODENAME/ llvm-toolchain-$VERSION_CODENAME-$llvm_major main" | sudo tee /etc/apt/sources.list.d/llvm.list
+        sudo apt-get update
+        sudo apt-get install -y "bolt-$llvm_major"
+        sudo ln -sf "/usr/bin/llvm-bolt-$llvm_major" /usr/local/bin/llvm-bolt
+        sudo ln -sf "/usr/bin/merge-fdata-$llvm_major" /usr/local/bin/merge-fdata
+        sudo ln -sf "/usr/lib/llvm-$llvm_major/lib/libbolt_rt_instr.a" /usr/local/lib/libbolt_rt_instr.a
+    fi
+
+# Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
+# Run `just pgo-install <target>` first and provide an initialized DATABASE_URL.
+[linux]
+pgo-build target: fetch prepare-mbtiles
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    binary="$target_dir/$target/release/martin"
+    export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
+    if [[ "$target" == x86_64-unknown-linux-gnu && -z "${LEGACY_CPU:-}" ]]; then
+        export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
+    fi
+    cargo build --release --target "$target" --package mbtiles --locked
+    cargo pgo build -- --target "$target" --package martin --bin martin --locked
+    {{just}} pgo-train "$binary"
+    # BOLT rejects ARM Cortex-A53 linker veneers. Keep the ARM image on PGO.
+    if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
+        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked
+        {{just}} pgo-train "$binary-bolt-instrumented"
+        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked
+        binary="$binary-bolt-optimized"
+    else
+        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked
+    fi
+    mkdir -p target_releases
+    cp "$binary" target_releases/martin
+    cp "$target_dir/$target/release/mbtiles" target_releases/mbtiles
+    strip target_releases/martin target_releases/mbtiles
+
+# Train an instrumented Martin binary using the existing HTTP benchmark fixtures.
+[linux]
+pgo-train binary:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target_dir="${CARGO_TARGET_DIR:-target}"
+    {{quote(binary)}} --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
+    server=$!
+    trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
+    for _attempt in {1..60}; do
+        kill -0 "$server"
+        if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
+        sleep 1
+    done
+    curl -fsS http://localhost:3000/health > /dev/null
+    {{just}} bench-http 20000 20000
+    kill -TERM "$server"
+    wait "$server"
+    trap - EXIT
 
 # Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
 build-release-full target: fetch
@@ -318,7 +395,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-generate {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -384,7 +461,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.2 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.3 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -392,7 +469,7 @@ docs:
 
 # Build martin documentation
 docs-build:
-    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build --strict
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
@@ -612,6 +689,7 @@ test: fetch start
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
+    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
@@ -643,7 +721,7 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
 
 # Run Rust unit tests
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
@@ -652,19 +730,20 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-tile-utils
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
-    cargo nextest run --package martin-core
-    cargo nextest run --package martin --features unstable-mlt-v2
+    cargo nextest run --package martin-core --features unstable-generate
+    cargo nextest run --package martin-tilegen
+    cargo nextest run --package martin --features unstable-mlt-v2,unstable-generate
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    cargo nextest run --package martin-e2e-tests --features test-mlt-v2 {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    cargo nextest run --package martin-e2e-tests --features test-generate,test-mlt-v2 {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test martin_cp --test postgres --test process {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_generate --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch
@@ -732,7 +811,7 @@ test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
 # Run all tests using an SSL connection to a test database
 test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets") test-pg test-doc
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
 
 # Install the nextest test runner if not already installed.
 [private]
@@ -754,14 +833,18 @@ test-ssl-cert: start-ssl-cert (cargo-install 'cargo-nextest')
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
     {{just}} test-cargo --all-targets
     {{just}} test-doc
-    cargo build --package martin --package mbtiles
-    cargo nextest run --package martin-e2e-tests --features test-pg
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update: fetch
     cargo +nightly -Z unstable-options update --breaking
     # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
     sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+    {{just}} update-lockfile
+
+# Update Cargo.lock to the latest compatible versions, keeping the crates banned in deny.toml pinned
+update-lockfile: fetch
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml

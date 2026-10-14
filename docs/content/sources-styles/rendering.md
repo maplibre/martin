@@ -148,17 +148,12 @@ An empty or missing body is equivalent to `GET`.
 
 The `{camera}` segment chooses what the image looks at:
 
-| Form                            | Meaning                                              |
-| ------------------------------- | ---------------------------------------------------- |
-| `lon,lat,zoom`                  | Center at `(lon, lat)` and `zoom` (north up, flat).  |
-| `lon,lat,zoom@bearing`          | Center + bearing in degrees (clockwise from north).  |
-| `lon,lat,zoom@bearing,pitch`    | Center + bearing + pitch in degrees.                 |
-| `minLon,minLat,maxLon,maxLat`   | Fit the given bounding box to the requested size.    |
+--8<-- "images/styles/camera.svg"
 
 !!! info
-    The image is always rendered INSIDE of the requested size.
-    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at `1°,-1°`.
-    We will not expand the image outside the bbox.
+    The whole bounding box is always visible.
+    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image is centered on `0,0` and spans the full 20° of longitude, with extra map above and below the bbox.
+    A bounding box always renders north up and flat.
 
 ### Size and format
 

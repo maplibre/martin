@@ -8,6 +8,8 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+#[cfg(feature = "unstable-generate")]
+use crate::config::file::tiling;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
 };
@@ -95,6 +97,19 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
     pub geometry_type: Option<String>,
 
+    /// A cache miss renders the N×N block around the tile and caches the neighbours.
+    /// Only applies with `layers` (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prefetch: Option<tiling::Prefetch>,
+
+    /// Output layers, keyed by name. With `layers`, Martin's engine tiles the table instead of `ST_AsMVT` (unstable)
+    #[cfg(feature = "unstable-generate")]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub layers: Option<Box<tiling::Layers>>,
+
     /// Zoom-level bounds for tile caching (overrides top-level cache).
     /// default: null (inherit from top-level default)
     /// Use `cache: disable` to disable caching for this source.
@@ -143,6 +158,29 @@ pub struct TableInfo {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub discovered: DiscoveredTable,
+}
+
+#[cfg(feature = "unstable-generate")]
+pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<TableInfoSources>, D::Error> {
+    struct CheckedTables(TableInfoSources);
+
+    impl<'de> Deserialize<'de> for CheckedTables {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            tiling::checked_map_with(deserializer, |tables: TableInfoSources| {
+                if let Some(id) = tables
+                    .iter()
+                    .find_map(|(id, t)| (t.layer_id.is_some() && t.layers.is_some()).then_some(id))
+                {
+                    return Err(tiling::TilingConfigError::LayerIdWithLayers(id.clone()));
+                }
+                Ok(Self(tables))
+            })
+        }
+    }
+
+    Option::<CheckedTables>::deserialize(deserializer).map(|tables| tables.map(|t| t.0))
 }
 
 /// What discovery found out about a table, which the config never sets.
@@ -208,6 +246,17 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
+    /// The type a query returns `column` as, after mapping a property to its table column.
+    #[must_use]
+    pub fn column_type(&self, column: &str) -> Option<&str> {
+        let column = self
+            .discovered
+            .prop_mapping
+            .get(column)
+            .map_or(column, String::as_str);
+        self.discovered.column_types.get(column).map(String::as_str)
+    }
+
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
     pub fn append_cfg_info(
@@ -235,8 +284,11 @@ impl TableInfo {
         match (&self.geometry_type, &cfg_inf.geometry_type) {
             (Some(src), Some(cfg)) if src != cfg => {
                 warn!(
-                    r"Table {} has geometry type={src}, but source {new_id} has {cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.geometry_type = %src,
+                    source.id = %new_id,
+                    source.geometry_type = %cfg,
+                    "Table geometry type does not match the configured source geometry type"
                 );
             }
             _ => {}
@@ -268,22 +320,28 @@ impl TableInfo {
         match (self.srid, cfg_srid, default_srid) {
             (0, 0, Some(default_srid)) => {
                 info!(
-                    "Table {} has SRID=0, using provided default SRID={default_srid}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    srid.default = default_srid,
+                    "Table has SRID=0, using provided default SRID"
                 );
                 Some(default_srid)
             }
             (0, 0, None) => {
-                let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
-                warn!("Table {} has SRID=0, skipping. {info}", self.format_id());
+                warn!(
+                    table.id = %self.format_id(),
+                    "Table has SRID=0, skipping. To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=..."
+                );
                 None
             }
             (0, cfg, _) => Some(cfg), // Use the configured SRID
             (src, 0, _) => Some(src), // Use the source SRID
             (src, cfg, _) if src != cfg => {
                 warn!(
-                    "Table {} has SRID={src}, but source {new_id} has SRID={cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.srid = src,
+                    source.id = %new_id,
+                    source.srid = cfg,
+                    "Table SRID does not match the configured source SRID"
                 );
                 None
             }

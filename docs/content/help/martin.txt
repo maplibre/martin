@@ -76,7 +76,7 @@ Options:
           the TileJSON tiles URL will be like .../{z}/{x}/{y}?version=1.0.0
 
   -C, --cache-size <CACHE_SIZE>
-          Main cache size (in MB)
+          Main cache size, e.g. `512MB` or `1GiB`. A bare number is in MB
 
       --cache-expiry <CACHE_EXPIRY>
           Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")

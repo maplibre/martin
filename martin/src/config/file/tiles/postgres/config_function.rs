@@ -160,8 +160,10 @@ impl PostgresInfo for FunctionInfo {
             TileInfo::from(format)
         } else {
             warn!(
-                "Unrecognized content_type '{}' in SQL comment for {}.{}, defaulting to MVT",
-                content_type, self.schema, self.function
+                content_type = %content_type,
+                schema = %self.schema,
+                function = %self.function,
+                "Unrecognized content_type in SQL comment, defaulting to MVT"
             );
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }

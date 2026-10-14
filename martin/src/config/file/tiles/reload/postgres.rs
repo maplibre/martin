@@ -79,11 +79,13 @@ impl PostgresReloader {
         on_slow(init, DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)), || {
             if auto_bounds == BoundsCalcType::Skip {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Bounds calculation is already disabled. You may need to tune your database."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Bounds calculation is already disabled. You may need to tune your database."
                 );
             } else {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
                 );
             }
         })
@@ -212,7 +214,7 @@ mod e2e {
     use crate::config::file::{CachePolicy, OnInvalid, TileGrids};
     use crate::config::primitives::IdResolver;
     use crate::test_support::pg::{
-        connection_string, seed, start_postgres_12_with_postgis_3_5_container,
+        connection_string, seed, start_postgres_15_with_postgis_3_5_container,
     };
 
     /// A [`Trigger`] the test drives in lockstep. Each `next()` first acks that the previous cycle
@@ -295,7 +297,7 @@ mod e2e {
 
     #[tokio::test]
     async fn init_then_reload_reflects_create_alter_drop_in_catalog() {
-        let container = start_postgres_12_with_postgis_3_5_container().await;
+        let container = start_postgres_15_with_postgis_3_5_container().await;
         let connstr = connection_string(&container).await;
 
         seed(

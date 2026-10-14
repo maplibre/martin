@@ -59,8 +59,8 @@ pub struct SrvArgs {
     #[arg(long)]
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
-    /// Main cache size (in MB)
-    #[arg(short = 'C', long)]
+    /// Main cache size, e.g. `512MB` or `1GiB`. A bare number is in MB
+    #[arg(short = 'C', long, value_parser = parse_byte_size)]
     pub cache_size: Option<u64>,
     /// Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
     #[arg(long, value_parser = parse_duration)]
@@ -73,6 +73,13 @@ pub struct SrvArgs {
 fn parse_duration(s: &str) -> Result<Duration, String> {
     use humantime_serde::re::humantime;
     humantime::parse_duration(s).map_err(|e| e.to_string())
+}
+
+pub(crate) fn parse_byte_size(s: &str) -> Result<u64, String> {
+    if let Ok(mb) = s.parse::<u64>() {
+        return Ok(mb.saturating_mul(bytesize::MB));
+    }
+    s.parse::<bytesize::ByteSize>().map(|size| size.as_u64())
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]

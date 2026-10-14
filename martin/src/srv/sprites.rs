@@ -94,7 +94,8 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /sprites/{source_ids}.png caused unnecessary redirect. Use /sprite/{source_ids}.png to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                "Request to /sprites caused unnecessary redirect. Use /sprite to avoid extra round-trip latency."
             );
         })
         .await;
@@ -166,7 +167,8 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /sdf_sprites/{source_ids}.png caused unnecessary redirect. Use /sdf_sprite/{source_ids}.png to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                "Request to /sdf_sprites caused unnecessary redirect. Use /sdf_sprite to avoid extra round-trip latency."
             );
         })
         .await;
@@ -239,7 +241,8 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /sprites/{source_ids}.json caused unnecessary redirect. Use /sprite/{source_ids}.json to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                "Request to /sprites caused unnecessary redirect. Use /sprite to avoid extra round-trip latency."
             );
         })
         .await;
@@ -312,7 +315,8 @@ pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResp
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /sdf_sprites/{source_ids}.json caused unnecessary redirect. Use /sdf_sprite/{source_ids}.json to avoid extra round-trip latency."
+                source.ids = %source_ids,
+                "Request to /sdf_sprites caused unnecessary redirect. Use /sdf_sprite to avoid extra round-trip latency."
             );
         })
         .await;

@@ -239,8 +239,8 @@ impl Mbtiles {
                     tj.vector_layers = Some(v);
                 } else {
                     warn!(
-                        "Unable to parse metadata vector_layers value in {}",
-                        self.filename()
+                        mbtiles.file = %self.filename(),
+                        "Unable to parse metadata vector_layers value"
                     );
                 }
             }

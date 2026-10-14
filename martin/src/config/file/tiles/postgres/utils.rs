@@ -47,7 +47,13 @@ fn find_info_kv<'a, T>(
             map.keys().map(String::as_str).join(", ")
         )),
         Ok(Some(result)) => {
-            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
+            info!(
+                source.id = %id,
+                key.kind = %info,
+                key.requested = %key,
+                key.found = %result,
+                "Key not found by exact name, using case-insensitive match"
+            );
             let value = map.get(result).expect("guaranteed to be in the map");
             Ok((result.as_str(), value))
         }
@@ -133,7 +139,7 @@ pub fn patch_json(target: TileJSON, patch: Option<&serde_json::Value>) -> TileJS
     let mut tilejson2 = match serde_json::to_value(target.clone()) {
         Ok(v) => v,
         Err(e) => {
-            error!("Failed to serialize tilejson, unable to merge function comment: {e}");
+            error!(error = %e, "Failed to serialize tilejson, unable to merge function comment");
             return target;
         }
     };
@@ -141,7 +147,7 @@ pub fn patch_json(target: TileJSON, patch: Option<&serde_json::Value>) -> TileJS
     match serde_json::from_value(tilejson2.clone()) {
         Ok(v) => v,
         Err(e) => {
-            error!("Failed to deserialize merged function comment tilejson: {e}");
+            error!(error = %e, "Failed to deserialize merged function comment tilejson");
             target
         }
     }

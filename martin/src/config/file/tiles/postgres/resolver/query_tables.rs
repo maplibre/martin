@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
+#[cfg(feature = "unstable-generate")]
+use martin_core::generate::source::Crs;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
@@ -64,14 +66,19 @@ pub async fn query_available_tables(
                 Ok(v) => Some(v),
                 Err(e) => {
                     warn!(
-                        "Unable to deserialize SQL comment on {schema}.{table} as tilejson, the automatically generated tilejson would be used: {e}"
+                        schema = %schema,
+                        table = %table,
+                        error = %e,
+                        "Unable to deserialize SQL comment as tilejson, the automatically generated tilejson would be used"
                     );
                     None
                 }
             }
         } else {
             debug!(
-                "Unable to find a  SQL comment on {schema}.{table}, the tilejson would be generated automatically"
+                schema = %schema,
+                table = %table,
+                "Unable to find a SQL comment, the tilejson would be generated automatically"
             );
             None
         };
@@ -103,8 +110,10 @@ pub async fn query_available_tables(
         // Ignore views since those can't have indices and will generally refer to table columns.
         if info.discovered.geometry_index == Some(false) && info.discovered.relkind != Some('v') {
             warn!(
-                "Table {}.{} has no spatial index on column {}",
-                info.schema, info.table, info.geometry_column
+                schema = %info.schema,
+                table = %info.table,
+                geometry_column = %info.geometry_column,
+                "Table has no spatial index on the geometry column"
             );
         }
 
@@ -115,7 +124,7 @@ pub async fn query_available_tables(
             .or_default()
             .insert(info.geometry_column.clone(), info)
         {
-            warn!("Unexpected duplicate table {}", v.format_id());
+            warn!(table.id = %v.format_id(), "Unexpected duplicate table");
         }
     }
 
@@ -181,8 +190,9 @@ pub async fn table_to_query(
     if info.bounds.is_none() && grid.grid().is_simple() {
         // plain planar units have no place in WGS84 bounds
         debug!(
-            "Not computing the bounds of {id}: tile grid {} is not geographic",
-            grid.grid().id()
+            source.id = %id,
+            tile_grid = %grid.grid().id(),
+            "Not computing the bounds: tile grid is not geographic"
         );
     } else if info.bounds.is_none()
         && bounds_type != BoundsCalcType::Skip
@@ -191,14 +201,15 @@ pub async fn table_to_query(
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
-                debug!("Computing {} table bounds for {id}", info.format_id());
+                debug!(source.id = %id, table.id = %info.format_id(), "Computing table bounds");
                 info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
-                    "Computing {} table bounds with {}s timeout for {id}",
-                    info.format_id(),
-                    DEFAULT_BOUNDS_TIMEOUT.as_secs()
+                    source.id = %id,
+                    table.id = %info.format_id(),
+                    timeout.secs = DEFAULT_BOUNDS_TIMEOUT.as_secs(),
+                    "Computing table bounds with timeout"
                 );
                 let bounds = {
                     let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
@@ -210,8 +221,9 @@ pub async fn table_to_query(
                     info.bounds = bounds?;
                 } else {
                     warn!(
-                        "Timeout computing {} bounds for {id}, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices.",
-                        info.format_id(),
+                        source.id = %id,
+                        table.id = %info.format_id(),
+                        "Timeout computing bounds, aborting query. Use --auto-bounds=calc to wait until complete, or check the table for missing indices."
                     );
                 }
             }
@@ -219,8 +231,10 @@ pub async fn table_to_query(
 
         if let Some(bounds) = info.bounds {
             debug!(
-                "The computed bounds for {id} from {} are {bounds}",
-                info.format_id()
+                source.id = %id,
+                table.id = %info.format_id(),
+                bounds = %bounds,
+                "Computed table bounds"
             );
         }
     }
@@ -293,22 +307,13 @@ impl TableQuerySql {
         grid: &PgTileGrid,
         table_wrap: Option<f64>,
     ) -> PostgresResult<Self> {
-        let props = info.properties.iter().flatten();
-        let properties: String = props
-            .clone()
+        let properties: String = info
+            .properties
+            .iter()
+            .flatten()
             .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
-        let row_properties: String = props
-            .map(|(column, label)| {
-                let table_column = info.discovered.prop_mapping.get(column).unwrap_or(column);
-                let pg_type = info
-                    .discovered
-                    .column_types
-                    .get(table_column)
-                    .unwrap_or(label);
-                escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
-            })
-            .collect();
+        let row_properties = row_properties(info);
 
         let (id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
@@ -323,12 +328,7 @@ impl TableQuerySql {
         let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
         let margin = f64::from(buffer) / f64::from(extent);
         let geometry_column = escape_identifier(&info.geometry_column);
-        // `ST_AsMVTGeom` cannot encode arcs, so only columns that may hold them are linearized.
-        let geometry = if may_contain_arcs(info.geometry_type.as_deref()) {
-            format!("ST_CurveToLine({geometry_column}::geometry)")
-        } else {
-            format!("{geometry_column}::geometry")
-        };
+        let geometry = linear_geometry(info);
         let GridSql {
             geometry,
             envelope,
@@ -503,6 +503,85 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     let expr = cql2::parse_text(filter).map_err(|e| invalid(e.to_string()))?;
     let sql = expr.to_sql().map_err(|e| invalid(e.to_string()))?;
     Ok(format!(" {keyword} ({sql})"))
+}
+
+/// The query `martin generate` streams a whole table with.
+#[cfg(feature = "unstable-generate")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanSql {
+    pub sql: String,
+    pub crs: Crs,
+    pub has_id: bool,
+    pub properties: Vec<String>,
+}
+
+/// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
+/// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
+/// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+///
+/// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
+#[cfg(feature = "unstable-generate")]
+pub fn scan_sql(info: &TableInfo, bbox: Option<Bounds>) -> PostgresResult<ScanSql> {
+    let row_properties = row_properties(info);
+    let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
+        escape_with_alias(&info.discovered.prop_mapping, id)
+    });
+    let column = escape_identifier(&info.geometry_column);
+    let geometry = format!("ST_Force2D({})", linear_geometry(info));
+    let (geometry, crs) = match info.srid {
+        4326 => (geometry, Crs::Wgs84),
+        3857 => (geometry, Crs::WebMercator),
+        _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
+    };
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let filter = row_filter(info, "AND")?;
+    let bbox = bbox.map_or_else(String::new, |bbox| {
+        let envelope = format!(
+            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
+            bbox.left, bbox.bottom, bbox.right, bbox.top
+        );
+        match info.srid {
+            4326 => format!(" AND {column} && {envelope}"),
+            srid => format!(" AND {column} && ST_Transform({envelope}, {srid})"),
+        }
+    });
+    Ok(ScanSql {
+        sql: format!(
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
+        ),
+        crs,
+        has_id: info.id_column.is_some(),
+        properties: info
+            .properties
+            .iter()
+            .flatten()
+            .map(|(column, _)| column.clone())
+            .collect(),
+    })
+}
+
+/// The properties as tile row queries select them, cast by the type each column is returned as.
+fn row_properties(info: &TableInfo) -> String {
+    info.properties
+        .iter()
+        .flatten()
+        .map(|(column, label)| {
+            let pg_type = info.column_type(column).unwrap_or(label);
+            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
+        })
+        .collect()
+}
+
+/// The geometry column as `geometry`; `ST_AsMVTGeom` cannot encode arcs, so a column that may hold them
+/// is linearized.
+fn linear_geometry(info: &TableInfo) -> String {
+    let column = escape_identifier(&info.geometry_column);
+    if may_contain_arcs(info.geometry_type.as_deref()) {
+        format!("ST_CurveToLine({column}::geometry)")
+    } else {
+        format!("{column}::geometry")
+    }
 }
 
 /// Whether a column of this geometry type can hold circular arcs.
@@ -691,8 +770,10 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
             return Ok(polygon_to_bbox(&bounds));
         }
         warn!(
-            "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
-            info.geometry_column
+            schema = %schema,
+            table = %table,
+            geometry_column = %info.geometry_column,
+            "ST_EstimatedExtent failed, trying slower method to compute bounds"
         );
     }
 
@@ -735,9 +816,11 @@ async fn transforms_to_wgs84(
         Ok(()) => Ok(true),
         Err(CannotTransform(refusal, ..)) => {
             warn!(
-                "Not computing the bounds of {}: SRID {srid} is {authority}, not an EPSG system, so PostGIS cannot express them in WGS84 ({}). Set bounds in the config to advertise them.",
-                info.format_id(),
-                refusal.message()
+                table.id = %info.format_id(),
+                srid = srid,
+                srid.authority = %authority,
+                error = %refusal.message(),
+                "Not computing the bounds: SRID is not an EPSG system, so PostGIS cannot express them in WGS84. Set bounds in the config to advertise them."
             );
             Ok(false)
         }

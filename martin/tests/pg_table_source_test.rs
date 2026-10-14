@@ -1,5 +1,6 @@
 #![cfg(feature = "test-pg")]
 
+use approx::assert_abs_diff_eq;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::parse_config;
@@ -10,7 +11,14 @@ pub use utils::*;
 
 #[actix_rt::test]
 async fn table_source() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            auto_bounds: calc
+        "})
+        .await,
+    )
+    .await;
     insta::with_settings!({sort_maps => true}, {
     assert_yaml_snapshot!(mock.0.tile_manager.tile_sources().get_catalog(), @r#"
     "-function.withweired---_-characters":
@@ -204,25 +212,33 @@ async fn table_source() {
     ");
 
     let source3 = table(&mock, "points3857");
-    assert_yaml_snapshot!(source3, @"
+    assert_yaml_snapshot!(source3, {".bounds" => "[bounds]"}, @r#"
     schema: public
     table: points3857
     srid: 3857
     geometry_column: geom
-    bounds:
-      - -161.4059125851273
-      - -81.50727080755011
-      - 172.51550346797322
-      - 84.24401966908702
+    bounds: "[bounds]"
     geometry_type: POINT
     properties:
       gid: int4
-    ");
+    "#);
+    let bounds = source3.bounds.expect("points3857 has bounds");
+    assert_abs_diff_eq!(bounds.left, -161.405_907_775_540_58, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.bottom, -81.507_270_216_090_12, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.right, 172.515_491_267_685_32, epsilon = 1e-9);
+    assert_abs_diff_eq!(bounds.top, 84.244_018_716_411_1, epsilon = 1e-9);
 }
 
 #[actix_rt::test]
 async fn tables_tilejson() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            auto_bounds: calc
+        "})
+        .await,
+    )
+    .await;
     let src = source(&mock, "table_source");
     assert_yaml_snapshot!(src.get_tilejson(), @"
     tilejson: 3.0.0
@@ -308,7 +324,14 @@ async fn table_source_schemas() {
 
 #[actix_rt::test]
 async fn table_bounds_linestring_horizontal_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            auto_bounds: calc
+        "})
+        .await,
+    )
+    .await;
     let source = table(&mock, "linestring_bounds");
     assert_yaml_snapshot!(source, @"
     schema: public
@@ -316,10 +339,10 @@ async fn table_bounds_linestring_horizontal_ok() {
     srid: 4326
     geometry_column: geom
     bounds:
-      - 9.958169937133789
-      - 10.037016868591309
-      - 9.967533111572266
-      - 10.037017822265625
+      - 8.9581704
+      - 9.0370178
+      - 10.9675324
+      - 11.0370178
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -328,7 +351,14 @@ async fn table_bounds_linestring_horizontal_ok() {
 
 #[actix_rt::test]
 async fn table_bounds_linestring_vertical_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            auto_bounds: calc
+        "})
+        .await,
+    )
+    .await;
     let source = table(&mock, "linestring_bounds_vertical");
     assert_yaml_snapshot!(source, @"
     schema: public
@@ -337,9 +367,9 @@ async fn table_bounds_linestring_vertical_ok() {
     geometry_column: geom
     bounds:
       - 9
-      - 8.958169937133789
+      - 8.9581704
       - 11
-      - 10.967533111572266
+      - 10.9675324
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -348,7 +378,14 @@ async fn table_bounds_linestring_vertical_ok() {
 
 #[actix_rt::test]
 async fn table_bounds_single_point_ok() {
-    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL").await).await;
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            auto_bounds: calc
+        "})
+        .await,
+    )
+    .await;
     let source = table(&mock, "point_bounds");
     assert_yaml_snapshot!(source, @"
     schema: public

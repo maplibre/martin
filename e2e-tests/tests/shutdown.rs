@@ -1,7 +1,5 @@
-//! Graceful shutdown: on `SIGTERM`, requests in flight are answered before martin exits.
-
-// The harness can only send `SIGTERM` on Unix; elsewhere it kills martin after a timeout.
-#![cfg(not(windows))]
+//! Graceful shutdown: on `SIGTERM` (Ctrl+Break on Windows), requests in flight are answered
+//! before martin exits.
 
 use std::time::Duration;
 
@@ -12,37 +10,6 @@ use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const UPSTREAM_DELAY: Duration = Duration::from_secs(2);
-
-/// An upstream answering every tile after [`UPSTREAM_DELAY`], so a request through martin is
-/// still in flight when the test sends `SIGTERM`.
-async fn slow_upstream() -> MockServer {
-    let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_bytes(b"tile".to_vec())
-                .set_delay(UPSTREAM_DELAY),
-        )
-        .mount(&server)
-        .await;
-    server
-}
-
-async fn martin_proxying(upstream: &MockServer, args: &[&str]) -> Martin {
-    let config = formatdoc! {"
-        cache: disable
-        passthrough:
-          sources:
-            slow:
-              url: {url}/{{z}}/{{x}}/{{y}}
-              format: mvt
-    ", url = upstream.uri()};
-    let mut builder = Martin::builder().config(&config);
-    for arg in args {
-        builder = builder.arg(arg);
-    }
-    builder.start().await.expect("failed to start martin")
-}
 
 /// Request a tile, then stop martin once the request has reached the upstream.
 async fn stop_with_a_request_in_flight(
@@ -71,8 +38,27 @@ async fn stop_with_a_request_in_flight(
 
 #[tokio::test]
 async fn sigterm_waits_for_requests_in_flight() {
-    let upstream = slow_upstream().await;
-    let mut martin = martin_proxying(&upstream, &[]).await;
+    let upstream = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_bytes(b"tile".to_vec())
+                .set_delay(UPSTREAM_DELAY),
+        )
+        .mount(&upstream)
+        .await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cache: disable
+            passthrough:
+              sources:
+                slow:
+                  url: {url}/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        ", url = upstream.uri()})
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let status = stop_with_a_request_in_flight(&mut martin, &upstream).await;
 
@@ -81,8 +67,29 @@ async fn sigterm_waits_for_requests_in_flight() {
 
 #[tokio::test]
 async fn a_zero_shutdown_timeout_drops_requests_in_flight() {
-    let upstream = slow_upstream().await;
-    let mut martin = martin_proxying(&upstream, &["--shutdown-timeout", "0"]).await;
+    let upstream = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_bytes(b"tile".to_vec())
+                .set_delay(UPSTREAM_DELAY),
+        )
+        .mount(&upstream)
+        .await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cache: disable
+            passthrough:
+              sources:
+                slow:
+                  url: {url}/{{z}}/{{x}}/{{y}}
+                  format: mvt
+        ", url = upstream.uri()})
+        .arg("--shutdown-timeout")
+        .arg("0")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let status = stop_with_a_request_in_flight(&mut martin, &upstream).await;
 

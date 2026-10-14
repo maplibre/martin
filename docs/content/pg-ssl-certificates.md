@@ -23,18 +23,9 @@ Use SSL certificates for:
 
 ## SSL Modes
 
-| sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection       | Statement                                                                                                                                   |
-|---------------|------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `disable`     | ⛔                                 | ⛔                         | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
-| `allow`       | 🤷                                 | ⛔                         | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
-| `prefer`      | 🤷                                 | ⛔                         | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
-| `require`     | ✅                                 | ⛔                         | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
-| `verify-ca`   | ✅                                 | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
-| `verify-full` | ✅                                 | ✅                         | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
+--8<-- "images/pg/sslmode.svg"
 
-Our recommendation: **`verify-full` or `allow`**.
-There are not many cases where anything in between makes sense.
-
+There are not many cases where anything between the two recommended modes makes sense.
 In particular, the default mode (`prefer`) does not make much sense.
 From the postgres documentation:
 

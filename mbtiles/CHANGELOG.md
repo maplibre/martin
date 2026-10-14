@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/maplibre/martin/compare/mbtiles-v0.20.2...mbtiles-v0.21.0) - 2026-10-09
+
+### Added
+
+- *(mbtiles)* add MbtilesBulkWriter for fast synchronous bulk writes ([#3496](https://github.com/maplibre/martin/pull/3496))
+
+### Fixed
+
+- fmt/lint ([#3491](https://github.com/maplibre/martin/pull/3491))
+- *(tile-utils)* stop mistaking MLT tiles for JPEG XL ([#3522](https://github.com/maplibre/martin/pull/3522))
+- *(tile-utils)* stop detecting MLT tiles as MVT ([#3486](https://github.com/maplibre/martin/pull/3486))
+
+### Other
+
+- *(cp)* write tiles with the synchronous bulk writer ([#3500](https://github.com/maplibre/martin/pull/3500))
+- *(mbtiles)* hash each inserted tile once ([#3474](https://github.com/maplibre/martin/pull/3474))
+- *(deps)* update rust crate mlt-core to 0.19.0 ([#3483](https://github.com/maplibre/martin/pull/3483))
+- *(tile-utils)* size codec outputs exactly ([#3473](https://github.com/maplibre/martin/pull/3473))
+- reduce allocations a bit ([#3467](https://github.com/maplibre/martin/pull/3467))
+
 ## [0.20.2](https://github.com/maplibre/martin/compare/mbtiles-v0.20.1...mbtiles-v0.20.2) - 2026-10-01
 
 ### Fixed

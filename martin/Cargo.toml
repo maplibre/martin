@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -148,6 +148,17 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
+unstable-generate = [
+    "_tiles",
+    "mbtiles",
+    "postgres",
+    "martin-core/unstable-generate",
+    "dep:cel",
+    "dep:indexmap",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
+]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
@@ -186,6 +197,8 @@ async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
+bytesize.workspace = true
+cel = { workspace = true, optional = true }
 clap.workspace = true
 compact_str = { workspace = true, optional = true }
 cql2 = { workspace = true, optional = true }
@@ -200,6 +213,7 @@ geojson = { workspace = true, optional = true }
 hotpath = { workspace = true, features = ["tokio"] }
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
@@ -208,6 +222,7 @@ log.workspace = true
 martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
 mlt-core.workspace = true
@@ -259,6 +274,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+approx.workspace = true
 aws-runtime.workspace = true
 backon.workspace = true
 criterion.workspace = true
