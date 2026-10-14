@@ -141,7 +141,7 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = "0.1.0"
+map-tile-toolkit = "0.2.0"
 maplibre_native = "0.10.0"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.3" }
 martin-core = { path = "./martin-core", version = "0.13.0", default-features = false }
