@@ -5635,9 +5635,9 @@ dependencies = [
 
 [[package]]
 name = "map-tile-toolkit"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76965e13f84bb1631b77c64856719c021d9de857cbff2d5622706b6c00901acd"
+checksum = "f9812ba8cf73e2ad06c791e180a51dcb25e27c09faa2a870be309bfc188fe936"
 dependencies = [
  "geo-types",
  "thiserror 2.0.21",

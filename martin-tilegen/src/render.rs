@@ -4,7 +4,7 @@ use std::ops::{Range, RangeInclusive};
 
 use geo::{BoundingRect, SimplifyIdx as _};
 use geo_types::{Coord, LineString, Polygon, Rect};
-use map_tile_toolkit::{PolygonSlicerAll, SlicerAll, signed_area_2x};
+use map_tile_toolkit::{PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
@@ -176,8 +176,8 @@ impl RenderLayer {
 
 #[derive(Default)]
 pub struct Renderer {
-    slicers: Vec<(LayerGrid, SlicerAll)>,
-    poly_slicers: Vec<(LayerGrid, PolygonSlicerAll)>,
+    /// One slicer per layer grid, for lines and polygons, reused across features.
+    slicers: Vec<(LayerGrid, Slicer)>,
     /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
     /// and vertices.
     polys: Vec<u32>,
@@ -185,6 +185,10 @@ pub struct Renderer {
     vertices: Vec<Coord<i32>>,
     /// One tile's piece, shaped the same with tile-local vertices.
     piece: PieceBuf,
+    /// The slicer's output for the feature at one zoom, which comes in no particular order: every
+    /// line run or polygon ring with its tile, its vertices tile-local in `sliced_vertices`.
+    sliced: Vec<SlicedPart>,
+    sliced_vertices: Vec<Vertex>,
     points: Vec<(i32, i32, Vertex)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
@@ -431,6 +435,9 @@ impl Renderer {
         result
     }
 
+    /// Slices each line into the tiles it reaches and pushes one piece per tile, holding every run
+    /// of the feature's lines there. A slicer error drops the whole feature at this zoom: nothing is
+    /// pushed until every line is sliced.
     fn slice_lines(
         &mut self,
         ctx: &Ctx<'_>,
@@ -439,25 +446,58 @@ impl Renderer {
         vertices: &[Coord<i32>],
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
-        let slicer_index = self.slicer_index(ctx.layer)?;
-        let slicer = &mut self.slicers[slicer_index].1;
-        slicer.clear();
+        let pos = self.slicer_index(ctx.layer)?;
+        let slicer = &self.slicers[pos].1;
+        self.sliced.clear();
+        self.sliced_vertices.clear();
         let mut rest = vertices;
         for &len in parts {
             let (line, tail) = rest.split_at(len as usize);
             rest = tail;
-            slicer.add_feature(line).map_err(GeometryError::from)?;
-        }
-        for tile in slicer.iter_tiles() {
-            let id = tile.tile_id();
-            self.piece.clear();
-            for polyline in tile.iter_features().flat_map(|f| f.iter_polylines()) {
-                self.piece.parts.push(vertex_count(polyline.len())?);
-                self.piece
-                    .vertices
-                    .extend(polyline.iter().map(|c| [c.x, c.y]));
+            for slice in slicer.line(line).map_err(GeometryError::from)? {
+                let start = self.sliced_vertices.len();
+                self.sliced_vertices
+                    .extend(slice.run().iter().map(|c| [c.x, c.y]));
+                self.sliced.push(SlicedPart {
+                    tile: slice.tile(),
+                    polygon: 0,
+                    start,
+                    len: vertex_count(self.sliced_vertices.len() - start)?,
+                });
             }
-            ctx.push(zoom, id.x, id.y, self.piece.lines(), out)?;
+        }
+        self.push_sliced(ctx, zoom, PieceKind::Lines, out)
+    }
+
+    /// Pushes one piece per tile from [`Self::sliced`]: the tile's parts in the order they were
+    /// sliced (a stable sort by tile keeps each line's runs, and each polygon's rings, together and
+    /// in order).
+    fn push_sliced(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        kind: PieceKind,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.sliced.sort_by_key(|p| (p.tile.x, p.tile.y));
+        for tile in self.sliced.chunk_by(|a, b| a.tile == b.tile) {
+            self.piece.clear();
+            for polygon in tile.chunk_by(|a, b| a.polygon == b.polygon) {
+                for part in polygon {
+                    self.piece.parts.push(part.len);
+                    self.piece.vertices.extend_from_slice(
+                        &self.sliced_vertices[part.start..part.start + part.len as usize],
+                    );
+                }
+                if kind == PieceKind::Polygons {
+                    self.piece.polys.push(len32(polygon.len())?);
+                }
+            }
+            let geom = match kind {
+                PieceKind::Lines => self.piece.lines(),
+                PieceKind::Polygons => self.piece.polygons(),
+            };
+            ctx.push(zoom, tile[0].tile.x, tile[0].tile.y, geom, out)?;
         }
         Ok(())
     }
@@ -555,45 +595,39 @@ impl Renderer {
             rings.push(ring);
             rest = tail;
         }
-        let mut rest = rings.as_slice();
-        let polygons = polys.iter().map(|&count| {
-            let (polygon, tail) = rest.split_at(count as usize);
-            rest = tail;
-            polygon
-        });
-        let pos = self.poly_slicer_index(ctx.layer)?;
-        let slicer = &mut self.poly_slicers[pos].1;
-        slicer.clear();
-        slicer.add_feature(polygons).map_err(GeometryError::from)?;
-        let Some(feature) = self.poly_slicers[pos].1.iter_features().next() else {
-            return Ok(());
-        };
-        for tile in feature.iter_tiles() {
-            let id = tile.tile_id();
-            self.piece.clear();
-            for polygon in tile.iter_polygons() {
-                let first = self.piece.parts.len();
-                for ring in polygon.iter_rings() {
-                    // The slicer closes rings; records store them open.
-                    let open = ring
-                        .vertices()
-                        .split_last()
-                        .map_or(&[][..], |(_, open)| open);
-                    self.piece.parts.push(vertex_count(open.len())?);
-                    self.piece.vertices.extend(open.iter().map(|c| [c.x, c.y]));
-                }
-                self.piece
-                    .polys
-                    .push(len32(self.piece.parts.len() - first)?);
-            }
-            ctx.push(zoom, id.x, id.y, self.piece.polygons(), out)?;
-        }
+        let pos = self.slicer_index(ctx.layer)?;
+        let slicer = &mut self.slicers[pos].1;
+        self.sliced.clear();
+        self.sliced_vertices.clear();
         self.runs.clear();
-        self.runs.extend(
-            feature
-                .iter_fill_runs()
-                .map(|run| (run.x.start, run.x.end, run.y)),
-        );
+        // Each polygon is sliced on its own; its pieces and those of the feature's other polygons in
+        // a tile make one piece there, and nothing is pushed until every polygon is sliced.
+        let mut rest = rings.as_slice();
+        for (polygon, &count) in (0_u32..).zip(polys) {
+            let (polygon_rings, tail) = rest.split_at(count as usize);
+            rest = tail;
+            let mut pieces = slicer.polygon(polygon_rings).map_err(GeometryError::from)?;
+            while let Some(slice) = pieces.next() {
+                match slice.map_err(GeometryError::from)? {
+                    PolygonSlice::Piece(piece) => {
+                        for ring in piece.rings() {
+                            let start = self.sliced_vertices.len();
+                            self.sliced_vertices.extend(ring.iter().map(|c| [c.x, c.y]));
+                            // The slicer closes rings; records store them open.
+                            self.sliced_vertices.pop();
+                            self.sliced.push(SlicedPart {
+                                tile: piece.tile(),
+                                polygon,
+                                start,
+                                len: vertex_count(self.sliced_vertices.len() - start)?,
+                            });
+                        }
+                    }
+                    PolygonSlice::Run(run) => self.runs.push((run.x.start, run.x.end, run.y)),
+                }
+            }
+        }
+        self.push_sliced(ctx, zoom, PieceKind::Polygons, out)?;
         self.push_fills(ctx, zoom, out)
     }
 
@@ -658,19 +692,6 @@ impl Renderer {
         Ok(())
     }
 
-    fn poly_slicer_index(&mut self, layer: &RenderLayer) -> TileGenResult<usize> {
-        let grid = layer.grid;
-        if let Some(pos) = self.poly_slicers.iter().position(|(g, _)| *g == grid) {
-            return Ok(pos);
-        }
-        let buffer = u16::try_from(grid.buffer).map_err(|_too_large| invalid_buffer(grid))?;
-        self.poly_slicers.push((
-            grid,
-            PolygonSlicerAll::new(grid.extent, buffer).map_err(GeometryError::from)?,
-        ));
-        Ok(self.poly_slicers.len() - 1)
-    }
-
     /// The slicer for the layer's grid, created on first use and reused across features.
     fn slicer_index(&mut self, layer: &RenderLayer) -> TileGenResult<usize> {
         let grid = layer.grid;
@@ -680,7 +701,7 @@ impl Renderer {
         let buffer = u16::try_from(grid.buffer).map_err(|_too_large| invalid_buffer(grid))?;
         self.slicers.push((
             grid,
-            SlicerAll::new(grid.extent, buffer).map_err(GeometryError::from)?,
+            Slicer::new(grid.extent, buffer).map_err(GeometryError::from)?,
         ));
         Ok(self.slicers.len() - 1)
     }
@@ -743,6 +764,24 @@ impl Ctx<'_> {
 
 /// A quantized feature in its zoom's global grid: ring counts per polygon, line or ring lengths, vertices.
 type Rings<'a> = (&'a [u32], &'a [u32], &'a [Coord<i32>]);
+
+/// One line run or polygon ring the slicer put in `tile`, its vertices at `start..start + len` of
+/// [`Renderer::sliced_vertices`]. `polygon` numbers the feature's polygons, so a polygon's rings stay
+/// together in a tile.
+#[derive(Clone, Copy)]
+struct SlicedPart {
+    tile: map_tile_toolkit::TileId,
+    polygon: u32,
+    start: usize,
+    len: u32,
+}
+
+/// The shape of the pieces [`Renderer::push_sliced`] builds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PieceKind {
+    Lines,
+    Polygons,
+}
 
 /// One tile's piece of a feature, shaped like [`Rings`] with tile-local vertices.
 #[derive(Default)]
