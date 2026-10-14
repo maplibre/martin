@@ -123,7 +123,7 @@ If a later `HEAD` request or prefix listing fails, Martin retains the last-known
 
 ## Remote COG
 
-Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first. Only `.tif` and `.tiff` objects under a listed prefix are published, using the file stem as the initial source ID.
+Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first. Only `.tif` and `.tiff` objects under a listed prefix are published, using the file stem as the initial source ID. An object that is also configured under `cog.sources` is skipped by the listing, so it is served once, under its configured ID and with its own settings.
 
 ```yaml
 cog:

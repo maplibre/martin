@@ -2607,7 +2607,8 @@ Added, updated, and removed objects propagate to the catalog.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Hot reload applies to directories and remote prefixes configured under <code>pmtiles.paths</code> (or passed on the CLI).
-Named sources listed under <code>pmtiles.sources</code> and individual remote-file URLs are snapshotted at startup and are not watched for changes.</p>
+Named sources listed under <code>pmtiles.sources</code> and individual remote-file URLs are snapshotted at startup and are not watched for changes.
+An object under a polled prefix that is also listed under <code>pmtiles.sources</code> is served once, under its configured id and with its own settings (such as <code>convert_to_contour</code> or <code>cache_control</code>); the prefix listing skips it.</p>
 </div>
 <h2 id="serving-pmtiles-without-a-tile-server">Serving PMTiles without a Tile Server</h2>
 <p>PMTiles archives can be served directly from HTTP range-capable storage without a dedicated tile server.

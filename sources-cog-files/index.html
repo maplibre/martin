@@ -2662,7 +2662,8 @@ Before the first successful listing, a failed prefix is skipped for that poll an
 With <code>on_invalid: warn</code>, failed additions and replacements also remain pending for the next poll; an unsuccessful replacement keeps serving the last good source.</p>
 <h2 id="remote-cog">Remote COG</h2>
 <p>Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
-Only <code>.tif</code> and <code>.tiff</code> objects under a listed prefix are published, using the file stem as the initial source ID.</p>
+Only <code>.tif</code> and <code>.tiff</code> objects under a listed prefix are published, using the file stem as the initial source ID.
+An object that is also configured under <code>cog.sources</code> is skipped by the listing, so it is served once, under its configured ID and with its own settings.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">cog</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1m</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://localhost:9000</span>
