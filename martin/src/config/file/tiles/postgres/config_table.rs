@@ -246,6 +246,17 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
+    /// The type a query returns `column` as, after mapping a property to its table column.
+    #[must_use]
+    pub fn column_type(&self, column: &str) -> Option<&str> {
+        let column = self
+            .discovered
+            .prop_mapping
+            .get(column)
+            .map_or(column, String::as_str);
+        self.discovered.column_types.get(column).map(String::as_str)
+    }
+
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
     pub fn append_cfg_info(
@@ -273,8 +284,11 @@ impl TableInfo {
         match (&self.geometry_type, &cfg_inf.geometry_type) {
             (Some(src), Some(cfg)) if src != cfg => {
                 warn!(
-                    r"Table {} has geometry type={src}, but source {new_id} has {cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.geometry_type = %src,
+                    source.id = %new_id,
+                    source.geometry_type = %cfg,
+                    "Table geometry type does not match the configured source geometry type"
                 );
             }
             _ => {}
@@ -306,22 +320,28 @@ impl TableInfo {
         match (self.srid, cfg_srid, default_srid) {
             (0, 0, Some(default_srid)) => {
                 info!(
-                    "Table {} has SRID=0, using provided default SRID={default_srid}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    srid.default = default_srid,
+                    "Table has SRID=0, using provided default SRID"
                 );
                 Some(default_srid)
             }
             (0, 0, None) => {
-                let info = "To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=...";
-                warn!("Table {} has SRID=0, skipping. {info}", self.format_id());
+                warn!(
+                    table.id = %self.format_id(),
+                    "Table has SRID=0, skipping. To use this table source, set default or specify this table SRID in the config file, or set the default SRID with  --default-srid=..."
+                );
                 None
             }
             (0, cfg, _) => Some(cfg), // Use the configured SRID
             (src, 0, _) => Some(src), // Use the source SRID
             (src, cfg, _) if src != cfg => {
                 warn!(
-                    "Table {} has SRID={src}, but source {new_id} has SRID={cfg}",
-                    self.format_id()
+                    table.id = %self.format_id(),
+                    table.srid = src,
+                    source.id = %new_id,
+                    source.srid = cfg,
+                    "Table SRID does not match the configured source SRID"
                 );
                 None
             }

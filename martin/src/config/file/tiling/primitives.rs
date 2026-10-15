@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
-use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::error::TilingConfigError;
@@ -89,16 +88,6 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for NonEmpty<T> {
 
         deserializer.deserialize_any(OneOrMore(PhantomData))
     }
-}
-
-pub fn single_entry_map<S: Serializer>(
-    serializer: S,
-    key: &str,
-    value: &impl Serialize,
-) -> Result<S::Ok, S::Error> {
-    let mut map = serializer.serialize_map(Some(1))?;
-    map.serialize_entry(key, value)?;
-    map.end()
 }
 
 pub fn checked_map<'de, D, R, T>(deserializer: D) -> Result<T, D::Error>

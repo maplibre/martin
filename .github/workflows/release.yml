@@ -198,7 +198,7 @@ jobs:
     needs: [ package ]
     if: |
       always()
-      && needs.package.result == 'success'
+      && (needs.package.result == 'success' || needs.package.result == 'skipped')
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
@@ -219,7 +219,7 @@ jobs:
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: generate-token
         with:
           app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
@@ -228,7 +228,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@18641b6c63063cc5ff8786ebf69cd57e8541bae1 # v0.5.140
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         id: release
         with: { command: release }
         env:
@@ -256,7 +256,7 @@ jobs:
               echo "$tag has no draft release to publish, skipping"
               continue
             fi
-            if [[ "$tag" == martin-v* ]]; then
+            if [[ "$tag" == martin-v* || "$tag" == mbtiles-v* ]]; then
               gh release upload "$tag" target/files/* --clobber
             fi
             if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
@@ -265,8 +265,13 @@ jobs:
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: Setup Node.js
+        continue-on-error: true
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24 }
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
       # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
@@ -294,7 +299,7 @@ jobs:
         run: git reset --hard && git clean -fd
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@18641b6c63063cc5ff8786ebf69cd57e8541bae1 # v0.5.140
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}

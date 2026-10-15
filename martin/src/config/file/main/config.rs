@@ -359,12 +359,16 @@ impl OnInvalid {
         }
         match warnings {
             [warning] => match self {
-                Self::Warn => warn!("Tile source resolution warning: {warning}"),
-                Self::Abort => error!("Tile source resolution warning: {warning}"),
+                Self::Warn => warn!(warning = %warning, "Tile source resolution warning"),
+                Self::Abort => error!(warning = %warning, "Tile source resolution warning"),
             },
             warnings => match self {
-                Self::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
-                Self::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                Self::Warn => {
+                    warn!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
+                Self::Abort => {
+                    error!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
             },
         }
 

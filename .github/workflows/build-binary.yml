@@ -31,6 +31,10 @@ on:
         required: false
         type: boolean
         default: true
+      pgo:
+        description: 'Apply PGO (and BOLT on x86) to the Docker binaries.'
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -40,7 +44,7 @@ jobs:
   build:
     name: Build ${{ inputs.target }}
     runs-on: ${{ inputs.os }}
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.pgo && 180 || 90 }}
     permissions:
       contents: read
     env:
@@ -48,6 +52,18 @@ jobs:
       # or empty for PR debug builds to reduce CI build time.
       RELEASE_MODE: ${{ inputs.release_mode && '1' || '' }}
       LEGACY_CPU: ${{ inputs.legacy_cpu && '1' || '' }}
+    services:
+      postgres:
+        # Multiarch PostGIS for native x86 and ARM profiling.
+        image: ${{ inputs.pgo && 'ghcr.io/baosystems/postgis:18-3.6@sha256:8784f86b3e0e046859c96ea25eb8b10f0b801fd891b99a82b82f28ac4a643db8' || '' }}
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432/tcp]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
@@ -64,6 +80,24 @@ jobs:
         with: { version: '0.15.1', use-cache: false }
       - name: Rust Versions
         run: rustc --version && cargo --version
+      - name: Install PGO tooling
+        if: inputs.pgo
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with: { tool: oha@1.16.0 }
+      - name: Install cargo-pgo and LLVM tooling
+        if: inputs.pgo
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just pgo-install "$TARGET"
+      - name: Initialize profiling database
+        if: inputs.pgo
+        env:
+          PGDATABASE: test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: ${{ job.services.postgres.ports['5432'] }}
+        run: tests/fixtures/initdb.sh
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
@@ -75,7 +109,8 @@ jobs:
         if: ${{ !inputs.musl && !inputs.full }}
         env:
           TARGET: ${{ inputs.target }}
-        run: just build-release "$TARGET"
+          DATABASE_URL: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/test
+        run: just build-release "$TARGET" "${{ inputs.pgo }}"
       - name: Build ${{ inputs.target }} (full)
         if: ${{ inputs.full }}
         env:
@@ -87,6 +122,7 @@ jobs:
           TARGET: ${{ inputs.target }}
         run: just build-release-musl "$TARGET"
       - name: Move ${{ inputs.target }} artefacts to the target_releases directory
+        if: ${{ !inputs.pgo }}
         env:
           TARGET: ${{ inputs.target }}
         run: just move-artifacts "$TARGET"

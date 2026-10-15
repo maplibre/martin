@@ -215,7 +215,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening w/ defaults {self}");
+        debug!(mbtiles.file = %self, "Opening with defaults");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
         Self::open_int(&opt).await
     }
@@ -247,7 +247,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening or creating {self}");
+        debug!(mbtiles.file = %self, "Opening or creating");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .create_if_missing(true);
@@ -285,7 +285,7 @@ impl Mbtiles {
     /// ```
     #[hotpath::measure]
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
-        debug!("Opening as readonly {self}");
+        debug!(mbtiles.file = %self, "Opening as readonly");
         let opt = SqliteConnectOptions::new()
             .filename(self.filepath())
             .read_only(true);
@@ -316,7 +316,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        debug!("Attaching {self} as {name}");
+        debug!(mbtiles.file = %self, sqlite.schema = %name, "Attaching database");
         query(AssertSqlSafe(format!("ATTACH DATABASE ? AS {name}")))
             .bind(self.filepath())
             .execute(conn)
@@ -620,8 +620,10 @@ impl Mbtiles {
         batch: &[(u8, u32, u32, D)],
     ) -> MbtResult<()> {
         debug!(
-            "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
-            batch.len()
+            tiles.count = batch.len(),
+            mbtiles.type = %mbt_type,
+            on_duplicate = %on_duplicate,
+            "Inserting a batch of tiles"
         );
         let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;

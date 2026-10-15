@@ -11,6 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 homepage = "https://maplibre.org/martin/tools.html#mbtiles"
 
+[package.metadata.binstall]
+# the prebuilt archives are the martin ones, which hold both the `martin` and `mbtiles` binaries
+pkg-url = "{ repo }/releases/download/mbtiles-v{ version }/martin-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+
 [lib]
 path = "src/lib.rs"
 
@@ -32,6 +37,7 @@ required-features = ["transcode"]
 default = ["cli"]
 cli = [
     "dep:anyhow",
+    "dep:bytesize",
     "dep:clap",
     "dep:indicatif",
     "dep:serde-saphyr",
@@ -50,6 +56,7 @@ hotpath_tui = ["hotpath", "hotpath/tui"]
 [dependencies]
 anyhow = { workspace = true, optional = true }
 bytes.workspace = true
+bytesize = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 flume.workspace = true

@@ -11,6 +11,35 @@ use crate::{
 };
 
 #[hotpath::measure]
+fn check_base_hash(
+    base_mbt: &Mbtiles,
+    patch_mbt: &Mbtiles,
+    base_hash: Option<String>,
+    expected_hash: Option<String>,
+    force: bool,
+) -> MbtResult<()> {
+    match (force, base_hash, expected_hash) {
+        (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
+            return Err(MbtError::AggHashMismatchWithDiff {
+                patch_file: patch_mbt.filepath().to_owned(),
+                before_apply_hash: expected_hash,
+                file: base_mbt.filepath().to_owned(),
+                agg_hash: base_hash,
+            });
+        }
+        (true, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
+            warn!(
+                mbtiles.file = %base_mbt,
+                agg_tiles_hash.expected = %expected_hash,
+                agg_tiles_hash.actual = %base_hash,
+                "Aggregate tiles hash mismatch with patch file (force mode)"
+            );
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -> MbtResult<()> {
     let base_mbt = Mbtiles::new(base_file)?;
     let patch_mbt = Mbtiles::new(patch_file)?;
@@ -34,26 +63,20 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
     base_mbt.assert_hashes(&base_info, force)?;
 
-    match (force, base_hash, patch_info.agg_tiles_hash_before_apply) {
-        (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
-            return Err(MbtError::AggHashMismatchWithDiff {
-                patch_file: patch_mbt.filepath().to_owned(),
-                before_apply_hash: expected_hash,
-                file: base_mbt.filepath().to_owned(),
-                agg_hash: base_hash,
-            });
-        }
-        (true, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
-            warn!(
-                "Aggregate tiles hash mismatch: Patch file expected {expected_hash} but found {base_hash} in {base_mbt} (force mode)"
-            );
-        }
-        _ => {}
-    }
+    check_base_hash(
+        &base_mbt,
+        &patch_mbt,
+        base_hash,
+        patch_info.agg_tiles_hash_before_apply,
+        force,
+    )?;
 
     info!(
-        "Applying patch file {patch_mbt} ({patch_type}) to {base_mbt} ({base_type})",
-        base_type = base_info.mbt_type
+        diff.path = %patch_mbt,
+        diff.type = %patch_type,
+        dst.path = %base_mbt,
+        dst.type = %base_info.mbt_type,
+        "Applying patch file"
     );
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;

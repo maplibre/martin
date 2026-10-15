@@ -61,6 +61,7 @@ pmtiles:
 !!! note
     Hot reload applies to directories and remote prefixes configured under `pmtiles.paths` (or passed on the CLI).
     Named sources listed under `pmtiles.sources` and individual remote-file URLs are snapshotted at startup and are not watched for changes.
+    An object under a polled prefix that is also listed under `pmtiles.sources` is served once, under its configured id and with its own settings (such as `convert_to_contour` or `cache_control`); the prefix listing skips it.
 
 ## Serving PMTiles without a Tile Server
 

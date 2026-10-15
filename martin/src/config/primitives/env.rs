@@ -15,7 +15,9 @@ pub trait Env {
                 Err(v) => {
                     let v = v.to_string_lossy();
                     warn!(
-                        "Environment variable {key} has invalid unicode. Lossy representation: {v}"
+                        env.key = %key,
+                        env.value_lossy = %v,
+                        "Environment variable has invalid unicode"
                     );
                     None
                 }

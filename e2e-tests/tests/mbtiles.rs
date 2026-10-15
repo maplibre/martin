@@ -1,23 +1,10 @@
 //! `MBTiles` sources, both configured up front and served from a watched directory.
 
+use indoc::formatdoc;
 use martin_e2e_tests::{Martin, WatchedDir, mbtiles_fixture};
 #[cfg(not(windows))]
 use martin_e2e_tests::{fixture, mbtiles_from_sql};
 use rstest::rstest;
-use tempfile::TempDir;
-
-async fn martin_serving(args: &[&str], names: &[&str]) -> (TempDir, Martin) {
-    let dir = tempfile::tempdir().expect("failed to create a temp dir");
-    let mut builder = Martin::builder();
-    for arg in args {
-        builder = builder.arg(*arg);
-    }
-    for name in names {
-        builder = builder.arg(mbtiles_fixture(dir.path(), name).await);
-    }
-    let martin = builder.start().await.expect("failed to start martin");
-    (dir, martin)
-}
 
 async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
     let response = martin.get(&format!("/{id}")).await;
@@ -27,7 +14,12 @@ async fn tilejson(martin: &Martin, id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&[], &["geography-class-jpg"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "geography-class-jpg").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/geography-class-jpg").await;
     assert_eq!(response.status(), 200);
@@ -65,6 +57,7 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
     let tile = martin.get("/geography-class-jpg/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
@@ -77,7 +70,12 @@ async fn a_jpeg_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn a_png_source_serves_its_tilejson_and_tiles() {
-    let (_dir, mut martin) = martin_serving(&[], &["geography-class-png"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "geography-class-png").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "geography-class-png").await, @r#"
     {
@@ -108,6 +106,7 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
     let tile = martin.get("/geography-class-png/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 9
     content-type: image/png
     etag: "AsEwc3Kp5v5Qd7xgb4RDuA"
@@ -120,7 +119,12 @@ async fn a_png_source_serves_its_tilejson_and_tiles() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "world_cities").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "world_cities").await, @r#"
     {
@@ -164,11 +168,17 @@ async fn an_mvt_source_serves_its_tilejson() {
 
 #[tokio::test]
 async fn an_mvt_source_serves_a_decodable_tile() {
-    let (_dir, mut martin) = martin_serving(&[], &["world_cities"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "world_cities").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/world_cities/2/3/1").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 263
     content-type: application/x-protobuf
@@ -247,7 +257,12 @@ async fn an_mvt_source_serves_a_decodable_tile() {
 
 #[tokio::test]
 async fn a_normalized_source_serves_its_tilejson() {
-    let (_dir, mut martin) = martin_serving(&[], &["normalized-dedup-id"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "normalized-dedup-id").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "normalized-dedup-id").await, @r#"
     {
@@ -272,6 +287,7 @@ async fn a_normalized_source_serves_its_tilejson() {
     let tile = martin.get("/normalized-dedup-id/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 6
     content-type: image/jpeg
     etag: "ykC6pGx_UZ3UnUwYbyl2yw"
@@ -294,8 +310,13 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
     #[case] y: u32,
     #[case] expected: &[u8],
 ) {
-    let (_dir, mut martin) =
-        martin_serving(&[], &["normalized-dedup-id", "geography-class-jpg"]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg(mbtiles_fixture(dir.path(), "normalized-dedup-id").await)
+        .arg(mbtiles_fixture(dir.path(), "geography-class-jpg").await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let deduplicated = martin
         .get(&format!("/normalized-dedup-id/{z}/{x}/{y}"))
@@ -321,8 +342,14 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
 #[case::no_version_in_the_metadata("normalized-dedup-id", "")]
 #[tokio::test]
 async fn the_tilejson_url_carries_the_source_version(#[case] id: &str, #[case] query: &str) {
-    let (_dir, mut martin) =
-        martin_serving(&["--tilejson-url-version-param", "version"], &[id]).await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .arg("--tilejson-url-version-param")
+        .arg("version")
+        .arg(mbtiles_fixture(dir.path(), id).await)
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tilejson(&martin, id).await["tiles"][0],
@@ -368,6 +395,7 @@ async fn reload_adds_and_updates_a_source() {
     let tile = martin.get("/world_cities/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 1107
     content-type: application/x-protobuf
@@ -436,11 +464,13 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
     let original = watched.outside("original.mbtiles");
     mbtiles_from_sql(fixture("mbtiles/world_cities.sql"), &original).await;
 
+    let collections = watched.dir();
+    let collections = collections.display();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  collections: {}\n",
-            watched.dir().display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              collections: {collections}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -498,11 +528,14 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
     mbtiles_fixture(watched.dir(), "world_cities").await;
     let dir = watched.dir();
 
+    let paths = dir.display();
     let mut bounded = Martin::builder()
-        .config(&format!(
-            "cache:\n  minzoom: 1\nmbtiles:\n  paths: {}\n",
-            dir.display()
-        ))
+        .config(&formatdoc! {"
+            cache:
+              minzoom: 1
+            mbtiles:
+              paths: {paths}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -515,7 +548,10 @@ async fn a_file_discovered_in_a_directory_takes_the_global_cache_bounds() {
 
     // The same directory without a lower bound shows what the cache would have counted.
     let mut unbounded = Martin::builder()
-        .config(&format!("mbtiles:\n  paths: {}\n", dir.display()))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -543,11 +579,14 @@ async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_i
     let file = mbtiles_fixture(watched.dir(), "world_cities").await;
     let dir = watched.dir();
 
+    let paths = dir.display();
     let mut kind_level = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n",
-            dir.display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+              cache:
+                minzoom: 1
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -558,12 +597,19 @@ async fn a_kind_level_cache_bound_covers_a_directory_and_a_source_can_override_i
     insta::assert_snapshot!(tile_cache_lines(&scrape), @"");
     kind_level.stop().await;
 
+    let file = file.display();
     let mut overridden = Martin::builder()
-        .config(&format!(
-            "mbtiles:\n  paths: {}\n  cache:\n    minzoom: 1\n  sources:\n    world_cities:\n      path: {}\n      cache:\n        minzoom: 0\n",
-            dir.display(),
-            file.display()
-        ))
+        .config(&formatdoc! {"
+            mbtiles:
+              paths: {paths}
+              cache:
+                minzoom: 1
+              sources:
+                world_cities:
+                  path: {file}
+                  cache:
+                    minzoom: 0
+        "})
         .start()
         .await
         .expect("failed to start martin");

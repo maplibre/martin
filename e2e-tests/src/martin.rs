@@ -48,9 +48,9 @@ fn ready_timeout() -> Duration {
 }
 
 const ALLOWED_LOG_LINES: &[&str] = &[
-    "Unable to deserialize SQL comment on public.points2 as tilejson",
+    "Unable to deserialize SQL comment as tilejson",
     "Discovering tables in PostgreSQL database",
-    "ST_EstimatedExtent on",
+    "ST_EstimatedExtent failed",
     "aborting query. Use --auto-bounds=calc",
 ];
 
@@ -224,8 +224,8 @@ impl Subprocess {
     /// `--route-prefix` (as an argument or through a config file) moves the
     /// endpoints around.
     async fn wait_ready(&mut self, client: &Client) -> Result<String, StartError> {
-        let announced =
-            Regex::new(r"Martin server is now active.*http://([^/]+)/").expect("valid regex");
+        let announced = Regex::new(r"Martin server is now active.*server.url=http://([^/]+)/")
+            .expect("valid regex");
         let deadline = Instant::now() + ready_timeout();
         let addr = loop {
             let announced = self
@@ -1068,8 +1068,8 @@ mod tests {
 
         use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-        let mut layer = MvtTileBuilder::with_capacity(1)
-            .layer_with_capacity("contour", 1)
+        let mut layer = MvtTileBuilder::new()
+            .layer("contour")
             .expect("failed to open a layer");
         layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
         let geometry = Geometry::LineString(LineString::from(line.to_vec()));

@@ -6,6 +6,7 @@
 
 use std::fs;
 
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{Martin, MartinBuilder, StartError, WatchedDir, fixture, mlt_dump};
 use rstest::rstest;
 use tempfile::TempDir;
@@ -32,16 +33,16 @@ async fn the_catalog_names_the_geoparquet_file() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+        "},
     )
     .await;
 
@@ -71,16 +72,16 @@ async fn a_tilejson_describes_the_parquet_columns() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+        "},
     )
     .await;
 
@@ -132,16 +133,16 @@ async fn a_tile_clips_the_polygon_crossing_its_edge_and_keeps_the_one_inside_it(
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+        "},
     )
     .await;
 
@@ -182,16 +183,16 @@ async fn the_saved_config_fills_in_the_source_defaults() {
     let save_config = dir.path().join("save_config.yaml");
     let mut martin = martin_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+        "},
     )
     .arg("--save-config")
     .arg(&save_config)
@@ -219,36 +220,36 @@ duckdb:
 
 #[rstest]
 #[case::an_absent_geometry_column(
-    "\
-on_invalid: warn
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons_bad
-      geometry_column: nonexistent
-      srid: 4326
-",
+    indoc! {"
+        on_invalid: warn
+        duckdb:
+          sources:
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons_bad
+              geometry_column: nonexistent
+              srid: 4326
+    "},
     "Geometry column 'nonexistent' was not found"
 )]
 #[case::an_absent_id_column(
-    "\
-on_invalid: warn
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons_bad
-      geometry_column: geom
-      id_column: nonexistent
-      srid: 4326
-",
+    indoc! {"
+        on_invalid: warn
+        duckdb:
+          sources:
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons_bad
+              geometry_column: geom
+              id_column: nonexistent
+              srid: 4326
+    "},
     "id_column 'nonexistent' was not found"
 )]
 #[tokio::test]
@@ -267,7 +268,7 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
 
     martin.stop().await;
     martin.assert_log_contains(&format!(
-        "Tile source resolution warning: Source polygons_bad: {warning}"
+        "Tile source resolution warning warning=Source polygons_bad: {warning}"
     ));
     martin.assert_log_contains(r#"ERROR error="Source polygons_bad does not exist""#);
 }
@@ -281,14 +282,14 @@ async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest()
     let dir = temp_dir();
     let mut martin = martin_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_mixed_types.parquet
-      layer_id: mixed
-      geometry_column: geom
-      srid: 4326
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_mixed_types.parquet
+                  layer_id: mixed
+                  geometry_column: geom
+                  srid: 4326
+        "},
     )
     .env("TZ", "UTC")
     .start()
@@ -391,7 +392,7 @@ duckdb:
 
     martin.stop().await;
     martin.assert_log_contains(
-        "Ignoring 5 columns of tests/fixtures/duckdb/geoparquet_mixed_types.parquet with no MVT representation: address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB). Vector tiles can only carry text, numeric and boolean properties.",
+        "Ignoring columns with no MVT representation. Vector tiles can only carry text, numeric and boolean properties. source.label=tests/fixtures/duckdb/geoparquet_mixed_types.parquet columns.count=5 columns=address (STRUCT(street VARCHAR, city VARCHAR)), attributes (MAP(VARCHAR, VARCHAR)), centroid (GEOMETRY('OGC:CRS84')), tags (VARCHAR[]), thumbnail (BLOB)",
     );
 }
 
@@ -400,19 +401,19 @@ async fn an_explicit_table_of_a_database_file_is_served() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      tables:
-        polygons:
-          schema: main
-          table: polygons
-          geometry_column: geom
-          srid: 4326
-          minzoom: 0
-          maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+                  tables:
+                    polygons:
+                      schema: main
+                      table: polygons
+                      geometry_column: geom
+                      srid: 4326
+                      minzoom: 0
+                      maxzoom: 14
+        "},
     )
     .await;
 
@@ -487,11 +488,11 @@ async fn a_bare_database_entry_publishes_every_geometry_table_and_zxy_macro_acro
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+        "},
     )
     .await;
 
@@ -558,11 +559,11 @@ async fn the_saved_config_makes_the_implied_auto_publish_of_a_bare_database_expl
     let save_config = dir.path().join("save_config.yaml");
     let mut martin = martin_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+        "},
     )
     .arg("--save-config")
     .arg(&save_config)
@@ -589,18 +590,18 @@ async fn an_explicit_table_macro_taking_z_x_y_is_served_as_a_source() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      macros:
-        polygons_from_macro:
-          schema: main
-          macro: polygons_mvt
-          minzoom: 0
-          maxzoom: 10
-          bounds: [-50, 20, 5, 30]
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+                  macros:
+                    polygons_from_macro:
+                      schema: main
+                      macro: polygons_mvt
+                      minzoom: 0
+                      maxzoom: 10
+                      bounds: [-50, 20, 5, 30]
+        "},
     )
     .await;
 
@@ -666,16 +667,16 @@ async fn auto_publish_limits_the_schemas_formats_the_ids_and_picks_the_feature_i
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      auto_publish:
-        tables:
-          from_schemas: places
-          source_id_format: '{schema}.{table}'
-          id_columns: [id, gid]
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+                  auto_publish:
+                    tables:
+                      from_schemas: places
+                      source_id_format: '{schema}.{table}'
+                      id_columns: [id, gid]
+        "},
     )
     .await;
 
@@ -729,15 +730,15 @@ async fn auto_publishing_only_macros_leaves_the_tables_out_and_formats_the_macro
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      auto_publish:
-        macros:
-          from_schemas: main
-          source_id_format: '{schema}.{macro}'
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+                  auto_publish:
+                    macros:
+                      from_schemas: main
+                      source_id_format: '{schema}.{macro}'
+        "},
     )
     .await;
 
@@ -769,7 +770,7 @@ async fn a_parquet_path_on_the_command_line_is_served_as_a_geoparquet_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -803,7 +804,7 @@ async fn a_duckdb_path_on_the_command_line_becomes_a_database_source() {
         .expect("failed to start martin");
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    insta::assert_snapshot!(saved, @r"
+    insta::assert_snapshot!(saved, @"
     listen_addresses: 127.0.0.1:0
     duckdb:
       sources:
@@ -838,16 +839,16 @@ async fn an_mlt_accept_header_converts_the_tile_and_a_plain_request_stays_mvt() 
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+        "},
     )
     .await;
 
@@ -883,79 +884,79 @@ duckdb:
 
 #[rstest]
 #[case::geoparquet_per_source(
-    "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      convert_to_mlt: disabled
-"
+    indoc! {"
+        duckdb:
+          sources:
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+              convert_to_mlt: disabled
+    "}
 )]
 #[case::geoparquet_for_duckdb(
-    "\
-duckdb:
-  convert_to_mlt: disabled
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-"
+    indoc! {"
+        duckdb:
+          convert_to_mlt: disabled
+          sources:
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+    "}
 )]
 #[case::geoparquet_globally(
-    "\
-convert_to_mlt: disabled
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-"
+    indoc! {"
+        convert_to_mlt: disabled
+        duckdb:
+          sources:
+            - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+    "}
 )]
 #[case::database_table_on_the_entry(
-    "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      convert_to_mlt: disabled
-      tables:
-        polygons:
-          schema: main
-          table: polygons
-          geometry_column: geom
-          srid: 4326
-"
+    indoc! {"
+        duckdb:
+          sources:
+            - database: tests/fixtures/duckdb/database.duckdb
+              convert_to_mlt: disabled
+              tables:
+                polygons:
+                  schema: main
+                  table: polygons
+                  geometry_column: geom
+                  srid: 4326
+    "}
 )]
 #[case::database_table_for_duckdb(
-    "\
-duckdb:
-  convert_to_mlt: disabled
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      tables:
-        polygons:
-          schema: main
-          table: polygons
-          geometry_column: geom
-          srid: 4326
-"
+    indoc! {"
+        duckdb:
+          convert_to_mlt: disabled
+          sources:
+            - database: tests/fixtures/duckdb/database.duckdb
+              tables:
+                polygons:
+                  schema: main
+                  table: polygons
+                  geometry_column: geom
+                  srid: 4326
+    "}
 )]
 #[case::database_table_globally(
-    "\
-convert_to_mlt: disabled
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      tables:
-        polygons:
-          schema: main
-          table: polygons
-          geometry_column: geom
-          srid: 4326
-"
+    indoc! {"
+        convert_to_mlt: disabled
+        duckdb:
+          sources:
+            - database: tests/fixtures/duckdb/database.duckdb
+              tables:
+                polygons:
+                  schema: main
+                  table: polygons
+                  geometry_column: geom
+                  srid: 4326
+    "}
 )]
 #[tokio::test]
 async fn a_disabled_conversion_answers_an_mlt_only_request_with_not_acceptable(
@@ -982,16 +983,16 @@ async fn a_per_source_conversion_overrides_the_duckdb_level_one() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  convert_to_mlt: disabled
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      convert_to_mlt: auto
-",
+        indoc! {"
+            duckdb:
+              convert_to_mlt: disabled
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  convert_to_mlt: auto
+        "},
     )
     .await;
 
@@ -1015,20 +1016,20 @@ async fn per_source_encoder_settings_reach_the_mlt_encoder() {
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: tessellated
-      geometry_column: geom
-      srid: 4326
-      convert_to_mlt:
-        tessellate: true
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: plain
-      geometry_column: geom
-      srid: 4326
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: tessellated
+                  geometry_column: geom
+                  srid: 4326
+                  convert_to_mlt:
+                    tessellate: true
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: plain
+                  geometry_column: geom
+                  srid: 4326
+        "},
     )
     .await;
 
@@ -1058,31 +1059,26 @@ duckdb:
     martin.stop().await;
 }
 
-async fn start_watching_polygons(watched: &WatchedDir, dir: &TempDir, config: &str) -> Martin {
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
-    start_with_config(dir, config).await
-}
-
 #[cfg(not(windows))]
 #[tokio::test]
 async fn reload_rebuilds_a_replaced_geoparquet_file() {
     let watched = WatchedDir::new();
     let dir = temp_dir();
-    let config = format!(
-        "\
-duckdb:
-  sources:
-    - geoparquet: {}
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-",
-        watched.dir().join("polygons.parquet").display()
+    let parquet = watched.dir().join("polygons.parquet");
+    let parquet = parquet.display();
+    let config = formatdoc! {"
+        duckdb:
+          sources:
+            - geoparquet: {parquet}
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+    "};
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    let mut martin = start_with_config(&dir, &config).await;
 
     let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
     insta::assert_json_snapshot!(fields, @r#"
@@ -1118,31 +1114,31 @@ duckdb:
     );
 
     martin.stop().await;
-    martin.assert_log_contains("Ignoring 5 columns of");
+    martin.assert_log_contains("columns.count=5");
 }
 
 #[rstest]
 #[case::per_source(
-    "\
-duckdb:
-  sources:
-    - geoparquet: {parquet}
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      convert_to_mlt: disabled
-"
+    indoc! {"
+        duckdb:
+          sources:
+            - geoparquet: {parquet}
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+              convert_to_mlt: disabled
+    "}
 )]
 #[case::for_duckdb(
-    "\
-duckdb:
-  convert_to_mlt: disabled
-  sources:
-    - geoparquet: {parquet}
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-"
+    indoc! {"
+        duckdb:
+          convert_to_mlt: disabled
+          sources:
+            - geoparquet: {parquet}
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+    "}
 )]
 #[tokio::test]
 async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
@@ -1152,7 +1148,11 @@ async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
         "{parquet}",
         &watched.dir().join("polygons.parquet").display().to_string(),
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
+    );
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.touch("polygons.parquet");
     martin
@@ -1177,18 +1177,21 @@ async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
 async fn reload_removes_a_deleted_geoparquet_file_and_restores_it_when_it_returns() {
     let watched = WatchedDir::new();
     let dir = temp_dir();
-    let config = format!(
-        "\
-duckdb:
-  sources:
-    - geoparquet: {}
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-",
-        watched.dir().join("polygons.parquet").display()
+    let parquet = watched.dir().join("polygons.parquet");
+    let parquet = parquet.display();
+    let config = formatdoc! {"
+        duckdb:
+          sources:
+            - geoparquet: {parquet}
+              layer_id: polygons
+              geometry_column: geom
+              srid: 4326
+    "};
+    watched.seed(
+        fixture("duckdb/geoparquet_polygons.parquet"),
+        "polygons.parquet",
     );
-    let mut martin = start_watching_polygons(&watched, &dir, &config).await;
+    let mut martin = start_with_config(&dir, &config).await;
 
     watched.remove("polygons.parquet");
     martin.wait_for_source_removed("polygons").await;
@@ -1211,17 +1214,17 @@ async fn a_cql2_filter_limits_the_rows_a_geoparquet_source_serves_and_its_bounds
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      minzoom: 0
-      maxzoom: 14
-      filter: id = 1
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+                  filter: id = 1
+        "},
     )
     .await;
 
@@ -1257,19 +1260,19 @@ async fn a_cql2_filter_limits_the_rows_a_database_table_serves_and_its_bounds() 
     let dir = temp_dir();
     let mut martin = start_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - database: tests/fixtures/duckdb/database.duckdb
-      tables:
-        places_points:
-          schema: places
-          table: points
-          geometry_column: geom
-          id_column: gid
-          srid: 4326
-          filter: gid = 1
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - database: tests/fixtures/duckdb/database.duckdb
+                  tables:
+                    places_points:
+                      schema: places
+                      table: points
+                      geometry_column: geom
+                      id_column: gid
+                      srid: 4326
+                      filter: gid = 1
+        "},
     )
     .await;
 
@@ -1304,15 +1307,15 @@ async fn a_duckdb_filter_that_is_not_cql2_stops_martin_at_startup() {
     let dir = temp_dir();
     let error = martin_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      filter: id <=
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  filter: id <=
+        "},
     )
     .env("RUST_LOG", "martin=error")
     .start()
@@ -1334,15 +1337,15 @@ async fn an_empty_duckdb_filter_stops_martin_at_startup() {
     let dir = temp_dir();
     let error = martin_with_config(
         &dir,
-        "\
-duckdb:
-  sources:
-    - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
-      layer_id: polygons
-      geometry_column: geom
-      srid: 4326
-      filter: ''
-",
+        indoc! {"
+            duckdb:
+              sources:
+                - geoparquet: tests/fixtures/duckdb/geoparquet_polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  filter: ''
+        "},
     )
     .env("RUST_LOG", "martin=error")
     .start()

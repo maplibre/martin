@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use indicatif::{ProgressBar, ProgressStyle};
-use log::info;
+use tracing::info;
 
 struct LogBackoff {
     last_logged: Instant,
@@ -92,7 +92,14 @@ impl MaybeInteractiveProgressBar {
                     let percent = (current.saturating_mul(100)) / total;
 
                     let elapsed = started_at.elapsed();
-                    info!("Copied {current}/{total} ({percent}%) tiles in {elapsed:?}: {msg}");
+                    info!(
+                        tiles.copied = current,
+                        tiles.total = total,
+                        percent,
+                        elapsed = ?elapsed,
+                        tiles.progress = %msg,
+                        "Copying tiles"
+                    );
                 }
             }
         }
@@ -141,7 +148,12 @@ impl TileCopyProgress {
         let empty = self.empty.load(Ordering::Relaxed);
         let non_empty = self.non_empty.load(Ordering::Relaxed);
         let elapsed = self.started_at.elapsed();
-        info!("Finished copying {empty} empty and {non_empty} filled tiles in {elapsed:?}");
+        info!(
+            tiles.empty = empty,
+            tiles.filled = non_empty,
+            elapsed = ?elapsed,
+            "Finished copying tiles"
+        );
     }
 
     pub fn did_copy_tiles(&self) -> bool {

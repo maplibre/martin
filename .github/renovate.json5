@@ -79,10 +79,10 @@
       minimumReleaseAge: '0 days',
     },
     {
-      // Test setup intentionally pins Postgres 11 (oldest version we support).
+      // Test setup intentionally pins Postgres 15 with PostGIS 3.5 (oldest versions we support).
       matchDatasources: ['docker'],
       matchPackageNames: ['postgis/postgis'],
-      matchCurrentValue: '/^11/',
+      matchCurrentValue: '/^14-3\\.5/',
       enabled: false,
     },
     {

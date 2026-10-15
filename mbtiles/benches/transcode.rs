@@ -1,3 +1,10 @@
+#![expect(
+    clippy::unwrap_used,
+    clippy::too_many_lines,
+    clippy::needless_pass_by_value,
+    reason = "benchmark setup"
+)]
+
 use std::io::{Read as _, Write as _};
 use std::path::PathBuf;
 

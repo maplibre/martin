@@ -113,7 +113,7 @@ impl Mbtiles {
         if let Some(r) = row {
             if let Some(tile_data) = r.tile_data {
                 let tile_info = TileInfo::detect(&tile_data);
-                debug!("Detected tile info for compression update: {tile_info}");
+                debug!(tile.info = %tile_info, "Detected tile info for compression update");
                 if let Some(compression) = tile_info.encoding.compression() {
                     info!(
                         metadata.compression = %compression,

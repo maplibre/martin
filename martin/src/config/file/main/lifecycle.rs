@@ -190,7 +190,8 @@ impl Config {
     pub fn warn_unrecognized_keys(&self) {
         for key in &self.get_unrecognized_keys() {
             warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+                config.key = %key,
+                "Ignoring unrecognized configuration key. Please check your configuration file for typos."
             );
         }
     }
@@ -525,13 +526,15 @@ impl Config {
         ))]
         {
             let global = self.global_process_config();
+            #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
+            let archive_cache_control = self.srv.archive_cache_control();
 
             #[cfg(feature = "pmtiles")]
             Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| {
                 ProcessConfig {
                     convert_to_mlt: c.convert_to_mlt.clone(),
                     convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: None,
+                    cache_control: archive_cache_control.clone(),
                     #[cfg(feature = "processing")]
                     convert_to_hillshade: None,
                     #[cfg(feature = "processing")]
@@ -544,7 +547,7 @@ impl Config {
                 ProcessConfig {
                     convert_to_mlt: c.convert_to_mlt.clone(),
                     convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: None,
+                    cache_control: archive_cache_control.clone(),
                     #[cfg(feature = "processing")]
                     convert_to_hillshade: None,
                     #[cfg(feature = "processing")]
@@ -775,8 +778,8 @@ impl Config {
             println!("\n\n{yaml}\n");
         } else {
             info!(
-                "Saving config to {}, use --config to load it",
-                file_name.display()
+                config.path = %file_name.display(),
+                "Saving config, use --config to load it"
             );
             File::create(file_name)
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?

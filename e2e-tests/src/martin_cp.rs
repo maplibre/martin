@@ -1,4 +1,4 @@
-//! One-shot runs of the `martin cp` tile copier.
+//! One-shot runs of the `martin cp` tile copier and the `martin generate` tile generator.
 
 use std::env;
 use std::ffi::OsString;
@@ -6,10 +6,11 @@ use std::process::Stdio;
 
 use crate::{binary_command, display_args, pg_ssl_args, workspace_root};
 
-/// One run of `martin cp`, which reaches a database only through
+/// One run of `martin cp` (or `martin generate`), which reaches a database only through
 /// [`MartinCp::with_postgres`].
 #[derive(Debug, Default)]
 pub struct MartinCp {
+    generate: bool,
     args: Vec<OsString>,
     envs: Vec<(String, String)>,
     database_url: Option<String>,
@@ -19,6 +20,19 @@ impl MartinCp {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// A run of `martin generate`, which takes the same connection arguments.
+    #[must_use]
+    pub fn generate() -> Self {
+        Self {
+            generate: true,
+            ..Self::default()
+        }
+    }
+
+    fn subcommand(&self) -> &'static str {
+        if self.generate { "generate" } else { "cp" }
     }
 
     /// Add a command line argument.
@@ -49,7 +63,7 @@ impl MartinCp {
         let (status, log, described) = self.execute().await;
         assert!(
             !status.success(),
-            "`martin cp {described}` unexpectedly succeeded; log:\n{log}"
+            "`martin {described}` unexpectedly succeeded; log:\n{log}"
         );
         log
     }
@@ -59,18 +73,67 @@ impl MartinCp {
         let (status, log, described) = self.execute().await;
         assert!(
             status.success(),
-            "`martin cp {described}` failed with {status}; log:\n{log}"
+            "`martin {described}` failed with {status}; log:\n{log}"
+        );
+        log
+    }
+
+    /// Run the copy, send it `SIGTERM` once `path` exists, require it to fail, and return what it logged.
+    #[cfg(unix)]
+    pub async fn run_until_terminated_once_created(self, path: &std::path::Path) -> String {
+        let (mut cmd, described) = self.command();
+        let child = cmd
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap_or_else(|e| panic!("failed to run `martin {described}`: {e}"));
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            while !path.exists() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("`martin {described}` never created {}", path.display()));
+        let pid = child
+            .id()
+            .and_then(|pid| i32::try_from(pid).ok())
+            .expect("martin exited before it was terminated");
+        // SAFETY: sending SIGTERM to the child we spawned and have not yet waited for.
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+        let output = child
+            .wait_with_output()
+            .await
+            .unwrap_or_else(|e| panic!("failed to wait for `martin {described}`: {e}"));
+        let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
+        log.push_str(&String::from_utf8_lossy(&output.stderr));
+        assert!(
+            !output.status.success(),
+            "`martin {described}` unexpectedly succeeded; log:\n{log}"
         );
         log
     }
 
     /// Run the copy and hand back its exit status, its log and the arguments it was given.
     async fn execute(self) -> (std::process::ExitStatus, String, String) {
+        let (mut cmd, described) = self.command();
+        let output = cmd
+            .output()
+            .await
+            .unwrap_or_else(|e| panic!("failed to run `martin {described}`: {e}"));
+        let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
+        log.push_str(&String::from_utf8_lossy(&output.stderr));
+        (output.status, log, described)
+    }
+
+    /// The command line for the copy, and how it is described in failure messages.
+    fn command(&self) -> (tokio::process::Command, String) {
         let mut cmd = binary_command("MARTIN_BIN", "martin");
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
             .env("RUST_LOG_FORMAT", "bare")
-            .arg("cp")
+            .arg(self.subcommand())
             .args(&self.args)
             .stdin(Stdio::null());
         for (key, value) in &self.envs {
@@ -83,13 +146,7 @@ impl MartinCp {
             }
             cmd.args(pg_ssl_args());
         }
-        let described = display_args(&self.args);
-        let output = cmd
-            .output()
-            .await
-            .unwrap_or_else(|e| panic!("failed to run `martin cp {described}`: {e}"));
-        let mut log = String::from_utf8_lossy(&output.stdout).into_owned();
-        log.push_str(&String::from_utf8_lossy(&output.stderr));
-        (output.status, log, described)
+        let described = format!("{} {}", self.subcommand(), display_args(&self.args));
+        (cmd, described)
     }
 }

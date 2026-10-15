@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use pmtiles::{PmTilesWriter, TileCoord, TileType};
+use pmtiles::{AsyncPmTilesReader, Compression, MmapBackend, PmTilesWriter, TileCoord, TileType};
 
 use crate::{metadata, tiles};
 
@@ -27,7 +27,8 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     let center = numbers(&metadata, "center");
     let file = File::create(&dest).expect("failed to create the pmtiles archive");
     let mut writer = PmTilesWriter::new(TileType::Mvt)
-        .metadata(&pmtiles_metadata(&metadata))
+        .precompressed(Compression::Gzip)
+        .metadata(pmtiles_metadata(&metadata))
         .min_zoom(zoom(&metadata, "minzoom"))
         .max_zoom(zoom(&metadata, "maxzoom"))
         .bounds(bounds[0], bounds[1], bounds[2], bounds[3])
@@ -38,11 +39,39 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     for (z, x, row, data) in tiles(mbtiles).await {
         let coord = coord(z, x, row);
         writer
-            .add_raw_tile(coord, &data)
+            .add_tile(coord, &data)
             .expect("failed to write a tile");
     }
     writer.finalize().expect("failed to finalize the archive");
     dest
+}
+
+/// Assert that the `pmtiles` archive holds exactly the tiles of the `mbtiles` file, byte for byte.
+pub async fn assert_pmtiles_matches_mbtiles(pmtiles: impl AsRef<Path>, mbtiles: impl AsRef<Path>) {
+    let backend = MmapBackend::try_from(pmtiles.as_ref())
+        .await
+        .expect("failed to open the pmtiles archive");
+    let reader = AsyncPmTilesReader::try_from_source(backend)
+        .await
+        .expect("failed to read the pmtiles header");
+    let expected = tiles(mbtiles).await;
+    for (z, x, row, data) in &expected {
+        let tile = reader
+            .get_tile(coord(*z, *x, *row))
+            .await
+            .expect("failed to read a tile");
+        assert_eq!(
+            tile.as_deref(),
+            Some(data.as_slice()),
+            "tile {z}/{x}/{row} (TMS)"
+        );
+    }
+    let header = reader.get_header();
+    assert_eq!(
+        header.n_addressed_tiles().map(u64::from),
+        Some(expected.len() as u64)
+    );
+    assert!(header.clustered());
 }
 
 /// Write a raster archive at `dest` holding every tile of [`LEAFY_ZOOM`], too many for the root
@@ -67,7 +96,7 @@ pub fn leafy_pmtiles(version: u64, dest: impl AsRef<Path>) -> PathBuf {
             let coord = TileCoord::new(LEAFY_ZOOM, x, y).expect("tile is on the pyramid");
             let data = format!("{} {}", leafy_tile(version, x, y), ".".repeat(padding));
             writer
-                .add_raw_tile(coord, data.as_bytes())
+                .add_tile(coord, data.as_bytes())
                 .expect("failed to write a tile");
         }
     }

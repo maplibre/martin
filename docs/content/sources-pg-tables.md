@@ -114,3 +114,9 @@ DO $do$ BEGIN
     $$::json || '$tj$';
 END $do$;
 ```
+
+## Layers
+
+A table source can split its table into several layers with [`layers`](sources-pg-layers.md), each with
+its own features, zooms, attributes and draw order. Only [`martin generate`](martin-generate.md) uses
+them so far.

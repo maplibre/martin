@@ -3,20 +3,11 @@
 
 use std::fs;
 
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
     LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile,
     mbtiles_fixture, vector_pmtiles,
 };
-
-/// The `tests/fixtures/pmtiles` directory, whose two files cover both a plain source id and one
-/// that has to be derived from a file name carrying characters a URL cannot.
-async fn martin_with_the_pmtiles_dir() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/pmtiles")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
 
 /// Every start on that directory warns about the `+` in `stamen_toner__raster_CC-BY+ODbL_z3.pmtiles`,
 /// which martin replaces with a `-` to keep the source id url-safe.
@@ -80,6 +71,7 @@ async fn auto_configured_minimal() {
     let tile = martin.get("/webp2/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
@@ -109,7 +101,11 @@ async fn auto_configured_minimal() {
 
 #[tokio::test]
 async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
-    let mut martin = martin_with_the_pmtiles_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await;
     insta::with_settings!({sort_maps => true}, {
@@ -132,7 +128,11 @@ async fn a_directory_publishes_a_source_per_file_under_a_url_safe_id() {
 
 #[tokio::test]
 async fn a_raster_source_serves_its_tilejson() {
-    let mut martin = martin_with_the_pmtiles_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/stamen_toner__raster_CC-BY-ODbL_z3").await;
     assert_eq!(response.status(), 200);
@@ -174,13 +174,18 @@ async fn a_raster_source_serves_its_tilejson() {
 
 #[tokio::test]
 async fn a_raster_source_serves_png_tiles() {
-    let mut martin = martin_with_the_pmtiles_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin
         .get("/stamen_toner__raster_CC-BY-ODbL_z3/3/4/2")
         .await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 24475
     content-type: image/png
     etag: "I1fhCKy04n2xAQpEk2ESig"
@@ -195,17 +200,15 @@ async fn a_raster_source_serves_png_tiles() {
 #[tokio::test]
 async fn a_configured_source_serves_tiles_under_the_id_it_was_given() {
     let mut martin = Martin::builder()
-        .config(
-            "
-pmtiles:
-  sources:
-    pmt:
-      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
-      cache:
-        minzoom: 0
-        maxzoom: 3
-",
-        )
+        .config(indoc! {"
+            pmtiles:
+              sources:
+                pmt:
+                  path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+                  cache:
+                    minzoom: 0
+                    maxzoom: 3
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -221,6 +224,7 @@ pmtiles:
     let tile = martin.get("/pmt/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 18404
     content-type: image/png
     etag: "aKKkpu0hTRlf8joPaDt3Ug"
@@ -231,14 +235,10 @@ pmtiles:
     martin.stop().await;
 }
 
-/// A server holding the one fixture the remote tests read, under `name`.
-async fn statics_serving(name: &str) -> StaticFiles {
-    StaticFiles::serving(&[(name, fixture("pmtiles2/webp2.pmtiles"))]).await
-}
-
 #[tokio::test]
 async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
-    let statics = statics_serving("webp2.pmtiles").await;
+    let statics =
+        StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
     let error = Martin::builder()
         .arg(statics.url("webp2.pmtiles"))
         .start()
@@ -249,13 +249,13 @@ async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
     };
     insta::with_settings!({filters => vec![
         (r"http://127\.0\.0\.1:\d+", "http://[STATICS]"),
-        (r"Martin v\S+", "Martin v[VERSION]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
     ]}, {
         insta::assert_snapshot!(log, @"
-         INFO Starting Martin v[VERSION]
+         INFO Starting Martin martin.version=[VERSION]
          INFO Config file is not specified, auto-detecting sources
-         INFO resolve: Initializing PMTiles directory cache with maximum size 128 MB
-        ERROR resolve:handle_tile_warnings: Tile source resolution warning: Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
+         INFO resolve: Initializing PMTiles directory cache cache.size_mb=128
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path http://[STATICS]/webp2.pmtiles: Failed to parse object store URL of webp2: Generic HttpStore error: plain http is refused unless `allow_http` is set to `true` warnings.count=1
         ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
         ERROR resolve: error=Config(TileResolutionWarningsIssued)
         ERROR warnings issued during tile source resolution
@@ -266,17 +266,16 @@ async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
 
 #[tokio::test]
 async fn a_configured_source_url_is_read_over_http() {
-    let statics = statics_serving("webp2.pmtiles").await;
+    let statics =
+        StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
+    let url = statics.url("webp2.pmtiles");
     let mut martin = Martin::builder()
-        .config(&format!(
-            "
-pmtiles:
-  allow_http: true
-  sources:
-    pmt2: {}
-",
-            statics.url("webp2.pmtiles")
-        ))
+        .config(&formatdoc! {"
+            pmtiles:
+              allow_http: true
+              sources:
+                pmt2: {url}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -284,6 +283,7 @@ pmtiles:
     let tile = martin.get("/pmt2/0/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 11586
     content-type: image/webp
     etag: "wutUPc_mx5TO8aNmMnsK8A"
@@ -299,37 +299,32 @@ pmtiles:
     ");
 }
 
-/// A config reading `s3://pmtilestest/{file}` from a [`StaticFiles`] server rather than from AWS:
-/// path-style addressing turns the bucket into the first path segment, and unsigned requests keep
-/// credentials out of it.
-fn s3_config(statics: &StaticFiles, id: &str, file: &str) -> String {
-    format!(
-        "
-pmtiles:
-  aws_endpoint: {}
-  aws_region: eu-central-1
-  skip_signature: true
-  allow_http: true
-  virtual_hosted_style_request: false
-  sources:
-    {id}: s3://pmtilestest/{file}
-",
-        statics.base_url()
-    )
-}
-
-/// The `AWS_REGION` [`Martin::builder`] sets, which an `s3_config` overrides.
+/// The `AWS_REGION` [`Martin::builder`] sets, which a configured `pmtiles.aws_region` overrides.
 fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value pmtiles.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=pmtiles.aws_region",
     );
 }
 
 #[tokio::test]
 async fn a_configured_source_is_read_from_an_s3_bucket() {
-    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
+    let statics = StaticFiles::serving(&[(
+        "pmtilestest/webp2.pmtiles",
+        fixture("pmtiles2/webp2.pmtiles"),
+    )])
+    .await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&s3_config(&statics, "s3", "webp2.pmtiles"))
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              sources:
+                s3: s3://pmtilestest/webp2.pmtiles
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -346,6 +341,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
     let tile = martin.get("/s3/1/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-length: 10658
     content-type: image/webp
     etag: "YQCG8_HEN_sExq050B7MCQ"
@@ -366,11 +362,25 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
 async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");
-    let statics = statics_serving("pmtilestest/webp2.pmtiles").await;
+    let statics = StaticFiles::serving(&[(
+        "pmtilestest/webp2.pmtiles",
+        fixture("pmtiles2/webp2.pmtiles"),
+    )])
+    .await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&s3_config(&statics, "s3", "webp2.pmtiles"))
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              sources:
+                s3: s3://pmtilestest/webp2.pmtiles
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -425,8 +435,18 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     )
     .await;
     let statics = StaticFiles::serving(&[("pmtilestest/world_cities.pmtiles", archive)]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&s3_config(&statics, "cities", "world_cities.pmtiles"))
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              sources:
+                cities: s3://pmtilestest/world_cities.pmtiles
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -445,6 +465,7 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     let tile = martin.get("/cities/2/3/2").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 151
     content-type: application/x-protobuf
@@ -492,14 +513,139 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     assert_the_aws_environment_was_overridden(&mut martin);
 }
 
+/// <https://github.com/maplibre/martin/issues/3452>
+#[tokio::test]
+async fn a_configured_source_inside_a_polled_prefix_keeps_its_own_settings() {
+    let statics = StaticFiles::serving(&[
+        (
+            "pmtilestest/webp2.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+        (
+            "pmtilestest/sibling.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+    ])
+    .await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              paths:
+                - s3://pmtilestest/
+              sources:
+                webp2:
+                  path: s3://pmtilestest/webp2.pmtiles
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+    // Only the poller finds `sibling`, so once it is up the first poll is done.
+    martin.wait_for_source("sibling").await;
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "sibling": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      },
+      "webp2": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    let tile = martin.get("/webp2/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=1234
+    content-length: 10658
+    content-type: image/webp
+    etag: "YQCG8_HEN_sExq050B7MCQ"
+    vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+    "#);
+
+    martin.stop().await;
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
+#[tokio::test]
+async fn a_configured_source_inside_a_polled_prefix_is_not_served_twice() {
+    let statics = StaticFiles::serving(&[
+        (
+            "pmtilestest/webp2.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+        (
+            "pmtilestest/sibling.pmtiles",
+            fixture("pmtiles2/webp2.pmtiles"),
+        ),
+    ])
+    .await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              paths:
+                - s3://pmtilestest/
+              sources:
+                satellite:
+                  path: s3://pmtilestest/webp2.pmtiles
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+    // Only the poller finds `sibling`, so once it is up the first poll is done.
+    martin.wait_for_source("sibling").await;
+
+    insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
+    {
+      "satellite": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      },
+      "sibling": {
+        "content_type": "image/webp",
+        "name": "ne2sr"
+      }
+    }
+    "#);
+
+    martin.stop().await;
+    assert_the_aws_environment_was_overridden(&mut martin);
+}
+
 #[tokio::test]
 async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let key = "pmtilestest/leafy.pmtiles";
     let statics =
         StaticFiles::serving(&[(key, leafy_pmtiles(1, tmp.path().join("v1.pmtiles")))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&s3_config(&statics, "leafy", "leafy.pmtiles"))
+        .config(&formatdoc! {"
+            pmtiles:
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              allow_http: true
+              virtual_hosted_style_request: false
+              sources:
+                leafy: s3://pmtilestest/leafy.pmtiles
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -532,14 +678,12 @@ async fn a_source_is_read_from_a_bucket_on_the_real_aws() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(
-            "
-pmtiles:
-  skip_signature: true
-  sources:
-    cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
-",
-        )
+        .config(indoc! {"
+            pmtiles:
+              skip_signature: true
+              sources:
+                cb_2018_us_zcta510_500k: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -558,6 +702,7 @@ pmtiles:
     let tile = martin.get("/cb_2018_us_zcta510_500k/1/0/0").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
+    cache-control: max-age=0, stale-while-revalidate=86400
     content-encoding: gzip
     content-length: 215320
     content-type: application/x-protobuf
@@ -608,11 +753,14 @@ async fn recursive_paths_publish_nested_files_under_dotted_ids() {
     fs::create_dir_all(watched.dir().join("2024")).expect("failed to create 2024");
     watched.seed(fixture("pmtiles2/webp2.pmtiles"), "webp2.pmtiles");
     watched.seed(fixture("pmtiles/png.pmtiles"), "2024/roads.pmtiles");
+    let dir = watched.dir();
+    let dir = dir.display();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "pmtiles:\n  paths: {}\n  recursive: true\n",
-            watched.dir().display()
-        ))
+        .config(&formatdoc! {"
+            pmtiles:
+              paths: {dir}
+              recursive: true
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -753,7 +901,12 @@ async fn a_kind_level_cache_bound_covers_a_configured_file() {
             .join("\n")
     }
     let mut martin = Martin::builder()
-        .config("pmtiles:\n  paths: tests/fixtures/pmtiles/png.pmtiles\n  cache:\n    minzoom: 1\n")
+        .config(indoc! {"
+            pmtiles:
+              paths: tests/fixtures/pmtiles/png.pmtiles
+              cache:
+                minzoom: 1
+        "})
         .start()
         .await
         .expect("failed to start martin");
