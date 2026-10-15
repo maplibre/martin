@@ -7170,7 +7170,7 @@ dependencies = [
 [[package]]
 name = "pmtiles"
 version = "0.24.1"
-source = "git+https://github.com/nyurik/pmtiles-rs?branch=writer-dedup-hint#d965540c87f3bd6553e124d355f2027616562ac8"
+source = "git+https://github.com/nyurik/pmtiles-rs?branch=writer-dedup-hint#610976b79fc40533f1ef70929738ab20e81e5f0d"
 dependencies = [
  "async-compression",
  "bytes",

@@ -180,8 +180,8 @@ impl TileEncoder {
         coord: TileCoord,
         dedup: &DedupIndex,
     ) -> Previous {
-        if previous.tile.dedup.is_none() {
-            previous.tile.dedup = dedup.key(&previous.tile.data);
+        if previous.tile.dedup_key.is_none() {
+            previous.tile.dedup_key = dedup.key(&previous.tile.data);
         }
         for &(layer, features) in &previous.features {
             self.stats[usize::from(layer)].add_features(coord.z(), features);
@@ -215,7 +215,7 @@ impl TileEncoder {
             tile: EncodedTile {
                 coord,
                 data,
-                dedup: key,
+                dedup_key: key,
             },
             features,
         })
@@ -423,8 +423,8 @@ mod tests {
             .encode_batch(&settings, &DedupIndex::default(), vec![first, second])
             .unwrap();
 
-        assert!(tiles[0].dedup.is_some());
-        assert_eq!(tiles[0].dedup, tiles[1].dedup);
+        assert!(tiles[0].dedup_key.is_some());
+        assert_eq!(tiles[0].dedup_key, tiles[1].dedup_key);
         assert_eq!(tiles[0].data, tiles[1].data);
         assert_ne!(tiles[0].coord, tiles[1].coord);
     }
@@ -454,8 +454,8 @@ mod tests {
             .encode_batch(&settings, &dedup, vec![second])
             .unwrap();
 
-        assert!(from_first[0].dedup.is_some());
-        assert_eq!(from_first[0].dedup, from_second[0].dedup);
+        assert!(from_first[0].dedup_key.is_some());
+        assert_eq!(from_first[0].dedup_key, from_second[0].dedup_key);
     }
 
     #[test]
@@ -478,7 +478,7 @@ mod tests {
             .encode_batch(&settings, &DedupIndex::default(), vec![tile])
             .unwrap();
 
-        assert_eq!(tiles[0].dedup, None);
+        assert_eq!(tiles[0].dedup_key, None);
     }
 
     #[test]
