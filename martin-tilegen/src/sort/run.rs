@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read as _, Seek as _, Write as _};
+use std::io::{BufReader, BufWriter, Read as _, Seek as _};
 use std::path::Path;
 
 use wincode::config::Configuration;
@@ -20,7 +20,6 @@ pub(super) struct Run {
 pub(super) struct RunWriter {
     index: u32,
     out: BufWriter<File>,
-    scratch: Vec<u8>,
     records: u64,
 }
 
@@ -29,19 +28,15 @@ impl RunWriter {
         Ok(Self {
             index,
             out: BufWriter::with_capacity(WRITE_BUFFER_BYTES, tempfile::tempfile_in(dir)?),
-            scratch: Vec::new(),
             records: 0,
         })
     }
 
     pub(super) fn write(&mut self, key: SortKey, record: &[u8]) -> TileGenResult<()> {
-        self.scratch.clear();
-        wincode::config::serialize_into(
-            &mut self.scratch,
+        <(SortKey, &[u8]) as wincode::SchemaWrite<Configuration>>::write(
+            &mut self.out,
             &(key, record),
-            Configuration::default(),
         )?;
-        self.out.write_all(&self.scratch)?;
         self.records += 1;
         Ok(())
     }
