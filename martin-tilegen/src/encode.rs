@@ -5,7 +5,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::PoisonError;
 
 use hotpath::wrap::std::sync::Mutex as ProfiledMutex;
-
 use martin_core::generate::props::KeyNames;
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use mlt_core::PropKind;

@@ -62,11 +62,11 @@ fn coalesce<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>,
 
 #[cfg(test)]
 mod tests {
+    use cel::Value;
     use martin_core::generate::props::{KeyId, Prop};
     use rstest::rstest;
 
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots};
-    use cel::Value;
 
     #[rstest]
     #[case::first_present("coalesce(feature['name:en'], name)", Value::from("Munich"))]

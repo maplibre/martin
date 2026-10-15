@@ -86,8 +86,8 @@ martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
 
     Of a [table source](sources-pg-tables.md), `martin generate` uses `schema`, `table`,
     `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`,
-    `buffer`, `layer_id` and [`layers`](sources-pg-layers.md). Settings that only affect serving, such as
-    caching, are ignored.
+    `buffer`, `clip_geom`, `layer_id` and [`layers`](sources-pg-layers.md). Settings that only affect
+    serving, such as caching, are ignored.
 
 ## Options
 

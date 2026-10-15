@@ -8,7 +8,7 @@ use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef,
     TableDef, ValueDef, ZoomDef,
 };
-use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold};
+use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
 use tilejson::Bounds;
 use tracing::warn;
 
@@ -49,6 +49,7 @@ pub fn lower_table(
         return Ok(None);
     }
     let defaults = LayerDef {
+        clip_mode: info.clip_geom.map_or(ClipMode::Clipped, clip_mode),
         bounds: options.bounds,
         ..LayerDef::new(
             String::new(),
@@ -147,6 +148,7 @@ fn lower_layer(
                 .map_or(defaults.grid.extent, std::num::NonZeroU32::get),
             buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
         },
+        clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
         simplify: threshold(
             layer.simplify,
             layer.simplify_at_maxzoom(),
@@ -286,6 +288,16 @@ fn unsupported(layer: &Layer) -> Option<String> {
     }
 }
 
+/// `clip_geom: false` hands each tile a line or polygon reaches the whole geometry, as
+/// `ST_AsMVTGeom` does when serving.
+fn clip_mode(clip_geom: bool) -> ClipMode {
+    if clip_geom {
+        ClipMode::Clipped
+    } else {
+        ClipMode::Unclipped
+    }
+}
+
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
 /// a `jsonb` column are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
@@ -369,6 +381,7 @@ mod tests {
                         extent: 512,
                         buffer: 8,
                     },
+                    clip_mode: Clipped,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,
@@ -427,6 +440,7 @@ mod tests {
                         extent: 4096,
                         buffer: 64,
                     },
+                    clip_mode: Clipped,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,
@@ -463,6 +477,7 @@ mod tests {
                 minzoom: 1
                 extent: 1024
                 buffer: 16
+                clip_geom: false
                 prefetch: 2
                 properties:
                   name: text
@@ -474,6 +489,7 @@ mod tests {
                     maxzoom: 20
                     extent: 4096
                     buffer: 0
+                    clip_geom: true
                     simplify: 2
                     min_size_at_maxzoom: 0.5
                     id: false
@@ -513,6 +529,7 @@ mod tests {
                         extent: 4096,
                         buffer: 0,
                     },
+                    clip_mode: Clipped,
                     simplify: PixelThreshold {
                         below_max_zoom: 2.0,
                         at_max_zoom: 2.0,
@@ -541,6 +558,7 @@ mod tests {
                         extent: 1024,
                         buffer: 16,
                     },
+                    clip_mode: Unclipped,
                     simplify: PixelThreshold {
                         below_max_zoom: 1.0,
                         at_max_zoom: 0.0,
@@ -569,6 +587,7 @@ mod tests {
                         extent: 1024,
                         buffer: 16,
                     },
+                    clip_mode: Unclipped,
                     simplify: PixelThreshold {
                         below_max_zoom: 0.1,
                         at_max_zoom: 0.0625,

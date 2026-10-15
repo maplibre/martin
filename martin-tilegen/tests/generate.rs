@@ -2,8 +2,10 @@
 #![cfg(feature = "mbtiles")]
 #![expect(clippy::unwrap_used)]
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use geo::CoordsIter as _;
 use geo_types::{Coord, LineString, Polygon};
 use martin_core::generate::props::{KeyId, KeyInterner, Prop};
 use martin_core::generate::source::{
@@ -15,8 +17,8 @@ use martin_tilegen::plan::{
     TableDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::{
-    ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress,
-    SortConfig, Summary, TileFormat, generate,
+    ClipMode, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold,
+    Progress, SortConfig, Summary, TileFormat, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::EncoderConfig;
@@ -39,7 +41,7 @@ fn table(name: &str, keys: &[&str]) -> TableDef {
 
 /// Six partitions alternating between a points layer and a lines layer, in WGS84, and one partition
 /// of polygons: a large one with a hole, whose covered tiles become fill ranges, and a small one.
-fn source() -> (MemorySource, Plan) {
+fn source() -> MemorySource {
     let mut batches: Vec<_> = (0..6u32)
         .map(|p| {
             let base = f64::from(p) * 20.0 - 60.0;
@@ -99,13 +101,16 @@ fn source() -> (MemorySource, Plan) {
             })
             .collect(),
     });
-    let plan = Plan::new(vec![
+    MemorySource { batches }
+}
+
+fn plan() -> Plan {
+    Plan::new(vec![
         table("places", &["name", "rank"]),
         table("roads", &["name", "rank"]),
         table("parks", &["name"]),
     ])
-    .unwrap();
-    (MemorySource { batches }, plan)
+    .unwrap()
 }
 
 /// `(zoom_level, tile_column, tile_row, tile_data)`
@@ -179,9 +184,9 @@ fn decode(gzipped: &[u8]) -> Vec<TileLayer> {
 
 #[test]
 fn generates_a_deterministic_tileset() {
-    let (source, plan) = source();
+    let source = source();
     let dir = tempfile::tempdir().unwrap();
-    let (summary, rows, mbt) = run(&source, &plan, dir.path(), 1);
+    let (summary, rows, mbt) = run(&source, &plan(), dir.path(), 1);
     assert_eq!(summary.features, 122);
     assert_eq!(summary.slice_errors, []);
     assert_eq!(summary.tiles, rows.len() as u64);
@@ -234,7 +239,7 @@ fn generates_a_deterministic_tileset() {
         "identical tiles repeat"
     );
 
-    let (parallel, parallel_rows, _) = run(&source, &plan, dir.path(), 4);
+    let (parallel, parallel_rows, _) = run(&source, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
     assert!(
         parallel_rows == rows,
@@ -242,9 +247,107 @@ fn generates_a_deterministic_tileset() {
     );
 }
 
+/// Per `(zoom, layer, feature id)`, the tiles holding the feature and each distinct geometry they
+/// hold, in global zoom-grid coordinates.
+type Placements = BTreeMap<(i64, String, u64), (BTreeSet<(i64, i64)>, BTreeSet<Vec<(i32, i32)>>)>;
+
+fn placements(rows: &[Row]) -> Placements {
+    let extent = i32::try_from(GRID.extent).unwrap();
+    let mut out = Placements::new();
+    for (z, x, tms_y, data) in rows {
+        let y = (1 << z) - 1 - tms_y;
+        let origin = |t: i64| i32::try_from(t).unwrap() * extent;
+        for layer in decode(data) {
+            for feature in layer.features() {
+                let global = feature
+                    .geometry()
+                    .coords_iter()
+                    .map(|c| (c.x + origin(*x), c.y + origin(y)))
+                    .collect();
+                let key = (*z, layer.name().to_owned(), feature.id().unwrap());
+                let (tiles, geoms) = out.entry(key).or_default();
+                tiles.insert((*x, y));
+                geoms.insert(global);
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn unclipped_layers_hold_whole_features_in_every_tile_they_reach() {
+    let source = source();
+    let plan_with = |clip_mode| {
+        let tables = [
+            ("places", &["name", "rank"][..]),
+            ("roads", &["name", "rank"]),
+            ("parks", &["name"]),
+        ];
+        Plan::new(
+            tables
+                .into_iter()
+                .map(|(name, keys)| TableDef {
+                    layers: vec![LayerDef {
+                        clip_mode,
+                        ..LayerDef::new(name, 0..=4, GRID)
+                    }],
+                    ..table(name, keys)
+                })
+                .collect(),
+        )
+        .unwrap()
+    };
+    let (clipped_dir, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (_, clipped_rows, _) = run(
+        &source,
+        &plan_with(ClipMode::Clipped),
+        clipped_dir.path(),
+        1,
+    );
+    let (summary, rows, _) = run(&source, &plan_with(ClipMode::Unclipped), dir.path(), 1);
+    assert_eq!(summary.features, 122);
+    assert_eq!(summary.slice_errors, []);
+
+    let clipped = placements(&clipped_rows);
+    let unclipped = placements(&rows);
+    let tiles = |p: &Placements| -> Vec<_> {
+        p.iter()
+            .map(|(key, (tiles, _))| (key.clone(), tiles.clone()))
+            .collect()
+    };
+    assert!(
+        tiles(&unclipped) == tiles(&clipped),
+        "features reach the same tiles in both modes"
+    );
+    let split = |p: &Placements, layer: &str| {
+        p.iter()
+            .filter(|((_, l, _), (tiles, geoms))| l == layer && tiles.len() > 1 && geoms.len() > 1)
+            .count()
+    };
+    assert!(split(&clipped, "roads") > 10 && split(&clipped, "parks") > 2);
+    for ((z, layer, id), (tiles, geoms)) in &unclipped {
+        assert_eq!(geoms.len(), 1, "z{z} {layer} {id} in {tiles:?}");
+    }
+
+    // Every tile of the big park, interior ones too, holds its outline and hole: no fill squares.
+    let park = &unclipped[&(4, "parks".to_owned(), 1)];
+    assert!(park.0.len() > 30, "{} tiles", park.0.len());
+    for (_, _, _, data) in rows.iter().filter(|r| r.0 == 4) {
+        for layer in decode(data).iter().filter(|l| l.name() == "parks") {
+            for feature in layer.features() {
+                let geo_types::Geometry::Polygon(p) = feature.geometry() else {
+                    panic!("{:?}", feature.geometry());
+                };
+                let holes = usize::from(feature.id() == Some(1));
+                assert_eq!(p.interiors().len(), holes, "park {:?}", feature.id());
+            }
+        }
+    }
+}
+
 #[test]
 fn reports_the_first_unrenderable_feature_regardless_of_threads() {
-    let (mut source, plan) = source();
+    let mut source = source();
     source.batches[4].features[5].geometry = Geometry::Points(vec![Coord {
         x: f64::NAN,
         y: 0.0,
@@ -264,7 +367,7 @@ fn reports_the_first_unrenderable_feature_regardless_of_threads() {
         error: "a coordinate is outside the i32 zoom grid".to_owned(),
     }];
     for threads in [1, 4] {
-        let (summary, _, _) = run(&source, &plan, dir.path(), threads);
+        let (summary, _, _) = run(&source, &plan(), dir.path(), threads);
         assert_eq!(summary.slice_errors, expected, "{threads} threads");
     }
 }
@@ -503,25 +606,27 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
         }
     }
 
-    let plan = Plan::new(vec![TableDef {
-        columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
-            ColumnDef::Keys("tags".to_owned()),
-        ],
-        layers: vec![
-            LayerDef::new("all", 0..=4, GRID),
-            LayerDef {
-                min_size: PixelThreshold::ZERO,
-                id: IdDef::Drop,
-                attributes: AttributesDef::Columns(vec!["tag1".to_owned(), "rank".to_owned()]),
-                ..LayerDef::new("subset", 1..=3, GRID)
-            },
-        ],
-    }])
-    .unwrap();
+    let plan = || {
+        Plan::new(vec![TableDef {
+            columns: vec![
+                ColumnDef::Value("name".to_owned()),
+                ColumnDef::Value("rank".to_owned()),
+                ColumnDef::Keys("tags".to_owned()),
+            ],
+            layers: vec![
+                LayerDef::new("all", 0..=4, GRID),
+                LayerDef {
+                    min_size: PixelThreshold::ZERO,
+                    id: IdDef::Drop,
+                    attributes: AttributesDef::Columns(vec!["tag1".to_owned(), "rank".to_owned()]),
+                    ..LayerDef::new("subset", 1..=3, GRID)
+                },
+            ],
+        }])
+        .unwrap()
+    };
     let dir = tempfile::tempdir().unwrap();
-    let (summary, rows, _) = run(&Tagged, &plan, dir.path(), 1);
+    let (summary, rows, _) = run(&Tagged, &plan(), dir.path(), 1);
     assert_eq!(summary.features, 240);
 
     let z1 = decode(&rows.iter().find(|r| r.0 == 1).unwrap().3);
@@ -540,7 +645,7 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
         ]
     );
 
-    let (parallel, parallel_rows, _) = run(&Tagged, &plan, dir.path(), 4);
+    let (parallel, parallel_rows, _) = run(&Tagged, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
     assert!(
         parallel_rows == rows,

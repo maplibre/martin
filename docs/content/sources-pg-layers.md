@@ -51,7 +51,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | Key                               | Meaning                                                          | Details                                            |
 |-----------------------------------|------------------------------------------------------------------|----------------------------------------------------|
 | `minzoom`, `maxzoom`              | A number, or an expression for each feature's own zoom           | [Zooms](#zooms)                                    |
-| `extent`, `buffer`                | Override the table source's                                      |                                                    |
+| `extent`, `buffer`, `clip_geom`   | Override the table source's                                      |                                                    |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons          | [Simplification](#simplification-and-minimum-size) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped               | [Simplification](#simplification-and-minimum-size) |
 | `geometry`                        | `point`, `line` or `polygon`: only features of that type         | [Features](#features)                              |
@@ -61,8 +61,9 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 
-`extent` and `buffer` default to the table source's, then to 4096 and 64.
+`extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
 `buffer` must be less than half the `extent`.
+With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
 
 ## Properties
 
