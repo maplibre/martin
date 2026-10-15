@@ -23,6 +23,7 @@ pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder,
 pub use error::{TileGenError, TileGenResult};
 pub use generate::{ExprErrors, GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
 pub use group::{LayerRecordRef, TileGrouper, TileRecords};
+pub use map_tile_toolkit::ClipMode;
 pub use render::{
     Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, Renderer,
     SliceError, SliceErrors,

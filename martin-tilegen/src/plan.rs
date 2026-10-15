@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
 
+use map_tile_toolkit::ClipMode;
 use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
@@ -77,6 +78,8 @@ pub struct LayerDef {
     pub name: String,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
+    /// Whether each tile gets only its part of a line or polygon, or the whole geometry.
+    pub clip_mode: ClipMode,
     /// RDP tolerance.
     pub simplify: PixelThreshold,
     /// Lines and polygons whose bounding box is smaller than this are dropped.
@@ -101,14 +104,15 @@ pub struct LayerDef {
 }
 
 impl LayerDef {
-    /// A layer with no [`bounds`](Self::bounds), keeping ids and all attributes in source order, with
-    /// [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
+    /// A clipped layer with no [`bounds`](Self::bounds), keeping ids and all attributes in source
+    /// order, with [`PixelThreshold::DEFAULT_SIMPLIFY`] and [`PixelThreshold::DEFAULT_MIN_SIZE`].
     #[must_use]
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
         Self {
             name: name.into(),
             zooms,
             grid,
+            clip_mode: ClipMode::Clipped,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
@@ -543,12 +547,12 @@ fn plan_layer(
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
-    let render = RenderLayer::new(index, def.zooms.clone(), def.grid).map_err(|error| {
-        PlanError::InvalidLayer {
+    let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
+        .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
             error,
-        }
-    })?;
+        })?
+        .with_clip_mode(def.clip_mode);
     let render = match def.bounds {
         Some(bounds) => render.with_bounds(bounds),
         None => render,
