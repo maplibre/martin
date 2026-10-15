@@ -243,25 +243,43 @@ pub(crate) struct PlannedLayer {
     pub(crate) render: RenderLayer,
     pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
-    pub(crate) simplify: PixelThreshold,
-    pub(crate) min_size: PixelThreshold,
     pub(crate) geometry: Option<GeometryType>,
     /// Indexes into [`Plan::exprs`].
     pub(crate) filter: Option<ExprRef<Filter>>,
-    pub(crate) minzoom: Option<ExprRef<Zoom>>,
-    pub(crate) maxzoom: Option<ExprRef<Zoom>>,
     pub(crate) id: PlannedId,
     pub(crate) attributes: AttributesDef,
     /// The output layer's known keys, including those only rules add.
     pub(crate) keys: Vec<String>,
     /// Output key by table column.
     pub(crate) copy: Vec<Option<KeyId>>,
-    pub(crate) attrs: PlannedAttrs,
-    pub(crate) rules: Vec<PlannedRule>,
+    /// The layer's rules, in order.
+    pub(crate) cases: Vec<Case>,
+    /// The layer's own settings, for features matching no case.
+    pub(crate) fallback: Case,
     pub(crate) sort_by: Vec<ExprRef<SortBy>>,
 }
 
-#[derive(Debug, Default)]
+/// A rule, with the layer's settings for whatever it does not set.
+#[derive(Debug)]
+pub(crate) struct Case {
+    /// Index into [`Plan::exprs`]; `None` matches every feature.
+    pub(crate) when: Option<ExprRef<Filter>>,
+    pub(crate) minzoom: PlannedZoom,
+    pub(crate) maxzoom: PlannedZoom,
+    pub(crate) simplify: PixelThreshold,
+    pub(crate) min_size: PixelThreshold,
+    pub(crate) attrs: PlannedAttrs,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum PlannedZoom {
+    /// Within the layer's zooms.
+    Fixed(u8),
+    /// The first of these that is not `null`, clamped into the layer's zooms; the layer's own if neither.
+    Expr(ExprRef<Zoom>, Option<ExprRef<Zoom>>),
+}
+
+#[derive(Clone, Debug, Default)]
 pub(crate) struct PlannedAttrs {
     /// Sorted output keys that copied properties may not take, as these attributes replace them.
     pub(crate) overrides: Vec<KeyId>,
@@ -271,24 +289,6 @@ pub(crate) struct PlannedAttrs {
     pub(crate) banded: Vec<PlannedAttr>,
     /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
     pub(crate) bands: Vec<u8>,
-}
-
-#[derive(Debug)]
-pub(crate) struct PlannedRule {
-    /// Index into [`Plan::exprs`]; `None` matches every feature.
-    pub(crate) when: Option<ExprRef<Filter>>,
-    pub(crate) minzoom: Option<PlannedZoom>,
-    pub(crate) maxzoom: Option<PlannedZoom>,
-    pub(crate) simplify: PixelThreshold,
-    pub(crate) min_size: PixelThreshold,
-    /// `None` keeps the layer's.
-    pub(crate) attrs: Option<PlannedAttrs>,
-}
-
-#[derive(Debug)]
-pub(crate) enum PlannedZoom {
-    Fixed(u8),
-    Expr(ExprRef<Zoom>),
 }
 
 #[derive(Debug)]
@@ -435,8 +435,8 @@ impl PlannedLayer {
             .zip(renumbered)
             .filter_map(|(copy, column)| column.map(|_| *copy))
             .collect();
-        let rules = self.rules.iter_mut().filter_map(|rule| rule.attrs.as_mut());
-        for attrs in std::iter::once(&mut self.attrs).chain(rules) {
+        for case in std::iter::once(&mut self.fallback).chain(&mut self.cases) {
+            let attrs = &mut case.attrs;
             for attr in attrs.computed.iter_mut().chain(&mut attrs.banded) {
                 if let PlannedValue::Column(key) = &mut attr.value {
                     *key = renumbered[key.index()].expect("a column an attribute reads is scanned");
@@ -527,10 +527,22 @@ fn plan_layer(
             PlannedId::Expr(compiler.add(source, expr, Id))
         }
     };
-    let rules = def
+    let fallback = Case {
+        when: None,
+        minzoom: minzoom.map_or(PlannedZoom::Fixed(*def.zooms.start()), |expr| {
+            PlannedZoom::Expr(expr, None)
+        }),
+        maxzoom: maxzoom.map_or(PlannedZoom::Fixed(*def.zooms.end()), |expr| {
+            PlannedZoom::Expr(expr, None)
+        }),
+        simplify: def.simplify,
+        min_size: def.min_size,
+        attrs,
+    };
+    let cases = def
         .rules
         .iter()
-        .map(|rule| plan_rule(&def, rule, compiler, &mut keys, &attrs))
+        .map(|rule| plan_case(&def, rule, compiler, &mut keys, &fallback))
         .collect::<Result<_, PlanError>>()?;
     let sort_by = def
         .sort_by
@@ -568,18 +580,14 @@ fn plan_layer(
             },
         },
         zooms: def.zooms,
-        simplify: def.simplify,
-        min_size: def.min_size,
         geometry: def.geometry,
         filter,
-        minzoom,
-        maxzoom,
         id,
         attributes: def.attributes,
         keys,
         copy,
-        attrs,
-        rules,
+        cases,
+        fallback,
         sort_by,
     })
 }
@@ -624,18 +632,32 @@ fn check_duplicates<'a>(
 }
 
 /// A rule's attributes are planned with the layer's they keep, and add their names to `keys`.
-fn plan_rule(
+fn plan_case(
     def: &LayerDef,
     rule: &RuleDef,
     compiler: &mut Compiler<'_>,
     keys: &mut Vec<String>,
-    layer: &PlannedAttrs,
-) -> Result<PlannedRule, PlanError> {
+    fallback: &Case,
+) -> Result<Case, PlanError> {
     let when = compiler.plan(rule.when.as_ref(), Filter)?;
-    let minzoom = plan_zoom(rule.minzoom.as_ref(), compiler)?;
-    let maxzoom = plan_zoom(rule.maxzoom.as_ref(), compiler)?;
+    let (lo, hi) = (*def.zooms.start(), *def.zooms.end());
+    let minzoom = plan_zoom(
+        rule.minzoom.as_ref(),
+        fallback.minzoom,
+        lo,
+        u8::max,
+        compiler,
+    )?;
+    let maxzoom = plan_zoom(
+        rule.maxzoom.as_ref(),
+        fallback.maxzoom,
+        hi,
+        u8::min,
+        compiler,
+    )?;
+    let layer = &fallback.attrs;
     let attrs = if rule.attributes.is_empty() {
-        None
+        layer.clone()
     } else {
         check_duplicates(&def.name, rule.attributes.iter().map(|attr| &attr.name))?;
         let (mut overrides, mut computed, mut banded) = (Vec::new(), Vec::new(), Vec::new());
@@ -675,33 +697,42 @@ fn plan_rule(
         let (mut layer_computed, mut layer_banded) = (kept(&layer.computed), kept(&layer.banded));
         layer_computed.append(&mut computed);
         layer_banded.append(&mut banded);
-        Some(PlannedAttrs {
+        PlannedAttrs {
             overrides,
             bands: zoom_bands(&layer_banded, &def.zooms),
             computed: layer_computed,
             banded: layer_banded,
-        })
+        }
     };
-    Ok(PlannedRule {
+    Ok(Case {
         when,
         minzoom,
         maxzoom,
-        simplify: rule.simplify.unwrap_or(def.simplify),
-        min_size: rule.min_size.unwrap_or(def.min_size),
+        simplify: rule.simplify.unwrap_or(fallback.simplify),
+        min_size: rule.min_size.unwrap_or(fallback.min_size),
         attrs,
     })
 }
 
+/// A rule's zoom: a fixed one is clamped to the layer's `bound`, and one evaluating to `null` is the
+/// layer's.
 fn plan_zoom(
     zoom: Option<&ZoomDef>,
+    layer: PlannedZoom,
+    bound: u8,
+    clamp: fn(u8, u8) -> u8,
     compiler: &mut Compiler<'_>,
-) -> Result<Option<PlannedZoom>, PlanError> {
+) -> Result<PlannedZoom, PlanError> {
     Ok(match zoom {
-        None => None,
-        Some(ZoomDef::Fixed(zoom)) => Some(PlannedZoom::Fixed(*zoom)),
+        None => layer,
+        Some(ZoomDef::Fixed(zoom)) => PlannedZoom::Fixed(clamp(*zoom, bound)),
         Some(ZoomDef::Expr(source)) => {
             let expr = compiler.compile(source)?;
-            Some(PlannedZoom::Expr(compiler.add(source, expr, Zoom)))
+            let then = match layer {
+                PlannedZoom::Fixed(_) => None,
+                PlannedZoom::Expr(expr, _) => Some(expr),
+            };
+            PlannedZoom::Expr(compiler.add(source, expr, Zoom), then)
         }
     })
 }
