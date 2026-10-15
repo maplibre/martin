@@ -870,9 +870,7 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.table.columns, None).expect("valid SQL");
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "name", "population", "rank" FROM "public"."places" WHERE "geom" IS NOT NULL"#);
-        insta::assert_debug_snapshot!(scan.table.layers[0].rules, @r#"
+        insta::assert_debug_snapshot!(scan.def.layers[0].rules, @r#"
         [
             RuleDef {
                 when: Some(

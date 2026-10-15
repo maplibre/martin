@@ -423,9 +423,12 @@ impl PlannedLayer {
             .zip(renumbered)
             .filter_map(|(copy, column)| column.map(|_| *copy))
             .collect();
-        for attr in self.computed.iter_mut().chain(&mut self.banded) {
-            if let PlannedValue::Column(key) = &mut attr.value {
-                *key = renumbered[key.index()].expect("a column an attribute reads is scanned");
+        let rules = self.rules.iter_mut().filter_map(|rule| rule.attrs.as_mut());
+        for attrs in std::iter::once(&mut self.attrs).chain(rules) {
+            for attr in attrs.computed.iter_mut().chain(&mut attrs.banded) {
+                if let PlannedValue::Column(key) = &mut attr.value {
+                    *key = renumbered[key.index()].expect("a column an attribute reads is scanned");
+                }
             }
         }
     }
@@ -679,7 +682,7 @@ fn plan_value(value: &ValueDef, compiler: &mut Compiler<'_>) -> Result<PlannedVa
             let expr = compiler.compile(source)?;
             let column = expr
                 .as_property()
-                .and_then(|name| compiler.columns.iter().position(|c| c == name));
+                .and_then(|name| compiler.value_position(name));
             match column {
                 Some(column) => PlannedValue::Column(key_id(column)),
                 None => PlannedValue::Expr(compiler.add(source, expr, Attr)),

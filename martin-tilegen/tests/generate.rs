@@ -1002,8 +1002,7 @@ fn the_first_matching_rule_wins() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             rules: vec![
                 RuleDef {
@@ -1073,8 +1072,7 @@ fn a_feature_matching_no_rule_keeps_the_layer_settings() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             minzoom_expr: Some("2".to_owned()),
             attributes: AttributesDef::Computed {
@@ -1139,8 +1137,7 @@ fn rule_zooms_are_fixed_or_per_feature() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             maxzoom_expr: Some("3".to_owned()),
             rules: vec![
@@ -1205,8 +1202,7 @@ fn a_rule_sets_its_own_simplify() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["class".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("class".to_owned())],
         layers: vec![LayerDef {
             simplify: PixelThreshold::ZERO,
             min_size: PixelThreshold::ZERO,
@@ -1278,8 +1274,11 @@ fn rule_attributes_replace_and_add_to_the_layers() {
         zooms,
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["name".to_owned(), "class".to_owned(), "rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+        ],
         layers: vec![LayerDef {
             attributes: AttributesDef::Computed {
                 attributes: vec![
@@ -1353,8 +1352,7 @@ fn a_failing_rule_condition_does_not_match_and_is_counted() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["lanes".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("lanes".to_owned())],
         layers: vec![LayerDef {
             minzoom_expr: Some("1".to_owned()),
             rules: vec![RuleDef {
@@ -1410,7 +1408,6 @@ fn a_rule_without_a_condition_or_expressions_still_applies() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
-        dynamic_props: false,
         layers: vec![
             LayerDef {
                 simplify: PixelThreshold::ZERO,
@@ -1447,4 +1444,56 @@ fn a_rule_without_a_condition_or_expressions_still_applies() {
     plain: 21 points
     ruled: 2 points
     ");
+}
+
+#[test]
+fn a_rule_attribute_reads_its_column_after_unused_columns_are_dropped() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("name".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::None,
+            rules: vec![RuleDef {
+                attributes: vec![ComputedAttr {
+                    name: "label".to_owned(),
+                    value: ValueDef::Expr("name".to_owned()),
+                    zooms: 1..=30,
+                }],
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("water", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    assert_eq!(plan.columns(0), ["name"]);
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                props: vec![(KeyId::new(0), Prop::Str("Rhein".to_owned()))],
+            }],
+        }],
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let layer = &decode(&row.3)[0];
+            format!(
+                "z{} {:?} {:?}",
+                row.0,
+                layer.property_names(),
+                layer.features()[0].properties()
+            )
+        })
+        .collect();
+    assert_eq!(tiles, ["z0 [] []", r#"z1 ["label"] [Str(Some("Rhein"))]"#]);
 }
