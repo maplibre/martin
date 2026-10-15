@@ -122,6 +122,10 @@ impl EncodedProps {
         };
         put(&mut self.bytes, &(key.get(), value));
     }
+
+    pub(crate) fn decode(&self) -> Props<'_> {
+        Props { bytes: &self.bytes }
+    }
 }
 
 /// `sort` is the feature's `sort_by` key, which orders the features of its layer in each tile.

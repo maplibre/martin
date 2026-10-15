@@ -1,8 +1,13 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use geo_types::Coord;
 use martin_core::generate::props::{KeyId, Prop};
-use martin_tilegen::expr::{CompiledExpr, ExprKeys, PropSlots};
+use martin_core::generate::source::{Geometry, SourceFeature};
+use martin_tilegen::plan::{
+    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, TableDef, ValueDef,
+};
+use martin_tilegen::{FeatureGeom, LayerGrid};
 
 const COLUMNS: [&str; 6] = [
     "highway",
@@ -13,32 +18,101 @@ const COLUMNS: [&str; 6] = [
     "name:en",
 ];
 
+const POINT: [Coord<f64>; 1] = [Coord { x: 0.0, y: 0.0 }];
+
+fn plan(layer: LayerDef) -> Plan {
+    Plan::new(vec![TableDef {
+        columns: COLUMNS
+            .iter()
+            .map(|&name| ColumnDef::Value(name.to_owned()))
+            .collect(),
+        layers: vec![layer],
+    }])
+    .expect("valid plan")
+}
+
+/// The feature as the source scans it: only the columns the plan keeps, under their scanned keys.
+fn feature(plan: &Plan) -> SourceFeature {
+    let columns = plan.columns(0);
+    let props = [
+        ("highway", Prop::Str("primary".to_owned())),
+        ("population", Prop::I64(120_000)),
+        ("name", Prop::Str("Hauptstraße".to_owned())),
+    ]
+    .into_iter()
+    .filter_map(|(name, value)| {
+        let pos = columns.iter().position(|column| column == name)?;
+        Some((KeyId::new(u32::try_from(pos).ok()?), value))
+    })
+    .collect();
+    SourceFeature {
+        id: None,
+        geometry: Geometry::Points(POINT.to_vec()),
+        props,
+    }
+}
+
 fn eval(c: &mut Criterion) {
-    let keys = ExprKeys::columns(&COLUMNS);
-    let props = vec![
-        (KeyId::new(0), Prop::Str("primary".to_owned())),
-        (KeyId::new(3), Prop::I64(120_000)),
-        (KeyId::new(4), Prop::Str("Hauptstraße".to_owned())),
-    ];
-    let mut group = c.benchmark_group("expr");
-    for (name, source) in [
+    let layer = || LayerDef {
+        attributes: AttributesDef::None,
+        ..LayerDef::new(
+            "layer",
+            0..=14,
+            LayerGrid {
+                extent: 4096,
+                buffer: 64,
+            },
+        )
+    };
+    let plans = [
         (
             "filter",
-            "highway in ['motorway', 'trunk', 'primary', 'secondary'] || railway == 'rail' \
-             || (place != null && population != null)",
+            plan(LayerDef {
+                filter: Some(
+                    "highway in ['motorway', 'trunk', 'primary', 'secondary'] || railway == 'rail' \
+                     || (place != null && population != null)"
+                        .to_owned(),
+                ),
+                ..layer()
+            }),
         ),
-        ("label", "coalesce(feature['name:en'], name)"),
+        (
+            "label",
+            plan(LayerDef {
+                attributes: AttributesDef::Computed {
+                    attributes: vec![ComputedAttr {
+                        name: "label".to_owned(),
+                        value: ValueDef::Expr("coalesce(feature['name:en'], name)".to_owned()),
+                        zooms: 0..=14,
+                    }],
+                    prefixes: vec![],
+                },
+                ..layer()
+            }),
+        ),
         (
             "rank",
-            "population >= 1000000 ? 1 : population >= 100000 ? 2 : population >= 10000 ? 3 : 4",
+            plan(LayerDef {
+                id: IdDef::Expr(
+                    "population >= 1000000 ? 1 : population >= 100000 ? 2 : population >= 10000 ? 3 : 4"
+                        .to_owned(),
+                ),
+                ..layer()
+            }),
         ),
-    ] {
-        let expr = CompiledExpr::compile(source, &COLUMNS, false).expect("valid expression");
-        let mut slots = PropSlots::default();
-        group.bench_function(name, |b| {
+    ];
+    let mut group = c.benchmark_group("expr");
+    for (name, plan) in &plans {
+        let feature = feature(plan);
+        let mut evaluator = plan.evaluator();
+        group.bench_function(*name, |b| {
             b.iter(|| {
-                let view = slots.bind(&keys, black_box(&props));
-                black_box(expr.eval(&view).is_ok())
+                evaluator
+                    .evaluate(0, black_box(&feature), FeatureGeom::Points(&POINT), |f| {
+                        black_box(f);
+                        Ok(())
+                    })
+                    .expect("evaluates");
             });
         });
     }
