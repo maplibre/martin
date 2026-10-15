@@ -82,7 +82,7 @@ postgres:
           attributes: [name]
 ```
 
-Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `martin generate` uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
+Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `martin generate` uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
 
 ## Options
 

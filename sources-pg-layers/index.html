@@ -2470,7 +2470,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 <td><a href="#zooms">Zooms</a></td>
 </tr>
 <tr>
-<td><code>extent</code>, <code>buffer</code></td>
+<td><code>extent</code>, <code>buffer</code>, <code>clip_geom</code></td>
 <td>Override the table source's</td>
 <td></td>
 </tr>
@@ -2516,8 +2516,9 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 </tr>
 </tbody>
 </table>
-<p><code>extent</code> and <code>buffer</code> default to the table source's, then to 4096 and 64.
-<code>buffer</code> must be less than half the <code>extent</code>.</p>
+<p><code>extent</code>, <code>buffer</code> and <code>clip_geom</code> default to the table source's, then to 4096, 64 and <code>true</code>.
+<code>buffer</code> must be less than half the <code>extent</code>.
+With <code>clip_geom: false</code>, every tile a line or polygon reaches holds all of it, not just its part there.</p>
 <h2 id="properties">Properties</h2>
 <p>A layer can only use the table source's <code>properties</code>, both as attributes and in expressions. An
 auto-published table has all of its columns as properties, but a table source in the configuration file
