@@ -77,11 +77,10 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &TileSize::Px256))]
     pub tile_size: Option<TileSize>,
 
-    /// Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the
-    /// network (0 to disable). Disabling it pays off when every source of the styles is served by
-    /// Martin itself. \[default: `MapLibre`'s own, 50 MiB\]
+    /// Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the network (0 to disable).
+    /// Disable it when every source of the styles is served by Martin itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &50))]
     pub ambient_cache_size_mb: Option<u64>,
 
     /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
