@@ -244,8 +244,14 @@ impl StyleSources {
         workers: Option<NonZeroUsize>,
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
+        ambient_cache_bytes: Option<u64>,
     ) -> Result<(), std::io::Error> {
-        self.pools = Some(RenderPools::new(workers, tile_size, renderers_per_worker)?);
+        self.pools = Some(RenderPools::new(
+            workers,
+            tile_size,
+            renderers_per_worker,
+            ambient_cache_bytes,
+        )?);
         Ok(())
     }
 

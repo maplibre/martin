@@ -662,6 +662,61 @@ async fn one_renderer_per_worker_still_renders_each_style() {
     cassette.assert_no_misses();
 }
 
+/// With one renderer per worker, rendering another style in between drops the renderer of the
+/// first, so rendering the first again loads it into a new renderer that asks for its tile again.
+/// `MapLibre` Native's ambient cache outlives renderers, and answers that ask while the tile is
+/// fresh, unless it is disabled.
+#[rstest]
+#[case::by_default("", 1)]
+#[case::disabled("ambient_cache_size_mb: 0", 2)]
+#[tokio::test]
+async fn the_ambient_cache_answers_a_reloaded_renderer(
+    #[case] ambient_cache: &str,
+    #[case] fetches: usize,
+) {
+    // Without a freshness header, MapLibre Native asks the server again even for what it has
+    // cached.
+    let cassette = Cassette::serving_fresh_for(UPSTREAMS, 3600).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+                renderers_per_worker: 1
+                {ambient_cache}
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    for style in ["maplibre_demo", "maptiler_basic", "maplibre_demo"] {
+        let body = rendered(&martin, &format!("/style/{style}/0/0/0.png")).await;
+        assert_image_matches(
+            reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")),
+            &body,
+        );
+    }
+
+    let log = cassette.request_log().await;
+    let tile = "GET /demotiles.maplibre.org/tiles/0/0/0.pbf";
+    assert_eq!(
+        log.lines().filter(|line| *line == tile).count(),
+        fetches,
+        "times maplibre_demo's tile was fetched; requests:\n{log}"
+    );
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
 #[tokio::test]
 async fn neighbouring_tiles_render_differently() {
     let cassette = Cassette::serving(UPSTREAMS).await;
