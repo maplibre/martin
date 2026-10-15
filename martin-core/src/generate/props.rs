@@ -39,15 +39,15 @@ impl KeyId {
 /// One property value of a feature.
 #[derive(Clone, Debug, PartialEq)]
 #[expect(missing_docs)]
-pub enum Prop {
+pub enum Prop<S = String> {
     Bool(bool),
     I64(i64),
     F32(f32),
     F64(f64),
-    Str(String),
+    Str(S),
 }
 
-impl Prop {
+impl<S: AsRef<str>> Prop<S> {
     /// Borrows the value as an MLT property value.
     #[must_use]
     pub fn as_ref(&self) -> PropValueRef<'_> {
@@ -56,7 +56,7 @@ impl Prop {
             Self::I64(v) => PropValueRef::I64(*v),
             Self::F32(v) => PropValueRef::F32(*v),
             Self::F64(v) => PropValueRef::F64(*v),
-            Self::Str(v) => PropValueRef::Str(v),
+            Self::Str(v) => PropValueRef::Str(v.as_ref()),
         }
     }
 }
