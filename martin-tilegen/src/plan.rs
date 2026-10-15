@@ -272,10 +272,10 @@ pub(crate) struct Case {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Clamped into the layer's zooms when evaluated.
 pub(crate) enum PlannedZoom {
-    /// Within the layer's zooms.
     Fixed(u8),
-    /// The first of these that is not `null`, clamped into the layer's zooms; the layer's own if neither.
+    /// The first of these that is not `null`; the layer's own zoom if neither.
     Expr(ExprRef<Zoom>, Option<ExprRef<Zoom>>),
 }
 
@@ -631,7 +631,7 @@ fn check_duplicates<'a>(
     Ok(())
 }
 
-/// A rule's attributes are planned with the layer's they keep, and add their names to `keys`.
+/// A rule as a case: what it does not set is the layer's, and its attributes add their names to `keys`.
 fn plan_case(
     def: &LayerDef,
     rule: &RuleDef,
@@ -640,21 +640,8 @@ fn plan_case(
     fallback: &Case,
 ) -> Result<Case, PlanError> {
     let when = compiler.plan(rule.when.as_ref(), Filter)?;
-    let (lo, hi) = (*def.zooms.start(), *def.zooms.end());
-    let minzoom = plan_zoom(
-        rule.minzoom.as_ref(),
-        fallback.minzoom,
-        lo,
-        u8::max,
-        compiler,
-    )?;
-    let maxzoom = plan_zoom(
-        rule.maxzoom.as_ref(),
-        fallback.maxzoom,
-        hi,
-        u8::min,
-        compiler,
-    )?;
+    let minzoom = plan_zoom(rule.minzoom.as_ref(), fallback.minzoom, compiler)?;
+    let maxzoom = plan_zoom(rule.maxzoom.as_ref(), fallback.maxzoom, compiler)?;
     let layer = &fallback.attrs;
     let attrs = if rule.attributes.is_empty() {
         layer.clone()
@@ -714,25 +701,22 @@ fn plan_case(
     })
 }
 
-/// A rule's zoom: a fixed one is clamped to the layer's `bound`, and one evaluating to `null` is the
-/// layer's.
+/// A rule's zoom, or the layer's where it sets none or its expression evaluates to `null`.
 fn plan_zoom(
     zoom: Option<&ZoomDef>,
     layer: PlannedZoom,
-    bound: u8,
-    clamp: fn(u8, u8) -> u8,
     compiler: &mut Compiler<'_>,
 ) -> Result<PlannedZoom, PlanError> {
     Ok(match zoom {
         None => layer,
-        Some(ZoomDef::Fixed(zoom)) => PlannedZoom::Fixed(clamp(*zoom, bound)),
+        Some(ZoomDef::Fixed(zoom)) => PlannedZoom::Fixed(*zoom),
         Some(ZoomDef::Expr(source)) => {
             let expr = compiler.compile(source)?;
-            let then = match layer {
+            let fallback = match layer {
                 PlannedZoom::Fixed(_) => None,
                 PlannedZoom::Expr(expr, _) => Some(expr),
             };
-            PlannedZoom::Expr(compiler.add(source, expr, Zoom), then)
+            PlannedZoom::Expr(compiler.add(source, expr, Zoom), fallback)
         }
     })
 }

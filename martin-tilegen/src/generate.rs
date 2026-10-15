@@ -570,9 +570,9 @@ impl Run<'_> {
     ) -> Option<u8> {
         match zoom {
             PlannedZoom::Fixed(zoom) => Some(zoom),
-            PlannedZoom::Expr(expr, then) => self
+            PlannedZoom::Expr(expr, fallback) => self
                 .eval(&expr, view, errors)
-                .or_else(|| self.eval(&then?, view, errors)),
+                .or_else(|| self.eval(&fallback?, view, errors)),
         }
     }
 
