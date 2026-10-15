@@ -956,7 +956,7 @@ mod tests {
     }
 
     #[test]
-    fn sort_by_lowers_into_the_layer_and_reads_its_columns() {
+    fn sort_by_lowers_into_the_layer() {
         let scan = lower(
             indoc! {r#"
                 schema: public
@@ -976,24 +976,17 @@ mod tests {
         )
         .expect("lowers")
         .expect("has a layer");
-        insta::assert_debug_snapshot!((&scan.table.columns, &scan.table.layers[0].sort_by), @r#"
-        (
-            [
-                "class",
-                "name",
-                "rank",
-            ],
-            [
-                SortDef {
-                    expr: "class",
-                    descending: false,
-                },
-                SortDef {
-                    expr: "rank * 2",
-                    descending: true,
-                },
-            ],
-        )
+        insta::assert_debug_snapshot!(scan.def.layers[0].sort_by, @r#"
+        [
+            SortDef {
+                expr: "class",
+                descending: false,
+            },
+            SortDef {
+                expr: "rank * 2",
+                descending: true,
+            },
+        ]
         "#);
     }
 

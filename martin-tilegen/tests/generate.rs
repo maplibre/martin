@@ -1522,8 +1522,7 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![
             LayerDef {
                 sort_by: vec![SortDef {
@@ -1593,8 +1592,10 @@ fn sort_by_compares_its_keys_in_order() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["class".to_owned(), "rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+        ],
         layers: vec![LayerDef {
             sort_by: vec![
                 SortDef {
@@ -1643,8 +1644,7 @@ fn null_and_failing_sort_keys_sort_first() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["lanes".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("lanes".to_owned())],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "lanes < 0 ? null : 8 / lanes".to_owned(),
@@ -1708,8 +1708,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "rank".to_owned(),
@@ -1772,8 +1771,7 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
             rules: vec![
@@ -1847,8 +1845,7 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec!["rank".to_owned()],
-        dynamic_props: false,
+        columns: vec![ColumnDef::Value("rank".to_owned())],
         layers: vec![LayerDef {
             encoder: EncoderConfig::default()
                 .with_id_sort(true)
