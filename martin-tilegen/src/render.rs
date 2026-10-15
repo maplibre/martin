@@ -4,7 +4,7 @@ use std::ops::{Range, RangeInclusive};
 
 use geo::{BoundingRect, SimplifyIdx as _};
 use geo_types::{Coord, LineString, Polygon, Rect};
-use map_tile_toolkit::{PolygonSlice, Slicer, signed_area_2x};
+use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
@@ -73,6 +73,7 @@ pub struct RenderLayer {
     pub index: u8,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
+    pub clip_mode: ClipMode,
     /// Per zoom from `zooms.start()`, the only tiles kept.
     tiles: Option<Vec<TileRect>>,
 }
@@ -104,7 +105,7 @@ impl PixelThreshold {
 }
 
 impl RenderLayer {
-    /// A layer keeping every tile in `zooms`.
+    /// A clipped layer keeping every tile in `zooms`.
     pub fn new(
         index: u8,
         zooms: RangeInclusive<u8>,
@@ -130,8 +131,17 @@ impl RenderLayer {
             index,
             zooms,
             grid,
+            clip_mode: ClipMode::Clipped,
             tiles: None,
         })
+    }
+
+    /// [`ClipMode::Unclipped`] gives every tile each line or polygon of a feature that reaches it,
+    /// whole, so polygons get no fill ranges.
+    #[must_use]
+    pub fn with_clip_mode(mut self, clip_mode: ClipMode) -> Self {
+        self.clip_mode = clip_mode;
+        self
     }
 
     /// Keeps only the tiles intersecting the WGS84 `bounds`.
@@ -180,8 +190,8 @@ impl RenderLayer {
 
 #[derive(Default)]
 pub struct Renderer {
-    /// One slicer per layer grid, for lines and polygons, reused across features.
-    slicers: Vec<(LayerGrid, Slicer)>,
+    /// One slicer per layer grid and clip mode, for lines and polygons, reused across features.
+    slicers: Vec<((LayerGrid, ClipMode), Slicer)>,
     /// The quantized feature in the zoom's global grid: ring counts per polygon, line or ring lengths,
     /// and vertices.
     polys: Vec<u32>,
@@ -440,7 +450,7 @@ impl Renderer {
     }
 
     /// Slices each line into the tiles it reaches and pushes one piece per tile, holding every run
-    /// of the feature's lines there. A slicer error drops the whole feature at this zoom: nothing is
+    /// of the feature's lines there (unclipped, every line that reaches the tile, whole). A slicer error drops the whole feature at this zoom: nothing is
     /// pushed until every line is sliced.
     fn slice_lines(
         &mut self,
@@ -627,6 +637,7 @@ impl Renderer {
                             });
                         }
                     }
+                    // Only clipped: an unclipped slicer gives covered tiles the whole polygon.
                     PolygonSlice::Run(run) => self.runs.push((run.x.start, run.x.end, run.y)),
                 }
             }
@@ -696,17 +707,18 @@ impl Renderer {
         Ok(())
     }
 
-    /// The slicer for the layer's grid, created on first use and reused across features.
+    /// The slicer for the layer's grid and clip mode, created on first use and reused across features.
     fn slicer_index(&mut self, layer: &RenderLayer) -> TileGenResult<usize> {
-        let grid = layer.grid;
-        if let Some(pos) = self.slicers.iter().position(|(g, _)| *g == grid) {
+        let key = (layer.grid, layer.clip_mode);
+        if let Some(pos) = self.slicers.iter().position(|(k, _)| *k == key) {
             return Ok(pos);
         }
+        let grid = layer.grid;
         let buffer = u16::try_from(grid.buffer).map_err(|_too_large| invalid_buffer(grid))?;
-        self.slicers.push((
-            grid,
-            Slicer::new(grid.extent, buffer).map_err(GeometryError::from)?,
-        ));
+        let slicer = Slicer::new(grid.extent, buffer)
+            .map_err(GeometryError::from)?
+            .with_clip_mode(layer.clip_mode);
+        self.slicers.push((key, slicer));
         Ok(self.slicers.len() - 1)
     }
 }
@@ -1159,6 +1171,73 @@ mod tests {
                 tiles.len()
             );
         }
+    }
+
+    /// Per record, its tile and its geometry moved back to the zoom's global grid.
+    fn global_pieces(
+        layer: &RenderLayer,
+        geom: FeatureGeom<'_>,
+    ) -> Vec<((u32, u32), GeomKind, Vec<Vertex>)> {
+        let extent = i32::try_from(layer.grid.extent).unwrap();
+        render_in(
+            TileOrder::Tms,
+            layer,
+            &Feature {
+                id: Some(1),
+                geom,
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: layer.zooms.clone(),
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        )
+        .into_iter()
+        .map(|(id, kind, geom)| {
+            let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();
+            let (ox, oy) = (
+                i32::try_from(c.x()).unwrap() * extent,
+                i32::try_from(c.y()).unwrap() * extent,
+            );
+            let global = geom.vertices.iter().map(|&[x, y]| [x + ox, y + oy]);
+            ((c.x(), c.y()), kind, global.collect())
+        })
+        .collect()
+    }
+
+    #[test]
+    fn unclipped_features_are_whole_in_the_tiles_clipped_ones_reach() {
+        let clipped = RenderLayer::new(0, 3..=3, GRID).unwrap();
+        let unclipped = clipped.clone().with_clip_mode(ClipMode::Unclipped);
+        let line = LineString::from(vec![(0.1, 0.12), (0.5, 0.6), (0.9, 0.52)]);
+        let polygon = Polygon::new(square(0.1, 0.9), vec![square(0.3, 0.4)]);
+        let polygons = std::slice::from_ref(&polygon);
+        let lines = FeatureGeom::Lines(std::slice::from_ref(&line));
+        for geom in [lines, FeatureGeom::Polygons(polygons)] {
+            let pieces = global_pieces(&unclipped, geom);
+            let clipped_pieces = global_pieces(&clipped, geom);
+            assert!(pieces.len() > 4, "{} pieces", pieces.len());
+            assert!(pieces.iter().all(|p| p.2 == pieces[0].2), "always whole");
+            assert!(clipped_pieces.iter().any(|p| p.2 != clipped_pieces[0].2));
+        }
+        let tiles = |layer| {
+            let mut tiles: Vec<_> = global_pieces(layer, lines).iter().map(|p| p.0).collect();
+            let len = tiles.len();
+            tiles.dedup();
+            (tiles, len)
+        };
+        let (line_tiles, records) = tiles(&unclipped);
+        assert_eq!(records, line_tiles.len(), "one piece per tile");
+        assert_eq!(line_tiles, tiles(&clipped).0);
+
+        let (tiles, records) = polygon_tiles(TileOrder::Tms, &unclipped, polygons);
+        assert_eq!(
+            tiles,
+            polygon_tiles(TileOrder::Tms, &clipped, polygons).0,
+            "covered tiles get the whole polygon"
+        );
+        assert_eq!(records, tiles.len(), "no fill ranges");
     }
 
     #[test]

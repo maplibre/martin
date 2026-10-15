@@ -7,7 +7,6 @@ use std::thread::{self, ScopedJoinHandle};
 
 use geo_types::Coord;
 use hotpath::wrap::flume::{Receiver, Sender};
-
 use martin_core::generate::props::{KeyId, KeyInterner, KeyNames, Prop};
 use martin_core::generate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
 use martin_tile_utils::{Encoding, Format};
