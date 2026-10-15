@@ -21,7 +21,7 @@ pub struct EncodedTile {
     pub data: Vec<u8>,
     /// Tiles with the same key have identical bytes (the engine verified it), so a sink may store them once.
     /// `None` marks tiles the engine expects to be unique.
-    pub dedup: Option<u64>,
+    pub dedup_key: Option<u64>,
 }
 
 pub trait TileSink: Send {

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use pmtiles::{AsyncPmTilesReader, MmapBackend, PmTilesWriter, TileCoord, TileType};
+use pmtiles::{AsyncPmTilesReader, Compression, MmapBackend, PmTilesWriter, TileCoord, TileType};
 
 use crate::{metadata, tiles};
 
@@ -27,7 +27,8 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     let center = numbers(&metadata, "center");
     let file = File::create(&dest).expect("failed to create the pmtiles archive");
     let mut writer = PmTilesWriter::new(TileType::Mvt)
-        .metadata(&pmtiles_metadata(&metadata))
+        .precompressed(Compression::Gzip)
+        .metadata(pmtiles_metadata(&metadata))
         .min_zoom(zoom(&metadata, "minzoom"))
         .max_zoom(zoom(&metadata, "maxzoom"))
         .bounds(bounds[0], bounds[1], bounds[2], bounds[3])
@@ -38,7 +39,7 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
     for (z, x, row, data) in tiles(mbtiles).await {
         let coord = coord(z, x, row);
         writer
-            .add_raw_tile(coord, &data)
+            .add_tile(coord, &data)
             .expect("failed to write a tile");
     }
     writer.finalize().expect("failed to finalize the archive");
@@ -95,7 +96,7 @@ pub fn leafy_pmtiles(version: u64, dest: impl AsRef<Path>) -> PathBuf {
             let coord = TileCoord::new(LEAFY_ZOOM, x, y).expect("tile is on the pyramid");
             let data = format!("{} {}", leafy_tile(version, x, y), ".".repeat(padding));
             writer
-                .add_raw_tile(coord, data.as_bytes())
+                .add_tile(coord, data.as_bytes())
                 .expect("failed to write a tile");
         }
     }

@@ -58,7 +58,7 @@ impl TileSink for MbtilesSink {
         let write = mbt.bulk_write(conn, MBT_TYPE, CopyDuplicateMode::Abort, |writer| {
             for batch in batches {
                 for tile in batch? {
-                    let dedup = tile.dedup.map_or(TileDedup::Unique, TileDedup::Key);
+                    let dedup = tile.dedup_key.map_or(TileDedup::Unique, TileDedup::Key);
                     writer.write(tile.coord, &tile.data, dedup)?;
                 }
             }
@@ -83,11 +83,11 @@ mod tests {
 
     use super::*;
 
-    fn tile(z: u8, x: u32, y: u32, data: &[u8], dedup: Option<u64>) -> EncodedTile {
+    fn tile(z: u8, x: u32, y: u32, data: &[u8], dedup_key: Option<u64>) -> EncodedTile {
         EncodedTile {
             coord: TileCoord::new_unchecked(z, x, y),
             data: data.to_vec(),
-            dedup,
+            dedup_key,
         }
     }
 
