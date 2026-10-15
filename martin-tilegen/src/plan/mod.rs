@@ -1,8 +1,13 @@
 //! What to generate: source tables, and the output layers each table feeds.
 
+mod eval;
+
 use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
+use std::sync::atomic::AtomicBool;
 
+use eval::Keys;
+pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 use map_tile_toolkit::ClipMode;
 use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
@@ -217,11 +222,16 @@ pub enum ValueDef {
 
 /// Validated [`TableDef`]s, with output layers numbered table by table, then in declaration order: that
 /// number is the layer byte of the sort key, and so the layer's order inside each tile.
+///
+/// A plan serves one run: it interns the property keys its sources and layers find.
 #[derive(Debug)]
 pub struct Plan {
     pub(crate) tables: Vec<PlannedTable>,
     pub(crate) layers: Vec<PlannedLayer>,
     pub(crate) exprs: Vec<PlannedExpr>,
+    keys: Keys,
+    /// Whether an expression has logged its first failure.
+    warned: Vec<AtomicBool>,
 }
 
 #[derive(Debug)]
@@ -412,6 +422,8 @@ impl Plan {
             });
         }
         Ok(Self {
+            keys: Keys::new(&planned_tables, &layers),
+            warned: exprs.iter().map(|_| AtomicBool::new(false)).collect(),
             tables: planned_tables,
             layers,
             exprs,
