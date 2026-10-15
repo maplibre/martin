@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 pub use merge::Merger;
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use run::{Run, RunWriter};
 
 use crate::{SortKey, TileGenError, TileGenResult};
@@ -77,36 +77,26 @@ impl Sorter {
         let fan_in = self.config.max_fan_in;
         let mut runs = std::mem::take(self.runs.get_mut().unwrap_or_else(PoisonError::into_inner));
         runs.sort_unstable_by_key(|run| run.index);
-        loop {
-            let sizes: Vec<u64> = runs.iter().map(|run| run.bytes).collect();
-            let Some((span, group_count)) = plan_pass(&sizes, fan_in) else {
-                break;
-            };
-            let mut tail = runs.split_off(span.end);
-            let mut middle = runs.split_off(span.start).into_iter();
-            let width = span.len();
-            let groups: Vec<Vec<Run>> = (0..group_count)
-                .map(|i| {
-                    let len = width / group_count + usize::from(i < width % group_count);
-                    middle.by_ref().take(len).collect()
-                })
-                .collect();
-            let merged = groups
+        while let Some(span) = cheapest_span(&runs, fan_in) {
+            let merged = runs
+                .drain(span.clone())
+                .collect::<Vec<_>>()
                 .into_par_iter()
-                .map(|group| {
-                    let index = group[0].index;
-                    let mut merger = Merger::new(group, self.config.read_buffer_bytes)?;
-                    let mut out = self.run_writer(index)?;
-                    while let Some((key, record)) = merger.next_record()? {
-                        out.write(key, record)?;
-                    }
-                    out.finish()
-                })
+                .chunks(fan_in)
+                .map(|group| self.merge_group(group))
                 .collect::<TileGenResult<Vec<_>>>()?;
-            runs.extend(merged);
-            runs.append(&mut tail);
+            runs.splice(span.start..span.start, merged);
         }
         Merger::new(runs, self.config.read_buffer_bytes)
+    }
+
+    fn merge_group(&self, group: Vec<Run>) -> TileGenResult<Run> {
+        let mut out = self.run_writer(group[0].index)?;
+        let mut merger = Merger::new(group, self.config.read_buffer_bytes)?;
+        while let Some((key, record)) = merger.next_record()? {
+            out.write(key, record)?;
+        }
+        out.finish()
     }
 
     fn run_writer(&self, index: u32) -> TileGenResult<RunWriter> {
@@ -115,28 +105,20 @@ impl Sorter {
     }
 }
 
-/// The next intermediate pass, as the span of runs to rewrite and how many groups to cut it into.
-/// It merges only enough runs to leave `fan_in` for the final merge, choosing the cheapest span by bytes.
-/// Spans stay contiguous in run order, so ties between runs still break in push order.
-/// Past `fan_in²` runs, a single pass cannot reach `fan_in`, so it rewrites every run in even groups.
-fn plan_pass(sizes: &[u64], fan_in: usize) -> Option<(Range<usize>, usize)> {
-    let n = sizes.len();
-    let excess = n.checked_sub(fan_in).filter(|&excess| excess > 0)?;
-    let groups = excess.div_ceil(fan_in - 1);
-    if groups > fan_in {
-        return Some((0..n, n.div_ceil(fan_in)));
-    }
-    let width = excess + groups;
-    let prefix: Vec<u64> = std::iter::once(0)
-        .chain(sizes.iter().scan(0, |sum, &size| {
-            *sum += size;
-            Some(*sum)
-        }))
-        .collect();
-    let start = (0..=n - width)
-        .min_by_key(|&start| prefix[start + width] - prefix[start])
-        .expect("width is at most n");
-    Some((start..start + width, groups))
+/// The adjacent runs to merge next, in groups of `fan_in`: the fewest bytes that leave `fan_in` runs.
+/// Adjacent, so ties between runs still break in push order. Past `fan_in²` runs it is every run.
+fn cheapest_span(runs: &[Run], fan_in: usize) -> Option<Range<usize>> {
+    let excess = runs
+        .len()
+        .checked_sub(fan_in)
+        .filter(|&excess| excess > 0)?;
+    let width = (excess + excess.div_ceil(fan_in - 1)).min(runs.len());
+    let (start, _) = runs
+        .windows(width)
+        .map(|span| span.iter().map(|run| run.bytes).sum::<u64>())
+        .enumerate()
+        .min_by_key(|&(_, bytes)| bytes)?;
+    Some(start..start + width)
 }
 
 /// A worker's in-memory batch. Records stay where they were encoded; only the index is sorted.
