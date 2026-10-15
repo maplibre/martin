@@ -1,6 +1,7 @@
 //! Evaluates a [`Plan`] for each feature: which layers take it, and as what.
 
 use std::borrow::Cow;
+use std::fmt::{self, Debug, Formatter};
 use std::ops::RangeInclusive;
 use std::sync::atomic::Ordering;
 
@@ -360,6 +361,7 @@ impl Evaluator<'_> {
                 _ => (props, &[]),
             };
             emit(&LayerFeature {
+                plan,
                 layer,
                 feature: Feature {
                     id,
@@ -384,6 +386,7 @@ impl Evaluator<'_> {
 
 /// A feature as one layer takes it.
 pub struct LayerFeature<'a> {
+    plan: &'a Plan,
     layer: &'a PlannedLayer,
     feature: Feature<'a>,
 }
@@ -397,6 +400,62 @@ impl<'a> LayerFeature<'a> {
     #[must_use]
     pub fn feature(&self) -> &Feature<'a> {
         &self.feature
+    }
+}
+
+impl Debug for LayerFeature<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let names = &self.plan.keys.layers[usize::from(self.layer.render.index)];
+        let Feature {
+            id,
+            geom: _,
+            props,
+            bands,
+            sort,
+            zooms,
+            simplify,
+            min_size,
+        } = &self.feature;
+        let bands: Vec<_> = bands
+            .iter()
+            .map(|(zoom, props)| (zoom, NamedProps { props, names }))
+            .collect();
+        f.debug_struct("LayerFeature")
+            .field("layer", &self.layer.info.name)
+            .field("id", id)
+            .field("zooms", zooms)
+            .field("simplify", simplify)
+            .field("min_size", min_size)
+            .field("props", &NamedProps { props, names })
+            .field("bands", &bands)
+            .field("sort", &sort.map(Hex))
+            .finish()
+    }
+}
+
+struct NamedProps<'a> {
+    props: &'a EncodedProps,
+    names: &'a KeyInterner,
+}
+
+impl Debug for NamedProps<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut map = f.debug_map();
+        for prop in self.props.decode() {
+            match prop {
+                Ok((key, value)) => map.entry(&self.names.name(key).unwrap_or_default(), &value),
+                Err(err) => map.entry(&"error", &err),
+            };
+        }
+        map.finish()
+    }
+}
+
+struct Hex<'a>(&'a [u8]);
+
+impl Debug for Hex<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.iter().try_for_each(|byte| write!(f, "{byte:02x}"))
     }
 }
 
