@@ -1,7 +1,7 @@
 //! Feature properties as they travel through the engine: interned keys and typed values.
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
-use lasso::{Key as _, RodeoResolver, Spur, ThreadedRodeo};
+use lasso::{Capacity, Key as _, Rodeo, RodeoResolver, Spur, ThreadedRodeo};
 use mlt_core::PropValueRef;
 
 /// An interned property key of one layer.
@@ -111,6 +111,19 @@ impl KeyInterner {
         KeyNames {
             known: self.known,
             names: self.keys.into_resolver(),
+        }
+    }
+
+    /// [`freeze`](Self::freeze), copying the names.
+    #[must_use]
+    pub fn names(&self) -> KeyNames {
+        let mut names = Rodeo::with_capacity(Capacity::for_strings(self.keys.len()));
+        for id in 0..index_u32(self.keys.len()) {
+            names.get_or_intern(self.keys.resolve(&KeyId::new(id).spur()));
+        }
+        KeyNames {
+            known: self.known,
+            names: names.into_resolver(),
         }
     }
 }
