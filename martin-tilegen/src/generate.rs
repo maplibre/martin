@@ -14,11 +14,11 @@ use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 use tracing::warn;
 
-use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role, Zoom};
+use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{
-    AttributesDef, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedRule,
-    PlannedValue, PlannedZoom,
+    AttributesDef, Case, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedValue,
+    PlannedZoom,
 };
 use crate::record::EncodedProps;
 use crate::{
@@ -529,44 +529,50 @@ impl Run<'_> {
         }
     }
 
-    /// The layer's zooms for this feature and the first rule it matches, or `None` when the layer
-    /// filters the feature out.
-    fn feature_zooms<'p>(
+    /// The feature's zooms and the first case it matches, or `None` when the layer filters the feature
+    /// out.
+    fn feature_case<'p>(
         &self,
         layer: &'p PlannedLayer,
         view: &FeatureView<'_, String>,
         errors: &mut [u64],
-    ) -> Option<(RangeInclusive<u8>, Option<&'p PlannedRule>)> {
+    ) -> Option<(RangeInclusive<u8>, &'p Case)> {
         if let Some(filter) = &layer.filter
             && !self.eval(filter, view, errors)
         {
             return None;
         }
-        let rule = layer.rules.iter().find(|rule| {
-            rule.when
-                .as_ref()
-                .is_none_or(|when| self.eval(when, view, errors))
-        });
-        let mut zoom = |rule: Option<&PlannedZoom>, expr: Option<&ExprRef<Zoom>>| {
-            let mut eval = |expr| self.eval(expr, view, errors);
-            match rule {
-                Some(PlannedZoom::Fixed(zoom)) => Some(*zoom),
-                Some(PlannedZoom::Expr(rule)) => eval(rule).or_else(|| eval(expr?)),
-                None => eval(expr?),
-            }
-        };
+        let case = layer
+            .cases
+            .iter()
+            .find(|case| {
+                case.when
+                    .as_ref()
+                    .is_none_or(|when| self.eval(when, view, errors))
+            })
+            .unwrap_or(&layer.fallback);
         let (lo, hi) = (*layer.zooms.start(), *layer.zooms.end());
-        let min = zoom(
-            rule.and_then(|r| r.minzoom.as_ref()),
-            layer.minzoom.as_ref(),
-        )
-        .map_or(lo, |z| z.max(lo));
-        let max = zoom(
-            rule.and_then(|r| r.maxzoom.as_ref()),
-            layer.maxzoom.as_ref(),
-        )
-        .map_or(hi, |z| z.min(hi));
-        (min <= max).then_some((min..=max, rule))
+        let min = self
+            .zoom(case.minzoom, view, errors)
+            .map_or(lo, |z| z.max(lo));
+        let max = self
+            .zoom(case.maxzoom, view, errors)
+            .map_or(hi, |z| z.min(hi));
+        (min <= max).then_some((min..=max, case))
+    }
+
+    fn zoom(
+        &self,
+        zoom: PlannedZoom,
+        view: &FeatureView<'_, String>,
+        errors: &mut [u64],
+    ) -> Option<u8> {
+        match zoom {
+            PlannedZoom::Fixed(zoom) => Some(zoom),
+            PlannedZoom::Expr(expr, fallback) => self
+                .eval(&expr, view, errors)
+                .or_else(|| self.eval(&fallback?, view, errors)),
+        }
     }
 
     /// Adds the computed attributes to `props`, and fills `bands` if they have zoom bands.
@@ -686,16 +692,14 @@ fn render_batch(
             if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
                 continue;
             }
-            let (zooms, rule) = match view {
-                Some(view) => match run.feature_zooms(layer, view, errors) {
+            let (zooms, case) = match view {
+                Some(view) => match run.feature_case(layer, view, errors) {
                     Some(matched) => matched,
                     None => continue,
                 },
-                None => (layer.zooms.clone(), None),
+                None => (layer.zooms.clone(), &layer.fallback),
             };
-            let attrs = rule
-                .and_then(|rule| rule.attrs.as_ref())
-                .unwrap_or(&layer.attrs);
+            let attrs = &case.attrs;
             props.clear();
             for (key, value) in &feature.props {
                 let output = (&keys.tables[table], &keys.layers[index]);
@@ -733,8 +737,8 @@ fn render_batch(
                     bands,
                     sort: sort_key,
                     zooms,
-                    simplify: rule.map_or(layer.simplify, |rule| rule.simplify),
-                    min_size: rule.map_or(layer.min_size, |rule| rule.min_size),
+                    simplify: case.simplify,
+                    min_size: case.min_size,
                 },
                 buffer,
             )?;
