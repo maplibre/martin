@@ -41,7 +41,7 @@ fn table(name: &str, keys: &[&str]) -> TableDef {
 
 /// Six partitions alternating between a points layer and a lines layer, in WGS84, and one partition
 /// of polygons: a large one with a hole, whose covered tiles become fill ranges, and a small one.
-fn source() -> (MemorySource, Plan) {
+fn source() -> MemorySource {
     let mut batches: Vec<_> = (0..6u32)
         .map(|p| {
             let base = f64::from(p) * 20.0 - 60.0;
@@ -101,13 +101,16 @@ fn source() -> (MemorySource, Plan) {
             })
             .collect(),
     });
-    let plan = Plan::new(vec![
+    MemorySource { batches }
+}
+
+fn plan() -> Plan {
+    Plan::new(vec![
         table("places", &["name", "rank"]),
         table("roads", &["name", "rank"]),
         table("parks", &["name"]),
     ])
-    .unwrap();
-    (MemorySource { batches }, plan)
+    .unwrap()
 }
 
 /// `(zoom_level, tile_column, tile_row, tile_data)`
@@ -181,9 +184,9 @@ fn decode(gzipped: &[u8]) -> Vec<TileLayer> {
 
 #[test]
 fn generates_a_deterministic_tileset() {
-    let (source, plan) = source();
+    let source = source();
     let dir = tempfile::tempdir().unwrap();
-    let (summary, rows, mbt) = run(&source, &plan, dir.path(), 1);
+    let (summary, rows, mbt) = run(&source, &plan(), dir.path(), 1);
     assert_eq!(summary.features, 122);
     assert_eq!(summary.slice_errors, []);
     assert_eq!(summary.tiles, rows.len() as u64);
@@ -236,7 +239,7 @@ fn generates_a_deterministic_tileset() {
         "identical tiles repeat"
     );
 
-    let (parallel, parallel_rows, _) = run(&source, &plan, dir.path(), 4);
+    let (parallel, parallel_rows, _) = run(&source, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
     assert!(
         parallel_rows == rows,
@@ -273,7 +276,7 @@ fn placements(rows: &[Row]) -> Placements {
 
 #[test]
 fn unclipped_layers_hold_whole_features_in_every_tile_they_reach() {
-    let (source, _) = source();
+    let source = source();
     let plan_with = |clip_mode| {
         let tables = [
             ("places", &["name", "rank"][..]),
@@ -344,7 +347,7 @@ fn unclipped_layers_hold_whole_features_in_every_tile_they_reach() {
 
 #[test]
 fn reports_the_first_unrenderable_feature_regardless_of_threads() {
-    let (mut source, plan) = source();
+    let mut source = source();
     source.batches[4].features[5].geometry = Geometry::Points(vec![Coord {
         x: f64::NAN,
         y: 0.0,
@@ -364,7 +367,7 @@ fn reports_the_first_unrenderable_feature_regardless_of_threads() {
         error: "a coordinate is outside the i32 zoom grid".to_owned(),
     }];
     for threads in [1, 4] {
-        let (summary, _, _) = run(&source, &plan, dir.path(), threads);
+        let (summary, _, _) = run(&source, &plan(), dir.path(), threads);
         assert_eq!(summary.slice_errors, expected, "{threads} threads");
     }
 }
@@ -603,25 +606,27 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
         }
     }
 
-    let plan = Plan::new(vec![TableDef {
-        columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
-            ColumnDef::Keys("tags".to_owned()),
-        ],
-        layers: vec![
-            LayerDef::new("all", 0..=4, GRID),
-            LayerDef {
-                min_size: PixelThreshold::ZERO,
-                id: IdDef::Drop,
-                attributes: AttributesDef::Columns(vec!["tag1".to_owned(), "rank".to_owned()]),
-                ..LayerDef::new("subset", 1..=3, GRID)
-            },
-        ],
-    }])
-    .unwrap();
+    let plan = || {
+        Plan::new(vec![TableDef {
+            columns: vec![
+                ColumnDef::Value("name".to_owned()),
+                ColumnDef::Value("rank".to_owned()),
+                ColumnDef::Keys("tags".to_owned()),
+            ],
+            layers: vec![
+                LayerDef::new("all", 0..=4, GRID),
+                LayerDef {
+                    min_size: PixelThreshold::ZERO,
+                    id: IdDef::Drop,
+                    attributes: AttributesDef::Columns(vec!["tag1".to_owned(), "rank".to_owned()]),
+                    ..LayerDef::new("subset", 1..=3, GRID)
+                },
+            ],
+        }])
+        .unwrap()
+    };
     let dir = tempfile::tempdir().unwrap();
-    let (summary, rows, _) = run(&Tagged, &plan, dir.path(), 1);
+    let (summary, rows, _) = run(&Tagged, &plan(), dir.path(), 1);
     assert_eq!(summary.features, 240);
 
     let z1 = decode(&rows.iter().find(|r| r.0 == 1).unwrap().3);
@@ -640,7 +645,7 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
         ]
     );
 
-    let (parallel, parallel_rows, _) = run(&Tagged, &plan, dir.path(), 4);
+    let (parallel, parallel_rows, _) = run(&Tagged, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
     assert!(
         parallel_rows == rows,
