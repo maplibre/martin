@@ -157,7 +157,7 @@ num_cpus = "1"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
-pmtiles = { version = "0.24.1", default-features = false }
+pmtiles = { version = "0.25.0", default-features = false }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
@@ -221,11 +221,6 @@ xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 zstd = "0.14"
 zune-core = "0.5"
 zune-jpegxl = "0.5"
-
-[patch.crates-io]
-# Until https://github.com/stadiamaps/pmtiles-rs/pull/142 is released: caller-driven dedup and late
-# header values for the PMTiles sink
-pmtiles = { git = "https://github.com/nyurik/pmtiles-rs", branch = "writer-dedup-hint" }
 
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
