@@ -3,8 +3,8 @@
 use martin_core::generate::props::Prop;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, PlanError, RuleDef, TableDef,
-    ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, PlanError, RuleDef, SortDef,
+    TableDef, ValueDef, ZoomDef,
 };
 
 const GRID: LayerGrid = LayerGrid {
@@ -450,6 +450,38 @@ fn rule_expressions_keep_the_columns_they_read() {
         "class",
         "name",
         "population",
+        "rank",
+    ]
+    "#);
+}
+
+#[test]
+fn sort_by_keeps_the_columns_it_reads() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::None,
+            sort_by: vec![
+                SortDef {
+                    expr: "class".to_owned(),
+                    descending: false,
+                },
+                SortDef {
+                    expr: "rank * 2".to_owned(),
+                    descending: true,
+                },
+            ],
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.columns(0), @r#"
+    [
+        "class",
         "rank",
     ]
     "#);

@@ -12,8 +12,8 @@ mod view;
 
 use cel::common::types::CelNull;
 pub use compile::{CompiledExpr, ExprError};
-pub use role::{Attr, ExprRef, Filter, Id, Role, Zoom};
-pub use sort::encode_sort;
+pub use role::{Attr, ExprRef, Filter, Id, Role, SortBy, Zoom};
+pub use sort::SortValue;
 pub use view::{ExprKeys, FeatureView, PropSlots};
 
 const FEATURE: &str = "feature";

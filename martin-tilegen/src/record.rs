@@ -87,6 +87,7 @@ enum Prop<'a> {
 struct Header<'a> {
     kind: GeomKind,
     id: Option<u64>,
+    sort: Option<&'a [u8]>,
     props: &'a [u8],
 }
 
@@ -123,7 +124,14 @@ impl EncodedProps {
     }
 }
 
-pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Geom<'_>) {
+/// `sort` is the feature's `sort_by` key, which orders the features of its layer in each tile.
+pub fn encode(
+    out: &mut Vec<u8>,
+    id: Option<u64>,
+    sort: Option<&[u8]>,
+    props: &EncodedProps,
+    geom: Geom<'_>,
+) {
     let kind = match geom {
         Geom::Points(_) => GeomKind::Point,
         Geom::Lines { .. } => GeomKind::Line,
@@ -132,7 +140,15 @@ pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Ge
         Geom::FillRange { end } => GeomKind::FillRange { end },
     };
     let props = &props.bytes;
-    put(out, &Header { kind, id, props });
+    put(
+        out,
+        &Header {
+            kind,
+            id,
+            sort,
+            props,
+        },
+    );
     match geom {
         Geom::Points(vertices) => put(out, vertices),
         Geom::Lines { parts, vertices } => put(out, &(parts, vertices)),
@@ -149,16 +165,24 @@ pub fn encode(out: &mut Vec<u8>, id: Option<u64>, props: &EncodedProps, geom: Ge
 pub struct Record<'a> {
     pub kind: GeomKind,
     pub id: Option<u64>,
+    /// The feature's `sort_by` key, if its layer has one.
+    pub sort: Option<&'a [u8]>,
     props: &'a [u8],
     geom: &'a [u8],
 }
 
 impl<'a> Record<'a> {
     pub fn decode(mut bytes: &'a [u8]) -> TileGenResult<Self> {
-        let Header { kind, id, props } = take(&mut bytes)?;
+        let Header {
+            kind,
+            id,
+            sort,
+            props,
+        } = take(&mut bytes)?;
         Ok(Self {
             kind,
             id,
+            sort,
             props,
             geom: bytes,
         })
@@ -276,11 +300,14 @@ mod tests {
     }
 
     fn round_trip(geom: Geom<'_>, expected: &GeomBuf) {
-        for id in [None, Some(0), Some(u64::MAX - 1)] {
+        let ids = [None, Some(0), Some(u64::MAX - 1)];
+        let sorts = [None, Some(&[][..]), Some(&[0, 0xFF, 7][..])];
+        for (id, sort) in ids.into_iter().flat_map(|id| sorts.map(|sort| (id, sort))) {
             let mut bytes = Vec::new();
-            encode(&mut bytes, id, &props(), geom);
+            encode(&mut bytes, id, sort, &props(), geom);
             let record = Record::decode(&bytes).unwrap();
             assert_eq!(record.id, id);
+            assert_eq!(record.sort, sort);
             assert_eq!(
                 record.props().collect::<TileGenResult<Vec<_>>>().unwrap(),
                 PROPS
@@ -320,13 +347,27 @@ mod tests {
         encode(
             &mut bytes,
             None,
+            Some(&[3]),
             &EncodedProps::default(),
             Geom::FillRange { end: 1 << 40 },
         );
-        assert_eq!(
-            Record::decode(&bytes).unwrap().kind,
-            GeomKind::FillRange { end: 1 << 40 }
-        );
+        let record = Record::decode(&bytes).unwrap();
+        assert_eq!(record.kind, GeomKind::FillRange { end: 1 << 40 });
+        assert_eq!(record.sort, Some(&[3][..]));
+        assert!(Record::is_fill(&bytes));
+    }
+
+    #[test]
+    fn the_sort_key_is_an_optional_field_after_the_id() {
+        let mut props = EncodedProps::default();
+        props.push(KeyId::new(2), PropValueRef::I64(-1));
+        let geom = Geom::Points(&[[3, -2]]);
+        let mut unsorted = Vec::new();
+        encode(&mut unsorted, Some(4), None, &props, geom);
+        assert_eq!(unsorted, [0, 1, 4, 0, 3, 2, 1, 1, 1, 6, 3]);
+        let mut sorted = Vec::new();
+        encode(&mut sorted, Some(4), Some(&[9, 8]), &props, geom);
+        assert_eq!(sorted, [0, 1, 4, 1, 2, 9, 8, 3, 2, 1, 1, 1, 6, 3]);
     }
 
     #[test]
@@ -338,6 +379,7 @@ mod tests {
             encode(
                 &mut bytes,
                 Some(1),
+                None,
                 &EncodedProps::default(),
                 Geom::Lines {
                     parts: &parts,
@@ -359,6 +401,7 @@ mod tests {
         encode(
             &mut bytes,
             Some(7),
+            Some(&[1, 2]),
             &props(),
             Geom::Polygons {
                 polygons: &[1],

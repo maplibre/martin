@@ -4,6 +4,7 @@ use cel::{ExecutionError, Value};
 use martin_core::generate::props::Prop;
 
 use super::coerce::{to_filter, to_id, to_prop, to_zoom};
+use super::sort::{SortValue, to_sort};
 
 /// What an expression is for, and how its result becomes that. A role value carries what is known when
 /// the layer is planned, so evaluating needs nothing more.
@@ -27,6 +28,11 @@ pub struct Id;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Attr;
+
+#[derive(Clone, Copy, Debug)]
+pub struct SortBy {
+    pub descending: bool,
+}
 
 impl Role for Filter {
     type Out = bool;
@@ -57,6 +63,14 @@ impl Role for Attr {
 
     fn coerce(&self, value: Value) -> Result<Self::Out, ExecutionError> {
         to_prop(value)
+    }
+}
+
+impl Role for SortBy {
+    type Out = SortValue;
+
+    fn coerce(&self, value: Value) -> Result<SortValue, ExecutionError> {
+        to_sort(value)
     }
 }
 

@@ -62,6 +62,7 @@ fn tiles() -> (Vec<TileRecords>, KeyNames) {
                 encode(
                     &mut bytes,
                     Some(f),
+                    None,
                     &props,
                     Geom::Polygons {
                         polygons: &[1],

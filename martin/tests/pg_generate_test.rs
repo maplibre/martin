@@ -342,6 +342,56 @@ async fn rules_pick_settings_by_gid_range() {
     "#);
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn sort_by_orders_features_across_partitions() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let mut info = table_info(&specs, "table_source");
+    info.id_column = Some("gid".to_owned());
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {r#"
+            sorted:
+              maxzoom: 0
+              where: "gid > 20"
+              attributes:
+                group: "gid % 3"
+              sort_by: ["gid % 3", { expr: gid, desc: true }]
+        "#})
+        .unwrap(),
+    ));
+    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let raw = decode_gzip(&row.3).unwrap();
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = Parser::default()
+        .parse_layers(&raw)
+        .unwrap()
+        .into_iter()
+        .map(|layer| {
+            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+            let features: Vec<_> = layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                .collect();
+            format!("{}\n{}", layer.name(), features.join("\n"))
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @"
+    sorted
+    Some(27) [U32(Some(0))]
+    Some(24) [U32(Some(0))]
+    Some(21) [U32(Some(0))]
+    Some(28) [U32(Some(1))]
+    Some(25) [U32(Some(1))]
+    Some(22) [U32(Some(1))]
+    Some(26) [U32(Some(2))]
+    Some(23) [U32(Some(2))]
+    ");
+}
+
 #[tokio::test]
 async fn the_scan_transaction_turns_off_the_session_timeouts() {
     let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
