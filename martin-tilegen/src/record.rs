@@ -101,6 +101,11 @@ impl EncodedProps {
         self.bytes.clear();
     }
 
+    pub(crate) fn copy_from(&mut self, other: &Self) {
+        self.bytes.clear();
+        self.bytes.extend_from_slice(&other.bytes);
+    }
+
     pub fn push(&mut self, key: KeyId, value: PropValueRef<'_>) {
         let value = match value {
             PropValueRef::Bool(v) => Prop::Bool(v),

@@ -5906,6 +5906,7 @@ dependencies = [
  "geo",
  "geo-types",
  "hotpath",
+ "insta",
  "map-tile-toolkit",
  "martin-core",
  "martin-tile-utils",
@@ -5921,6 +5922,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tilejson",
  "tokio",
+ "tracing",
  "wincode",
  "xxhash-rust",
 ]

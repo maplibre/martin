@@ -30,16 +30,16 @@ pub(super) fn to_filter(value: &Value) -> Result<bool, ExecutionError> {
     }
 }
 
-/// A zoom level, clamped into `lo..=hi`.
-pub(super) fn to_zoom(value: &Value, lo: u8, hi: u8) -> Result<Option<u8>, ExecutionError> {
+/// A zoom level; one above 255 is 255, so it is above every tile zoom too.
+pub(super) fn to_zoom(value: &Value) -> Result<Option<u8>, ExecutionError> {
     match *value {
         Value::Null => Ok(None),
-        Value::Int(v) => Ok(Some(
-            u8::try_from(v.clamp(i64::from(lo), i64::from(hi))).expect("clamped into u8"),
+        Value::Int(v) if v < 0 => Err(ExecutionError::function_error(
+            "zoom",
+            format!("a zoom cannot be negative, got {v}"),
         )),
-        Value::UInt(v) => Ok(Some(
-            u8::try_from(v.clamp(u64::from(lo), u64::from(hi))).expect("clamped into u8"),
-        )),
+        Value::Int(v) => Ok(Some(u8::try_from(v).unwrap_or(u8::MAX))),
+        Value::UInt(v) => Ok(Some(u8::try_from(v).unwrap_or(u8::MAX))),
         ref other @ (Value::List(_)
         | Value::Map(_)
         | Value::Function(..)
@@ -112,13 +112,13 @@ mod tests {
 
     #[rstest]
     #[case::null(Value::Null, Ok(None))]
-    #[case::inside(Value::Int(7), Ok(Some(7)))]
-    #[case::below(Value::Int(-3), Ok(Some(2)))]
-    #[case::above(Value::Int(99), Ok(Some(14)))]
-    #[case::uint(Value::UInt(u64::MAX), Ok(Some(14)))]
+    #[case::zoom(Value::Int(7), Ok(Some(7)))]
+    #[case::above_every_tile_zoom(Value::Int(999), Ok(Some(255)))]
+    #[case::uint(Value::UInt(u64::MAX), Ok(Some(255)))]
+    #[case::negative(Value::Int(-3), Err(ExecutionError::FunctionError { function: "zoom".to_owned(), message: "a zoom cannot be negative, got -3".to_owned() }))]
     #[case::double(Value::Float(5.0), Err(ExecutionError::UnexpectedType { got: "float".to_owned(), want: "int".to_owned() }))]
     fn zoom_coercion(#[case] value: Value, #[case] expected: Result<Option<u8>, ExecutionError>) {
-        assert_eq!(to_zoom(&value, 2, 14), expected);
+        assert_eq!(to_zoom(&value), expected);
     }
 
     #[rstest]

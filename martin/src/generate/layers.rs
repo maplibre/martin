@@ -3,8 +3,11 @@
 use std::ops::RangeInclusive;
 
 use indexmap::IndexSet;
-use martin_tilegen::plan::{AttributesDef, GeometryType, IdDef, LayerDef, TableDef};
-use martin_tilegen::{LayerGrid, PixelThreshold};
+use martin_core::generate::props::Prop;
+use martin_tilegen::plan::{
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, TableDef, ValueDef,
+};
+use martin_tilegen::{LayerGrid, MAX_ZOOM, PixelThreshold};
 use tilejson::Bounds;
 use tracing::warn;
 
@@ -12,7 +15,8 @@ use super::postgres::ScanTable;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, IdPolicy, Layer, OutputGeometry, Pixels, PropertySelector, ZoomSetting,
+    Attributes, Columns, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels,
+    PropertySelector, Value, Zoom, ZoomSetting,
 };
 
 const DEFAULT_EXTENT: u32 = 4096;
@@ -88,22 +92,18 @@ pub fn lower_table(
     if layers.is_empty() {
         return Ok(None);
     }
-    let selected: Vec<(&str, bool)> = properties
-        .into_iter()
-        .filter(|&(column, jsonb)| {
-            layers.iter().any(|layer| match &layer.attributes {
-                AttributesDef::All => true,
-                AttributesDef::None => false,
-                AttributesDef::Columns(keys) if jsonb => keys
-                    .iter()
-                    .any(|key| !static_columns.contains(&key.as_str())),
-                AttributesDef::Columns(keys) => keys.iter().any(|key| key == column),
-            })
-        })
-        .collect();
     let def = TableDef {
-        columns: selected.iter().map(|(c, _)| (*c).to_owned()).collect(),
-        dynamic_props: selected.iter().any(|(_, jsonb)| *jsonb),
+        columns: properties
+            .into_iter()
+            .map(|(column, jsonb)| {
+                let column = column.to_owned();
+                if jsonb {
+                    ColumnDef::Keys(column)
+                } else {
+                    ColumnDef::Value(column)
+                }
+            })
+            .collect(),
         layers,
     };
     Ok(Some(ScanTable { info, def }))
@@ -159,18 +159,53 @@ fn lower_layer(
         bounds: defaults.bounds,
         encoder: defaults.encoder,
         geometry: layer.geometry.and_then(|g| geometry_type(g).ok()),
-        id: match layer.id {
-            IdPolicy::Keep | IdPolicy::Expr(_) => IdDef::Keep,
+        filter: layer.r#where.as_ref().map(|e| e.as_str().to_owned()),
+        minzoom_expr: zoom_expr(layer.minzoom.as_ref()),
+        maxzoom_expr: zoom_expr(layer.maxzoom.as_ref()),
+        id: match &layer.id {
+            IdPolicy::Keep => IdDef::Keep,
             IdPolicy::Drop => IdDef::Drop,
+            IdPolicy::Expr(expr) => IdDef::Expr(expr.as_str().to_owned()),
         },
         attributes: match &layer.attributes {
             Attributes::None => AttributesDef::None,
             Attributes::Properties(selectors) => {
                 AttributesDef::Columns(expand(selectors.as_slice(), static_columns))
             }
-            Attributes::AllProperties | Attributes::Columns(_) => AttributesDef::All,
+            Attributes::AllProperties => AttributesDef::All,
+            Attributes::Columns(columns) => computed(columns),
         },
     }))
+}
+
+fn zoom_expr(zoom: Option<&ZoomSetting>) -> Option<String> {
+    match zoom? {
+        PerFeature::Fixed(_) => None,
+        PerFeature::Expr(expr) => Some(expr.as_str().to_owned()),
+    }
+}
+
+fn computed(columns: &Columns) -> AttributesDef {
+    let attributes = columns
+        .computed
+        .iter()
+        .map(|(name, spec)| ComputedAttr {
+            name: name.clone(),
+            value: match &spec.value {
+                Value::Literal(Literal::Bool(v)) => ValueDef::Literal(Prop::Bool(*v)),
+                Value::Literal(Literal::Int(v)) => ValueDef::Literal(Prop::I64(*v)),
+                Value::Literal(Literal::Float(v)) => ValueDef::Literal(Prop::F64(v.get())),
+                Value::Literal(Literal::String(v)) => ValueDef::Literal(Prop::Str(v.clone())),
+                Value::Expr(expr) => ValueDef::Expr(expr.as_str().to_owned()),
+            },
+            zooms: spec.zooms.minzoom().map_or(0, Zoom::get)
+                ..=spec.zooms.maxzoom().map_or(MAX_ZOOM, Zoom::get),
+        })
+        .collect();
+    AttributesDef::Computed {
+        attributes,
+        prefixes: columns.copied_prefixes.clone(),
+    }
 }
 
 fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str> {
@@ -187,7 +222,6 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
 }
 
 fn unsupported(layer: &Layer) -> Option<String> {
-    let is_expr = |zoom: Option<&ZoomSetting>| zoom.is_some_and(|z| z.fixed().is_none());
     let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
     let tile = &layer.tile;
     let tile_op = [
@@ -200,22 +234,12 @@ fn unsupported(layer: &Layer) -> Option<String> {
     ]
     .into_iter()
     .find_map(|(op, set)| set.then_some(op));
-    if layer.r#where.is_some() {
-        Some("`where`".to_owned())
-    } else if let Some(geometry) = geometry {
+    if let Some(geometry) = geometry {
         Some(format!("`geometry: {geometry}`"))
-    } else if is_expr(layer.minzoom.as_ref()) {
-        Some("a `minzoom` expression".to_owned())
-    } else if is_expr(layer.maxzoom.as_ref()) {
-        Some("a `maxzoom` expression".to_owned())
-    } else if matches!(layer.attributes, Attributes::Columns(_)) {
-        Some("a map of `attributes`".to_owned())
     } else if layer.rules.is_some() {
         Some("`rules`".to_owned())
     } else if layer.sort_by.is_some() {
         Some("`sort_by`".to_owned())
-    } else if matches!(layer.id, IdPolicy::Expr(_)) {
-        Some("an `id` expression".to_owned())
     } else {
         tile_op.map(|op| format!("`tile: {op}`"))
     }
@@ -246,7 +270,6 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::config::file::postgres::resolver::scan_sql;
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
@@ -290,10 +313,13 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                "name",
-                "rank",
+                Value(
+                    "name",
+                ),
+                Value(
+                    "rank",
+                ),
             ],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads",
@@ -320,6 +346,9 @@ mod tests {
                     ),
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    filter: None,
+                    minzoom_expr: None,
+                    maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
                 },
@@ -347,7 +376,6 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads_source",
@@ -367,6 +395,9 @@ mod tests {
                     bounds: None,
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    filter: None,
+                    minzoom_expr: None,
+                    maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
                 },
@@ -422,10 +453,13 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                "class",
-                "name",
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
             ],
-            dynamic_props: false,
             layers: [
                 LayerDef {
                     name: "roads",
@@ -447,6 +481,9 @@ mod tests {
                     geometry: Some(
                         Line,
                     ),
+                    filter: None,
+                    minzoom_expr: None,
+                    maxzoom_expr: None,
                     id: Drop,
                     attributes: All,
                 },
@@ -470,6 +507,9 @@ mod tests {
                     geometry: Some(
                         Point,
                     ),
+                    filter: None,
+                    minzoom_expr: None,
+                    maxzoom_expr: None,
                     id: Keep,
                     attributes: None,
                 },
@@ -493,6 +533,9 @@ mod tests {
                     geometry: Some(
                         Polygon,
                     ),
+                    filter: None,
+                    minzoom_expr: None,
+                    maxzoom_expr: None,
                     id: Keep,
                     attributes: All,
                 },
@@ -535,18 +578,29 @@ mod tests {
             .map(|layer| (layer.name.as_str(), &layer.attributes))
             .collect();
         insta::assert_debug_snapshot!(
-            (&scan.def.columns, scan.def.dynamic_props, attributes),
+            (&scan.def.columns, attributes),
             @r#"
         (
             [
-                "class",
-                "name",
-                "name:de",
-                "name:en",
-                "rank",
-                "tags",
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
+                Value(
+                    "name:de",
+                ),
+                Value(
+                    "name:en",
+                ),
+                Value(
+                    "rank",
+                ),
+                Keys(
+                    "tags",
+                ),
             ],
-            true,
             [
                 (
                     "labels",
@@ -578,82 +632,6 @@ mod tests {
         )
         "#
         );
-    }
-
-    #[test]
-    fn only_the_columns_some_layer_needs_are_scanned() {
-        let scan = lower(
-            indoc! {r#"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                id_column: gid
-                properties:
-                  class: text
-                  name: text
-                  rank: int4
-                  tags: jsonb
-                layers:
-                  roads:
-                    attributes: [rank]
-                  road_labels:
-                    attributes: ["na*"]
-            "#},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(!scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "gid", "name", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn layers_without_attributes_scan_no_properties() {
-        let scan = lower(
-            indoc! {"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  name: text
-                  tags: jsonb
-                layers:
-                  roads:
-                    attributes: []
-                  road_shapes:
-                    attributes: []
-            "},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has layers");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(!scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
-    }
-
-    #[test]
-    fn a_table_without_layers_scans_every_property() {
-        let scan = lower(
-            indoc! {"
-                schema: public
-                table: roads
-                srid: 4326
-                geometry_column: geom
-                properties:
-                  name: text
-                  tags: jsonb
-            "},
-            0..=14,
-        )
-        .expect("lowers")
-        .expect("has a layer");
-        let sql = scan_sql(&scan.info, &scan.def.columns, None).expect("valid SQL");
-        assert!(scan.def.dynamic_props);
-        insta::assert_snapshot!(sql.sql, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "name", "tags" FROM "public"."roads" WHERE "geom" IS NOT NULL"#);
     }
 
     #[test]
@@ -716,18 +694,116 @@ mod tests {
     }
 
     #[test]
+    fn expressions_lower_into_the_layer() {
+        let scan = lower(
+            indoc! {r#"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  name: text
+                  "name:en": text
+                  rank: int4
+                layers:
+                  roads:
+                    where: "class != 'service'"
+                    minzoom: "rank > 3 ? 4 : 8"
+                    maxzoom: 12
+                    id: "rank * 10"
+                    attributes:
+                      kind: class
+                      label: { expr: name, minzoom: 10 }
+                      source: { value: osm }
+                      lanes: 2
+                      "name:*": "name:*"
+            "#},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let layer = &scan.def.layers[0];
+        insta::assert_debug_snapshot!(
+            (&scan.def.columns, &layer.zooms, &layer.filter, &layer.minzoom_expr, &layer.maxzoom_expr, &layer.id, &layer.attributes),
+            @r#"
+        (
+            [
+                Value(
+                    "class",
+                ),
+                Value(
+                    "name",
+                ),
+                Value(
+                    "name:en",
+                ),
+                Value(
+                    "rank",
+                ),
+            ],
+            0..=12,
+            Some(
+                "class != 'service'",
+            ),
+            Some(
+                "rank > 3 ? 4 : 8",
+            ),
+            None,
+            Expr(
+                "rank * 10",
+            ),
+            Computed {
+                attributes: [
+                    ComputedAttr {
+                        name: "kind",
+                        value: Expr(
+                            "class",
+                        ),
+                        zooms: 0..=27,
+                    },
+                    ComputedAttr {
+                        name: "label",
+                        value: Expr(
+                            "name",
+                        ),
+                        zooms: 10..=27,
+                    },
+                    ComputedAttr {
+                        name: "source",
+                        value: Literal(
+                            Str(
+                                "osm",
+                            ),
+                        ),
+                        zooms: 0..=27,
+                    },
+                    ComputedAttr {
+                        name: "lanes",
+                        value: Literal(
+                            I64(
+                                2,
+                            ),
+                        ),
+                        zooms: 0..=27,
+                    },
+                ],
+                prefixes: [
+                    "name:",
+                ],
+            },
+        )
+        "#
+        );
+    }
+
+    #[test]
     fn unsupported_settings_are_rejected() {
         let layers = [
-            r#"roads: { where: "class == 'primary'" }"#,
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
-            "roads: { minzoom: 'rank > 3 ? 10 : 4' }",
-            "roads: { maxzoom: 'rank > 3 ? 14 : 8' }",
-            "roads: { attributes: { kind: class } }",
-            r#"roads: { attributes: { "name:*": "name:*" } }"#,
             "roads: { rules: [ { where: \"class == 'primary'\", minzoom: 4 } ] }",
             "roads: { sort_by: rank }",
-            "roads: { id: 'gid * 10' }",
             "roads: { tile: { merge_lines: { by: [class] } } }",
             "roads: { tile: { limit: 100 } }",
         ];
@@ -744,16 +820,10 @@ mod tests {
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
-        layer `roads`: `where` is not supported by martin generate yet
         layer `roads`: `geometry: centroid` is not supported by martin generate yet
         layer `roads`: `geometry: label_point` is not supported by martin generate yet
-        layer `roads`: a `minzoom` expression is not supported by martin generate yet
-        layer `roads`: a `maxzoom` expression is not supported by martin generate yet
-        layer `roads`: a map of `attributes` is not supported by martin generate yet
-        layer `roads`: a map of `attributes` is not supported by martin generate yet
         layer `roads`: `rules` is not supported by martin generate yet
         layer `roads`: `sort_by` is not supported by martin generate yet
-        layer `roads`: an `id` expression is not supported by martin generate yet
         layer `roads`: `tile: merge_lines` is not supported by martin generate yet
         layer `roads`: `tile: limit` is not supported by martin generate yet
         ");

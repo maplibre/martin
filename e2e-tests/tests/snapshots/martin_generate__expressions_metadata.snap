@@ -1,0 +1,26 @@
+---
+source: e2e-tests/tests/martin_generate.rs
+expression: metadata
+---
+agg_tiles_hash = 3C45A61519DB84489C6EBB5DBD89CDF5
+format = mlt
+generator = martin generate v[VERSION]
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "number": "Number",
+        "ratio": "Number",
+        "size": "String",
+        "source": "String"
+      },
+      "id": "even",
+      "maxzoom": 3,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 3
+minzoom = 0
+name = expressions
