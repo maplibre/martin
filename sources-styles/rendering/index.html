@@ -1825,6 +1825,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ambient-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ambient cache
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2419,7 +2430,7 @@ You get it by either:</p>
 </span></code></pre></div>
 <p>Renders run on a dedicated thread pool.
 <code>rendering: true</code> sizes it from the logical CPU count, clamped to <code>2..=8</code>.
-The long form sets the number of render threads explicitly, how many <a href="#renderers-per-worker">renderers</a> each keeps, the <a href="#tile-size">tile size</a>, and the highest <a href="#pixel-ratio">pixel ratio</a> tiles are served at:</p>
+The long form sets the number of render threads explicitly, how many <a href="#renderers-per-worker">renderers</a> each keeps, the <a href="#tile-size">tile size</a>, the highest <a href="#pixel-ratio">pixel ratio</a> tiles are served at, and the size of the <a href="#ambient-cache">ambient cache</a>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">styles</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2430,9 +2441,11 @@ The long form sets the number of render threads explicitly, how many <a href="#r
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="nt">tile_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="c1"># Highest @{n}x pixel ratio served for XYZ tiles [default: 4]</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="nt">max_pixel_ratio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="c1"># Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">png_palette</span><span class="p">:</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">            </span><span class="nt">max_colors</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="c1"># MB of MapLibre Native's cache of fetched tiles, glyphs and sprites, 0 to disable [default: 50 MiB]</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">ambient_cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="c1"># Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="nt">png_palette</span><span class="p">:</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">            </span><span class="nt">max_colors</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
 </span></code></pre></div>
 <h2 id="indexed-palette-png">Indexed (palette) PNG</h2>
 <p>Rendered PNG tiles and static images are indexed (palette) PNGs.
@@ -2470,6 +2483,12 @@ Beyond that, the least recently used one is dropped, and loaded again the next t
 With <code>tile_size: 256</code>, the zoom 0 tile takes one more renderer per pixel ratio.</p>
 <p>Reloading styles costs CPU on every request that misses, so set <code>renderers_per_worker</code> to at least the number of styles times the pixel ratios you serve.
 Each renderer holds its own memory: lower <code>renderers_per_worker</code> or <code>max_pixel_ratio</code> to reduce memory usage.</p>
+<h3 id="ambient-cache">Ambient cache</h3>
+<p>MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the network in a cache of its own, in memory and shared by all of them, up to <code>ambient_cache_size_mb</code> MB (MapLibre Native's default of 50 MiB unless configured).
+Every fetched resource is compressed and stored there, and every fetch looks it up first.
+A cached resource spares a request only while its <code>Cache-Control</code> says it is fresh, and Martin sends none unless <code>cache_control</code> is set in the <a href="../../config-file/">configuration file</a>.
+When the style's sources are Martin's own, the tiles are already a local read away, so <code>ambient_cache_size_mb: 0</code> saves that work.
+Keep it for styles that fetch from other servers.</p>
 <h2 id="static-images">Static images</h2>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
