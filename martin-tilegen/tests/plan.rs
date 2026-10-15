@@ -3,7 +3,8 @@
 use martin_core::generate::props::Prop;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, PlanError, TableDef, ValueDef,
+    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, PlanError, RuleDef, TableDef,
+    ValueDef, ZoomDef,
 };
 
 const GRID: LayerGrid = LayerGrid {
@@ -106,6 +107,31 @@ fn rejects_a_repeated_computed_attribute() {
                 attributes: vec![attr.clone(), attr],
                 prefixes: vec![],
             },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `roads`: attribute `big` is listed more than once"
+    );
+}
+
+#[test]
+fn rejects_a_rule_repeating_an_attribute() {
+    let attr = ComputedAttr {
+        name: "big".to_owned(),
+        value: ValueDef::Literal(Prop::Bool(true)),
+        zooms: 0..=30,
+    };
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            rules: vec![RuleDef {
+                when: Some("true".to_owned()),
+                attributes: vec![attr.clone(), attr],
+                ..RuleDef::default()
+            }],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -384,5 +410,47 @@ fn each_table_scans_the_columns_of_its_own_layers() {
             "name",
         ],
     )
+    "#);
+}
+
+#[test]
+fn rule_expressions_keep_the_columns_they_read() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("population".to_owned()),
+            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("surface".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::None,
+            rules: vec![
+                RuleDef {
+                    when: Some("class == 'city'".to_owned()),
+                    maxzoom: Some(ZoomDef::Expr("population > 1000000 ? 14 : 10".to_owned())),
+                    attributes: vec![ComputedAttr {
+                        name: "label".to_owned(),
+                        value: ValueDef::Expr("name".to_owned()),
+                        zooms: 6..=30,
+                    }],
+                    ..RuleDef::default()
+                },
+                RuleDef {
+                    minzoom: Some(ZoomDef::Expr("rank".to_owned())),
+                    ..RuleDef::default()
+                },
+            ],
+            ..LayerDef::new("places", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.columns(0), @r#"
+    [
+        "class",
+        "name",
+        "population",
+        "rank",
+    ]
     "#);
 }
