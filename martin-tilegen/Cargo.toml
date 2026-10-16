@@ -27,6 +27,10 @@ name = "generate"
 harness = false
 
 [[bench]]
+name = "render"
+harness = false
+
+[[bench]]
 name = "sort"
 harness = false
 
