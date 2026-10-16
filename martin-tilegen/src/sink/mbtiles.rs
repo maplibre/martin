@@ -74,6 +74,7 @@ impl TileSink for MbtilesSink {
             hasher,
         } = self;
         let mut running = hasher.take();
+        let hashing_in = running.is_some();
         let (tx, rx) = sync_channel::<Vec<EncodedTile>>(HASH_QUEUE);
         thread::scope(|scope| {
             let hashing = scope.spawn(move || {
@@ -100,6 +101,12 @@ impl TileSink for MbtilesSink {
             let written = runtime.block_on(write);
             drop(tx);
             let hashed = hashing.join().ok().flatten();
+            debug_assert!(
+                written.is_err()
+                    || !hashing_in
+                    || hashed.as_ref().is_some_and(AggTilesHasher::in_key_order),
+                "tiles came out of TMS order"
+            );
             *hasher = if written.is_ok() { hashed } else { None };
             written
         })
@@ -147,10 +154,10 @@ mod tests {
                 let batches = vec![
                     Ok(vec![
                         tile(0, 0, 0, b"root", None),
-                        tile(1, 0, 0, b"fill", Some(1)),
+                        tile(1, 0, 1, b"fill", Some(1)),
                     ]),
                     Ok(vec![
-                        tile(1, 0, 1, b"fill", Some(1)),
+                        tile(1, 0, 0, b"fill", Some(1)),
                         tile(1, 1, 1, b"leaf", None),
                     ]),
                 ];
@@ -183,39 +190,21 @@ mod tests {
         assert_eq!(blobs, 3);
     }
 
-    #[tokio::test]
-    async fn tiles_in_tms_order_store_the_file_hash() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("out.mbtiles");
-        tokio::task::spawn_blocking({
-            let path = path.clone();
-            move || {
-                let mut sink = MbtilesSink::create(&path).unwrap();
-                let batches = vec![
-                    Ok(vec![
-                        tile(0, 0, 0, b"root", None),
-                        tile(1, 0, 1, b"fill", Some(1)),
-                        tile(1, 0, 0, b"fill", Some(1)),
-                    ]),
-                    Ok(vec![
-                        tile(1, 1, 1, b"leaf", None),
-                        tile(1, 1, 0, b"fill", Some(1)),
-                    ]),
-                ];
-                sink.write_all(&mut batches.into_iter()).unwrap();
-                let mut metadata = tilejson::tilejson! { tiles: vec![] };
-                metadata.other.insert("format".to_owned(), "pbf".into());
-                sink.finish(&metadata).unwrap();
-            }
-        })
-        .await
-        .unwrap();
-
-        let mbt = Mbtiles::new(&path).unwrap();
-        let mut conn = mbt.open_readonly().await.unwrap();
-        mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
-            .await
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "tiles came out of TMS order")]
+    fn tiles_out_of_tms_order_panic_in_debug() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
             .unwrap();
+        let _runtime = runtime.enter();
+        let dir = tempfile::tempdir().unwrap();
+        let mut sink = MbtilesSink::create(&dir.path().join("out.mbtiles")).unwrap();
+        let batches = vec![Ok(vec![
+            tile(1, 0, 0, b"a", None),
+            tile(1, 0, 1, b"b", None),
+        ])];
+        sink.write_all(&mut batches.into_iter()).unwrap();
     }
 
     #[tokio::test]

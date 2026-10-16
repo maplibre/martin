@@ -75,6 +75,12 @@ impl AggTilesHasher {
         state.update(data);
     }
 
+    /// Whether every tile so far came in key order, so that [`finish`](Self::finish) gives a hash.
+    #[must_use]
+    pub fn in_key_order(&self) -> bool {
+        self.state.is_some()
+    }
+
     /// The hash of the pushed tiles, or `None` if they came out of order.
     #[must_use]
     pub fn finish(self) -> Option<String> {
@@ -187,6 +193,7 @@ mod tests {
         hasher.push(TileCoord::new_unchecked(1, 0, 0), b"a");
         hasher.push(TileCoord::new_unchecked(1, 0, 1), b"b");
 
+        assert!(!hasher.in_key_order());
         assert_eq!(hasher.finish(), None);
     }
 
