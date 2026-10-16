@@ -35,7 +35,7 @@ pub struct LowerOptions {
 ///
 /// # Errors
 ///
-/// Fails when a layer uses a setting `martin generate` does not support yet.
+/// Fails when a layer uses a setting `--mode bulk` does not support yet.
 pub fn lower_table(
     id: &str,
     info: TableInfo,
@@ -1030,10 +1030,10 @@ mod tests {
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
-        layer `roads`: `geometry: centroid` is not supported by martin generate yet
-        layer `roads`: `geometry: label_point` is not supported by martin generate yet
-        layer `roads`: `tile: merge_lines` is not supported by martin generate yet
-        layer `roads`: `tile: limit` is not supported by martin generate yet
+        layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
+        layer `roads`: `tile: merge_lines` is not supported by `--mode bulk` yet
+        layer `roads`: `tile: limit` is not supported by `--mode bulk` yet
         ");
     }
 }

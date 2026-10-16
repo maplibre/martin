@@ -1,4 +1,4 @@
-//! The `martin generate` bulk tile generator.
+//! `martin cp --mode bulk`, which renders whole tables in one pass.
 #![cfg(all(feature = "test-pg", feature = "test-generate"))]
 
 use std::fs;
@@ -42,7 +42,7 @@ async fn generates_a_valid_tileset() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("generated.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -59,13 +59,13 @@ async fn generates_a_valid_tileset() {
     MbtilesCli::new("validate").arg(&output).run().await;
     insta::assert_snapshot!("tiles", tile_listing(&output).await);
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("metadata", metadata);
     });
 
     // The output does not depend on the thread count or memory.
     let again = dir.path().join("again.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -120,7 +120,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
         dir.path().join("out.mbtiles"),
         dir.path().join("out.pmtiles"),
     );
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -132,7 +132,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
         .arg("none")
         .run()
         .await;
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -147,7 +147,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
     assert_pmtiles_matches_mbtiles(&pmtiles, &mbtiles).await;
 
     // An existing archive is neither overwritten nor removed.
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -167,7 +167,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
 async fn martin_serves_the_default_pmtiles_output() {
     let dir = temp_dir();
     let pmtiles = dir.path().join("out.pmtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--source")
         .arg("points1")
@@ -236,7 +236,7 @@ async fn refuses_encodings_martin_cannot_serve() {
         ("out.mbtiles", "br"),
         ("out.mbtiles", "zstd"),
     ] {
-        log += &MartinCp::generate()
+        log += &MartinCp::bulk()
             .env("RUST_LOG", "error")
             .with_postgres()
             .arg("--output-file")
@@ -257,174 +257,109 @@ async fn refuses_encodings_martin_cannot_serve() {
 }
 
 #[tokio::test]
-async fn refuses_save_config() {
+async fn refuses_options_only_tile_mode_reads() {
     let dir = temp_dir();
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
+        .with_postgres()
         .arg("--output-file")
         .arg(dir.path().join("out.mbtiles"))
+        .arg("--url-query")
+        .arg("a=1")
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--on-duplicate")
+        .arg("override")
+        .arg("--concurrency")
+        .arg("4")
+        .arg("--skip-agg-tiles-hash")
+        .arg("--set-meta")
+        .arg("name=x")
         .arg("--save-config")
         .arg("saved.yaml")
-        .run_expecting_failure()
-        .await;
-    insta::assert_snapshot!(log, @"
-    error: unexpected argument '--save-config' found
-
-      tip: a similar argument exists: '--encoding'
-
-    Usage: martin generate --output-file <OUTPUT_FILE> --encoding <ENCODING> [CONNECTION]...
-
-    For more information, try '--help'.
-    ");
-}
-
-#[tokio::test]
-async fn refuses_no_tui() {
-    let dir = temp_dir();
-    let log = MartinCp::generate()
-        .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
-        .arg("--no-tui")
-        .run_expecting_failure()
-        .await;
-    insta::assert_snapshot!(log, @"
-    error: unexpected argument '--no-tui' found
-
-      tip: to pass '--no-tui' as a value, use '-- --no-tui'
-
-    Usage: martin generate --output-file <OUTPUT_FILE> [CONNECTION]...
-
-    For more information, try '--help'.
-    ");
-}
-
-#[tokio::test]
-async fn refuses_max_feature_count() {
-    let dir = temp_dir();
-    let log = MartinCp::generate()
-        .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
         .arg("--max-feature-count")
         .arg("10")
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"
-    error: unexpected argument '--max-feature-count' found
-
-      tip: to pass '--max-feature-count' as a value, use '-- --max-feature-count'
-
-    Usage: martin generate --output-file <OUTPUT_FILE> [CONNECTION]...
-
-    For more information, try '--help'.
-    ");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config`, `--max-feature-count`");
 }
 
 #[tokio::test]
-async fn help_lists_the_options() {
-    let help = MartinCp::generate().arg("--help").run().await;
-    insta::with_settings!({ filters => vec![(r"(?m)[ \t]+$", "")] }, {
-        insta::assert_snapshot!(help, @"
-        Generate a tileset from whole tables in one pass (bulk generation)
+async fn refuses_arguments_bulk_mode_cannot_honour() {
+    let dir = temp_dir();
+    let mut log = String::new();
+    for args in [
+        &["--bbox=-10,-10,0,0", "--bbox=0,0,10,10"][..],
+        &["--zoom-levels", "0,2"],
+        &["--encoding", "gzip,br"],
+    ] {
+        let mut cp = MartinCp::bulk()
+            .with_postgres()
+            .arg("--output-file")
+            .arg(dir.path().join("out.mbtiles"));
+        for arg in args {
+            cp = cp.arg(arg);
+        }
+        log += &cp.run_expecting_failure().await;
+    }
+    insta::assert_snapshot!(log, @"
+    ERROR `--mode bulk` takes at most one `--bbox`
+    ERROR `--mode bulk` renders a range of zooms; `--zoom-levels` must not skip a zoom
+    ERROR unknown encoding `gzip,br`; `--mode bulk` takes one of gzip, zlib, br, zstd or none
+    ");
+}
 
-        Usage: martin generate [OPTIONS] --output-file <OUTPUT_FILE> [CONNECTION]...
+#[cfg(feature = "test-mlt-v2")]
+#[tokio::test]
+async fn refuses_mlt2() {
+    let dir = temp_dir();
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--format")
+        .arg("mlt2")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot write `--format mlt2` yet");
+}
 
-        Arguments:
-          [CONNECTION]...
-                  PostgreSQL connection strings, e.g. postgres://...
-
-        Options:
-          -s, --source <ID>
-                  Table sources to render. Defaults to every table source
-
-          -o, --output-file <OUTPUT_FILE>
-                  The .mbtiles file to create, which must not exist or be empty, or a new .pmtiles archive
-
-              --format <FORMAT>
-                  Possible values:
-                  - mvt: Mapbox Vector Tile
-                  - mlt: MapLibre Tile
-
-                  [default: mlt]
-
-              --encoding <ENCODING>
-                  Tile compression: gzip, zlib or none for MBTiles; gzip, br, zstd or none for MVT in
-                  PMTiles; only none for MLT in PMTiles. Defaults to none for MLT in PMTiles, otherwise gzip
-
-              --min-zoom <MIN_ZOOM>
-                  Lowest zoom to generate; a source's own minzoom raises it
-
-                  [default: 0]
-
-              --max-zoom <MAX_ZOOM>
-                  Highest zoom to generate; a source's own maxzoom lowers it
-
-                  [default: 14]
-
-              --bbox <BBOX>
-                  Only features intersecting min_lon,min_lat,max_lon,max_lat are rendered, and only tiles
-                  intersecting it are written. Unlike martin cp, low-zoom tiles are not filled with data
-                  from outside the box
-
-              --memory <MEMORY>
-                  Memory for sorting, e.g. 512MB or 2GiB, split over the threads. A bare number is in MB
-
-                  [default: 2GiB]
-
-              --temp-dir <TEMP_DIR>
-                  Directories for temporary sorted runs, used round-robin. Defaults to the system temp
-                  directory
-
-              --threads <THREADS>
-                  Worker threads. Defaults to the number of CPUs
-
-          -c, --config <CONFIG>
-                  Path to config file. If set, no connection strings are allowed
-
-              --on-invalid <ON_INVALID>
-                  Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
-
-                  Possible values:
-                  - warn:  Log warning messages, abort if the error is critical
-                  - abort: Log warnings as errors, abort startup
-
-          -b, --auto-bounds <AUTO_BOUNDS>
-                  Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
-
-                  Possible values:
-                  - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
-                  - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all
-                    GEO columns have indexes
-                  - skip:  Skip bounds calculation. The bounds will be set to the whole world
-
-              --ca-root-file <CA_ROOT_FILE>
-                  Loads trusted root certificates from a file. The file should contain a sequence of
-                  PEM-formatted CA certificates
-
-          -d, --default-srid <DEFAULT_SRID>
-                  If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
-
-          -p, --pool-size <POOL_SIZE>
-                  Maximum Postgres connections pool size [DEFAULT: 20]
-
-              --pg-retry-timeout <PG_RETRY_TIMEOUT>
-                  How long the first PostgreSQL connection is retried before startup fails, a duration like
-                  30s or infinite. [DEFAULT: 30s]
-
-              --ssl-cert <SSL_CERT>
-                  A file with a client SSL certificate
-
-              --ssl-key <SSL_KEY>
-                  A file with the key for the client SSL certificate
-
-          -h, --help
-                  Print help (see a summary with '-h')
-
-          -V, --version
-                  Print version
-
-        Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
-        whole tilesets.
-        ");
-    });
+#[tokio::test]
+async fn contiguous_zoom_levels_are_a_zoom_range() {
+    let dir = temp_dir();
+    let (levels, range) = (
+        dir.path().join("levels.mbtiles"),
+        dir.path().join("range.mbtiles"),
+    );
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--source")
+        .arg("points1,points2")
+        .arg("--output-file")
+        .arg(&levels)
+        .arg("--zoom-levels")
+        .arg("2,1,3")
+        .run()
+        .await;
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--source")
+        .arg("points1,points2")
+        .arg("--output-file")
+        .arg(&range)
+        .arg("--min-zoom")
+        .arg("1")
+        .arg("--max-zoom")
+        .arg("3")
+        .run()
+        .await;
+    assert_eq!(tiles(&levels).await, tiles(&range).await);
+    let listing = tile_listing(&levels).await;
+    let mut zooms: Vec<&str> = listing
+        .lines()
+        .filter_map(|tile| tile.split('/').next())
+        .collect();
+    zooms.dedup();
+    insta::assert_snapshot!(zooms.join(","), @"1,2,3");
 }
 
 #[tokio::test]
@@ -465,7 +400,7 @@ async fn one_table_feeds_several_layers() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("layers.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -484,7 +419,7 @@ async fn one_table_feeds_several_layers() {
     MbtilesCli::new("validate").arg(&output).run().await;
     insta::assert_snapshot!("layers_tiles", tile_listing(&output).await);
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("layers_metadata", metadata);
     });
 }
@@ -523,7 +458,7 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("expressions.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -547,7 +482,7 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
         .collect();
     insta::assert_snapshot!("expressions_tiles", dump.join("\n"));
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("expressions_metadata", metadata);
     });
 }
@@ -580,7 +515,7 @@ async fn skips_a_source_with_no_zoom_in_range() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("out.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .env("RUST_LOG", "warn")
         .with_postgres()
         .arg("--config")
@@ -596,11 +531,11 @@ async fn skips_a_source_with_no_zoom_in_range() {
     WARN Skipping source `points2`: it has no zoom between 0 and 1
     ");
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!(metadata, @r#"
         agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
         format = mlt
-        generator = martin generate v[VERSION]
+        generator = martin cp v[VERSION] (bulk)
         hash_algorithm = md5
         json = {
           "vector_layers": [
@@ -647,7 +582,7 @@ async fn features_whose_zooms_miss_the_generated_zooms_are_dropped() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("zooms.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -716,7 +651,7 @@ async fn layer_rules_override_settings_per_feature() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("rules.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -736,7 +671,7 @@ async fn layer_rules_override_settings_per_feature() {
         .collect();
     insta::assert_snapshot!("rules_tiles", dump.join("\n"));
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("rules_metadata", metadata);
     });
 }
@@ -772,7 +707,7 @@ async fn features_whose_rule_zooms_miss_the_generated_zooms_are_dropped() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("zooms.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -830,7 +765,7 @@ async fn sort_by_sets_the_draw_order() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("sorted.mbtiles");
-    MartinCp::generate()
+    MartinCp::bulk()
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -859,7 +794,7 @@ async fn sort_by_sets_the_draw_order() {
         .collect();
     insta::assert_snapshot!("sort_by_order", order.join("\n"));
     let metadata = metadata_listing(&output).await;
-    insta::with_settings!({ filters => vec![(r"martin generate v[0-9.]+[^\s]*", "martin generate v[VERSION]")] }, {
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("sort_by_metadata", metadata);
     });
 }
@@ -867,7 +802,7 @@ async fn sort_by_sets_the_draw_order() {
 #[tokio::test]
 async fn rejects_function_sources() {
     let dir = temp_dir();
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .with_postgres()
         .arg("--output-file")
         .arg(dir.path().join("out.mbtiles"))
@@ -888,7 +823,7 @@ async fn rejects_inverted_and_off_world_bboxes() {
         ),
         ("--bbox=-10,-89,10,89", "latitude"),
     ] {
-        let log = MartinCp::generate()
+        let log = MartinCp::bulk()
             .with_postgres()
             .arg("--output-file")
             .arg(dir.path().join("out.mbtiles"))
@@ -926,7 +861,7 @@ async fn aborts_on_a_misconfigured_table() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("out.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .env("RUST_LOG", "error")
         .with_postgres()
         .arg("--config")
@@ -971,7 +906,7 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
     )
     .expect("failed to write the config");
     let output = dir.path().join("out.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .env("RUST_LOG", "warn")
         .with_postgres()
         .arg("--config")
@@ -1011,7 +946,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
         "},
     )
     .expect("failed to write the config");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .env("RUST_LOG", "error")
         .with_postgres()
         .arg("--config")
@@ -1028,7 +963,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
 async fn sigterm_removes_the_partial_output() {
     let dir = temp_dir();
     let output = dir.path().join("out.mbtiles");
-    let log = MartinCp::generate()
+    let log = MartinCp::bulk()
         .env("RUST_LOG", "error")
         .with_postgres()
         .arg("--output-file")

@@ -73,6 +73,17 @@ You should also consider
     When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin cp` copies zoom by zoom and never fetches the tiles below an empty tile.
     This means that even sparse sources can usually be fairly performant.
 
+## Modes
+
+`--mode` chooses how `martin cp` produces the tiles:
+
+- `tile` requests every tile from the source, as the tile server does.
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets.
+  It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](martin-generate.md).
+- `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
+
+Each mode refuses the options only the other one reads.
+
 ## MLT from PostgreSQL tables
 
 With `--format mlt`, `martin cp` encodes a PostgreSQL table source's tiles straight from its rows instead of converting the MVT tile PostGIS builds.
