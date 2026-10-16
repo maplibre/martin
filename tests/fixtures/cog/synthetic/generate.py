@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Regenerate the cog-tiles test COGs in this directory.
 Requires GDAL's Python bindings and numpy.
 
