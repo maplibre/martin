@@ -12,10 +12,26 @@ tags:
 
 --8<-- "generate-unstable.md"
 
-[`martin cp`](martin-cp.md) asks the source for each tile separately by default. With `--mode bulk`, it
-instead builds the whole tileset in one pass: it reads each source once, renders every feature at every
-zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far
-less load on the source.
+A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside
+Martin itself, when serving tiles.
+Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like
+PostgreSQL does with `ST_AsMVT`.
+
+Martin adapted the tile generation method of [Planetiler](https://github.com/onthegomap/planetiler). Thank
+you to Mike Barry ([@msbarry](https://github.com/msbarry)), the author of Planetiler, for an amazing tool,
+and to its contributors. Planetiler is licensed under the
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE). Martin also adapted a
+similar [layer configuration](sources-pg-layers.md), which takes features from any source Martin supports
+that can produce a stream of features. [Generation Architecture](architecture-generate.md) lists what
+this takes from Planetiler.
+
+As part of this effort, [`martin cp`](martin-cp.md) can now also build a whole tileset at once, like
+Planetiler. By default it asks the source for each tile separately, so the source reads a feature again
+for every tile it touches, at every zoom. With `--mode bulk`, it instead reads each source once, renders
+every feature at every zoom inside Martin, and writes the tiles in order. For large tilesets this is much
+faster, and it puts far less load on the source. That also saves money: Martin instances are stateless
+and cheap to scale out, for example in Kubernetes, while scaling PostgreSQL is much harder and more
+expensive.
 
 The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it will pick `bulk` whenever
 it can.

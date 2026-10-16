@@ -15,12 +15,17 @@ Martin project contains additional tooling to help manage the data servable with
 
 ### `martin cp`
 
-`martin cp` is a subcommand of `martin` for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
-It can be used to generate tiles for a large area or multiple areas.
-If multiple areas overlap, it will generate tiles only once.
-`martin cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+`martin cp` is a subcommand of `martin` for copying tiles from any sources into a new or an existing tile archive.
+It supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+It can copy tiles in two ways:
 
-See [this article](martin-cp.md) for more information.
+- **One by one**: `martin cp` asks the source for each tile, so the source must either contain tiles (MBTiles, PMTiles)
+  or generate them (PostgreSQL's `ST_AsMVT`). It can be used for a large area or multiple areas, and if multiple areas
+  overlap, it will copy each tile only once. See [this article](martin-cp.md) for more information.
+- **In bulk**: `martin cp` reads each source's features once and builds the whole tileset inside Martin.
+  It uses the tile generation method and a similar layer configuration adapted from
+  [Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry. This feature is unstable.
+  See [this article](martin-generate.md) for more information.
 
 ### `mbtiles`
 
