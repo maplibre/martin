@@ -1,5 +1,5 @@
-use std::fmt::Write as _;
 use std::hash::Hasher as _;
+use std::io::Write as _;
 
 use martin_tile_utils::TileCoord;
 use xxhash_rust::xxh3::Xxh3;
@@ -7,18 +7,20 @@ use xxhash_rust::xxh64::Xxh64;
 
 use crate::{HashAlgorithm, invert_y_value};
 
+/// The decimal digits of a `u8` and two `u32`s.
+const MAX_DIGITS: usize = 3 + 10 + 10;
+
 /// Computes `agg_tiles_hash` from the tiles as they are written, the value
 /// [`calc_agg_tiles_hash`](crate::calc_agg_tiles_hash) would read back from the file.
 ///
 /// It holds only for tiles pushed in `(zoom_level, tile_column, tile_row)` order into a file that had
-/// none, each push matching a successful write; [`finish`](Self::finish) gives `None` for tiles out of
-/// that order, and [`Mbtiles::finish_agg_tiles_hash`](crate::Mbtiles::finish_agg_tiles_hash) then
-/// computes the hash from the file.
+/// none, each push matching a successful write. For tiles out of that order [`finish`](Self::finish)
+/// gives `None`, and [`Mbtiles::finish_agg_tiles_hash`](crate::Mbtiles::finish_agg_tiles_hash) computes
+/// the hash from the file instead.
 pub struct AggTilesHasher {
     algorithm: HashAlgorithm,
     state: Option<State>,
     last: Option<(u8, u32, u32)>,
-    digits: String,
 }
 
 /// The running digest of each [`HashAlgorithm`].
@@ -45,7 +47,6 @@ impl AggTilesHasher {
             algorithm,
             state: Some(state),
             last: None,
-            digits: String::new(),
         }
     }
 
@@ -55,8 +56,12 @@ impl AggTilesHasher {
         self.algorithm
     }
 
-    /// Adds a written tile; `coord` uses XYZ rows, as [`MbtilesBulkWriter::write`](crate::MbtilesBulkWriter::write) does.
+    /// Adds a written tile, with `coord` in XYZ rows as [`MbtilesBulkWriter::write`](crate::MbtilesBulkWriter::write) takes it.
     pub fn push(&mut self, coord: TileCoord, data: &[u8]) {
+        debug_assert!(
+            TileCoord::is_possible_on_zoom_level(coord.z(), coord.x(), coord.y()),
+            "{coord:?} is not a tile of its zoom level"
+        );
         let key = (coord.z(), coord.x(), invert_y_value(coord.z(), coord.y()));
         if self.last.is_some_and(|last| last >= key) {
             self.state = None;
@@ -66,9 +71,11 @@ impl AggTilesHasher {
             return;
         };
         let (z, x, row) = key;
-        self.digits.clear();
-        write!(self.digits, "{z}{x}{row}").expect("writing to a String cannot fail");
-        state.update(self.digits.as_bytes());
+        let mut digits = [0; MAX_DIGITS];
+        let mut rest = &mut digits[..];
+        write!(rest, "{z}{x}{row}").expect("MAX_DIGITS fits any coordinate");
+        let len = MAX_DIGITS - rest.len();
+        state.update(&digits[..len]);
         state.update(data);
     }
 
@@ -185,6 +192,14 @@ mod tests {
         hasher.push(TileCoord::new_unchecked(1, 0, 1), b"b");
 
         assert_eq!(hasher.finish(), None);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "is not a tile of its zoom level")]
+    fn a_coordinate_outside_its_zoom_level_panics_in_debug() {
+        let mut hasher = AggTilesHasher::new(HashAlgorithm::Md5);
+        hasher.push(TileCoord::new_unchecked(1, 2, 0), b"a");
     }
 
     #[test]
