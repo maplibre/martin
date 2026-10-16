@@ -54,6 +54,8 @@ Because every served tile is exactly one internal tile of the file, nothing is r
   the file is rejected only if none of its images can be served.
 - The image must be stored in square tiles (not strips), all of the same size, with the bands interleaved (`PlanarConfiguration=1`).
 
+--8<-- "images/sources/cog-align.svg"
+
 GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG generation with GDAL](#cog-generation-with-gdal).
 
 ## Supported formats
@@ -111,11 +113,20 @@ cog:
          zoom: 16
 ```
 
+!!! tip "Scanning subdirectories"
+    Set `recursive: true` next to `paths` to scan subdirectories too.
+    A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.tif` becomes `2024.roads`.
+
+!!! tip "Per-project directories"
+    List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/elevation.tif` becomes `project1.elevation`.
+
 ## Mosaic of many COGs
 
 Large imagery is often cut into many COGs, one per tile at some zoom level, and named after that tile.
 A mosaic source serves all of them as one source, without listing or indexing the files:
 a request for `z/x/y` is routed to the file of its ancestor tile at the mosaic's `zoom`.
+
+--8<-- "images/sources/cog-mosaic.svg"
 
 ```yaml
 cog:
@@ -136,6 +147,8 @@ cog:
         cached_files_ttl: 10m
 ```
 
+--8<-- "images/sources/cog-mosaic-names.svg"
+
 - Every file must meet the [file requirements](#file-requirements), cover its tile at `zoom`, and use the same tile size and format as the others.
   A file that does not is reported as an error for the tiles it would serve.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
@@ -144,46 +157,45 @@ cog:
   Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
+--8<-- "images/sources/cog-mosaic-zooms.svg"
+
 ## COG Hot Reload
 
-Two mechanisms keep the catalog current at runtime - local directories are watched with filesystem events, remote COGs are polled.
+Martin picks up changed COGs without a restart, except for local files listed one by one.
+How quickly depends on where the COG is:
+
+--8<-- "images/sources/cog-reload.svg"
 
 ### Local directories
 
-When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
-
-```yaml
-cog:
-  paths:
-    - /path/to/cog/directory
-```
-
-!!! tip "Scanning subdirectories"
-    Set `recursive: true` next to `paths` to scan subdirectories too.
-    A nested file is named by its path relative to the scanned directory with `/` replaced by `.`, so `2024/roads.tif` becomes `2024.roads`.
-
-!!! tip "Per-project directories"
-    List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/elevation.tif` becomes `project1.elevation`.
-
-The following events are handled automatically:
+Directories in `cog.paths` are watched with filesystem events:
 
 - **File added** - the new source appears in the catalog.
 - **File modified** - the source is reloaded and its tile cache is invalidated.
 - **File removed** - the source is removed from the catalog.
 
-### Remote COGs
+Local files listed directly in `cog.paths` or `cog.sources` are loaded at startup and not watched.
 
-Remote object stores and HTTP(S) servers have no event channel, so Martin polls them at `cog.reload_interval` (default `10m`):
+### Remote files and prefixes
 
-- **Configured remote objects** - `cog.sources` entries with an `s3://`, `gs://`, `az://`, `http://`, or `https://` URL, as well as remote URLs passed on the CLI, are re-checked with a `HEAD` request and rebuilt when their `ETag` or `Last-Modified` changes.
-- **Remote prefixes** - prefixes in `cog.paths` are re-listed, and the resulting objects are diffed against the previous snapshot, so added, updated, and removed TIFF objects propagate to the catalog.
+Object stores and HTTP(S) servers send no events, so Martin polls them every `cog.reload_interval` (default `10m`):
 
-Configured remote objects still load at startup when `reload_interval` is `0s`, but are not checked again.
-Remote prefixes are first discovered by the polling loop, so setting `reload_interval` to `0s` prevents their sources from loading.
+- **Remote files** - URLs in `cog.paths`, `cog.sources`, or on the CLI are loaded at startup.
+  At each poll a `HEAD` request checks them, and a source is rebuilt when its `ETag` or `Last-Modified` changes.
+- **Remote prefixes** - prefixes in `cog.paths` are first listed when polling starts, and listed again at each poll.
+  Each listing is compared with the last one, so added, replaced, and removed TIFF objects are added, rebuilt, and removed.
 
-If a later `HEAD` request or prefix listing fails, Martin retains the last-known object version or last successful listing, so a transient outage does not remove live sources.
-Before the first successful listing, a failed prefix is skipped for that poll and retried later.
-With `on_invalid: warn`, failed additions and replacements also remain pending for the next poll; an unsuccessful replacement keeps serving the last good source.
+Setting `reload_interval` to `0s` turns polling off: remote files still load at startup but are not checked again,
+and remote prefixes are never listed, so their sources never load.
+
+If a `HEAD` request or prefix listing fails, Martin keeps serving what it had, so a short outage does not remove live sources.
+A prefix that has not been listed successfully yet is retried at the next poll.
+With `on_invalid: warn`, a file that fails to load is also retried at the next poll; a replacement that fails to load leaves the previous version in place.
+
+### Mosaics
+
+Mosaics are not watched or polled.
+Each file is kept open for `cached_files_ttl` and opened again on its next use, which picks up replaced and added files.
 
 ## Remote COG
 
@@ -205,10 +217,6 @@ cog:
     mosaic: s3://my-bucket/imagery/mosaic.tif
     raster: https://tiles.example.org/mosaic.tif
 ```
-
-!!! note
-    Local files configured directly in `cog.paths` or `cog.sources` are loaded at startup but are not watched for changes.
-    Remote objects in either setting are polled, while remote prefixes in `cog.paths` are re-listed.
 
 --8<-- "object-store/configuration.md"
 
