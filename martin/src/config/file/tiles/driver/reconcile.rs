@@ -372,12 +372,12 @@ mod tests {
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
-            if let Some(Err(error)) = self
+            let result = self
                 .results
                 .lock()
                 .expect("SpySink results mutex poisoned")
-                .pop_front()
-            {
+                .pop_front();
+            if let Some(Err(error)) = result {
                 return std::future::ready(Err(error));
             }
 

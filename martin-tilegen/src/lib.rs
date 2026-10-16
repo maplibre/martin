@@ -13,6 +13,7 @@ pub mod project;
 mod props;
 pub mod record;
 mod render;
+mod simplify;
 mod sink;
 mod sort;
 mod sort_key;
@@ -21,8 +22,10 @@ mod tile;
 pub use assemble::{AssembledLayer, LayerAssembler, LayerGrid};
 pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
 pub use error::{TileGenError, TileGenResult};
-pub use generate::{ExprErrors, GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
+pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
 pub use group::{LayerRecordRef, TileGrouper, TileRecords};
+pub use map_tile_toolkit::ClipMode;
+pub use plan::ExprErrors;
 pub use render::{
     Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, Renderer,
     SliceError, SliceErrors,

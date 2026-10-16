@@ -4,12 +4,13 @@
 mod merge;
 mod run;
 
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 pub use merge::Merger;
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use run::{Run, RunWriter};
 
 use crate::{SortKey, TileGenError, TileGenResult};
@@ -76,32 +77,48 @@ impl Sorter {
         let fan_in = self.config.max_fan_in;
         let mut runs = std::mem::take(self.runs.get_mut().unwrap_or_else(PoisonError::into_inner));
         runs.sort_unstable_by_key(|run| run.index);
-        while runs.len() > fan_in {
-            let mut groups = Vec::with_capacity(runs.len().div_ceil(fan_in));
-            let mut rest = runs.into_iter();
-            while rest.len() > 0 {
-                groups.push(rest.by_ref().take(fan_in).collect::<Vec<_>>());
-            }
-            runs = groups
+        while let Some(span) = cheapest_span(&runs, fan_in) {
+            let merged = runs
+                .drain(span.clone())
+                .collect::<Vec<_>>()
                 .into_par_iter()
-                .map(|group| {
-                    let index = group[0].index;
-                    let mut merger = Merger::new(group, self.config.read_buffer_bytes)?;
-                    let mut out = self.run_writer(index)?;
-                    while let Some((key, record)) = merger.next_record()? {
-                        out.write(key, record)?;
-                    }
-                    out.finish()
-                })
-                .collect::<TileGenResult<_>>()?;
+                .chunks(fan_in)
+                .map(|group| self.merge_group(group))
+                .collect::<TileGenResult<Vec<_>>>()?;
+            runs.splice(span.start..span.start, merged);
         }
         Merger::new(runs, self.config.read_buffer_bytes)
+    }
+
+    fn merge_group(&self, group: Vec<Run>) -> TileGenResult<Run> {
+        let mut out = self.run_writer(group[0].index)?;
+        let mut merger = Merger::new(group, self.config.read_buffer_bytes)?;
+        while let Some((key, record)) = merger.next_record()? {
+            out.write(key, record)?;
+        }
+        out.finish()
     }
 
     fn run_writer(&self, index: u32) -> TileGenResult<RunWriter> {
         let dirs = &self.config.temp_dirs;
         RunWriter::create(&dirs[index as usize % dirs.len()], index)
     }
+}
+
+/// The adjacent runs to merge next, in groups of `fan_in`: the fewest bytes that leave `fan_in` runs.
+/// Adjacent, so ties between runs still break in push order. Past `fan_in²` runs it is every run.
+fn cheapest_span(runs: &[Run], fan_in: usize) -> Option<Range<usize>> {
+    let excess = runs
+        .len()
+        .checked_sub(fan_in)
+        .filter(|&excess| excess > 0)?;
+    let width = (excess + excess.div_ceil(fan_in - 1)).min(runs.len());
+    let (start, _) = runs
+        .windows(width)
+        .map(|span| span.iter().map(|run| run.bytes).sum::<u64>())
+        .enumerate()
+        .min_by_key(|&(_, bytes)| bytes)?;
+    Some(start..start + width)
 }
 
 /// A worker's in-memory batch. Records stay where they were encoded; only the index is sorted.
@@ -251,7 +268,7 @@ pub(crate) mod tests {
     #[test]
     fn equals_stable_in_memory_sort() {
         let dir = tempfile::tempdir().unwrap();
-        for (buffer_bytes, fan_in) in [(1 << 26, 64), (2000, 3), (300, 2)] {
+        for (buffer_bytes, fan_in) in [(1 << 26, 64), (2000, 3), (2000, 40), (300, 2)] {
             let input = records(3000);
             let sorter = sorter(&dir, buffer_bytes, fan_in);
             let mut buffer = sorter.buffer();
@@ -296,6 +313,26 @@ pub(crate) mod tests {
             }
         });
         let mut expected = workers.concat();
+        expected.sort_by_key(|(key, _)| *key);
+        assert_eq!(drain(sorter.merge().unwrap()), expected);
+    }
+
+    #[test]
+    fn merges_runs_of_uneven_size_in_push_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(&dir, 1000, 7);
+        let input: Vec<_> = random_keys(80, 5)
+            .enumerate()
+            .map(|(i, key)| (key, format!("{i:052}").into_bytes()))
+            .collect();
+        for batch in [&input[..35], &input[35..50], &input[50..]] {
+            let mut buffer = sorter.buffer();
+            for (key, record) in batch {
+                buffer.push(*key, record).unwrap();
+            }
+            buffer.finish().unwrap();
+        }
+        let mut expected = input;
         expected.sort_by_key(|(key, _)| *key);
         assert_eq!(drain(sorter.merge().unwrap()), expected);
     }

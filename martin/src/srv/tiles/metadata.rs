@@ -266,7 +266,7 @@ pub mod tests {
 
         let tj = merge_tilejson(
             &[
-                (src1.clone().boxed(), Arc::default()),
+                (src1.boxed(), Arc::default()),
                 (src2.boxed(), Arc::default()),
             ],
             url.clone(),

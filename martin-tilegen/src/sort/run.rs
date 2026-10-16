@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Read as _, Seek as _};
 use std::path::Path;
 
+use wincode::SchemaWrite;
 use wincode::config::Configuration;
 
 use crate::{SortKey, TileGenResult};
@@ -13,6 +14,7 @@ const WRITE_BUFFER_BYTES: usize = 1 << 20;
 /// records, so breaking key ties by run index keeps each worker's push order.
 pub(super) struct Run {
     pub(super) index: u32,
+    pub(super) bytes: u64,
     file: File,
     records: u64,
 }
@@ -33,18 +35,20 @@ impl RunWriter {
     }
 
     pub(super) fn write(&mut self, key: SortKey, record: &[u8]) -> TileGenResult<()> {
-        wincode::config::serialize_into(&mut self.out, &(key, record), Configuration::default())?;
+        <(SortKey, &[u8]) as SchemaWrite<Configuration>>::write(&mut self.out, &(key, record))?;
         self.records += 1;
         Ok(())
     }
 
     pub(super) fn finish(self) -> TileGenResult<Run> {
+        let file = self
+            .out
+            .into_inner()
+            .map_err(std::io::IntoInnerError::into_error)?;
         Ok(Run {
             index: self.index,
-            file: self
-                .out
-                .into_inner()
-                .map_err(std::io::IntoInnerError::into_error)?,
+            bytes: file.metadata()?.len(),
+            file,
             records: self.records,
         })
     }

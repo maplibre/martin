@@ -441,12 +441,13 @@ async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
         !layer.features.is_empty(),
         "pinched polygon survives instead of being dropped wholesale"
     );
-    let polys: Vec<&Polygon<i32>> = layer
-        .features
-        .iter()
-        .flat_map(|f| polygons(&f.geometry))
-        .collect();
-    assert!(!polys.is_empty(), "the surviving geometry is polygonal");
+    assert!(
+        layer
+            .features
+            .iter()
+            .any(|f| !polygons(&f.geometry).is_empty()),
+        "the surviving geometry is polygonal"
+    );
 }
 
 /// A polygon thinner than one tile unit collapses to nothing on the integer grid and is dropped.

@@ -182,7 +182,7 @@ mod tests {
             .collect();
         assert_eq!(resolved.len(), NEIGHBOURHOOD_LEN);
         // All nine are distinct, so the pass reads nine different tiles.
-        let mut unique = resolved.clone();
+        let mut unique = resolved;
         unique.sort_unstable_by_key(|c| (c.x(), c.y()));
         unique.dedup_by_key(|c| (c.x(), c.y()));
         assert_eq!(unique.len(), NEIGHBOURHOOD_LEN);
