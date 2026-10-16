@@ -189,6 +189,8 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        #[cfg(feature = "unstable-cog")]
+                        mosaic: None,
                     }))
                 ),
                 (
@@ -210,6 +212,8 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        #[cfg(feature = "unstable-cog")]
+                        mosaic: None,
                     }))
                 ),
             ])

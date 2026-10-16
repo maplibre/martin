@@ -105,6 +105,7 @@ mod tests {
     };
 
     #[tokio::test]
+    #[expect(clippy::too_many_lines)]
     async fn parse() {
         let mut cfg = serde_saphyr::from_str::<FileConfig<MbtConfig>>(indoc! {"
             paths:
@@ -161,6 +162,8 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        #[cfg(feature = "unstable-cog")]
+                        mosaic: None,
                     }))
                 ),
                 (
@@ -182,6 +185,8 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        #[cfg(feature = "unstable-cog")]
+                        mosaic: None,
                     }))
                 ),
                 (
@@ -199,6 +204,8 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                         cache_control: None,
+                        #[cfg(feature = "unstable-cog")]
+                        mosaic: None,
                     }))
                 ),
             ])

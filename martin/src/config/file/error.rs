@@ -115,6 +115,10 @@ pub enum ConfigFileError {
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
+    #[cfg(feature = "unstable-cog")]
+    #[error("{what} is not a valid mosaic: {reason}")]
+    InvalidMosaic { what: String, reason: String },
+
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
@@ -340,6 +344,8 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
+            #[cfg(feature = "unstable-cog")]
+            Self::InvalidMosaic { .. } => "martin::config::cog::mosaic",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
             #[cfg(feature = "_tiles")]
@@ -414,6 +420,10 @@ impl Diagnostic for ConfigFileError {
             }
             #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
+            #[cfg(feature = "unstable-cog")]
+            Self::InvalidMosaic { .. } => {
+                "A `mosaic` block is only valid on a `cog` source, whose `path` names the files by `{quadkey}`, or by `{x}` and `{y}` (or `{-y}` for rows counted from the bottom) with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`."
+            }
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
             #[cfg(feature = "_tiles")]
@@ -866,6 +876,24 @@ mod tests {
         message: Failed to list objects under s3://bucket: Operation list not yet implemented by test.
         code: martin::config::pmtiles::object_store_list
         help: none
+        url: https://maplibre.org/martin/config-file/
+        labels: none
+        source_code: none
+        miette_report: none
+        ");
+    }
+
+    #[cfg(feature = "unstable-cog")]
+    #[test]
+    fn invalid_mosaic() {
+        let err = ConfigFileError::InvalidMosaic {
+            what: "Source ortho".to_owned(),
+            reason: "only COG sources can be mosaics".to_owned(),
+        };
+        insta::assert_snapshot!(describe(&err), @"
+        message: Source ortho is not a valid mosaic: only COG sources can be mosaics
+        code: martin::config::cog::mosaic
+        help: A `mosaic` block is only valid on a `cog` source, whose `path` names the files by `{quadkey}`, or by `{x}` and `{y}` (or `{-y}` for rows counted from the bottom) with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`.
         url: https://maplibre.org/martin/config-file/
         labels: none
         source_code: none

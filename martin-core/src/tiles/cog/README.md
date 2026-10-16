@@ -1,7 +1,9 @@
 ## COG tile sources
 
 `CogSource` serves `WebMercatorQuad` tiles from Cloud Optimized `GeoTIFF`s using the
-[`cog-tiles`](https://crates.io/crates/cog-tiles) crate, from one file, local or in any `object_store`.
+[`cog-tiles`](https://crates.io/crates/cog-tiles) crate, from one file (local or in any `object_store`)
+or from a mosaic of many files, each covering one tile at the mosaic's file zoom and named after it
+(e.g. `{quadkey}.tif`).
 
 Each image in a COG (the full-resolution image and each overview) serves one zoom level, and each
 served tile is exactly one internal tile of that image, so nothing is resampled:

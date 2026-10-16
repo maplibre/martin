@@ -1,13 +1,14 @@
-"""Regenerate the cog-tiles test COGs in this directory.
+"""Regenerate the cog-tiles test COGs in this directory and in `../mosaic`.
 Requires GDAL's Python bindings and numpy.
 
     python3 tests/fixtures/cog/synthetic/generate.py
 
 Every raster uses the same synthetic pattern (see `pattern`), so tests can recompute the
-expected pixels. The aligned files cover z15 tile 031313131130112 (x=16374, y=10897)
-at z16 resolution with 256 px blocks.
+expected pixels. The aligned files cover z15 tile 031313131130112 (x=16374, y=10897), or one of
+its four z16 children, at z16/z17 resolution with 256 px blocks.
 """
 
+import math
 import os
 
 import numpy as np
@@ -89,6 +90,16 @@ def main():
     write_cog("utm.tif", pattern(512, 512, 3), (699000.0, 5710000.0), 0.5, epsg=32630, COMPRESS="JPEG")
     write_cog("unaligned.tif", pattern(512, 512, 3), (min_x + res / 2, max_y), res, COMPRESS="JPEG")
     write_cog("odd_resolution.tif", pattern(512, 512, 3), origin, res * 1.1, COMPRESS="JPEG")
+
+    # A mosaic: one file per z16 child, named by quadkey, at z17 resolution (zooms 16-17).
+    # Each file's pattern is shifted by 50 * its last quadkey digit, so tests can tell them apart.
+    child_res = size / 2 / 512
+    for digit in "0123":
+        child = QUADKEY + digit
+        c_min_x, c_max_y, _ = tile_bounds(child)
+        data = pattern(512, 512, 3, 50 * int(digit))
+        write_cog(f"../mosaic/{child}.tif", data, (c_min_x, c_max_y), child_res, COMPRESS="DEFLATE")
+    assert math.isclose(child_res * 512, size / 2)
 
 
 if __name__ == "__main__":

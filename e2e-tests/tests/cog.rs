@@ -1092,6 +1092,135 @@ async fn a_tile_the_image_leaves_out_is_empty() {
     martin.stop().await;
 }
 
+/// The mosaic fixtures are the four z16 children of z15 tile 16374/10897, one file each.
+const MOSAIC_CONFIG: &str = indoc! {"
+    cog:
+      sources:
+        ortho:
+          path: tests/fixtures/cog/mosaic/{quadkey}.tif
+          mosaic:
+            zoom: 16
+"};
+
+#[tokio::test]
+async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
+    let mut martin = Martin::builder()
+        .config(MOSAIC_CONFIG)
+        .start()
+        .await
+        .expect("failed to start martin with a mosaic");
+
+    insta::assert_json_snapshot!(tilejson(&martin, "ortho").await, @r#"
+    {
+      "format": "png",
+      "maxzoom": 17,
+      "minzoom": 16,
+      "tileSize": 256,
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/ortho/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    for path in ["16/32748/21794", "16/32749/21795", "17/65499/43590"] {
+        let tile = martin.get(&format!("/ortho/{path}")).await;
+        assert_eq!(tile.status(), 200, "{path}");
+        assert_eq!(tile.header("content-type"), Some("image/png"));
+        assert_eq!(tile.image_size(), (256, 256));
+    }
+    // No file holds this z16 tile.
+    assert_eq!(martin.get("/ortho/16/32750/21794").await.status(), 204);
+    // Above the file zoom, no single file holds the tile.
+    assert_eq!(martin.get("/ortho/15/16374/10897").await.status(), 404);
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        r#"ERROR error="Zoom 15 is outside the supported range: ortho supports zoom 16-17""#,
+    );
+}
+
+#[tokio::test]
+async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = tmp.path().join("save_config.yaml");
+    let files = fs::read_dir(fixture("cog/mosaic"))
+        .expect("failed to list the mosaic fixtures")
+        .map(|entry| {
+            let path = entry.expect("a mosaic fixture").path();
+            let name = path.file_stem().unwrap().to_string_lossy().to_string();
+            (format!("cogtest/imagery/{name}.tif"), path)
+        })
+        .collect::<Vec<_>>();
+    let files = files
+        .iter()
+        .map(|(key, path)| (key.as_str(), path.clone()))
+        .collect::<Vec<_>>();
+    let statics = StaticFiles::serving(&files).await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              virtual_hosted_style_request: false
+              sources:
+                remote:
+                  path: s3://cogtest/imagery/{{quadkey}}.tif
+                  mosaic:
+                    zoom: 16
+                    maxzoom: 18
+                local:
+                  path: tests/fixtures/cog/mosaic/{{quadkey}}.tif
+                  mosaic:
+                    zoom: 16
+        "})
+        .start()
+        .await
+        .expect("failed to start martin with an S3 mosaic");
+
+    let remote = tilejson(&martin, "remote").await;
+    assert_eq!(remote["minzoom"], 16);
+    assert_eq!(remote["maxzoom"], 18);
+    assert_eq!(remote["format"], "png");
+    for path in ["16/32748/21794", "17/65497/43591"] {
+        let remote = martin.get(&format!("/remote/{path}")).await;
+        let local = martin.get(&format!("/local/{path}")).await;
+        assert_eq!(remote.status(), 200, "{path}");
+        assert_eq!(remote.body(), local.body(), "{path}");
+    }
+    assert_eq!(martin.get("/remote/16/32750/21794").await.status(), 204);
+    assert_eq!(martin.get("/remote/18/130992/87176").await.status(), 204);
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
+    );
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let parsed =
+        serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
+    insta::assert_json_snapshot!(parsed["cog"]["sources"], @r#"
+    {
+      "local": {
+        "mosaic": {
+          "zoom": 16
+        },
+        "path": "tests/fixtures/cog/mosaic/{quadkey}.tif"
+      },
+      "remote": {
+        "mosaic": {
+          "maxzoom": 18,
+          "zoom": 16
+        },
+        "path": "s3://cogtest/imagery/{quadkey}.tif"
+      }
+    }
+    "#);
+}
+
 /// An overview half a tile off the tile grid is skipped with a warning; the aligned full-resolution
 /// image is still served. This puts the fixture back where it was before its overview was aligned.
 #[tokio::test]

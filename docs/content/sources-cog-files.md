@@ -104,7 +104,45 @@ cog:
     # named source matching source name to a single file, local or remote
      cog-src1: /path/to/cog1.tif
      cog-src2: https://example.org/path/cog2.tif
+    # a mosaic of many files, see "Mosaic of many COGs" below
+     ortho:
+       path: s3://my-bucket/ortho/{quadkey}.tif
+       mosaic:
+         zoom: 16
 ```
+
+## Mosaic of many COGs
+
+Large imagery is often cut into many COGs, one per tile at some zoom level, and named after that tile.
+A mosaic source serves all of them as one source, without listing or indexing the files:
+a request for `z/x/y` is routed to the file of its ancestor tile at the mosaic's `zoom`.
+
+```yaml
+cog:
+  sources:
+    ortho:
+      # Where the files are, local or remote, naming each file by its tile at `mosaic.zoom`:
+      # {quadkey}, or {x} and {y} with an optional {z}, e.g. /data/ortho/{z}/{x}/{y}.tif.
+      # Use {-y} for rows counted from the bottom (TMS), e.g. /data/quads/{x}-{-y}.tif.
+      path: s3://my-bucket/ortho/{quadkey}.tif
+      mosaic:
+        # The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
+        zoom: 16
+        # The highest zoom served. Defaults to the highest zoom of the file opened at startup.
+        maxzoom: 20
+        # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
+        max_cached_files: 1000
+        # How long an opened file is kept before it is opened again. Defaults to "10m".
+        cached_files_ttl: 10m
+```
+
+- Every file must meet the [file requirements](#file-requirements), cover its tile at `zoom`, and use the same tile size and format as the others.
+  A file that does not is reported as an error for the tiles it would serve.
+- At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
+  For a remote mosaic this needs permission to list the bucket prefix.
+- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `cached_files_ttl`.
+  Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
+- Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
 ## COG Hot Reload
 
