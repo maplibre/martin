@@ -17,10 +17,11 @@ use martin_tilegen::{
 
 const VERTICES: u32 = 10_000;
 
+/// A xorshift generator, so every run renders the same geometry.
 struct Rng(u64);
 
 impl Rng {
-    /// Uniform in `-1..1`.
+    /// Returns a uniform value in `-1..1`.
     fn next(&mut self) -> f64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
@@ -31,6 +32,7 @@ impl Rng {
     }
 }
 
+/// A 10k-vertex walk of 10 m steps whose heading drifts, like a coastline.
 fn coastline(start: Coord<f64>, rng: &mut Rng) -> LineString<f64> {
     let (mut at, mut heading) = (start, rng.next() * TAU);
     (0..VERTICES)
@@ -43,6 +45,7 @@ fn coastline(start: Coord<f64>, rng: &mut Rng) -> LineString<f64> {
         .collect()
 }
 
+/// A 10k-vertex ring about 0.4° across with a wavy, noisy shore.
 fn lake(center: Coord<f64>, rng: &mut Rng) -> Polygon<f64> {
     let shore = (0..=VERTICES)
         .map(|i| {
@@ -57,6 +60,7 @@ fn lake(center: Coord<f64>, rng: &mut Rng) -> Polygon<f64> {
     Polygon::new(shore, vec![])
 }
 
+/// Renders the coastlines and the lakes at z0-14 into an in-memory sort buffer.
 fn bench(c: &mut Criterion<cycles::Cycles>) {
     let mut rng = Rng(0x1234_5678);
     let lines: Vec<_> = (0..16)

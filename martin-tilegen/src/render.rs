@@ -2,13 +2,14 @@
 
 use std::ops::{Range, RangeInclusive};
 
-use geo::{BoundingRect, SimplifyIdx as _};
+use geo::BoundingRect;
 use geo_types::{Coord, LineString, Polygon, Rect};
 use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::record::{EncodedProps, Geom, Vertex, encode};
+use crate::simplify::Simplifier;
 use crate::{
     LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileId, TileOrder,
 };
@@ -178,6 +179,20 @@ impl RenderLayer {
         (rect.min_x..rect.max_x + 1, rect.min_y..rect.max_y + 1)
     }
 
+    /// The RDP tolerance at `zoom` in Web Mercator units.
+    fn epsilon(&self, zoom: u8, simplify: PixelThreshold) -> f64 {
+        self.pixels(zoom, simplify) / (TILE_PIXELS * scale(zoom))
+    }
+
+    /// The smallest tolerance over `zooms` that simplifies at all, or infinity.
+    fn min_epsilon(&self, zooms: RangeInclusive<u8>, simplify: PixelThreshold) -> f64 {
+        zooms
+            .map(|zoom| self.epsilon(zoom, simplify))
+            .filter(|&epsilon| epsilon > 0.0)
+            .reduce(f64::min)
+            .unwrap_or(f64::INFINITY)
+    }
+
     /// Picks the threshold value that applies at `zoom`.
     fn pixels(&self, zoom: u8, threshold: PixelThreshold) -> f64 {
         if zoom == *self.zooms.end() {
@@ -197,6 +212,7 @@ pub struct Renderer {
     polys: Vec<u32>,
     parts: Vec<u32>,
     vertices: Vec<Coord<i32>>,
+    simplifier: Simplifier,
     /// One tile's piece, shaped the same with tile-local vertices.
     piece: PieceBuf,
     /// The slicer's output for the feature at one zoom, which comes in no particular order: every
@@ -279,8 +295,10 @@ impl Renderer {
                     .iter()
                     .filter_map(BoundingRect::bounding_rect)
                     .reduce(union);
+                let min_epsilon = layer.min_epsilon(zooms.clone(), feature.simplify);
+                self.simplifier.set_lines(lines, min_epsilon);
                 self.render_zooms(&ctx, zooms, bbox, out, |r, zoom, shift, out| {
-                    r.render_lines(&ctx, zoom, lines, shift, out)
+                    r.render_lines(&ctx, zoom, shift, out)
                 })?;
             }
             FeatureGeom::Polygons(polygons) => {
@@ -288,8 +306,10 @@ impl Renderer {
                     .iter()
                     .filter_map(BoundingRect::bounding_rect)
                     .reduce(union);
+                let min_epsilon = layer.min_epsilon(zooms.clone(), feature.simplify);
+                self.simplifier.set_polygons(polygons, min_epsilon);
                 self.render_zooms(&ctx, zooms, bbox, out, |r, zoom, shift, out| {
-                    r.render_polygons(&ctx, zoom, polygons, shift, out)
+                    r.render_polygons(&ctx, zoom, shift, out)
                 })?;
             }
         }
@@ -352,29 +372,6 @@ impl Renderer {
         }
     }
 
-    /// Simplifies, quantizes and appends `line` without consecutive duplicates; returns how many
-    /// vertices it kept.
-    fn push_quantized(
-        &mut self,
-        ctx: &Ctx<'_>,
-        zoom: u8,
-        line: &LineString<f64>,
-        shift: f64,
-    ) -> TileGenResult<usize> {
-        let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
-        let epsilon = ctx.layer.pixels(zoom, ctx.feature.simplify) / (TILE_PIXELS * scale(zoom));
-        let kept = line.simplify_idx(epsilon);
-        let start = self.vertices.len();
-        for i in kept {
-            let [x, y] = quantize(line.0[i], shift, world)?;
-            let c = Coord { x, y };
-            if self.vertices.len() == start || self.vertices.last() != Some(&c) {
-                self.vertices.push(c);
-            }
-        }
-        Ok(self.vertices.len() - start)
-    }
-
     /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
     /// a point reaches.
     fn render_points(
@@ -423,15 +420,16 @@ impl Renderer {
         &mut self,
         ctx: &Ctx<'_>,
         zoom: u8,
-        lines: &[LineString<f64>],
         shift: f64,
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
         self.parts.clear();
         self.vertices.clear();
-        for line in lines {
+        let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
+        let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
+        for line in self.simplifier.lines(epsilon) {
             let start = self.vertices.len();
-            match self.push_quantized(ctx, zoom, line, shift)? {
+            match push_quantized(&mut self.vertices, line, shift, world)? {
                 0 | 1 => self.vertices.truncate(start),
                 n => self.parts.push(vertex_count(n)?),
             }
@@ -520,21 +518,19 @@ impl Renderer {
         &mut self,
         ctx: &Ctx<'_>,
         zoom: u8,
-        polygons: &[Polygon<f64>],
         shift: f64,
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
         self.polys.clear();
         self.parts.clear();
         self.vertices.clear();
-        for polygon in polygons {
+        let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
+        let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
+        for rings in self.simplifier.polygons(epsilon) {
             let first_ring = self.parts.len();
-            for (i, ring) in std::iter::once(polygon.exterior())
-                .chain(polygon.interiors())
-                .enumerate()
-            {
+            for (i, ring) in rings.enumerate() {
                 let start = self.vertices.len();
-                let mut n = self.push_quantized(ctx, zoom, ring, shift)?;
+                let mut n = push_quantized(&mut self.vertices, ring, shift, world)?;
                 if n > 1 && self.vertices[start] == self.vertices[start + n - 1] {
                     self.vertices.pop();
                     n -= 1;
@@ -898,6 +894,24 @@ fn invalid_buffer(grid: LayerGrid) -> RenderLayerError {
     }
 }
 
+/// Quantizes and appends `line` without consecutive duplicates; returns how many vertices it kept.
+fn push_quantized(
+    vertices: &mut Vec<Coord<i32>>,
+    line: impl Iterator<Item = Coord<f64>>,
+    shift: f64,
+    world: f64,
+) -> TileGenResult<usize> {
+    let start = vertices.len();
+    for c in line {
+        let [x, y] = quantize(c, shift, world)?;
+        let c = Coord { x, y };
+        if vertices.len() == start || vertices.last() != Some(&c) {
+            vertices.push(c);
+        }
+    }
+    Ok(vertices.len() - start)
+}
+
 /// Rounds to the zoom grid; `shift` moves features lying wholly outside the world back into it.
 #[expect(
     clippy::cast_possible_truncation,
@@ -942,6 +956,7 @@ fn union(a: Rect<f64>, b: Rect<f64>) -> Rect<f64> {
 mod tests {
     use std::f64::consts::TAU;
 
+    use geo::SimplifyIdx as _;
     use geo_types::coord;
 
     use super::*;
