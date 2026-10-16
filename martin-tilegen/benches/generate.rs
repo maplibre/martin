@@ -9,12 +9,12 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput};
 use geo_types::{Coord, LineString, Polygon};
-use martin_core::generate::props::{KeyId, Prop};
-use martin_core::generate::source::{
-    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
-};
 use martin_tile_utils::Encoding;
 use martin_tilegen::plan::{ColumnDef, LayerDef, Plan, TableDef};
+use martin_tilegen::props::{KeyId, Prop};
+use martin_tilegen::source::{
+    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
+};
 use martin_tilegen::{
     EncodedTile, GenerateConfig, LayerGrid, Progress, SortConfig, TileFormat, TileGenResult,
     TileOrder, TileSink, generate,

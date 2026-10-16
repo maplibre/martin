@@ -7,12 +7,12 @@ use std::path::Path;
 
 use geo::CoordsIter as _;
 use geo_types::{Coord, LineString, Polygon};
-use martin_core::generate::props::{KeyId, KeyInterner, Prop};
-use martin_core::generate::source::{
-    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult,
-};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{AttributesDef, ColumnDef, IdDef, LayerDef, Plan, SortDef, TableDef};
+use martin_tilegen::props::{KeyId, KeyInterner, Prop};
+use martin_tilegen::source::{
+    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult,
+};
 use martin_tilegen::{
     ClipMode, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold,
     Progress, SortConfig, Summary, TileFormat, generate,

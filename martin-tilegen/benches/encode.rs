@@ -15,8 +15,8 @@ mod cycles;
 use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, Throughput};
-use martin_core::generate::props::{KeyInterner, KeyNames};
 use martin_tile_utils::Encoding;
+use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::record::{EncodedProps, Geom, encode};
 use martin_tilegen::{
     DedupIndex, EncodeSettings, LayerGrid, LayerInfo, Seq, TileEncoder, TileFormat, TileOrder,

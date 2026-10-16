@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
+use crate::props::Prop;
 use cel::{ExecutionError, Value};
-use martin_core::generate::props::Prop;
 
 use super::coerce::{to_filter, to_id, to_prop, to_zoom};
 use super::sort::{SortValue, to_sort};
@@ -89,7 +89,7 @@ impl<R: Role> ExprRef<R> {
 
 #[cfg(test)]
 mod tests {
-    use martin_core::generate::props::KeyId;
+    use crate::props::KeyId;
 
     use super::*;
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots};

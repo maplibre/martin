@@ -5,7 +5,7 @@ use geo_traits::to_geo::ToGeoGeometry as _;
 use geo_types::{Coord, Geometry as GeoGeometry, LineString, Polygon};
 use wkb::reader::Wkb;
 
-use crate::generate::props::{KeyId, KeyInterner, Prop};
+use crate::props::{KeyId, KeyInterner, Prop};
 
 /// Result of reading a [`FeatureSource`].
 pub type SourceResult<T> = Result<T, SourceError>;

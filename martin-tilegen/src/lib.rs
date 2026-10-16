@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod assemble;
+mod columns;
 mod encode;
 mod error;
 pub mod expr;
@@ -10,13 +11,14 @@ mod group;
 pub mod pipeline;
 pub mod plan;
 pub mod project;
-mod props;
+pub mod props;
 pub mod record;
 mod render;
 mod simplify;
 mod sink;
 mod sort;
 mod sort_key;
+pub mod source;
 mod tile;
 
 pub use assemble::{AssembledLayer, LayerAssembler, LayerGrid};

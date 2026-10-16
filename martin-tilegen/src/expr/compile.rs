@@ -308,7 +308,7 @@ impl Analyzer<'_> {
 
 #[cfg(test)]
 mod tests {
-    use martin_core::generate::props::{KeyId, Prop};
+    use crate::props::{KeyId, Prop};
     use rstest::rstest;
 
     use super::*;
