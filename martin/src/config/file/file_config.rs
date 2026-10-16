@@ -112,13 +112,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         _mosaic: CogMosaicConfig,
         _cache: CachePolicy,
     ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send {
-        async move {
-            Err(ConfigFileError::InvalidMosaic {
-                what: format!("Source {id}"),
-                reason: "only COG sources can be mosaics".to_owned(),
-            }
-            .into())
-        }
+        async move { Err(ConfigFileError::MosaicNotCog(id).into()) }
     }
 }
 

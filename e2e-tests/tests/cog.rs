@@ -1093,19 +1093,17 @@ async fn a_tile_the_image_leaves_out_is_empty() {
 }
 
 /// The mosaic fixtures are the four z16 children of z15 tile 16374/10897, one file each.
-const MOSAIC_CONFIG: &str = indoc! {"
-    cog:
-      sources:
-        ortho:
-          path: tests/fixtures/cog/mosaic/{quadkey}.tif
-          mosaic:
-            zoom: 16
-"};
-
 #[tokio::test]
 async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
     let mut martin = Martin::builder()
-        .config(MOSAIC_CONFIG)
+        .config(indoc! {"
+            cog:
+              sources:
+                ortho:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  mosaic:
+                    zoom: 16
+        "})
         .start()
         .await
         .expect("failed to start martin with a mosaic");

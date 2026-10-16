@@ -16,8 +16,8 @@ use object_store::path::Path;
 use tilejson::tilejson;
 
 use crate::CacheZoomRange;
-use crate::tiles::cog::CogError;
 use crate::tiles::cog::source::{CogSource, CogTiles, cog_coord, warn_skipped_images};
+use crate::tiles::cog::{CogError, MosaicFileError, MosaicTemplateError};
 
 /// How a mosaic of COGs is laid out and how many opened files it keeps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -127,17 +127,28 @@ impl Mosaic {
         files: MosaicFiles,
     ) -> Result<Self, CogError> {
         if options.file_zoom > cog_tiles::MAX_ZOOM {
+            return Err(CogError::FileZoomTooHigh {
+                file_zoom: options.file_zoom,
+            });
+        }
+        let key_template =
+            KeyTemplate::new(template).map_err(|reason| CogError::InvalidTemplate {
+                template: template.to_owned(),
+                reason,
+            })?;
+        // Placeholders render digits only, so one rendered name shows where all of them lead.
+        let sample = key_template.render(options.file_zoom, 0, 0);
+        if !std::path::Path::new(&sample)
+            .components()
+            .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
+        {
             return Err(CogError::InvalidTemplate {
                 template: template.to_owned(),
-                reason: format!(
-                    "the file zoom {} is above the highest zoom {}",
-                    options.file_zoom,
-                    cog_tiles::MAX_ZOOM
-                ),
+                reason: MosaicTemplateError::NotRelative,
             });
         }
         Ok(Self {
-            template: KeyTemplate::new(template)?,
+            template: key_template,
             file_zoom: options.file_zoom,
             files,
             readers: Cache::builder()
@@ -170,21 +181,17 @@ impl Mosaic {
                 return Ok(None);
             };
             warn_skipped_images(&key, reader.skipped_images());
-            self.check(reader.info(), file_tile, &key)?;
+            self.check(reader.info(), file_tile)?;
             Ok(Some(Arc::new(reader)))
         };
         self.readers
             .try_get_with(key.clone(), open)
             .await
-            .map_err(CogError::Shared)
+            .map_err(|source| CogError::MosaicFile { key, source })
     }
 
     /// Checks that a file covers its key's tile and matches the rest of the mosaic.
-    fn check(&self, info: &CogInfo, (x, y): (u32, u32), key: &str) -> Result<(), CogError> {
-        let mismatch = |reason: String| CogError::MosaicMismatch {
-            key: key.to_owned(),
-            reason,
-        };
+    fn check(&self, info: &CogInfo, (x, y): (u32, u32)) -> Result<(), MosaicFileError> {
         let tile = cog_tiles::TileCoord::new(self.file_zoom, x, y)?;
         let [min_x, min_y, max_x, max_y] = tile.mercator_bounds();
         let [c_min_x, c_min_y, c_max_x, c_max_y] = info.mercator_bounds;
@@ -194,21 +201,23 @@ impl Mosaic {
             || c_max_x < max_x - tolerance
             || c_max_y < max_y - tolerance
         {
-            return Err(mismatch(format!("it does not cover tile {tile}")));
+            return Err(MosaicFileError::DoesNotCover { tile });
         }
         if info.max_zoom < self.file_zoom {
-            return Err(mismatch(format!(
-                "its highest zoom {} is below the file zoom {}",
-                info.max_zoom, self.file_zoom
-            )));
+            return Err(MosaicFileError::BelowFileZoom {
+                max_zoom: info.max_zoom,
+                file_zoom: self.file_zoom,
+            });
         }
         let layout = (info.tile_size, info.format);
-        let expected = *self.layout.get_or_init(|| layout);
-        if expected != layout {
-            return Err(mismatch(format!(
-                "it has {}px {:?} tiles, but the mosaic has {}px {:?} tiles",
-                layout.0, layout.1, expected.0, expected.1
-            )));
+        let (expected_tile_size, expected_format) = *self.layout.get_or_init(|| layout);
+        if (expected_tile_size, expected_format) != layout {
+            return Err(MosaicFileError::Layout {
+                tile_size: info.tile_size,
+                format: info.format,
+                expected_tile_size,
+                expected_format,
+            });
         }
         Ok(())
     }
@@ -262,29 +271,15 @@ enum MosaicFiles {
 
 impl MosaicFiles {
     /// Opens the file named `key`, or returns `None` if it does not exist.
-    async fn open(&self, key: &str) -> Result<Option<MosaicReader>, CogError> {
+    async fn open(&self, key: &str) -> Result<Option<MosaicReader>, MosaicFileError> {
         match self {
-            Self::Dir(root) => {
-                let relative = std::path::Path::new(key);
-                // Keys come from tile coordinates, but never let one escape the root directory.
-                if !relative
-                    .components()
-                    .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
-                {
-                    return Err(CogError::MosaicMismatch {
-                        key: key.to_owned(),
-                        reason: "a file name must be a relative path inside the mosaic directory"
-                            .to_owned(),
-                    });
-                }
-                match FileBackend::open(root.join(relative)).await {
-                    Ok(backend) => Ok(Some(MosaicReader::File(
-                        AsyncCogReader::try_from_backend(backend).await?,
-                    ))),
-                    Err(e) if is_not_found(&e) => Ok(None),
-                    Err(e) => Err(e.into()),
-                }
-            }
+            Self::Dir(root) => match FileBackend::open(root.join(key)).await {
+                Ok(backend) => Ok(Some(MosaicReader::File(
+                    AsyncCogReader::try_from_backend(backend).await?,
+                ))),
+                Err(e) if is_not_found(&e) => Ok(None),
+                Err(e) => Err(e.into()),
+            },
             Self::ObjectStore { store, prefix } => {
                 let path = if prefix.as_ref().is_empty() {
                     Path::from(key)
@@ -369,35 +364,27 @@ struct KeyTemplate {
 }
 
 impl KeyTemplate {
-    fn new(template: &str) -> Result<Self, CogError> {
-        let invalid = |reason: &str| CogError::InvalidTemplate {
-            template: template.to_owned(),
-            reason: reason.to_owned(),
-        };
+    fn new(template: &str) -> Result<Self, MosaicTemplateError> {
         let mut parts = Vec::new();
         let mut rest = template;
         while let Some(start) = rest.find(['{', '}']) {
             let (literal, tail) = rest.split_at(start);
             let Some(tail) = tail.strip_prefix('{') else {
-                return Err(invalid("unmatched `}`"));
+                return Err(MosaicTemplateError::UnmatchedClose);
             };
             if !literal.is_empty() {
                 parts.push(Part::Literal(literal.to_owned()));
             }
             let (name, after) = tail
                 .split_once('}')
-                .ok_or_else(|| invalid("unmatched `{`"))?;
+                .ok_or(MosaicTemplateError::UnmatchedOpen)?;
             parts.push(match name {
                 "quadkey" => Part::Quadkey,
                 "z" => Part::Z,
                 "x" => Part::X,
                 "y" => Part::Y,
                 "-y" => Part::FlippedY,
-                _ => {
-                    return Err(invalid(
-                        "placeholders are {quadkey}, {z}, {x}, {y} and {-y}",
-                    ));
-                }
+                _ => return Err(MosaicTemplateError::UnknownPlaceholder(name.to_owned())),
             });
             rest = after;
         }
@@ -406,9 +393,7 @@ impl KeyTemplate {
         }
         let has = |part: &Part| parts.contains(part);
         if !(has(&Part::Quadkey) || has(&Part::X) && (has(&Part::Y) || has(&Part::FlippedY))) {
-            return Err(invalid(
-                "it must contain {quadkey}, or {x} and {y} (or {-y})",
-            ));
+            return Err(MosaicTemplateError::MissingCoordinates);
         }
         Ok(Self {
             template: template.to_owned(),
@@ -508,120 +493,187 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
+    use cog_tiles::TileFormat;
     use martin_tile_utils::TileCoord;
     use object_store::memory::InMemory;
     use object_store::path::Path;
     use object_store::{ObjectStoreExt as _, PutPayload};
     use rstest::rstest;
 
-    use super::{KeyTemplate, Mosaic, MosaicFiles, from_quadkey, quadkey};
     use crate::CacheZoomRange;
-    use crate::tiles::Source as _;
-    use crate::tiles::cog::{CogError, CogMosaicOptions, CogSource};
+    use crate::tiles::cog::{
+        CogError, CogMosaicOptions, CogSource, MosaicFileError, MosaicTemplateError,
+    };
+    use crate::tiles::{MartinCoreError, Source as _};
 
     const FIXTURES: &str = "../tests/fixtures/cog";
     const MOSAIC_DIR: &str = "../tests/fixtures/cog/mosaic";
-    /// The z15 tile whose four z16 children are the mosaic fixture files.
-    const Z15: (u32, u32) = (16_374, 10_897);
 
-    fn options(max_zoom: Option<u8>) -> CogMosaicOptions {
-        CogMosaicOptions {
-            file_zoom: 16,
-            max_zoom,
-            max_cached_files: 100,
-            cached_files_ttl: Duration::from_mins(1),
-        }
-    }
-
-    async fn dir_source(template: &str, max_zoom: Option<u8>) -> Result<CogSource, CogError> {
-        CogSource::new_mosaic_dir(
+    #[rstest]
+    #[case("plain.tif", MosaicTemplateError::MissingCoordinates)]
+    #[case("{z}/{x}.tif", MosaicTemplateError::MissingCoordinates)]
+    #[case("{z}/{-y}.tif", MosaicTemplateError::MissingCoordinates)]
+    #[case("{q}.tif", MosaicTemplateError::UnknownPlaceholder("q".to_owned()))]
+    #[case("{quadkey.tif", MosaicTemplateError::UnmatchedOpen)]
+    #[case("a}{quadkey}", MosaicTemplateError::UnmatchedClose)]
+    #[case("../{quadkey}.tif", MosaicTemplateError::NotRelative)]
+    #[case("{quadkey}/../x.tif", MosaicTemplateError::NotRelative)]
+    #[case("/data/{quadkey}.tif", MosaicTemplateError::NotRelative)]
+    #[tokio::test]
+    async fn invalid_templates_are_rejected(
+        #[case] template: &str,
+        #[case] expected: MosaicTemplateError,
+    ) {
+        let error = CogSource::new_mosaic_dir(
             "mosaic".to_owned(),
             MOSAIC_DIR.into(),
             template,
-            options(max_zoom),
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
             CacheZoomRange::default(),
         )
         .await
+        .unwrap_err();
+        let CogError::InvalidTemplate { reason, .. } = error else {
+            panic!("{error:?}");
+        };
+        assert_eq!(reason, expected);
     }
 
-    /// A mosaic over a temporary directory holding the given fixtures under the given names.
-    fn temp_mosaic(files: &[(&str, &str)]) -> (tempfile::TempDir, Mosaic) {
-        let dir = tempfile::tempdir().unwrap();
-        for (fixture, name) in files {
-            std::fs::copy(StdPath::new(FIXTURES).join(fixture), dir.path().join(name)).unwrap();
-        }
-        let files = MosaicFiles::Dir(dir.path().to_path_buf());
-        let mosaic = Mosaic::new("{quadkey}.tif", &options(None), files).unwrap();
-        (dir, mosaic)
-    }
-
-    #[test]
-    fn quadkeys_round_trip() {
-        assert_eq!(quadkey(16, 32_748, 21_794), "0313131311301120");
-        assert_eq!(quadkey(0, 0, 0), "");
-        assert_eq!(quadkey(1, 1, 1), "3");
-        assert_eq!(from_quadkey("0313131311301120", 16), Some((32_748, 21_794)));
-        assert_eq!(from_quadkey("0313131311301120", 15), None);
-        assert_eq!(from_quadkey("0124", 4), None);
-    }
-
-    #[rstest]
-    #[case("plain.tif")]
-    #[case("{z}/{x}.tif")]
-    #[case("{z}/{-y}.tif")]
-    #[case("{q}.tif")]
-    #[case("{quadkey.tif")]
-    #[case("a}{quadkey}")]
-    fn invalid_templates_are_rejected(#[case] template: &str) {
-        let error = KeyTemplate::new(template).unwrap_err();
-        assert!(matches!(error, CogError::InvalidTemplate { .. }), "{error}");
+    #[tokio::test]
+    async fn a_file_zoom_above_the_highest_zoom_is_rejected() {
+        let error = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            MOSAIC_DIR.into(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 31,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(error, CogError::FileZoomTooHigh { file_zoom: 31 }),
+            "{error:?}"
+        );
     }
 
     #[rstest]
-    #[case("{quadkey}.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
-    #[case("sub/{quadkey}.tif", "sub/0313131311301123.tif", Some((32_749, 21_795)))]
-    #[case("{z}/{x}/{y}.tif", "16/32748/21794.tif", Some((32_748, 21_794)))]
-    #[case("{x}_{y}.tif", "32748_21794.tif", Some((32_748, 21_794)))]
-    #[case("{x}_{y}.tif", "032748_21794.tif", None)]
-    #[case("L16-{x}E-{-y}N.tif", "L16-32748E-43741N.tif", Some((32_748, 21_794)))]
-    #[case("{z}/{x}/{-y}.tif", "16/32748/43741.tif", Some((32_748, 21_794)))]
-    #[case("{z}/{x}/{-y}.tif", "16/32748/65536.tif", None)]
-    #[case("{z}/{x}/{y}.tif", "15/32748/21794.tif", None)]
-    #[case("{quadkey}.tif", "031313131130112.tif", None)]
-    #[case("{quadkey}.tif", "0313131311301120.tif.aux.xml", None)]
-    #[case("{quadkey}.tif", "readme.txt", None)]
-    #[case("sub/{quadkey}.tif", "0313131311301120.tif", None)]
-    fn file_names_are_matched_to_their_tiles(
+    #[case("{quadkey}.tif", "0313131311301120.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
+    #[case("sub/{quadkey}.tif", "sub/0313131311301123.tif", "0313131311301123.tif", Some((32_749, 21_795)))]
+    #[case("{z}/{x}/{y}.tif", "16/32748/21794.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
+    #[case("{x}_{y}.tif", "32748_21794.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
+    #[case("L16-{x}E-{-y}N.tif", "L16-32748E-43741N.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
+    #[case("{z}/{x}/{-y}.tif", "16/32748/43741.tif", "0313131311301120.tif", Some((32_748, 21_794)))]
+    #[case("{x}_{y}.tif", "032748_21794.tif", "0313131311301120.tif", None)]
+    #[case("{z}/{x}/{-y}.tif", "16/32748/65536.tif", "0313131311301120.tif", None)]
+    #[case("{z}/{x}/{y}.tif", "15/32748/21794.tif", "0313131311301120.tif", None)]
+    #[case("{quadkey}.tif", "031313131130112.tif", "0313131311301120.tif", None)]
+    #[case("{quadkey}.tif", "0313131311301124.tif", "0313131311301120.tif", None)]
+    #[case(
+        "{quadkey}.tif",
+        "0313131311301120.tif.aux.xml",
+        "0313131311301120.tif",
+        None
+    )]
+    #[case("{quadkey}.tif", "readme.txt", "0313131311301120.tif", None)]
+    #[case(
+        "sub/{quadkey}.tif",
+        "0313131311301120.tif",
+        "0313131311301120.tif",
+        None
+    )]
+    #[tokio::test]
+    async fn file_names_are_matched_to_their_tiles(
         #[case] template: &str,
-        #[case] key: &str,
-        #[case] expected: Option<(u32, u32)>,
+        #[case] name: &str,
+        #[case] fixture: &str,
+        #[case] served: Option<(u32, u32)>,
     ) {
-        let template = KeyTemplate::new(template).unwrap();
-        assert_eq!(template.parse(key, 16), expected);
-        if let Some((x, y)) = expected {
-            assert_eq!(template.render(16, x, y), key);
-        }
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join(name);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::copy(StdPath::new(MOSAIC_DIR).join(fixture), &file).unwrap();
+        let result = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            dir.path().to_path_buf(),
+            template,
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await;
+
+        let Some((x, y)) = served else {
+            let error = result.unwrap_err();
+            assert!(matches!(error, CogError::MosaicEmpty { .. }), "{error:?}");
+            return;
+        };
+        let source = result.unwrap();
+        let single = CogSource::new(
+            "single".to_owned(),
+            StdPath::new(MOSAIC_DIR).join(fixture),
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+        let xyz = TileCoord::new_unchecked(16, x, y);
+        let tile = source.get_tile(xyz, None).await.unwrap();
+        assert!(!tile.is_empty());
+        assert_eq!(tile, single.get_tile(xyz, None).await.unwrap());
     }
 
     #[tokio::test]
     async fn a_directory_mosaic_serves_each_tile_from_its_file() {
-        let source = dir_source("{quadkey}.tif", None).await.unwrap();
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            MOSAIC_DIR.into(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
         let tilejson = source.get_tilejson();
         assert_eq!((tilejson.minzoom, tilejson.maxzoom), (Some(16), Some(17)));
         assert_eq!(tilejson.other["tileSize"], 256);
         assert_eq!(tilejson.other["format"], "png");
         assert_eq!(tilejson.bounds, None);
 
-        let (x, y) = Z15;
-        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-            let z16 = TileCoord::new_unchecked(16, x * 2 + dx, y * 2 + dy);
-            let file =
-                StdPath::new(MOSAIC_DIR).join(format!("{}.tif", quadkey(16, z16.x(), z16.y())));
-            let single = CogSource::new("single".to_owned(), file, CacheZoomRange::default())
-                .await
-                .unwrap();
-            let z17 = TileCoord::new_unchecked(17, z16.x() * 2 + 1, z16.y() * 2);
-            for xyz in [z16, z17] {
+        for (name, x, y) in [
+            ("0313131311301120.tif", 32_748, 21_794),
+            ("0313131311301121.tif", 32_749, 21_794),
+            ("0313131311301122.tif", 32_748, 21_795),
+            ("0313131311301123.tif", 32_749, 21_795),
+        ] {
+            let single = CogSource::new(
+                "single".to_owned(),
+                StdPath::new(MOSAIC_DIR).join(name),
+                CacheZoomRange::default(),
+            )
+            .await
+            .unwrap();
+            for xyz in [
+                TileCoord::new_unchecked(16, x, y),
+                TileCoord::new_unchecked(17, x * 2 + 1, y * 2),
+            ] {
                 let tile = source.get_tile(xyz, None).await.unwrap();
                 assert!(!tile.is_empty(), "{xyz}");
                 assert_eq!(tile, single.get_tile(xyz, None).await.unwrap(), "{xyz}");
@@ -629,95 +681,199 @@ mod tests {
         }
     }
 
+    #[rstest]
+    #[case::above_the_file_zoom(TileCoord::new_unchecked(15, 16_374, 10_897))]
+    #[case::no_file_for_this_tile(TileCoord::new_unchecked(16, 32_750, 21_794))]
+    #[case::below_a_missing_file(TileCoord::new_unchecked(17, 65_500, 43_588))]
+    #[case::deeper_than_the_files_go(TileCoord::new_unchecked(18, 130_992, 87_176))]
+    #[case::deeper_than_the_max_zoom(TileCoord::new_unchecked(19, 261_984, 174_352))]
     #[tokio::test]
-    async fn tiles_without_a_file_are_empty() {
-        let source = dir_source("{quadkey}.tif", Some(18)).await.unwrap();
+    async fn tiles_without_a_file_are_empty(#[case] xyz: TileCoord) {
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            MOSAIC_DIR.into(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: Some(18),
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
         assert_eq!(source.get_tilejson().maxzoom, Some(18));
-
-        let (x, y) = Z15;
-        for xyz in [
-            // Above the file zoom.
-            TileCoord::new_unchecked(15, x, y),
-            // No file for this z16 tile.
-            TileCoord::new_unchecked(16, x * 2 + 2, y * 2),
-            TileCoord::new_unchecked(17, (x * 2 + 2) * 2, y * 4),
-            // Deeper than the files go, but within the configured maxzoom.
-            TileCoord::new_unchecked(18, x * 8, y * 8),
-            // Deeper than the configured maxzoom.
-            TileCoord::new_unchecked(19, x * 16, y * 16),
-        ] {
-            assert!(
-                source.get_tile(xyz, None).await.unwrap().is_empty(),
-                "{xyz} should be empty"
-            );
-        }
+        assert!(source.get_tile(xyz, None).await.unwrap().is_empty());
     }
 
     #[tokio::test]
-    async fn opened_files_are_cached() {
-        let (_dir, mosaic) =
-            temp_mosaic(&[("mosaic/0313131311301120.tif", "0313131311301120.tif")]);
-        let (x, y) = Z15;
-        let first = mosaic
-            .reader_for(TileCoord::new_unchecked(17, x * 4, y * 4))
-            .await
-            .unwrap()
-            .unwrap();
-        let sibling = mosaic
-            .reader_for(TileCoord::new_unchecked(17, x * 4 + 1, y * 4 + 1))
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(Arc::ptr_eq(&first, &sibling));
-        assert_eq!((first.info().min_zoom, first.info().max_zoom), (16, 17));
+    async fn a_missing_file_stays_missing_until_it_expires() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301120.tif"),
+            dir.path().join("0313131311301120.tif"),
+        )
+        .unwrap();
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            dir.path().to_path_buf(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+        let ne = TileCoord::new_unchecked(16, 32_749, 21_794);
+        assert!(source.get_tile(ne, None).await.unwrap().is_empty());
+
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301121.tif"),
+            dir.path().join("0313131311301121.tif"),
+        )
+        .unwrap();
+        assert!(source.get_tile(ne, None).await.unwrap().is_empty());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_opened_file_keeps_serving_after_it_is_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301120.tif"),
+            dir.path().join("0313131311301120.tif"),
+        )
+        .unwrap();
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            dir.path().to_path_buf(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+        std::fs::remove_file(dir.path().join("0313131311301120.tif")).unwrap();
+
+        let z17 = TileCoord::new_unchecked(17, 65_497, 43_589);
+        assert!(!source.get_tile(z17, None).await.unwrap().is_empty());
     }
 
     #[tokio::test]
     async fn files_that_do_not_cover_their_tile_are_rejected() {
-        // The north-west file, named as the north-east one.
-        let (_dir, mosaic) =
-            temp_mosaic(&[("mosaic/0313131311301120.tif", "0313131311301121.tif")]);
-        let (x, y) = Z15;
-        let error = mosaic
-            .get_tile(TileCoord::new_unchecked(16, x * 2 + 1, y * 2))
-            .await
-            .unwrap_err();
-        assert!(error.to_string().contains("does not cover"), "{error}");
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301120.tif"),
+            dir.path().join("0313131311301120.tif"),
+        )
+        .unwrap();
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            dir.path().to_path_buf(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301120.tif"),
+            dir.path().join("0313131311301121.tif"),
+        )
+        .unwrap();
+
+        let ne = TileCoord::new_unchecked(16, 32_749, 21_794);
+        let error = source.get_tile(ne, None).await.unwrap_err();
+        let MartinCoreError::CogError(CogError::MosaicFile { key, source }) = error else {
+            panic!("{error:?}");
+        };
+        assert_eq!(key, "0313131311301121.tif");
+        let MosaicFileError::DoesNotCover { tile } = *source else {
+            panic!("{source:?}");
+        };
+        assert_eq!((tile.z(), tile.x(), tile.y()), (16, 32_749, 21_794));
     }
 
     #[tokio::test]
     async fn files_with_a_different_format_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::copy(
+            StdPath::new(MOSAIC_DIR).join("0313131311301120.tif"),
+            dir.path().join("0313131311301120.tif"),
+        )
+        .unwrap();
+        let source = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            dir.path().to_path_buf(),
+            "{quadkey}.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
         // A JPEG file covering the whole z15 tile, named as the south-east z16 one.
-        let (_dir, mosaic) = temp_mosaic(&[
-            ("mosaic/0313131311301120.tif", "0313131311301120.tif"),
-            ("synthetic/rgb_jpeg.tif", "0313131311301123.tif"),
-        ]);
-        let (x, y) = Z15;
-        let nw = TileCoord::new_unchecked(16, x * 2, y * 2);
-        assert!(mosaic.get_tile(nw).await.unwrap().is_some());
-        let se = TileCoord::new_unchecked(16, x * 2 + 1, y * 2 + 1);
-        let error = mosaic.get_tile(se).await.unwrap_err();
-        assert!(error.to_string().contains("but the mosaic has"), "{error}");
-    }
+        std::fs::copy(
+            StdPath::new(FIXTURES).join("synthetic/rgb_jpeg.tif"),
+            dir.path().join("0313131311301123.tif"),
+        )
+        .unwrap();
 
-    #[tokio::test]
-    async fn file_names_cannot_escape_the_directory() {
-        let files = MosaicFiles::Dir(MOSAIC_DIR.into());
-        files.open("../synthetic/rgb_jpeg.tif").await.unwrap_err();
-        files.open("/etc/passwd").await.unwrap_err();
-        assert!(files.open("missing.tif").await.unwrap().is_none());
+        let se = TileCoord::new_unchecked(16, 32_749, 21_795);
+        let error = source.get_tile(se, None).await.unwrap_err();
+        let MartinCoreError::CogError(CogError::MosaicFile { key, source }) = error else {
+            panic!("{error:?}");
+        };
+        assert_eq!(key, "0313131311301123.tif");
+        assert!(
+            matches!(
+                *source,
+                MosaicFileError::Layout {
+                    format: TileFormat::Jpeg,
+                    expected_format: TileFormat::Png,
+                    ..
+                }
+            ),
+            "{source:?}"
+        );
     }
 
     #[tokio::test]
     async fn a_mosaic_without_matching_files_is_an_error() {
-        let error = dir_source("{quadkey}_missing.tif", None).await.unwrap_err();
+        let error = CogSource::new_mosaic_dir(
+            "mosaic".to_owned(),
+            MOSAIC_DIR.into(),
+            "{quadkey}_missing.tif",
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap_err();
         assert!(matches!(error, CogError::MosaicEmpty { .. }), "{error:?}");
-
-        let error = dir_source("plain.tif", None).await.unwrap_err();
-        assert!(
-            matches!(error, CogError::InvalidTemplate { .. }),
-            "{error:?}"
-        );
     }
 
     #[tokio::test]
@@ -735,40 +891,59 @@ mod tests {
             let key = Path::from(format!("imagery/{name}"));
             store.put(&key, PutPayload::from(bytes)).await.unwrap();
         }
+        let options = CogMosaicOptions {
+            file_zoom: 16,
+            max_zoom: None,
+            max_cached_files: 100,
+            cached_files_ttl: Duration::from_mins(1),
+        };
         let remote = CogSource::new_mosaic_object_store(
             "remote".to_owned(),
             store,
             Path::from("imagery"),
             "{quadkey}.tif",
             "memory://imagery/{quadkey}.tif".to_owned(),
-            options(None),
+            options,
             CacheZoomRange::default(),
         )
         .await
         .unwrap();
-        let local = dir_source("{quadkey}.tif", None).await.unwrap();
+        let local = CogSource::new_mosaic_dir(
+            "local".to_owned(),
+            MOSAIC_DIR.into(),
+            "{quadkey}.tif",
+            options,
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(remote.get_tilejson(), local.get_tilejson());
         assert_eq!(remote.get_tile_info(), local.get_tile_info());
-        let (x, y) = Z15;
-        let xyz = TileCoord::new_unchecked(17, x * 4 + 3, y * 4 + 1);
+        let xyz = TileCoord::new_unchecked(17, 65_499, 43_589);
         let tile = remote.get_tile(xyz, None).await.unwrap();
         assert!(!tile.is_empty());
         assert_eq!(tile, local.get_tile(xyz, None).await.unwrap());
-        let missing = TileCoord::new_unchecked(16, x * 2 + 2, y * 2);
+        let missing = TileCoord::new_unchecked(16, 32_750, 21_794);
         assert!(remote.get_tile(missing, None).await.unwrap().is_empty());
     }
 
     #[tokio::test]
     async fn a_missing_mosaic_directory_is_an_error() {
-        let result = CogSource::new_mosaic_dir(
+        let error = CogSource::new_mosaic_dir(
             "missing".to_owned(),
             StdPath::new(MOSAIC_DIR).join("missing"),
             "{quadkey}.tif",
-            options(None),
+            CogMosaicOptions {
+                file_zoom: 16,
+                max_zoom: None,
+                max_cached_files: 100,
+                cached_files_ttl: Duration::from_mins(1),
+            },
             CacheZoomRange::default(),
         )
-        .await;
-        result.expect_err("the mosaic directory does not exist");
+        .await
+        .unwrap_err();
+        assert!(matches!(error, CogError::MosaicListing { .. }), "{error:?}");
     }
 }

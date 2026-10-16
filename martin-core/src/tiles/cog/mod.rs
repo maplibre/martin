@@ -4,6 +4,6 @@ mod errors;
 mod mosaic;
 mod source;
 
-pub use errors::CogError;
+pub use errors::{CogError, MosaicFileError, MosaicTemplateError};
 pub use mosaic::CogMosaicOptions;
 pub use source::CogSource;

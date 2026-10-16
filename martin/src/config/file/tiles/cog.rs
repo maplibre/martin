@@ -222,13 +222,9 @@ impl TileSourceConfiguration for CogConfig {
         mosaic: CogMosaicConfig,
         cache: CachePolicy,
     ) -> SourceBuildResult<BackendSource> {
-        let invalid = |reason: &str| ConfigFileError::InvalidMosaic {
-            what: format!("Source {id}"),
-            reason: reason.to_owned(),
+        let Some(path) = path.to_str() else {
+            return Err(ConfigFileError::MosaicPathNotUtf8 { id, path }.into());
         };
-        let path = path
-            .to_str()
-            .ok_or_else(|| invalid("its path must be valid UTF-8"))?;
         let (location, template) = split_mosaic_path(path);
         let options = mosaic.options();
         let source = match SourceLocation::classify(&location)? {
