@@ -940,6 +940,8 @@ fn union(a: Rect<f64>, b: Rect<f64>) -> Rect<f64> {
 
 #[cfg(test)]
 mod tests {
+    use std::f64::consts::TAU;
+
     use geo_types::coord;
 
     use super::*;
@@ -1115,6 +1117,104 @@ mod tests {
             .map(|t| t.2.vertices.len())
             .sum();
         assert!(z8 > 50, "at z8 the zigzag is visible: {z8}");
+    }
+
+    #[test]
+    fn every_zoom_simplifies_as_douglas_peucker_on_the_full_geometry() {
+        let layer = RenderLayer::new(
+            0,
+            0..=14,
+            LayerGrid {
+                extent: 4096,
+                buffer: 64,
+            },
+        )
+        .unwrap();
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            #[expect(clippy::cast_precision_loss, reason = "53 random bits")]
+            let unit = (state >> 11) as f64 / (1u64 << 53) as f64;
+            unit * 2.0 - 1.0
+        };
+        let mut lines: Vec<LineString> = Vec::new();
+        for step in [1e-2, 1e-3, 1e-4, 1e-5].repeat(5) {
+            let mut at = coord! { x: 13.4 + next() * 0.1, y: 52.5 + next() * 0.1 };
+            lines.push(
+                (0..400)
+                    .map(|_| {
+                        at = coord! { x: at.x + next() * step, y: at.y + next() * step };
+                        from_lonlat(at)
+                    })
+                    .collect(),
+            );
+        }
+        for radius in [1e-1, 1e-2, 1e-3, 1e-4] {
+            let center = coord! { x: 13.4 + next() * 0.1, y: 52.5 + next() * 0.1 };
+            let mut ring: LineString = (0..300)
+                .map(|i| {
+                    let angle = TAU * f64::from(i) / 300.0;
+                    let r = radius * (1.0 + 0.2 * next());
+                    from_lonlat(
+                        coord! { x: center.x + r * angle.cos(), y: center.y + r * angle.sin() },
+                    )
+                })
+                .collect();
+            ring.close();
+            lines.push(ring);
+        }
+        let props = EncodedProps::default();
+
+        for simplify in [
+            PixelThreshold::DEFAULT_SIMPLIFY,
+            PixelThreshold {
+                below_max_zoom: 0.5,
+                at_max_zoom: 4.0,
+            },
+        ] {
+            let all_zooms = Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(&lines),
+                props: &props,
+                bands: &[],
+                sort: None,
+                zooms: 0..=14,
+                simplify,
+                min_size: PixelThreshold::ZERO,
+            };
+            let mut per_zoom = Vec::new();
+            for zoom in 0..=14 {
+                let pixels = if zoom == 14 {
+                    simplify.at_max_zoom
+                } else {
+                    simplify.below_max_zoom
+                };
+                let epsilon = pixels / (256.0 * f64::from(1u32 << zoom));
+                let simplified: Vec<LineString> = lines
+                    .iter()
+                    .map(|line| {
+                        line.simplify_idx(epsilon)
+                            .into_iter()
+                            .map(|i| line.0[i])
+                            .collect()
+                    })
+                    .collect();
+                per_zoom.extend(render_feature(
+                    &layer,
+                    &Feature {
+                        geom: FeatureGeom::Lines(&simplified),
+                        zooms: zoom..=zoom,
+                        simplify: PixelThreshold::ZERO,
+                        ..all_zooms
+                    },
+                ));
+            }
+            per_zoom.sort_by(|a, b| a.0.cmp(&b.0));
+
+            assert_eq!(render_feature(&layer, &all_zooms), per_zoom, "{simplify:?}");
+        }
     }
 
     #[test]
