@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 
@@ -84,19 +85,22 @@ enum Encoding {
 #[derive(Debug)]
 struct Level {
     zoom: u8,
-    /// Tile column and row (at `zoom`) of the image's top-left tile.
-    first_tile: (u32, u32),
-    /// Number of tile columns and rows in the image.
-    tile_count: (u32, u32),
+    /// Tile columns (at `zoom`) the image covers.
+    cols: Range<u32>,
+    /// Tile rows (at `zoom`) the image covers.
+    rows: Range<u32>,
     ifd: ImageFileDirectory,
 }
 
 impl Level {
     /// The internal tile column and row holding `coord`, if the image covers it.
     fn position(&self, coord: TileCoord) -> Option<(usize, usize)> {
-        let col = coord.x().checked_sub(self.first_tile.0)?;
-        let row = coord.y().checked_sub(self.first_tile.1)?;
-        (col < self.tile_count.0 && row < self.tile_count.1).then_some((col as usize, row as usize))
+        if !self.cols.contains(&coord.x()) || !self.rows.contains(&coord.y()) {
+            return None;
+        }
+        let col = coord.x() - self.cols.start;
+        let row = coord.y() - self.rows.start;
+        Some((col as usize, row as usize))
     }
 }
 
@@ -525,10 +529,12 @@ fn make_level(
             "image {index} extends beyond the edge of the world at zoom {zoom}"
         )));
     }
+    let (first_col, first_row) = first_tile;
+    let (col_count, row_count) = tile_count;
     Ok(Ok(Level {
         zoom,
-        first_tile,
-        tile_count,
+        cols: first_col..first_col + col_count,
+        rows: first_row..first_row + row_count,
         ifd,
     }))
 }

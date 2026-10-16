@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use async_tiff::error::AsyncTiffError;
 
 /// A specialized [`Result`] type for `cog-tiles` operations.
@@ -18,14 +20,12 @@ pub enum CogError {
     },
 
     /// A byte range outside the source was requested.
-    #[error("Invalid byte range {start}..{end} for {location} of size {size}")]
+    #[error("Invalid byte range {requested:?} for {location} of size {size}")]
     InvalidRange {
         /// A display form of the source.
         location: String,
-        /// The requested range start.
-        start: u64,
-        /// The requested range end (exclusive).
-        end: u64,
+        /// The requested byte range.
+        requested: Range<u64>,
         /// The size of the source.
         size: u64,
     },

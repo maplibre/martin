@@ -55,8 +55,7 @@ impl AsyncBackend for FileBackend {
         let length =
             usize::try_from(range.end - range.start).map_err(|_err| CogError::InvalidRange {
                 location: self.location.clone(),
-                start: range.start,
-                end: range.end,
+                requested: range.clone(),
                 size: self.size,
             })?;
         let file = Arc::clone(&self.file);

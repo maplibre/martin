@@ -54,11 +54,10 @@ pub trait AsyncBackend: Debug + Send + Sync + 'static {
 
 /// Validates that `range` is non-empty and inside a source of `size` bytes.
 pub(crate) fn check_range(location: &str, size: u64, range: &Range<u64>) -> CogResult<()> {
-    if range.start >= range.end || range.end > size {
+    if range.is_empty() || range.end > size {
         return Err(CogError::InvalidRange {
             location: location.to_owned(),
-            start: range.start,
-            end: range.end,
+            requested: range.clone(),
             size,
         });
     }
