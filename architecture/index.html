@@ -1624,7 +1624,7 @@
 <h1 id="serving-architecture">Serving Architecture</h1>
 <p>How the Martin tile server is put together and how it answers requests.
 <a href="../architecture-sources/">Source Architecture</a> covers how each kind of source works and how sources reload at runtime,
-and <a href="../architecture-generate/">Generation Architecture</a> covers <code>martin generate</code>.</p>
+and <a href="../architecture-generate/">Generation Architecture</a> covers the bulk mode of <code>martin cp</code>.</p>
 <h2 id="overview">Overview</h2>
 <p>Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources.
 It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.</p>
@@ -1728,7 +1728,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 </ul>
 </div>
 <div class="tabbed-block">
-<p><strong>Purpose</strong>: The bulk tile generation engine behind <code>martin generate</code>.</p>
+<p><strong>Purpose</strong>: The bulk tile generation engine behind the bulk mode of <code>martin cp</code>.</p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>Compiling layers and their CEL expressions into a plan</li>

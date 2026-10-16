@@ -145,4 +145,4 @@ END $do$;
 
 ## Layers
 
-A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses them so far.
+A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only the [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` uses them so far.

@@ -4,7 +4,7 @@
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -16,14 +16,14 @@
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
+The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
 We implement this via two traits:
 

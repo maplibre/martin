@@ -2405,7 +2405,7 @@
 <h1 id="table-source-layers">Table Source Layers</h1>
 <div class="admonition warning">
 <p class="admonition-title">Not released or fully implemented</p>
-<p><code>martin generate</code> is not in any release yet, and parts of what these pages describe are not
+<p>The bulk mode of <code>martin cp</code> is not in any release yet, and parts of what these pages describe are not
 implemented yet.
 It is only built with the <code>unstable-generate</code> feature:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--package<span class="w"> </span>martin<span class="w"> </span>--bin<span class="w"> </span>martin<span class="w"> </span>--features<span class="w"> </span>unstable-generate
@@ -2416,7 +2416,7 @@ It is only built with the <code>unstable-generate</code> feature:</p>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Tile grouping, MLT and MVT encoding, compression and deduplication</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Planning tables into layers and running a whole generation end to end</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The <code>martin generate</code> command and PMTiles output</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> other than <code>point</code>, <code>line</code> and <code>polygon</code></li>
@@ -2426,7 +2426,7 @@ It is only built with the <code>unstable-generate</code> feature:</p>
 </div>
 <p><code>layers</code> is a key of a <a href="../sources-pg-tables/">PostgreSQL table source</a>. It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only <a href="../martin-generate/"><code>martin generate</code></a> uses it so far, and the tile server ignores it.</p>
+and draw order. Only the <a href="../martin-generate/">bulk mode</a> of <code>martin cp</code> uses it so far, and the tile server ignores it.</p>
 <p>A table source without <code>layers</code> is one layer, named by its <code>layer_id</code> or by its source id, holding all
 of its <code>properties</code> and its feature ids. A table source cannot set both <code>layer_id</code> and <code>layers</code>.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">postgres</span><span class="p">:</span>

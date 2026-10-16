@@ -2240,7 +2240,7 @@ END $do$;
 
 ## Layers
 
-A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses them so far.
+A table source can split its table into several layers with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>), each with its own features, zooms, attributes and draw order. Only the [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` uses them so far.
 
 # PostgreSQL Function Sources
 
@@ -2514,7 +2514,7 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -2526,14 +2526,14 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses it so far, and the tile server ignores it.
+`layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. Only the [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` uses it so far, and the tile server ignores it.
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
 
@@ -5886,6 +5886,16 @@ You should also consider
 >
 > When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin cp` copies zoom by zoom and never fetches the tiles below an empty tile. This means that even sparse sources can usually be fairly performant.
 
+## Modes
+
+`--mode` chooses how `martin cp` produces the tiles:
+
+- `tile` requests every tile from the source, as the tile server does.
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
+- `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
+
+Each mode refuses the options only the other one reads.
+
 ## MLT from PostgreSQL tables
 
 With `--format mlt`, `martin cp` encodes a PostgreSQL table source's tiles straight from its rows instead of converting the MVT tile PostGIS builds. The tiles describe the same features as that conversion would:
@@ -5914,6 +5924,15 @@ Arguments:
           Connection strings, e.g. postgres://... or /path/to/files
 
 Options:
+      --mode <MODE>
+          How to produce the tiles. auto picks one, and for now always picks tile
+
+          Possible values:
+          - tile: Request every tile from the source, as the tile server does
+          - auto: Pick a mode for the run; for now always tile
+
+          [default: auto]
+
   -s, --source <SOURCE>
           Name of the source to copy from. Not required if there is only one source
 
@@ -5931,9 +5950,7 @@ Options:
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
 
-          If set to multiple values like gzip,br, the first encoding is used, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
-
-          [default: gzip]
+          If set to multiple values like gzip,br, the first encoding is used, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG. [DEFAULT: gzip]
 
       --format <FORMAT>
           Tile format to request from the source.
@@ -5950,9 +5967,7 @@ Options:
           [possible values: override, ignore, abort]
 
       --concurrency <CONCURRENCY>
-          Number of concurrent connections to use
-
-          [default: 1]
+          Number of concurrent connections to use. [DEFAULT: 1]
 
       --bbox <BBOX>
           Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
@@ -5962,10 +5977,10 @@ Options:
           For a source on a tile grid other than Web Mercator the bounds are min_x,min_y,max_x,max_y in the grid's CRS units, and the whole grid is copied if omitted.
 
       --min-zoom <MIN_ZOOM>
-          Minimum zoom level to copy
+          Minimum zoom level to copy. [DEFAULT: 0]
 
       --max-zoom <MAX_ZOOM>
-          Maximum zoom level to copy
+          Maximum zoom level to copy. Required unless --zoom-levels is given
 
   -z, --zoom-levels <ZOOM_LEVELS>
           List of zoom levels to copy
@@ -6043,7 +6058,7 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -6055,25 +6070,27 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`martin generate` builds a whole tileset in one pass. [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) asks the source for each tile separately. `martin generate` instead reads each source once, renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the source.
+[`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) asks the source for each tile separately by default. With `--mode bulk`, it instead builds the whole tileset in one pass: it reads each source once, renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the source.
+
+The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it will pick `bulk` whenever it can.
 
 It renders points, lines and polygons. Geometry collections are skipped and counted.
 
 ## Usage
 
 ```bash
-martin generate --output-file tileset.mbtiles \
-                --source roads                \
-                --source shops                \
-                --max-zoom 14                 \
-                postgres://postgres@localhost:5432/db
+martin cp --mode bulk                   \
+          --output-file tileset.mbtiles \
+          --source roads,shops          \
+          --max-zoom 14                 \
+          postgres://postgres@localhost:5432/db
 ```
 
 This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 to 14. Without `--source`, every source is rendered. Sources come from the same connection strings or [configuration file](<https://maplibre.org/martin/config-file/index.md>) as for the tile server.
@@ -6086,10 +6103,10 @@ The same data and options give the same tiles, however many threads are used.
 
 ## Configuration file
 
-The configuration file only describes the sources. The options of a run are command-line arguments, and the file has no section for `martin generate`.
+The configuration file only describes the sources. The options of a run are command-line arguments, and the file has no section for `martin cp`.
 
 ```bash
-martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
+martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-zoom 14
 ```
 
 ```yaml
@@ -6121,26 +6138,29 @@ postgres:
           attributes: [name]
 ```
 
-Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `martin generate` uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
+Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), bulk mode uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
 
 ## Options
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--output-file` |  | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty |
-| `--source` | all sources | A source id, repeatable |
+| `--source` | all sources | Comma-separated source ids |
 | `--format` | `mlt` | `mlt` or `mvt` |
-| `--encoding` | `gzip` for MBtiles or MLT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
+| `--encoding` | `gzip` for MBtiles or MVT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
 | `--min-zoom` | `0` | Lowest zoom, raised by a source's `minzoom` |
 | `--max-zoom` | `14` | Highest zoom, lowered by a source's `maxzoom` |
-| `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat` |
+| `--zoom-levels` |  | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7` |
+| `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat`, at most once |
 | `--memory` | `2GiB` | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads |
 | `--temp-dir` | system temp dir | Where sorted runs go, repeatable to spread them over several disks |
 | `--threads` | CPU count | Worker threads |
 
 The tile server's [configuration and PostgreSQL arguments](<https://maplibre.org/martin/run-with-cli/index.md>) also apply, such as `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
-`--bbox` filters features, which `martin cp` does not. A low-zoom tile at the edge of the box only holds the features near the box, not everything the tile covers.
+Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+
+`--bbox` filters features, which tile mode does not. A low-zoom tile at the edge of the box only holds the features near the box, not everything the tile covers.
 
 The highest zoom is 27. The tile grid can lower it further, since `extent × 2^zoom` must not exceed `2^30`. With the default extent of 4096, that is zoom 18.
 
@@ -7012,7 +7032,7 @@ If you are missing a part of Martin functionality in the [public `martin` API](<
 
 # Serving Architecture
 
-How the Martin tile server is put together and how it answers requests. [Source Architecture](<https://maplibre.org/martin/architecture-sources/index.md>) covers how each kind of source works and how sources reload at runtime, and [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) covers `martin generate`.
+How the Martin tile server is put together and how it answers requests. [Source Architecture](<https://maplibre.org/martin/architecture-sources/index.md>) covers how each kind of source works and how sources reload at runtime, and [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) covers the bulk mode of `martin cp`.
 
 ## Overview
 
@@ -7116,7 +7136,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 - Tile format utilities
 - Bounding box calculations
 
-**Purpose**: The bulk tile generation engine behind `martin generate`.
+**Purpose**: The bulk tile generation engine behind the bulk mode of `martin cp`.
 
 **Key Responsibilities**:
 
@@ -7526,7 +7546,7 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -7538,14 +7558,14 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
+The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
 We implement this via two traits:
 

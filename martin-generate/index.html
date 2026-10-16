@@ -2041,7 +2041,7 @@
 <h1 id="generating-tilesets">Generating Tilesets</h1>
 <div class="admonition warning">
 <p class="admonition-title">Not released or fully implemented</p>
-<p><code>martin generate</code> is not in any release yet, and parts of what these pages describe are not
+<p>The bulk mode of <code>martin cp</code> is not in any release yet, and parts of what these pages describe are not
 implemented yet.
 It is only built with the <code>unstable-generate</code> feature:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--package<span class="w"> </span>martin<span class="w"> </span>--bin<span class="w"> </span>martin<span class="w"> </span>--features<span class="w"> </span>unstable-generate
@@ -2052,7 +2052,7 @@ It is only built with the <code>unstable-generate</code> feature:</p>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Tile grouping, MLT and MVT encoding, compression and deduplication</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Planning tables into layers and running a whole generation end to end</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The <code>martin generate</code> command and PMTiles output</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> other than <code>point</code>, <code>line</code> and <code>polygon</code></li>
@@ -2060,17 +2060,19 @@ It is only built with the <code>unstable-generate</code> feature:</p>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>prefetch</code></li>
 </ul>
 </div>
-<p><code>martin generate</code> builds a whole tileset in one pass. <a href="../martin-cp/"><code>martin cp</code></a> asks the source for
-each tile separately. <code>martin generate</code> instead reads each source once, renders every feature at every
-zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less
-load on the source.</p>
+<p><a href="../martin-cp/"><code>martin cp</code></a> asks the source for each tile separately by default. With <code>--mode bulk</code>, it
+instead builds the whole tileset in one pass: it reads each source once, renders every feature at every
+zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far
+less load on the source.</p>
+<p>The default <code>--mode auto</code> still picks <code>tile</code>. Once bulk mode covers enough, it will pick <code>bulk</code> whenever
+it can.</p>
 <p>It renders points, lines and polygons. Geometry collections are skipped and counted.</p>
 <h2 id="usage">Usage</h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>generate<span class="w"> </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">                </span>--source<span class="w"> </span>roads<span class="w">                </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">                </span>--source<span class="w"> </span>shops<span class="w">                </span><span class="se">\</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">                </span>--max-zoom<span class="w"> </span><span class="m">14</span><span class="w">                 </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">                </span>postgres://postgres@localhost:5432/db
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>cp<span class="w"> </span>--mode<span class="w"> </span>bulk<span class="w">                   </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">          </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">          </span>--source<span class="w"> </span>roads,shops<span class="w">          </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">          </span>--max-zoom<span class="w"> </span><span class="m">14</span><span class="w">                 </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">          </span>postgres://postgres@localhost:5432/db
 </span></code></pre></div>
 <p>This renders the sources <code>roads</code> and <code>shops</code> into <code>tileset.mbtiles</code>, at zooms 0 to 14. Without
 <code>--source</code>, every source is rendered. Sources come from the same connection strings or
@@ -2089,8 +2091,8 @@ features, zooms, attributes and draw order.</p>
 <p>The same data and options give the same tiles, however many threads are used.</p>
 <h2 id="configuration-file">Configuration file</h2>
 <p>The configuration file only describes the sources. The options of a run are command-line arguments,
-and the file has no section for <code>martin generate</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>martin<span class="w"> </span>generate<span class="w"> </span>--config<span class="w"> </span>config.yaml<span class="w"> </span>--output-file<span class="w"> </span>tileset.pmtiles<span class="w"> </span>--max-zoom<span class="w"> </span><span class="m">14</span>
+and the file has no section for <code>martin cp</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>martin<span class="w"> </span>cp<span class="w"> </span>--mode<span class="w"> </span>bulk<span class="w"> </span>--config<span class="w"> </span>config.yaml<span class="w"> </span>--output-file<span class="w"> </span>tileset.pmtiles<span class="w"> </span>--max-zoom<span class="w"> </span><span class="m">14</span>
 </span></code></pre></div>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:1"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">PostgreSQL</label></div>
 <div class="tabbed-content">
@@ -2122,7 +2124,7 @@ and the file has no section for <code>martin generate</code>.</p>
 </span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"name</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="s">null"</span>
 </span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">name</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
-<p>Of a <a href="../sources-pg-tables/">table source</a>, <code>martin generate</code> uses <code>schema</code>, <code>table</code>,
+<p>Of a <a href="../sources-pg-tables/">table source</a>, bulk mode uses <code>schema</code>, <code>table</code>,
 <code>geometry_column</code>, <code>srid</code>, <code>id_column</code>, <code>properties</code>, <code>filter</code>, <code>minzoom</code>, <code>maxzoom</code>, <code>extent</code>,
 <code>buffer</code>, <code>clip_geom</code>, <code>layer_id</code> and <a href="../sources-pg-layers/"><code>layers</code></a>. Settings that only affect
 serving, such as caching, are ignored.</p>
@@ -2147,7 +2149,7 @@ serving, such as caching, are ignored.</p>
 <tr>
 <td><code>--source</code></td>
 <td>all sources</td>
-<td>A source id, repeatable</td>
+<td>Comma-separated source ids</td>
 </tr>
 <tr>
 <td><code>--format</code></td>
@@ -2156,7 +2158,7 @@ serving, such as caching, are ignored.</p>
 </tr>
 <tr>
 <td><code>--encoding</code></td>
-<td><code>gzip</code> for MBtiles or MLT in PMTIles<br><code>none</code> for MLT in PMTiles</td>
+<td><code>gzip</code> for MBtiles or MVT in PMTIles<br><code>none</code> for MLT in PMTiles</td>
 <td>MBTiles: <code>gzip</code>, <code>zlib</code> or <code>none</code>.<br>PMTiles: <code>gzip</code>, <code>br</code>, <code>zstd</code> or <code>none</code> for MVT, <code>none</code> for MLT</td>
 </tr>
 <tr>
@@ -2170,9 +2172,14 @@ serving, such as caching, are ignored.</p>
 <td>Highest zoom, lowered by a source's <code>maxzoom</code></td>
 </tr>
 <tr>
+<td><code>--zoom-levels</code></td>
+<td></td>
+<td>Instead of <code>--min-zoom</code> and <code>--max-zoom</code>, zooms that do not skip a level, e.g. <code>5,6,7</code></td>
+</tr>
+<tr>
 <td><code>--bbox</code></td>
 <td>whole world</td>
-<td>Only features and tiles inside <code>min_lon,min_lat,max_lon,max_lat</code></td>
+<td>Only features and tiles inside <code>min_lon,min_lat,max_lon,max_lat</code>, at most once</td>
 </tr>
 <tr>
 <td><code>--memory</code></td>
@@ -2193,7 +2200,10 @@ serving, such as caching, are ignored.</p>
 </table>
 <p>The tile server's <a href="../run-with-cli/">configuration and PostgreSQL arguments</a> also apply, such as
 <code>--config</code> and <code>--pool-size</code>. A configuration file and connection strings cannot be combined.</p>
-<p><code>--bbox</code> filters features, which <code>martin cp</code> does not. A low-zoom tile at the edge of the box only holds
+<p>Bulk mode refuses the <code>martin cp</code> options it does not read: <code>--url-query</code>, <code>--mbtiles-type</code>,
+<code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--save-config</code> and
+<code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
+<p><code>--bbox</code> filters features, which tile mode does not. A low-zoom tile at the edge of the box only holds
 the features near the box, not everything the tile covers.</p>
 <p>The highest zoom is 27. The tile grid can lower it further, since <code>extent × 2^zoom</code> must not exceed
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>

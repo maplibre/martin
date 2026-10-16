@@ -52,6 +52,16 @@ You should also consider
 >
 > When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin cp` copies zoom by zoom and never fetches the tiles below an empty tile. This means that even sparse sources can usually be fairly performant.
 
+## Modes
+
+`--mode` chooses how `martin cp` produces the tiles:
+
+- `tile` requests every tile from the source, as the tile server does.
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
+- `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
+
+Each mode refuses the options only the other one reads.
+
 ## MLT from PostgreSQL tables
 
 With `--format mlt`, `martin cp` encodes a PostgreSQL table source's tiles straight from its rows instead of converting the MVT tile PostGIS builds. The tiles describe the same features as that conversion would:
@@ -80,6 +90,15 @@ Arguments:
           Connection strings, e.g. postgres://... or /path/to/files
 
 Options:
+      --mode <MODE>
+          How to produce the tiles. auto picks one, and for now always picks tile
+
+          Possible values:
+          - tile: Request every tile from the source, as the tile server does
+          - auto: Pick a mode for the run; for now always tile
+
+          [default: auto]
+
   -s, --source <SOURCE>
           Name of the source to copy from. Not required if there is only one source
 
@@ -97,9 +116,7 @@ Options:
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
 
-          If set to multiple values like gzip,br, the first encoding is used, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
-
-          [default: gzip]
+          If set to multiple values like gzip,br, the first encoding is used, or re-encode if the tile is already encoded and that encoding is not listed. Use identity to disable compression. Ignored for non-encodable tiles like PNG and JPEG. [DEFAULT: gzip]
 
       --format <FORMAT>
           Tile format to request from the source.
@@ -116,9 +133,7 @@ Options:
           [possible values: override, ignore, abort]
 
       --concurrency <CONCURRENCY>
-          Number of concurrent connections to use
-
-          [default: 1]
+          Number of concurrent connections to use. [DEFAULT: 1]
 
       --bbox <BBOX>
           Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
@@ -128,10 +143,10 @@ Options:
           For a source on a tile grid other than Web Mercator the bounds are min_x,min_y,max_x,max_y in the grid's CRS units, and the whole grid is copied if omitted.
 
       --min-zoom <MIN_ZOOM>
-          Minimum zoom level to copy
+          Minimum zoom level to copy. [DEFAULT: 0]
 
       --max-zoom <MAX_ZOOM>
-          Maximum zoom level to copy
+          Maximum zoom level to copy. Required unless --zoom-levels is given
 
   -z, --zoom-levels <ZOOM_LEVELS>
           List of zoom levels to copy

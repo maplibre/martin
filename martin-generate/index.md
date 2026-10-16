@@ -4,7 +4,7 @@
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -16,25 +16,27 @@
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`martin generate` builds a whole tileset in one pass. [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) asks the source for each tile separately. `martin generate` instead reads each source once, renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the source.
+[`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) asks the source for each tile separately by default. With `--mode bulk`, it instead builds the whole tileset in one pass: it reads each source once, renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the source.
+
+The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it will pick `bulk` whenever it can.
 
 It renders points, lines and polygons. Geometry collections are skipped and counted.
 
 ## Usage
 
 ```bash
-martin generate --output-file tileset.mbtiles \
-                --source roads                \
-                --source shops                \
-                --max-zoom 14                 \
-                postgres://postgres@localhost:5432/db
+martin cp --mode bulk                   \
+          --output-file tileset.mbtiles \
+          --source roads,shops          \
+          --max-zoom 14                 \
+          postgres://postgres@localhost:5432/db
 ```
 
 This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 to 14. Without `--source`, every source is rendered. Sources come from the same connection strings or [configuration file](<https://maplibre.org/martin/config-file/index.md>) as for the tile server.
@@ -47,10 +49,10 @@ The same data and options give the same tiles, however many threads are used.
 
 ## Configuration file
 
-The configuration file only describes the sources. The options of a run are command-line arguments, and the file has no section for `martin generate`.
+The configuration file only describes the sources. The options of a run are command-line arguments, and the file has no section for `martin cp`.
 
 ```bash
-martin generate --config config.yaml --output-file tileset.pmtiles --max-zoom 14
+martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-zoom 14
 ```
 
 ```yaml
@@ -82,26 +84,29 @@ postgres:
           attributes: [name]
 ```
 
-Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), `martin generate` uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
+Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), bulk mode uses `schema`, `table`, `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`, `buffer`, `clip_geom`, `layer_id` and [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>). Settings that only affect serving, such as caching, are ignored.
 
 ## Options
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--output-file` |  | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty |
-| `--source` | all sources | A source id, repeatable |
+| `--source` | all sources | Comma-separated source ids |
 | `--format` | `mlt` | `mlt` or `mvt` |
-| `--encoding` | `gzip` for MBtiles or MLT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
+| `--encoding` | `gzip` for MBtiles or MVT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
 | `--min-zoom` | `0` | Lowest zoom, raised by a source's `minzoom` |
 | `--max-zoom` | `14` | Highest zoom, lowered by a source's `maxzoom` |
-| `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat` |
+| `--zoom-levels` |  | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7` |
+| `--bbox` | whole world | Only features and tiles inside `min_lon,min_lat,max_lon,max_lat`, at most once |
 | `--memory` | `2GiB` | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads |
 | `--temp-dir` | system temp dir | Where sorted runs go, repeatable to spread them over several disks |
 | `--threads` | CPU count | Worker threads |
 
 The tile server's [configuration and PostgreSQL arguments](<https://maplibre.org/martin/run-with-cli/index.md>) also apply, such as `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
-`--bbox` filters features, which `martin cp` does not. A low-zoom tile at the edge of the box only holds the features near the box, not everything the tile covers.
+Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+
+`--bbox` filters features, which tile mode does not. A low-zoom tile at the edge of the box only holds the features near the box, not everything the tile covers.
 
 The highest zoom is 27. The tile grid can lower it further, since `extent × 2^zoom` must not exceed `2^30`. With the default extent of 4096, that is zoom 18.
 

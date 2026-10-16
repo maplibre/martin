@@ -4,7 +4,7 @@
 >
 > **Not released or fully implemented**
 >
-> `martin generate` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
 >
 > ```bash
 > cargo build --package martin --bin martin --features unstable-generate
@@ -16,14 +16,14 @@
 > - [ ] Tile grouping, MLT and MVT encoding, compression and deduplication
 > - [ ] Planning tables into layers and running a whole generation end to end
 > - [ ] The PostgreSQL source with partitioned whole-table scans
-> - [ ] The `martin generate` command and PMTiles output
+> - [ ] Bulk mode in `martin cp`, and PMTiles output
 > - [ ] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
 > - [ ] `prefetch`
 
-`layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. Only [`martin generate`](<https://maplibre.org/martin/martin-generate/index.md>) uses it so far, and the tile server ignores it.
+`layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. Only the [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` uses it so far, and the tile server ignores it.
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
 
