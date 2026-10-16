@@ -359,11 +359,9 @@ fn resolve_encoding(
         Some(encoding) if pmtiles_mlt && encoding.is_encoded() => {
             Err(GenerateError::CompressedPmtilesMlt)
         }
-        Some(encoding @ (Encoding::Brotli | Encoding::Zstd)) if !is_pmtiles(output_file) => {
-            Err(GenerateError::UndetectableMbtilesEncoding(
-                encoding.compression().unwrap_or_default(),
-            ))
-        }
+        Some(encoding @ (Encoding::Brotli | Encoding::Zstd)) if !is_pmtiles(output_file) => Err(
+            GenerateError::UndetectableMbtilesEncoding(encoding.compression().unwrap_or_default()),
+        ),
         Some(encoding) => Ok(encoding),
     }
 }

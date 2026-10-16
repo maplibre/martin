@@ -326,7 +326,10 @@ async fn refuses_mlt2() {
 #[tokio::test]
 async fn contiguous_zoom_levels_are_a_zoom_range() {
     let dir = temp_dir();
-    let (levels, range) = (dir.path().join("levels.mbtiles"), dir.path().join("range.mbtiles"));
+    let (levels, range) = (
+        dir.path().join("levels.mbtiles"),
+        dir.path().join("range.mbtiles"),
+    );
     MartinCp::bulk()
         .with_postgres()
         .arg("--source")
@@ -351,7 +354,10 @@ async fn contiguous_zoom_levels_are_a_zoom_range() {
         .await;
     assert_eq!(tiles(&levels).await, tiles(&range).await);
     let listing = tile_listing(&levels).await;
-    let mut zooms: Vec<&str> = listing.lines().filter_map(|tile| tile.split('/').next()).collect();
+    let mut zooms: Vec<&str> = listing
+        .lines()
+        .filter_map(|tile| tile.split('/').next())
+        .collect();
     zooms.dedup();
     insta::assert_snapshot!(zooms.join(","), @"1,2,3");
 }

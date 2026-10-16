@@ -197,7 +197,15 @@ pub struct CopyArgs {
 
 /// How `martin cp` produces the tiles it writes.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    clap::ValueEnum,
+    serde::Deserialize,
+    serde::Serialize,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum CopyMode {
@@ -295,9 +303,7 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     match copy_args.copy.mode {
         CopyMode::Tile | CopyMode::Auto => copy_tiles(copy_args).await,
         #[cfg(feature = "unstable-generate")]
-        CopyMode::Bulk => Ok(crate::generate::start(copy_args)
-            .await
-            .map_err(Box::new)?),
+        CopyMode::Bulk => Ok(crate::generate::start(copy_args).await.map_err(Box::new)?),
     }
 }
 
