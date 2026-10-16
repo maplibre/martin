@@ -24,9 +24,10 @@ See [this article](martin-cp.md) for more information.
 
 ### `martin generate`
 
-`martin generate` is a subcommand of `martin` that builds a whole tileset in one pass. We are building it
-because `martin cp` asks the source for each tile separately, which does not scale to large tilesets.
-Inspired by [Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry, it reads each source once, renders
+`martin generate` is a subcommand of `martin` that builds a whole tileset in one pass. First and foremost,
+it is a PostgreSQL extraction step that scales far beyond `martin cp`, which asks the source for each tile
+separately, a long-standing feature request. With design goals similar to those of
+[Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry, it reads each source once, renders
 every feature at every zoom itself, and writes the tiles in order. It is not released yet.
 
 See [this article](martin-generate.md) for more information.

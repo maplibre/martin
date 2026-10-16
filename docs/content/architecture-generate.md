@@ -24,15 +24,16 @@ We implement this via two traits:
 
 Another database or file format is another `FeatureSource`, and another archive format is another `TileSink`.
 
-## Inspired by Planetiler
+## Motivation and Planetiler
 
-We built `martin generate` because [`martin cp`](martin-cp.md), which asks the source for every tile
-separately, does not scale to large tilesets. The design is inspired by
+First and foremost, we needed a PostgreSQL extraction step that scales far beyond
+[`martin cp`](martin-cp.md), which asks the source for every tile separately. This has been a
+long-standing feature request. Its design goals are similar to those of
 [Planetiler](https://github.com/onthegomap/planetiler), written by Mike Barry
 ([@msbarry](https://github.com/msbarry)) and licensed under the
-[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE). We thank him and the
-Planetiler contributors for showing how fast a whole tileset can be built. `martin generate` follows
-Planetiler in:
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE), and the design is
+inspired by it. We thank him and the Planetiler contributors for showing how fast a whole tileset can
+be built. `martin generate` follows Planetiler in:
 
 - reading every feature once and rendering it at every zoom, instead of querying the source per tile,
 - sorting the rendered pieces on disk by tile, then merging them back and writing each tile once,

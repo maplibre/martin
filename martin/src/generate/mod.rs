@@ -1,6 +1,7 @@
-//! `martin generate`: bulk tile generation from whole-table scans, inspired by Planetiler by Mike Barry
-//! (<https://github.com/onthegomap/planetiler>, Apache-2.0), because `martin cp` asks the source for every
-//! tile and does not scale to large tilesets.
+//! `martin generate`: bulk tile generation from whole-table scans. First and foremost, the PostgreSQL
+//! extraction step that scales far beyond `martin cp`, which asks the source for every tile, a long-standing
+//! feature request. Its design goals are similar to Planetiler's by Mike Barry
+//! (<https://github.com/onthegomap/planetiler>, Apache-2.0), and the design is inspired by it.
 
 pub mod layers;
 pub mod postgres;
@@ -49,7 +50,7 @@ const BUFFER_BYTES: std::ops::RangeInclusive<u64> = (16 << 20)..=(u32::MAX as u6
 #[derive(clap::Args, Debug, PartialEq)]
 #[command(
     about = "Generate a tileset from whole tables in one pass (bulk generation)",
-    after_help = "Each source is scanned once and rendered at every zoom, as in Planetiler by Mike Barry; this is much faster than `martin cp`, which does not scale to whole tilesets."
+    after_help = "A PostgreSQL extraction step that scales far beyond `martin cp`: each source is scanned once and rendered at every zoom. Its design goals are similar to those of Planetiler by Mike Barry."
 )]
 pub struct GeneratorArgs {
     #[command(flatten)]

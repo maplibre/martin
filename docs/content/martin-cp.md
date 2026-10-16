@@ -16,8 +16,9 @@ If multiple areas overlap, it will ensure each tile is generated only once
 
 !!! tip "Large tilesets"
     `martin cp` asks the source for each tile separately, which does not scale to large tilesets.
-    For those, we are building [`martin generate`](martin-generate.md), inspired by
-    [Planetiler](https://github.com/onthegomap/planetiler), which reads each source once instead.
+    For those, we are building [`martin generate`](martin-generate.md), a scalable PostgreSQL extraction
+    step that reads each source once instead, with design goals similar to those of
+    [Planetiler](https://github.com/onthegomap/planetiler).
 The released `martin` binary does not include [DuckDB / GeoParquet sources](sources-duckdb.md).
 To use them, build `martin` with the feature and list the source in the configuration file:
 
