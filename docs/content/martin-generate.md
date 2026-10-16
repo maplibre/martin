@@ -12,20 +12,20 @@ tags:
 
 --8<-- "generate-unstable.md"
 
-`martin cp --mode bulk` builds a whole tileset in one pass. By default, [`martin cp`](martin-cp.md) asks
-the source for each tile separately. In bulk mode it instead reads each source once, renders every feature
-at every zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far
+[`martin cp`](martin-cp.md) asks the source for each tile separately by default. With `--mode bulk`, it
+instead builds the whole tileset in one pass: it reads each source once, renders every feature at every
+zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far
 less load on the source.
 
-`--mode` takes `tile`, `bulk` or `auto`. `auto` is the default and picks `tile` for now. Once bulk mode
-covers enough, `auto` will pick it whenever it can.
+The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it will pick `bulk` whenever
+it can.
 
 It renders points, lines and polygons. Geometry collections are skipped and counted.
 
 ## Usage
 
 ```bash
-martin cp --mode bulk                 \
+martin cp --mode bulk                   \
           --output-file tileset.mbtiles \
           --source roads,shops          \
           --max-zoom 14                 \

@@ -13,7 +13,7 @@ tags:
 
 `layers` is a key of a [PostgreSQL table source](sources-pg-tables.md). It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only [`martin cp --mode bulk`](martin-generate.md) uses it so far, and the tile server ignores it.
+and draw order. Only the [bulk mode](martin-generate.md) of `martin cp` uses it so far, and the tile server ignores it.
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all
 of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
