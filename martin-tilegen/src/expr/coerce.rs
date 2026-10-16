@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use crate::props::Prop;
 use cel::objects::ValueType;
 use cel::{ExecutionError, Value};
-use martin_core::generate::props::Prop;
 
 pub(super) fn mismatch(value: &Value, want: &str) -> ExecutionError {
     ExecutionError::UnexpectedType {
@@ -94,7 +94,7 @@ pub(super) fn to_id(value: &Value) -> Result<Option<u64>, ExecutionError> {
 
 #[cfg(test)]
 mod tests {
-    use martin_core::generate::props::KeyId;
+    use crate::props::KeyId;
     use rstest::rstest;
 
     use super::*;

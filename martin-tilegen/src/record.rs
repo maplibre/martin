@@ -7,7 +7,7 @@
     reason = "the wincode SchemaRead derive forgets its drop guard"
 )]
 
-use martin_core::generate::props::KeyId;
+use crate::props::KeyId;
 use mlt_core::PropValueRef;
 use wincode::config::{Configuration, PREALLOCATION_SIZE_LIMIT_DISABLED};
 use wincode::len::BincodeLen;

@@ -4,13 +4,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
-#[cfg(feature = "unstable-generate")]
-use martin_core::generate::source::Crs;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
 };
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
+#[cfg(feature = "unstable-generate")]
+use martin_tilegen::source::Crs;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;

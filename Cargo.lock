@@ -5817,9 +5817,9 @@ dependencies = [
  "insta",
  "itertools 0.15.0",
  "jxl-oxide",
- "lasso",
  "maplibre_native",
  "martin-tile-utils",
+ "martin-tilegen",
  "mbtiles",
  "mlt-core",
  "moka",
@@ -5916,13 +5916,16 @@ name = "martin-tilegen"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "bytes",
  "cel",
  "criterion",
  "flume",
  "geo",
+ "geo-traits",
  "geo-types",
  "hotpath",
  "insta",
+ "lasso",
  "map-tile-toolkit",
  "martin-core",
  "martin-tile-utils",
@@ -5940,6 +5943,7 @@ dependencies = [
  "tokio",
  "tracing",
  "wincode",
+ "wkb",
  "xxhash-rust",
 ]
 

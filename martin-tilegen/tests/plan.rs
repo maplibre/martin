@@ -2,12 +2,12 @@
 #![expect(clippy::panic, clippy::unwrap_used)]
 
 use geo_types::{Coord, LineString, Polygon};
-use martin_core::generate::props::{KeyId, Prop};
-use martin_core::generate::source::{Geometry, SourceFeature};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError,
     RuleDef, SortDef, TableDef, ValueDef, ZoomDef,
 };
+use martin_tilegen::props::{KeyId, Prop};
+use martin_tilegen::source::{Geometry, SourceFeature};
 use martin_tilegen::{FeatureGeom, LayerGrid, PixelThreshold};
 
 const GRID: LayerGrid = LayerGrid {

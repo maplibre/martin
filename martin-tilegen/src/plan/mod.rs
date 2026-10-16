@@ -6,10 +6,10 @@ use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
 use std::sync::atomic::AtomicBool;
 
+use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 use map_tile_toolkit::ClipMode;
-use martin_core::generate::props::{KeyId, Prop};
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
@@ -51,7 +51,7 @@ pub enum PlanError {
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
 ///
-/// [`table`]: martin_core::generate::source::FeatureBatch::table
+/// [`table`]: crate::source::FeatureBatch::table
 #[derive(Clone, Debug)]
 pub struct TableDef {
     /// The table's columns. The source scans only those in [`Plan::columns`].

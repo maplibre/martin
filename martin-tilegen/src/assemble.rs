@@ -3,14 +3,14 @@
 use std::fmt::Write as _;
 use std::ops::Range;
 
-use martin_core::generate::props::{KeyId, KeyNames};
+use crate::props::{KeyId, KeyNames};
 use mlt_core::geo_types::Coord;
 use mlt_core::{
     FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef,
     PropertyKey,
 };
 
-use crate::props::TileColumns;
+use crate::columns::TileColumns;
 use crate::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{Seq, TileGenResult};
 
@@ -262,7 +262,7 @@ fn write_geometry(
 
 #[cfg(test)]
 mod tests {
-    use martin_core::generate::props::KeyInterner;
+    use crate::props::KeyInterner;
     use mlt_core::encoder::EncoderConfig;
     use mlt_core::geo_types::{Geometry, LineString, MultiLineString, Point};
     use mlt_core::{Decoder, Parser, PropValue, TileLayer};

@@ -40,13 +40,15 @@ mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
 
 [dependencies]
+bytes.workspace = true
 cel.workspace = true
 flume.workspace = true
 geo.workspace = true
+geo-traits.workspace = true
 geo-types.workspace = true
 hotpath = { workspace = true, features = ["flume"] }
+lasso.workspace = true
 map-tile-toolkit.workspace = true
-martin-core = { workspace = true, features = ["unstable-generate-source"] }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 mlt-core.workspace = true
@@ -60,6 +62,7 @@ tilejson.workspace = true
 tokio = { workspace = true, optional = true, features = ["rt"] }
 tracing.workspace = true
 wincode = { workspace = true, features = ["derive"] }
+wkb.workspace = true
 xxhash-rust.workspace = true
 
 [dev-dependencies]

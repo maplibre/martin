@@ -3,9 +3,9 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
+use crate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
 use geo_types::Coord;
 use hotpath::wrap::flume::{Receiver, Sender};
-use martin_core::generate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};

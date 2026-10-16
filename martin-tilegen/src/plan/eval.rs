@@ -5,8 +5,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::RangeInclusive;
 use std::sync::atomic::Ordering;
 
-use martin_core::generate::props::{KeyId, KeyInterner, KeyNames, Prop};
-use martin_core::generate::source::SourceFeature;
+use crate::props::{KeyId, KeyInterner, KeyNames, Prop};
+use crate::source::SourceFeature;
 use tracing::warn;
 
 use super::{

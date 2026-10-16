@@ -12,9 +12,9 @@ use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGr
 use martin::config::primitives::IdResolver;
 use martin::generate::layers::{LowerOptions, lower_table};
 use martin::generate::postgres::{PgScanSource, ScanTable};
-use martin_core::generate::source::FeatureSource as _;
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, open_scan_connection};
 use martin_tile_utils::{Encoding, decode_gzip};
+use martin_tilegen::source::FeatureSource as _;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser};

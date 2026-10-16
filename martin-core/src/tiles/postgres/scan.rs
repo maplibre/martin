@@ -10,8 +10,8 @@ use mlt_core::PropValue;
 use super::features::{feature_id, property};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
-use crate::generate::props::{KeyId, KeyInterner, Prop};
-use crate::generate::source::{
+use martin_tilegen::props::{KeyId, KeyInterner, Prop};
+use martin_tilegen::source::{
     Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult,
 };
 

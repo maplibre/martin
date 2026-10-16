@@ -1,13 +1,13 @@
 //! The `PostgreSQL` source of `martin cp --mode bulk`: whole-table scans on one connection.
 
-use martin_core::generate::props::KeyInterner;
-use martin_core::generate::source::{
-    FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
-};
 use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, ScanLayout, open_scan_connection, scan_features,
 };
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
+use martin_tilegen::props::KeyInterner;
+use martin_tilegen::source::{
+    FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
+};
 use martin_tilegen::{LayerGrid, TileGenResult};
 use tilejson::Bounds;
 

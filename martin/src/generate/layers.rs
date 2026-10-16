@@ -3,11 +3,11 @@
 use std::ops::RangeInclusive;
 
 use indexmap::{IndexMap, IndexSet};
-use martin_core::generate::props::Prop;
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef,
     TableDef, ValueDef, ZoomDef,
 };
+use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
 use tilejson::Bounds;
 use tracing::warn;

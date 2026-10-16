@@ -4,8 +4,8 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::PoisonError;
 
+use crate::props::KeyNames;
 use hotpath::wrap::std::sync::Mutex as ProfiledMutex;
-use martin_core::generate::props::KeyNames;
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use mlt_core::PropKind;
 use mlt_core::encoder::EncoderConfig;
@@ -258,7 +258,7 @@ impl TileEncoder {
 
 #[cfg(test)]
 mod tests {
-    use martin_core::generate::props::KeyInterner;
+    use crate::props::KeyInterner;
     use martin_tile_utils::decode_gzip;
     use mlt_core::fast_mvt::MvtReaderRef;
     use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
