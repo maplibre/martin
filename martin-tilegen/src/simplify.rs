@@ -134,13 +134,18 @@ impl Simplifier {
 /// The squared distance from `c` to the segment from `a` to `b`.
 fn distance_sq(c: Coord<f64>, a: Coord<f64>, b: Coord<f64>) -> f64 {
     let (ab, ac) = (b - a, c - a);
-    let dot = ac.dot_product(ab);
+    let dot =
+        ac.x.algebraic_mul(ab.x)
+            .algebraic_add(ac.y.algebraic_mul(ab.y));
     let len_sq = ab.magnitude_squared();
     if a == b || dot <= 0.0 {
         ac.magnitude_squared()
     } else if dot >= len_sq {
         (c - b).magnitude_squared()
     } else {
-        ac.wedge_product(ab).powi(2) / len_sq
+        let cross =
+            ac.x.algebraic_mul(ab.y)
+                .algebraic_sub(ac.y.algebraic_mul(ab.x));
+        cross.algebraic_mul(cross).algebraic_div(len_sq)
     }
 }
