@@ -3,19 +3,17 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
-use crate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
-use geo_types::Coord;
+use crate::source::{FeatureBatch, FeatureSource, SourceError};
 use hotpath::wrap::flume::{Receiver, Sender};
-use martin_tile_utils::{Encoding, Format};
-use mlt_core::PropKind;
-use tilejson::{TileJSON, VectorLayer};
+use martin_tile_utils::Encoding;
+use tilejson::TileJSON;
 
 use crate::pipeline::{self, BatchSender, spawn_named};
-use crate::plan::{Evaluator, ExprErrors, ExprTallies, Plan};
+use crate::plan::{ExprErrors, Plan};
+use crate::tile_render::{FeatureRenderer, RenderTotals, TileEncoding};
 use crate::{
-    DedupIndex, EncodeSettings, FeatureGeom, LayerInfo, LayerStats, Renderer, Seq, SliceErrors,
-    SortBuffer, SortConfig, Sorter, TileEncoder, TileFormat, TileGenError, TileGenResult,
-    TileGrouper, TileOrder, TileRecords, TileSink, project,
+    SortConfig, Sorter, TileEncoder, TileFormat, TileGenError, TileGenResult, TileGrouper,
+    TileOrder, TileRecords, TileSink,
 };
 
 #[derive(Clone, Debug)]
@@ -80,32 +78,14 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let totals = render_all(source, &sorter, plan, order, config.threads, progress)?;
     progress.writing.store(true, Ordering::Relaxed);
 
-    let names = plan.key_names();
-    let infos: Vec<_> = plan.layers.iter().map(|layer| layer.info.clone()).collect();
-    let settings = EncodeSettings {
-        layers: &infos,
-        keys: &names,
-        format: config.format,
-        encoding: config.encoding,
-        order,
-    };
-    let dedup = DedupIndex::default();
+    let encoding = TileEncoding::new(plan, config.format, config.encoding, order);
     let mut grouper = TileGrouper::new(sorter.merge()?);
     let batch_tiles = config.batch_tiles.max(1);
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
         |submit: &BatchSender<Vec<TileRecords>, _>| loop {
-            let mut batch = Vec::with_capacity(batch_tiles);
-            hotpath::measure_block!({ "group_batch" }, {
-                while batch.len() < batch_tiles {
-                    let mut tile = TileRecords::default();
-                    if !grouper.next_tile(&mut tile)? {
-                        break;
-                    }
-                    batch.push(tile);
-                }
-            });
+            let batch = grouper.next_batch(batch_tiles)?;
             let done = batch.len() < batch_tiles;
             if !batch.is_empty() {
                 submit.send(batch)?;
@@ -115,7 +95,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
             }
         },
         TileEncoder::default,
-        |encoder, batch| encoder.encode_batch(&settings, &dedup, batch),
+        |encoder, batch| encoding.encode(encoder, batch),
         move |batches| {
             let mut tiles = 0u64;
             sink.write_all(&mut batches.inspect(|batch| {
@@ -130,65 +110,9 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         },
     )?;
 
-    let mut layers = vec![LayerStats::default(); infos.len()];
-    for encoder in &encoders {
-        for (total, stats) in layers.iter_mut().zip(&encoder.stats) {
-            total.merge(stats);
-        }
-    }
-    complete_metadata(&mut metadata, &infos, &layers, config.format);
+    encoding.complete_metadata(&mut metadata, &encoders);
     sink.finish(&metadata)?;
-    Ok(Summary {
-        features: totals.features,
-        skipped: totals.skipped,
-        tiles,
-        slice_errors: layer_slice_errors(plan, &totals.slice_errors),
-        expr_errors: plan.expr_errors(&totals.exprs),
-    })
-}
-
-fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErrors> {
-    plan.layers
-        .iter()
-        .filter_map(|layer| {
-            let index = usize::from(layer.render.index);
-            let errors = totals.get(index)?;
-            let first = errors.first.as_ref()?;
-            Some(LayerSliceErrors {
-                layer: layer.info.name.clone(),
-                errors: errors.count,
-                zoom: first.zoom,
-                id: first.id,
-                partition: first.seq.partition(),
-                row: first.seq.row(),
-                error: first.error.to_string(),
-            })
-        })
-        .collect()
-}
-
-#[derive(Default)]
-struct RenderTotals {
-    features: u64,
-    skipped: u64,
-    /// By layer index.
-    slice_errors: Vec<SliceErrors>,
-    exprs: ExprTallies,
-}
-
-impl RenderTotals {
-    fn add(&mut self, worker: Self) {
-        self.features += worker.features;
-        self.skipped += worker.skipped;
-        if self.slice_errors.len() < worker.slice_errors.len() {
-            self.slice_errors
-                .resize_with(worker.slice_errors.len(), SliceErrors::default);
-        }
-        for (total, errors) in self.slice_errors.iter_mut().zip(worker.slice_errors) {
-            total.merge(errors);
-        }
-        self.exprs.merge(worker.exprs);
-    }
+    Ok(totals.into_summary(plan, tiles))
 }
 
 type FeatureTx = Sender<FeatureBatch>;
@@ -256,29 +180,20 @@ fn render_all<S: FeatureSource>(
                 let rx = rx.clone();
                 spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
                     let mut buffer = sorter.buffer();
-                    let mut worker = Worker {
-                        renderer: Renderer::default(),
-                        evaluator: plan.evaluator(),
-                        skipped: 0,
-                    };
-                    let mut count = 0;
+                    let mut renderer = FeatureRenderer::new(plan, order);
                     for mut batch in rx {
                         if failed.load(Ordering::Relaxed) {
                             break;
                         }
-                        render_batch(&mut batch, &mut worker, order, &mut buffer).map_err(fail)?;
-                        count += batch.features.len() as u64;
+                        renderer
+                            .render_batch(&mut batch, &mut buffer)
+                            .map_err(fail)?;
                         progress
                             .features
                             .fetch_add(batch.features.len() as u64, Ordering::Relaxed);
                     }
                     buffer.finish().map_err(fail)?;
-                    Ok(RenderTotals {
-                        features: count - worker.skipped,
-                        skipped: worker.skipped,
-                        slice_errors: worker.renderer.slice_errors,
-                        exprs: worker.evaluator.finish(),
-                    })
+                    Ok(renderer.finish())
                 })
             })
             .collect();
@@ -311,127 +226,4 @@ fn join<T>(handle: ScopedJoinHandle<'_, T>) -> T {
     handle
         .join()
         .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-}
-
-struct Worker<'p> {
-    renderer: Renderer,
-    evaluator: Evaluator<'p>,
-    skipped: u64,
-}
-
-#[hotpath::measure]
-fn render_batch(
-    batch: &mut FeatureBatch,
-    worker: &mut Worker<'_>,
-    order: TileOrder,
-    buffer: &mut SortBuffer<'_>,
-) -> TileGenResult<()> {
-    let Worker {
-        renderer,
-        evaluator,
-        skipped,
-    } = worker;
-    for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
-        project_geometry(batch.crs, &mut feature.geometry);
-        let Some(geom) = feature_geom(&feature.geometry) else {
-            *skipped += 1;
-            continue;
-        };
-        let seq = Seq::new(batch.partition, row)?;
-        evaluator.evaluate(batch.table, feature, geom, |evaluated| {
-            renderer.render(order, evaluated.layer(), seq, evaluated.feature(), buffer)
-        })?;
-    }
-    Ok(())
-}
-
-/// Decodes and projects the geometry in place; one that fails to decode stays WKB.
-fn project_geometry(crs: Crs, geometry: &mut Geometry) {
-    if !geometry.decode_wkb() {
-        return;
-    }
-    match geometry {
-        Geometry::Points(points) => project_coords(crs, points),
-        Geometry::Lines(lines) => {
-            for line in lines.iter_mut() {
-                project_coords(crs, &mut line.0);
-            }
-        }
-        Geometry::Polygons(polygons) => {
-            for polygon in polygons.iter_mut() {
-                polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
-                polygon.interiors_mut(|rings| {
-                    for ring in rings {
-                        project_coords(crs, &mut ring.0);
-                    }
-                });
-            }
-        }
-        Geometry::Wkb(_) => {}
-    }
-}
-
-fn feature_geom(geometry: &Geometry) -> Option<FeatureGeom<'_>> {
-    match geometry {
-        Geometry::Points(points) => Some(FeatureGeom::Points(points)),
-        Geometry::Lines(lines) => Some(FeatureGeom::Lines(lines)),
-        Geometry::Polygons(polygons) => Some(FeatureGeom::Polygons(polygons)),
-        Geometry::Wkb(_) => None,
-    }
-}
-
-fn project_coords(crs: Crs, coords: &mut [Coord<f64>]) {
-    match crs {
-        Crs::Wgs84 => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_lonlat(*c)),
-        Crs::WebMercator => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_mercator(*c)),
-    }
-}
-
-fn complete_metadata(
-    metadata: &mut TileJSON,
-    infos: &[LayerInfo],
-    stats: &[LayerStats],
-    format: TileFormat,
-) {
-    let zooms = stats.iter().filter_map(|s| s.zooms);
-    metadata.minzoom = zooms.clone().map(|z| z.0).min();
-    metadata.maxzoom = zooms.map(|z| z.1).max();
-    let format = Format::from(format).metadata_format_value();
-    metadata.other.insert("format".to_owned(), format.into());
-    metadata.vector_layers = Some(
-        infos
-            .iter()
-            .zip(stats)
-            .filter(|(_, stats)| stats.zooms.is_some())
-            .map(|(info, stats)| {
-                let fields = stats
-                    .fields
-                    .iter()
-                    .map(|(name, &kind)| (name.clone(), field_type(kind).to_owned()));
-                let mut layer = VectorLayer::new(info.name.clone(), fields.collect());
-                (layer.minzoom, layer.maxzoom) = stats.zooms.unzip();
-                layer
-            })
-            .collect(),
-    );
-}
-
-/// `vector_layers` field types, as `MBTiles` and `TileJSON` consumers expect them.
-fn field_type(kind: PropKind) -> &'static str {
-    match kind {
-        PropKind::Bool => "Boolean",
-        PropKind::Str => "String",
-        PropKind::I8
-        | PropKind::U8
-        | PropKind::I32
-        | PropKind::U32
-        | PropKind::I64
-        | PropKind::U64
-        | PropKind::F32
-        | PropKind::F64 => "Number",
-    }
 }

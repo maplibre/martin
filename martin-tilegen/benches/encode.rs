@@ -16,12 +16,12 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::Encoding;
-use martin_tilegen::props::{KeyInterner, KeyNames};
-use martin_tilegen::record::{EncodedProps, Geom, encode};
-use martin_tilegen::{
-    DedupIndex, EncodeSettings, LayerGrid, LayerInfo, Seq, TileEncoder, TileFormat, TileOrder,
-    TileRecords,
+use martin_tilegen::internals::record::{EncodedProps, Geom, encode};
+use martin_tilegen::internals::{
+    DedupIndex, EncodeSettings, LayerInfo, Seq, TileEncoder, TileRecords,
 };
+use martin_tilegen::props::{KeyInterner, KeyNames};
+use martin_tilegen::{LayerGrid, TileFormat, TileOrder};
 use mlt_core::PropValueRef;
 use mlt_core::encoder::EncoderConfig;
 

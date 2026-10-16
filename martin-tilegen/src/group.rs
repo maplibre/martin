@@ -29,6 +29,7 @@ pub struct TileRecords {
 }
 
 impl TileRecords {
+    #[cfg(any(test, feature = "internals"))]
     #[must_use]
     pub fn new(tile_id: u64) -> Self {
         Self {
@@ -99,6 +100,21 @@ impl TileGrouper {
             active: Vec::new(),
             position: 0,
         }
+    }
+
+    /// The next `max` tiles, or fewer once the records run out.
+    pub fn next_batch(&mut self, max: usize) -> TileGenResult<Vec<TileRecords>> {
+        hotpath::measure_block!({ "group_batch" }, {
+            let mut batch = Vec::with_capacity(max);
+            while batch.len() < max {
+                let mut tile = TileRecords::default();
+                if !self.next_tile(&mut tile)? {
+                    break;
+                }
+                batch.push(tile);
+            }
+            Ok(batch)
+        })
     }
 
     /// Fills `tile` with the next tile's records; `false` at the end. `tile` is reused to keep its buffers.

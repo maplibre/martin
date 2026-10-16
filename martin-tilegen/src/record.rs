@@ -67,6 +67,13 @@ pub enum Geom<'a> {
         rings: &'a [u32],
         vertices: &'a [Vertex],
     },
+    #[cfg_attr(
+        not(any(test, feature = "internals")),
+        expect(
+            dead_code,
+            reason = "the renderer emits fill ranges; benches and tests build single fills"
+        )
+    )]
     Fill,
     FillRange {
         end: u64,

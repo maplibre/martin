@@ -38,6 +38,7 @@ harness = false
 default = ["mbtiles", "pmtiles"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
+internals = []
 
 [dependencies]
 bytes.workspace = true
@@ -70,6 +71,7 @@ approx.workspace = true
 criterion.workspace = true
 insta.workspace = true
 martin-core = { workspace = true, features = ["_testing", "processing"] }
+martin-tilegen = { path = ".", features = ["internals"] }
 rstest.workspace = true
 
 [lints]

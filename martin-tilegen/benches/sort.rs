@@ -8,7 +8,8 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::TileCoord;
-use martin_tilegen::{LayerId, Seq, SortConfig, SortKey, Sorter, TileOrder};
+use martin_tilegen::internals::{LayerId, Seq, SortKey, Sorter};
+use martin_tilegen::{SortConfig, TileOrder};
 
 const RECORDS: usize = 1_000_000;
 const PAYLOAD: [u8; 64] = [7; 64];
