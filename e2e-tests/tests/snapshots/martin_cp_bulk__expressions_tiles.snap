@@ -1,5 +1,5 @@
 ---
-source: e2e-tests/tests/martin_generate.rs
+source: e2e-tests/tests/martin_cp_bulk.rs
 expression: "dump.join(\"\\n\")"
 ---
 0/0/0
