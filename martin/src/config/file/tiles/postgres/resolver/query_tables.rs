@@ -505,7 +505,7 @@ fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     Ok(format!(" {keyword} ({sql})"))
 }
 
-/// The query `martin generate` streams a whole table with.
+/// The query `martin cp --mode bulk` streams a whole table with.
 #[cfg(feature = "unstable-generate")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScanSql {

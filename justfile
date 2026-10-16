@@ -746,7 +746,7 @@ test-e2e *args: fetch (cargo-install 'cargo-nextest')
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_generate --test postgres --test process {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_cp_bulk --test postgres --test process {{args}}
 
 # Run Rust doc tests
 test-doc *args: fetch

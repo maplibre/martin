@@ -13,7 +13,7 @@ tags:
 
 `layers` is a key of a [PostgreSQL table source](sources-pg-tables.md). It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only [`martin generate`](martin-generate.md) uses it so far, and the tile server ignores it.
+and draw order. Only the [bulk mode](martin-generate.md) of `martin cp` uses it so far, and the tile server ignores it.
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all
 of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
@@ -101,7 +101,8 @@ The highest zoom is 27.
 ## Simplification and minimum size
 
 Lines and polygons are simplified at each zoom, and dropped once they are smaller than `min_size`.
-Both are in pixels of a 256-pixel tile, whatever the `extent`.
+Both are in pixels of a 256-pixel tile, whatever the `extent`, and default to the values
+[Planetiler](https://github.com/onthegomap/planetiler) uses.
 
 | Key        | Below the layer's max zoom | At the layer's max zoom                           |
 |------------|----------------------------|---------------------------------------------------|

@@ -79,10 +79,23 @@ pub struct CopierArgs {
 #[serde_with::serde_as]
 #[derive(clap::Args, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
+    /// How to produce the tiles. `auto` picks one, and for now always picks `tile`.
+    #[arg(long, value_enum, default_value_t = CopyMode::Auto)]
+    pub mode: CopyMode,
     /// Name of the source to copy from. Not required if there is only one source.
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, a comma-separated list of table sources, all of them by default."
+    )]
     #[arg(short, long)]
     pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, an `.mbtiles` file that is new or empty, or a new `.pmtiles` archive."
+    )]
     #[arg(short, long)]
     pub output_file: PathBuf,
     /// Output format of the new destination file. Ignored if the file exists. [DEFAULT: normalized]
@@ -100,41 +113,66 @@ pub struct CopyArgs {
     ///
     /// If set to multiple values like `gzip,br`, the first encoding is used,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
-    /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
-    #[arg(long, alias = "encodings", default_value = "gzip")]
-    pub encoding: String,
+    /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG. [DEFAULT: gzip]
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, one compression: `gzip`, `zlib` or `none` for `MBTiles`; `gzip`, `br`, `zstd` or `none` for MVT in `PMTiles`; only `none` for MLT in `PMTiles`. Defaults to `none` for MLT in `PMTiles`, otherwise `gzip`."
+    )]
+    #[arg(long, alias = "encodings")]
+    pub encoding: Option<String>,
     /// Tile format to request from the source.
     ///
     /// A vector source converts between MVT and MLT unless `convert_to_{mlt,mvt}` turns
     /// that off, and a source that can neither produce nor convert to this format fails the copy.
     /// Defaults to what the source produces.
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, `mvt` or `mlt`, and `mlt` by default."
+    )]
     #[arg(long, value_name = "FORMAT", value_enum)]
     pub format: Option<CopyFormat>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
-    /// Number of concurrent connections to use.
-    #[arg(long, default_value = "1")]
-    pub concurrency: NonZeroUsize,
+    /// Number of concurrent connections to use. [DEFAULT: 1]
+    #[arg(long)]
+    pub concurrency: Option<NonZeroUsize>,
     /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
     ///
     /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
     ///
     /// For a source on a tile grid other than Web Mercator the bounds are `min_x,min_y,max_x,max_y` in the grid's CRS units, and the whole grid is copied if omitted.
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, at most one box. Only features intersecting it are rendered, so low-zoom tiles are not filled with data from outside the box. The whole world if omitted."
+    )]
     #[arg(long)]
     pub bbox: Vec<Bounds>,
-    /// Minimum zoom level to copy
+    /// Minimum zoom level to copy. [DEFAULT: 0]
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, a source's own `minzoom` raises it."
+    )]
     #[arg(long, alias = "minzoom", conflicts_with("zoom_levels"))]
     pub min_zoom: Option<u8>,
-    /// Maximum zoom level to copy
-    #[arg(
-        long,
-        alias = "maxzoom",
-        conflicts_with("zoom_levels"),
-        required_unless_present("zoom_levels")
+    /// Maximum zoom level to copy. Required unless `--zoom-levels` is given.
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, a source's own `maxzoom` lowers it, and it defaults to 14."
     )]
+    #[arg(long, alias = "maxzoom", conflicts_with("zoom_levels"))]
     pub max_zoom: Option<u8>,
     /// List of zoom levels to copy
+    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(
+        feature = "unstable-generate",
+        doc = "In bulk mode, the levels must not skip a zoom."
+    )]
     #[arg(short, long, alias = "zooms", value_delimiter = ',')]
     pub zoom_levels: Vec<u8>,
     /// Skip generating a global hash for mbtiles validation. By default, the `agg_tiles_hash` metadata value is computed and updated.
@@ -143,6 +181,42 @@ pub struct CopyArgs {
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
+    /// Bulk mode: memory for sorting, e.g. `512MB` or `2GiB`, split over the threads. A bare number is in MB. [DEFAULT: 2GiB]
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long, value_parser = crate::config::args::parse_byte_size)]
+    pub memory: Option<u64>,
+    /// Bulk mode: directories for temporary sorted runs, used round-robin. Defaults to the system temp directory.
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long)]
+    pub temp_dir: Vec<PathBuf>,
+    /// Bulk mode: worker threads. Defaults to the number of CPUs.
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long)]
+    pub threads: Option<NonZeroUsize>,
+}
+
+/// How `martin cp` produces the tiles it writes.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    clap::ValueEnum,
+    serde::Deserialize,
+    serde::Serialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum CopyMode {
+    /// Request every tile from the source, as the tile server does.
+    Tile,
+    /// Pick a mode for the run; for now always `tile`.
+    #[default]
+    Auto,
+    /// Read each table once and render every zoom from it. `PostgreSQL` table sources only.
+    #[cfg(feature = "unstable-generate")]
+    Bulk,
 }
 
 /// Vector tile format `martin cp` requests from the source.
@@ -184,20 +258,27 @@ impl CopyFormat {
 impl Default for CopyArgs {
     fn default() -> Self {
         Self {
+            mode: CopyMode::Auto,
             bbox: Vec::new(),
             source: None,
             output_file: PathBuf::new(),
             mbt_type: None,
             url_query: None,
-            encoding: "gzip".to_owned(),
+            encoding: None,
             format: None,
             on_duplicate: None,
-            concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
+            concurrency: None,
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::new(),
             skip_agg_tiles_hash: true,
             set_meta: Vec::new(),
+            #[cfg(feature = "unstable-generate")]
+            memory: None,
+            #[cfg(feature = "unstable-generate")]
+            temp_dir: Vec::new(),
+            #[cfg(feature = "unstable-generate")]
+            threads: None,
         }
     }
 }
@@ -217,8 +298,18 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
     }
 }
 
-/// Resolves the configured sources and copies the requested tiles into the output file.
+/// Runs the copy in the requested mode.
 pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
+    match copy_args.copy.mode {
+        CopyMode::Tile | CopyMode::Auto => copy_tiles(copy_args).await,
+        #[cfg(feature = "unstable-generate")]
+        CopyMode::Bulk => Ok(crate::generate::start(copy_args).await.map_err(Box::new)?),
+    }
+}
+
+/// Resolves the configured sources and copies the requested tiles into the output file.
+async fn copy_tiles(copy_args: CopierArgs) -> MartinCpResult<()> {
+    check_tile_mode_args(&copy_args.copy)?;
     info!(martin.version = %VERSION, "Starting Martin tile copier");
 
     let env = OsEnv;
@@ -259,6 +350,28 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     }
 
     run_tile_copy(copy_args.copy, sources).await
+}
+
+/// Refuses the options that only bulk mode reads, and a copy without zooms.
+fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
+    #[cfg(feature = "unstable-generate")]
+    {
+        let bulk_only: Vec<&str> = [
+            ("--memory", args.memory.is_some()),
+            ("--temp-dir", !args.temp_dir.is_empty()),
+            ("--threads", args.threads.is_some()),
+        ]
+        .into_iter()
+        .filter_map(|(option, used)| used.then_some(option))
+        .collect();
+        if !bulk_only.is_empty() {
+            return Err(MartinCpError::BulkOnlyOptions(bulk_only.join("`, `")));
+        }
+    }
+    if args.max_zoom.is_none() && args.zoom_levels.is_empty() {
+        return Err(MartinCpError::NoZooms);
+    }
+    Ok(())
 }
 
 /// On Web Mercator a bbox is longitude and latitude and must stay on the tiled world.
@@ -361,6 +474,13 @@ pub enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
+    #[error("Set the zooms to copy with `--max-zoom` or `--zoom-levels`")]
+    NoZooms,
+    #[error("Only `--mode bulk` reads `{0}`")]
+    BulkOnlyOptions(String),
+    #[cfg(feature = "unstable-generate")]
+    #[error(transparent)]
+    Generate(#[from] Box<crate::generate::GenerateError>),
     #[error(
         "bounding box '{0}' has a minimum greater than its maximum. Please check that your bounding box is in the `min_x,min_y,max_x,max_y` format, and on Web Mercator split a box that crosses the antimeridian into two `--bbox` values."
     )]
@@ -674,7 +794,7 @@ where
 {
     // 1. Validate and resolve the tile source
     let output_file = &args.output_file;
-    let concurrency = args.concurrency.get();
+    let concurrency = args.concurrency.map_or(1, NonZeroUsize::get);
     // we only warn that the concurrency might be too low if:
     // - a user has concurrency at the default
     // - there is at least one pg or remote pmtiles source
@@ -699,7 +819,7 @@ where
         None,
         args.url_query.as_deref().unwrap_or_default(),
         TileRequestHeaders {
-            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            accept_enc: Some(parse_encoding(args.encoding.as_deref().unwrap_or("gzip"))?),
             accepted_formats: args.format.map(CopyFormat::accepted).unwrap_or_default(),
             ..Default::default()
         },
@@ -917,6 +1037,8 @@ impl MartinCpError {
     pub fn render_diagnostic_with(self, log_format: LogFormat) -> String {
         match self {
             Self::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
+            #[cfg(feature = "unstable-generate")]
+            Self::Generate(err) => err.render_diagnostic_with(log_format),
             other @ (Self::EncodingParse(_)
             | Self::Tile(_)
             | Self::Mbt(_)
@@ -925,6 +1047,8 @@ impl MartinCpError {
             | Self::MultipleSources(_)
             | Self::InvalidBoundingBox(..)
             | Self::InvertedBoundingBox(_)
+            | Self::NoZooms
+            | Self::BulkOnlyOptions(_)
             | Self::Args(_)
             | Self::Mbtiles(_)) => format!("{other}"),
         }
