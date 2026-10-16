@@ -73,14 +73,10 @@ postgres = [
 ]
 unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 unstable-cog = [
-    "dep:async-tiff",
-    "dep:futures",
+    "dep:cog-tiles",
+    "cog-tiles/object-store",
     "dep:object_store",
-    "dep:png",
     "dep:serde_json",
-    "dep:tiff",
-    "dep:tokio",
-    "tokio/rt",
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]
@@ -122,13 +118,12 @@ maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
-async-tiff = { workspace = true, optional = true }
-async-trait.workspace = true
 backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 bytes.workspace = true
 chrono.workspace = true
+cog-tiles = { workspace = true, optional = true }
 compact_str = { workspace = true, optional = true }
 contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
@@ -156,7 +151,6 @@ moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true, features = ["tilejson", "object-store", "mmap-async-tokio"] }
-png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
@@ -173,7 +167,6 @@ serde_with.workspace = true
 spreet = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }

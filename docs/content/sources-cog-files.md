@@ -25,7 +25,9 @@ tags:
 
     It is unstable due to the limitations of our current implementation:
 
-    - [`EPSG:3857`](https://epsg.io/3857) is not yet supported => <https://github.com/maplibre/martin/pull/1893>
+    - only COGs in [`EPSG:3857`](https://epsg.io/3857) that are tiled on the `WebMercatorQuad` grid are supported
+    - only 8-bit images are supported, so elevation data (16-bit or floating point) cannot be served yet
+    - transparency masks are ignored
 
     We welcome contributions to help stabilize this feature!
 
@@ -41,20 +43,29 @@ Each image is cut into internal tiles, so a `z/x/y` request maps onto exactly on
 Martin reads this mapping from the header once.
 Each tile is then one range read.
 
-## Supported color type and bits per sample
+## File requirements
 
-| color type | bits per sample | supported | status     |
-|------------|-----------------|-----------|------------|
-| rgb/rgba   | 8               | ✅        |            |
-| rgb/rgba   | 16/32...        | 🛠️        | working on |
-| gray       | 8/16/32...      | 🛠️        | working on |
+Because every served tile is exactly one internal tile of the file, nothing is resampled, and the file has to be laid out for that:
 
-## Supported compression
+- The projected CRS must be [`EPSG:3857`](https://epsg.io/3857), with square pixels and no rotation.
+- The full-resolution image and every overview must have the resolution of a `WebMercatorQuad` zoom level for their tile size,
+  and their internal tiles must line up with that zoom's tiles.
+  An image that does not, such as an overview starting part-way into a tile, is skipped with a warning rather than served shifted;
+  the file is rejected only if none of its images can be served.
+- The image must be stored in square tiles (not strips), all of the same size, with the bands interleaved (`PlanarConfiguration=1`).
 
-- None
-- LZW
-- Deflate
-- PackBits
+GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG generation with GDAL](#cog-generation-with-gdal).
+
+## Supported formats
+
+| compression              | bands                                  | served as            |
+|--------------------------|----------------------------------------|----------------------|
+| JPEG                     | 8-bit gray, YCbCr, or RGB              | JPEG, passed through |
+| JPEG                     | 8-bit RGBA                             | PNG                  |
+| WebP                     | 8-bit RGB or RGBA                      | WebP, passed through |
+| None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG                  |
+
+Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
 
 ## Run Martin with CLI to serve cog files
 
@@ -191,9 +202,9 @@ You could generate cog with `gdal_translate` or `gdalwarp`. See more details in 
 # sudo apt update
 # sudo apt install gdal-bin
 
-# gdalwarp
-gdalwarp src1.tif src2.tif out.tif -of COG
+# gdalwarp, warping to Web Mercator and aligning every level to the tile grid
+gdalwarp src1.tif src2.tif out.tif -of COG -co TILING_SCHEME=GoogleMapsCompatible
 
 # or gdal_translate
-gdal_translate input.tif output_cog.tif -of COG
+gdal_translate input.tif output_cog.tif -of COG -co TILING_SCHEME=GoogleMapsCompatible
 ```

@@ -216,6 +216,7 @@ bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-inst
 
 # Bless the COG/GeoTIFF tests, including the end-to-end ones
 bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} -p cog-tiles --all-features
     {{insta_test}} -p martin --features unstable-cog --no-default-features --lib
     {{insta_test}} -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog
@@ -700,6 +701,8 @@ test-s3: fetch (cargo-install 'cargo-nextest')
 
 # Run COG/GeoTIFF tests only, including the end-to-end ones
 test-cog: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run -p cog-tiles --all-features
+    cargo test -p cog-tiles --all-features --doc
     cargo nextest run -p martin --features unstable-cog --no-default-features --lib
     cargo nextest run -p martin-core --features unstable-cog --no-default-features --lib
     cargo build --package martin --no-default-features --features unstable-cog

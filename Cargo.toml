@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "cog-tiles",
     "e2e-tests",
     "martin",
     "martin-config-macros",
@@ -104,6 +105,7 @@ bytesize = "2.7.0"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
+cog-tiles = { path = "cog-tiles", version = "0.1.0", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
@@ -136,6 +138,7 @@ indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
+jpeg-decoder = "0.3.1"
 json-patch = "4"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
@@ -201,7 +204,6 @@ tempfile = "3.21.0"
 test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
 thiserror = "2"
-tiff = "0.11.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.14"

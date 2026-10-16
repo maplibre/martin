@@ -1,0 +1,48 @@
+[package]
+name = "cog-tiles"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Read web map tiles from tile-aligned Cloud Optimized GeoTIFFs (COG) in local files or object stores, fetching only the bytes each tile needs"
+keywords = ["cog", "geotiff", "tiles", "webmercator", "gis"]
+categories = ["science::geo", "encoding", "asynchronous"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[package.metadata.docs.rs]
+features = ["__all"]
+
+[features]
+default = ["fs", "png"]
+# Read COGs from local files.
+fs = ["tokio/rt", "tokio/fs"]
+# Re-encode tiles that cannot be passed through as-is (e.g. deflate or LZW RGB) as PNG.
+png = ["dep:png"]
+# Read COGs from any `object_store` backend (S3, GCS, Azure, HTTP, memory, ...).
+object-store = ["dep:object_store"]
+
+#### These features are for the internal usage only
+# This is a list of features we use in docs.rs, CI and other places where we want everything.
+__all = ["fs", "png", "object-store"]
+
+[dependencies]
+async-tiff.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+futures.workspace = true
+object_store = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+jpeg-decoder.workspace = true
+object_store.workspace = true
+png.workspace = true
+rstest.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true

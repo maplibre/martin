@@ -321,7 +321,7 @@ async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
         ]
     }, {
         insta::assert_snapshot!(format!("{skipped}\n{missing}"), @r#"
-         WARN Skipping addition source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
+         WARN Skipping addition source.id=remote error=Unable to read AmazonS3(cogtest)/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
         ERROR error="Source remote does not exist"
         "#);
     });
@@ -347,7 +347,7 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
-    let tile_url = "/remote/19/85424/194685";
+    let tile_url = "/remote/19/85424/194686";
     assert_eq!(martin.get(tile_url).await.status(), 200);
 
     statics.set_fail_gets(true);
@@ -390,7 +390,7 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
             (r"(?m) +$", ""),
         ]
     }, {
-        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
+        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Unable to read AmazonS3(cogtest)/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
     });
 }
 
@@ -413,7 +413,7 @@ async fn a_replaced_remote_cog_is_detected_and_reloaded() {
         .await
         .expect("failed to start martin with a polled remote COG");
     // This tile is present in the original fixture and explicitly sparse in the replacement.
-    let tile_url = "/remote/19/85424/194685";
+    let tile_url = "/remote/19/85424/194686";
     let original = martin.get(tile_url).await;
     assert_eq!(original.status(), 200);
     assert_ne!(original.body(), b"");
@@ -494,7 +494,7 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
 
     martin.wait_for_source("first").await;
     martin.wait_for_source("removed").await;
-    let first_tile = "/first/19/85424/194685";
+    let first_tile = "/first/19/85424/194686";
     let original = martin.get(first_tile).await;
     assert_eq!(original.status(), 200);
     assert_ne!(original.body(), b"");
@@ -518,7 +518,7 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
     })
     .await
     .expect("a replaced object under the prefix must reload within the poll window");
-    assert_eq!(martin.get("/second/19/85424/194685").await.status(), 200);
+    assert_eq!(martin.get("/second/19/85424/194686").await.status(), 200);
 
     martin.stop().await;
     let list_requests = statics
@@ -644,7 +644,7 @@ async fn the_tilejson_bounds_are_the_area_the_image_covers() {
         42.0003251483
       ],
       "center": [
-        -121.3549804687,
+        -121.3549804688,
         41.9676592037,
         15
       ],
@@ -725,9 +725,9 @@ async fn the_shape_of_a_tile_response() {
 
     let tile = martin.get("/usda_naip_128_none_z2/18/42712/97343").await;
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
-    content-length: 5031
+    content-length: 4762
     content-type: image/png
-    etag: "HzR-km-Kc313WfVG2_0Kew"
+    etag: "hJserbINZD8vUVjU3HbGow"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
@@ -863,61 +863,53 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
 #[rstest]
 #[case::compression_must_be_one_martin_can_decode(
     |cog: CogFixture| cog.set_short(0, tag::COMPRESSION, 32773),
-    "The compression type 32773 of the tiff file"
+    "PackBits compression with 4 RGB samples is not supported"
 )]
 #[case::the_planar_configuration_must_be_chunky(
     |cog: CogFixture| cog.set_short(0, tag::PLANAR_CONFIGURATION, 2),
-    "Unsupported planar configuration 2 at IFD 0"
+    "bands are stored separately (PlanarConfiguration=2)"
 )]
 #[case::the_projected_crs_must_be_web_mercator(
     |cog: CogFixture| cog.set_geo_key(PROJECTED_CRS_GEO_KEY, 4326),
-    "The projected coordinate reference system must be EPSG:3857"
+    "its CRS is EPSG:4326, but only EPSG:3857 (Web Mercator) is supported"
 )]
 #[case::the_geo_keys_must_be_a_directory_martin_can_walk(
     |cog: CogFixture| cog.set_geo_key_header([1, 1, 0, 0]),
-    "The projected coordinate reference system must be EPSG:3857"
+    "it has no projected CRS, but only EPSG:3857 (Web Mercator) is supported"
 )]
 #[case::the_geo_keys_must_be_present(
     |cog: CogFixture| cog.remove_tag(0, tag::GEO_KEY_DIRECTORY),
-    "The projected coordinate reference system must be EPSG:3857"
+    "it has no GeoTIFF GeoKeyDirectory"
 )]
 #[case::the_pixels_must_be_square(
     |cog: CogFixture| cog.set_double(0, tag::MODEL_PIXEL_SCALE, 1, 99.0),
-    "is not squared, the x_scale is 0.5971642834779395, the y_scale is 99"
-)]
-#[case::the_pixel_scale_must_have_three_values(
-    |cog: CogFixture| cog.set_count(0, tag::MODEL_PIXEL_SCALE, 2),
-    "The count of pixel scale should be 3"
+    "pixels are not square (0.5971642834779395 x 99 m)"
 )]
 #[case::the_tie_points_must_come_in_sixes(
     |cog: CogFixture| cog.set_count(0, tag::MODEL_TIEPOINT, 5),
-    "The count of tie points should be a multiple of 6"
-)]
-#[case::the_transformation_matrix_must_have_sixteen_values(
-    |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12),
-    "The length of matrix should be 16"
+    "ModelPixelScale or ModelTiepoint has too few values"
 )]
 #[case::the_image_must_be_georeferenced_at_all(
     |cog: CogFixture| cog.remove_tag(0, tag::MODEL_PIXEL_SCALE).remove_tag(0, tag::MODEL_TIEPOINT),
-    "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided"
+    "it has neither ModelPixelScale + ModelTiepoint nor ModelTransformation"
 )]
 #[case::every_overview_must_land_on_a_web_mercator_zoom(
     |cog: CogFixture| cog
-        .set_short(0, tag::TILE_WIDTH, 300)
-        .set_short(0, tag::TILE_LENGTH, 300),
-    "Calculating the image zoom level failed for"
+        .set_double(0, tag::MODEL_PIXEL_SCALE, 0, 0.7)
+        .set_double(0, tag::MODEL_PIXEL_SCALE, 1, 0.7),
+    "image 0 has 0.7 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 1 has 1.4 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 2 has 2.8 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles"
 )]
 #[case::every_overview_must_be_readable(
     |cog: CogFixture| cog.remove_tag(2, tag::IMAGE_WIDTH),
-    "TIFF metadata parser panicked: image_width not found"
+    "the TIFF parser failed on malformed metadata: image_width not found"
 )]
 #[case::every_overview_must_use_the_same_tile_size(
     |cog: CogFixture| cog.set_short(2, tag::TILE_WIDTH, 512),
-    "The size of each tile is not consistent."
+    "image 2 uses a different internal tile size"
 )]
 #[case::the_bands_must_be_a_color_type_martin_can_re_encode(
     |cog: CogFixture| cog.set_short(0, tag::PHOTOMETRIC_INTERPRETATION, 0),
-    "Unsupported color layout WhiteIsZero, 4 samples"
+    "LZW compression with 4 WhiteIsZero samples is not supported"
 )]
 #[tokio::test]
 async fn a_file_that_breaks_a_requirement_is_rejected(
@@ -936,26 +928,70 @@ async fn a_file_that_breaks_a_requirement_is_rejected(
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    assert!(
-        log.contains(expected),
-        "log must say why the file was rejected, expected {expected:?}; log:\n{log}"
+    let path = path.display().to_string();
+    let warnings: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("Tile source resolution warning"))
+        .collect();
+    assert_eq!(
+        warnings,
+        [format!(
+            "ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path {path}: {path} cannot be read as tiles: {expected} warnings.count=1"
+        )]
     );
+}
+
+/// Only the values Martin uses must be present: the pixel scale's X and Y, and the first two rows
+/// of the transformation matrix.
+#[rstest]
+#[case::a_pixel_scale_without_a_z_scale(
+    |cog: CogFixture| cog.set_count(0, tag::MODEL_PIXEL_SCALE, 2)
+)]
+#[case::a_transformation_matrix_without_its_last_row(
+    |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12)
+)]
+#[tokio::test]
+async fn a_georeference_without_its_unused_values_is_accepted(
+    #[case] trim_it: fn(CogFixture) -> CogFixture,
+) {
+    let tmp = temp_dir();
+    let path = trim_it(CogFixture::new("usda_naip_256_lzw_z3")).write_to(tmp.path(), "trimmed");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/trimmed/16/10677/24336").await.status(), 200);
+
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
+    let path = fixture("files/striped_not_tiled.tif");
     let error = Martin::builder()
-        .arg(fixture("files/striped_not_tiled.tif"))
+        .arg(&path)
         .start()
         .await
         .expect_err("martin must refuse to publish a striped TIFF");
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("Striped tiff file is not supported"),
-        "log must say the file is striped; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in strips, not tiles warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        ");
+    });
 }
 
 #[tokio::test]
@@ -972,10 +1008,20 @@ async fn a_file_that_is_not_a_tiff_is_rejected() {
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("as tiff file:"),
-        "log must say the file could not be decoded; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @r#"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: Unable to decode TIFF [PATH]: General error: unexpected magic bytes b"th" warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        "#);
+    });
 }
 
 /// A north-up image may state its georeferencing as a transformation matrix instead of a pixel
@@ -1044,4 +1090,34 @@ async fn a_tile_the_image_leaves_out_is_empty() {
     assert!(left_out.body().is_empty(), "a tile left out has no body");
 
     martin.stop().await;
+}
+
+/// An overview half a tile off the tile grid is skipped with a warning; the aligned full-resolution
+/// image is still served. This puts the fixture back where it was before its overview was aligned.
+#[tokio::test]
+async fn a_misaligned_overview_is_skipped_with_a_warning() {
+    let tmp = temp_dir();
+    let path = CogFixture::new("usda_naip_128_none_z2")
+        .set_double(0, tag::MODEL_TIEPOINT, 4, 5_156_365.491_089_705)
+        .write_to(tmp.path(), "misaligned");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tilejson = tilejson(&martin, "misaligned").await;
+    assert_eq!(tilejson["minzoom"], 19);
+    assert_eq!(tilejson["maxzoom"], 19);
+    assert_eq!(
+        martin.get("/misaligned/19/85424/194685").await.status(),
+        200
+    );
+
+    martin.stop().await;
+    let skipped = martin
+        .take_log_lines("Skipping a COG image")
+        .join("\n")
+        .replace(&format!("{:?}", path.display().to_string()), "[PATH]");
+    insta::assert_snapshot!(skipped, @" WARN resolve:resolve_tile_sources: Skipping a COG image that cannot be served cog.location=[PATH] reason=image 1 is not aligned to the zoom 18 tile grid");
 }
