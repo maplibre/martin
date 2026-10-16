@@ -1,9 +1,11 @@
 use std::path::Path;
+use std::sync::mpsc::sync_channel;
+use std::thread;
 
 use mbtiles::sqlx::{AssertSqlSafe, SqliteConnection, raw_sql};
 use mbtiles::{
-    CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup, init_mbtiles_schema,
-    is_empty_database,
+    AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup,
+    init_mbtiles_schema, is_empty_database,
 };
 use tilejson::TileJSON;
 use tokio::runtime::Handle;
@@ -16,12 +18,17 @@ const MBT_TYPE: MbtType = MbtType::Normalized {
     schema: NormalizedSchema::DedupId,
 };
 
-/// Writes a new deduplicated (`DedupId`) `MBTiles` file through [`Mbtiles::bulk_write`].
+/// Written batches waiting for the hashing thread.
+const HASH_QUEUE: usize = 2;
+
+/// Writes a new deduplicated (`DedupId`) `MBTiles` file through [`Mbtiles::bulk_write`], hashing the
+/// written tiles on another thread for `agg_tiles_hash`.
 /// The mbtiles crate is async, so the sink blocks on the tokio runtime it was created in.
 pub struct MbtilesSink {
     runtime: Handle,
     mbt: Mbtiles,
     conn: SqliteConnection,
+    hasher: Option<AggTilesHasher>,
 }
 
 impl MbtilesSink {
@@ -29,7 +36,7 @@ impl MbtilesSink {
     pub fn create(path: &Path) -> TileGenResult<Self> {
         let runtime = Handle::current();
         let mbt = Mbtiles::new(path)?;
-        let conn = runtime.block_on(async {
+        let (conn, algorithm) = runtime.block_on(async {
             let mut conn = mbt.open_or_new().await?;
             if !is_empty_database(&mut conn).await? {
                 return Err(TileGenError::OutputNotEmpty(path.to_path_buf()));
@@ -39,9 +46,15 @@ impl MbtilesSink {
                 .execute(&mut conn)
                 .await
                 .map_err(mbtiles::MbtError::from)?;
-            Ok(conn)
+            let algorithm = mbt.get_hash_algorithm(&mut conn).await?;
+            Ok((conn, algorithm))
         })?;
-        Ok(Self { runtime, mbt, conn })
+        Ok(Self {
+            runtime,
+            mbt,
+            conn,
+            hasher: Some(AggTilesHasher::new(algorithm)),
+        })
     }
 }
 
@@ -54,23 +67,62 @@ impl TileSink for MbtilesSink {
         &mut self,
         batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
     ) -> TileGenResult<()> {
-        let Self { runtime, mbt, conn } = self;
-        let write = mbt.bulk_write(conn, MBT_TYPE, CopyDuplicateMode::Abort, |writer| {
-            for batch in batches {
-                for tile in batch? {
-                    let dedup = tile.dedup_key.map_or(TileDedup::Unique, TileDedup::Key);
-                    writer.write(tile.coord, &tile.data, dedup)?;
+        let Self {
+            runtime,
+            mbt,
+            conn,
+            hasher,
+        } = self;
+        let mut running = hasher.take();
+        let hashing_in = running.is_some();
+        let (tx, rx) = sync_channel::<Vec<EncodedTile>>(HASH_QUEUE);
+        thread::scope(|scope| {
+            let hashing = scope.spawn(move || {
+                for batch in rx {
+                    if let Some(hasher) = &mut running {
+                        for tile in &batch {
+                            hasher.push(tile.coord, &tile.data);
+                        }
+                    }
                 }
-            }
-            Ok(())
-        });
-        runtime.block_on(write)
+                running
+            });
+            let write = mbt.bulk_write(conn, MBT_TYPE, CopyDuplicateMode::Abort, |writer| {
+                for batch in batches {
+                    let batch = batch?;
+                    for tile in &batch {
+                        let dedup = tile.dedup_key.map_or(TileDedup::Unique, TileDedup::Key);
+                        writer.write(tile.coord, &tile.data, dedup)?;
+                    }
+                    tx.send(batch).ok();
+                }
+                Ok(())
+            });
+            let written = runtime.block_on(write);
+            drop(tx);
+            let hashed = hashing.join().ok().flatten();
+            debug_assert!(
+                written.is_err()
+                    || !hashing_in
+                    || hashed.as_ref().is_some_and(AggTilesHasher::in_key_order),
+                "tiles came out of TMS order"
+            );
+            *hasher = if written.is_ok() { hashed } else { None };
+            written
+        })
     }
 
     fn finish(mut self, metadata: &TileJSON) -> TileGenResult<()> {
         self.runtime.block_on(async {
             self.mbt.insert_metadata(&mut self.conn, metadata).await?;
-            self.mbt.update_agg_tiles_hash(&mut self.conn).await?;
+            match self.hasher {
+                Some(hasher) => {
+                    self.mbt
+                        .finish_agg_tiles_hash(&mut self.conn, hasher)
+                        .await?
+                }
+                None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
+            };
             Ok(())
         })
     }
@@ -102,10 +154,10 @@ mod tests {
                 let batches = vec![
                     Ok(vec![
                         tile(0, 0, 0, b"root", None),
-                        tile(1, 0, 0, b"fill", Some(1)),
+                        tile(1, 0, 1, b"fill", Some(1)),
                     ]),
                     Ok(vec![
-                        tile(1, 0, 1, b"fill", Some(1)),
+                        tile(1, 0, 0, b"fill", Some(1)),
                         tile(1, 1, 1, b"leaf", None),
                     ]),
                 ];
@@ -136,6 +188,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(blobs, 3);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "tiles came out of TMS order")]
+    fn tiles_out_of_tms_order_panic_in_debug() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let _runtime = runtime.enter();
+        let dir = tempfile::tempdir().unwrap();
+        let mut sink = MbtilesSink::create(&dir.path().join("out.mbtiles")).unwrap();
+        let batches = vec![Ok(vec![
+            tile(1, 0, 0, b"a", None),
+            tile(1, 0, 1, b"b", None),
+        ])];
+        sink.write_all(&mut batches.into_iter()).unwrap();
     }
 
     #[tokio::test]

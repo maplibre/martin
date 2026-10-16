@@ -18,7 +18,7 @@ use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
-    Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
+    AggTilesHasher, Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
     is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
     is_normalized_tables_type,
 };
@@ -843,9 +843,49 @@ LIMIT 1;"
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn, algorithm).await?;
+        self.store_agg_tiles_hash(conn, algorithm, hash).await
+    }
+
+    /// Saves the `agg_tiles_hash` that `hasher` computed while the tiles were written, or computes it
+    /// from the file, as [`update_agg_tiles_hash`](Self::update_agg_tiles_hash) does, if `hasher` has
+    /// none for the file's algorithm.
+    #[hotpath::measure]
+    pub async fn finish_agg_tiles_hash<T>(
+        &self,
+        conn: &mut T,
+        hasher: AggTilesHasher,
+    ) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        let written = if hasher.algorithm() == algorithm {
+            hasher.finish()
+        } else {
+            None
+        };
+        let hash = if let Some(hash) = written {
+            hash
+        } else {
+            debug!(mbtiles.file = %self, "Tiles were not hashed in key order as they were written");
+            calc_agg_tiles_hash(&mut *conn, algorithm).await?
+        };
+        self.store_agg_tiles_hash(conn, algorithm, hash).await
+    }
+
+    /// Saves `hash` as the file's `agg_tiles_hash`, computed with `algorithm`.
+    async fn store_agg_tiles_hash<T>(
+        &self,
+        conn: &mut T,
+        algorithm: HashAlgorithm,
+        hash: String,
+    ) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         self.set_metadata_value(&mut *conn, HASH_ALGORITHM, algorithm.as_str())
             .await?;
         if old_hash.as_ref() == Some(&hash) {
