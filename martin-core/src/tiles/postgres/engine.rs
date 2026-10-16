@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, Encoding, TileCoord, TileData, TileRect};
 use martin_tilegen::plan::Plan;
-use martin_tilegen::{TileFormat, TileGenError, render_block};
-use tracing::debug;
+use martin_tilegen::{Summary, TileFormat, TileGenError, render_block};
+use tracing::{debug, warn};
 
 use super::scan::{ScanLayout, scan_features};
 use super::{PostgresError, PostgresPool, PostgresResult};
@@ -63,7 +63,7 @@ impl PostgresEngineInfo {
         drop(conn);
 
         let plan = Arc::clone(&self.plan);
-        let tiles = tokio::task::spawn_blocking(move || {
+        let (tiles, summary) = tokio::task::spawn_blocking(move || {
             render_block(
                 &plan,
                 &mut batches,
@@ -75,6 +75,7 @@ impl PostgresEngineInfo {
         .await
         .unwrap_or_else(|panic| std::panic::resume_unwind(panic.into_panic()))
         .map_err(failed)?;
+        report(source_id, xyz, &summary);
         Ok(tiles
             .into_iter()
             .next()
@@ -105,4 +106,39 @@ impl PostgresEngineInfo {
         };
         [main, wrapped]
     }
+}
+
+/// Logs what rendering the block around `xyz` could not do. The plan already warns about the first
+/// failure of each expression, so expression failures only show at debug level here.
+fn report(source_id: &str, xyz: TileCoord, summary: &Summary) {
+    for failed in &summary.slice_errors {
+        warn!(
+            source.id = source_id,
+            tile.coord = %xyz,
+            layer.id = %failed.layer,
+            feature_zooms.skipped = failed.errors,
+            feature.id = failed.id,
+            tile.zoom = failed.zoom,
+            error = %failed.error,
+            "Skipped feature-zooms whose geometry the slicer could not handle"
+        );
+    }
+    for failed in &summary.expr_errors {
+        debug!(
+            source.id = source_id,
+            tile.coord = %xyz,
+            "Layer `{}`: `{}` failed {} times and was taken as null",
+            failed.layer,
+            failed.expr,
+            failed.errors
+        );
+    }
+    debug!(
+        source.id = source_id,
+        tile.coord = %xyz,
+        features = summary.features,
+        features.skipped = summary.skipped,
+        tiles = summary.tiles,
+        "Rendered the block around a tile"
+    );
 }
