@@ -369,6 +369,21 @@ impl AnySource {
         }
     }
 
+    /// Every tile of the block a cache miss of `xyz` renders, `xyz` among them, for the caller to cache.
+    ///
+    /// `None` means this source renders one tile at a time, and the caller has to fall back to
+    /// [`get_tile_with_etag`](Self::get_tile_with_etag).
+    #[cfg(feature = "unstable-generate")]
+    pub async fn get_tile_block(
+        &self,
+        xyz: TileCoord,
+    ) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
+        match self {
+            Self::Backend(BackendSource::Postgres(source)) => source.get_tile_block(xyz).await,
+            Self::Backend(_) | Self::DeclaredGrid(_) => Ok(None),
+        }
+    }
+
     /// Retrieves tile with etag for the given coordinates.
     pub async fn get_tile_with_etag(
         &self,
