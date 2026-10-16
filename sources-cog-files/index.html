@@ -1181,10 +1181,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#supported-color-type-and-bits-per-sample" class="md-nav__link">
+  <a href="#file-requirements" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Supported color type and bits per sample
+        File requirements
       </span>
     </span>
   </a>
@@ -1192,10 +1192,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#supported-compression" class="md-nav__link">
+  <a href="#supported-formats" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Supported compression
+        Supported formats
       </span>
     </span>
   </a>
@@ -2545,7 +2545,9 @@ Its behavior may change in patch releases.</p>
 </span></code></pre></div>
 <p>It is unstable due to the limitations of our current implementation:</p>
 <ul>
-<li><a href="https://epsg.io/3857"><code>EPSG:3857</code></a> is not yet supported =&gt; <a href="https://github.com/maplibre/martin/pull/1893">https://github.com/maplibre/martin/pull/1893</a></li>
+<li>only COGs in <a href="https://epsg.io/3857"><code>EPSG:3857</code></a> that are tiled on the <code>WebMercatorQuad</code> grid are supported</li>
+<li>only 8-bit images are supported, so elevation data (16-bit or floating point) cannot be served yet</li>
+<li>transparency masks are ignored</li>
 </ul>
 <p>We welcome contributions to help stabilize this feature!</p>
 </div>
@@ -2556,44 +2558,50 @@ Each image is cut into internal tiles, so a <code>z/x/y</code> request maps onto
 <p><svg id="cog-zxy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" width="100%" role="img" aria-label="A COG holds one image per zoom, each cut into internal tiles; z picks the image, x and y pick its tile, and the tile tables point at the bytes to read"><title>A COG holds one image per zoom, each cut into internal tiles; z picks the image, x and y pick its tile, and the tile tables point at the bytes to read</title><style>#cog-zxy{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#cog-zxy .fg{fill:var(--md-default-fg-color,#000000de)}#cog-zxy .muted{fill:var(--md-default-fg-color--light,#0000008a)}#cog-zxy .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#cog-zxy .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#cog-zxy .head{fill:var(--md-default-fg-color--light,#0000008a)}#cog-zxy text{dominant-baseline:central}#cog-zxy .t{font-weight:600}#cog-zxy .s{font-size:11px}#cog-zxy .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}#cog-zxy .box{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#cog-zxy .hi{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#cog-zxy .sel{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.3;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#cog-zxy .acc{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#cog-zxy .ghost{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5;stroke-dasharray:4 3}#cog-zxy .apron{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5;stroke-dasharray:5 3}#cog-zxy .accline{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:2}#cog-zxy .accdot{fill:var(--md-accent-fg-color,#7c4dff)}#cog-zxy .accarrow{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:1.5}#cog-zxy .acchead{fill:var(--md-accent-fg-color,#7c4dff)}</style><rect class="box" x="40" y="202" width="48" height="48" rx="0"/><text class="fg s t" x="64" y="190" text-anchor="middle">zoom 12</text><text class="muted s" x="64" y="264" text-anchor="middle">overview</text><rect class="hi" x="130" y="154" width="48" height="48" rx="0"/><rect class="sel" x="178" y="154" width="48" height="48" rx="0"/><rect class="hi" x="130" y="202" width="48" height="48" rx="0"/><rect class="hi" x="178" y="202" width="48" height="48" rx="0"/><text class="fg s t" x="178" y="142" text-anchor="middle">zoom 13</text><text class="muted s" x="178" y="264" text-anchor="middle">overview</text><rect class="box" x="270" y="74" width="44" height="44" rx="0"/><rect class="box" x="314" y="74" width="44" height="44" rx="0"/><rect class="box" x="358" y="74" width="44" height="44" rx="0"/><rect class="box" x="402" y="74" width="44" height="44" rx="0"/><rect class="box" x="270" y="118" width="44" height="44" rx="0"/><rect class="box" x="314" y="118" width="44" height="44" rx="0"/><rect class="box" x="358" y="118" width="44" height="44" rx="0"/><rect class="box" x="402" y="118" width="44" height="44" rx="0"/><rect class="box" x="270" y="162" width="44" height="44" rx="0"/><rect class="box" x="314" y="162" width="44" height="44" rx="0"/><rect class="box" x="358" y="162" width="44" height="44" rx="0"/><rect class="box" x="402" y="162" width="44" height="44" rx="0"/><rect class="box" x="270" y="206" width="44" height="44" rx="0"/><rect class="box" x="314" y="206" width="44" height="44" rx="0"/><rect class="box" x="358" y="206" width="44" height="44" rx="0"/><rect class="box" x="402" y="206" width="44" height="44" rx="0"/><text class="fg s t" x="358" y="62" text-anchor="middle">zoom 14</text><text class="muted s" x="358" y="264" text-anchor="middle">full resolution</text><text class="muted s" x="243" y="290" text-anchor="middle">one TIFF image (IFD) per zoom</text><rect class="hi" x="130" y="22" width="220" height="30" rx="15"/><text class="fg mono" x="240" y="37" text-anchor="middle">GET /dem/13/{x}/{y}</text><path class="arrow" d="M178 52 L178 140"/><path class="head" d="M178 140 L174.0 132.0 L182.0 132.0 Z"/><text class="fg t s" x="500" y="40" text-anchor="start">1. z -&gt; image</text><text class="muted s" x="500" y="57" text-anchor="start">zoom 13</text><text class="fg t s" x="500" y="84" text-anchor="start">2. x, y -&gt; tile</text><text class="muted s" x="500" y="101" text-anchor="start">column 1, row 0</text><text class="fg t s" x="500" y="128" text-anchor="start">3. tile -&gt; bytes</text><text class="muted s" x="500" y="145" text-anchor="start">TileOffsets[i], TileByteCounts[i]</text><text class="fg t s" x="500" y="180" text-anchor="start">.tif file</text><rect class="box" x="500" y="196" width="110" height="34" rx="0"/><text class="muted s" x="555" y="213" text-anchor="middle">header, IFDs</text><rect class="box" x="610" y="196" width="24" height="34" rx="0"/><rect class="box" x="634" y="196" width="24" height="34" rx="0"/><rect class="box" x="658" y="196" width="24" height="34" rx="0"/><rect class="box" x="682" y="196" width="24" height="34" rx="0"/><rect class="hi" x="706" y="196" width="24" height="34" rx="0"/><rect class="hi" x="730" y="196" width="24" height="34" rx="0"/><rect class="sel" x="754" y="196" width="24" height="34" rx="0"/><rect class="hi" x="778" y="196" width="24" height="34" rx="0"/><rect class="box" x="802" y="196" width="24" height="34" rx="0"/><rect class="box" x="826" y="196" width="24" height="34" rx="0"/><rect class="box" x="850" y="196" width="24" height="34" rx="0"/><rect class="box" x="874" y="196" width="24" height="34" rx="0"/><rect class="box" x="898" y="196" width="24" height="34" rx="0"/><path class="accarrow" d="M766 260 L766 234"/><path class="acchead" d="M766 234 L770.0 242.0 L762.0 242.0 Z"/><text class="muted s" x="766" y="272" text-anchor="middle">one range request</text><text class="muted s" x="610" y="246" text-anchor="start">tile data</text></svg></p>
 <p>Martin reads this mapping from the header once.
 Each tile is then one range read.</p>
-<h2 id="supported-color-type-and-bits-per-sample">Supported color type and bits per sample</h2>
+<h2 id="file-requirements">File requirements</h2>
+<p>Because every served tile is exactly one internal tile of the file, nothing is resampled, and the file has to be laid out for that:</p>
+<ul>
+<li>The projected CRS must be <a href="https://epsg.io/3857"><code>EPSG:3857</code></a>, with square pixels and no rotation.</li>
+<li>The full-resolution image and every overview must have the resolution of a <code>WebMercatorQuad</code> zoom level for their tile size,
+  and their internal tiles must line up with that zoom's tiles.
+  An image that does not, such as an overview starting part-way into a tile, is skipped with a warning rather than served shifted;
+  the file is rejected only if none of its images can be served.</li>
+<li>The image must be stored in square tiles (not strips), all of the same size, with the bands interleaved (<code>PlanarConfiguration=1</code>).</li>
+</ul>
+<p>GDAL produces such files with <code>-co TILING_SCHEME=GoogleMapsCompatible</code>, see <a href="#cog-generation-with-gdal">COG generation with GDAL</a>.</p>
+<h2 id="supported-formats">Supported formats</h2>
 <table>
 <thead>
 <tr>
-<th>color type</th>
-<th>bits per sample</th>
-<th>supported</th>
-<th>status</th>
+<th>compression</th>
+<th>bands</th>
+<th>served as</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>rgb/rgba</td>
-<td>8</td>
-<td>✅</td>
-<td></td>
+<td>JPEG</td>
+<td>8-bit gray, YCbCr, or RGB</td>
+<td>JPEG, passed through</td>
 </tr>
 <tr>
-<td>rgb/rgba</td>
-<td>16/32...</td>
-<td>🛠️</td>
-<td>working on</td>
+<td>JPEG</td>
+<td>8-bit RGBA</td>
+<td>PNG</td>
 </tr>
 <tr>
-<td>gray</td>
-<td>8/16/32...</td>
-<td>🛠️</td>
-<td>working on</td>
+<td>WebP</td>
+<td>8-bit RGB or RGBA</td>
+<td>WebP, passed through</td>
+</tr>
+<tr>
+<td>None, LZW, Deflate, ZSTD</td>
+<td>8-bit gray, gray + alpha, RGB, or RGBA</td>
+<td>PNG</td>
 </tr>
 </tbody>
 </table>
-<h2 id="supported-compression">Supported compression</h2>
-<ul>
-<li>None</li>
-<li>LZW</li>
-<li>Deflate</li>
-<li>PackBits</li>
-</ul>
+<p>Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.</p>
 <h2 id="run-martin-with-cli-to-serve-cog-files">Run Martin with CLI to serve cog files</h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Configured with a directory containing `*.tif` or `*.tiff` TIFF files.</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>martin<span class="w"> </span>/with/tiff/dir1<span class="w"> </span>/with/tiff/dir2
@@ -3284,11 +3292,11 @@ For quick access to tiles in TIFF files, Martin relies on the requirements/recom
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># sudo apt update</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># sudo apt install gdal-bin</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># gdalwarp</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># gdalwarp, warping to Web Mercator and aligning every level to the tile grid</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># or gdal_translate</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
 </span></code></pre></div>
 
 
