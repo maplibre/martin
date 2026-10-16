@@ -9,7 +9,7 @@ Each feature is read once, rendered for every zoom, and its tile pieces are spil
 encoded as MLT or MVT and written to an archive in the archive's preferred order.
 
 It is part of a long-requested Martin feature: generating tiles on the fly from a feature source when
-serving tiles, instead of relying on the source to contain tiles (MBTiles, PMTiles) or generate them
+serving tiles, instead of relying on the source to contain tiles (`MBTiles`, `PMTiles`) or generate them
 (PostgreSQL's `ST_AsMVT`). Features come from any source that can produce a stream of features.
 
 Moving tile generation out of the database also saves money. Scaling PostgreSQL is significantly harder
