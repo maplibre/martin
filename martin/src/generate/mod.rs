@@ -326,7 +326,7 @@ pub async fn start(args: GeneratorArgs) -> GenerateResult<()> {
 
 /// Created before the run starts, so that a failure removes only a file this run created.
 enum Output {
-    Mbtiles(MbtilesSink),
+    Mbtiles(Box<MbtilesSink>),
     Pmtiles(Box<PmtilesSink>),
 }
 
@@ -335,7 +335,7 @@ impl Output {
         if is_pmtiles(path) {
             PmtilesSink::create(path, format, encoding).map(|sink| Self::Pmtiles(Box::new(sink)))
         } else {
-            MbtilesSink::create(path).map(Self::Mbtiles)
+            MbtilesSink::create(path).map(|sink| Self::Mbtiles(Box::new(sink)))
         }
     }
 
@@ -348,7 +348,7 @@ impl Output {
     ) -> TileGenResult<Summary> {
         match self {
             Self::Mbtiles(sink) => {
-                generate(source, source.plan(), sink, config, metadata, progress)
+                generate(source, source.plan(), *sink, config, metadata, progress)
             }
             Self::Pmtiles(sink) => {
                 generate(source, source.plan(), *sink, config, metadata, progress)

@@ -4,6 +4,9 @@
 pub use bindiff::{PatchType, PatchTypeCli};
 pub use sqlx;
 
+mod agg_hash;
+pub use agg_hash::AggTilesHasher;
+
 mod bulk;
 pub use bulk::{MbtilesBulkWriter, TileDedup};
 
