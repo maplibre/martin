@@ -14,6 +14,7 @@ const WRITE_BUFFER_BYTES: usize = 1 << 20;
 /// records, so breaking key ties by run index keeps each worker's push order.
 pub(super) struct Run {
     pub(super) index: u32,
+    pub(super) bytes: u64,
     file: File,
     records: u64,
 }
@@ -40,12 +41,14 @@ impl RunWriter {
     }
 
     pub(super) fn finish(self) -> TileGenResult<Run> {
+        let file = self
+            .out
+            .into_inner()
+            .map_err(std::io::IntoInnerError::into_error)?;
         Ok(Run {
             index: self.index,
-            file: self
-                .out
-                .into_inner()
-                .map_err(std::io::IntoInnerError::into_error)?,
+            bytes: file.metadata()?.len(),
+            file,
             records: self.records,
         })
     }
