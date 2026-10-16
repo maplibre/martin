@@ -143,11 +143,11 @@ impl CogSource {
 }
 
 /// Logs the images of a COG that are not served, e.g. overviews that are off the tile grid.
-fn warn_skipped_images(location: &str, skipped: &[String]) {
+fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
     for reason in skipped {
         tracing::warn!(
             cog.location = location,
-            reason,
+            %reason,
             "Skipping a COG image that cannot be served"
         );
     }

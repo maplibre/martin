@@ -31,8 +31,8 @@ impl FileBackend {
             Ok::<_, io::Error>((file, size))
         })
         .await
-        .map_err(|e| backend_error(&location, io::Error::other(e)))?;
-        let (file, size) = opened.map_err(|e| backend_error(&location, e))?;
+        .map_err(|e| CogError::backend(&location, e))?;
+        let (file, size) = opened.map_err(|e| CogError::backend(&location, e))?;
         Ok(Self {
             file: Arc::new(file),
             size,
@@ -65,15 +65,8 @@ impl AsyncBackend for FileBackend {
             Ok::<_, io::Error>(Bytes::from(buf))
         })
         .await
-        .map_err(|e| backend_error(&self.location, io::Error::other(e)))?
-        .map_err(|e| backend_error(&self.location, e))
-    }
-}
-
-fn backend_error(location: &str, source: io::Error) -> CogError {
-    CogError::Backend {
-        location: location.to_owned(),
-        source: Box::new(source),
+        .map_err(|e| CogError::backend(&self.location, e))?
+        .map_err(|e| CogError::backend(&self.location, e))
     }
 }
 

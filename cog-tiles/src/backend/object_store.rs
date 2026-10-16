@@ -40,7 +40,7 @@ impl ObjectStoreBackend {
         let meta = store
             .head(&path)
             .await
-            .map_err(|e| backend_error(&location, e))?;
+            .map_err(|e| CogError::backend(&location, e))?;
         Ok(Self {
             store,
             path,
@@ -65,10 +65,10 @@ impl ObjectStoreBackend {
         self.store
             .get_opts(&self.path, options)
             .await
-            .map_err(|e| backend_error(&self.location, e))?
+            .map_err(|e| CogError::backend(&self.location, e))?
             .bytes()
             .await
-            .map_err(|e| backend_error(&self.location, e))
+            .map_err(|e| CogError::backend(&self.location, e))
     }
 }
 
@@ -96,12 +96,5 @@ impl AsyncBackend for ObjectStoreBackend {
             OBJECT_STORE_COALESCE_DEFAULT,
         )
         .await
-    }
-}
-
-fn backend_error(location: &str, source: object_store::Error) -> CogError {
-    CogError::Backend {
-        location: location.to_owned(),
-        source: Box::new(source),
     }
 }

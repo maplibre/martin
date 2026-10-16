@@ -3,7 +3,7 @@
 use async_tiff::ImageFileDirectory;
 
 use crate::tile::{HALF_EARTH, MAX_ZOOM, resolution};
-use crate::{CogError, CogResult};
+use crate::{CogError, CogResult, UnsupportedReason};
 
 /// `ProjectedCRSGeoKey` values that denote Web Mercator: the EPSG code and its deprecated alias.
 /// (The unofficial `900913` does not fit in a 16-bit `GeoKey`.)
@@ -36,69 +36,57 @@ pub(crate) struct Georef {
 impl Georef {
     /// Reads and validates the georeferencing of the full-resolution image.
     pub fn from_ifd(ifd: &ImageFileDirectory, location: &str) -> CogResult<Self> {
-        let unsupported = |reason: String| CogError::unsupported(location, reason);
+        let unsupported = |reason| CogError::unsupported(location, reason);
 
         let geo_keys = ifd
             .geo_key_directory()
-            .ok_or_else(|| unsupported("it has no GeoTIFF GeoKeyDirectory".to_owned()))?;
+            .ok_or_else(|| unsupported(UnsupportedReason::NoGeoKeys))?;
         match geo_keys.projected_type {
             Some(code) if WEB_MERCATOR_CODES.contains(&code) => {}
             Some(code) => {
-                return Err(unsupported(format!(
-                    "its CRS is EPSG:{code}, but only EPSG:3857 (Web Mercator) is supported"
-                )));
+                return Err(unsupported(UnsupportedReason::Crs { epsg: code }));
             }
             None => {
-                return Err(unsupported(
-                    "it has no projected CRS, but only EPSG:3857 (Web Mercator) is supported"
-                        .to_owned(),
-                ));
+                return Err(unsupported(UnsupportedReason::NoProjectedCrs));
             }
         }
 
-        let (mut origin_x, mut origin_y, scale_x, scale_y) = if let (Some(scale), Some(tie)) =
-            (ifd.model_pixel_scale(), ifd.model_tiepoint())
-        {
-            if scale.len() < 2 || tie.len() < 6 {
-                return Err(unsupported(
-                    "ModelPixelScale or ModelTiepoint has too few values".to_owned(),
-                ));
-            }
-            // The tiepoint maps raster (i, j) to model (x, y); move it to raster (0, 0).
-            let (sx, sy) = (scale[0], scale[1]);
-            (
-                tie[0].mul_add(-sx, tie[3]),
-                tie[1].mul_add(sy, tie[4]),
-                sx,
-                sy,
-            )
-        } else if let Some(m) = ifd.model_transformation() {
-            if m.len() < 8 {
-                return Err(unsupported(
-                    "ModelTransformation has fewer than 8 values".to_owned(),
-                ));
-            }
-            if m[1] != 0.0 || m[4] != 0.0 {
-                return Err(unsupported(
-                    "the image is rotated or sheared (ModelTransformation)".to_owned(),
-                ));
-            }
-            (m[3], m[7], m[0], -m[5])
-        } else {
-            return Err(unsupported(
-                "it has neither ModelPixelScale + ModelTiepoint nor ModelTransformation".to_owned(),
-            ));
-        };
+        let (mut origin_x, mut origin_y, scale_x, scale_y) =
+            if let (Some(scale), Some(tie)) = (ifd.model_pixel_scale(), ifd.model_tiepoint()) {
+                if scale.len() < 2 || tie.len() < 6 {
+                    return Err(unsupported(UnsupportedReason::ShortTiepoint));
+                }
+                // The tiepoint maps raster (i, j) to model (x, y); move it to raster (0, 0).
+                let (sx, sy) = (scale[0], scale[1]);
+                (
+                    tie[0].mul_add(-sx, tie[3]),
+                    tie[1].mul_add(sy, tie[4]),
+                    sx,
+                    sy,
+                )
+            } else if let Some(m) = ifd.model_transformation() {
+                if m.len() < 8 {
+                    return Err(unsupported(UnsupportedReason::ShortTransformation));
+                }
+                if m[1] != 0.0 || m[4] != 0.0 {
+                    return Err(unsupported(UnsupportedReason::Rotated));
+                }
+                (m[3], m[7], m[0], -m[5])
+            } else {
+                return Err(unsupported(UnsupportedReason::NoGeoreference));
+            };
 
         if !(scale_x.is_finite() && scale_y.is_finite() && scale_x > 0.0 && scale_y > 0.0) {
-            return Err(unsupported(format!(
-                "pixel size {scale_x} x {scale_y} is not positive (flipped images are not supported)"
-            )));
+            return Err(unsupported(UnsupportedReason::NonPositivePixelSize {
+                x: scale_x,
+                y: scale_y,
+            }));
         }
         if (scale_x - scale_y).abs() > MAX_NON_SQUARE_DIFFERENCE {
-            return Err(unsupported(format!(
-                "pixels are not square ({scale_x} x {scale_y} m)"
-            )));
+            return Err(unsupported(UnsupportedReason::NonSquarePixels {
+                x: scale_x,
+                y: scale_y,
+            }));
         }
         if geo_keys.raster_type == Some(RASTER_PIXEL_IS_POINT) {
             // The coordinates refer to pixel centers; tiles are aligned on pixel corners.
@@ -106,9 +94,7 @@ impl Georef {
             origin_y += scale_y / 2.0;
         }
         if !(origin_x.is_finite() && origin_y.is_finite()) {
-            return Err(unsupported(
-                "the image origin is not a finite number".to_owned(),
-            ));
+            return Err(unsupported(UnsupportedReason::NonFiniteOrigin));
         }
 
         Ok(Self {

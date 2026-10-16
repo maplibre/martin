@@ -2,7 +2,7 @@
 
 use bytes::Bytes;
 
-use crate::{CogError, CogResult};
+use crate::{CogError, CogResult, UnsupportedReason};
 
 /// Encodes `pixels` (row-major, `samples` interleaved bytes per pixel) as a square PNG.
 ///
@@ -21,7 +21,7 @@ pub(crate) fn encode_png(
         _ => {
             return Err(CogError::unsupported(
                 location,
-                format!("{samples} samples per pixel cannot be encoded as PNG"),
+                UnsupportedReason::PngSamples { samples },
             ));
         }
     };
@@ -29,7 +29,12 @@ pub(crate) fn encode_png(
     if pixels.len() != height * width * samples || height > size || width > size {
         return Err(CogError::unsupported(
             location,
-            format!("decoded tile is {width}x{height}x{samples}, expected at most {size}x{size}"),
+            UnsupportedReason::DecodedSize {
+                width,
+                height,
+                samples,
+                size,
+            },
         ));
     }
     let padded;

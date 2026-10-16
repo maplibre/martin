@@ -5,7 +5,7 @@ mod common;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use cog_tiles::{AsyncCogReader, CogError, MemoryBackend, TileCoord, TileFormat};
+use cog_tiles::{AsyncCogReader, CogError, MemoryBackend, SkippedImage, TileCoord, TileFormat};
 use common::*;
 
 async fn open(name: &str) -> AsyncCogReader<MemoryBackend> {
@@ -232,7 +232,7 @@ async fn misaligned_overviews_are_left_out() {
     assert_eq!((reader.info().min_zoom, reader.info().max_zoom), (16, 16));
     assert_eq!(
         reader.skipped_images(),
-        ["image 1 is not aligned to the zoom 15 tile grid"]
+        [SkippedImage::Misaligned { index: 1, zoom: 15 }]
     );
     let tile = TileCoord::new(16, Z15_X * 2 + 1, Z15_Y * 2).unwrap();
     assert!(reader.get_tile(tile).await.unwrap().is_some());
@@ -244,7 +244,7 @@ async fn misaligned_overviews_are_left_out() {
             .is_none()
     );
     let aligned = open("rgb_jpeg.tif").await;
-    assert_eq!(aligned.skipped_images(), &[] as &[String]);
+    assert_eq!(aligned.skipped_images(), &[] as &[SkippedImage]);
 }
 
 #[tokio::test]
