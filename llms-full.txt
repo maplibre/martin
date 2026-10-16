@@ -247,7 +247,7 @@ Features prefixed with `unstable-` are **not included** in default builds, Homeb
 cargo install martin --locked --features=unstable-duckdb
 ```
 
-The currently available unstable features are `unstable-cog` for [COG sources](<https://maplibre.org/martin/sources-cog-files/index.md>) and `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
+The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
 
 Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. You will need its build dependencies first (`just install-dependencies`).
 
@@ -981,9 +981,7 @@ martin --config config.yaml
 
 > [!NOTE]
 >
-> The generated reference and its JSON Schema cover the features included during schema generation. Unstable sources such as duckdb or cog are not included.
->
-> Unstable sources such as duckdb or cog are not included.
+> The generated reference and its JSON Schema cover the features included during schema generation. Unstable sources such as duckdb are not included.
 
 config.yaml
 
@@ -1058,6 +1056,37 @@ cache:
 # Endpoints with an explicit policy, such as the health check, keep their own header.
 # When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
 cache_control: null
+cog:
+  # Zoom-level bounds for caching the tiles of every COG source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # Sources that each serve many COG files as one, by source ID.
+  mosaics: {}
+  # A list of file paths
+  paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
+  # How often configured remote objects (`s3://`, `https://`, …) are re-checked for
+  # replacement and remote prefixes are re-listed for additions, replacements, and removals.
+  # Local directories are watched via filesystem events and ignore this setting.
+  #
+  # Supports human-readable formats: "10m", "1h", "30s".
+  # Defaults to "10m". Set to "0s" to disable remote polling and prefix discovery.
+  reload_interval: 10m
+  # A map of source IDs to file paths or config objects
+  sources: {}
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
 #
@@ -2813,24 +2842,6 @@ postgres:
 
 # Cloud Optimized GeoTIFF File Sources
 
-> [!WARNING]
->
-> This feature is currently unstable and thus not included in the default build. Its behavior may change in patch releases.
->
-> To experiment with it, [install Rust](<https://rust-lang.org/tools/install/>), and run this to download, compile, and install martin with the unstable feature:
->
-> ```bash
-> cargo install martin --features=unstable-cog
-> ```
->
-> It is unstable due to the limitations of our current implementation:
->
-> - only COGs in [`EPSG:3857`](<https://epsg.io/3857>) that are tiled on the `WebMercatorQuad` grid are supported
-> - only 8-bit images are supported, so elevation data (16-bit or floating point) cannot be served yet
-> - transparency masks are ignored
->
-> We welcome contributions to help stabilize this feature!
-
 Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](<https://cogeo.org/>) files.
 
 ## How Martin serves a COG
@@ -2859,6 +2870,11 @@ GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG
 | None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG |
 
 Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
+
+Not supported yet:
+
+- elevation data and other images that are not 8-bit (16-bit or floating point)
+- transparency masks, which are ignored
 
 ## Run Martin with CLI to serve cog files
 
@@ -2935,13 +2951,15 @@ cog:
       # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
       max_cached_files: 1000
       # How long an opened file is kept before it is opened again. Defaults to "10m".
-      cached_files_ttl: 10m
+      file_expiry: 10m
+      # How long an opened file is kept without being used. Defaults to none: kept until `file_expiry`.
+      file_idle_timeout: 5m
       # Like a source, a mosaic also takes `cache`, `cache_control`, `convert_to_hillshade`, and `convert_to_contour`.
 ```
 
 - Every file must meet the [file requirements](<#file-requirements>), cover its tile at `zoom`, and use the same tile size and format as the others. A file that does not is reported as an error for the tiles it would serve.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format. For a remote mosaic this needs permission to list the bucket prefix.
-- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `cached_files_ttl`. Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
+- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `file_expiry`. Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
 ## COG Hot Reload
@@ -2971,7 +2989,7 @@ If a `HEAD` request or prefix listing fails, Martin keeps serving what it had, s
 
 ### Mosaics
 
-Mosaics are not watched or polled. Each file is kept open for `cached_files_ttl` and opened again on its next use, which picks up replaced and added files.
+Mosaics are not watched or polled. Each file is kept open for `file_expiry` and opened again on its next use, which picks up replaced and added files. A file unused for `file_idle_timeout` is closed early and also opened again on its next use.
 
 ## Remote COG
 
@@ -7947,8 +7965,9 @@ If you build Martin or `martin-core` yourself with `--features` or `--no-default
 | `fonts`, `sprites`, `styles` | `resources` |
 | `hillshade`, `contour`, `geojson` | `processing` |
 | `mlt` | none, always enabled |
+| `unstable-cog` | `cog` |
 
-Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
+All are enabled by default, so default builds, release binaries and Docker images keep their features and now also serve [COG sources](<https://maplibre.org/martin/sources-cog-files/index.md>). `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
 
 ```bash
 # 1.x

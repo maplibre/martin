@@ -1607,9 +1607,13 @@ On older CPUs they fail with an illegal instruction error. aarch64 builds are un
 <td><code>mlt</code></td>
 <td>none, always enabled</td>
 </tr>
+<tr>
+<td><code>unstable-cog</code></td>
+<td><code>cog</code></td>
+</tr>
 </tbody>
 </table>
-<p>Both are enabled by default, so default builds, release binaries and Docker images are unchanged. <code>metrics</code>, <code>webui</code>, <code>tui</code>, <code>lambda</code> and the source features <code>postgres</code>, <code>pmtiles</code>, <code>mbtiles</code> and <code>passthrough</code> keep their names.</p>
+<p>All are enabled by default, so default builds, release binaries and Docker images keep their features and now also serve <a href="../sources-cog-files/">COG sources</a>. <code>metrics</code>, <code>webui</code>, <code>tui</code>, <code>lambda</code> and the source features <code>postgres</code>, <code>pmtiles</code>, <code>mbtiles</code> and <code>passthrough</code> keep their names.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1.x</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># 2.0</span>

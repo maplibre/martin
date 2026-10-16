@@ -218,8 +218,9 @@ If you build Martin or `martin-core` yourself with `--features` or `--no-default
 | `fonts`, `sprites`, `styles` | `resources` |
 | `hillshade`, `contour`, `geojson` | `processing` |
 | `mlt` | none, always enabled |
+| `unstable-cog` | `cog` |
 
-Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
+All are enabled by default, so default builds, release binaries and Docker images keep their features and now also serve [COG sources](<https://maplibre.org/martin/sources-cog-files/index.md>). `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
 
 ```bash
 # 1.x

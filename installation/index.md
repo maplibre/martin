@@ -100,7 +100,7 @@ Features prefixed with `unstable-` are **not included** in default builds, Homeb
 cargo install martin --locked --features=unstable-duckdb
 ```
 
-The currently available unstable features are `unstable-cog` for [COG sources](<https://maplibre.org/martin/sources-cog-files/index.md>) and `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
+The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
 
 Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. You will need its build dependencies first (`just install-dependencies`).
 
