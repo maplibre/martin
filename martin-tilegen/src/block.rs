@@ -2,12 +2,12 @@
 
 use martin_tile_utils::{Encoding, TileRect};
 
+use crate::phase1::RenderWorker;
+use crate::phase2::{TileEncoder, TileEncoding};
 use crate::plan::Plan;
+use crate::sort::Sorter;
 use crate::source::FeatureBatch;
-use crate::tile_render::{FeatureRenderer, TileEncoding};
-use crate::{
-    EncodedTile, Sorter, Summary, TileEncoder, TileFormat, TileGenResult, TileGrouper, TileOrder,
-};
+use crate::{EncodedTile, Summary, TileFormat, TileGenResult, TileOrder};
 
 /// Renders and encodes the tiles of `block` from `batches`, which must hold every feature reaching
 /// those tiles or their buffer. The tiles come out as [`generate`](crate::generate) writes them, in
@@ -26,25 +26,18 @@ pub fn render_block(
 ) -> TileGenResult<(Vec<EncodedTile>, Summary)> {
     let order = TileOrder::Tms;
     let sorter = Sorter::in_memory();
-    let mut buffer = sorter.buffer();
-    let mut renderer = FeatureRenderer::new(plan, order, Some(block));
+    let mut worker = RenderWorker::new(plan, &sorter, order, Some(block));
     for batch in batches {
-        renderer.render_batch(batch, &mut buffer)?;
+        worker.render_batch(batch)?;
     }
-    buffer.finish()?;
-    let totals = renderer.finish();
+    let totals = worker.finish()?;
 
-    let encoding = TileEncoding::new(plan, format, encoding, order);
-    let mut grouper = TileGrouper::new(sorter.merge()?);
+    let (encoding, batches) =
+        TileEncoding::start(plan, sorter, format, encoding, order, BATCH_TILES)?;
     let mut encoder = TileEncoder::default();
     let mut tiles = Vec::new();
-    loop {
-        let batch = grouper.next_batch(BATCH_TILES)?;
-        let done = batch.len() < BATCH_TILES;
-        tiles.extend(encoding.encode(&mut encoder, batch)?);
-        if done {
-            break;
-        }
+    for batch in batches {
+        tiles.extend(encoding.encode(&mut encoder, batch?)?);
     }
     let summary = totals.into_summary(plan, tiles.len() as u64);
     Ok((tiles, summary))

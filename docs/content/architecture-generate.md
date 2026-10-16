@@ -241,3 +241,19 @@ of the runs it merges.
   slicer cannot handle at a zoom are skipped at that zoom and counted.
 - A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted
   runs are removed by the operating system in every case.
+
+## Code layout
+
+The `martin-tilegen` crate follows the two phases. The sort sits between them: phase 1 pushes records
+into it, and phase 2 reads them back grouped by tile.
+
+| Module         | Sections                                                                                       |
+|----------------|------------------------------------------------------------------------------------------------|
+| `source`       | [Partitions](#partitions)                                                                      |
+| `generate`     | [Feature queue](#feature-queue), threads of both phases                                        |
+| `phase1`       | [Rendering](#rendering)                                                                        |
+| `sort`         | [Sort key](#sort-key), [External sort](#external-sort), [Merge](#merge), [Grouping](#grouping) |
+| `phase2`       | [Repeated tiles](#repeated-tiles), encoding                                                    |
+| `pipeline`     | [Parallel encoding, ordered writing](#parallel-encoding-ordered-writing)                       |
+| `sink`         | [Tile order](#tile-order)                                                                      |
+| `plan`, `expr` | [Layers](sources-pg-layers.md) and [Expressions](sources-pg-layers.md#expressions)             |

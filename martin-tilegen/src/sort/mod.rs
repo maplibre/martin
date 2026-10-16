@@ -1,7 +1,10 @@
-//! External sort of `(SortKey, record bytes)` pairs: per-worker buffers spill sorted runs to temp files
-//! or memory, and a loser-tree merge streams all runs back in key order.
+//! The records between the phases: per-worker buffers spill sorted runs of `(SortKey, record)` pairs to
+//! temp files or memory, and a loser-tree merge streams all runs back in key order, grouped by tile.
 
+mod group;
+mod key;
 mod merge;
+pub(crate) mod record;
 mod run;
 
 use std::mem;
@@ -10,11 +13,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
 
+pub use group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
+pub use key::{LayerId, Seq, SortKey};
 pub use merge::Merger;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use run::{Run, RunWriter};
 
-use crate::{SortKey, TileGenError, TileGenResult};
+use crate::{TileGenError, TileGenResult};
 
 #[derive(Clone, Debug)]
 pub struct SortConfig {
@@ -111,6 +116,14 @@ impl Sorter {
             runs.splice(span.start..span.start, merged);
         }
         Merger::new(runs, config.read_buffer_bytes)
+    }
+
+    /// Call after every [`SortBuffer`] was finished: the tiles, in batches of `batch_tiles`.
+    pub fn into_tiles(self, batch_tiles: usize) -> TileGenResult<TileBatches> {
+        Ok(TileBatches::new(
+            TileGrouper::new(self.merge()?),
+            batch_tiles,
+        ))
     }
 }
 
@@ -270,7 +283,7 @@ struct Entry {
 pub(crate) mod tests {
     use super::*;
     use crate::tile::pyramid_base;
-    use crate::{LayerId, MAX_ZOOM, Seq, TileId};
+    use crate::{MAX_ZOOM, TileId};
 
     pub(crate) fn random_keys(n: usize, spread: u64) -> impl Iterator<Item = SortKey> {
         let mut state = 0x9e37_79b9_7f4a_7c15_u64;

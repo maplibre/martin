@@ -1,34 +1,48 @@
-//! The stages every tile render runs through: features into sorted records, sorted records into tiles.
+//! Phase 1, read and render: every feature into sorted records, by one [`RenderWorker`] per thread.
+
+pub mod project;
+mod render;
+mod simplify;
 
 use geo_types::Coord;
-use martin_tile_utils::{Encoding, Format, TileRect};
-use mlt_core::PropKind;
-use tilejson::{TileJSON, VectorLayer};
+use martin_tile_utils::TileRect;
+pub use render::{
+    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError,
+};
+use render::{Renderer, SliceErrors};
 
 use crate::plan::{Evaluator, ExprTallies, Plan};
-use crate::props::KeyNames;
+use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry};
-use crate::{
-    DedupIndex, EncodeSettings, EncodedTile, FeatureGeom, LayerInfo, LayerSliceErrors, LayerStats,
-    RenderLayer, Renderer, Seq, SliceErrors, SortBuffer, Summary, TileEncoder, TileFormat,
-    TileGenResult, TileOrder, TileRecords, project,
-};
+use crate::{LayerSliceErrors, Summary, TileGenResult, TileOrder};
 
-/// Renders feature batches into sort records, for one thread.
-pub(crate) struct FeatureRenderer<'p> {
+/// The stage types of phase 1, for this crate's benches and stage-level tests only.
+#[cfg(feature = "internals")]
+pub(crate) mod internals {
+    pub use super::render::{Renderer, SliceError, SliceErrors};
+}
+
+/// Renders feature batches into its own buffer of the sorter, for one thread.
+pub(crate) struct RenderWorker<'a> {
     renderer: Renderer,
-    evaluator: Evaluator<'p>,
+    evaluator: Evaluator<'a>,
     /// The plan's layers narrowed to a window, by layer index; `None` renders the plan's own.
     windowed: Option<Vec<RenderLayer>>,
     order: TileOrder,
+    buffer: SortBuffer<'a>,
     features: u64,
     skipped: u64,
 }
 
-impl<'p> FeatureRenderer<'p> {
-    /// A renderer of `plan`'s layers that keys records for tiles in `order`, only those of `window`
-    /// when given.
-    pub(crate) fn new(plan: &'p Plan, order: TileOrder, window: Option<TileRect>) -> Self {
+impl<'a> RenderWorker<'a> {
+    /// A worker that renders `plan`'s layers into `sorter`, keyed for tiles in `order`, only those
+    /// of `window` when given.
+    pub(crate) fn new(
+        plan: &'a Plan,
+        sorter: &'a Sorter,
+        order: TileOrder,
+        window: Option<TileRect>,
+    ) -> Self {
         let windowed = window.map(|window| {
             plan.layers
                 .iter()
@@ -40,23 +54,21 @@ impl<'p> FeatureRenderer<'p> {
             evaluator: plan.evaluator(),
             windowed,
             order,
+            buffer: sorter.buffer(),
             features: 0,
             skipped: 0,
         }
     }
 
-    /// Projects every feature of `batch` in place and pushes the records it renders into `out`.
+    /// Projects every feature of `batch` in place and sorts the records it renders.
     #[hotpath::measure]
-    pub(crate) fn render_batch(
-        &mut self,
-        batch: &mut FeatureBatch,
-        out: &mut SortBuffer<'_>,
-    ) -> TileGenResult<()> {
+    pub(crate) fn render_batch(&mut self, batch: &mut FeatureBatch) -> TileGenResult<()> {
         let Self {
             renderer,
             evaluator,
             windowed,
             order,
+            buffer,
             features,
             skipped,
         } = self;
@@ -73,24 +85,25 @@ impl<'p> FeatureRenderer<'p> {
                 let layer = windowed
                     .as_ref()
                     .map_or(layer, |layers| &layers[usize::from(layer.index)]);
-                renderer.render(*order, layer, seq, evaluated.feature(), out)
+                renderer.render(*order, layer, seq, evaluated.feature(), buffer)
             })?;
         }
         Ok(())
     }
 
-    /// What this renderer saw and could not render.
-    pub(crate) fn finish(self) -> RenderTotals {
-        RenderTotals {
+    /// Spills the rest of the buffer, and tells what this worker saw and could not render.
+    pub(crate) fn finish(self) -> TileGenResult<RenderTotals> {
+        self.buffer.finish()?;
+        Ok(RenderTotals {
             features: self.features,
             skipped: self.skipped,
             slice_errors: self.renderer.slice_errors,
             exprs: self.evaluator.finish(),
-        }
+        })
     }
 }
 
-/// Counts and failures of one or more [`FeatureRenderer`]s.
+/// Counts and failures of one or more [`RenderWorker`]s.
 #[derive(Default)]
 pub(crate) struct RenderTotals {
     features: u64,
@@ -101,7 +114,7 @@ pub(crate) struct RenderTotals {
 }
 
 impl RenderTotals {
-    /// Adds another renderer's totals to these.
+    /// Adds another worker's totals to these.
     pub(crate) fn add(&mut self, other: Self) {
         self.features += other.features;
         self.skipped += other.skipped;
@@ -193,98 +206,5 @@ fn project_coords(crs: Crs, coords: &mut [Coord<f64>]) {
         Crs::WebMercator => coords
             .iter_mut()
             .for_each(|c| *c = project::from_mercator(*c)),
-    }
-}
-
-/// Encodes grouped tiles of a rendered plan, shared by every encoder thread.
-pub(crate) struct TileEncoding {
-    infos: Vec<LayerInfo>,
-    /// Only complete once every feature is rendered, since rendering interns new keys.
-    names: Vec<KeyNames>,
-    format: TileFormat,
-    encoding: Encoding,
-    order: TileOrder,
-    dedup: DedupIndex,
-}
-
-impl TileEncoding {
-    /// The encoding of `plan`'s tiles; build it after rendering, so every property key has a name.
-    pub(crate) fn new(
-        plan: &Plan,
-        format: TileFormat,
-        encoding: Encoding,
-        order: TileOrder,
-    ) -> Self {
-        Self {
-            infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
-            names: plan.key_names(),
-            format,
-            encoding,
-            order,
-            dedup: DedupIndex::default(),
-        }
-    }
-
-    /// Encodes `batch` with `encoder`, which keeps the layer stats of every tile it encodes.
-    pub(crate) fn encode(
-        &self,
-        encoder: &mut TileEncoder,
-        batch: Vec<TileRecords>,
-    ) -> TileGenResult<Vec<EncodedTile>> {
-        let settings = EncodeSettings {
-            layers: &self.infos,
-            keys: &self.names,
-            format: self.format,
-            encoding: self.encoding,
-            order: self.order,
-        };
-        encoder.encode_batch(&settings, &self.dedup, batch)
-    }
-
-    /// Fills `metadata` with the zooms, format and `vector_layers` that `encoders` produced.
-    pub(crate) fn complete_metadata(&self, metadata: &mut TileJSON, encoders: &[TileEncoder]) {
-        let mut stats = vec![LayerStats::default(); self.infos.len()];
-        for encoder in encoders {
-            for (total, layer) in stats.iter_mut().zip(&encoder.stats) {
-                total.merge(layer);
-            }
-        }
-        let zooms = stats.iter().filter_map(|s| s.zooms);
-        metadata.minzoom = zooms.clone().map(|z| z.0).min();
-        metadata.maxzoom = zooms.map(|z| z.1).max();
-        let format = Format::from(self.format).metadata_format_value();
-        metadata.other.insert("format".to_owned(), format.into());
-        metadata.vector_layers = Some(
-            self.infos
-                .iter()
-                .zip(&stats)
-                .filter(|(_, stats)| stats.zooms.is_some())
-                .map(|(info, stats)| {
-                    let fields = stats
-                        .fields
-                        .iter()
-                        .map(|(name, &kind)| (name.clone(), field_type(kind).to_owned()));
-                    let mut layer = VectorLayer::new(info.name.clone(), fields.collect());
-                    (layer.minzoom, layer.maxzoom) = stats.zooms.unzip();
-                    layer
-                })
-                .collect(),
-        );
-    }
-}
-
-/// `vector_layers` field types, as `MBTiles` and `TileJSON` consumers expect them.
-fn field_type(kind: PropKind) -> &'static str {
-    match kind {
-        PropKind::Bool => "Boolean",
-        PropKind::Str => "String",
-        PropKind::I8
-        | PropKind::U8
-        | PropKind::I32
-        | PropKind::U32
-        | PropKind::I64
-        | PropKind::U64
-        | PropKind::F32
-        | PropKind::F64 => "Number",
     }
 }

@@ -14,9 +14,8 @@ use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
-use crate::{
-    FeatureGeom, LayerGrid, LayerInfo, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError,
-};
+use crate::phase2::LayerInfo;
+use crate::{FeatureGeom, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
@@ -75,6 +74,13 @@ impl ColumnDef {
             Self::Value(name) | Self::Keys(name) => name,
         }
     }
+}
+
+/// The tile-local square a fill record stands for, including the buffer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct LayerGrid {
+    pub extent: u32,
+    pub buffer: u32,
 }
 
 /// Expressions are CEL over the feature's properties (see [`expr`](crate::expr)), compiled by [`Plan::new`].
