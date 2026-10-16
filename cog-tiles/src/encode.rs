@@ -77,7 +77,8 @@ mod tests {
             .unwrap();
         let mut buf = vec![0; reader.output_buffer_size().unwrap()];
         let info = reader.next_frame(&mut buf).unwrap();
-        assert_eq!((info.width, info.height), (4, 4));
+        assert_eq!(info.width, 4);
+        assert_eq!(info.height, 4);
         assert_eq!(&buf[..6], &[255; 6]);
         assert!(buf[6..].iter().all(|&v| v == 0));
     }

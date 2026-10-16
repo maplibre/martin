@@ -897,7 +897,7 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
     |cog: CogFixture| cog
         .set_double(0, tag::MODEL_PIXEL_SCALE, 0, 0.7)
         .set_double(0, tag::MODEL_PIXEL_SCALE, 1, 0.7),
-    "which is not a WebMercatorQuad zoom level for 256 px tiles"
+    "image 0 has 0.7 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 1 has 1.4 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 2 has 2.8 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles"
 )]
 #[case::every_overview_must_be_readable(
     |cog: CogFixture| cog.remove_tag(2, tag::IMAGE_WIDTH),
@@ -928,9 +928,16 @@ async fn a_file_that_breaks_a_requirement_is_rejected(
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    assert!(
-        log.contains(expected),
-        "log must say why the file was rejected, expected {expected:?}; log:\n{log}"
+    let path = path.display().to_string();
+    let warnings: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("Tile source resolution warning"))
+        .collect();
+    assert_eq!(
+        warnings,
+        [format!(
+            "ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path {path}: {path} cannot be read as tiles: {expected} warnings.count=1"
+        )]
     );
 }
 
@@ -962,18 +969,29 @@ async fn a_georeference_without_its_unused_values_is_accepted(
 
 #[tokio::test]
 async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
+    let path = fixture("files/striped_not_tiled.tif");
     let error = Martin::builder()
-        .arg(fixture("files/striped_not_tiled.tif"))
+        .arg(&path)
         .start()
         .await
         .expect_err("martin must refuse to publish a striped TIFF");
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("it is stored in strips, not tiles"),
-        "log must say the file is striped; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in strips, not tiles warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        ");
+    });
 }
 
 #[tokio::test]
@@ -990,10 +1008,20 @@ async fn a_file_that_is_not_a_tiff_is_rejected() {
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("Unable to decode TIFF"),
-        "log must say the file could not be decoded; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @r#"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: Unable to decode TIFF [PATH]: General error: unexpected magic bytes b"th" warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        "#);
+    });
 }
 
 /// A north-up image may state its georeferencing as a transformation matrix instead of a pixel
@@ -1079,18 +1107,17 @@ async fn a_misaligned_overview_is_skipped_with_a_warning() {
         .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, "misaligned").await;
-    assert_eq!(
-        (tilejson["minzoom"].clone(), tilejson["maxzoom"].clone()),
-        (19.into(), 19.into())
-    );
+    assert_eq!(tilejson["minzoom"], 19);
+    assert_eq!(tilejson["maxzoom"], 19);
     assert_eq!(
         martin.get("/misaligned/19/85424/194685").await.status(),
         200
     );
 
     martin.stop().await;
-    martin.assert_log_contains(&format!(
-        r#"Skipping a COG image that cannot be served cog.location={:?} reason="image 1 is not aligned to the zoom 18 tile grid""#,
-        path.display().to_string()
-    ));
+    let skipped = martin
+        .take_log_lines("Skipping a COG image")
+        .join("\n")
+        .replace(&format!("{:?}", path.display().to_string()), "[PATH]");
+    insta::assert_snapshot!(skipped, @" WARN resolve:resolve_tile_sources: Skipping a COG image that cannot be served cog.location=[PATH] reason=image 1 is not aligned to the zoom 18 tile grid");
 }

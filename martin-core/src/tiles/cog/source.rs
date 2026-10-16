@@ -230,7 +230,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use approx::assert_abs_diff_eq;
+    use approx::{abs_diff_eq, assert_abs_diff_eq};
     use martin_tile_utils::TileCoord;
     use object_store::memory::InMemory;
     use object_store::{ObjectStoreExt as _, PutPayload};
@@ -426,8 +426,16 @@ mod tests {
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);
         let actual_center = source.tilejson.center.unwrap();
-        assert_abs_diff_eq!(actual_center.longitude, center.longitude, epsilon = 1e-12);
-        assert_abs_diff_eq!(actual_center.latitude, center.latitude, epsilon = 1e-12);
+        assert!(abs_diff_eq!(
+            actual_center.longitude,
+            center.longitude,
+            epsilon = 1e-12
+        ));
+        assert!(abs_diff_eq!(
+            actual_center.latitude,
+            center.latitude,
+            epsilon = 1e-12
+        ));
         assert_eq!(actual_center.zoom, center.zoom);
         let actual_bounds = source.tilejson.bounds.unwrap();
         assert_abs_diff_eq!(actual_bounds.left, bounds.left, epsilon = 1e-12);

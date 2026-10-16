@@ -2030,6 +2030,7 @@ dependencies = [
  "jpeg-decoder",
  "object_store",
  "png 0.18.1",
+ "rstest",
  "thiserror 2.0.21",
  "tokio",
 ]

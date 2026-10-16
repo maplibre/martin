@@ -7,6 +7,7 @@ use std::sync::atomic::Ordering;
 
 use cog_tiles::{AsyncCogReader, CogError, MemoryBackend, SkippedImage, TileCoord, TileFormat};
 use common::*;
+use rstest::rstest;
 
 async fn open(name: &str) -> AsyncCogReader<MemoryBackend> {
     AsyncCogReader::try_from_backend(memory(name))
@@ -29,10 +30,9 @@ fn z16(col: u32, row: u32) -> TileCoord {
 async fn jpeg_tiles_pass_through_as_standalone_images() {
     let reader = open("rgb_jpeg.tif").await;
     let info = reader.info();
-    assert_eq!(
-        (info.min_zoom, info.max_zoom, info.tile_size),
-        (15, 16, 256)
-    );
+    assert_eq!(info.min_zoom, 15);
+    assert_eq!(info.max_zoom, 16);
+    assert_eq!(info.tile_size, 256);
     assert_eq!(info.format, TileFormat::Jpeg);
     let [west, south, east, north] = info.bounds;
     assert!((west - -0.109_863_281_25).abs() < 1e-9, "{west}");
@@ -42,7 +42,8 @@ async fn jpeg_tiles_pass_through_as_standalone_images() {
         let tile = reader.get_tile(z16(col, row)).await.unwrap().unwrap();
         assert_eq!(&tile[..2], &[0xFF, 0xD8]);
         let (w, h, pixels) = decode_jpeg(&tile);
-        assert_eq!((w, h), (256, 256));
+        assert_eq!(w, 256);
+        assert_eq!(h, 256);
         let diff = mean_abs_diff(&pixels, &expected_tile(col * 256, row * 256, 3, 0));
         assert!(diff < 4.0, "tile {col},{row} differs by {diff}");
     }
@@ -94,31 +95,31 @@ async fn webp_tiles_pass_through() {
 }
 
 #[cfg(feature = "png")]
+#[rstest]
+#[case::rgba_deflate("rgba_deflate.tif", 4)]
+#[case::rgb_zstd("rgb_zstd.tif", 3)]
+#[case::gray_lzw("gray_lzw.tif", 1)]
 #[tokio::test]
-async fn lossless_tiles_are_reencoded_as_exact_png() {
-    for (name, bands) in [
-        ("rgba_deflate.tif", 4),
-        ("rgb_zstd.tif", 3),
-        ("gray_lzw.tif", 1),
-    ] {
-        let reader = open(name).await;
-        assert_eq!(reader.info().format, TileFormat::Png, "{name}");
-        for (col, row) in [(0, 0), (1, 1)] {
-            let tile = reader.get_tile(z16(col, row)).await.unwrap().unwrap();
-            let (w, h, channels, pixels) = decode_png(&tile);
-            assert_eq!((w, h, channels), (256, 256, bands as usize), "{name}");
-            assert_eq!(
-                pixels,
-                expected_tile(col * 256, row * 256, bands, 0),
-                "{name} tile {col},{row}"
-            );
-        }
-        let overview = reader
-            .get_tile(TileCoord::new(15, Z15_X, Z15_Y).unwrap())
-            .await
-            .unwrap();
-        assert_eq!(decode_png(&overview.unwrap()).0, 256, "{name}");
+async fn lossless_tiles_are_reencoded_as_exact_png(#[case] name: &str, #[case] bands: u32) {
+    let reader = open(name).await;
+    assert_eq!(reader.info().format, TileFormat::Png);
+    for (col, row) in [(0, 0), (1, 1)] {
+        let tile = reader.get_tile(z16(col, row)).await.unwrap().unwrap();
+        let (w, h, channels, pixels) = decode_png(&tile);
+        assert_eq!(w, 256);
+        assert_eq!(h, 256);
+        assert_eq!(channels, bands as usize);
+        assert_eq!(
+            pixels,
+            expected_tile(col * 256, row * 256, bands, 0),
+            "tile {col},{row}"
+        );
     }
+    let overview = reader
+        .get_tile(TileCoord::new(15, Z15_X, Z15_Y).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(decode_png(&overview.unwrap()).0, 256);
 }
 
 #[cfg(feature = "png")]
@@ -129,17 +130,32 @@ async fn sparse_tiles_are_none() {
     assert!(reader.get_tile(z16(1, 1)).await.unwrap().is_none());
 }
 
+#[rstest]
+#[case::float32(
+    "float32.tif",
+    "only 8-bit unsigned samples are supported, found [32] bits of [Float]"
+)]
+#[case::utm(
+    "utm.tif",
+    "its CRS is EPSG:32630, but only EPSG:3857 (Web Mercator) is supported"
+)]
+#[case::unaligned(
+    "unaligned.tif",
+    "image 0 is not aligned to the zoom 16 tile grid; image 1 is not aligned to the zoom 15 tile grid"
+)]
+#[case::odd_resolution(
+    "odd_resolution.tif",
+    "image 0 has 2.627522847302934 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 1 has 5.255045694605868 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles"
+)]
 #[tokio::test]
-async fn unsupported_files_are_rejected_with_a_reason() {
-    for (name, reason) in [
-        ("float32.tif", "8-bit"),
-        ("utm.tif", "EPSG:32630"),
-        ("unaligned.tif", "not aligned"),
-        ("odd_resolution.tif", "not a WebMercatorQuad zoom level"),
-    ] {
-        let error = open_err(name).await;
-        assert!(error.contains(reason), "{name}: {error}");
-    }
+async fn unsupported_files_are_rejected_with_a_reason(#[case] name: &str, #[case] reason: &str) {
+    assert_eq!(
+        open_err(name).await,
+        format!(
+            "{} cannot be read as tiles: {reason}",
+            fixture(name).display()
+        )
+    );
 }
 
 #[tokio::test]
@@ -229,7 +245,8 @@ async fn misaligned_overviews_are_left_out() {
         patch_tag(bytes, MODEL_TIEPOINT, 3, |x| x + cog_tiles::tile_extent(16));
     });
     let reader = AsyncCogReader::try_from_backend(shifted).await.unwrap();
-    assert_eq!((reader.info().min_zoom, reader.info().max_zoom), (16, 16));
+    assert_eq!(reader.info().min_zoom, 16);
+    assert_eq!(reader.info().max_zoom, 16);
     assert_eq!(
         reader.skipped_images(),
         [SkippedImage::Misaligned { index: 1, zoom: 15 }]
@@ -257,5 +274,11 @@ async fn pixels_within_a_centimeter_of_square_are_square() {
     };
     open_with_height_change(0.005).await.unwrap();
     let error = open_with_height_change(0.02).await.unwrap_err();
-    assert!(error.to_string().contains("not square"), "{error}");
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "{} cannot be read as tiles: pixels are not square (2.388657133911758 x 2.408657133911758 m)",
+            fixture("rgb_jpeg.tif").display()
+        )
+    );
 }
