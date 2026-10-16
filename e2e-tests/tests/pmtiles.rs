@@ -91,6 +91,9 @@ async fn auto_configured_minimal() {
     mbtiles:
       paths:
       - tests/fixtures/pmtiles2
+    cog:
+      paths:
+      - tests/fixtures/pmtiles2
     geojson:
       paths:
       - tests/fixtures/pmtiles2

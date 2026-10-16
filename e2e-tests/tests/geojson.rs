@@ -109,6 +109,9 @@ async fn the_saved_config_names_every_discovered_file() {
     mbtiles:
       paths:
       - tests/fixtures/geojson
+    cog:
+      paths:
+      - tests/fixtures/geojson
     geojson:
       paths:
       - tests/fixtures/geojson

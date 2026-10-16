@@ -97,7 +97,7 @@ pub struct CogMosaicSource {
     /// The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
     pub zoom: u8,
-    /// The highest zoom served. Defaults to the highest zoom of the file opened at startup.
+    /// The highest zoom served. When unset, the highest zoom of the file opened at startup.
     pub maxzoom: Option<u8>,
     /// How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &DEFAULT_MOSAIC_CACHED_FILES))]

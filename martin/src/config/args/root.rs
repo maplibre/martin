@@ -558,11 +558,16 @@ mod tests {
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles:
+          paths:
+            - "file:json.mbtiles?mode=memory&cache=shared"
         cog:
-          - "../tests/fixtures/cog/usda_naip_128_none_z2.tif"
-          - "../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"
+          paths:
+            - "../tests/fixtures/cog/usda_naip_128_none_z2.tif"
+            - "../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"
         "#);
     }
 
@@ -575,10 +580,18 @@ mod tests {
         let err = args.merge_into_config(&mut config);
         err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/"
-        mbtiles: "../tests/fixtures/"
-        cog: "../tests/fixtures/"
-        geojson: "../tests/fixtures/"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/"
+        mbtiles:
+          paths:
+            - "../tests/fixtures/"
+        cog:
+          paths:
+            - "../tests/fixtures/"
+        geojson:
+          paths:
+            - "../tests/fixtures/"
         "#);
     }
 

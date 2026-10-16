@@ -223,7 +223,7 @@
           "type": ["integer", "null"]
         },
         "maxzoom": {
-          "description": "The highest zoom served. Defaults to the highest zoom of the file opened at startup.",
+          "description": "The highest zoom served. When unset, the highest zoom of the file opened at startup.",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
