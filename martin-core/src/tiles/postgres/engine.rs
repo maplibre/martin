@@ -1,5 +1,6 @@
 //! Serves a table with `layers`: one query reads the features around a tile, Martin's engine renders them.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, Encoding, TileCoord, TileData, TileRect};
@@ -23,6 +24,8 @@ pub struct PostgresEngineInfo {
     /// How far past a tile its features are read, as a fraction of a tile's side: the largest buffer
     /// of the layers.
     pub margin: f64,
+    /// Tiles per side of the block a cache miss renders; 1 renders just the tile.
+    pub prefetch: u8,
 }
 
 impl PostgresEngineInfo {
@@ -33,10 +36,62 @@ impl PostgresEngineInfo {
         source_id: &str,
         xyz: TileCoord,
     ) -> PostgresResult<TileData> {
+        let block = TileRect::new(xyz.z(), xyz.x(), xyz.y(), xyz.x(), xyz.y());
+        let tiles = self.render(pool, source_id, xyz, block).await?;
+        Ok(tiles
+            .into_iter()
+            .next()
+            .map(|(_, data)| data)
+            .unwrap_or_default())
+    }
+
+    /// Every tile of the [`prefetch`](Self::prefetch) block holding `xyz`, empty ones included, or
+    /// `None` without prefetching. Blocks are aligned, so the tiles of one block share it.
+    pub(super) async fn render_prefetch(
+        &self,
+        pool: &PostgresPool,
+        source_id: &str,
+        xyz: TileCoord,
+    ) -> PostgresResult<Option<Vec<(TileCoord, TileData)>>> {
+        if self.prefetch <= 1 {
+            return Ok(None);
+        }
+        let side = u32::from(self.prefetch);
+        let last = (1u32 << xyz.z()) - 1;
+        let (x, y) = (xyz.x() / side * side, xyz.y() / side * side);
+        let block = TileRect::new(
+            xyz.z(),
+            x,
+            y,
+            (x + side - 1).min(last),
+            (y + side - 1).min(last),
+        );
+        let mut rendered: HashMap<_, _> = self
+            .render(pool, source_id, xyz, block)
+            .await?
+            .into_iter()
+            .collect();
+        let tiles = (block.min_x..=block.max_x)
+            .flat_map(|x| (block.min_y..=block.max_y).map(move |y| (x, y)))
+            .map(|(x, y)| {
+                let coord = TileCoord::new_unchecked(xyz.z(), x, y);
+                (coord, rendered.remove(&coord).unwrap_or_default())
+            })
+            .collect();
+        Ok(Some(tiles))
+    }
+
+    /// Reads the features reaching `block` and renders its tiles that have any, in TMS order.
+    async fn render(
+        &self,
+        pool: &PostgresPool,
+        source_id: &str,
+        xyz: TileCoord,
+        block: TileRect,
+    ) -> PostgresResult<Vec<(TileCoord, TileData)>> {
         let failed = |err: TileGenError| {
             PostgresError::EngineError(Box::new(err), source_id.to_owned(), xyz)
         };
-        let block = TileRect::new(xyz.z(), xyz.x(), xyz.y(), xyz.x(), xyz.y());
         let [[x1, y1, x2, y2], [x3, y3, x4, y4]] = self.envelopes(block);
         let conn = pool.get().await?;
         let _cancel_guard = pool.active_query_registry().register(conn.cancel_token());
@@ -78,9 +133,8 @@ impl PostgresEngineInfo {
         report(source_id, xyz, &summary);
         Ok(tiles
             .into_iter()
-            .next()
-            .map(|tile| TileData::from(tile.data))
-            .unwrap_or_default())
+            .map(|tile| (tile.coord, TileData::from(tile.data)))
+            .collect())
     }
 
     /// The Web Mercator bounds of `block`, grown by [`Self::margin`] tiles on every side, as two

@@ -687,29 +687,58 @@ impl<'a> DynTileSource<'a> {
     ) -> Result<Tile, Arc<MartinCoreError>> {
         let cache_zoom = s.cache_zoom().contains(xyz.z());
         let src = Arc::clone(s);
-        let compute = || async move {
-            let t = src
-                .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
-                .await?;
+        let key = |xyz| {
+            TileCacheKey::new_request_dynamic(
+                s.get_id(),
+                xyz,
+                self.source_query().map(|q| q.0.into()),
+                self.accepted_format,
+                None,
+            )
+        };
+        let process = |t| {
             apply_pre_cache_processors(t, pc, self.accepted_format)
                 .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
         };
+        let compute = || async move {
+            #[cfg(feature = "unstable-generate")]
+            if let (Some(cache), true) = (self.cache, cache_zoom)
+                && let Some(block) = src.get_tile_block(xyz).await?
+            {
+                return self.cache_neighbours(cache, xyz, block, key, process).await;
+            }
+            let t = src
+                .get_tile_with_etag(xyz, self.source_query().map(|q| &q.1))
+                .await?;
+            process(t)
+        };
         if let (Some(cache), true) = (self.cache, cache_zoom) {
-            cache
-                .get_or_insert(
-                    TileCacheKey::new_request_dynamic(
-                        s.get_id(),
-                        xyz,
-                        self.source_query().map(|q| q.0.into()),
-                        self.accepted_format,
-                        None,
-                    ),
-                    compute,
-                )
-                .await
+            cache.get_or_insert(key(xyz), compute).await
         } else {
             compute().await.map_err(Arc::new)
         }
+    }
+
+    /// Caches every tile of a prefetched `block` but `xyz`, and returns that one.
+    #[cfg(feature = "unstable-generate")]
+    async fn cache_neighbours(
+        &self,
+        cache: &TileCache,
+        xyz: TileCoord,
+        block: Vec<(TileCoord, Tile)>,
+        key: impl Fn(TileCoord) -> TileCacheKey,
+        process: impl Fn(Tile) -> Result<Tile, MartinCoreError>,
+    ) -> Result<Tile, MartinCoreError> {
+        let mut requested = None;
+        for (coord, tile) in block {
+            let tile = process(tile)?;
+            if coord == xyz {
+                requested = Some(tile);
+            } else {
+                cache.insert(key(coord), tile).await;
+            }
+        }
+        Ok(requested.expect("a prefetched block holds the tile it was rendered for"))
     }
 
     /// The query the sources read their own parameters from, `None` when they ignore it.

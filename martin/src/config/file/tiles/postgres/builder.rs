@@ -243,6 +243,13 @@ impl PostgresAutoDiscoveryBuilder {
             tile_grids.insert(name.to_owned(), resolve_tile_grid(&pool, grid).await?);
         }
 
+        #[cfg_attr(not(feature = "unstable-generate"), expect(unused_mut))]
+        let mut tables = config.tables.clone().unwrap_or_default();
+        #[cfg(feature = "unstable-generate")]
+        for info in tables.values_mut() {
+            info.prefetch = info.prefetch.or(config.prefetch);
+        }
+
         Ok(Self {
             pool,
             default_srid: config.default_srid,
@@ -252,7 +259,7 @@ impl PostgresAutoDiscoveryBuilder {
             tile_grids,
             default_tile_grid,
             id_resolver,
-            tables: config.tables.clone().unwrap_or_default(),
+            tables,
             functions: config.functions.clone().unwrap_or_default(),
             auto_functions,
             auto_tables,

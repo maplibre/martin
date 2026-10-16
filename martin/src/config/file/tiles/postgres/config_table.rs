@@ -97,7 +97,7 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
     pub geometry_type: Option<String>,
 
-    /// A cache miss renders the N×N block around the tile and caches the neighbours.
+    /// A cache miss renders the aligned N×N block holding the tile and caches all of it.
     /// Only applies with `layers` (unstable)
     #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
