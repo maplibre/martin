@@ -13,6 +13,11 @@ We offer the `martin cp` subcommand for generating tiles in bulk, from any sourc
 `martin cp` can be used to generate tiles for a large area or multiple areas (bounding boxes).
 If multiple areas overlap, it will ensure each tile is generated only once
 `martin cp` supports the same configuration file and CLI arguments as the Martin server, so it can support all sources and even combining sources.
+
+!!! tip "Large tilesets"
+    `martin cp` asks the source for each tile separately, which does not scale to large tilesets.
+    For those, we are building [`martin generate`](martin-generate.md), inspired by
+    [Planetiler](https://github.com/onthegomap/planetiler), which reads each source once instead.
 The released `martin` binary does not include [DuckDB / GeoParquet sources](sources-duckdb.md).
 To use them, build `martin` with the feature and list the source in the configuration file:
 

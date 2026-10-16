@@ -24,6 +24,24 @@ We implement this via two traits:
 
 Another database or file format is another `FeatureSource`, and another archive format is another `TileSink`.
 
+## Inspired by Planetiler
+
+We built `martin generate` because [`martin cp`](martin-cp.md), which asks the source for every tile
+separately, does not scale to large tilesets. The design is inspired by
+[Planetiler](https://github.com/onthegomap/planetiler), written by Mike Barry
+([@msbarry](https://github.com/msbarry)) and licensed under the
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE). We thank him and the
+Planetiler contributors for showing how fast a whole tileset can be built. `martin generate` follows
+Planetiler in:
+
+- reading every feature once and rendering it at every zoom, instead of querying the source per tile,
+- sorting the rendered pieces on disk by tile, then merging them back and writing each tile once,
+- covering the inside of large polygons with [fill ranges](#rendering) instead of one piece per tile,
+- simplification and minimum size [in pixels of a 256-pixel tile](sources-pg-layers.md#simplification-and-minimum-size), with the same defaults,
+- [encoding tile batches in parallel and writing them in order](#parallel-encoding-ordered-writing),
+- reusing the previous tile's bytes and hashing only likely duplicates, see [repeated tiles](#repeated-tiles),
+- storing repeated tiles once, in the same deduplicated MBTiles layout.
+
 ## Phase 1: read and render
 
 ### Partitions

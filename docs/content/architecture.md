@@ -124,7 +124,8 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 
 === "martin-tilegen"
 
-    **Purpose**: The bulk tile generation engine behind `martin generate`.
+    **Purpose**: The bulk tile generation engine behind `martin generate`, inspired by
+    [Planetiler](https://github.com/onthegomap/planetiler) because `martin cp` does not scale to large tilesets.
 
     **Key Responsibilities**:
 

@@ -12,10 +12,17 @@ tags:
 
 --8<-- "generate-unstable.md"
 
-`martin generate` builds a whole tileset in one pass. [`martin cp`](martin-cp.md) asks the source for
-each tile separately. `martin generate` instead reads each source once, renders every feature at every
-zoom itself, and writes the tiles in order. For large tilesets this is much faster, and it puts far less
-load on the source.
+`martin generate` builds a whole tileset in one pass. We added it because [`martin cp`](martin-cp.md)
+does not scale to large tilesets: it asks the source for each tile separately, so the source reads a
+feature again for every tile it touches, at every zoom. `martin generate` instead reads each source once,
+renders every feature at every zoom itself, and writes the tiles in order. For large tilesets this is
+much faster, and it puts far less load on the source.
+
+This approach is inspired by [Planetiler](https://github.com/onthegomap/planetiler), which showed how
+fast a whole tileset can be built this way. Thank you to Mike Barry ([@msbarry](https://github.com/msbarry)),
+the author of Planetiler, and to its contributors. Planetiler is licensed under the
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE).
+[Generation Architecture](architecture-generate.md) lists what `martin generate` takes from it.
 
 It renders points, lines and polygons. Geometry collections are skipped and counted.
 

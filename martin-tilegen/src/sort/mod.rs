@@ -1,5 +1,5 @@
 //! External sort of `(SortKey, record bytes)` pairs: per-worker buffers spill sorted runs to temp files,
-//! and a loser-tree merge streams all runs back in key order.
+//! and a loser-tree merge streams all runs back in key order, as Planetiler's `ExternalMergeSort` does.
 
 mod merge;
 mod run;

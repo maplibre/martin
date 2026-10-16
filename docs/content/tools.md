@@ -1,5 +1,5 @@
 ---
-description: The martin cp and mbtiles CLIs and supporting crates
+description: The martin cp, martin generate and mbtiles CLIs and supporting crates
 icon: material/tools
 tags:
   - tooling
@@ -21,6 +21,15 @@ If multiple areas overlap, it will generate tiles only once.
 `martin cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
 
 See [this article](martin-cp.md) for more information.
+
+### `martin generate`
+
+`martin generate` is a subcommand of `martin` that builds a whole tileset in one pass. We are building it
+because `martin cp` asks the source for each tile separately, which does not scale to large tilesets.
+Inspired by [Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry, it reads each source once, renders
+every feature at every zoom itself, and writes the tiles in order. It is not released yet.
+
+See [this article](martin-generate.md) for more information.
 
 ### `mbtiles`
 

@@ -101,7 +101,8 @@ The highest zoom is 27.
 ## Simplification and minimum size
 
 Lines and polygons are simplified at each zoom, and dropped once they are smaller than `min_size`.
-Both are in pixels of a 256-pixel tile, whatever the `extent`.
+Both are in pixels of a 256-pixel tile, whatever the `extent`, and default to the values
+[Planetiler](https://github.com/onthegomap/planetiler) uses.
 
 | Key        | Below the layer's max zoom | At the layer's max zoom                           |
 |------------|----------------------------|---------------------------------------------------|

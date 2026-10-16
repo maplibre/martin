@@ -421,8 +421,8 @@ async fn help_lists_the_options() {
           -V, --version
                   Print version
 
-        Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
-        whole tilesets.
+        Each source is scanned once and rendered at every zoom, as in Planetiler by Mike Barry; this is much
+        faster than `martin cp`, which does not scale to whole tilesets.
         ");
     });
 }
