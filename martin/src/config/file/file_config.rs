@@ -30,8 +30,6 @@ use crate::config::file::ContourProcessConfig;
 use crate::config::file::HillshadeProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGrids;
-#[cfg(feature = "unstable-cog")]
-use crate::config::file::cog::CogMosaicConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
@@ -99,21 +97,6 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         url: Url,
         cache: CachePolicy,
     ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send;
-
-    /// Asynchronously creates a new `BackendSource` over a mosaic of files named by the `path`
-    /// template, for a configured source with a `mosaic` block.
-    ///
-    /// Only COG sources can be mosaics; other kinds reject it.
-    #[cfg(feature = "unstable-cog")]
-    fn new_mosaic_source(
-        &self,
-        id: String,
-        _path: PathBuf,
-        _mosaic: CogMosaicConfig,
-        _cache: CachePolicy,
-    ) -> impl Future<Output = SourceBuildResult<BackendSource>> + Send {
-        async move { Err(ConfigFileError::MosaicNotCog(id).into()) }
-    }
 }
 
 /// The accepted shapes of a [`FileConfig`] field deserialized via [`path_or_config::deserialize`].
@@ -388,29 +371,6 @@ impl FileConfigSrc {
         }
     }
 
-    /// The mosaic settings, if this source is a mosaic whose `path` is a template rather than a file.
-    #[cfg(feature = "unstable-cog")]
-    #[must_use]
-    pub fn mosaic(&self) -> Option<&CogMosaicConfig> {
-        match self {
-            Self::Path(_) => None,
-            Self::Obj(o) => o.mosaic.as_ref(),
-        }
-    }
-
-    /// Whether this source is a mosaic, whose `path` is a template that discovery must not open.
-    #[must_use]
-    #[cfg_attr(
-        not(feature = "unstable-cog"),
-        expect(clippy::unused_self, reason = "only COG sources can be mosaics")
-    )]
-    pub fn is_mosaic(&self) -> bool {
-        #[cfg(feature = "unstable-cog")]
-        return self.mosaic().is_some();
-        #[cfg(not(feature = "unstable-cog"))]
-        false
-    }
-
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
 
@@ -481,11 +441,6 @@ pub struct FileConfigSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
-    /// COG sources only: serve a mosaic of many COG files, each covering one tile at
-    /// `mosaic.zoom`, with `path` naming the files by `{quadkey}` or `{z}`/`{x}`/`{y}` (or `{-y}`).
-    #[cfg(feature = "unstable-cog")]
-    #[serde(default)]
-    pub mosaic: Option<CogMosaicConfig>,
 }
 
 #[cfg(feature = "_tiles")]
@@ -604,12 +559,6 @@ enum Target {
         path: PathBuf,
         canonical: PathBuf,
     },
-    /// A mosaic, whose `path` is a template naming many files.
-    #[cfg(feature = "unstable-cog")]
-    Mosaic {
-        path: PathBuf,
-        mosaic: CogMosaicConfig,
-    },
 }
 
 /// A source whose id is resolved and whose open is still pending.
@@ -644,12 +593,6 @@ impl Planned {
                     .new_sources(self.id.clone(), path.clone(), self.cache)
                     .await
             }
-            #[cfg(feature = "unstable-cog")]
-            Target::Mosaic { path, mosaic } => {
-                custom
-                    .new_mosaic_source(self.id.clone(), path.clone(), mosaic.clone(), self.cache)
-                    .await
-            }
         }
     }
 
@@ -677,12 +620,6 @@ impl Planned {
                 source.path = %canonical.display(),
                 "Configured source"
             ),
-            #[cfg(feature = "unstable-cog")]
-            Target::Mosaic { path, .. } => info!(
-                source.id = %self.id,
-                source.mosaic = %sanitized_source_path(path).display(),
-                "Configured mosaic source"
-            ),
         }
     }
 
@@ -696,8 +633,6 @@ impl Planned {
         let path = match &self.target {
             Target::Url { configured, .. } => configured.clone(),
             Target::File { path, .. } => path.clone(),
-            #[cfg(feature = "unstable-cog")]
-            Target::Mosaic { path, .. } => path.clone(),
         };
         TileSourceWarning::PathError {
             path,
@@ -721,22 +656,6 @@ fn plan_one_source(
 ) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
     let grid = declared_tile_grid(id, &source, tile_grids)?;
-    #[cfg(feature = "unstable-cog")]
-    if let Some(mosaic) = source.mosaic() {
-        let path = source.get_path().clone();
-        let location = sanitized_source_path(&path);
-        let id = idr.resolve(id, location.to_string_lossy().to_string());
-        let mosaic = mosaic.clone();
-        configs.insert(id.clone(), source);
-        return Ok(Planned {
-            id,
-            target: Target::Mosaic { path, mosaic },
-            cache,
-            grid,
-            from_sources: true,
-            duplicate: false,
-        });
-    }
     if let Some(url) = parse_url(parse_urls, source.get_path())? {
         let key = source.get_path().clone();
         let duplicate = files.insert(key.clone(), key.clone()).is_some();
@@ -928,10 +847,6 @@ fn sanitized_source_path(path: &Path) -> PathBuf {
         let _ = url.set_password(None);
         url.set_query(None);
         url.set_fragment(None);
-        if path.to_str().is_some_and(|p| p.contains('{')) {
-            // Keep mosaic templates such as `{quadkey}` readable instead of percent-encoded.
-            return PathBuf::from(url.as_str().replace("%7B", "{").replace("%7D", "}"));
-        }
         PathBuf::from(url.as_str())
     }
 }

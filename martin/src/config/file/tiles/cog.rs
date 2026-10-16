@@ -1,20 +1,26 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use martin_core::tiles::BackendSource;
+use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::cog::{CogMosaicOptions, CogSource};
+use martin_core::tiles::{BackendSource, BoxedSource};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
+use tracing::info;
 use url::Url;
 
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, ObjectStoreConfig, SourceBuildResult, TileSourceConfiguration,
-    UnrecognizedValues,
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
+    ConfigurationLivecycleHooks, FileConfig, MAX_CONCURRENT_SOURCE_INITS, ObjectStoreConfig,
+    ResolutionResult, SourceBuildResult, TileSourceConfiguration, TileSourceWarning,
+    UnrecognizedValues, resolve_files,
 };
+use crate::config::primitives::IdResolver;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -45,6 +51,10 @@ pub struct CogConfig {
     )]
     pub reload_interval: Duration,
 
+    /// Sources that each serve many COG files as one, by source ID.
+    #[serde(default)]
+    pub mosaics: BTreeMap<String, CogMosaicSource>,
+
     /// Authentication, endpoint, and HTTP client settings for remote COGs.
     #[serde(flatten)]
     pub object_store: ObjectStoreConfig,
@@ -63,31 +73,31 @@ fn default_reload_interval() -> Duration {
     DEFAULT_RELOAD_INTERVAL
 }
 
-/// Default for [`CogMosaicConfig::max_cached_files`].
+/// Default for [`CogMosaicSource::max_cached_files`].
 pub const DEFAULT_MOSAIC_CACHED_FILES: u64 = 1000;
 
-/// Default for [`CogMosaicConfig::cached_files_ttl`].
+/// Default for [`CogMosaicSource::cached_files_ttl`].
 pub const DEFAULT_MOSAIC_CACHED_FILES_TTL: Duration = Duration::from_mins(10);
 
-/// Turns a COG source into a mosaic of many COG files, each covering exactly one tile at `zoom`.
+/// A source that serves many COG files as one, each covering exactly one tile at `zoom`.
 ///
-/// The source's `path` names the files with placeholders for that tile: `{quadkey}`, or `{x}`
-/// and `{y}` with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif` or
-/// `/data/ortho/{z}/{x}/{y}.tif`. `{-y}` is the row counted from the bottom (TMS). Files are opened on first use and kept in a bounded cache;
-/// tiles without a file are empty. One file is found by listing the location at startup to learn
-/// the tile size and format.
+/// Files are opened on first use and kept in a bounded cache; tiles without a file are empty.
+/// One file is found by listing the location at startup to learn the tile size and format.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-pub struct CogMosaicConfig {
+pub struct CogMosaicSource {
+    /// Where the files are, local or remote, naming each file by its tile at `zoom`:
+    /// `{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`
+    /// or `/data/ortho/{z}/{x}/{y}.tif`. `{-y}` is the row counted from the bottom (TMS).
+    pub path: String,
     /// The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
     pub zoom: u8,
     /// The highest zoom served. Defaults to the highest zoom of the file opened at startup.
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &20))]
     pub maxzoom: Option<u8>,
     /// How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &1000))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &DEFAULT_MOSAIC_CACHED_FILES))]
     pub max_cached_files: Option<u64>,
     /// How long an opened file is kept before it is opened again, which picks up replaced and
     /// added files. Supports human-readable formats: "10m", "1h", "30s". Defaults to "10m".
@@ -97,13 +107,25 @@ pub struct CogMosaicConfig {
         schemars(with = "Option<String>", example = &"10m")
     )]
     pub cached_files_ttl: Option<Duration>,
+    /// Zoom-level bounds for tile caching.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
-impl CogMosaicConfig {
+impl CogMosaicSource {
     fn options(&self) -> CogMosaicOptions {
         CogMosaicOptions {
             file_zoom: self.zoom,
@@ -113,6 +135,25 @@ impl CogMosaicConfig {
                 .cached_files_ttl
                 .unwrap_or(DEFAULT_MOSAIC_CACHED_FILES_TTL),
         }
+    }
+
+    /// This mosaic with credentials, query and fragment removed from a remote `path`.
+    fn sanitized(&self) -> Self {
+        Self {
+            path: sanitized_mosaic_path(&self.path),
+            ..self.clone()
+        }
+    }
+}
+
+/// A mosaic path with credentials, query and fragment removed from its remote location.
+fn sanitized_mosaic_path(path: &str) -> String {
+    let (location, template) = split_mosaic_path(path);
+    match SourceLocation::classify(&location) {
+        Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
+            format!("{}{template}", sanitized_url(&url))
+        }
+        Ok(SourceLocation::Local(_)) | Err(_) => path.to_owned(),
     }
 }
 
@@ -138,6 +179,7 @@ impl Default for CogConfig {
             recursive: None,
             cache: CachePolicy::default(),
             reload_interval: DEFAULT_RELOAD_INTERVAL,
+            mosaics: BTreeMap::new(),
             object_store: ObjectStoreConfig::default(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -161,6 +203,14 @@ impl Serialize for CogConfig {
                 "reload_interval",
                 &humantime_serde::Serde::from(&self.reload_interval),
             )?;
+        }
+        if !self.mosaics.is_empty() {
+            let mosaics: BTreeMap<_, _> = self
+                .mosaics
+                .iter()
+                .map(|(id, mosaic)| (id, mosaic.sanitized()))
+                .collect();
+            map.serialize_entry("mosaics", &mosaics)?;
         }
         self.object_store.serialize_entries(&mut map)?;
         map.end()
@@ -214,32 +264,81 @@ impl TileSourceConfiguration for CogConfig {
         .await?;
         Ok(BackendSource::Cog(source))
     }
+}
 
+impl CogConfig {
+    /// Opens every configured mosaic, at most [`MAX_CONCURRENT_SOURCE_INITS`] at once.
+    /// A mosaic that fails to open is reported as a warning and stays in the config.
+    async fn resolve_mosaics(
+        &mut self,
+        idr: &IdResolver,
+        default_cache: CachePolicy,
+    ) -> (Vec<BoxedSource>, Vec<TileSourceWarning>) {
+        let planned: Vec<_> = mem::take(&mut self.mosaics)
+            .into_iter()
+            .map(|(id, mosaic)| {
+                (
+                    idr.resolve(&id, sanitized_mosaic_path(&mosaic.path)),
+                    mosaic,
+                )
+            })
+            .collect();
+        let this = &*self;
+        let opened = stream::iter(planned)
+            .map(|(id, mosaic)| async move {
+                let result = this
+                    .new_mosaic_source(id.clone(), &mosaic, default_cache)
+                    .await;
+                (id, mosaic, result)
+            })
+            .buffered(MAX_CONCURRENT_SOURCE_INITS)
+            .collect::<Vec<_>>()
+            .await;
+
+        let mut results = Vec::new();
+        let mut warnings = Vec::new();
+        for (id, mosaic, result) in opened {
+            match result {
+                Ok(src) => {
+                    info!(
+                        source.id = %id,
+                        source.mosaic = %sanitized_mosaic_path(&mosaic.path),
+                        "Configured mosaic source"
+                    );
+                    results.push(src.boxed_on(None));
+                }
+                Err(err) => warnings.push(TileSourceWarning::SourceError {
+                    source_id: id.clone(),
+                    error: err.to_string(),
+                }),
+            }
+            self.mosaics.insert(id, mosaic);
+        }
+        (results, warnings)
+    }
+
+    /// Opens one mosaic, whose `path` names its files by their tile.
     async fn new_mosaic_source(
         &self,
         id: String,
-        path: PathBuf,
-        mosaic: CogMosaicConfig,
-        cache: CachePolicy,
+        mosaic: &CogMosaicSource,
+        default_cache: CachePolicy,
     ) -> SourceBuildResult<BackendSource> {
-        let Some(path) = path.to_str() else {
-            return Err(ConfigFileError::MosaicPathNotUtf8 { id, path }.into());
-        };
-        let (location, template) = split_mosaic_path(path);
+        let (location, template) = split_mosaic_path(&mosaic.path);
         let options = mosaic.options();
+        let cache = mosaic.cache.or(default_cache);
         let source = match SourceLocation::classify(&location)? {
             SourceLocation::ObjectStore(url) | SourceLocation::Http(url) => {
                 let (store, prefix) = self
                     .object_store
                     .parse_url_opts(&url)
                     .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-                let display = format!("{}{template}", sanitized_url(&url));
                 CogSource::new_mosaic_object_store(
                     id,
                     Arc::from(store),
                     prefix,
                     template,
-                    display,
+                    sanitized_mosaic_path(&mosaic.path),
                     options,
                     cache.zoom(),
                 )
@@ -256,6 +355,21 @@ impl TileSourceConfiguration for CogConfig {
         };
         Ok(BackendSource::Cog(source))
     }
+}
+
+/// Resolves the COG sources and files, then the mosaics.
+pub async fn resolve_cog(
+    config: &mut FileConfig<CogConfig>,
+    idr: &IdResolver,
+    default_cache: CachePolicy,
+) -> ResolutionResult {
+    let (mut sources, mut warnings) =
+        resolve_files(config, idr, &["tif", "tiff"], default_cache, None).await?;
+    let default_cache = config.cache_or(default_cache);
+    let (mosaics, mosaic_warnings) = config.custom.resolve_mosaics(idr, default_cache).await;
+    sources.extend(mosaics);
+    warnings.extend(mosaic_warnings);
+    Ok((sources, warnings))
 }
 
 fn sanitized_url(url: &Url) -> String {
@@ -317,28 +431,25 @@ mod tests {
     async fn a_mosaic_source_is_served_and_saved_as_configured() {
         let (_, ids, saved) = resolve(indoc::indoc! {"
             cog:
-              sources:
+              mosaics:
                 ortho:
                   path: ../tests/fixtures/cog/mosaic/{quadkey}.tif
-                  mosaic:
-                    zoom: 16
-                    maxzoom: 18
-                    max_cached_files: 10
-                    cached_files_ttl: 1m
+                  zoom: 16
+                  maxzoom: 18
+                  max_cached_files: 10
+                  cached_files_ttl: 1m
         "})
         .await;
         assert_eq!(ids, ["ortho"]);
         insta::assert_json_snapshot!(saved, @r#"
         {
-          "sources": {
+          "mosaics": {
             "ortho": {
               "path": "../tests/fixtures/cog/mosaic/{quadkey}.tif",
-              "mosaic": {
-                "zoom": 16,
-                "maxzoom": 18,
-                "max_cached_files": 10,
-                "cached_files_ttl": "1m"
-              }
+              "zoom": 16,
+              "maxzoom": 18,
+              "max_cached_files": 10,
+              "cached_files_ttl": "1m"
             }
           }
         }
@@ -350,19 +461,16 @@ mod tests {
         let (_, ids, _) = resolve(indoc::indoc! {"
             on_invalid: warn
             cog:
-              sources:
+              mosaics:
                 empty:
                   path: ../tests/fixtures/cog/mosaic/{quadkey}_missing.tif
-                  mosaic:
-                    zoom: 16
+                  zoom: 16
                 bad_template:
                   path: ../tests/fixtures/cog/mosaic/{q}.tif
-                  mosaic:
-                    zoom: 16
+                  zoom: 16
                 ortho:
                   path: ../tests/fixtures/cog/mosaic/{quadkey}.tif
-                  mosaic:
-                    zoom: 16
+                  zoom: 16
         "})
         .await;
         assert_eq!(ids, ["ortho"]);
@@ -372,18 +480,17 @@ mod tests {
     async fn unrecognized_mosaic_keys_are_reported() {
         let mut config: Config = serde_saphyr::from_str(indoc::indoc! {"
             cog:
-              sources:
+              mosaics:
                 ortho:
                   path: ../tests/fixtures/cog/mosaic/{quadkey}.tif
-                  mosaic:
-                    zoom: 16
-                    max_zoom: 18
+                  zoom: 16
+                  max_zoom: 18
         "})
         .unwrap();
         config.finalize().await.unwrap();
         insta::assert_debug_snapshot!(config.get_unrecognized_keys(), @r#"
         {
-            "cog.sources.ortho.mosaic.max_zoom",
+            "cog.mosaics.ortho.max_zoom",
         }
         "#);
     }

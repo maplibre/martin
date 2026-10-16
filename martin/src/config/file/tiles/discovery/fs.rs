@@ -95,9 +95,6 @@ impl FsDiscovery {
         let mut configured: BTreeMap<PathBuf, ConfiguredSource> = BTreeMap::new();
 
         for (id, src) in &config.sources {
-            if src.is_mosaic() {
-                continue;
-            }
             let path = src.get_path();
             let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
                 continue;
@@ -656,8 +653,6 @@ mod tests {
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
                     tile_grid: None,
-                    #[cfg(feature = "unstable-cog")]
-                    mosaic: None,
                 })),
             )]),
             ..FileConfig::<()>::default()
@@ -711,8 +706,6 @@ mod tests {
                         #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
-                        #[cfg(feature = "unstable-cog")]
-                        mosaic: None,
                     })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
@@ -782,8 +775,6 @@ mod tests {
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),
                     ),
                     cache: CachePolicy::default(),
-                    #[cfg(feature = "unstable-cog")]
-                    mosaic: None,
                 })),
             )]),
             ..FileConfig::<()>::default()

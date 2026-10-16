@@ -115,14 +115,6 @@ pub enum ConfigFileError {
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
-    #[cfg(feature = "unstable-cog")]
-    #[error("Source {0} has a `mosaic` block, but only COG sources can be mosaics")]
-    MosaicNotCog(String),
-
-    #[cfg(feature = "unstable-cog")]
-    #[error("The mosaic path of source {id} is not valid UTF-8: {}", path.display())]
-    MosaicPathNotUtf8 { id: String, path: PathBuf },
-
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
@@ -348,10 +340,6 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
-            #[cfg(feature = "unstable-cog")]
-            Self::MosaicNotCog(_) => "martin::config::cog::mosaic_not_cog",
-            #[cfg(feature = "unstable-cog")]
-            Self::MosaicPathNotUtf8 { .. } => "martin::config::cog::mosaic_path_utf8",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
             #[cfg(feature = "_tiles")]
@@ -426,14 +414,6 @@ impl Diagnostic for ConfigFileError {
             }
             #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
-            #[cfg(feature = "unstable-cog")]
-            Self::MosaicNotCog(_) => {
-                "Move the source under `cog.sources`, or remove its `mosaic` block."
-            }
-            #[cfg(feature = "unstable-cog")]
-            Self::MosaicPathNotUtf8 { .. } => {
-                "A mosaic `path` names the files by `{quadkey}`, or by `{x}` and `{y}` (or `{-y}` for rows counted from the bottom) with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`, so it must be valid UTF-8."
-            }
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
             #[cfg(feature = "_tiles")]
@@ -886,39 +866,6 @@ mod tests {
         message: Failed to list objects under s3://bucket: Operation list not yet implemented by test.
         code: martin::config::pmtiles::object_store_list
         help: none
-        url: https://maplibre.org/martin/config-file/
-        labels: none
-        source_code: none
-        miette_report: none
-        ");
-    }
-
-    #[cfg(feature = "unstable-cog")]
-    #[test]
-    fn mosaic_not_cog() {
-        let err = ConfigFileError::MosaicNotCog("ortho".to_owned());
-        insta::assert_snapshot!(describe(&err), @"
-        message: Source ortho has a `mosaic` block, but only COG sources can be mosaics
-        code: martin::config::cog::mosaic_not_cog
-        help: Move the source under `cog.sources`, or remove its `mosaic` block.
-        url: https://maplibre.org/martin/config-file/
-        labels: none
-        source_code: none
-        miette_report: none
-        ");
-    }
-
-    #[cfg(feature = "unstable-cog")]
-    #[test]
-    fn mosaic_path_not_utf8() {
-        let err = ConfigFileError::MosaicPathNotUtf8 {
-            id: "ortho".to_owned(),
-            path: PathBuf::from("/data/ortho/{quadkey}.tif"),
-        };
-        insta::assert_snapshot!(describe(&err), @"
-        message: The mosaic path of source ortho is not valid UTF-8: /data/ortho/{quadkey}.tif
-        code: martin::config::cog::mosaic_path_utf8
-        help: A mosaic `path` names the files by `{quadkey}`, or by `{x}` and `{y}` (or `{-y}` for rows counted from the bottom) with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`, so it must be valid UTF-8.
         url: https://maplibre.org/martin/config-file/
         labels: none
         source_code: none

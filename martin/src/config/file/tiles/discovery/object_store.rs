@@ -120,10 +120,6 @@ impl ConfiguredObjectDiscovery {
     ) -> Self {
         let mut objects = Vec::new();
         for (id, src) in &config.sources {
-            if src.is_mosaic() {
-                // Mosaic files are opened on demand and expire from their own cache.
-                continue;
-            }
             let Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) =
                 SourceLocation::classify_path(src.get_path())
             else {
@@ -296,7 +292,6 @@ impl ObjectStoreDiscovery {
         let configured = config
             .sources
             .values()
-            .filter(|src| !src.is_mosaic())
             .filter_map(|src| match SourceLocation::classify_path(src.get_path()) {
                 Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
                     Some(sanitized_url(&url))

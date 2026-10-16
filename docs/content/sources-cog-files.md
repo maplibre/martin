@@ -106,11 +106,11 @@ cog:
     # named source matching source name to a single file, local or remote
      cog-src1: /path/to/cog1.tif
      cog-src2: https://example.org/path/cog2.tif
-    # a mosaic of many files, see "Mosaic of many COGs" below
-     ortho:
-       path: s3://my-bucket/ortho/{quadkey}.tif
-       mosaic:
-         zoom: 16
+  # mosaics of many files, see "Mosaic of many COGs" below
+  mosaics:
+    ortho:
+      path: s3://my-bucket/ortho/{quadkey}.tif
+      zoom: 16
 ```
 
 !!! tip "Scanning subdirectories"
@@ -130,21 +130,21 @@ a request for `z/x/y` is routed to the file of its ancestor tile at the mosaic's
 
 ```yaml
 cog:
-  sources:
+  mosaics:
     ortho:
-      # Where the files are, local or remote, naming each file by its tile at `mosaic.zoom`:
+      # Where the files are, local or remote, naming each file by its tile at `zoom`:
       # {quadkey}, or {x} and {y} with an optional {z}, e.g. /data/ortho/{z}/{x}/{y}.tif.
       # Use {-y} for rows counted from the bottom (TMS), e.g. /data/quads/{x}-{-y}.tif.
       path: s3://my-bucket/ortho/{quadkey}.tif
-      mosaic:
-        # The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
-        zoom: 16
-        # The highest zoom served. Defaults to the highest zoom of the file opened at startup.
-        maxzoom: 20
-        # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
-        max_cached_files: 1000
-        # How long an opened file is kept before it is opened again. Defaults to "10m".
-        cached_files_ttl: 10m
+      # The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
+      zoom: 16
+      # The highest zoom served. Defaults to the highest zoom of the file opened at startup.
+      maxzoom: 20
+      # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
+      max_cached_files: 1000
+      # How long an opened file is kept before it is opened again. Defaults to "10m".
+      cached_files_ttl: 10m
+      # Like a source, a mosaic also takes `cache` and `cache_control`.
 ```
 
 --8<-- "images/sources/cog-mosaic-names.svg"

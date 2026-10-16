@@ -242,8 +242,6 @@ mod tests {
                 convert_to_hillshade: None,
                 #[cfg(all(feature = "processing", feature = "_tiles"))]
                 convert_to_contour: None,
-                #[cfg(feature = "unstable-cog")]
-                mosaic: None,
             })),
         );
         let cfg = FileConfig {

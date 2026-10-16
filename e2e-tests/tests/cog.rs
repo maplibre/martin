@@ -1098,11 +1098,10 @@ async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
     let mut martin = Martin::builder()
         .config(indoc! {"
             cog:
-              sources:
+              mosaics:
                 ortho:
                   path: tests/fixtures/cog/mosaic/{quadkey}.tif
-                  mosaic:
-                    zoom: 16
+                  zoom: 16
         "})
         .start()
         .await
@@ -1165,16 +1164,14 @@ async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
               aws_region: eu-central-1
               skip_signature: true
               virtual_hosted_style_request: false
-              sources:
+              mosaics:
                 remote:
                   path: s3://cogtest/imagery/{{quadkey}}.tif
-                  mosaic:
-                    zoom: 16
-                    maxzoom: 18
+                  zoom: 16
+                  maxzoom: 18
                 local:
                   path: tests/fixtures/cog/mosaic/{{quadkey}}.tif
-                  mosaic:
-                    zoom: 16
+                  zoom: 16
         "})
         .start()
         .await
@@ -1200,20 +1197,16 @@ async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
     let parsed =
         serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
-    insta::assert_json_snapshot!(parsed["cog"]["sources"], @r#"
+    insta::assert_json_snapshot!(parsed["cog"]["mosaics"], @r#"
     {
       "local": {
-        "mosaic": {
-          "zoom": 16
-        },
-        "path": "tests/fixtures/cog/mosaic/{quadkey}.tif"
+        "path": "tests/fixtures/cog/mosaic/{quadkey}.tif",
+        "zoom": 16
       },
       "remote": {
-        "mosaic": {
-          "maxzoom": 18,
-          "zoom": 16
-        },
-        "path": "s3://cogtest/imagery/{quadkey}.tif"
+        "maxzoom": 18,
+        "path": "s3://cogtest/imagery/{quadkey}.tif",
+        "zoom": 16
       }
     }
     "#);
