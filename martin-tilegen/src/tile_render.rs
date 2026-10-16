@@ -1,7 +1,7 @@
 //! The stages every tile render runs through: features into sorted records, sorted records into tiles.
 
 use geo_types::Coord;
-use martin_tile_utils::{Encoding, Format};
+use martin_tile_utils::{Encoding, Format, TileRect};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 
@@ -10,25 +10,35 @@ use crate::props::KeyNames;
 use crate::source::{Crs, FeatureBatch, Geometry};
 use crate::{
     DedupIndex, EncodeSettings, EncodedTile, FeatureGeom, LayerInfo, LayerSliceErrors, LayerStats,
-    Renderer, Seq, SliceErrors, SortBuffer, Summary, TileEncoder, TileFormat, TileGenResult,
-    TileOrder, TileRecords, project,
+    RenderLayer, Renderer, Seq, SliceErrors, SortBuffer, Summary, TileEncoder, TileFormat,
+    TileGenResult, TileOrder, TileRecords, project,
 };
 
 /// Renders feature batches into sort records, for one thread.
 pub(crate) struct FeatureRenderer<'p> {
     renderer: Renderer,
     evaluator: Evaluator<'p>,
+    /// The plan's layers narrowed to a window, by layer index; `None` renders the plan's own.
+    windowed: Option<Vec<RenderLayer>>,
     order: TileOrder,
     features: u64,
     skipped: u64,
 }
 
 impl<'p> FeatureRenderer<'p> {
-    /// A renderer of `plan`'s layers that keys records for tiles in `order`.
-    pub(crate) fn new(plan: &'p Plan, order: TileOrder) -> Self {
+    /// A renderer of `plan`'s layers that keys records for tiles in `order`, only those of `window`
+    /// when given.
+    pub(crate) fn new(plan: &'p Plan, order: TileOrder, window: Option<TileRect>) -> Self {
+        let windowed = window.map(|window| {
+            plan.layers
+                .iter()
+                .map(|layer| layer.render.clone().with_window(window))
+                .collect()
+        });
         Self {
             renderer: Renderer::default(),
             evaluator: plan.evaluator(),
+            windowed,
             order,
             features: 0,
             skipped: 0,
@@ -45,6 +55,7 @@ impl<'p> FeatureRenderer<'p> {
         let Self {
             renderer,
             evaluator,
+            windowed,
             order,
             features,
             skipped,
@@ -58,7 +69,11 @@ impl<'p> FeatureRenderer<'p> {
             *features += 1;
             let seq = Seq::new(batch.partition, row)?;
             evaluator.evaluate(batch.table, feature, geom, |evaluated| {
-                renderer.render(*order, evaluated.layer(), seq, evaluated.feature(), out)
+                let layer = evaluated.layer();
+                let layer = windowed
+                    .as_ref()
+                    .map_or(layer, |layers| &layers[usize::from(layer.index)]);
+                renderer.render(*order, layer, seq, evaluated.feature(), out)
             })?;
         }
         Ok(())
