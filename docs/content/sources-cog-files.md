@@ -13,24 +13,6 @@ tags:
 
 # Cloud Optimized GeoTIFF File Sources
 
-!!! warning
-    This feature is currently unstable and thus not included in the default build.
-    Its behavior may change in patch releases.
-
-    To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
-
-    ```bash
-    cargo install martin --features=unstable-cog
-    ```
-
-    It is unstable due to the limitations of our current implementation:
-
-    - only COGs in [`EPSG:3857`](https://epsg.io/3857) that are tiled on the `WebMercatorQuad` grid are supported
-    - only 8-bit images are supported, so elevation data (16-bit or floating point) cannot be served yet
-    - transparency masks are ignored
-
-    We welcome contributions to help stabilize this feature!
-
 Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 
 ## How Martin serves a COG
@@ -68,6 +50,11 @@ GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG
 | None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG                  |
 
 Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
+
+Not supported yet:
+
+- elevation data and other images that are not 8-bit (16-bit or floating point)
+- transparency masks, which are ignored
 
 ## Run Martin with CLI to serve cog files
 

@@ -217,9 +217,9 @@ bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-inst
 # Bless the COG/GeoTIFF tests, including the end-to-end ones
 bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} -p cog-tiles --all-features
-    {{insta_test}} -p martin --features unstable-cog --no-default-features --lib
-    {{insta_test}} -p martin-core --features unstable-cog --no-default-features --lib
-    cargo build --package martin --no-default-features --features unstable-cog
+    {{insta_test}} -p martin --features cog --no-default-features --lib
+    {{insta_test}} -p martin-core --features cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features cog
     {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
 
 # Bless the DuckDB/GeoParquet tests, including the end-to-end ones
@@ -703,9 +703,9 @@ test-s3: fetch (cargo-install 'cargo-nextest')
 test-cog: fetch (cargo-install 'cargo-nextest')
     cargo nextest run -p cog-tiles --all-features
     cargo test -p cog-tiles --all-features --doc
-    cargo nextest run -p martin --features unstable-cog --no-default-features --lib
-    cargo nextest run -p martin-core --features unstable-cog --no-default-features --lib
-    cargo build --package martin --no-default-features --features unstable-cog
+    cargo nextest run -p martin --features cog --no-default-features --lib
+    cargo nextest run -p martin-core --features cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones

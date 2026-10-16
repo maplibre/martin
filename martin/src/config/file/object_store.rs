@@ -609,7 +609,7 @@ impl CredentialProvider for AwsSdkCredentialProvider {
     }
 }
 
-#[cfg(all(test, feature = "unstable-cog"))]
+#[cfg(all(test, feature = "cog"))]
 mod cog_tests {
     use object_store::ObjectStoreExt as _;
     use wiremock::matchers::{method, path};

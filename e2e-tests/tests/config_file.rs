@@ -115,7 +115,7 @@ async fn an_unrecognized_key_does_not_stop_the_configured_sources_from_being_ser
 }
 
 #[tokio::test]
-async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
+async fn the_cog_section_is_reported_in_builds_with_and_without_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
         indoc! {"
@@ -133,7 +133,7 @@ async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let keys = unrecognized_keys(&mut martin);
     assert!(
         keys == ["cog"] || keys == ["cog.warning"],
-        "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
+        "expected the whole section without cog, or just the key with it, got {keys:?}"
     );
 }
 

@@ -16,7 +16,7 @@ use martin::config::args::Command;
 use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
@@ -75,7 +75,7 @@ async fn start(
         .await?;
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -101,7 +101,7 @@ async fn start(
     // Otherwise the sources load while the server starts.
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -136,7 +136,7 @@ async fn start(
 
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -190,7 +190,7 @@ async fn start(
 /// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",

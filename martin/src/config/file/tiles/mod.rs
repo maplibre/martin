@@ -1,7 +1,7 @@
 mod error;
 pub use error::{SourceBuildError, SourceBuildResult};
 
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 pub mod cog;
 #[cfg(feature = "unstable-duckdb")]
 pub mod duckdb;

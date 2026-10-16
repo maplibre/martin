@@ -20,7 +20,7 @@ use crate::tile_source_manager::TileSourceManager;
 pub struct TileReloaders {
     #[cfg(feature = "mbtiles")]
     mbtiles: super::mbtiles::MbtilesReloader,
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     cog: super::cog::CogReloader,
     #[cfg(feature = "unstable-duckdb")]
     duckdb: super::duckdb::DuckDbReloader,
@@ -75,7 +75,7 @@ impl TileReloaders {
             &archive_process,
             &tile_grids,
         );
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         let mut cog = super::cog::CogReloader::new(
             catalog.clone(),
             resolver.clone(),
@@ -111,7 +111,7 @@ impl TileReloaders {
             let warnings = mbtiles.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         {
             let warnings = cog.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
@@ -164,7 +164,7 @@ impl TileReloaders {
         Ok(Self {
             #[cfg(feature = "mbtiles")]
             mbtiles,
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             cog,
             #[cfg(feature = "unstable-duckdb")]
             duckdb,
@@ -200,7 +200,7 @@ impl TileReloaders {
         if let Err(e) = self.mbtiles.start() {
             tracing::warn!(error = ?e, "failed to start MbtilesReloader");
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if let Err(e) = self.cog.start() {
             tracing::warn!(error = ?e, "failed to start CogReloader");
         }

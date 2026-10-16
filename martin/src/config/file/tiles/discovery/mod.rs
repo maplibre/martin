@@ -6,22 +6,22 @@ pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing",
     feature = "pmtiles"
 ))]
 mod fs;
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing",
     feature = "pmtiles"
 ))]
 pub use fs::{FsDiscovery, FsSourceBuilder};
 
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
 mod object_store;
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
 pub use object_store::{
     ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,
 };

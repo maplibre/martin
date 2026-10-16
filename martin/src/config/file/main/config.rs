@@ -13,7 +13,7 @@ use tracing::{error, instrument, warn};
 use crate::config::file::SourceBuildResult;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGridsConfig;
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::DuckDbConfig;
@@ -43,7 +43,7 @@ use crate::config::file::{
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing",
     feature = "resources",
     feature = "resources",
@@ -180,7 +180,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
     pub passthrough: PassthroughConfig,
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",

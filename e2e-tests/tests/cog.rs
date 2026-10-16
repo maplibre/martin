@@ -1,7 +1,7 @@
 //! COG (`Cloud Optimized GeoTIFF`) sources: discovered in a directory, configured by id, and
 //! reloaded while the server runs.
 //!
-//! Binary has to be built with `unstable-cog`.
+//! Binary has to be built with `cog`.
 
 #![cfg(feature = "test-cog")]
 
