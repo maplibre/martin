@@ -80,7 +80,7 @@ impl PostgresDiscovery {
                 PostgresAutoDiscoveryBuilder::new(
                     &self.config,
                     self.id_resolver.clone(),
-                    self.default_cache,
+                    self.default_cache.clone(),
                     &self.tile_grids,
                 )
                 .await

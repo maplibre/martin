@@ -450,7 +450,7 @@ mod tests {
         // Per-source disable is not overridden by global defaults
         let disabled = CachePolicy::disabled();
         let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
-        let merged = disabled.or(defaults);
+        let merged = disabled.or(&defaults);
         for zoom in 0..=u8::MAX {
             assert!(!merged.zoom().contains(zoom));
         }
@@ -461,7 +461,7 @@ mod tests {
         // Per-source config re-enables caching despite global disable
         let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
         let global_disabled = CachePolicy::disabled();
-        let merged = source.or(global_disabled);
+        let merged = source.or(&global_disabled);
         assert!(merged.zoom().contains(0));
         assert!(merged.zoom().contains(5));
         assert!(merged.zoom().contains(10));

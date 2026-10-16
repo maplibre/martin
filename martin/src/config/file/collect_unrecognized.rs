@@ -14,9 +14,7 @@ use crate::config::args::BoundsCalcType;
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-use crate::config::file::{
-    CachePolicy, CacheSizeConfig, GlobalCacheConfig, OnInvalid, UnrecognizedKeys,
-};
+use crate::config::file::{OnInvalid, UnrecognizedKeys};
 
 /// Configuration keys that were present in a config section but not recognized by any known field.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,11 +165,9 @@ impl_empty_collect_unrecognized!(
     Duration,
     serde_json::Value,
     Bounds,
+    martin_core::CacheZoomRange,
     OnInvalid,
     PreferredEncoding,
-    CachePolicy,
-    CacheSizeConfig,
-    GlobalCacheConfig,
 );
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]

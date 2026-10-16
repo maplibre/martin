@@ -30,7 +30,7 @@ impl PmtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<PmtConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
@@ -60,7 +60,7 @@ impl PmtilesReloader {
             pmt_config.recursive.unwrap_or_default(),
             &[PMTILES_EXT],
             id_resolver.clone(),
-            default_cache,
+            default_cache.clone(),
             &process,
             build,
             Some(tile_grids),
@@ -136,7 +136,7 @@ mod tests {
     use super::*;
     use crate::config::file::pmtiles::DEFAULT_RELOAD_INTERVAL;
     use crate::config::file::{
-        CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid,
+        CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid, UnrecognizedValues,
     };
 
     fn make_reloader(config: &FileConfig<PmtConfig>) -> PmtilesReloader {
@@ -146,7 +146,7 @@ mod tests {
             tsm,
             resolver,
             config,
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             &TileGrids::default(),
         )
@@ -242,6 +242,7 @@ mod tests {
                 convert_to_hillshade: None,
                 #[cfg(all(feature = "processing", feature = "_tiles"))]
                 convert_to_contour: None,
+                unrecognized: UnrecognizedValues::default(),
             })),
         );
         let cfg = FileConfig {

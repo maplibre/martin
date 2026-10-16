@@ -24,7 +24,7 @@ impl MbtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<MbtConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {

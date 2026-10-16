@@ -36,7 +36,7 @@ impl PostgresReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: PostgresConfig,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
@@ -147,7 +147,7 @@ mod tests {
             tsm,
             IdResolver::new(&[]),
             config,
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             &TileGrids::default(),
         )

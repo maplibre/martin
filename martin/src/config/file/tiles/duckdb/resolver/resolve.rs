@@ -111,11 +111,11 @@ impl DuckDbConfig {
         id_resolver: IdResolver,
         default_cache: CachePolicy,
     ) -> DuckDbResolution {
-        let default_cache = self.cache.or(default_cache);
+        let default_cache = self.cache.or(&default_cache);
         let pending = self
             .sources
             .iter()
-            .map(|source| resolve_source_entry(source, &id_resolver, default_cache))
+            .map(|source| resolve_source_entry(source, &id_resolver, default_cache.clone()))
             .collect::<Vec<_>>();
         let resolved = join_all(pending).await;
         let process = self

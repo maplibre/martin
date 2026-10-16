@@ -113,7 +113,7 @@ impl ConfiguredObjectDiscovery {
         config: &FileConfig<T>,
         label: &'static str,
         reload_interval: Duration,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         process: &ProcessConfig,
         parser: ObjectStoreParser,
         build: ObjectStoreSourceBuilder,
@@ -224,7 +224,7 @@ impl Discovery for ConfiguredObjectDiscovery {
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         let source = self
             .build
-            .build(id.to_owned(), args.url.clone(), args.policy)
+            .build(id.to_owned(), args.url.clone(), args.policy.clone())
             .await?
             .source;
         BuiltSource::with_file_config(
@@ -387,7 +387,7 @@ impl Discovery for ObjectStoreDiscovery {
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
         self.build
-            .build(id.to_owned(), args.clone(), self.default_cache)
+            .build(id.to_owned(), args.clone(), self.default_cache.clone())
             .await
     }
 
@@ -664,7 +664,7 @@ mod configured_object_tests {
             config,
             "test",
             Duration::from_secs(1),
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             parser,
             ObjectStoreSourceBuilder::Cog(Box::default()),
@@ -747,7 +747,7 @@ mod configured_object_tests {
             &config,
             "test",
             Duration::from_secs(1),
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             parser,
             ObjectStoreSourceBuilder::Cog(Box::default()),

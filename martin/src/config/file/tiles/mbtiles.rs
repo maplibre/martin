@@ -63,7 +63,7 @@ impl TileSourceConfiguration for MbtConfig {
     }
 
     fn cache(&self) -> CachePolicy {
-        self.cache
+        self.cache.clone()
     }
     async fn new_sources(
         &self,
@@ -101,8 +101,25 @@ mod tests {
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
         CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
-        FileConfigSource, FileConfigSrc,
+        FileConfigSource, FileConfigSrc, UnrecognizedValues,
     };
+
+    #[tokio::test]
+    async fn unrecognized_source_keys_are_reported() {
+        let mut cfg = serde_saphyr::from_str::<FileConfig<MbtConfig>>(indoc! {"
+            sources:
+              world:
+                path: /tmp/world.mbtiles
+                cache_contorl: max-age=60
+        "})
+        .unwrap();
+        cfg.finalize().await.unwrap();
+        insta::assert_debug_snapshot!(cfg.get_unrecognized_keys(), @r#"
+        {
+            "sources.world.cache_contorl",
+        }
+        "#);
+    }
 
     #[tokio::test]
     async fn parse() {
@@ -161,6 +178,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
                 (
@@ -182,6 +200,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
                 (
@@ -199,6 +218,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
             ])

@@ -117,7 +117,7 @@ impl PassthroughConfig {
         idr: &IdResolver,
         default_cache: CachePolicy,
     ) -> ResolutionResult {
-        let default_cache = self.cache.or(default_cache);
+        let default_cache = self.cache.or(&default_cache);
         let mut results = Vec::new();
         let mut warnings = Vec::new();
 
@@ -127,7 +127,7 @@ impl PassthroughConfig {
                 let cfg = src.to_config();
                 let dedup_key = cfg.url.first().cloned().unwrap_or_else(|| id.clone());
                 let id = idr.resolve(&id, dedup_key);
-                match cfg.build(id.clone(), default_cache).await {
+                match cfg.build(id.clone(), default_cache.clone()).await {
                     Ok(source) => {
                         info!(source.id = %id, "Configured passthrough source");
                         results.push(source);
@@ -359,7 +359,7 @@ impl PassthroughSourceConfig {
             self.timeout,
             self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
         )?;
-        let cache = self.cache.or(default_cache);
+        let cache = self.cache.or(&default_cache);
         let source = PassthroughSource::new(id, upstream, transport, cache.zoom()).await?;
         Ok(BackendSource::Passthrough(source).boxed())
     }

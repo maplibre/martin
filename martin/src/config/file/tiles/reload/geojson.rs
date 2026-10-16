@@ -20,7 +20,7 @@ impl GeoJsonReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<GeoJsonConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         // Discovered files inherit the configured extent and buffer, so the builder closes over the

@@ -75,6 +75,7 @@ unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 unstable-cog = [
     "dep:cog-tiles",
     "cog-tiles/object-store",
+    "dep:futures",
     "dep:object_store",
     "dep:serde_json",
     "_tiles",

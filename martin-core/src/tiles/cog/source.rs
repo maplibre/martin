@@ -13,16 +13,18 @@ use tracing::instrument;
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
+use crate::tiles::cog::mosaic::Mosaic;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Where the tiles of a [`CogSource`] come from.
 #[derive(Clone, Debug)]
-enum CogTiles {
+pub(super) enum CogTiles {
     File(Arc<AsyncCogReader<FileBackend>>),
     ObjectStore(Arc<AsyncCogReader<ObjectStoreBackend>>),
+    Mosaic(Arc<Mosaic>),
 }
 
-/// Tile source that reads from one `Cloud Optimized GeoTIFF` file.
+/// Tile source that reads from one `Cloud Optimized GeoTIFF` file, or from a mosaic of them.
 ///
 /// Every COG must be tiled on the `WebMercatorQuad` grid, so each served tile is one internal
 /// tile of a file: JPEG and WebP tiles are returned as stored, others are re-encoded as PNG.
@@ -110,7 +112,7 @@ impl CogSource {
     }
 
     /// Finishes a source whose `TileJSON` has its zoom range set, adding the tile layout to it.
-    fn with_layout(
+    pub(super) fn with_layout(
         id: String,
         tiles: CogTiles,
         mut tilejson: TileJSON,
@@ -143,7 +145,7 @@ impl CogSource {
 }
 
 /// Logs the images of a COG that are not served, e.g. overviews that are off the tile grid.
-fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
+pub(super) fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
     for reason in skipped {
         tracing::warn!(
             cog.location = location,
@@ -154,7 +156,7 @@ fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
 }
 
 /// The `cog-tiles` form of a tile coordinate.
-fn cog_coord(xyz: TileCoord) -> Result<cog_tiles::TileCoord, CogError> {
+pub(super) fn cog_coord(xyz: TileCoord) -> Result<cog_tiles::TileCoord, CogError> {
     Ok(cog_tiles::TileCoord::new(xyz.z(), xyz.x(), xyz.y())?)
 }
 
@@ -216,6 +218,7 @@ impl Source for CogSource {
                 .get_tile(cog_coord(xyz)?)
                 .await
                 .map_err(CogError::from)?,
+            CogTiles::Mosaic(mosaic) => mosaic.get_tile(xyz).await?,
         };
         Ok(tile.unwrap_or_default())
     }

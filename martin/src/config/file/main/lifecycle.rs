@@ -38,16 +38,13 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(feature = "unstable-cog")]
+use crate::config::file::cog::{CogMosaicSource, resolve_cog};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ResolvedProcess;
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "processing"
-))]
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "processing"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
 #[cfg(any(
@@ -164,7 +161,7 @@ impl Config {
         let is_empty = is_empty && self.passthrough.is_empty();
 
         #[cfg(feature = "unstable-cog")]
-        let is_empty = is_empty && self.cog.is_empty();
+        let is_empty = is_empty && self.cog.is_empty() && self.cog.custom.mosaics.is_empty();
 
         #[cfg(feature = "unstable-duckdb")]
         let is_empty = is_empty && self.duckdb.is_empty();
@@ -451,9 +448,8 @@ impl Config {
         }
 
         #[cfg(feature = "unstable-cog")]
-        if !self.cog.is_empty() {
-            let cfg = &mut self.cog;
-            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy(), None);
+        if !self.cog.is_empty() || !self.cog.custom.mosaics.is_empty() {
+            let val = resolve_cog(&mut self.cog, idr, self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -563,6 +559,15 @@ impl Config {
             Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
                 ProcessConfig::default()
             })?;
+
+            #[cfg(feature = "unstable-cog")]
+            Self::insert_source_configs(
+                &mut map,
+                &global,
+                &ProcessConfig::default(),
+                &self.cog.custom.mosaics,
+                CogMosaicSource::process,
+            )?;
 
             #[cfg(feature = "processing")]
             Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {

@@ -202,7 +202,7 @@ impl TileSourceConfiguration for PmtConfig {
     }
 
     fn cache(&self) -> CachePolicy {
-        self.cache
+        self.cache.clone()
     }
 
     async fn new_sources(
