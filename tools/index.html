@@ -1558,11 +1558,18 @@
 <h2 id="cli-tools">CLI Tools</h2>
 <p>Martin project contains additional tooling to help manage the data servable with Martin tile server.</p>
 <h3 id="martin-cp"><code>martin cp</code></h3>
-<p><code>martin cp</code> is a subcommand of <code>martin</code> for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
-It can be used to generate tiles for a large area or multiple areas.
-If multiple areas overlap, it will generate tiles only once.
-<code>martin cp</code> supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.</p>
-<p>See <a href="../martin-cp/">this article</a> for more information.</p>
+<p><code>martin cp</code> is a subcommand of <code>martin</code> for copying tiles from any sources into a new or an existing tile archive.
+It supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+It can copy tiles in two ways:</p>
+<ul>
+<li><strong>One by one</strong>: <code>martin cp</code> asks the source for each tile, so the source must either contain tiles (MBTiles, PMTiles)
+  or generate them (PostgreSQL's <code>ST_AsMVT</code>). It can be used for a large area or multiple areas, and if multiple areas
+  overlap, it will copy each tile only once. See <a href="../martin-cp/">this article</a> for more information.</li>
+<li><strong>In bulk</strong>: <code>martin cp</code> reads each source's features once and builds the whole tileset inside Martin.
+  It uses the tile generation method and a similar layer configuration adapted from
+  <a href="https://github.com/onthegomap/planetiler">Planetiler</a> by Mike Barry. This feature is unstable.
+  See <a href="../martin-generate/">this article</a> for more information.</li>
+</ul>
 <h3 id="mbtiles"><code>mbtiles</code></h3>
 <p><code>mbtiles</code> is a small utility to interact with the <code>*.mbtiles</code> files from the command line.
 It allows users to <a href="../mbtiles-meta/">examine</a>, <a href="../mbtiles-copy/">copy</a>, <a href="../mbtiles-validation/">validate</a> or <a href="../mbtiles-diff/">compare and apply diffs between them</a>.</p>

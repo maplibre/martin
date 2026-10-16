@@ -2042,8 +2042,15 @@
 <p>We offer the <code>martin cp</code> subcommand for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.</p>
 <p><code>martin cp</code> can be used to generate tiles for a large area or multiple areas (bounding boxes).
 If multiple areas overlap, it will ensure each tile is generated only once
-<code>martin cp</code> supports the same configuration file and CLI arguments as the Martin server, so it can support all sources and even combining sources.
-The released <code>martin</code> binary does not include <a href="../sources-duckdb/">DuckDB / GeoParquet sources</a>.
+<code>martin cp</code> supports the same configuration file and CLI arguments as the Martin server, so it can support all sources and even combining sources.</p>
+<div class="admonition tip">
+<p class="admonition-title">Generating tiles from features</p>
+<p>By default, <code>martin cp</code> asks the source for each tile, so the source must contain or generate the
+tiles. <code>martin cp</code> can also <a href="../martin-generate/">generate tiles from features</a>: it reads each
+source's features once and builds the whole tileset inside Martin, using a method adapted from
+<a href="https://github.com/onthegomap/planetiler">Planetiler</a>.</p>
+</div>
+<p>The released <code>martin</code> binary does not include <a href="../sources-duckdb/">DuckDB / GeoParquet sources</a>.
 To use them, build <code>martin</code> with the feature and list the source in the configuration file:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--package<span class="w"> </span>martin<span class="w"> </span>--bin<span class="w"> </span>martin<span class="w"> </span>--features<span class="o">=</span>unstable-duckdb
 </span></code></pre></div>

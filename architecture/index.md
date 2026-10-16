@@ -104,7 +104,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 - Tile format utilities
 - Bounding box calculations
 
-**Purpose**: The bulk tile generation engine behind the bulk mode of `martin cp`.
+**Purpose**: The bulk tile generation engine behind the bulk mode of `martin cp`. It turns features into tiles inside Martin, using the tile generation method adapted from [Planetiler](<https://github.com/onthegomap/planetiler>).
 
 **Key Responsibilities**:
 
