@@ -72,7 +72,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
                 res.tile_manager.clone(),
                 idr.clone(),
                 pg,
-                config.cache.policy(),
+                &config.cache.policy(),
                 &ProcessConfig::default(),
                 &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
             );
