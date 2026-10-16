@@ -39,7 +39,7 @@ use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "unstable-cog")]
-use crate::config::file::cog::resolve_cog;
+use crate::config::file::cog::{CogMosaicSource, resolve_cog};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
@@ -566,10 +566,7 @@ impl Config {
                 &global,
                 &ProcessConfig::default(),
                 &self.cog.custom.mosaics,
-                |mosaic| ProcessConfig {
-                    cache_control: mosaic.cache_control.clone(),
-                    ..ProcessConfig::default()
-                },
+                CogMosaicSource::process,
             )?;
 
             #[cfg(feature = "processing")]

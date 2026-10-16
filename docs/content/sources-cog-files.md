@@ -144,7 +144,7 @@ cog:
       max_cached_files: 1000
       # How long an opened file is kept before it is opened again. Defaults to "10m".
       cached_files_ttl: 10m
-      # Like a source, a mosaic also takes `cache` and `cache_control`.
+      # Like a source, a mosaic also takes `cache`, `cache_control`, `convert_to_hillshade`, and `convert_to_contour`.
 ```
 
 --8<-- "images/sources/cog-mosaic-names.svg"

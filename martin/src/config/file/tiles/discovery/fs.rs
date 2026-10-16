@@ -108,7 +108,7 @@ impl FsDiscovery {
             configured.insert(
                 canonical,
                 ConfiguredSource {
-                    policy: src.cache_zoom().or(default_cache),
+                    policy: src.cache_zoom().or(&default_cache),
                     process: per_source_process(process, src),
                     grid,
                     src: src.clone(),
@@ -287,7 +287,7 @@ impl Discovery for FsDiscovery {
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
-        let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
+        let source = (self.build)(id.to_owned(), args.0.clone(), args.1.clone()).await?;
         let configured = self.configured.get(&args.0);
         let source = source.boxed_on(configured.and_then(|cfg| cfg.grid.as_ref()));
         BuiltSource::with_file_config(
@@ -417,7 +417,7 @@ impl FsDiscovery {
                 let policy = self
                     .configured
                     .get(&e.path)
-                    .map_or(self.default_cache, |cfg| cfg.policy);
+                    .map_or_else(|| self.default_cache.clone(), |cfg| cfg.policy.clone());
                 let id = self
                     .id_resolver
                     .resolve(&format!("{prefix}{name}"), e.path_str.clone());
@@ -628,7 +628,7 @@ mod tests {
 
     #[tokio::test]
     async fn discovered_files_take_the_kind_level_cache_bounds() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
 
         let dir = tempfile::tempdir().expect("tempdir");
         let scanned = dir.path().join("scanned.mbtiles");
@@ -653,6 +653,7 @@ mod tests {
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
                     tile_grid: None,
+                    unrecognized: UnrecognizedValues::default(),
                 })),
             )]),
             ..FileConfig::<()>::default()
@@ -683,7 +684,7 @@ mod tests {
     #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
         use crate::config::primitives::AutoOption;
 
         let dir = tempfile::tempdir().expect("tempdir");
@@ -706,6 +707,7 @@ mod tests {
                         #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
+                        unrecognized: UnrecognizedValues::default(),
                     })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
@@ -751,7 +753,7 @@ mod tests {
 
     #[test]
     fn configured_sources_keep_their_cache_control_override() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
 
         let dir = tempfile::tempdir().expect("tempdir");
         let pinned = dir.path().join("pinned.mbtiles");
@@ -775,6 +777,7 @@ mod tests {
                         serde_saphyr::from_str("public, max-age=60").expect("valid header"),
                     ),
                     cache: CachePolicy::default(),
+                    unrecognized: UnrecognizedValues::default(),
                 })),
             )]),
             ..FileConfig::<()>::default()

@@ -528,15 +528,15 @@ impl PostgresAutoDiscoveryBuilder {
                 )
                 .await?;
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
-                let cache = info.cache.unwrap_or_default();
-                let source = self.build_source(id, &info, pg_sql, cache, grid);
+                let cache = info.cache.clone().unwrap_or_default();
+                let source = self.build_source(id, &info, pg_sql, &cache, grid);
                 Ok((source, SourceSpec::Table(info)))
             }
             SourceSpec::Function(info, pg_sql) => {
                 trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
                 let grid = self.tile_grid_for(info.tile_grid.as_deref());
-                let cache = info.cache.unwrap_or_default();
-                let source = self.build_source(id.to_owned(), &info, pg_sql.clone(), cache, grid);
+                let cache = info.cache.clone().unwrap_or_default();
+                let source = self.build_source(id.to_owned(), &info, pg_sql.clone(), &cache, grid);
                 Ok((source, SourceSpec::Function(info, pg_sql)))
             }
         }
@@ -657,7 +657,7 @@ impl PostgresAutoDiscoveryBuilder {
         id: String,
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
-        cache: CachePolicy,
+        cache: &CachePolicy,
         grid: &PgTileGrid,
     ) -> BoxedSource {
         let mut tilejson = pg_info.to_tilejson(id.clone());
@@ -671,7 +671,7 @@ impl PostgresAutoDiscoveryBuilder {
             );
         }
         let tile_info = pg_info.tile_info();
-        let cache = cache.or(self.default_cache);
+        let cache = cache.or(&self.default_cache);
         BackendSource::Postgres(PostgresSource::new(
             id,
             sql_info,

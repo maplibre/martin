@@ -96,7 +96,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
     }
 
     fn cache(&self) -> CachePolicy {
-        self.cache
+        self.cache.clone()
     }
 
     async fn new_sources(
@@ -134,7 +134,7 @@ mod tests {
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
         CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
-        FileConfigSource, FileConfigSrc,
+        FileConfigSource, FileConfigSrc, UnrecognizedValues,
     };
 
     #[tokio::test]
@@ -189,6 +189,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
                 (
@@ -210,6 +211,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
             ])

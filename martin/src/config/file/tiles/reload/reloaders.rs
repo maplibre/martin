@@ -71,7 +71,7 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.mbtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
@@ -80,14 +80,14 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.cog,
-            config.cache.policy(),
+            &config.cache.policy(),
         );
         #[cfg(feature = "unstable-duckdb")]
         let mut duckdb = super::duckdb::DuckDbReloader::new(
             catalog.clone(),
             resolver,
             &config.duckdb,
-            config.cache.policy(),
+            &config.cache.policy(),
             &global_process,
         );
         #[cfg(feature = "processing")]
@@ -95,14 +95,14 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.geojson,
-            config.cache.policy(),
+            &config.cache.policy(),
         );
         #[cfg(feature = "pmtiles")]
         let mut pmtiles = super::pmtiles::PmtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.pmtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
@@ -143,7 +143,7 @@ impl TileReloaders {
                         catalog.clone(),
                         resolver.clone(),
                         pg_config,
-                        config.cache.policy(),
+                        &config.cache.policy(),
                         &global_process,
                         &tile_grids,
                     )

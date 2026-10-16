@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use tracing::info;
 use url::Url;
 
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
@@ -20,6 +21,8 @@ use crate::config::file::{
     ResolutionResult, SourceBuildResult, TileSourceConfiguration, TileSourceWarning,
     UnrecognizedValues, resolve_files,
 };
+#[cfg(feature = "processing")]
+use crate::config::file::{ContourProcessConfig, HillshadeProcessConfig};
 use crate::config::primitives::IdResolver;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, CollectUnrecognizedKeys)]
@@ -119,6 +122,20 @@ pub struct CogMosaicSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+    /// Hillshade settings for this source.
+    ///
+    /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
+    /// See the hillshade documentation for the knobs.
+    #[cfg(feature = "processing")]
+    #[serde(default)]
+    pub convert_to_hillshade: Option<HillshadeProcessConfig>,
+    /// Trace contour lines from this source's tiles.
+    ///
+    /// Present means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.
+    /// See the contour documentation for the knobs.
+    #[cfg(feature = "processing")]
+    #[serde(default)]
+    pub convert_to_contour: Option<ContourProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -126,6 +143,19 @@ pub struct CogMosaicSource {
 }
 
 impl CogMosaicSource {
+    /// The per-source raster processing and `cache_control` settings.
+    pub(crate) fn process(&self) -> ProcessConfig {
+        ProcessConfig {
+            convert_to_mlt: None,
+            convert_to_mvt: None,
+            cache_control: self.cache_control.clone(),
+            #[cfg(feature = "processing")]
+            convert_to_hillshade: self.convert_to_hillshade.clone(),
+            #[cfg(feature = "processing")]
+            convert_to_contour: self.convert_to_contour.clone(),
+        }
+    }
+
     fn options(&self) -> CogMosaicOptions {
         CogMosaicOptions {
             file_zoom: self.zoom,
@@ -231,7 +261,7 @@ impl TileSourceConfiguration for CogConfig {
     }
 
     fn cache(&self) -> CachePolicy {
-        self.cache
+        self.cache.clone()
     }
 
     async fn new_sources(
@@ -284,6 +314,7 @@ impl CogConfig {
             })
             .collect();
         let this = &*self;
+        let default_cache = &default_cache;
         let opened = stream::iter(planned)
             .map(|(id, mosaic)| async move {
                 let result = this
@@ -322,7 +353,7 @@ impl CogConfig {
         &self,
         id: String,
         mosaic: &CogMosaicSource,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
     ) -> SourceBuildResult<BackendSource> {
         let (location, template) = split_mosaic_path(&mosaic.path);
         let options = mosaic.options();
@@ -364,8 +395,8 @@ pub async fn resolve_cog(
     default_cache: CachePolicy,
 ) -> ResolutionResult {
     let (mut sources, mut warnings) =
-        resolve_files(config, idr, &["tif", "tiff"], default_cache, None).await?;
-    let default_cache = config.cache_or(default_cache);
+        resolve_files(config, idr, &["tif", "tiff"], default_cache.clone(), None).await?;
+    let default_cache = config.cache_or(&default_cache);
     let (mosaics, mosaic_warnings) = config.custom.resolve_mosaics(idr, default_cache).await;
     sources.extend(mosaics);
     warnings.extend(mosaic_warnings);

@@ -275,7 +275,7 @@ pub fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf
 impl<T: TileSourceConfiguration> FileConfig<T> {
     /// The kind level cache bounds over the top level ones.
     #[must_use]
-    pub fn cache_or(&self, global: CachePolicy) -> CachePolicy {
+    pub fn cache_or(&self, global: &CachePolicy) -> CachePolicy {
         self.custom.cache().or(global)
     }
 }
@@ -367,7 +367,7 @@ impl FileConfigSrc {
     pub fn cache_zoom(&self) -> CachePolicy {
         match self {
             Self::Path(_) => CachePolicy::default(),
-            Self::Obj(o) => o.cache,
+            Self::Obj(o) => o.cache.clone(),
         }
     }
 
@@ -441,6 +441,10 @@ pub struct FileConfigSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[cfg(feature = "_tiles")]
@@ -469,7 +473,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     default_cache: CachePolicy,
     tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
-    let default_cache = config.cache_or(default_cache);
+    let default_cache = config.cache_or(&default_cache);
 
     let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
@@ -485,7 +489,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             source,
             &mut files,
             &mut configs,
-            default_cache,
+            &default_cache,
             tile_grids,
         ) {
             Ok(p) => planned.push(p),
@@ -505,7 +509,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &mut files,
             &mut directories,
             &mut configs,
-            default_cache,
+            default_cache.clone(),
         ) {
             Ok(p) => planned.extend(p),
             Err(err) => warnings.push(TileSourceWarning::PathError {
@@ -585,12 +589,12 @@ impl Planned {
         match &self.target {
             Target::Url { url, .. } => {
                 custom
-                    .new_sources_url(self.id.clone(), url.clone(), self.cache)
+                    .new_sources_url(self.id.clone(), url.clone(), self.cache.clone())
                     .await
             }
             Target::File { path, .. } => {
                 custom
-                    .new_sources(self.id.clone(), path.clone(), self.cache)
+                    .new_sources(self.id.clone(), path.clone(), self.cache.clone())
                     .await
             }
         }
@@ -651,7 +655,7 @@ fn plan_one_source(
     source: FileConfigSrc,
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
-    default_cache: CachePolicy,
+    default_cache: &CachePolicy,
     tile_grids: Option<&TileGrids>,
 ) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
@@ -872,11 +876,15 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 ///   minzoom: 0
 ///   maxzoom: 10
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CachePolicy {
     #[serde(flatten)]
     zoom: CacheZoomRange,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[cfg(feature = "unstable-schemas")]
@@ -899,30 +907,27 @@ pub(crate) enum DisableLiteral {
 impl CachePolicy {
     /// Creates a new `CachePolicy` with the given zoom range.
     #[must_use]
-    pub const fn new(zoom: CacheZoomRange) -> Self {
-        Self { zoom }
+    pub fn new(zoom: CacheZoomRange) -> Self {
+        Self {
+            zoom,
+            unrecognized: UnrecognizedValues::default(),
+        }
     }
 
     /// Creates a disabled `CachePolicy` where caching is turned off.
     #[must_use]
-    pub const fn disabled() -> Self {
-        Self {
-            zoom: CacheZoomRange::disabled(),
-        }
+    pub fn disabled() -> Self {
+        Self::new(CacheZoomRange::disabled())
     }
 
     /// Returns the zoom-level bounds for caching.
     #[must_use]
-    pub const fn zoom(self) -> CacheZoomRange {
+    pub const fn zoom(&self) -> CacheZoomRange {
         self.zoom
     }
 
     /// Returns `true` if no cache bounds are configured.
     #[must_use]
-    #[expect(
-        clippy::trivially_copy_pass_by_ref,
-        reason = "serde skip_serializing_if requires &self"
-    )]
     pub const fn is_empty(&self) -> bool {
         self.zoom.is_empty()
     }
@@ -930,10 +935,8 @@ impl CachePolicy {
     /// Fills in any `None` fields from `other`.
     /// A disabled cache policy (with both bounds set) is not overridden by defaults.
     #[must_use]
-    pub fn or(self, other: Self) -> Self {
-        Self {
-            zoom: self.zoom.or(other.zoom),
-        }
+    pub fn or(&self, other: &Self) -> Self {
+        Self::new(self.zoom.or(other.zoom))
     }
 }
 
@@ -946,6 +949,8 @@ impl<'de> Deserialize<'de> for CachePolicy {
         struct Inner {
             #[serde(flatten, default)]
             zoom: CacheZoomRange,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct CachePolicyVisitor;
@@ -975,7 +980,10 @@ impl<'de> Deserialize<'de> for CachePolicy {
 
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CachePolicy, M::Error> {
                 let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(CachePolicy { zoom: inner.zoom })
+                Ok(CachePolicy {
+                    zoom: inner.zoom,
+                    unrecognized: inner.unrecognized,
+                })
             }
         }
 
@@ -1003,7 +1011,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
 /// cache: disable
 /// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GlobalCacheConfig {
     /// Total amount of cache we use \[default: 512, 0 to disable\]
@@ -1064,12 +1072,16 @@ pub struct GlobalCacheConfig {
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
     zoom: CacheZoomRange,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl GlobalCacheConfig {
     /// Creates a disabled `GlobalCacheConfig` with size 0 and minzoom > maxzoom.
     #[must_use]
-    pub const fn disabled() -> Self {
+    pub fn disabled() -> Self {
         Self {
             size_mb: Some(0),
             tile_size_mb: Some(0),
@@ -1078,12 +1090,13 @@ impl GlobalCacheConfig {
             tile_expiry: None,
             tile_idle_timeout: None,
             zoom: CacheZoomRange::disabled(),
+            unrecognized: UnrecognizedValues::default(),
         }
     }
 
     /// Returns the zoom-level bounds as a [`CachePolicy`].
     #[must_use]
-    pub const fn policy(self) -> CachePolicy {
+    pub fn policy(&self) -> CachePolicy {
         CachePolicy::new(self.zoom)
     }
 
@@ -1131,6 +1144,8 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
             tile_idle_timeout: Option<Duration>,
             #[serde(flatten, default)]
             zoom: CacheZoomRange,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct GlobalCacheVisitor;
@@ -1168,6 +1183,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
                     tile_expiry: inner.tile_expiry,
                     tile_idle_timeout: inner.tile_idle_timeout,
                     zoom: inner.zoom,
+                    unrecognized: inner.unrecognized,
                 })
             }
         }
@@ -1191,7 +1207,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 ///   cache: disable
 /// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheSizeConfig {
     /// Size of the cache in MB (0 to disable).
@@ -1214,6 +1230,10 @@ pub struct CacheSizeConfig {
         schemars(with = "Option<String>", example = &"30m")
     )]
     pub idle_timeout: Option<Duration>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl CacheSizeConfig {
@@ -1246,6 +1266,8 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
             expiry: Option<Duration>,
             #[serde(default, with = "humantime_serde")]
             idle_timeout: Option<Duration>,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct CacheSizeVisitor;
@@ -1263,8 +1285,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
                 if value == "disable" {
                     Ok(CacheSizeConfig {
                         size_mb: Some(0),
-                        expiry: None,
-                        idle_timeout: None,
+                        ..CacheSizeConfig::default()
                     })
                 } else {
                     Err(E::custom(format!(
@@ -1283,6 +1304,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
                     size_mb: inner.size_mb,
                     expiry: inner.expiry,
                     idle_timeout: inner.idle_timeout,
+                    unrecognized: inner.unrecognized,
                 })
             }
         }
@@ -1680,11 +1702,11 @@ mod deserialize_tests {
             ..FileConfig::default()
         };
         assert_eq!(
-            kind.cache_or(global).zoom(),
+            kind.cache_or(&global).zoom(),
             CacheZoomRange::new(Some(1), Some(5))
         );
         assert_eq!(
-            FileConfig::<MbtConfig>::default().cache_or(global).zoom(),
+            FileConfig::<MbtConfig>::default().cache_or(&global).zoom(),
             global.zoom()
         );
     }

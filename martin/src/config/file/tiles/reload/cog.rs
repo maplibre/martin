@@ -30,7 +30,7 @@ impl CogReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<CogConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         let cog_config = config.custom.clone();
@@ -45,7 +45,7 @@ impl CogReloader {
             cog_config.recursive.unwrap_or_default(),
             &["tif", "tiff"],
             id_resolver.clone(),
-            default_cache,
+            default_cache.clone(),
             &ProcessConfig::default(),
             build,
             None,
@@ -58,7 +58,7 @@ impl CogReloader {
             config,
             "CogReloader",
             cog_config.reload_interval,
-            default_cache,
+            &default_cache,
             &ProcessConfig::default(),
             configured_parser,
             ObjectStoreSourceBuilder::Cog(Box::new(cog_config.clone())),

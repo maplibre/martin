@@ -310,6 +310,9 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+                unrecognized: UnrecognizedValues(
+                    {},
+                ),
             },
             unrecognized: UnrecognizedValues(
                 {},
@@ -405,6 +408,9 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+                unrecognized: UnrecognizedValues(
+                    {},
+                ),
             },
             unrecognized: UnrecognizedValues(
                 {},

@@ -1137,6 +1137,28 @@ async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
 }
 
 #[tokio::test]
+async fn a_mosaic_answers_with_its_cache_control() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              mosaics:
+                ortho:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  zoom: 16
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin with a mosaic");
+
+    let tile = martin.get("/ortho/16/32748/21794").await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("cache-control"), Some("max-age=1234"));
+
+    martin.stop().await;
+}
+
+#[tokio::test]
 async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");

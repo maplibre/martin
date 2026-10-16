@@ -26,7 +26,7 @@ impl DuckDbReloader {
         tsm: TileSourceManager,
         id_resolver: &IdResolver,
         config: &DuckDbConfig,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
     ) -> Self {
         let default_cache = config.cache.or(default_cache);
@@ -167,7 +167,8 @@ impl Discovery for DuckDbLocalDiscovery {
         .map_err(DuckDbSourceError::Pool)?;
 
         let source =
-            resolve_geoparquet_source(id.to_owned(), entry, pool, self.default_cache).await?;
+            resolve_geoparquet_source(id.to_owned(), entry, pool, self.default_cache.clone())
+                .await?;
 
         let per_source = entry.process_config();
         let resolved_process = if per_source == ProcessConfig::default() {
