@@ -848,8 +848,6 @@ update-lockfile: fetch
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
-    cargo update --precise 1.24.0 libdeflater
-    cargo update --precise 1.24.0 libdeflate-sys
     cargo update --precise 1.0.2 sdf_glyph_renderer
 
 # Validate that all required development tools are installed
