@@ -9,7 +9,7 @@ tags:
 
 How the Martin tile server is put together and how it answers requests.
 [Source Architecture](architecture-sources.md) covers how each kind of source works and how sources reload at runtime,
-and [Generation Architecture](architecture-generate.md) covers `martin generate`.
+and [Generation Architecture](architecture-generate.md) covers the bulk mode of `martin cp`.
 
 ## Overview
 
@@ -124,7 +124,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 
 === "martin-tilegen"
 
-    **Purpose**: The bulk tile generation engine behind `martin generate`.
+    **Purpose**: The bulk tile generation engine behind the bulk mode of `martin cp`.
 
     **Key Responsibilities**:
 

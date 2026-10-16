@@ -1,4 +1,4 @@
-//! The `PostgreSQL` source of `martin generate`: whole-table scans on one connection.
+//! The `PostgreSQL` source of `martin cp --mode bulk`: whole-table scans on one connection.
 
 use martin_core::generate::props::KeyInterner;
 use martin_core::generate::source::{

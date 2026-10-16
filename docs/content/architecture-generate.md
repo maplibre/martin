@@ -1,5 +1,5 @@
 ---
-description: How martin generate scans, renders, sorts, encodes and writes a tileset
+description: How bulk mode scans, renders, sorts, encodes and writes a tileset
 icon: material/sitemap
 tags:
   - development
@@ -10,7 +10,7 @@ tags:
 
 --8<-- "generate-unstable.md"
 
-`martin generate` turns whole sources into a tileset in two phases. First, every feature is read once and
+The [bulk mode](martin-generate.md) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and
 rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into
 tiles, encoded, and written in the order the archive stores them. Every step hands its work to the
 next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.

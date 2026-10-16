@@ -48,6 +48,43 @@ async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected
 }
 
 #[tokio::test]
+async fn refuses_a_copy_without_zooms() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Set the zooms to copy with `--max-zoom` or `--zoom-levels`");
+}
+
+#[cfg(feature = "test-generate")]
+#[tokio::test]
+async fn tile_mode_refuses_options_only_bulk_mode_reads() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--mode")
+        .arg("tile")
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--memory")
+        .arg("1GiB")
+        .arg("--temp-dir")
+        .arg(dir.path())
+        .arg("--threads")
+        .arg("2")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Only `--mode bulk` reads `--memory`, `--temp-dir`, `--threads`");
+}
+
+#[tokio::test]
 async fn refuses_a_bbox_whose_minimum_is_above_its_maximum() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;

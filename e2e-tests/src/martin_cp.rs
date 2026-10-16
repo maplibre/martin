@@ -1,4 +1,4 @@
-//! One-shot runs of the `martin cp` tile copier and the `martin generate` tile generator.
+//! One-shot runs of the `martin cp` tile copier.
 
 use std::env;
 use std::ffi::OsString;
@@ -6,11 +6,10 @@ use std::process::Stdio;
 
 use crate::{binary_command, display_args, pg_ssl_args, workspace_root};
 
-/// One run of `martin cp` (or `martin generate`), which reaches a database only through
+/// One run of `martin cp`, which reaches a database only through
 /// [`MartinCp::with_postgres`].
 #[derive(Debug, Default)]
 pub struct MartinCp {
-    generate: bool,
     args: Vec<OsString>,
     envs: Vec<(String, String)>,
     database_url: Option<String>,
@@ -22,17 +21,10 @@ impl MartinCp {
         Self::default()
     }
 
-    /// A run of `martin generate`, which takes the same connection arguments.
+    /// A run of `martin cp --mode bulk`.
     #[must_use]
-    pub fn generate() -> Self {
-        Self {
-            generate: true,
-            ..Self::default()
-        }
-    }
-
-    fn subcommand(&self) -> &'static str {
-        if self.generate { "generate" } else { "cp" }
+    pub fn bulk() -> Self {
+        Self::new().arg("--mode").arg("bulk")
     }
 
     /// Add a command line argument.
@@ -133,7 +125,7 @@ impl MartinCp {
         cmd.current_dir(workspace_root())
             .env_remove("DATABASE_URL")
             .env("RUST_LOG_FORMAT", "bare")
-            .arg(self.subcommand())
+            .arg("cp")
             .args(&self.args)
             .stdin(Stdio::null());
         for (key, value) in &self.envs {
@@ -146,7 +138,7 @@ impl MartinCp {
             }
             cmd.args(pg_ssl_args());
         }
-        let described = format!("{} {}", self.subcommand(), display_args(&self.args));
+        let described = format!("cp {}", display_args(&self.args));
         (cmd, described)
     }
 }
