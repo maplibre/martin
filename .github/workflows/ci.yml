@@ -97,6 +97,7 @@ jobs:
               - 'debian/**'
               - 'e2e-tests/**'
               - 'tests/**'
+              - 'cog-tiles/**'
               - 'mbtiles/**'
               - 'martin-*/**'
               - 'martin/*'
