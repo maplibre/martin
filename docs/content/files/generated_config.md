@@ -4,9 +4,7 @@
 
 !!! note
     The generated reference and its JSON Schema cover the features included during schema generation.
-    Unstable sources such as duckdb or cog are not included.
-
-    Unstable sources such as duckdb or cog are not included.
+    Unstable sources such as duckdb are not included.
 
 ```yaml title="config.yaml"
 # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
