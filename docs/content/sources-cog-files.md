@@ -143,7 +143,9 @@ cog:
       # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
       max_cached_files: 1000
       # How long an opened file is kept before it is opened again. Defaults to "10m".
-      cached_files_ttl: 10m
+      file_expiry: 10m
+      # How long an opened file is kept without being used. Defaults to none: kept until `file_expiry`.
+      file_idle_timeout: 5m
       # Like a source, a mosaic also takes `cache`, `cache_control`, `convert_to_hillshade`, and `convert_to_contour`.
 ```
 
@@ -153,7 +155,7 @@ cog:
   A file that does not is reported as an error for the tiles it would serve.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
   For a remote mosaic this needs permission to list the bucket prefix.
-- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `cached_files_ttl`.
+- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `file_expiry`.
   Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
@@ -195,7 +197,8 @@ With `on_invalid: warn`, a file that fails to load is also retried at the next p
 ### Mosaics
 
 Mosaics are not watched or polled.
-Each file is kept open for `cached_files_ttl` and opened again on its next use, which picks up replaced and added files.
+Each file is kept open for `file_expiry` and opened again on its next use, which picks up replaced and added files.
+A file unused for `file_idle_timeout` is closed early and also opened again on its next use.
 
 ## Remote COG
 
