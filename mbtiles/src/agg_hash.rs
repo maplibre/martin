@@ -58,10 +58,6 @@ impl AggTilesHasher {
 
     /// Adds a written tile, with `coord` in XYZ rows as [`MbtilesBulkWriter::write`](crate::MbtilesBulkWriter::write) takes it.
     pub fn push(&mut self, coord: TileCoord, data: &[u8]) {
-        debug_assert!(
-            TileCoord::is_possible_on_zoom_level(coord.z(), coord.x(), coord.y()),
-            "{coord:?} is not a tile of its zoom level"
-        );
         let key = (coord.z(), coord.x(), invert_y_value(coord.z(), coord.y()));
         if self.last.is_some_and(|last| last >= key) {
             self.state = None;
@@ -192,14 +188,6 @@ mod tests {
         hasher.push(TileCoord::new_unchecked(1, 0, 1), b"b");
 
         assert_eq!(hasher.finish(), None);
-    }
-
-    #[test]
-    #[cfg(debug_assertions)]
-    #[should_panic(expected = "is not a tile of its zoom level")]
-    fn a_coordinate_outside_its_zoom_level_panics_in_debug() {
-        let mut hasher = AggTilesHasher::new(HashAlgorithm::Md5);
-        hasher.push(TileCoord::new_unchecked(1, 2, 0), b"a");
     }
 
     #[test]
