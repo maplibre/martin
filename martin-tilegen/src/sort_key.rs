@@ -55,8 +55,8 @@ impl Seq {
 }
 
 /// Sort key of one spilled record: tile (in the sink's [`TileOrder`](crate::TileOrder)), then layer,
-/// then [`Seq`], like the tile-then-layer key of Planetiler's `FeatureGroup`. Two words rather than a
-/// `u128`, so a sort index entry stays 24 bytes instead of padding to 32.
+/// then [`Seq`]. Two words rather than a `u128`, so a sort index entry stays 24 bytes instead of
+/// padding to 32.
 ///
 /// `tile_layer` holds the [`TileId`] in bits 63..8 and the [`LayerId`] in bits 7..0; `seq` is the [`Seq`].
 #[derive(

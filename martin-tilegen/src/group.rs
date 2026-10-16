@@ -1,5 +1,4 @@
-//! Turns the merged record stream into one group of records per tile, expanding fill ranges, which are
-//! Planetiler's filled tile ranges stored as one record.
+//! Turns the merged record stream into one group of records per tile, expanding fill ranges.
 
 use std::ops::Range;
 

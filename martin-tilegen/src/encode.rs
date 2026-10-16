@@ -1,5 +1,4 @@
 //! Encodes tiles: assembles each layer, writes MLT or MVT, compresses, and tags likely duplicates.
-//! Reusing the previous tile's bytes and hashing only likely duplicates follow Planetiler's `TileArchiveWriter`.
 
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};

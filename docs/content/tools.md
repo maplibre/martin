@@ -1,5 +1,5 @@
 ---
-description: The martin cp, martin generate and mbtiles CLIs and supporting crates
+description: The martin cp and mbtiles CLIs and supporting crates
 icon: material/tools
 tags:
   - tooling
@@ -15,22 +15,17 @@ Martin project contains additional tooling to help manage the data servable with
 
 ### `martin cp`
 
-`martin cp` is a subcommand of `martin` for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
-It can be used to generate tiles for a large area or multiple areas.
-If multiple areas overlap, it will generate tiles only once.
-`martin cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+`martin cp` is a subcommand of `martin` for copying tiles from any sources into a new or an existing tile archive.
+It supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
+It can copy tiles in two ways:
 
-See [this article](martin-cp.md) for more information.
-
-### `martin generate`
-
-`martin generate` is a subcommand of `martin` that builds a whole tileset in one pass. First and foremost,
-it is a PostgreSQL extraction step that scales far beyond `martin cp`, which asks the source for each tile
-separately, a long-standing feature request. With design goals similar to those of
-[Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry, it reads each source once, renders
-every feature at every zoom itself, and writes the tiles in order. It is not released yet.
-
-See [this article](martin-generate.md) for more information.
+- **One by one**: `martin cp` asks the source for each tile, so the source must either contain tiles (MBTiles, PMTiles)
+  or generate them (PostgreSQL's `ST_AsMVT`). It can be used for a large area or multiple areas, and if multiple areas
+  overlap, it will copy each tile only once. See [this article](martin-cp.md) for more information.
+- **In bulk**: `martin cp` reads each source's features once and builds the whole tileset inside Martin.
+  It uses the tile generation method and a similar layer configuration adapted from
+  [Planetiler](https://github.com/onthegomap/planetiler) by Mike Barry. This feature is unstable.
+  See [this article](martin-generate.md) for more information.
 
 ### `mbtiles`
 

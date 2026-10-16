@@ -12,18 +12,27 @@ tags:
 
 --8<-- "generate-unstable.md"
 
-`martin generate` builds a whole tileset in one pass. First and foremost, it is the PostgreSQL extraction
-step that scales far beyond [`martin cp`](martin-cp.md), a long-standing feature request. `martin cp` asks
-the source for each tile separately, so the source reads a feature again for every tile it touches, at
-every zoom. `martin generate` instead reads each source once, renders every feature at every zoom itself,
-and writes the tiles in order. For large tilesets this is much faster, and it puts far less load on the
-source.
+A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside
+Martin itself, when serving tiles.
+Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like
+PostgreSQL does with `ST_AsMVT`.
 
-These design goals are similar to those of [Planetiler](https://github.com/onthegomap/planetiler), and
-the design is inspired by it. Thank you to Mike Barry ([@msbarry](https://github.com/msbarry)), the
-author of Planetiler, and to its contributors. Planetiler is licensed under the
-[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE).
-[Generation Architecture](architecture-generate.md) lists what `martin generate` takes from it.
+Martin adapted the tile generation method of [Planetiler](https://github.com/onthegomap/planetiler). Thank
+you to Mike Barry ([@msbarry](https://github.com/msbarry)), the author of Planetiler, for an amazing tool,
+and to its contributors. Planetiler is licensed under the
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE). Martin also adapted a
+similar [layer configuration](sources-pg-layers.md), which takes features from any source Martin supports
+that can produce a stream of features. [Generation Architecture](architecture-generate.md) lists what
+this takes from Planetiler.
+
+As part of this effort, [`martin cp`](martin-cp.md) can now also build a whole tileset at once, like
+Planetiler. This expands the existing command, changing only its internals to support more than one
+method of copying data from a source to an archive. Copying tile by tile asks the source for each tile,
+so the source reads a feature again for every tile it touches, at every zoom. Generating from features
+instead reads each source once, renders every feature at every zoom inside Martin, and writes the tiles
+in order. For large tilesets this is much faster, and it puts far less load on the source. That also
+saves money: Martin instances are stateless and cheap to scale out, for example in Kubernetes, while
+scaling PostgreSQL is much harder and more expensive.
 
 It renders points, lines and polygons. Geometry collections are skipped and counted.
 

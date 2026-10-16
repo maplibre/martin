@@ -21,8 +21,8 @@ const MBT_TYPE: MbtType = MbtType::Normalized {
 /// Written batches waiting for the hashing thread.
 const HASH_QUEUE: usize = 2;
 
-/// Writes a new deduplicated (`DedupId`) `MBTiles` file, the layout Planetiler writes, through
-/// [`Mbtiles::bulk_write`], hashing the written tiles on another thread for `agg_tiles_hash`.
+/// Writes a new deduplicated (`DedupId`) `MBTiles` file through [`Mbtiles::bulk_write`], hashing the
+/// written tiles on another thread for `agg_tiles_hash`.
 /// The mbtiles crate is async, so the sink blocks on the tokio runtime it was created in.
 pub struct MbtilesSink {
     runtime: Handle,

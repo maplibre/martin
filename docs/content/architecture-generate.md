@@ -26,14 +26,24 @@ Another database or file format is another `FeatureSource`, and another archive 
 
 ## Motivation and Planetiler
 
-First and foremost, we needed a PostgreSQL extraction step that scales far beyond
-[`martin cp`](martin-cp.md), which asks the source for every tile separately. This has been a
-long-standing feature request. Its design goals are similar to those of
-[Planetiler](https://github.com/onthegomap/planetiler), written by Mike Barry
-([@msbarry](https://github.com/msbarry)) and licensed under the
-[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE), and the design is
-inspired by it. We thank him and the Planetiler contributors for showing how fast a whole tileset can
-be built. `martin generate` follows Planetiler in:
+A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside
+Martin itself, when serving tiles.
+Until now, every source had to either already contain tiles (MBTiles, PMTiles) or generate them
+itself, like PostgreSQL does with `ST_AsMVT`. Martin only passed those tiles along.
+
+Martin adapted the tile generation method of [Planetiler](https://github.com/onthegomap/planetiler),
+written by Mike Barry ([@msbarry](https://github.com/msbarry)) and licensed under the
+[Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE). Thank you, Mike, for
+an amazing tool, and thanks to the Planetiler contributors. Martin also adapted a similar layer
+configuration system, which takes features from any source Martin supports that can produce a stream
+of features (a `FeatureSource`).
+
+As part of this effort, Martin can now generate a whole tileset at once, as Planetiler does. This
+expands the existing [`martin cp`](martin-cp.md) command: only its internals change, so that it supports
+more than one method of copying data from a source to an archive. Besides asking the source for each
+tile, it can read each source's features once and build the tiles itself.
+
+This method follows Planetiler in:
 
 - reading every feature once and rendering it at every zoom, instead of querying the source per tile,
 - sorting the rendered pieces on disk by tile, then merging them back and writing each tile once,

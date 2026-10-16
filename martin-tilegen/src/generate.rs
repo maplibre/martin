@@ -1,5 +1,4 @@
 //! Runs a whole generation: render every feature into sorted runs, then merge, encode and write tiles.
-//! The two phases follow Planetiler by Mike Barry (<https://github.com/onthegomap/planetiler>, Apache-2.0).
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};

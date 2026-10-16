@@ -421,8 +421,8 @@ async fn help_lists_the_options() {
           -V, --version
                   Print version
 
-        A PostgreSQL extraction step that scales far beyond `martin cp`: each source is scanned once and
-        rendered at every zoom. Its design goals are similar to those of Planetiler by Mike Barry.
+        Each source is scanned once and rendered at every zoom; this is much faster than `martin cp` for
+        whole tilesets.
         ");
     });
 }

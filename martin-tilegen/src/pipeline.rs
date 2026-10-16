@@ -1,5 +1,5 @@
 //! Ordered parallel map: the caller produces batches in tile order, worker threads encode them in any
-//! order, and one writer thread consumes the results in production order, as in Planetiler's tile writer.
+//! order, and one writer thread consumes the results in production order.
 
 use std::thread::{self, Scope, ScopedJoinHandle};
 
