@@ -115,7 +115,8 @@ impl FeatureReader for ScanReader<'_> {
         let keys = &keys[usize::from(scan.layout.table)];
         self.source.runtime.block_on(scan_features(
             conn,
-            &scan.sql,
+            scan.sql.as_str(),
+            &[],
             &scan.layout,
             partition,
             keys,
