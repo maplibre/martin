@@ -237,6 +237,15 @@ impl PostgresInfo for TableInfo {
             other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
+        #[cfg(feature = "unstable-generate")]
+        if let Some(layers) = &self.layers {
+            tilejson.vector_layers = Some(
+                layers
+                    .names()
+                    .map(|name| VectorLayer::new(name.to_owned(), BTreeMap::new()))
+                    .collect(),
+            );
+        }
         patch_json(tilejson, self.discovered.tilejson.as_ref())
     }
 

@@ -159,6 +159,20 @@ pub enum PostgresError {
     /// Tile features cannot be encoded as an MLT tile.
     #[error("MLT encoding failed: {0}")]
     MltEncoding(#[source] Box<mlt_core::MltError>),
+
+    /// Martin's engine cannot serve the `layers` of a table.
+    #[cfg(feature = "unstable-generate")]
+    #[error("Cannot serve the layers of table source {0}: {1}")]
+    EngineTable(String, #[source] Box<dyn std::error::Error + Send + Sync>),
+
+    /// Martin's engine could not read or render a tile of a table with `layers`.
+    #[cfg(feature = "unstable-generate")]
+    #[error(r"Unable to render tile {2:#} of {1}: {0}")]
+    EngineError(
+        #[source] Box<martin_tilegen::TileGenError>,
+        String,
+        TileCoord,
+    ),
 }
 
 impl crate::Classify for PostgresError {
@@ -189,6 +203,8 @@ impl crate::Classify for PostgresError {
             | Self::BadTileGeometry(_)
             | Self::UnsupportedPropertyType { .. }
             | Self::MltEncoding(_) => Internal,
+            #[cfg(feature = "unstable-generate")]
+            Self::EngineTable(..) | Self::EngineError(..) => Internal,
         }
     }
 }

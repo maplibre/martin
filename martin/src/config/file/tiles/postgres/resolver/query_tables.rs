@@ -4,9 +4,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
+#[cfg(feature = "unstable-generate")]
+use martin_core::tiles::postgres::PostgresError::EngineTable;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
-    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, is_typed_property,
+    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler,
+    is_typed_property,
 };
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 #[cfg(feature = "unstable-generate")]
@@ -21,6 +24,8 @@ use tracing::{debug, warn};
 use crate::config::args::OrderByType;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
+#[cfg(feature = "unstable-generate")]
+use crate::generate::serve::engine_info;
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -186,7 +191,7 @@ pub async fn table_to_query(
     max_feature_count: Option<usize>,
     order_by: Option<OrderByType>,
     grid: &PgTileGrid,
-) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
+) -> PostgresResult<(String, PostgresTiler, TableInfo)> {
     let srid = info.srid;
 
     if info.bounds.is_none() && grid.grid().is_simple() {
@@ -241,6 +246,18 @@ pub async fn table_to_query(
         }
     }
 
+    #[cfg(feature = "unstable-generate")]
+    if info.layers.is_some() {
+        if !grid.is_web_mercator() {
+            let reason = format!("tile grid `{}` is not Web Mercator", grid.grid().id());
+            return Err(EngineTable(id, reason.into()));
+        }
+        return match engine_info(&id, &mut info) {
+            Ok(engine) => Ok((id, PostgresTiler::Engine(engine), info)),
+            Err(err) => Err(EngineTable(id, Box::new(err))),
+        };
+    }
+
     let sql = table_query_sql(&id, &info, &pool, max_feature_count, order_by, grid).await?;
     let row_query = PostgresRowQuery {
         sql_query: sql.row_query(false),
@@ -260,7 +277,8 @@ pub async fn table_to_query(
             info.format_id(),
             false,
         )
-        .with_row_query(row_query),
+        .with_row_query(row_query)
+        .into(),
         info,
     ))
 }
@@ -584,6 +602,30 @@ pub fn scan_sql(
             .map(|(column, _)| column.clone())
             .collect(),
     })
+}
+
+/// The query a table with `layers` is served from: [`scan_sql`] limited to the geometries meeting
+/// either of two Web Mercator envelopes, `$1..$4` and `$5..$8` (`xmin, ymin, xmax, ymax`), ordered by
+/// the id when there is one. The second envelope is the part of the area past the antimeridian.
+#[cfg(feature = "unstable-generate")]
+pub fn engine_sql(info: &TableInfo, columns: &[String]) -> PostgresResult<ScanSql> {
+    let mut sql = scan_sql(info, columns, None)?;
+    let column = escape_identifier(&info.geometry_column);
+    let envelope = |first: u8| {
+        let [a, b, c, d] = [first, first + 1, first + 2, first + 3];
+        let envelope = format!("ST_MakeEnvelope(${a}, ${b}, ${c}, ${d}, 3857)");
+        match info.srid {
+            3857 => envelope,
+            srid => format!("ST_Transform({envelope}, {srid})"),
+        }
+    };
+    let (main, wrapped) = (envelope(1), envelope(5));
+    let order = if sql.has_id { " ORDER BY 2" } else { "" };
+    sql.sql = format!(
+        "{} AND ({column} && {main} OR {column} && {wrapped}){order}",
+        sql.sql
+    );
+    Ok(sql)
 }
 
 /// The properties as tile row queries select them, cast by the type each column is returned as.

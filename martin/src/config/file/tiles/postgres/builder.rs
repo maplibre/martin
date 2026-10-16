@@ -5,7 +5,9 @@ use std::num::NonZeroU32;
 
 use itertools::Itertools as _;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};
-use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
+use martin_core::tiles::postgres::{
+    PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo, PostgresTiler,
+};
 use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
@@ -522,7 +524,7 @@ impl PostgresAutoDiscoveryBuilder {
                         "A pole lies inside the tile grid and the table is stored in another CRS, so tiles around the pole may miss features. Storing the data in the tile grid's CRS avoids that."
                     );
                 }
-                let (id, pg_sql, info) = table_to_query(
+                let (id, tiler, info) = table_to_query(
                     id.to_owned(),
                     info,
                     self.pool.clone(),
@@ -532,9 +534,17 @@ impl PostgresAutoDiscoveryBuilder {
                     grid,
                 )
                 .await?;
-                trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
+                match &tiler {
+                    PostgresTiler::Sql(pg_sql) => {
+                        trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
+                    }
+                    #[cfg(feature = "unstable-generate")]
+                    PostgresTiler::Engine(engine) => {
+                        trace!(source.id = %id, sql = %engine.sql_query, "source feature query");
+                    }
+                }
                 let cache = info.cache.clone().unwrap_or_default();
-                let source = self.build_source(id, &info, pg_sql, &cache, grid);
+                let source = self.build_source(id, &info, tiler, &cache, grid);
                 Ok((source, SourceSpec::Table(info)))
             }
             SourceSpec::Function(info, pg_sql) => {
@@ -661,7 +671,7 @@ impl PostgresAutoDiscoveryBuilder {
         &self,
         id: String,
         pg_info: &impl PostgresInfo,
-        sql_info: PostgresSqlInfo,
+        tiler: impl Into<PostgresTiler>,
         cache: &CachePolicy,
         grid: &PgTileGrid,
     ) -> BoxedSource {
@@ -679,7 +689,7 @@ impl PostgresAutoDiscoveryBuilder {
         let cache = cache.or(&self.default_cache);
         BackendSource::Postgres(PostgresSource::new(
             id,
-            sql_info,
+            tiler,
             tilejson,
             self.pool.clone(),
             tile_info,

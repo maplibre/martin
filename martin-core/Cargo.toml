@@ -47,7 +47,7 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
-unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen"]
+unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen", "tokio/rt"]
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
