@@ -91,6 +91,7 @@ required-features = ["postgres"]
 
 [features]
 default = [
+    "cog",
     "lambda",
     "mbtiles",
     "metrics",
@@ -102,8 +103,8 @@ default = [
     "tui",
     "webui",
 ]
-unstable-cog = [
-    "martin-core/unstable-cog",
+cog = [
+    "martin-core/cog",
     "dep:aws-config",
     "dep:aws-credential-types",
     "dep:object_store",

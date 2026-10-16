@@ -7,7 +7,7 @@ use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::tiles::cog::CogSource;
 use crate::tiles::declared_grid::DeclaredGridSource;
 #[cfg(feature = "unstable-duckdb")]
@@ -58,7 +58,7 @@ pub enum BackendSource {
     #[cfg(feature = "processing")]
     GeoJson(GeoJsonSource),
     /// A cloud-optimized `GeoTIFF`.
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     Cog(CogSource),
     /// A `DuckDB` query.
     #[cfg(feature = "unstable-duckdb")]
@@ -82,7 +82,7 @@ macro_rules! dispatch_backend {
             BackendSource::Passthrough(ref $s) => $body,
             #[cfg(feature = "processing")]
             BackendSource::GeoJson(ref $s) => $body,
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             BackendSource::Cog(ref $s) => $body,
             #[cfg(feature = "unstable-duckdb")]
             BackendSource::DuckDb(ref $s) => $body,
@@ -121,7 +121,7 @@ impl_from_backend! {
     #[cfg(feature = "postgres")] Postgres(PostgresSource),
     #[cfg(feature = "passthrough")] Passthrough(PassthroughSource),
     #[cfg(feature = "processing")] GeoJson(GeoJsonSource),
-    #[cfg(feature = "unstable-cog")] Cog(CogSource),
+    #[cfg(feature = "cog")] Cog(CogSource),
     #[cfg(feature = "unstable-duckdb")] DuckDb(DuckDBSource),
     #[cfg(feature = "_testing")] Test(TestSource),
 }
@@ -133,7 +133,7 @@ impl_from_backend! {
         feature = "postgres",
         feature = "passthrough",
         feature = "processing",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "_testing",
     )),
@@ -212,7 +212,7 @@ impl BackendSource {
             feature = "mbtiles",
             feature = "passthrough",
             feature = "processing",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "unstable-duckdb",
             feature = "_testing",
         )),

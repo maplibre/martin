@@ -26,7 +26,7 @@ use crate::StartupResult;
     feature = "pmtiles",
     feature = "mbtiles",
     feature = "passthrough",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "resources",
@@ -38,7 +38,7 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::config::file::cog::{CogMosaicSource, resolve_cog};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
@@ -50,7 +50,7 @@ use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigF
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing"
 ))]
 use crate::config::file::{FileConfig, FileConfigSrc};
@@ -97,7 +97,7 @@ impl Config {
             TileGrids::check_file_sources(&self.mbtiles, Some(&tile_grids))?;
             #[cfg(feature = "pmtiles")]
             TileGrids::check_file_sources(&self.pmtiles, Some(&tile_grids))?;
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             TileGrids::check_file_sources(&self.cog, None)?;
             #[cfg(feature = "processing")]
             TileGrids::check_file_sources(&self.geojson, None)?;
@@ -114,7 +114,7 @@ impl Config {
         #[cfg(feature = "passthrough")]
         self.passthrough.finalize().await?;
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         self.cog.finalize().await?;
 
         #[cfg(feature = "unstable-duckdb")]
@@ -160,7 +160,7 @@ impl Config {
         #[cfg(feature = "passthrough")]
         let is_empty = is_empty && self.passthrough.is_empty();
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         let is_empty = is_empty && self.cog.is_empty() && self.cog.custom.mosaics.is_empty();
 
         #[cfg(feature = "unstable-duckdb")]
@@ -381,7 +381,7 @@ impl Config {
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "unstable-duckdb",
             feature = "processing"
         )),
@@ -407,7 +407,7 @@ impl Config {
                 feature = "pmtiles",
                 feature = "mbtiles",
                 feature = "passthrough",
-                feature = "unstable-cog",
+                feature = "cog",
                 feature = "unstable-duckdb",
                 feature = "processing"
             )),
@@ -447,7 +447,7 @@ impl Config {
             sources_and_warnings.push(Box::pin(val));
         }
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if !self.cog.is_empty() || !self.cog.custom.mosaics.is_empty() {
             let val = resolve_cog(&mut self.cog, idr, self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
@@ -487,7 +487,7 @@ impl Config {
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing"
     ))]
@@ -517,7 +517,7 @@ impl Config {
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "processing"
         ))]
         {
@@ -555,12 +555,12 @@ impl Config {
             // COG cannot be hillshaded either: shading reads Mapzen *normal* tiles, whose surface
             // gradients are already per-pixel, whereas a COG holds elevation - which would need
             // metres-per-pixel scaling and its own quantisation handling, a separate feature.
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
                 ProcessConfig::default()
             })?;
 
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             Self::insert_source_configs(
                 &mut map,
                 &global,
@@ -613,7 +613,7 @@ impl Config {
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "processing"
     ))]
     fn insert_source_configs<'a, S: 'a>(
@@ -636,7 +636,7 @@ impl Config {
     #[cfg(any(
         feature = "pmtiles",
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "processing"
     ))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
@@ -740,7 +740,7 @@ impl Config {
                     FileKind::Pmtiles => {
                         config.pmtiles.sources.insert(id, src);
                     }
-                    #[cfg(feature = "unstable-cog")]
+                    #[cfg(feature = "cog")]
                     FileKind::Cog => {
                         config.cog.sources.insert(id, src);
                     }

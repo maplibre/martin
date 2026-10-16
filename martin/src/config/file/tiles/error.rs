@@ -8,7 +8,7 @@
 use std::io;
 use std::path::PathBuf;
 
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use martin_core::tiles::cog::CogError;
 #[cfg(feature = "processing")]
 use martin_core::tiles::geojson::GeoJsonError;
@@ -47,7 +47,7 @@ pub enum SourceBuildError {
     #[error(transparent)]
     Passthrough(#[from] PassthroughError),
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[error(transparent)]
     Cog(#[from] CogError),
 

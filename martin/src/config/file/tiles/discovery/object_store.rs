@@ -9,7 +9,7 @@ use futures::stream::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
 use url::Url;
 
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
@@ -42,7 +42,7 @@ type PrefixEntry = (String, Url, Version);
 pub enum ObjectStoreSourceBuilder {
     #[cfg(feature = "pmtiles")]
     Pmtiles(Box<PmtConfig>),
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     Cog(Box<CogConfig>),
 }
 
@@ -59,7 +59,7 @@ impl ObjectStoreSourceBuilder {
                 .new_sources_url(id, url, cache)
                 .await
                 .map(|s| s.boxed().into()),
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             Self::Cog(config) => config
                 .new_sources_url(id, url, cache)
                 .await
@@ -626,7 +626,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "unstable-cog"))]
+#[cfg(all(test, feature = "cog"))]
 mod configured_object_tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;

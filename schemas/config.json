@@ -172,6 +172,79 @@
         }
       ]
     },
+    "CogMosaicSource": {
+      "description": "A source that serves many COG files as one, each covering exactly one tile at `zoom`.\n\nFiles are opened on first use and kept in a bounded cache; tiles without a file are empty.\nOne file is found by listing the location at startup to learn the tile size and format.",
+      "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
+        "convert_to_contour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_ContourSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Trace contour lines from this source's tiles.\n\nPresent means the source serves Mapzen *Terrarium* elevation tiles and Martin should trace contours from them.\nSee the contour documentation for the knobs."
+        },
+        "convert_to_hillshade": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_HillshadeSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Hillshade settings for this source.\n\nPresent means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.\nSee the hillshade documentation for the knobs."
+        },
+        "file_expiry": {
+          "description": "How long an opened file is kept before it is opened again, which picks up replaced and\nadded files. Supports human-readable formats: \"10m\", \"1h\", \"30s\". Defaults to \"10m\".",
+          "examples": ["10m"],
+          "type": ["string", "null"]
+        },
+        "file_idle_timeout": {
+          "description": "How long an opened file is kept without being used. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". Defaults to none: files are kept until `file_expiry`.",
+          "examples": ["5m"],
+          "type": ["string", "null"]
+        },
+        "max_cached_files": {
+          "description": "How many opened files (and known-missing ones) are kept at once. Defaults to 1000.",
+          "examples": [1000],
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "maxzoom": {
+          "description": "The highest zoom served. When unset, the highest zoom of the file opened at startup.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "path": {
+          "description": "Where the files are, local or remote, naming each file by its tile at `zoom`:\n`{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`\nor `/data/ortho/{z}/{x}/{y}.tif`. `{-y}` is the row counted from the bottom (TMS).",
+          "type": "string"
+        },
+        "zoom": {
+          "description": "The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.",
+          "examples": [16],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["path", "zoom"],
+      "type": "object"
+    },
     "ContourElevationUnits": {
       "description": "Units elevations are reported in on the output features.",
       "oneOf": [
@@ -450,6 +523,52 @@
     },
     "FileConfig3": {
       "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every COG source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
+        "collections": {
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
+          "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
+        "mosaics": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CogMosaicSource"
+          },
+          "default": {},
+          "description": "Sources that each serve many COG files as one, by source ID.",
+          "type": "object"
+        },
+        "paths": {
+          "$ref": "#/$defs/OneOrMany2",
+          "default": [],
+          "description": "A list of file paths"
+        },
+        "recursive": {
+          "description": "Whether `paths` are scanned recursively",
+          "examples": [false],
+          "type": ["boolean", "null"]
+        },
+        "reload_interval": {
+          "default": "10m",
+          "description": "How often configured remote objects (`s3://`, `https://`, …) are re-checked for\nreplacement and remote prefixes are re-listed for additions, replacements, and removals.\nLocal directories are watched via filesystem events and ignore this setting.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling and prefix discovery.",
+          "examples": ["10m"],
+          "type": "string"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "default": {},
+          "description": "A map of source IDs to file paths or config objects",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig4": {
+      "properties": {
         "buffer": {
           "description": "Clip margin kept around each tile edge, in tile units, defaulting to 64.\nIncrease it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.",
           "examples": [64],
@@ -494,7 +613,7 @@
       },
       "type": "object"
     },
-    "FileConfig4": {
+    "FileConfig5": {
       "properties": {
         "aliases": {
           "additionalProperties": {
@@ -531,7 +650,7 @@
       },
       "type": "object"
     },
-    "FileConfig5": {
+    "FileConfig6": {
       "properties": {
         "collections": {
           "$ref": "#/$defs/OneOrMany2",
@@ -554,7 +673,7 @@
       },
       "type": "object"
     },
-    "FileConfig6": {
+    "FileConfig7": {
       "properties": {
         "aliases": {
           "additionalProperties": {
@@ -707,6 +826,26 @@
         },
         {
           "$ref": "#/$defs/FileConfig6"
+        }
+      ],
+      "description": "A path, a list of paths, or a configuration map."
+    },
+    "FileConfigShape7": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig7"
         }
       ],
       "description": "A path, a list of paths, or a configuration map."
@@ -1796,6 +1935,9 @@
       "description": "Set the default `Cache-Control` response header.\n\nThe value is used for responses that do not define a more specific cache policy.\nFor example: `public, max-age=3600`.\nEndpoints with an explicit policy, such as the health check, keep their own header.\nWhen unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.",
       "type": ["string", "null"]
     },
+    "cog": {
+      "$ref": "#/$defs/FileConfigShape3"
+    },
     "convert_to_mlt": {
       "anyOf": [
         {
@@ -1841,11 +1983,11 @@
       "description": "Optional endpoints, each off unless enabled here."
     },
     "fonts": {
-      "$ref": "#/$defs/FileConfigShape6",
+      "$ref": "#/$defs/FileConfigShape7",
       "description": "Font configuration"
     },
     "geojson": {
-      "$ref": "#/$defs/FileConfigShape3",
+      "$ref": "#/$defs/FileConfigShape4",
       "description": "Publish `GeoJSON` files as vector tile sources"
     },
     "keep_alive": {
@@ -1922,11 +2064,11 @@
       "type": ["integer", "null"]
     },
     "sprites": {
-      "$ref": "#/$defs/FileConfigShape4",
+      "$ref": "#/$defs/FileConfigShape5",
       "description": "Sprite configuration"
     },
     "styles": {
-      "$ref": "#/$defs/FileConfigShape5",
+      "$ref": "#/$defs/FileConfigShape6",
       "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tile_grids": {

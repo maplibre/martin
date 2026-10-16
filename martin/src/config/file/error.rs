@@ -107,11 +107,11 @@ pub enum ConfigFileError {
     #[error("Failed to configure tile source alias: {0}")]
     TileAliasResolutionFailed(#[source] crate::source::TileAliasError),
 
-    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[cfg(any(feature = "pmtiles", feature = "cog"))]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
 
-    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[cfg(any(feature = "pmtiles", feature = "cog"))]
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
@@ -336,9 +336,9 @@ impl Diagnostic for ConfigFileError {
             Self::SpriteAliasResolutionFailed(_) => "martin::config::sprites::alias",
             #[cfg(feature = "_tiles")]
             Self::TileAliasResolutionFailed(_) => "martin::config::aliases",
-            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+            #[cfg(any(feature = "pmtiles", feature = "cog"))]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
-            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+            #[cfg(any(feature = "pmtiles", feature = "cog"))]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
@@ -412,7 +412,7 @@ impl Diagnostic for ConfigFileError {
             Self::TileAliasResolutionFailed(_) => {
                 "Check the `aliases` block: every alias must list at least one configured tile source by its id, and aliases cannot reference other aliases."
             }
-            #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+            #[cfg(any(feature = "pmtiles", feature = "cog"))]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => return None,
@@ -470,7 +470,7 @@ mod tests {
 
     use super::*;
 
-    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[cfg(any(feature = "pmtiles", feature = "cog"))]
     fn object_store_error() -> object_store::Error {
         object_store::Error::NotImplemented {
             operation: "list".to_owned(),
@@ -842,7 +842,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[cfg(any(feature = "pmtiles", feature = "cog"))]
     #[test]
     fn object_store_url_parsing() {
         let err =
@@ -858,7 +858,7 @@ mod tests {
         ");
     }
 
-    #[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+    #[cfg(any(feature = "pmtiles", feature = "cog"))]
     #[test]
     fn object_store_list() {
         let err = ConfigFileError::ObjectStoreList(object_store_error(), "s3://bucket".to_owned());

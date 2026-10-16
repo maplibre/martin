@@ -79,8 +79,8 @@ fn default_reload_interval() -> Duration {
 /// Default for [`CogMosaicSource::max_cached_files`].
 pub const DEFAULT_MOSAIC_CACHED_FILES: u64 = 1000;
 
-/// Default for [`CogMosaicSource::cached_files_ttl`].
-pub const DEFAULT_MOSAIC_CACHED_FILES_TTL: Duration = Duration::from_mins(10);
+/// Default for [`CogMosaicSource::file_expiry`].
+pub const DEFAULT_MOSAIC_FILE_EXPIRY: Duration = Duration::from_mins(10);
 
 /// A source that serves many COG files as one, each covering exactly one tile at `zoom`.
 ///
@@ -97,7 +97,7 @@ pub struct CogMosaicSource {
     /// The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
     pub zoom: u8,
-    /// The highest zoom served. Defaults to the highest zoom of the file opened at startup.
+    /// The highest zoom served. When unset, the highest zoom of the file opened at startup.
     pub maxzoom: Option<u8>,
     /// How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &DEFAULT_MOSAIC_CACHED_FILES))]
@@ -109,7 +109,15 @@ pub struct CogMosaicSource {
         feature = "unstable-schemas",
         schemars(with = "Option<String>", example = &"10m")
     )]
-    pub cached_files_ttl: Option<Duration>,
+    pub file_expiry: Option<Duration>,
+    /// How long an opened file is kept without being used. Supports human-readable formats:
+    /// "10m", "1h", "30s". Defaults to none: files are kept until `file_expiry`.
+    #[serde(default, with = "humantime_serde")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"5m")
+    )]
+    pub file_idle_timeout: Option<Duration>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(
@@ -161,9 +169,8 @@ impl CogMosaicSource {
             file_zoom: self.zoom,
             max_zoom: self.maxzoom,
             max_cached_files: self.max_cached_files.unwrap_or(DEFAULT_MOSAIC_CACHED_FILES),
-            cached_files_ttl: self
-                .cached_files_ttl
-                .unwrap_or(DEFAULT_MOSAIC_CACHED_FILES_TTL),
+            file_expiry: self.file_expiry.unwrap_or(DEFAULT_MOSAIC_FILE_EXPIRY),
+            file_idle_timeout: self.file_idle_timeout,
         }
     }
 
@@ -468,7 +475,8 @@ mod tests {
                   zoom: 16
                   maxzoom: 18
                   max_cached_files: 10
-                  cached_files_ttl: 1m
+                  file_expiry: 1m
+                  file_idle_timeout: 30s
         "})
         .await;
         assert_eq!(ids, ["ortho"]);
@@ -480,7 +488,8 @@ mod tests {
               "zoom": 16,
               "maxzoom": 18,
               "max_cached_files": 10,
-              "cached_files_ttl": "1m"
+              "file_expiry": "1m",
+              "file_idle_timeout": "30s"
             }
           }
         }

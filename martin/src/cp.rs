@@ -301,7 +301,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 /// Runs the copy in the requested mode.
 pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     match copy_args.copy.mode {
-        CopyMode::Tile | CopyMode::Auto => copy_tiles(copy_args).await,
+        CopyMode::Tile | CopyMode::Auto => Box::pin(copy_tiles(copy_args)).await,
         #[cfg(feature = "unstable-generate")]
         CopyMode::Bulk => Ok(crate::generate::start(copy_args).await.map_err(Box::new)?),
     }

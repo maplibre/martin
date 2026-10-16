@@ -21,7 +21,7 @@ pub mod mbtiles;
 /// Implementation of `PMTiles`' [`Source`].
 pub mod pmtiles;
 
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
 

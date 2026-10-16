@@ -13,24 +13,6 @@ tags:
 
 # Cloud Optimized GeoTIFF File Sources
 
-!!! warning
-    This feature is currently unstable and thus not included in the default build.
-    Its behavior may change in patch releases.
-
-    To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
-
-    ```bash
-    cargo install martin --features=unstable-cog
-    ```
-
-    It is unstable due to the limitations of our current implementation:
-
-    - only COGs in [`EPSG:3857`](https://epsg.io/3857) that are tiled on the `WebMercatorQuad` grid are supported
-    - only 8-bit images are supported, so elevation data (16-bit or floating point) cannot be served yet
-    - transparency masks are ignored
-
-    We welcome contributions to help stabilize this feature!
-
 Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 
 ## How Martin serves a COG
@@ -68,6 +50,11 @@ GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG
 | None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG                  |
 
 Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
+
+Not supported yet:
+
+- elevation data and other images that are not 8-bit (16-bit or floating point)
+- transparency masks, which are ignored
 
 ## Run Martin with CLI to serve cog files
 
@@ -143,7 +130,9 @@ cog:
       # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
       max_cached_files: 1000
       # How long an opened file is kept before it is opened again. Defaults to "10m".
-      cached_files_ttl: 10m
+      file_expiry: 10m
+      # How long an opened file is kept without being used. Defaults to none: kept until `file_expiry`.
+      file_idle_timeout: 5m
       # Like a source, a mosaic also takes `cache`, `cache_control`, `convert_to_hillshade`, and `convert_to_contour`.
 ```
 
@@ -153,7 +142,7 @@ cog:
   A file that does not is reported as an error for the tiles it would serve.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
   For a remote mosaic this needs permission to list the bucket prefix.
-- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `cached_files_ttl`.
+- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `file_expiry`.
   Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
@@ -195,7 +184,8 @@ With `on_invalid: warn`, a file that fails to load is also retried at the next p
 ### Mosaics
 
 Mosaics are not watched or polled.
-Each file is kept open for `cached_files_ttl` and opened again on its next use, which picks up replaced and added files.
+Each file is kept open for `file_expiry` and opened again on its next use, which picks up replaced and added files.
+A file unused for `file_idle_timeout` is closed early and also opened again on its next use.
 
 ## Remote COG
 

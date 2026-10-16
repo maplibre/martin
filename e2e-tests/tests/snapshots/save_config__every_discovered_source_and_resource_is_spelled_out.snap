@@ -13,6 +13,9 @@ pmtiles:
 mbtiles:
   paths:
   - tests/fixtures/pmtiles
+cog:
+  paths:
+  - tests/fixtures/pmtiles
 geojson:
   paths:
   - tests/fixtures/pmtiles

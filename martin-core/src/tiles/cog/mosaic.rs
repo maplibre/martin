@@ -29,7 +29,9 @@ pub struct CogMosaicOptions {
     /// The most opened files (and known-missing ones) kept at once.
     pub max_cached_files: u64,
     /// How long an opened file is kept, so replaced or added files are picked up eventually.
-    pub cached_files_ttl: Duration,
+    pub file_expiry: Duration,
+    /// How long an opened file is kept without being used. `None` keeps it until `file_expiry`.
+    pub file_idle_timeout: Option<Duration>,
 }
 
 impl CogSource {
@@ -147,14 +149,17 @@ impl Mosaic {
                 reason: MosaicTemplateError::NotRelative,
             });
         }
+        let mut readers = Cache::builder()
+            .max_capacity(options.max_cached_files)
+            .time_to_live(options.file_expiry);
+        if let Some(tti) = options.file_idle_timeout {
+            readers = readers.time_to_idle(tti);
+        }
         Ok(Self {
             template: key_template,
             file_zoom: options.file_zoom,
             files,
-            readers: Cache::builder()
-                .max_capacity(options.max_cached_files)
-                .time_to_live(options.cached_files_ttl)
-                .build(),
+            readers: readers.build(),
             layout: OnceLock::new(),
         })
     }
@@ -532,7 +537,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -554,7 +560,8 @@ mod tests {
                 file_zoom: 31,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -610,7 +617,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -645,7 +653,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -697,7 +706,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: Some(18),
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -723,7 +733,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -757,7 +768,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -785,7 +797,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -825,7 +838,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -867,7 +881,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )
@@ -895,7 +910,8 @@ mod tests {
             file_zoom: 16,
             max_zoom: None,
             max_cached_files: 100,
-            cached_files_ttl: Duration::from_mins(1),
+            file_expiry: Duration::from_mins(1),
+            file_idle_timeout: None,
         };
         let remote = CogSource::new_mosaic_object_store(
             "remote".to_owned(),
@@ -938,7 +954,8 @@ mod tests {
                 file_zoom: 16,
                 max_zoom: None,
                 max_cached_files: 100,
-                cached_files_ttl: Duration::from_mins(1),
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
             },
             CacheZoomRange::default(),
         )

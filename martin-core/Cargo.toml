@@ -30,7 +30,7 @@ default = [
     "postgres",
     "processing",
     "resources",
-    "unstable-cog",
+    "cog",
 ]
 _testing = ["_tiles"]
 processing = [
@@ -72,7 +72,7 @@ postgres = [
     "_tiles",
 ]
 unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
-unstable-cog = [
+cog = [
     "dep:cog-tiles",
     "cog-tiles/object-store",
     "dep:futures",
