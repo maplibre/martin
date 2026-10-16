@@ -117,7 +117,7 @@ pub struct CopyArgs {
     #[cfg_attr(feature = "unstable-generate", doc = "")]
     #[cfg_attr(
         feature = "unstable-generate",
-        doc = "In bulk mode, one compression: `gzip`, `zlib` or `none` for MBTiles; `gzip`, `br`, `zstd` or `none` for MVT in PMTiles; only `none` for MLT in PMTiles. Defaults to `none` for MLT in PMTiles, otherwise `gzip`."
+        doc = "In bulk mode, one compression: `gzip`, `zlib` or `none` for `MBTiles`; `gzip`, `br`, `zstd` or `none` for MVT in `PMTiles`; only `none` for MLT in `PMTiles`. Defaults to `none` for MLT in `PMTiles`, otherwise `gzip`."
     )]
     #[arg(long, alias = "encodings")]
     pub encoding: Option<String>,
