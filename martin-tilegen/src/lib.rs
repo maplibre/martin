@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod assemble;
+mod block;
 mod columns;
 mod encode;
 mod error;
@@ -24,6 +25,7 @@ mod tile_render;
 
 pub(crate) use assemble::LayerAssembler;
 pub use assemble::LayerGrid;
+pub use block::render_block;
 pub use encode::TileFormat;
 pub(crate) use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
 pub use error::{TileGenError, TileGenResult};

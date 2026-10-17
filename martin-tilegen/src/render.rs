@@ -77,6 +77,8 @@ pub struct RenderLayer {
     pub clip_mode: ClipMode,
     /// Per zoom from `zooms.start()`, the only tiles kept.
     tiles: Option<Vec<TileRect>>,
+    /// The only zoom rendered, and the only tiles kept there.
+    window: Option<TileRect>,
 }
 
 /// Pixels of a 256-pixel tile, with a separate value for the layer's max zoom.
@@ -134,6 +136,7 @@ impl RenderLayer {
             grid,
             clip_mode: ClipMode::Clipped,
             tiles: None,
+            window: None,
         })
     }
 
@@ -157,10 +160,22 @@ impl RenderLayer {
         self
     }
 
-    /// The zooms both the layer and the feature cover.
+    /// Renders only the tiles of `window`, at its zoom. Thresholds still follow the layer's zooms, so
+    /// those tiles come out as when every zoom is rendered.
+    #[must_use]
+    pub fn with_window(mut self, window: TileRect) -> Self {
+        self.window = Some(window);
+        self
+    }
+
+    /// The zooms the layer, the feature and the window all cover.
     fn zooms_for(&self, feature: &Feature<'_>) -> RangeInclusive<u8> {
-        let start = (*self.zooms.start()).max(*feature.zooms.start());
-        let end = (*self.zooms.end()).min(*feature.zooms.end());
+        let mut start = (*self.zooms.start()).max(*feature.zooms.start());
+        let mut end = (*self.zooms.end()).min(*feature.zooms.end());
+        if let Some(window) = self.window {
+            start = start.max(window.zoom);
+            end = end.min(window.zoom);
+        }
         start..=end
     }
 
@@ -169,14 +184,20 @@ impl RenderLayer {
         xs.contains(&x) && ys.contains(&y)
     }
 
-    /// The tile columns and rows of `zoom` that [`with_bounds`](Self::with_bounds) allows.
+    /// The tile columns and rows of `zoom` that [`with_bounds`](Self::with_bounds) and
+    /// [`with_window`](Self::with_window) allow.
     fn tile_bounds(&self, zoom: u8) -> (Range<u32>, Range<u32>) {
-        let Some(tiles) = &self.tiles else {
-            let all = 0..1 << zoom;
-            return (all.clone(), all);
+        let (xs, ys) = match &self.tiles {
+            Some(tiles) => span(tiles[usize::from(zoom - self.zooms.start())]),
+            None => (0..1 << zoom, 0..1 << zoom),
         };
-        let rect = tiles[usize::from(zoom - self.zooms.start())];
-        (rect.min_x..rect.max_x + 1, rect.min_y..rect.max_y + 1)
+        match self.window {
+            Some(window) => {
+                let (wx, wy) = span(window);
+                (overlap(&xs, &wx), overlap(&ys, &wy))
+            }
+            None => (xs, ys),
+        }
     }
 
     /// The RDP tolerance at `zoom` in Web Mercator units.
@@ -201,6 +222,15 @@ impl RenderLayer {
             threshold.below_max_zoom
         }
     }
+}
+
+/// The columns and rows of `rect`, end exclusive.
+fn span(rect: TileRect) -> (Range<u32>, Range<u32>) {
+    (rect.min_x..rect.max_x + 1, rect.min_y..rect.max_y + 1)
+}
+
+fn overlap(a: &Range<u32>, b: &Range<u32>) -> Range<u32> {
+    a.start.max(b.start)..a.end.min(b.end)
 }
 
 #[derive(Default)]

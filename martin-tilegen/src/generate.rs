@@ -180,7 +180,7 @@ fn render_all<S: FeatureSource>(
                 let rx = rx.clone();
                 spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
                     let mut buffer = sorter.buffer();
-                    let mut renderer = FeatureRenderer::new(plan, order);
+                    let mut renderer = FeatureRenderer::new(plan, order, None);
                     for mut batch in rx {
                         if failed.load(Ordering::Relaxed) {
                             break;
