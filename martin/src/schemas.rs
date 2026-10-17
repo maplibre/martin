@@ -81,8 +81,7 @@ pub fn config_doc_yaml() -> String {
     );
     out.push_str("[Schema: `schemas/config.json`](https://github.com/maplibre/martin/blob/main/schemas/config.json).\n\n");
     out.push_str("!!! note\n");
-    out.push_str("    The generated reference and its JSON Schema cover the features included during schema generation.\n    Unstable sources such as duckdb or cog are not included.\n\n");
-    out.push_str("    Unstable sources such as duckdb or cog are not included.\n\n");
+    out.push_str("    The generated reference and its JSON Schema cover the features included during schema generation.\n    Unstable sources such as duckdb are not included.\n\n");
     out.push_str("```yaml title=\"config.yaml\"\n");
     // `# yaml-language-server: $schema=…` lets editors validate users' own
     // `config.yaml` against the schema.

@@ -38,7 +38,7 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), and the highest [pixel ratio](#pixel-ratio) tiles are served at:
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), the highest [pixel ratio](#pixel-ratio) tiles are served at, and the size of the [ambient cache](#ambient-cache):
 
 ```yaml
 styles:
@@ -51,6 +51,8 @@ styles:
         tile_size: 512
         # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
         max_pixel_ratio: 4
+        # MB of MapLibre Native's cache of fetched tiles, glyphs and sprites, 0 to disable [default: 50 MiB]
+        ambient_cache_size_mb: 0
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
@@ -111,6 +113,14 @@ With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
 Each renderer holds its own memory: lower `renderers_per_worker` or `max_pixel_ratio` to reduce memory usage.
 
+### Ambient cache
+
+MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the network in a cache of its own, in memory and shared by all of them, up to `ambient_cache_size_mb` MB (MapLibre Native's default of 50 MiB unless configured).
+Every fetched resource is compressed and stored there, and every fetch looks it up first.
+A cached resource spares a request only while its `Cache-Control` says it is fresh, and Martin sends none unless `cache_control` is set in the [configuration file](../config-file/index.md).
+When the style's sources are Martin's own, the tiles are already a local read away, so `ambient_cache_size_mb: 0` saves that work.
+Keep it for styles that fetch from other servers.
+
 ## Static images
 
 !!! info
@@ -138,17 +148,12 @@ An empty or missing body is equivalent to `GET`.
 
 The `{camera}` segment chooses what the image looks at:
 
-| Form                            | Meaning                                              |
-| ------------------------------- | ---------------------------------------------------- |
-| `lon,lat,zoom`                  | Center at `(lon, lat)` and `zoom` (north up, flat).  |
-| `lon,lat,zoom@bearing`          | Center + bearing in degrees (clockwise from north).  |
-| `lon,lat,zoom@bearing,pitch`    | Center + bearing + pitch in degrees.                 |
-| `minLon,minLat,maxLon,maxLat`   | Fit the given bounding box to the requested size.    |
+--8<-- "images/styles/camera.svg"
 
 !!! info
-    The image is always rendered INSIDE of the requested size.
-    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at `1°,-1°`.
-    We will not expand the image outside the bbox.
+    The whole bounding box is always visible.
+    So if the bbox is `[-10°,-1°,10°,1°]` and size `500x500` is requested, the image is centered on `0,0` and spans the full 20° of longitude, with extra map above and below the bbox.
+    A bounding box always renders north up and flat.
 
 ### Size and format
 

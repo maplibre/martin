@@ -1,0 +1,31 @@
+---
+source: e2e-tests/tests/martin_cp_bulk.rs
+expression: metadata
+---
+agg_tiles_hash = 03555161E20DF1053D5B8B99509018C1
+format = mlt
+generator = martin cp v[VERSION] (bulk)
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "gid": "Number"
+      },
+      "id": "points1",
+      "maxzoom": 3,
+      "minzoom": 0
+    },
+    {
+      "fields": {
+        "gid": "Number"
+      },
+      "id": "mixed",
+      "maxzoom": 3,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 3
+minzoom = 0
+name = generated

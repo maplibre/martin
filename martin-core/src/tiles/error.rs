@@ -1,4 +1,4 @@
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use super::cog::CogError;
 #[cfg(feature = "unstable-duckdb")]
 use super::duckdb::DuckDBError;
@@ -43,7 +43,7 @@ pub enum MartinCoreError {
     PassthroughError(#[from] PassthroughError),
 
     /// Errors that can occur during [`cog`](crate::tiles::cog) processing operations.
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[error(transparent)]
     CogError(#[from] CogError),
 
@@ -84,7 +84,7 @@ impl crate::Classify for MartinCoreError {
             Self::PmtilesError(e) => e.kind(),
             #[cfg(feature = "passthrough")]
             Self::PassthroughError(e) => e.kind(),
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             Self::CogError(e) => e.kind(),
             #[cfg(feature = "processing")]
             Self::GeoJsonError(e) => e.kind(),

@@ -13,7 +13,7 @@ use tracing::{error, instrument, warn};
 use crate::config::file::SourceBuildResult;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGridsConfig;
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::DuckDbConfig;
@@ -43,7 +43,7 @@ use crate::config::file::{
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing",
     feature = "resources",
     feature = "resources",
@@ -180,7 +180,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
     pub passthrough: PassthroughConfig,
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -329,12 +329,16 @@ impl OnInvalid {
         }
         match warnings {
             [warning] => match self {
-                Self::Warn => warn!("Tile source resolution warning: {warning}"),
-                Self::Abort => error!("Tile source resolution warning: {warning}"),
+                Self::Warn => warn!(warning = %warning, "Tile source resolution warning"),
+                Self::Abort => error!(warning = %warning, "Tile source resolution warning"),
             },
             warnings => match self {
-                Self::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
-                Self::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                Self::Warn => {
+                    warn!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
+                Self::Abort => {
+                    error!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
             },
         }
 
@@ -446,7 +450,7 @@ mod tests {
         // Per-source disable is not overridden by global defaults
         let disabled = CachePolicy::disabled();
         let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
-        let merged = disabled.or(defaults);
+        let merged = disabled.or(&defaults);
         for zoom in 0..=u8::MAX {
             assert!(!merged.zoom().contains(zoom));
         }
@@ -457,7 +461,7 @@ mod tests {
         // Per-source config re-enables caching despite global disable
         let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
         let global_disabled = CachePolicy::disabled();
-        let merged = source.or(global_disabled);
+        let merged = source.or(&global_disabled);
         assert!(merged.zoom().contains(0));
         assert!(merged.zoom().contains(5));
         assert!(merged.zoom().contains(10));

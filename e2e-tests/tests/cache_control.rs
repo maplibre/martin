@@ -1,25 +1,24 @@
 //! The `cache_control` server setting and its per-source overrides.
 
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{Martin, StartError, WatchedDir, fixture, mbtiles_fixture};
-
-const CONFIG: &str = "
-cache_control: public, max-age=3600
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-sprites:
-  paths: tests/fixtures/sprites/src1
-fonts:
-  - tests/fixtures/fonts/overpass-mono-regular.ttf
-styles:
-  sources:
-    maplibre: tests/fixtures/styles/maplibre_demo.json
-";
 
 #[tokio::test]
 async fn the_configured_cache_control_is_sent_on_every_content_endpoint() {
     let mut martin = Martin::builder()
-        .config(CONFIG)
+        .config(indoc! {"
+            cache_control: public, max-age=3600
+            pmtiles:
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+            sprites:
+              paths: tests/fixtures/sprites/src1
+            fonts:
+              - tests/fixtures/fonts/overpass-mono-regular.ttf
+            styles:
+              sources:
+                maplibre: tests/fixtures/styles/maplibre_demo.json
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -47,7 +46,19 @@ async fn the_configured_cache_control_is_sent_on_every_content_endpoint() {
 #[tokio::test]
 async fn the_health_endpoint_keeps_its_no_cache_policy() {
     let mut martin = Martin::builder()
-        .config(CONFIG)
+        .config(indoc! {"
+            cache_control: public, max-age=3600
+            pmtiles:
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+            sprites:
+              paths: tests/fixtures/sprites/src1
+            fonts:
+              - tests/fixtures/fonts/overpass-mono-regular.ttf
+            styles:
+              sources:
+                maplibre: tests/fixtures/styles/maplibre_demo.json
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -65,16 +76,14 @@ async fn archive_tiles_are_revalidated_in_the_background_unless_configured() {
     let cities = mbtiles_fixture(dir.path(), "world_cities").await;
     let cities = cities.to_str().expect("fixture path is valid utf-8");
     let mut martin = Martin::builder()
-        .config(&format!(
-            "
-pmtiles:
-  sources:
-    pmt: tests/fixtures/pmtiles/png.pmtiles
-mbtiles:
-  sources:
-    cities: {cities}
-"
-        ))
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                pmt: tests/fixtures/pmtiles/png.pmtiles
+            mbtiles:
+              sources:
+                cities: {cities}
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -125,38 +134,30 @@ async fn a_watched_archive_keeps_the_archive_default_when_added_and_updated() {
     martin.stop().await;
 }
 
-async fn martin_with_per_source_overrides() -> (tempfile::TempDir, Martin) {
+#[tokio::test]
+async fn a_per_source_cache_control_overrides_the_server_default() {
     let dir = tempfile::tempdir().expect("failed to create a temp dir");
     let cities = mbtiles_fixture(dir.path(), "world_cities").await;
     let cities = cities.to_str().expect("fixture path is valid utf-8");
-    let config = format!(
-        "
-cache_control: public, max-age=3600
-mbtiles:
-  sources:
-    plain: {cities}
-    pinned:
-      path: {cities}
-      cache_control: no-store
-    pinned_alike:
-      path: {cities}
-      cache_control: no-store
-    pinned_differently:
-      path: {cities}
-      cache_control: public, max-age=60
-"
-    );
-    let martin = Martin::builder()
-        .config(&config)
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cache_control: public, max-age=3600
+            mbtiles:
+              sources:
+                plain: {cities}
+                pinned:
+                  path: {cities}
+                  cache_control: no-store
+                pinned_alike:
+                  path: {cities}
+                  cache_control: no-store
+                pinned_differently:
+                  path: {cities}
+                  cache_control: public, max-age=60
+        "})
         .start()
         .await
         .expect("failed to start martin");
-    (dir, martin)
-}
-
-#[tokio::test]
-async fn a_per_source_cache_control_overrides_the_server_default() {
-    let (_dir, mut martin) = martin_with_per_source_overrides().await;
 
     let response = martin.get("/pinned/0/0/0").await;
     assert_eq!(response.status(), 200);
@@ -174,7 +175,28 @@ async fn a_per_source_cache_control_overrides_the_server_default() {
 
 #[tokio::test]
 async fn a_composite_request_uses_the_override_only_when_all_sources_agree() {
-    let (_dir, mut martin) = martin_with_per_source_overrides().await;
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let cities = cities.to_str().expect("fixture path is valid utf-8");
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cache_control: public, max-age=3600
+            mbtiles:
+              sources:
+                plain: {cities}
+                pinned:
+                  path: {cities}
+                  cache_control: no-store
+                pinned_alike:
+                  path: {cities}
+                  cache_control: no-store
+                pinned_differently:
+                  path: {cities}
+                  cache_control: public, max-age=60
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/pinned,pinned_alike/0/0/0").await;
     assert_eq!(response.status(), 200);
@@ -193,15 +215,13 @@ async fn a_composite_request_uses_the_override_only_when_all_sources_agree() {
 #[tokio::test]
 async fn an_invalid_per_source_cache_control_value_fails_startup() {
     let error = Martin::builder()
-        .config(
-            "
-pmtiles:
-  sources:
-    pmt:
-      path: tests/fixtures/pmtiles/png.pmtiles
-      cache_control: max-age=invalid
-",
-        )
+        .config(indoc! {"
+            pmtiles:
+              sources:
+                pmt:
+                  path: tests/fixtures/pmtiles/png.pmtiles
+                  cache_control: max-age=invalid
+        "})
         .start()
         .await
         .expect_err("martin must reject an invalid per-source Cache-Control value");

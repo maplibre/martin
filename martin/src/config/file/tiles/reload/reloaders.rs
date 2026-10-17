@@ -20,7 +20,7 @@ use crate::tile_source_manager::TileSourceManager;
 pub struct TileReloaders {
     #[cfg(feature = "mbtiles")]
     mbtiles: super::mbtiles::MbtilesReloader,
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     cog: super::cog::CogReloader,
     #[cfg(feature = "unstable-duckdb")]
     duckdb: super::duckdb::DuckDbReloader,
@@ -71,23 +71,23 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.mbtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         let mut cog = super::cog::CogReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.cog,
-            config.cache.policy(),
+            &config.cache.policy(),
         );
         #[cfg(feature = "unstable-duckdb")]
         let mut duckdb = super::duckdb::DuckDbReloader::new(
             catalog.clone(),
             resolver,
             &config.duckdb,
-            config.cache.policy(),
+            &config.cache.policy(),
             &global_process,
         );
         #[cfg(feature = "processing")]
@@ -95,14 +95,14 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.geojson,
-            config.cache.policy(),
+            &config.cache.policy(),
         );
         #[cfg(feature = "pmtiles")]
         let mut pmtiles = super::pmtiles::PmtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.pmtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
@@ -111,7 +111,7 @@ impl TileReloaders {
             let warnings = mbtiles.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         {
             let warnings = cog.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
@@ -143,7 +143,7 @@ impl TileReloaders {
                         catalog.clone(),
                         resolver.clone(),
                         pg_config,
-                        config.cache.policy(),
+                        &config.cache.policy(),
                         &global_process,
                         &tile_grids,
                     )
@@ -164,7 +164,7 @@ impl TileReloaders {
         Ok(Self {
             #[cfg(feature = "mbtiles")]
             mbtiles,
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             cog,
             #[cfg(feature = "unstable-duckdb")]
             duckdb,
@@ -198,23 +198,23 @@ impl TileReloaders {
     pub fn start(self) {
         #[cfg(feature = "mbtiles")]
         if let Err(e) = self.mbtiles.start() {
-            tracing::warn!("failed to start MbtilesReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start MbtilesReloader");
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if let Err(e) = self.cog.start() {
-            tracing::warn!("failed to start CogReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start CogReloader");
         }
         #[cfg(feature = "unstable-duckdb")]
         if let Err(e) = self.duckdb.start() {
-            tracing::warn!("failed to start DuckDbReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start DuckDbReloader");
         }
         #[cfg(feature = "processing")]
         if let Err(e) = self.geojson.start() {
-            tracing::warn!("failed to start GeoJsonReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start GeoJsonReloader");
         }
         #[cfg(feature = "pmtiles")]
         if let Err(e) = self.pmtiles.start() {
-            tracing::warn!("failed to start PmtilesReloader {e:?}");
+            tracing::warn!(error = ?e, "failed to start PmtilesReloader");
         }
         #[cfg(feature = "postgres")]
         for reloader in self.postgres {

@@ -231,7 +231,8 @@ impl ObjectStoreConfig {
                 );
             } else {
                 warn!(
-                    "Region from {namespace}.profile is ignored in favor of explicit region configuration."
+                    config.key = %format_args!("{namespace}.profile"),
+                    "Region from profile is ignored in favor of explicit region configuration."
                 );
             }
         } else if let Some(region) = sdk_config.region() {
@@ -282,12 +283,14 @@ impl ObjectStoreConfig {
                 );
             } else {
                 warn!(
-                    "Credentials from {namespace}.profile are ignored in favor of explicit credential-provider configuration."
+                    config.key = %format_args!("{namespace}.profile"),
+                    "Credentials from profile are ignored in favor of explicit credential-provider configuration."
                 );
             }
         } else if skips_signature {
             warn!(
-                "Credentials from {namespace}.profile are ignored because request signing is disabled."
+                config.key = %format_args!("{namespace}.profile"),
+                "Credentials from profile are ignored because request signing is disabled."
             );
         } else if let Some(provider) = sdk_config.credentials_provider() {
             self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider { provider }));
@@ -381,7 +384,9 @@ impl ObjectStoreConfig {
                 | serde_json::Value::Array(_)
                 | serde_json::Value::Object(_)) => {
                     warn!(
-                        "Ignoring unrecognized configuration key '{namespace}.{key}': {value:?}. Only boolean, string or number values are allowed here. Please check your configuration file for typos."
+                        config.key = %format_args!("{namespace}.{key}"),
+                        config.value = ?value,
+                        "Ignoring unrecognized configuration key: only boolean, string or number values are allowed here. Please check your configuration file for typos."
                     );
                     None
                 }
@@ -419,12 +424,18 @@ impl ObjectStoreConfig {
         let prefixed = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
             warn!(
-                "{kind} {key} is ignored in favor of the new configuration value {namespace}.{new_key}."
+                ignored.kind = %kind,
+                ignored.key = %key,
+                config.key = %format_args!("{namespace}.{new_key}"),
+                "Value is ignored in favor of the explicit configuration value"
             );
             false
         } else if self.options.contains_key(&prefixed) {
             warn!(
-                "{kind} {key} is ignored in favor of the new configuration value {namespace}.{prefixed}."
+                ignored.kind = %kind,
+                ignored.key = %key,
+                config.key = %format_args!("{namespace}.{prefixed}"),
+                "Value is ignored in favor of the explicit configuration value"
             );
             false
         } else {
@@ -447,7 +458,11 @@ impl ObjectStoreConfig {
             if self.options.contains_key(prefixed) || self.options.contains_key(bare) {
                 continue;
             }
-            info!("Using {env_key} from the environment as {namespace}.{bare} for S3 credentials.");
+            info!(
+                env.key = %env_key,
+                config.key = %format_args!("{namespace}.{bare}"),
+                "Using environment variable for S3 credentials"
+            );
             self.options.insert(bare.to_owned(), value);
         }
     }
@@ -594,7 +609,7 @@ impl CredentialProvider for AwsSdkCredentialProvider {
     }
 }
 
-#[cfg(all(test, feature = "unstable-cog"))]
+#[cfg(all(test, feature = "cog"))]
 mod cog_tests {
     use object_store::ObjectStoreExt as _;
     use wiremock::matchers::{method, path};

@@ -36,7 +36,7 @@ impl PostgresReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: PostgresConfig,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
@@ -79,11 +79,13 @@ impl PostgresReloader {
         on_slow(init, DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)), || {
             if auto_bounds == BoundsCalcType::Skip {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Bounds calculation is already disabled. You may need to tune your database."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Bounds calculation is already disabled. You may need to tune your database."
                 );
             } else {
                 tracing::warn!(
-                    "Discovering tables in PostgreSQL database '{db}' is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
+                    postgres.pool_id = %db,
+                    "Discovering tables in PostgreSQL database is taking too long. Make sure your table geo columns have a GIS index, or use '--auto-bounds skip' CLI/config to skip bbox calculation."
                 );
             }
         })
@@ -145,7 +147,7 @@ mod tests {
             tsm,
             IdResolver::new(&[]),
             config,
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             &TileGrids::default(),
         )
@@ -154,7 +156,7 @@ mod tests {
     #[rstest]
     #[case::fast(Duration::from_millis(0), false)]
     #[case::slow(Duration::from_millis(50), true)]
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn on_slow_fires_only_when_the_future_outlives_the_deadline(
         #[case] takes: Duration,
         #[case] should_warn: bool,

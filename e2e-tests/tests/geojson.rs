@@ -8,14 +8,6 @@ use mlt_core::fast_mvt::MvtValue;
 use rstest::rstest;
 use serde_json::Value;
 
-async fn martin_with_geojson_dir() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/geojson")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 /// Rounds the last digits of a web mercator round-trip away, since each platform's libm lands on its own.
 fn round_coordinates(value: &mut Value) {
     match value {
@@ -44,7 +36,11 @@ fn assert_bounds(tilejson: &Value, expected: [f64; 4]) {
 
 #[tokio::test]
 async fn every_geojson_file_becomes_a_source() {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let catalog = martin.get("/catalog").await;
     assert_eq!(catalog.status(), 200);
@@ -113,6 +109,9 @@ async fn the_saved_config_names_every_discovered_file() {
     mbtiles:
       paths:
       - tests/fixtures/geojson
+    cog:
+      paths:
+      - tests/fixtures/geojson
     geojson:
       paths:
       - tests/fixtures/geojson
@@ -132,7 +131,11 @@ async fn the_saved_config_names_every_discovered_file() {
 
 #[tokio::test]
 async fn a_tilejson_points_back_at_the_source() {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/feature_collection_1").await;
     assert_eq!(response.status(), 200);
@@ -183,7 +186,11 @@ async fn a_tilejson_points_back_at_the_source() {
 #[case::a_composite_of_two_sources("feature_collection_1,properties")]
 #[tokio::test]
 async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &str) {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let advertised = martin.get(&format!("/{source_ids}")).await.json()["vector_layers"]
         .as_array()
@@ -219,7 +226,11 @@ async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &
 #[case::a_point_at_null_island("properties", [0.0, 0.0, 0.0, 0.0])]
 #[tokio::test]
 async fn a_tilejson_bounds_the_features(#[case] source_id: &str, #[case] bounds: [f64; 4]) {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_bounds(&martin.get(&format!("/{source_id}")).await.json(), bounds);
 
@@ -238,7 +249,11 @@ async fn a_source_serves_one_layer_named_after_itself(
     #[case] source_id: &str,
     #[case] features: usize,
 ) {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get(&format!("/{source_id}/0/0/0")).await;
     assert_eq!(tile.status(), 200);
@@ -253,7 +268,11 @@ async fn a_source_serves_one_layer_named_after_itself(
 
 #[tokio::test]
 async fn a_tile_is_served_gzipped_with_an_etag() {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/feature_collection_1/0/0/0").await;
     assert_eq!(tile.status(), 200);
@@ -270,7 +289,11 @@ async fn a_tile_is_served_gzipped_with_an_etag() {
 
 #[tokio::test]
 async fn property_types_survive_the_round_trip() {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_snapshot!(martin.get("/properties/0/0/0").await.mvt_dump(), @r#"
     layer: 0
@@ -302,7 +325,11 @@ async fn property_types_survive_the_round_trip() {
 #[case::the_south_east_quadrant("clip/1/1/1", &[1])]
 #[tokio::test]
 async fn clipping_keeps_the_features_a_tile_overlaps(#[case] path: &str, #[case] ids: &[i64]) {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get(&format!("/{path}")).await;
     assert_eq!(tile.status(), 200);
@@ -322,7 +349,11 @@ async fn clipping_keeps_the_features_a_tile_overlaps(#[case] path: &str, #[case]
 
 #[tokio::test]
 async fn a_tile_without_features_is_no_content() {
-    let mut martin = martin_with_geojson_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/feature_1/1/0/1").await;
     assert_eq!(tile.status(), 204);

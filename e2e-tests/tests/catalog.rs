@@ -4,24 +4,6 @@ use martin_e2e_tests::{Martin, fixture};
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 
-async fn martin_with_every_source_kind() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/geojson")
-        .arg("--sprite")
-        .arg(fixture("sprites/src1"))
-        .arg("--sprite")
-        .arg(fixture("sprites/src2"))
-        .arg("--font")
-        .arg(fixture("fonts"))
-        .arg("--style")
-        .arg(fixture("styles/maplibre_demo.json"))
-        .arg("--style")
-        .arg(fixture("styles/src2"))
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 /// Normalizes path separators inside every string leaf of a decoded JSON value,
 /// so the snapshot below reads the same on windows as it does elsewhere.
 fn normalize_paths(value: &mut Value) {
@@ -38,9 +20,41 @@ fn normalize_paths(value: &mut Value) {
 
 /// Two servers over the same sources answer a byte-identical catalog under the same etag.
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "inline snapshot of the whole catalog"
+)]
 async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
-    let mut first = martin_with_every_source_kind().await;
-    let mut second = martin_with_every_source_kind().await;
+    let mut first = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .arg("--style")
+        .arg(fixture("styles/maplibre_demo.json"))
+        .arg("--style")
+        .arg(fixture("styles/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
+    let mut second = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .arg("--style")
+        .arg(fixture("styles/maplibre_demo.json"))
+        .arg("--style")
+        .arg(fixture("styles/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let first_catalog = first.get("/catalog").await;
     let second_catalog = second.get("/catalog").await;
@@ -133,7 +147,21 @@ async fn two_servers_over_the_same_sources_answer_the_same_bytes() {
 
 #[tokio::test]
 async fn the_catalog_answers_conditional_requests() {
-    let mut martin = martin_with_every_source_kind().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/geojson")
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .arg("--font")
+        .arg(fixture("fonts"))
+        .arg("--style")
+        .arg(fixture("styles/maplibre_demo.json"))
+        .arg("--style")
+        .arg(fixture("styles/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let first = martin.get("/catalog").await;
     assert_eq!(first.status(), 200);

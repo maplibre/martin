@@ -13,14 +13,14 @@ use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing"
 ))]
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "resources",
@@ -121,8 +121,8 @@ impl Args {
             return Err(ConfigAndConnections(self.meta.connection));
         }
 
-        if self.srv.cache_size.is_some() {
-            config.cache.size_mb = self.srv.cache_size;
+        if let Some(bytes) = self.srv.cache_size {
+            config.cache.size_mb = Some(bytes.div_ceil(bytesize::MB));
         }
         if self.srv.cache_expiry.is_some() {
             config.cache.expiry = self.srv.cache_expiry;
@@ -143,7 +143,7 @@ impl Args {
                 feature = "mbtiles",
                 feature = "pmtiles",
                 feature = "processing",
-                feature = "unstable-cog",
+                feature = "cog",
                 feature = "unstable-duckdb"
             )),
             expect(
@@ -179,7 +179,7 @@ impl Args {
             config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
         }
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
         }
@@ -227,7 +227,7 @@ impl Args {
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -259,7 +259,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 ///
 /// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -279,7 +279,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
 }
 
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing"
@@ -296,7 +296,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 ///
 /// Directories are shared with other consumers when `share_dirs` is set, and otherwise left unclaimed.
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -412,7 +412,24 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
-    #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+    #[rstest::rstest]
+    #[case::bare_number_is_mb("512", 512)]
+    #[case::disable("0", 0)]
+    #[case::si("2GB", 2000)]
+    #[case::iec_rounds_up("1GiB", 1074)]
+    #[case::lowercase_with_space("64 mb", 64)]
+    fn cli_cache_size(#[case] arg: &str, #[case] size_mb: u64) {
+        let (config, _) = parse(&["martin", "--cache-size", arg]).unwrap();
+        assert_eq!(config.cache.size_mb, Some(size_mb));
+    }
+
+    #[test]
+    fn cli_cache_size_rejects_unknown_unit() {
+        let err = Args::try_parse_from(["martin", "--cache-size", "1 parsec"]).unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
+    }
+
+    #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
     fn detects_file_scheme_uri() {
         // Valid file scheme URIs
@@ -502,7 +519,7 @@ mod tests {
         assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[test]
     fn cli_accepts_remote_cog_urls() {
         let args = Args::parse_from([
@@ -520,7 +537,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[tokio::test]
     async fn cli_multiple_extensions() {
         use std::ffi::OsString;
@@ -531,22 +548,27 @@ mod tests {
             OsString::from("martin"),
             OsString::from("../tests/fixtures/pmtiles/png.pmtiles"),
             file.as_os_str().to_owned(),
-            OsString::from("../tests/fixtures/cog/rgba_u8_nodata.tiff"),
-            OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
+            OsString::from("../tests/fixtures/cog/usda_naip_128_none_z2.tif"),
+            OsString::from("../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"),
         ]);
 
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles:
+          paths:
+            - "file:json.mbtiles?mode=memory&cache=shared"
         cog:
-          - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
-          - "../tests/fixtures/cog/rgba_u8.tif"
+          paths:
+            - "../tests/fixtures/cog/usda_naip_128_none_z2.tif"
+            - "../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"
         "#);
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
@@ -555,10 +577,18 @@ mod tests {
         let err = args.merge_into_config(&mut config);
         err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/"
-        mbtiles: "../tests/fixtures/"
-        cog: "../tests/fixtures/"
-        geojson: "../tests/fixtures/"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/"
+        mbtiles:
+          paths:
+            - "../tests/fixtures/"
+        cog:
+          paths:
+            - "../tests/fixtures/"
+        geojson:
+          paths:
+            - "../tests/fixtures/"
         "#);
     }
 

@@ -2,14 +2,6 @@
 
 use martin_e2e_tests::Martin;
 
-async fn martin_with_a_pmtiles_source() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/pmtiles/png.pmtiles")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
-
 /// How long a request took decides which duration buckets it lands in, so only the bucket a
 /// request is guaranteed to reach (`+Inf`), the totals and the counts are asserted verbatim.
 fn scrape_filters() -> Vec<(&'static str, &'static str)> {
@@ -27,7 +19,11 @@ fn scrape_filters() -> Vec<(&'static str, &'static str)> {
 
 #[tokio::test]
 async fn a_scrape_reports_every_family_with_a_series_per_route_pattern() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles/png.pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get("/catalog").await.status(), 200);
     assert_eq!(martin.get("/png").await.status(), 200);
@@ -47,7 +43,11 @@ async fn a_scrape_reports_every_family_with_a_series_per_route_pattern() {
 
 #[tokio::test]
 async fn a_path_matching_no_route_is_counted_under_a_single_masked_label() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles/png.pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get("/one/path/that/is/no/route").await.status(), 404);
     assert_eq!(
@@ -65,7 +65,11 @@ async fn a_path_matching_no_route_is_counted_under_a_single_masked_label() {
 
 #[tokio::test]
 async fn a_repeated_tile_request_is_counted_as_a_tile_cache_hit() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles/png.pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(martin.get("/png/0/0/0").await.status(), 200);
     assert_eq!(martin.get("/png/0/0/0").await.status(), 200);
@@ -80,7 +84,11 @@ async fn a_repeated_tile_request_is_counted_as_a_tile_cache_hit() {
 
 #[tokio::test]
 async fn metrics_are_served_as_prometheus_text_without_compressing_them() {
-    let mut martin = martin_with_a_pmtiles_source().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/pmtiles/png.pmtiles")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let metrics = martin.get("/_/metrics").await;
     assert_eq!(metrics.status(), 200);

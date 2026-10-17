@@ -105,7 +105,8 @@ impl PostgresArgs {
 
         if let Some(value) = default_srid {
             info!(
-                "Overriding configured default SRID to {value} on all Postgres connections because of a CLI parameter"
+                postgres.default_srid = value,
+                "Overriding configured default SRID on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.default_srid = default_srid;
@@ -113,7 +114,8 @@ impl PostgresArgs {
         }
         if let Some(value) = pool_size {
             info!(
-                "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
+                postgres.pool_size = %value,
+                "Overriding configured pool size on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.pool_size = pool_size;
@@ -121,7 +123,8 @@ impl PostgresArgs {
         }
         if let Some(value) = pg_retry_timeout {
             info!(
-                "Overriding retry_timeout to {value} on all Postgres connections because of a CLI parameter"
+                postgres.retry_timeout = %value,
+                "Overriding retry_timeout on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.retry_timeout = pg_retry_timeout;
@@ -129,7 +132,8 @@ impl PostgresArgs {
         }
         if let Some(value) = auto_bounds {
             info!(
-                "Overriding auto_bounds to {value} on all Postgres connections because of a CLI parameter"
+                postgres.auto_bounds = %value,
+                "Overriding auto_bounds on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.auto_bounds = auto_bounds;
@@ -137,7 +141,8 @@ impl PostgresArgs {
         }
         if let Some(value) = max_feature_count {
             info!(
-                "Overriding maximum feature count to {value} on all Postgres connections because of a CLI parameter"
+                postgres.max_feature_count = value,
+                "Overriding maximum feature count on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.max_feature_count = max_feature_count;
@@ -153,8 +158,8 @@ impl PostgresArgs {
         }
         if let Some(ref value) = ca_root_file {
             info!(
-                "Overriding root certificate file to {} on all Postgres connections because of a CLI parameter",
-                value.display()
+                postgres.ssl_root_cert = %value.display(),
+                "Overriding root certificate file on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_root_cert.clone_from(&ca_root_file);
@@ -162,8 +167,8 @@ impl PostgresArgs {
         }
         if let Some(ref value) = ssl_cert {
             info!(
-                "Overriding client SSL certificate to {} on all Postgres connections because of a CLI parameter",
-                value.display()
+                postgres.ssl_cert = %value.display(),
+                "Overriding client SSL certificate on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_cert.clone_from(&ssl_cert);
@@ -171,8 +176,8 @@ impl PostgresArgs {
         }
         if let Some(ref value) = ssl_key {
             info!(
-                "Overriding client SSL key to {} on all Postgres connections because of a CLI parameter",
-                value.display()
+                postgres.ssl_key = %value.display(),
+                "Overriding client SSL key on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
                 c.ssl_certificates.ssl_key.clone_from(&ssl_key);

@@ -15,6 +15,9 @@ git_release_type = "auto"
 semver_check = true
 
 [[package]]
+name = "cog-tiles"
+
+[[package]]
 name = "martin-core"
 
 [[package]]
@@ -24,7 +27,7 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", ".github", "tests", "docs", "debian"]
+changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", "cog-tiles", ".github", "tests", "docs", "debian"]
 semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
 
 [[package]]

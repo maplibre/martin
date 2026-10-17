@@ -68,7 +68,7 @@ pub async fn resolve_database_entry(
         &pool,
         id_resolver,
         auto_bounds,
-        default_cache,
+        default_cache.clone(),
     )
     .await;
 
@@ -95,7 +95,7 @@ pub async fn resolve_database_entry(
             &database_label,
             &r#macro,
             pool.clone(),
-            default_cache,
+            &default_cache,
         )));
     }
     resolved
@@ -169,6 +169,7 @@ async fn resolve_tables(
         );
         let pool = pool.clone();
         let database_label = database_label.to_owned();
+        let default_cache = default_cache.clone();
         async move {
             match resolve_table_source(
                 source_id.clone(),
@@ -201,7 +202,7 @@ pub fn resolve_macro_source(
     database_label: &str,
     entry: &DuckDbMacroEntry,
     pool: DuckDBPool,
-    cache: CachePolicy,
+    cache: &CachePolicy,
 ) -> BoxedSource {
     let sql_query = format!(
         "SELECT * FROM {}.{}($z::INTEGER, $x::INTEGER, $y::INTEGER) LIMIT 1",

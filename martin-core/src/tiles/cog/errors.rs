@@ -1,114 +1,131 @@
 //! Error types for `Cloud Optimized GeoTIFF` operations.
 
-use std::path::PathBuf;
-
-use png::EncodingError;
-use tiff::TiffError;
+use std::sync::Arc;
 
 /// Errors that can occur when working with COG files.
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum CogError {
-    /// Cannot read the COG from its backing object store.
+    /// Cannot open, read, or serve a COG.
     #[error(transparent)]
-    Reader(#[from] super::reader::CogReaderError),
+    Tiles(#[from] cog_tiles::CogError),
 
-    /// Cannot decode the COG using the asynchronous TIFF parser.
-    #[error("Couldn't decode {1} as tiff file: {0}")]
-    AsyncTiff(#[source] async_tiff::error::AsyncTiffError, String),
+    /// The COG produces tiles in a format Martin cannot serve.
+    #[error("{location} produces {format:?} tiles, which Martin cannot serve")]
+    UnsupportedFormat {
+        /// Display form of the source.
+        location: String,
+        /// The tile format reported by the COG reader.
+        format: cog_tiles::TileFormat,
+    },
 
-    /// A passthrough (WebP/JPEG) tile used a planar sample layout instead of the required
-    /// chunky layout.
+    /// Cannot list a mosaic's files to find one to describe the mosaic with.
+    #[error("Unable to list mosaic files under {location}: {source}")]
+    MosaicListing {
+        /// Display form of the mosaic location.
+        location: String,
+        /// The underlying object store error.
+        #[source]
+        source: object_store::Error,
+    },
+
+    /// A mosaic's file name template is invalid.
+    #[error("Invalid mosaic file name template {template:?}: {reason}")]
+    InvalidTemplate {
+        /// The template as given.
+        template: String,
+        /// What is wrong with it.
+        reason: MosaicTemplateError,
+    },
+
+    /// A mosaic's file zoom is above the highest zoom a COG can have.
     #[error(
-        "Unsupported planar TIFF layout in {0}: passthrough tile reads require chunky sample data"
+        "The mosaic file zoom {file_zoom} is above the highest zoom {}",
+        cog_tiles::MAX_ZOOM
     )]
-    UnsupportedPlanarLayout(String),
+    FileZoomTooHigh {
+        /// The configured file zoom.
+        file_zoom: u8,
+    },
 
-    /// Cannot decode file as valid TIFF.
-    #[error("Couldn't decode {1} as tiff file: {0}")]
-    InvalidTiffFile(#[source] TiffError, PathBuf),
+    /// One file of a mosaic cannot be served.
+    #[error("Unable to serve mosaic file {key}: {source}")]
+    MosaicFile {
+        /// The object key or path of the file, relative to the mosaic's location.
+        key: String,
+        /// Why the file cannot be served, handed to every request that waited for the same open.
+        #[source]
+        source: Arc<MosaicFileError>,
+    },
 
-    /// Requested zoom level is outside the available range.
+    /// No file under a mosaic's location matches its key template.
+    #[error("No file matching {template} was found under {location}")]
+    MosaicEmpty {
+        /// Display form of the mosaic location.
+        location: String,
+        /// The key template the files must match.
+        template: String,
+    },
+}
+
+/// Why a mosaic's file name template is invalid.
+#[non_exhaustive]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+pub enum MosaicTemplateError {
+    /// A `}` without a `{` before it.
+    #[error("unmatched `}}`")]
+    UnmatchedClose,
+    /// A `{` without a `}` after it.
+    #[error("unmatched `{{`")]
+    UnmatchedOpen,
+    /// A placeholder other than the supported ones.
     #[error(
-        "Requested zoom level {0} from file {1} is out of range. Possible zoom levels are {2} to {3}"
+        "unknown placeholder {{{0}}}, placeholders are {{quadkey}}, {{z}}, {{x}}, {{y}} and {{-y}}"
     )]
-    ZoomOutOfRange(u8, PathBuf, u8, u8),
+    UnknownPlaceholder(String),
+    /// Neither a quadkey nor both a column and a row.
+    #[error("it must contain {{quadkey}}, or {{x}} and {{y}} (or {{-y}})")]
+    MissingCoordinates,
+    /// The names it renders leave the mosaic's location, e.g. through `..` or a leading `/`.
+    #[error("file names must be relative paths inside the mosaic's location")]
+    NotRelative,
+}
 
-    /// No images found in TIFF file.
-    #[error("Couldn't find any image in the tiff file: {0}")]
-    NoImagesFound(PathBuf),
-
-    /// Cannot seek to Image File Directory.
-    #[error("Couldn't seek to ifd number {1} (0 based indexing) in tiff file {2}: {0}")]
-    IfdSeekFailed(#[source] TiffError, usize, PathBuf),
-
-    /// Required TIFF tags not found.
-    #[error("Couldn't find tags {1:?} at ifd {2} of tiff file {3}: {0}")]
-    TagsNotFound(#[source] TiffError, Vec<u16>, usize, PathBuf),
-
-    /// Unsupported planar configuration in TIFF.
+/// Why one file of a mosaic cannot be served.
+#[non_exhaustive]
+#[derive(thiserror::Error, Debug)]
+pub enum MosaicFileError {
+    /// Cannot open or read the file.
+    #[error(transparent)]
+    Tiles(#[from] cog_tiles::CogError),
+    /// The file does not cover the tile its name stands for.
+    #[error("it does not cover tile {tile}")]
+    DoesNotCover {
+        /// The tile the file's name stands for.
+        tile: cog_tiles::TileCoord,
+    },
+    /// The file has no tiles at the mosaic's file zoom.
+    #[error("its highest zoom {max_zoom} is below the file zoom {file_zoom}")]
+    BelowFileZoom {
+        /// The file's highest zoom.
+        max_zoom: u8,
+        /// The mosaic's file zoom.
+        file_zoom: u8,
+    },
+    /// The file's tiles differ in size or format from the first file the mosaic opened.
     #[error(
-        "Unsupported planar configuration {2} at IFD {1} in TIFF file {0}. Only planar configuration 1 is supported."
+        "it has {tile_size}px {format:?} tiles, but the mosaic has {expected_tile_size}px {expected_format:?} tiles"
     )]
-    PlanarConfigurationNotSupported(PathBuf, usize, u16),
-
-    /// Failed to read TIFF chunk data.
-    #[error("Failed to read {1}th chunk(0 based index) at ifd {2} from tiff file {3}: {0}")]
-    ReadChunkFailed(#[source] TiffError, u32, usize, PathBuf),
-
-    /// Failed to write PNG header.
-    #[error("Failed to write header of png file at {0}: {1}")]
-    WritePngHeaderFailed(PathBuf, #[source] EncodingError),
-
-    /// Failed to write PNG pixel data.
-    #[error("Failed to write pixel bytes to png file at {0}: {1}")]
-    WriteToPngFailed(PathBuf, #[source] EncodingError),
-
-    /// Unsupported color type or bit depth.
-    #[error("The color type {0:?} and its bit depth of the tiff file {1} is not supported yet")]
-    NotSupportedColorTypeAndBitDepth(tiff::ColorType, PathBuf),
-
-    /// Unsupported compression.
-    #[error("The compression type {0:?} of the tiff file {1} is not supported yet")]
-    NotSupportedCompression(u16, PathBuf),
-
-    /// Striped TIFF format not supported.
-    #[error("Striped tiff file is not supported, the tiff file is {0}")]
-    NotSupportedChunkType(PathBuf),
-
-    /// Invalid coordinate transformation information.
-    #[error("Coord transformation in {0} is invalid: {1}")]
-    InvalidGeoInformation(PathBuf, String),
-
-    /// Image pixels are not square.
-    #[error(
-        "The pixel size of the image {0} is not squared, the x_scale is {1}, the y_scale is {2}"
-    )]
-    NonSquaredImage(PathBuf, f64, f64),
-
-    /// Cannot determine tile origin from TIFF tags.
-    #[error(
-        "Calculating the tile origin failed for {0}: the length of ModelTiepointTag should be >= 6, or the length of ModelTransformationTag should be >= 12"
-    )]
-    GetOriginFailed(PathBuf),
-
-    /// Cannot determine zoom level of one of the images.
-    #[error("Calculating the image zoom level failed for {0}")]
-    UnknownZoomLevel(PathBuf),
-
-    /// Cannot determine full resolution from TIFF tags.
-    #[error(
-        "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
-    )]
-    GetFullResolutionFailed(PathBuf),
-
-    /// IO error.
-    #[error("IO error {0}: {1}")]
-    IoError(#[source] std::io::Error, PathBuf),
-
-    /// Images are not tiled consistently within the file.
-    #[error("The size of each tile is not consistent.")]
-    InconsistentTiling(PathBuf),
+    Layout {
+        /// The file's tile size in pixels.
+        tile_size: u32,
+        /// The file's tile format.
+        format: cog_tiles::TileFormat,
+        /// The mosaic's tile size in pixels.
+        expected_tile_size: u32,
+        /// The mosaic's tile format.
+        expected_format: cog_tiles::TileFormat,
+    },
 }
 
 impl crate::Classify for CogError {

@@ -91,6 +91,7 @@ required-features = ["postgres"]
 
 [features]
 default = [
+    "cog",
     "lambda",
     "mbtiles",
     "metrics",
@@ -102,8 +103,8 @@ default = [
     "tui",
     "webui",
 ]
-unstable-cog = [
-    "martin-core/unstable-cog",
+cog = [
+    "martin-core/cog",
     "dep:aws-config",
     "dep:aws-credential-types",
     "dep:object_store",
@@ -148,7 +149,17 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-generate = ["dep:cel", "dep:indexmap", "_tiles"]
+unstable-generate = [
+    "_tiles",
+    "mbtiles",
+    "postgres",
+    "martin-core/unstable-generate",
+    "dep:cel",
+    "dep:indexmap",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
+]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
@@ -187,6 +198,7 @@ async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
+bytesize.workspace = true
 cel = { workspace = true, optional = true }
 clap.workspace = true
 compact_str = { workspace = true, optional = true }
@@ -211,6 +223,7 @@ log.workspace = true
 martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
+martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
 mlt-core.workspace = true
@@ -268,7 +281,7 @@ backon.workspace = true
 criterion.workspace = true
 flate2.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["json", "yaml", "redactions"] }
+insta = { workspace = true, features = ["filters", "json", "redactions", "yaml"] }
 martin-core = { workspace = true, features = ["_testing"] }
 rstest.workspace = true
 tempfile.workspace = true

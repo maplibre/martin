@@ -136,8 +136,7 @@ To experiment with them, build Martin from source with the feature enabled:
 cargo install martin --locked --features=unstable-duckdb
 ```
 
-The currently available unstable features are `unstable-cog` for [COG sources](sources-cog-files.md)
-and `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
+The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
 
 Server-side style [rendering](sources-styles/rendering.md) is also left out of the default feature set.
 To include it (Linux only), add the `rendering` feature.

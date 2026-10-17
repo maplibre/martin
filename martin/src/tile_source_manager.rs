@@ -445,7 +445,7 @@ mod tests {
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            let source: BoxedSource = TestSource::empty(id.clone()).boxed();
+            let source: BoxedSource = TestSource::empty(id).boxed();
             Ok(source.into())
         }
 

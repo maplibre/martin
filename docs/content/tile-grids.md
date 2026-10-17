@@ -38,6 +38,8 @@ A grid is defined by:
 
 Columns (`x`) count from the left edge to the right, rows (`y`) from the top edge down.
 
+--8<-- "images/tile-grids/quad.svg"
+
 ## Built-in grids
 
 These grids from the [OGC Two Dimensional Tile Matrix Set](https://docs.ogc.org/is/17-083r4/17-083r4.html) registry are built in.

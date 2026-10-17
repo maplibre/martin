@@ -48,8 +48,8 @@ pub fn encode_contours(
     let extent = NonZeroU32::new(opts.extent)
         .ok_or_else(|| ContourError::Encoding("an MVT extent must not be zero".to_owned()))?;
 
-    let mut layer = MvtTileBuilder::with_capacity(1)
-        .layer_with_capacity(&opts.layer_name, features.len())
+    let mut layer = MvtTileBuilder::new()
+        .layer(&opts.layer_name)
         .map_err(|e| ContourError::Encoding(e.to_string()))?;
     layer.extent(extent);
 

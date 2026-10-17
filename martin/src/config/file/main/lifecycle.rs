@@ -26,7 +26,7 @@ use crate::StartupResult;
     feature = "pmtiles",
     feature = "mbtiles",
     feature = "passthrough",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "resources",
@@ -38,22 +38,19 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(feature = "cog")]
+use crate::config::file::cog::{CogMosaicSource, resolve_cog};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ResolvedProcess;
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "processing"
-))]
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "processing"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing"
 ))]
 use crate::config::file::{FileConfig, FileConfigSrc};
@@ -100,7 +97,7 @@ impl Config {
             TileGrids::check_file_sources(&self.mbtiles, Some(&tile_grids))?;
             #[cfg(feature = "pmtiles")]
             TileGrids::check_file_sources(&self.pmtiles, Some(&tile_grids))?;
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             TileGrids::check_file_sources(&self.cog, None)?;
             #[cfg(feature = "processing")]
             TileGrids::check_file_sources(&self.geojson, None)?;
@@ -117,7 +114,7 @@ impl Config {
         #[cfg(feature = "passthrough")]
         self.passthrough.finalize().await?;
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         self.cog.finalize().await?;
 
         #[cfg(feature = "unstable-duckdb")]
@@ -163,8 +160,8 @@ impl Config {
         #[cfg(feature = "passthrough")]
         let is_empty = is_empty && self.passthrough.is_empty();
 
-        #[cfg(feature = "unstable-cog")]
-        let is_empty = is_empty && self.cog.is_empty();
+        #[cfg(feature = "cog")]
+        let is_empty = is_empty && self.cog.is_empty() && self.cog.custom.mosaics.is_empty();
 
         #[cfg(feature = "unstable-duckdb")]
         let is_empty = is_empty && self.duckdb.is_empty();
@@ -190,7 +187,8 @@ impl Config {
     pub fn warn_unrecognized_keys(&self) {
         for key in &self.get_unrecognized_keys() {
             warn!(
-                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+                config.key = %key,
+                "Ignoring unrecognized configuration key. Please check your configuration file for typos."
             );
         }
     }
@@ -383,7 +381,7 @@ impl Config {
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "unstable-duckdb",
             feature = "processing"
         )),
@@ -409,7 +407,7 @@ impl Config {
                 feature = "pmtiles",
                 feature = "mbtiles",
                 feature = "passthrough",
-                feature = "unstable-cog",
+                feature = "cog",
                 feature = "unstable-duckdb",
                 feature = "processing"
             )),
@@ -449,10 +447,9 @@ impl Config {
             sources_and_warnings.push(Box::pin(val));
         }
 
-        #[cfg(feature = "unstable-cog")]
-        if !self.cog.is_empty() {
-            let cfg = &mut self.cog;
-            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy(), None);
+        #[cfg(feature = "cog")]
+        if !self.cog.is_empty() || !self.cog.custom.mosaics.is_empty() {
+            let val = resolve_cog(&mut self.cog, idr, self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -490,7 +487,7 @@ impl Config {
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing"
     ))]
@@ -520,7 +517,7 @@ impl Config {
             feature = "pmtiles",
             feature = "mbtiles",
             feature = "passthrough",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "processing"
         ))]
         {
@@ -558,10 +555,19 @@ impl Config {
             // COG cannot be hillshaded either: shading reads Mapzen *normal* tiles, whose surface
             // gradients are already per-pixel, whereas a COG holds elevation - which would need
             // metres-per-pixel scaling and its own quantisation handling, a separate feature.
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
                 ProcessConfig::default()
             })?;
+
+            #[cfg(feature = "cog")]
+            Self::insert_source_configs(
+                &mut map,
+                &global,
+                &ProcessConfig::default(),
+                &self.cog.custom.mosaics,
+                CogMosaicSource::process,
+            )?;
 
             #[cfg(feature = "processing")]
             Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {
@@ -607,7 +613,7 @@ impl Config {
         feature = "pmtiles",
         feature = "mbtiles",
         feature = "passthrough",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "processing"
     ))]
     fn insert_source_configs<'a, S: 'a>(
@@ -630,7 +636,7 @@ impl Config {
     #[cfg(any(
         feature = "pmtiles",
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "processing"
     ))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
@@ -734,7 +740,7 @@ impl Config {
                     FileKind::Pmtiles => {
                         config.pmtiles.sources.insert(id, src);
                     }
-                    #[cfg(feature = "unstable-cog")]
+                    #[cfg(feature = "cog")]
                     FileKind::Cog => {
                         config.cog.sources.insert(id, src);
                     }
@@ -777,8 +783,8 @@ impl Config {
             println!("\n\n{yaml}\n");
         } else {
             info!(
-                "Saving config to {}, use --config to load it",
-                file_name.display()
+                config.path = %file_name.display(),
+                "Saving config, use --config to load it"
             );
             File::create(file_name)
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?

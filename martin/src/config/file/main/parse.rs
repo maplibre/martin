@@ -198,6 +198,41 @@ mod tests {
         "#);
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "resources"))]
+    #[test]
+    fn unrecognized_cache_keys_are_reported() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config = parse_yaml(indoc::indoc! {"
+            cache:
+              size_mb: 512
+              expirey: 1h
+            sprites:
+              cache:
+                size_mb: 64
+                idle_timout: 5m
+            pmtiles:
+              cache:
+                minzoom: 1
+                maxzom: 2
+              sources:
+                world:
+                  path: /tmp/world.pmtiles
+                  cache:
+                    mazoom: 3
+        "});
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "cache.expirey",
+            "pmtiles.cache.maxzom",
+            "pmtiles.sources.world.cache.mazoom",
+            "sprites.cache.idle_timout",
+        }
+        "#);
+    }
+
     #[test]
     fn new_cache_format_works_directly() {
         let config =
@@ -219,7 +254,7 @@ mod tests {
         let config = parse_yaml("cache: disable");
         let global_policy = config.cache.policy();
         let unconfigured_source = CachePolicy::default();
-        let merged = unconfigured_source.or(global_policy);
+        let merged = unconfigured_source.or(&global_policy);
         for zoom in 0..=u8::MAX {
             assert!(!merged.zoom().contains(zoom));
         }

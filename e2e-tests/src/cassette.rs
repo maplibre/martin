@@ -43,18 +43,25 @@ impl Cassette {
     /// Start serving the recordings of `hosts`, e.g. `demotiles.maplibre.org`, recording what they
     /// do not cover unless this is CI.
     pub async fn serving(hosts: &[&str]) -> Self {
-        Self::start(hosts, std::env::var_os("CI").is_none()).await
+        Self::start(hosts, std::env::var_os("CI").is_none(), None).await
+    }
+
+    /// Start serving the recordings of `hosts` as [`Cassette::serving`] does, each marked fresh
+    /// for `max_age` seconds with a `Cache-Control` header, so a client caching them need not ask
+    /// again.
+    pub async fn serving_fresh_for(hosts: &[&str], max_age: u32) -> Self {
+        Self::start(hosts, std::env::var_os("CI").is_none(), Some(max_age)).await
     }
 
     /// Start serving the recordings of `hosts` and nothing else.
     #[cfg(test)]
     async fn replaying(hosts: &[&str]) -> Self {
-        Self::start(hosts, false).await
+        Self::start(hosts, false, None).await
     }
 
-    async fn start(hosts: &[&str], records: bool) -> Self {
+    async fn start(hosts: &[&str], records: bool, max_age: Option<u32>) -> Self {
         let server = MockServer::start().await;
-        let tape = Arc::new(Tape::new(hosts, &server.uri(), records));
+        let tape = Arc::new(Tape::new(hosts, &server.uri(), records, max_age));
         let responder = Arc::clone(&tape);
         Mock::given(method("GET"))
             .respond_with(move |request: &Request| responder.respond(request.url.path()))
@@ -123,10 +130,13 @@ struct Tape {
     base_url: String,
     /// The paths answered with a 404.
     misses: Mutex<Vec<String>>,
+    /// Seconds each recording is fresh for, sent as `Cache-Control: max-age`, or `None` to send
+    /// no freshness at all.
+    max_age: Option<u32>,
 }
 
 impl Tape {
-    fn new(hosts: &[&str], base_url: &str, records: bool) -> Self {
+    fn new(hosts: &[&str], base_url: &str, records: bool, max_age: Option<u32>) -> Self {
         let dir = workspace_root().join(CASSETTE_DIR);
         let mut responses = HashMap::new();
         for host in hosts {
@@ -142,6 +152,7 @@ impl Tape {
             dir,
             base_url: base_url.to_owned(),
             misses: Mutex::new(Vec::new()),
+            max_age,
         }
     }
 
@@ -183,9 +194,13 @@ impl Tape {
         } else {
             body
         };
-        ResponseTemplate::new(200)
+        let response = ResponseTemplate::new(200)
             .insert_header("content-type", content_type)
-            .set_body_bytes(body)
+            .set_body_bytes(body);
+        match self.max_age {
+            Some(seconds) => response.insert_header("cache-control", format!("max-age={seconds}")),
+            None => response,
+        }
     }
 
     /// The recorded body for `path`, recording it from the upstream if this is the first ask.
@@ -391,6 +406,24 @@ mod tests {
 
         assert_eq!(cassette.request_log().await, format!("GET {RECORDED}"));
         cassette.assert_no_misses();
+    }
+
+    #[tokio::test]
+    async fn a_recording_carries_no_freshness_unless_asked_to() {
+        let cassette = Cassette::replaying(&[HOST]).await;
+        let fresh = Cassette::start(&[HOST], false, Some(60)).await;
+
+        assert!(
+            get(&cassette, RECORDED)
+                .await
+                .headers()
+                .get("cache-control")
+                .is_none()
+        );
+        assert_eq!(
+            get(&fresh, RECORDED).await.headers()["cache-control"],
+            "max-age=60"
+        );
     }
 
     #[tokio::test]

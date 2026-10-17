@@ -22,17 +22,30 @@ permissions:
   contents: read
 
 jobs:
-  nightly-due:
-    name: Decide whether main moved since the last nightly
-    if: github.event_name == 'schedule'
+  changes:
+    name: Decide which suites this change can affect
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
+      pull-requests: read
       actions: read
     outputs:
-      due: ${{ steps.due.outputs.due }}
+      rust: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true') }}
+      ui: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true') }}
+      docs: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true') }}
+      demo: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true') }}
+      schemas: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true') }}
+      actions: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true') }}
+      cargo-deps: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true') }}
+      deps: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true') }}
+      codeql-languages: ${{ steps.due.outputs.due != 'false' && steps.codeql.outputs.languages || '[]' }}
+      run-heavy: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
+      run-release-builds: ${{ steps.due.outputs.due != 'false' && ((github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-pending.outputs.pending == 'true' || startsWith(github.head_ref, 'release-plz-')) }}
     steps:
-      - id: due
+      - name: Decide whether main moved since the last nightly
+        id: due
+        if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -40,29 +53,6 @@ jobs:
         run: |
           last=$(gh run list --workflow ci.yml --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
           if [[ "$last" == "$SHA" ]]; then echo due=false; else echo due=true; fi >> "$GITHUB_OUTPUT"
-
-  changes:
-    name: Decide which suites this change can affect
-    needs: nightly-due
-    if: ${{ !cancelled() && needs.nightly-due.outputs.due != 'false' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
-      ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
-      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
-      demo: ${{ github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true' }}
-      schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
-      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
-      cargo-deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true' }}
-      deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
-      codeql-languages: ${{ steps.codeql.outputs.languages }}
-      run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
-      run-release-builds: ${{ (github.event_name != 'pull_request' && github.event_name != 'push') || steps.release-pending.outputs.pending == 'true' || startsWith(github.head_ref, 'release-plz-') }}
-    steps:
       - name: Checkout sources
         if: github.event_name == 'push'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,6 +97,7 @@ jobs:
               - 'debian/**'
               - 'e2e-tests/**'
               - 'tests/**'
+              - 'cog-tiles/**'
               - 'mbtiles/**'
               - 'martin-*/**'
               - 'martin/*'

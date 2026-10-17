@@ -18,6 +18,8 @@ will print an error message and exit with a non-zero exit code.
 mbtiles validate src_file.mbtiles
 ```
 
+--8<-- "images/mbtiles/validate.svg"
+
 ## SQLite Integrity check
 
 The `validate` command will run `PRAGMA integrity_check` on the file, and will fail if the result is not `ok`.

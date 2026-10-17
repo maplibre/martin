@@ -16,7 +16,7 @@ use martin::config::args::Command;
 use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
@@ -47,12 +47,12 @@ async fn start(
     args: Args,
     #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
 ) -> StartupResult<()> {
-    info!("Starting Martin v{VERSION}");
+    info!(martin.version = %VERSION, "Starting Martin");
 
     let env = OsEnv;
     let save_config = args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
-        info!("Using {}", cfg_filename.display());
+        info!(config.path = %cfg_filename.display(), "Using config file");
         read_config(cfg_filename, &env)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
@@ -75,7 +75,7 @@ async fn start(
         .await?;
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -101,7 +101,7 @@ async fn start(
     // Otherwise the sources load while the server starts.
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -136,7 +136,7 @@ async fn start(
 
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -147,22 +147,28 @@ async fn start(
     };
     #[cfg(all(feature = "webui", not(docsrs)))]
     match web_ui_mode {
-        WebUiMode::EnableForAll => info!("Martin server is now active at {base_url}"),
+        WebUiMode::EnableForAll => info!(server.url = %base_url, "Martin server is now active"),
         WebUiMode::Enable => {
-            info!("Martin server is now active at {base_url}");
+            info!(server.url = %base_url, "Martin server is now active");
             info!(
                 "Web UI is only served to localhost connections. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
             );
         }
         WebUiMode::Disable => {
-            info!("Martin server is now active. See {base_url}catalog to see available services");
+            info!(
+                server.url = %base_url,
+                "Martin server is now active. See /catalog for available services"
+            );
             info!(
                 "Web UI is disabled. Use `--webui enable` or `--webui enable-for-all` in CLI or a config value to enable it."
             );
         }
     }
     #[cfg(not(all(feature = "webui", not(docsrs))))]
-    info!("Martin server is now active. See {base_url}catalog to see available services");
+    info!(
+        server.url = %base_url,
+        "Martin server is now active. See /catalog for available services"
+    );
 
     #[cfg(feature = "tui")]
     if let Some(dashboard) = dashboard {
@@ -184,7 +190,7 @@ async fn start(
 /// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",

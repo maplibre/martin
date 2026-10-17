@@ -113,12 +113,16 @@ WHERE out_box IS NOT NULL;"
             Ok(Some(bounds)) => return Ok(Some(bounds)),
             Ok(None) => {
                 debug!(
-                    "ST_Extent_Approx on {label}.{geom_col} returned no bounds, trying exact calculation"
+                    source.label = %label,
+                    geometry_column = %geom_col,
+                    "ST_Extent_Approx returned no bounds, trying exact calculation"
                 );
             }
             Err(_) => {
                 warn!(
-                    "ST_Extent_Approx on {label}.{geom_col} failed, trying slower method to compute bounds"
+                    source.label = %label,
+                    geometry_column = %geom_col,
+                    "ST_Extent_Approx failed, trying slower method to compute bounds"
                 );
             }
         }
@@ -198,7 +202,8 @@ pub async fn bounds_with_auto(
                 bounds
             } else {
                 warn!(
-                    "Timeout computing bounds for {label}, aborting query. Use --auto-bounds=calc to wait until complete."
+                    source.label = %label,
+                    "Timeout computing bounds, aborting query. Use --auto-bounds=calc to wait until complete."
                 );
                 Ok(None)
             }

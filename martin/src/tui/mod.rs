@@ -84,7 +84,7 @@ pub fn run(dashboard: Arc<Dashboard>, quit: oneshot::Sender<()>) {
             let result = show(&mut terminal, &dashboard);
             restore_terminal();
             if let Err(e) = result {
-                error!("The dashboard stopped: {e}");
+                error!(error = %e, "The dashboard stopped");
             }
             let _ = quit.send(());
         })

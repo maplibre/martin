@@ -249,7 +249,7 @@ fn client_config(
         for cert in read_certs(file)? {
             roots.add(cert)?;
         }
-        info!("Using {} as a root certificate", file.display());
+        info!(postgres.sslrootcert = %file.display(), "Using root certificate");
     }
 
     if verify_ca || ssl_root_cert.is_some() || ssl_cert.is_some() {
@@ -385,7 +385,7 @@ mod tests {
     fn native_roots_are_loadable() -> bool {
         let errors = load_native_certs().errors;
         if !errors.is_empty() {
-            warn!("skipping: the platform root certificates cannot be loaded: {errors:?}");
+            warn!(error = ?errors, "skipping: the platform root certificates cannot be loaded");
         }
         errors.is_empty()
     }

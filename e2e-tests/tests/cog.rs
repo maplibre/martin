@@ -1,27 +1,20 @@
 //! COG (`Cloud Optimized GeoTIFF`) sources: discovered in a directory, configured by id, and
 //! reloaded while the server runs.
 //!
-//! Binary has to be built with `unstable-cog`.
+//! Binary has to be built with `cog`.
 
 #![cfg(feature = "test-cog")]
 
 use std::fs;
 
 use image::ImageFormat;
+use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
     CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture,
     round_floats, tag, temp_dir,
 };
 use rstest::rstest;
 use serde_json::Value;
-
-async fn martin_with_the_cog_dir() -> Martin {
-    Martin::builder()
-        .arg("tests/fixtures/cog")
-        .start()
-        .await
-        .expect("failed to start martin")
-}
 
 /// The tilejson of `id`, with the server address redacted and every float rounded to ten digits,
 /// which is as far as the extent arithmetic agrees across platforms.
@@ -151,13 +144,11 @@ async fn a_file_is_published_under_its_stem() {
 #[tokio::test]
 async fn a_configured_source_is_published_under_its_configured_id() {
     let mut martin = Martin::builder()
-        .config(
-            "\
-cog:
-  sources:
-    naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
-",
-        )
+        .config(indoc! {"
+            cog:
+              sources:
+                naip: tests/fixtures/cog/usda_naip_512_webp_z5.tif
+        "})
         .start()
         .await
         .expect("failed to start martin");
@@ -180,25 +171,23 @@ async fn a_configured_cog_is_read_from_an_s3_compatible_store_using_ranges() {
     let save_config = tmp.path().join("save_config.yaml");
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  aws_endpoint: {}
-  aws_region: eu-central-1
-  aws_access_key_id: test-key
-  aws_secret_access_key: test-secret
-  skip_signature: true
-  virtual_hosted_style_request: false
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-    local: tests/fixtures/cog/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              aws_access_key_id: test-key
+              aws_secret_access_key: test-secret
+              skip_signature: true
+              virtual_hosted_style_request: false
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+                local: tests/fixtures/cog/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with an S3 COG");
@@ -210,7 +199,7 @@ cog:
     assert_eq!(remote.body(), local.body());
     martin.stop().await;
     martin.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
@@ -247,7 +236,7 @@ cog:
     assert_eq!(restarted.get("/remote/18/42712/97343").await.status(), 200);
     restarted.stop().await;
     restarted.assert_log_contains(
-        "Environment variable AWS_REGION is ignored in favor of the new configuration value cog.aws_region.",
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
     );
 
     assert_remote_reads_use_ranges(
@@ -264,20 +253,18 @@ async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics =
         StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a read-failing remote COG");
@@ -334,7 +321,7 @@ cog:
         ]
     }, {
         insta::assert_snapshot!(format!("{skipped}\n{missing}"), @r#"
-         WARN Skipping addition source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
+         WARN Skipping addition source.id=remote error=Unable to read AmazonS3(cogtest)/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:
         ERROR error="Source remote does not exist"
         "#);
     });
@@ -345,24 +332,22 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let fixture_path = fixture("cog/usda_naip_128_none_z2.tif");
     let statics = StaticFiles::serving(&[(key, fixture_path.clone())]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-on_invalid: warn
-cog:
-  reload_interval: 500ms
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            on_invalid: warn
+            cog:
+              reload_interval: 500ms
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
-    let tile_url = "/remote/19/85424/194685";
+    let tile_url = "/remote/19/85424/194686";
     assert_eq!(martin.get(tile_url).await.status(), 200);
 
     statics.set_fail_gets(true);
@@ -405,7 +390,7 @@ cog:
             (r"(?m) +$", ""),
         ]
     }, {
-        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Couldn't decode s3://cogtest/usda_naip_128_none_z2.tif as tiff file: object store error for s3://cogtest/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
+        insta::assert_snapshot!(skipped, @" WARN Skipping update source.id=remote error=Unable to read AmazonS3(cogtest)/usda_naip_128_none_z2.tif: Object at location usda_naip_128_none_z2.tif not found: Error performing GET http://[STATICS]/cogtest/usda_naip_128_none_z2.tif in [TIME] - Server returned non-2xx status code: 404 Not Found:");
     });
 }
 
@@ -413,27 +398,25 @@ cog:
 async fn a_replaced_remote_cog_is_detected_and_reloaded() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
     let statics = StaticFiles::serving(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 1s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  sources:
-    remote: s3://cogtest/usda_naip_128_none_z2.tif
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 1s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              sources:
+                remote: s3://cogtest/usda_naip_128_none_z2.tif
+        "})
         .start()
         .await
         .expect("failed to start martin with a polled remote COG");
     // This tile is present in the original fixture and explicitly sparse in the replacement.
-    let tile_url = "/remote/19/85424/194685";
+    let tile_url = "/remote/19/85424/194686";
     let original = martin.get(tile_url).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     // While the object is unchanged, each poll costs one `HEAD` and no rebuild: the number of
     // tile `GET`s stays at what the initial load made, while polls keep arriving.
@@ -479,7 +462,7 @@ cog:
 
     let reloaded = martin.get(tile_url).await;
     assert_eq!(reloaded.status(), 204);
-    assert!(reloaded.body().is_empty());
+    assert_eq!(reloaded.body(), b"");
     martin.stop().await;
 }
 
@@ -494,29 +477,27 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
         (removed_key, original_fixture.clone()),
     ])
     .await;
+    let base_url = statics.base_url();
     let mut martin = Martin::builder()
-        .config(&format!(
-            "\
-cog:
-  reload_interval: 2s
-  allow_http: true
-  aws_endpoint: {}
-  skip_signature: true
-  paths:
-    - s3://cogtest/imagery/
-",
-            statics.base_url()
-        ))
+        .config(&formatdoc! {"
+            cog:
+              reload_interval: 2s
+              allow_http: true
+              aws_endpoint: {base_url}
+              skip_signature: true
+              paths:
+                - s3://cogtest/imagery/
+        "})
         .start()
         .await
         .expect("failed to start martin with a remote COG prefix");
 
     martin.wait_for_source("first").await;
     martin.wait_for_source("removed").await;
-    let first_tile = "/first/19/85424/194685";
+    let first_tile = "/first/19/85424/194686";
     let original = martin.get(first_tile).await;
     assert_eq!(original.status(), 200);
-    assert!(!original.body().is_empty());
+    assert_ne!(original.body(), b"");
 
     statics.replace(
         first_key,
@@ -537,7 +518,7 @@ cog:
     })
     .await
     .expect("a replaced object under the prefix must reload within the poll window");
-    assert_eq!(martin.get("/second/19/85424/194685").await.status(), 200);
+    assert_eq!(martin.get("/second/19/85424/194686").await.status(), 200);
 
     martin.stop().await;
     let list_requests = statics
@@ -572,14 +553,12 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let mut martin = Martin::builder()
         .arg("--save-config")
         .arg(&save_config)
-        .config(&format!(
-            "\
-cog:
-  allow_http: true
-  sources:
-    usda_naip_512_webp_z5: {configured_url}
-"
-        ))
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              sources:
+                usda_naip_512_webp_z5: {configured_url}
+        "})
         .start()
         .await
         .expect("failed to start martin with an HTTP COG");
@@ -629,7 +608,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
     #[case] tile_size: u32,
     #[case] format: &str,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tilejson = tilejson(&martin, id).await;
     assert_eq!(tilejson["minzoom"], minzoom);
@@ -646,7 +629,11 @@ async fn the_tilejson_reports_the_zoom_range_each_overview_resolves_to(
 
 #[tokio::test]
 async fn the_tilejson_bounds_are_the_area_the_image_covers() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(tilejson(&martin, "usda_naip_512_webp_z5").await, @r#"
     {
@@ -657,7 +644,7 @@ async fn the_tilejson_bounds_are_the_area_the_image_covers() {
         42.0003251483
       ],
       "center": [
-        -121.3549804687,
+        -121.3549804688,
         41.9676592037,
         15
       ],
@@ -713,7 +700,11 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
     #[case] format: ImageFormat,
     #[case] tile_size: u32,
 ) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get(&format!("/{path}")).await;
     assert_eq!(tile.status(), 200);
@@ -726,13 +717,17 @@ async fn every_compression_serves_a_tile_of_the_images_own_format(
 
 #[tokio::test]
 async fn the_shape_of_a_tile_response() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/42712/97343").await;
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
-    content-length: 5031
+    content-length: 4762
     content-type: image/png
-    etag: "HzR-km-Kc313WfVG2_0Kew"
+    etag: "hJserbINZD8vUVjU3HbGow"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
     "#);
 
@@ -741,7 +736,11 @@ async fn the_shape_of_a_tile_response() {
 
 #[tokio::test]
 async fn a_tile_the_image_does_not_cover_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_128_none_z2/18/0/0").await;
     assert_eq!(tile.status(), 204);
@@ -755,7 +754,11 @@ async fn a_tile_the_image_does_not_cover_is_empty() {
 #[case::above_the_full_resolution_image("18/42704/97344")]
 #[tokio::test]
 async fn a_zoom_no_overview_resolves_to_is_rejected(#[case] coordinates: &str) {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin
         .get(&format!("/usda_naip_512_jpeg_z5/{coordinates}"))
@@ -860,61 +863,53 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
 #[rstest]
 #[case::compression_must_be_one_martin_can_decode(
     |cog: CogFixture| cog.set_short(0, tag::COMPRESSION, 32773),
-    "The compression type 32773 of the tiff file"
+    "PackBits compression with 4 RGB samples is not supported"
 )]
 #[case::the_planar_configuration_must_be_chunky(
     |cog: CogFixture| cog.set_short(0, tag::PLANAR_CONFIGURATION, 2),
-    "Unsupported planar configuration 2 at IFD 0"
+    "bands are stored separately (PlanarConfiguration=2)"
 )]
 #[case::the_projected_crs_must_be_web_mercator(
     |cog: CogFixture| cog.set_geo_key(PROJECTED_CRS_GEO_KEY, 4326),
-    "The projected coordinate reference system must be EPSG:3857"
+    "its CRS is EPSG:4326, but only EPSG:3857 (Web Mercator) is supported"
 )]
 #[case::the_geo_keys_must_be_a_directory_martin_can_walk(
     |cog: CogFixture| cog.set_geo_key_header([1, 1, 0, 0]),
-    "The projected coordinate reference system must be EPSG:3857"
+    "it has no projected CRS, but only EPSG:3857 (Web Mercator) is supported"
 )]
 #[case::the_geo_keys_must_be_present(
     |cog: CogFixture| cog.remove_tag(0, tag::GEO_KEY_DIRECTORY),
-    "The projected coordinate reference system must be EPSG:3857"
+    "it has no GeoTIFF GeoKeyDirectory"
 )]
 #[case::the_pixels_must_be_square(
     |cog: CogFixture| cog.set_double(0, tag::MODEL_PIXEL_SCALE, 1, 99.0),
-    "is not squared, the x_scale is 0.5971642834779395, the y_scale is 99"
-)]
-#[case::the_pixel_scale_must_have_three_values(
-    |cog: CogFixture| cog.set_count(0, tag::MODEL_PIXEL_SCALE, 2),
-    "The count of pixel scale should be 3"
+    "pixels are not square (0.5971642834779395 x 99 m)"
 )]
 #[case::the_tie_points_must_come_in_sixes(
     |cog: CogFixture| cog.set_count(0, tag::MODEL_TIEPOINT, 5),
-    "The count of tie points should be a multiple of 6"
-)]
-#[case::the_transformation_matrix_must_have_sixteen_values(
-    |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12),
-    "The length of matrix should be 16"
+    "ModelPixelScale or ModelTiepoint has too few values"
 )]
 #[case::the_image_must_be_georeferenced_at_all(
     |cog: CogFixture| cog.remove_tag(0, tag::MODEL_PIXEL_SCALE).remove_tag(0, tag::MODEL_TIEPOINT),
-    "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided"
+    "it has neither ModelPixelScale + ModelTiepoint nor ModelTransformation"
 )]
 #[case::every_overview_must_land_on_a_web_mercator_zoom(
     |cog: CogFixture| cog
-        .set_short(0, tag::TILE_WIDTH, 300)
-        .set_short(0, tag::TILE_LENGTH, 300),
-    "Calculating the image zoom level failed for"
+        .set_double(0, tag::MODEL_PIXEL_SCALE, 0, 0.7)
+        .set_double(0, tag::MODEL_PIXEL_SCALE, 1, 0.7),
+    "image 0 has 0.7 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 1 has 1.4 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles; image 2 has 2.8 m pixels, which is not a WebMercatorQuad zoom level for 256 px tiles"
 )]
 #[case::every_overview_must_be_readable(
     |cog: CogFixture| cog.remove_tag(2, tag::IMAGE_WIDTH),
-    "TIFF metadata parser panicked: image_width not found"
+    "the TIFF parser failed on malformed metadata: image_width not found"
 )]
 #[case::every_overview_must_use_the_same_tile_size(
     |cog: CogFixture| cog.set_short(2, tag::TILE_WIDTH, 512),
-    "The size of each tile is not consistent."
+    "image 2 uses a different internal tile size"
 )]
 #[case::the_bands_must_be_a_color_type_martin_can_re_encode(
     |cog: CogFixture| cog.set_short(0, tag::PHOTOMETRIC_INTERPRETATION, 0),
-    "Unsupported color layout WhiteIsZero, 4 samples"
+    "LZW compression with 4 WhiteIsZero samples is not supported"
 )]
 #[tokio::test]
 async fn a_file_that_breaks_a_requirement_is_rejected(
@@ -933,26 +928,70 @@ async fn a_file_that_breaks_a_requirement_is_rejected(
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    assert!(
-        log.contains(expected),
-        "log must say why the file was rejected, expected {expected:?}; log:\n{log}"
+    let path = path.display().to_string();
+    let warnings: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("Tile source resolution warning"))
+        .collect();
+    assert_eq!(
+        warnings,
+        [format!(
+            "ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path {path}: {path} cannot be read as tiles: {expected} warnings.count=1"
+        )]
     );
+}
+
+/// Only the values Martin uses must be present: the pixel scale's X and Y, and the first two rows
+/// of the transformation matrix.
+#[rstest]
+#[case::a_pixel_scale_without_a_z_scale(
+    |cog: CogFixture| cog.set_count(0, tag::MODEL_PIXEL_SCALE, 2)
+)]
+#[case::a_transformation_matrix_without_its_last_row(
+    |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12)
+)]
+#[tokio::test]
+async fn a_georeference_without_its_unused_values_is_accepted(
+    #[case] trim_it: fn(CogFixture) -> CogFixture,
+) {
+    let tmp = temp_dir();
+    let path = trim_it(CogFixture::new("usda_naip_256_lzw_z3")).write_to(tmp.path(), "trimmed");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/trimmed/16/10677/24336").await.status(), 200);
+
+    martin.stop().await;
 }
 
 #[tokio::test]
 async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
+    let path = fixture("files/striped_not_tiled.tif");
     let error = Martin::builder()
-        .arg(fixture("files/striped_not_tiled.tif"))
+        .arg(&path)
         .start()
         .await
         .expect_err("martin must refuse to publish a striped TIFF");
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("Striped tiff file is not supported"),
-        "log must say the file is striped; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in strips, not tiles warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        ");
+    });
 }
 
 #[tokio::test]
@@ -969,10 +1008,20 @@ async fn a_file_that_is_not_a_tiff_is_rejected() {
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    assert!(
-        log.contains("as tiff file:"),
-        "log must say the file could not be decoded; log:\n{log}"
-    );
+    let path = regex::escape(&path.display().to_string());
+    insta::with_settings!({filters => vec![
+        (path.as_str(), "[PATH]"),
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+    ]}, {
+        insta::assert_snapshot!(log, @r#"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Config file is not specified, auto-detecting sources
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: Unable to decode TIFF [PATH]: General error: unexpected magic bytes b"th" warnings.count=1
+        ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
+        ERROR resolve: error=Config(TileResolutionWarningsIssued)
+        ERROR warnings issued during tile source resolution
+        "#);
+    });
 }
 
 /// A north-up image may state its georeferencing as a transformation matrix instead of a pixel
@@ -988,7 +1037,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
         .start()
         .await
         .expect("failed to start martin");
-    let mut with_the_cog_dir = martin_with_the_cog_dir().await;
+    let mut with_the_cog_dir = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     assert_eq!(
         tilejson(&martin, "usda_naip_256_lzw_z3").await,
@@ -1004,7 +1057,11 @@ async fn a_transformation_matrix_georeferences_an_image_like_a_pixel_scale_and_t
 
 #[tokio::test]
 async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let tile = martin.get("/usda_naip_256_lzw_rgb_z2/18/42709/97344").await;
     assert_eq!(tile.status(), 200);
@@ -1019,7 +1076,11 @@ async fn an_image_without_an_alpha_band_serves_a_tile_without_one() {
 /// tiles 10-11 of rows 14-16, so its very first tile is one of the gaps.
 #[tokio::test]
 async fn a_tile_the_image_leaves_out_is_empty() {
-    let mut martin = martin_with_the_cog_dir().await;
+    let mut martin = Martin::builder()
+        .arg("tests/fixtures/cog")
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let stored = martin.get("/usda_naip_512_jpeg_z5/17/21354/48670").await;
     assert_eq!(stored.status(), 200);
@@ -1029,4 +1090,176 @@ async fn a_tile_the_image_leaves_out_is_empty() {
     assert!(left_out.body().is_empty(), "a tile left out has no body");
 
     martin.stop().await;
+}
+
+/// The mosaic fixtures are the four z16 children of z15 tile 16374/10897, one file each.
+#[tokio::test]
+async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              mosaics:
+                ortho:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  zoom: 16
+        "})
+        .start()
+        .await
+        .expect("failed to start martin with a mosaic");
+
+    insta::assert_json_snapshot!(tilejson(&martin, "ortho").await, @r#"
+    {
+      "format": "png",
+      "maxzoom": 17,
+      "minzoom": 16,
+      "tileSize": 256,
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/ortho/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    for path in ["16/32748/21794", "16/32749/21795", "17/65499/43590"] {
+        let tile = martin.get(&format!("/ortho/{path}")).await;
+        assert_eq!(tile.status(), 200, "{path}");
+        assert_eq!(tile.header("content-type"), Some("image/png"));
+        assert_eq!(tile.image_size(), (256, 256));
+    }
+    // No file holds this z16 tile.
+    assert_eq!(martin.get("/ortho/16/32750/21794").await.status(), 204);
+    // Above the file zoom, no single file holds the tile.
+    assert_eq!(martin.get("/ortho/15/16374/10897").await.status(), 404);
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        r#"ERROR error="Zoom 15 is outside the supported range: ortho supports zoom 16-17""#,
+    );
+}
+
+#[tokio::test]
+async fn a_mosaic_answers_with_its_cache_control() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              mosaics:
+                ortho:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  zoom: 16
+                  cache_control: max-age=1234
+        "})
+        .start()
+        .await
+        .expect("failed to start martin with a mosaic");
+
+    let tile = martin.get("/ortho/16/32748/21794").await;
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("cache-control"), Some("max-age=1234"));
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let save_config = tmp.path().join("save_config.yaml");
+    let files = fs::read_dir(fixture("cog/mosaic"))
+        .expect("failed to list the mosaic fixtures")
+        .map(|entry| {
+            let path = entry.expect("a mosaic fixture").path();
+            let name = path.file_stem().unwrap().to_string_lossy().to_string();
+            (format!("cogtest/imagery/{name}.tif"), path)
+        })
+        .collect::<Vec<_>>();
+    let files = files
+        .iter()
+        .map(|(key, path)| (key.as_str(), path.clone()))
+        .collect::<Vec<_>>();
+    let statics = StaticFiles::serving(&files).await;
+    let base_url = statics.base_url();
+    let mut martin = Martin::builder()
+        .arg("--save-config")
+        .arg(&save_config)
+        .config(&formatdoc! {"
+            cog:
+              allow_http: true
+              aws_endpoint: {base_url}
+              aws_region: eu-central-1
+              skip_signature: true
+              virtual_hosted_style_request: false
+              mosaics:
+                remote:
+                  path: s3://cogtest/imagery/{{quadkey}}.tif
+                  zoom: 16
+                  maxzoom: 18
+                local:
+                  path: tests/fixtures/cog/mosaic/{{quadkey}}.tif
+                  zoom: 16
+        "})
+        .start()
+        .await
+        .expect("failed to start martin with an S3 mosaic");
+
+    let remote = tilejson(&martin, "remote").await;
+    assert_eq!(remote["minzoom"], 16);
+    assert_eq!(remote["maxzoom"], 18);
+    assert_eq!(remote["format"], "png");
+    for path in ["16/32748/21794", "17/65497/43591"] {
+        let remote = martin.get(&format!("/remote/{path}")).await;
+        let local = martin.get(&format!("/local/{path}")).await;
+        assert_eq!(remote.status(), 200, "{path}");
+        assert_eq!(remote.body(), local.body(), "{path}");
+    }
+    assert_eq!(martin.get("/remote/16/32750/21794").await.status(), 204);
+    assert_eq!(martin.get("/remote/18/130992/87176").await.status(), 204);
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Value is ignored in favor of the explicit configuration value ignored.kind=Environment variable ignored.key=AWS_REGION config.key=cog.aws_region",
+    );
+
+    let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
+    let parsed =
+        serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
+    insta::assert_json_snapshot!(parsed["cog"]["mosaics"], @r#"
+    {
+      "local": {
+        "path": "tests/fixtures/cog/mosaic/{quadkey}.tif",
+        "zoom": 16
+      },
+      "remote": {
+        "maxzoom": 18,
+        "path": "s3://cogtest/imagery/{quadkey}.tif",
+        "zoom": 16
+      }
+    }
+    "#);
+}
+
+/// An overview half a tile off the tile grid is skipped with a warning; the aligned full-resolution
+/// image is still served. This puts the fixture back where it was before its overview was aligned.
+#[tokio::test]
+async fn a_misaligned_overview_is_skipped_with_a_warning() {
+    let tmp = temp_dir();
+    let path = CogFixture::new("usda_naip_128_none_z2")
+        .set_double(0, tag::MODEL_TIEPOINT, 4, 5_156_365.491_089_705)
+        .write_to(tmp.path(), "misaligned");
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tilejson = tilejson(&martin, "misaligned").await;
+    assert_eq!(tilejson["minzoom"], 19);
+    assert_eq!(tilejson["maxzoom"], 19);
+    assert_eq!(
+        martin.get("/misaligned/19/85424/194685").await.status(),
+        200
+    );
+
+    martin.stop().await;
+    let skipped = martin
+        .take_log_lines("Skipping a COG image")
+        .join("\n")
+        .replace(&format!("{:?}", path.display().to_string()), "[PATH]");
+    insta::assert_snapshot!(skipped, @" WARN resolve:resolve_tile_sources: Skipping a COG image that cannot be served cog.location=[PATH] reason=image 1 is not aligned to the zoom 18 tile grid");
 }

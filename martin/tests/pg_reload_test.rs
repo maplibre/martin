@@ -148,11 +148,10 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
         resolver,
         config
             .postgres
-            .iter()
-            .next()
+            .first()
             .cloned()
             .expect("one postgres config"),
-        config.cache.policy(),
+        &config.cache.policy(),
         &ProcessConfig::default(),
         &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
     );

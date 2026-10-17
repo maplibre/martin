@@ -1,22 +1,19 @@
 //! Spritesheets generated from directories of SVG files.
 
+use indoc::indoc;
 use martin_e2e_tests::{Martin, StartError, fixture};
 use rstest::rstest;
 
-async fn martin_with_sprite_dirs() -> Martin {
-    Martin::builder()
+#[tokio::test]
+async fn a_sprite_directory_is_discovered_recursively() {
+    let mut martin = Martin::builder()
         .arg("--sprite")
         .arg(fixture("sprites/src1"))
         .arg("--sprite")
         .arg(fixture("sprites/src2"))
         .start()
         .await
-        .expect("failed to start martin")
-}
-
-#[tokio::test]
-async fn a_sprite_directory_is_discovered_recursively() {
-    let mut martin = martin_with_sprite_dirs().await;
+        .expect("failed to start martin");
 
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["sprites"], @r#"
     {
@@ -40,7 +37,14 @@ async fn a_sprite_directory_is_discovered_recursively() {
 
 #[tokio::test]
 async fn an_index_places_every_icon_on_the_sheet() {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/sprite/src1.json").await;
     assert_eq!(response.status(), 200);
@@ -82,7 +86,14 @@ async fn an_index_places_every_icon_on_the_sheet() {
 
 #[tokio::test]
 async fn a_sheet_is_served_as_png() {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/sprite/src1.png").await;
     assert_eq!(response.status(), 200);
@@ -105,7 +116,14 @@ async fn a_sheet_is_served_as_png() {
 #[case::sdf_composite("/sdf_sprite/src1,src2.png", (48, 47))]
 #[tokio::test]
 async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (u32, u32)) {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
@@ -116,7 +134,14 @@ async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (
 
 #[tokio::test]
 async fn a_2x_index_doubles_every_dimension() {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let single = martin.get("/sprite/src1.json").await.json();
     let double = martin.get("/sprite/src1@2x.json").await.json();
@@ -138,7 +163,14 @@ async fn a_2x_index_doubles_every_dimension() {
 
 #[tokio::test]
 async fn an_sdf_index_flags_every_icon() {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get("/sdf_sprite/src1.json").await;
     assert_eq!(response.status(), 200);
@@ -187,7 +219,14 @@ async fn an_sdf_index_flags_every_icon() {
 
 #[tokio::test]
 async fn a_composite_index_merges_every_source() {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let index = martin.get("/sprite/src1,src2.json").await.json();
     let names = index
@@ -208,7 +247,14 @@ async fn a_composite_index_merges_every_source() {
 #[case::sdf_sheet("/sdf_sprite/nope.png")]
 #[tokio::test]
 async fn an_unknown_sprite_source_is_not_found(#[case] path: &str) {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     let response = martin.get(path).await;
     assert_eq!(response.status(), 404);
@@ -226,7 +272,14 @@ async fn an_unknown_sprite_source_is_not_found(#[case] path: &str) {
 #[case::sdf_sheet("/sdf_sprites/src1.png", "/sdf_sprite/src1.png")]
 #[tokio::test]
 async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location: &str) {
-    let mut martin = martin_with_sprite_dirs().await;
+    let mut martin = Martin::builder()
+        .arg("--sprite")
+        .arg(fixture("sprites/src1"))
+        .arg("--sprite")
+        .arg(fixture("sprites/src2"))
+        .start()
+        .await
+        .expect("failed to start martin");
 
     for response in [martin.get(path).await, martin.head(path).await] {
         assert_eq!(response.status(), 301);
@@ -237,25 +290,18 @@ async fn the_plural_sprites_path_redirects(#[case] path: &str, #[case] location:
     martin.stop().await;
 }
 
-async fn martin_with_sprite_alias(alias: &str) -> Result<Martin, StartError> {
-    Martin::builder()
-        .config(&format!(
-            "
-sprites:
-  paths:
-    - tests/fixtures/sprites/src1
-    - tests/fixtures/sprites/src2
-  aliases:
-    {alias}
-"
-        ))
-        .start()
-        .await
-}
-
 #[tokio::test]
 async fn an_alias_serves_the_sources_it_combines() {
-    let mut martin = martin_with_sprite_alias("icons: [src1, src2]")
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                icons: [src1, src2]
+        "})
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -297,7 +343,16 @@ async fn an_alias_serves_the_sources_it_combines() {
 
 #[tokio::test]
 async fn an_alias_may_shadow_the_source_it_extends() {
-    let mut martin = martin_with_sprite_alias("src1: [src1, src2]")
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                src1: [src1, src2]
+        "})
+        .start()
         .await
         .expect("failed to start martin");
 
@@ -314,7 +369,16 @@ async fn an_alias_may_shadow_the_source_it_extends() {
 
 #[tokio::test]
 async fn an_alias_naming_an_unknown_source_fails_startup() {
-    let error = martin_with_sprite_alias("icons: [src1, nonexistent]")
+    let error = Martin::builder()
+        .config(indoc! {"
+            sprites:
+              paths:
+                - tests/fixtures/sprites/src1
+                - tests/fixtures/sprites/src2
+              aliases:
+                icons: [src1, nonexistent]
+        "})
+        .start()
         .await
         .expect_err("martin must reject an alias naming an unknown sprite source");
     let StartError::EarlyExit { status, log } = error else {
@@ -330,7 +394,10 @@ async fn an_alias_naming_an_unknown_source_fails_startup() {
 #[tokio::test]
 async fn a_collection_publishes_each_subdirectory_as_a_sprite() {
     let mut martin = Martin::builder()
-        .config("sprites:\n  collections: tests/fixtures/sprites\n")
+        .config(indoc! {"
+            sprites:
+              collections: tests/fixtures/sprites
+        "})
         .start()
         .await
         .expect("failed to start martin");

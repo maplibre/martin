@@ -710,7 +710,7 @@ mod tests {
         assert_ne!(filtered.fingerprint(), baseline);
 
         // Permission itself does not change the bytes, only the values it lets through.
-        let mut overrides = base.clone();
+        let mut overrides = base;
         overrides.allow_request_overrides = true;
         assert_eq!(overrides.fingerprint(), baseline);
     }
