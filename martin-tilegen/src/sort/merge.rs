@@ -1,5 +1,6 @@
+use super::SortKey;
 use super::run::{Run, RunReader};
-use crate::{SortKey, TileGenResult};
+use crate::TileGenResult;
 
 /// Streams the records of several runs in key order. Equal keys come out in run order,
 /// because the readers are kept in run-index order and ties are broken by reader position.

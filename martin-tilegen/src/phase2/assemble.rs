@@ -10,16 +10,10 @@ use mlt_core::{
     PropertyKey,
 };
 
-use crate::columns::TileColumns;
-use crate::record::{GeomBuf, GeomKind, Record, Vertex};
-use crate::{Seq, TileGenResult};
-
-/// The tile-local square a fill record stands for, including the buffer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LayerGrid {
-    pub extent: u32,
-    pub buffer: u32,
-}
+use super::columns::TileColumns;
+use crate::sort::Seq;
+use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
+use crate::{LayerGrid, TileGenResult};
 
 /// Reusable per-worker scratch for [`LayerAssembler::assemble`].
 #[derive(Default)]
@@ -268,7 +262,7 @@ mod tests {
     use mlt_core::{Decoder, Parser, PropValue, TileLayer};
 
     use super::*;
-    use crate::record::{EncodedProps, Geom, encode};
+    use crate::sort::record::{EncodedProps, Geom, encode};
 
     const GRID: LayerGrid = LayerGrid {
         extent: 4096,

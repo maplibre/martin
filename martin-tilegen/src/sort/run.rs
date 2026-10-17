@@ -6,7 +6,8 @@ use wincode::SchemaWrite;
 use wincode::config::Configuration;
 
 use super::Entry;
-use crate::{SortKey, TileGenResult};
+use super::SortKey;
+use crate::TileGenResult;
 
 const WRITE_BUFFER_BYTES: usize = 1 << 20;
 

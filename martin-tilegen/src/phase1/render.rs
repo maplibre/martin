@@ -8,11 +8,10 @@ use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
-use crate::record::{EncodedProps, Geom, Vertex, encode};
-use crate::simplify::Simplifier;
-use crate::{
-    LayerGrid, LayerId, Seq, SortBuffer, SortKey, TileGenError, TileGenResult, TileId, TileOrder,
-};
+use super::simplify::Simplifier;
+use crate::sort::record::{EncodedProps, Geom, Vertex, encode};
+use crate::sort::{LayerId, Seq, SortBuffer, SortKey};
+use crate::{LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
 
 /// Simplification and size thresholds are in pixels of a 256-pixel tile, as in Planetiler.
 const TILE_PIXELS: f64 = 256.0;
@@ -991,8 +990,8 @@ mod tests {
 
     use super::*;
     use crate::project::from_lonlat;
-    use crate::record::{GeomBuf, GeomKind, Record};
-    use crate::{SortConfig, Sorter};
+    use crate::sort::record::{GeomBuf, GeomKind, Record};
+    use crate::sort::{SortConfig, Sorter};
 
     const GRID: LayerGrid = LayerGrid {
         extent: 256,

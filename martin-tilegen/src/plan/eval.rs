@@ -14,7 +14,7 @@ use super::{
     PlannedValue, PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
-use crate::record::EncodedProps;
+use crate::sort::record::EncodedProps;
 use crate::{Feature, FeatureGeom, RenderLayer, TileGenError, TileGenResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
