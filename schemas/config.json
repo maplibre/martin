@@ -1682,7 +1682,7 @@
               "type": "null"
             }
           ],
-          "description": "Specify how features should be sorted. \\[default: No sorting\\]"
+          "description": "Specify how features should be sorted:\n- `null` (default, no sorting)\n- `id-asc`\n- `id-desc`"
         },
         "pool_size": {
           "description": "Maximum Postgres connections pool size \\[default: 20\\]",

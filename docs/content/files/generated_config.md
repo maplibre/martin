@@ -519,7 +519,10 @@ postgres:
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
-  # Specify how features should be sorted. [default: No sorting]
+  # Specify how features should be sorted:
+  # - `null` (default, no sorting)
+  # - `id-asc`
+  # - `id-desc`
   order_by: id-asc
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
