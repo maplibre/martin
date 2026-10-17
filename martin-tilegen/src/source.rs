@@ -118,8 +118,9 @@ pub trait FeatureSource: Sync {
         emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
     ) -> SourceResult<()>;
 
-    /// One reader per render thread. Sources that must read every partition from one consistent state
-    /// open their per-thread state here, all at once, so that state can be pinned before any partition is read.
+    /// Up to `count` readers, each on its own thread. Sources that must read every partition from one
+    /// consistent state open their per-reader state here, all at once, so that state can be pinned before
+    /// any partition is read.
     ///
     /// # Errors
     /// If opening the readers fails.

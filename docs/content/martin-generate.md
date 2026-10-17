@@ -153,7 +153,7 @@ A failed or interrupted run removes the output file. Temporary files are always 
 
 === "PostgreSQL"
 
-    Tables are read over at most one connection per thread, and no more than the pool's `pool_size`.
+    Tables are read over one connection per two threads, and no more than the pool's `pool_size`.
 
 [Generation Architecture](architecture-generate.md) explains how a run reads, sorts, encodes and writes
 the tiles, and what bounds its memory.
