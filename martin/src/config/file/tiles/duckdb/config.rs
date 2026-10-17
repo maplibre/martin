@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};

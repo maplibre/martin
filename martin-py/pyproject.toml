@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "martin-py"
+version = "0.1.0"
+description = "In-process Python bindings for Martin's tile endpoints"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT OR Apache-2.0" }
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "PyYAML>=6"]
+
+[tool.maturin]
+# The compiled extension module is `martin_py`; see `[lib] name` in Cargo.toml.
+features = ["pyo3/extension-module"]
+module-name = "martin_py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
