@@ -379,8 +379,11 @@ impl AnySource {
         xyz: TileCoord,
     ) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
         match self {
-            Self::Backend(BackendSource::Postgres(source)) => source.get_tile_block(xyz).await,
-            Self::Backend(_) | Self::DeclaredGrid(_) => Ok(None),
+            Self::Backend(backend) => match backend.as_postgres() {
+                Some(source) => source.get_tile_block(xyz).await,
+                None => Ok(None),
+            },
+            Self::DeclaredGrid(_) => Ok(None),
         }
     }
 
