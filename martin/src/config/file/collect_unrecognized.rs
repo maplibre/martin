@@ -11,6 +11,7 @@ use tilejson::Bounds;
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 use crate::config::args::BoundsCalcType;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 use crate::config::args::OrderByType;
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
