@@ -445,8 +445,8 @@ WHERE "__martin_geom" IS NOT NULL;
     {schema}.{table}
   WHERE
     {geometry_column} && {bbox_search}{filter}
-  {limit_clause}
-  {order_clause}"
+  {order_clause}
+  {limit_clause}"
         )
     }
 
