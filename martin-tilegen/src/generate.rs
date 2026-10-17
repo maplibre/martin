@@ -8,13 +8,12 @@ use hotpath::wrap::flume::{Receiver, Sender};
 use martin_tile_utils::Encoding;
 use tilejson::TileJSON;
 
+use crate::phase1::{RenderTotals, RenderWorker};
+use crate::phase2::{TileEncoder, TileEncoding};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{ExprErrors, Plan};
-use crate::tile_render::{FeatureRenderer, RenderTotals, TileEncoding};
-use crate::{
-    SortConfig, Sorter, TileEncoder, TileFormat, TileGenError, TileGenResult, TileGrouper,
-    TileOrder, TileRecords, TileSink,
-};
+use crate::sort::{SortConfig, Sorter, TileRecords};
+use crate::{TileFormat, TileGenError, TileGenResult, TileOrder, TileSink};
 
 #[derive(Clone, Debug)]
 pub struct GenerateConfig {
@@ -78,21 +77,22 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let totals = render_all(source, &sorter, plan, order, config.threads, progress)?;
     progress.writing.store(true, Ordering::Relaxed);
 
-    let encoding = TileEncoding::new(plan, config.format, config.encoding, order);
-    let mut grouper = TileGrouper::new(sorter.merge()?);
-    let batch_tiles = config.batch_tiles.max(1);
+    let (encoding, batches) = TileEncoding::start(
+        plan,
+        sorter,
+        config.format,
+        config.encoding,
+        order,
+        config.batch_tiles,
+    )?;
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
-        |submit: &BatchSender<Vec<TileRecords>, _>| loop {
-            let batch = grouper.next_batch(batch_tiles)?;
-            let done = batch.len() < batch_tiles;
-            if !batch.is_empty() {
-                submit.send(batch)?;
+        |submit: &BatchSender<Vec<TileRecords>, _>| {
+            for batch in batches {
+                submit.send(batch?)?;
             }
-            if done {
-                return Ok(());
-            }
+            Ok(())
         },
         TileEncoder::default,
         |encoder, batch| encoding.encode(encoder, batch),
@@ -179,21 +179,17 @@ fn render_all<S: FeatureSource>(
             .map(|i| {
                 let rx = rx.clone();
                 spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
-                    let mut buffer = sorter.buffer();
-                    let mut renderer = FeatureRenderer::new(plan, order, None);
+                    let mut worker = RenderWorker::new(plan, sorter, order, None);
                     for mut batch in rx {
                         if failed.load(Ordering::Relaxed) {
                             break;
                         }
-                        renderer
-                            .render_batch(&mut batch, &mut buffer)
-                            .map_err(fail)?;
+                        worker.render_batch(&mut batch).map_err(fail)?;
                         progress
                             .features
                             .fetch_add(batch.features.len() as u64, Ordering::Relaxed);
                     }
-                    buffer.finish().map_err(fail)?;
-                    Ok(renderer.finish())
+                    worker.finish().map_err(fail)
                 })
             })
             .collect();

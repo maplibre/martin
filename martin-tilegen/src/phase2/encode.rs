@@ -12,9 +12,9 @@ use mlt_core::encoder::EncoderConfig;
 use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::assemble::AssembledLayer;
-use crate::group::{LayerRecordRef, TileRecords};
-use crate::{EncodedTile, LayerAssembler, LayerGrid, Seq, TileGenResult, TileId, TileOrder};
+use super::assemble::{AssembledLayer, LayerAssembler};
+use crate::sort::{LayerRecordRef, Seq, TileRecords};
+use crate::{EncodedTile, LayerGrid, TileGenResult, TileId, TileOrder};
 
 #[derive(Clone, Copy, Debug)]
 pub enum TileFormat {
@@ -264,8 +264,8 @@ mod tests {
     use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
 
     use super::*;
-    use crate::record::{EncodedProps, Geom, encode};
-    use crate::{TileGenError, TileRecords};
+    use crate::TileGenError;
+    use crate::sort::record::{EncodedProps, Geom, encode};
 
     fn layer(name: &str) -> LayerInfo {
         LayerInfo {

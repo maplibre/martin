@@ -2,8 +2,9 @@
 
 use std::ops::Range;
 
-use crate::record::{GeomKind, Record};
-use crate::{Merger, Seq, SortKey, TileGenResult};
+use super::record::{GeomKind, Record};
+use super::{Merger, Seq, SortKey};
+use crate::TileGenResult;
 
 /// One record of a tile, borrowed from its buffer.
 #[derive(Clone, Copy, Debug)]
@@ -71,6 +72,43 @@ impl TileRecords {
     #[must_use]
     pub fn is_fill_only(&self) -> bool {
         self.records().all(|record| Record::is_fill(record.bytes))
+    }
+}
+
+/// The tiles of a merge, in batches of up to `size`; only the last batch is shorter, and never empty.
+pub struct TileBatches {
+    grouper: TileGrouper,
+    size: usize,
+    done: bool,
+}
+
+impl TileBatches {
+    /// The tiles of `grouper` in batches of `size`, at least one tile each.
+    pub(super) fn new(grouper: TileGrouper, size: usize) -> Self {
+        Self {
+            grouper,
+            size: size.max(1),
+            done: false,
+        }
+    }
+}
+
+impl Iterator for TileBatches {
+    type Item = TileGenResult<Vec<TileRecords>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+        let batch = match self.grouper.next_batch(self.size) {
+            Ok(batch) => batch,
+            Err(err) => {
+                self.done = true;
+                return Some(Err(err));
+            }
+        };
+        self.done = batch.len() < self.size;
+        (!batch.is_empty()).then_some(Ok(batch))
     }
 }
 
@@ -170,8 +208,9 @@ mod tests {
     use std::path::Path;
 
     use super::*;
-    use crate::record::{EncodedProps, Geom, encode};
-    use crate::{LayerId, SortConfig, Sorter, TileId};
+    use crate::TileId;
+    use crate::sort::record::{EncodedProps, Geom, encode};
+    use crate::sort::{LayerId, SortConfig, Sorter};
 
     fn record(geom: Geom<'_>) -> Vec<u8> {
         let mut bytes = Vec::new();

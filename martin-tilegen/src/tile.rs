@@ -5,11 +5,11 @@ use pmtiles::{PYRAMID_SIZE_BY_ZOOM, TileId as PmTileId};
 
 use crate::{TileGenError, TileGenResult};
 
-/// Highest zoom whose tile ids leave the low byte of a [`SortKey`](crate::SortKey) free for the layer.
+/// Highest zoom whose tile ids leave the low byte of a [`SortKey`](crate::sort::SortKey) free for the layer.
 pub const MAX_ZOOM: u8 = 27;
 
 /// A tile's position in a [`TileOrder`]; always small enough to leave the low byte of a
-/// [`SortKey`](crate::SortKey) free for the layer.
+/// [`SortKey`](crate::sort::SortKey) free for the layer.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TileId(pub(crate) u64);
 
