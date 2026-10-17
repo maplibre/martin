@@ -11,6 +11,7 @@ use super::layers::{LowerOptions, lower_table};
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::postgres::resolver::engine_sql;
+use crate::config::file::tiling::Prefetch;
 
 const DEFAULT_EXTENT: u32 = 4096;
 /// The engine quantizes each zoom into one `i32` grid of `extent << zoom` units, at most `2^30`.
@@ -50,6 +51,7 @@ pub fn engine_info(id: &str, info: &mut TableInfo) -> GenerateResult<PostgresEng
         sql_query: sql.sql,
         plan: Arc::new(plan),
         margin,
+        prefetch: info.prefetch.map_or(1, Prefetch::tiles_per_side),
     })
 }
 

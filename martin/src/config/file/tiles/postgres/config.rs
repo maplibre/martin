@@ -142,7 +142,7 @@ pub struct PostgresConfig {
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Default `prefetch` for tables tiled by Martin's engine:
-    /// a cache miss renders the N×N block around the tile and caches the neighbours (unstable)
+    /// a cache miss renders the aligned N×N block holding the tile and caches all of it (unstable)
     #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

@@ -113,6 +113,29 @@ impl PostgresSource {
     }
 }
 
+#[cfg(feature = "unstable-generate")]
+impl PostgresSource {
+    /// Every tile of the block a cache miss of `xyz` renders, `xyz` among them, or `None` when the
+    /// source does not prefetch.
+    pub async fn get_tile_block(
+        &self,
+        xyz: TileCoord,
+    ) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
+        let PostgresTiler::Engine(engine) = &self.tiler else {
+            return Ok(None);
+        };
+        let Some(tiles) = engine.render_prefetch(&self.pool, &self.id, xyz).await? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            tiles
+                .into_iter()
+                .map(|(coord, data)| (coord, Tile::new_hash_etag(data, self.tile_info)))
+                .collect(),
+        ))
+    }
+}
+
 impl Source for PostgresSource {
     fn get_id(&self) -> &str {
         &self.id

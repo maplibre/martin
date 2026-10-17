@@ -137,7 +137,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
     - Rendering every feature at every zoom into tile pieces
     - Sorting the pieces on disk by tile, and merging them back
     - Encoding tiles in parallel and writing them in archive order
-    - Rendering a requested tile in memory for the tile server
+    - Rendering a requested tile, or its prefetch block, in memory for the tile server
 
     See [Generation Architecture](architecture-generate.md).
 
@@ -170,6 +170,15 @@ Martin's architecture is organized into five main Rust crates, each with distinc
             Source-->>Server: Tile data
             Server->>Server: Postprocess (MLT, compress)
             Server->>Cache: Store postprocessed tile
+            Server-->>Client: 200 OK (tile data)
+        else Tile not in cache, source prefetches blocks
+            Server->>Source: Get block holding (z, x, y)
+            Source->>DB: Query features of the block
+            DB-->>Source: Features
+            Source->>Source: Render every tile of the block
+            Source-->>Server: Tiles of the block
+            Server->>Server: Postprocess each tile
+            Server->>Cache: Store every postprocessed tile
             Server-->>Client: 200 OK (tile data)
         end
     ```

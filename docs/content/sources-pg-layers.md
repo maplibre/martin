@@ -354,6 +354,26 @@ shows how.
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent`
   fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
+- `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding
+  a tile on a cache miss, in one query, and caches all of its tiles. Blocks are aligned to multiples of
+  N, so the tiles of one block share it. Without a tile cache, or outside its zooms, each tile is
+  rendered alone.
+
+```yaml
+postgres:
+  prefetch: 2
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      id_column: osm_id
+      prefetch: 4
+      properties:
+        class: text
+      layers:
+        roads: {}
+```
 
 ## Validation
 

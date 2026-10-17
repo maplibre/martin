@@ -150,6 +150,53 @@ async fn served_tiles_are_the_tiles_generate_writes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_prefetch_block_holds_the_tiles_rendered_one_by_one() {
+    let (builder, specs) = discover().await;
+    let Some(SourceSpec::Table(info)) = specs.get("table_source") else {
+        panic!("no table source table_source")
+    };
+    let mut info = info.clone();
+    info.id_column = Some("gid".to_owned());
+    info.maxzoom = Some(3);
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            mixed: {}
+        "})
+        .unwrap(),
+    ));
+    let (single, _) = builder
+        .instantiate("table_source", SourceSpec::Table(info.clone()))
+        .await
+        .unwrap();
+    info.prefetch = Some(serde_saphyr::from_str("3").unwrap());
+    let (prefetching, _) = builder
+        .instantiate("table_source", SourceSpec::Table(info))
+        .await
+        .unwrap();
+
+    let xyz = TileCoord::new_checked(3, 4, 3).unwrap();
+    let block = prefetching.get_tile_block(xyz).await.unwrap().unwrap();
+    let coords: Vec<_> = block
+        .iter()
+        .map(|(c, _)| format!("{}/{}/{}", c.z(), c.x(), c.y()))
+        .collect();
+    assert_eq!(
+        coords,
+        [
+            "3/3/3", "3/3/4", "3/3/5", "3/4/3", "3/4/4", "3/4/5", "3/5/3", "3/5/4", "3/5/5"
+        ]
+    );
+    let mut non_empty = 0;
+    for (coord, tile) in block {
+        let alone = single.get_tile(coord, None).await.unwrap();
+        assert!(tile.data == alone, "{coord:?}");
+        non_empty += usize::from(!alone.is_empty());
+    }
+    assert!(non_empty > 1, "{non_empty} tiles with features");
+    assert!(single.get_tile_block(xyz).await.unwrap().is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_maxzoom_past_the_engine_grid_fails_at_startup() {
     let (builder, specs) = discover().await;
     let Some(SourceSpec::Table(info)) = specs.get("table_source") else {
