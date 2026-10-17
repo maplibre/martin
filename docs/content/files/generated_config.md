@@ -490,6 +490,8 @@ postgres:
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
+  # Specify how features should be sorted. [default: No sorting]
+  order_by: id-asc
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
   # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
@@ -515,8 +517,6 @@ postgres:
   #
   # One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
   tile_grid: WebMercatorQuad
-  # Try sorting features by their feature ID in ascending order. [default: false]
-  try_id_sort: null
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.

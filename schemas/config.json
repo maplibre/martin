@@ -1212,6 +1212,20 @@
       ],
       "description": "A serde helper to store a boolean as an object."
     },
+    "OrderByType": {
+      "oneOf": [
+        {
+          "const": "id-asc",
+          "description": "Order features based on their id ascending",
+          "type": "string"
+        },
+        {
+          "const": "id-desc",
+          "description": "Order features based on their id descending",
+          "type": "string"
+        }
+      ]
+    },
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
       "properties": {
@@ -1520,6 +1534,17 @@
           "minimum": 0,
           "type": ["integer", "null"]
         },
+        "order_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrderByType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specify how features should be sorted. \\[default: No sorting\\]"
+        },
         "pool_size": {
           "description": "Maximum Postgres connections pool size \\[default: 20\\]",
           "examples": [20],
@@ -1536,18 +1561,6 @@
           "description": "How long the first connection is retried before startup fails \\[default: 30s\\]\n\nA duration like `30s`, or `infinite` to wait until the database answers.\n`0s` fails on the first refused connection.",
           "examples": ["30s"],
           "type": ["string", "null"]
-        },
-        "sort_by": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/OrderByType"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Specify how features should be sorted. \\[default: No sorting\\]\n\nOptions:\n- `id-asc` Order features based on their id ascending.\n- `id-desc` Order features based on their id descending.",
-          "examples": ["id-asc"]
         },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
