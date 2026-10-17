@@ -11,10 +11,10 @@ use geo::ConvexHull as _;
 use geo_types::{Coord, Geometry, LineString, MultiPoint, Point, Polygon};
 use martin_core::tiles::geojson::clip_to_tile;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tilegen::record::{EncodedProps, GeomKind, Record};
+use martin_tilegen::internals::record::{EncodedProps, GeomKind, Record};
+use martin_tilegen::internals::{Renderer, Seq, Sorter};
 use martin_tilegen::{
-    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, Renderer, Seq, SortConfig,
-    Sorter, TileId, TileOrder,
+    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileId, TileOrder,
 };
 
 const GRID: LayerGrid = LayerGrid {

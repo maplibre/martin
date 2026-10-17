@@ -8,11 +8,11 @@ use std::f64::consts::TAU;
 
 use criterion::{BatchSize, Criterion, Throughput};
 use geo_types::{Coord, LineString, Polygon};
+use martin_tilegen::internals::record::EncodedProps;
+use martin_tilegen::internals::{Renderer, Seq, Sorter};
 use martin_tilegen::project::from_lonlat;
-use martin_tilegen::record::EncodedProps;
 use martin_tilegen::{
-    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, Renderer, Seq, SortConfig,
-    Sorter, TileOrder,
+    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileOrder,
 };
 
 const VERTICES: u32 = 10_000;

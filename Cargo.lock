@@ -5929,6 +5929,7 @@ dependencies = [
  "map-tile-toolkit",
  "martin-core",
  "martin-tile-utils",
+ "martin-tilegen",
  "mbtiles",
  "mlt-core",
  "perf-event2",

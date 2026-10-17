@@ -143,6 +143,7 @@ impl<'a> SortBuffer<'a> {
         }
     }
 
+    #[cfg(any(test, feature = "internals"))]
     pub fn push(&mut self, key: SortKey, record: &[u8]) -> TileGenResult<()> {
         self.push_with(key, |data| data.extend_from_slice(record))
     }
