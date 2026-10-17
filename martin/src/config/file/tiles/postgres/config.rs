@@ -102,7 +102,10 @@ pub struct PostgresConfig {
     ///
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
-    /// Specify how features should be sorted. \[default: No sorting\]
+    /// Specify how features should be sorted:
+    /// - `null` (default, no sorting)
+    /// - `id-asc`
+    /// - `id-desc`
     pub order_by: Option<OrderByType>,
     /// Maximum Postgres connections pool size \[default: 20\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
