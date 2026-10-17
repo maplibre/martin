@@ -1537,6 +1537,18 @@
           "examples": ["30s"],
           "type": ["string", "null"]
         },
+        "sort_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrderByType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specify how features should be sorted. \\[default: No sorting\\]\n\nOptions:\n- `id-asc` Order features based on their id ascending.\n- `id-desc` Order features based on their id descending.",
+          "examples": ["id-asc"]
+        },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
           "examples": ["./postgresql.crt"],
@@ -1563,18 +1575,6 @@
           "description": "Tile grid the sources of this connection are served in, unless a source names its own \\[default: `WebMercatorQuad`\\]\n\nOne of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.",
           "examples": ["WebMercatorQuad"],
           "type": ["string", "null"]
-        },
-        "sort_by": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/OrderByType"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Specify how features should be sorted. \\[default: No sorting\\]\n\nOptions:\n- `id-asc` Order features based on their id ascending.\n- `id-desc` Order features based on their id descending.",
-          "examples": ["id-asc"]
         }
       },
       "type": "object"

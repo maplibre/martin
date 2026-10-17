@@ -16,8 +16,8 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
+use crate::config::args::OrderByType;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::args::{OrderByType};
 use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
@@ -355,14 +355,12 @@ impl TableQuerySql {
             table: escape_identifier(&info.table),
             filter: row_filter(info, "AND")?,
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
-            order_clause: order_by.map_or(String::new(), |v| {
-                match v {
-                    OrderByType::IdAsc => {
-                        format!("ORDER BY {} ASC NULLS LAST", escaped_id_column)
-                    }
-                    OrderByType::IdDesc => {
-                        format!("ORDER BY {} DESC NULLS LAST", escaped_id_column)
-                    }
+            order_clause: order_by.map_or(String::new(), |v| match v {
+                OrderByType::IdAsc => {
+                    format!("ORDER BY {} ASC NULLS LAST", escaped_id_column)
+                }
+                OrderByType::IdDesc => {
+                    format!("ORDER BY {} DESC NULLS LAST", escaped_id_column)
                 }
             }),
             extent,
