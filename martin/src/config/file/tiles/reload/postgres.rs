@@ -156,7 +156,7 @@ mod tests {
     #[rstest]
     #[case::fast(Duration::from_millis(0), false)]
     #[case::slow(Duration::from_millis(50), true)]
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn on_slow_fires_only_when_the_future_outlives_the_deadline(
         #[case] takes: Duration,
         #[case] should_warn: bool,
