@@ -9,6 +9,8 @@ use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
 use crate::CacheZoomRange;
+#[cfg(feature = "unstable-generate")]
+use crate::tiles::postgres::PostgresEngineInfo;
 use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
@@ -24,7 +26,7 @@ use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
 pub struct PostgresSource {
     id: String,
-    info: PostgresSqlInfo,
+    tiler: PostgresTiler,
     pool: PostgresPool,
     tilejson: TileJSON,
     tile_info: TileInfo,
@@ -32,12 +34,28 @@ pub struct PostgresSource {
     tile_grid: TileGrid,
 }
 
+/// What turns a source's rows into a tile.
+#[derive(Clone, Debug)]
+pub enum PostgresTiler {
+    /// A query that returns the tile itself: `ST_AsMVT` over a table, or a function.
+    Sql(PostgresSqlInfo),
+    /// A query that returns a table's features, which Martin's engine renders into its `layers`.
+    #[cfg(feature = "unstable-generate")]
+    Engine(PostgresEngineInfo),
+}
+
+impl From<PostgresSqlInfo> for PostgresTiler {
+    fn from(info: PostgresSqlInfo) -> Self {
+        Self::Sql(info)
+    }
+}
+
 impl PostgresSource {
     /// Creates a new `PostgreSQL` tile source.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         id: String,
-        info: PostgresSqlInfo,
+        tiler: impl Into<PostgresTiler>,
         tilejson: TileJSON,
         pool: PostgresPool,
         tile_info: TileInfo,
@@ -46,7 +64,7 @@ impl PostgresSource {
     ) -> Self {
         Self {
             id,
-            info,
+            tiler: tiler.into(),
             pool,
             tilejson,
             tile_info,
@@ -78,7 +96,9 @@ impl PostgresSource {
         url_query: Option<&UrlQuery>,
         keep_measures: bool,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
-        let info = self.sql_for(url_query);
+        let Some(info) = self.sql_for(url_query) else {
+            return Ok(None);
+        };
         let Some(row_query) = &info.row_query else {
             return Ok(None);
         };
@@ -111,7 +131,7 @@ impl Source for PostgresSource {
     }
 
     fn support_url_query(&self) -> bool {
-        self.info.use_url_query
+        self.sql().is_some_and(|info| info.use_url_query)
     }
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
@@ -120,7 +140,8 @@ impl Source for PostgresSource {
     }
 
     fn empty_tile_implies_empty_children(&self) -> bool {
-        self.info.empty_tile_implies_empty_children
+        self.sql()
+            .is_some_and(|info| info.empty_tile_implies_empty_children)
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {
@@ -132,8 +153,15 @@ impl Source for PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
+        let info = match &self.tiler {
+            PostgresTiler::Sql(info) => info.for_query(url_query),
+            #[cfg(feature = "unstable-generate")]
+            PostgresTiler::Engine(engine) => {
+                return Ok(engine.render_tile(&self.pool, &self.id, xyz).await?);
+            }
+        };
         Ok(self
-            .query_row(xyz, url_query)
+            .query_row(info, xyz, url_query)
             .await?
             .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
             .map(TileData::from)
@@ -145,12 +173,12 @@ impl Source for PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        if !self.sql_for(url_query).has_etag_column {
+        let Some(info) = self.sql_for(url_query).filter(|info| info.has_etag_column) else {
             let data = self.get_tile(xyz, url_query).await?;
             let info = self.tile_info_for(&data);
             return Ok(Tile::new_hash_etag(data, info));
-        }
-        let row = self.query_row(xyz, url_query).await?;
+        };
+        let row = self.query_row(info, xyz, url_query).await?;
         let data: TileData = row
             .as_ref()
             .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
@@ -170,11 +198,25 @@ impl Source for PostgresSource {
 }
 
 impl PostgresSource {
-    /// The query answering a request, by whether the request carries a query string.
-    fn sql_for(&self, url_query: Option<&UrlQuery>) -> &PostgresSqlInfo {
-        match (&self.info.queryless, url_query) {
-            (Some(queryless), None) => queryless,
-            _ => &self.info,
+    /// The query returning a request's tile, by whether the request carries a query string.
+    /// `None` when the engine renders the tile.
+    fn sql_for(&self, url_query: Option<&UrlQuery>) -> Option<&PostgresSqlInfo> {
+        self.sql().map(|info| info.for_query(url_query))
+    }
+
+    /// The tile query, `None` when the engine renders the tiles.
+    #[cfg_attr(
+        not(feature = "unstable-generate"),
+        expect(
+            clippy::unnecessary_wraps,
+            reason = "only the engine has no tile query"
+        )
+    )]
+    fn sql(&self) -> Option<&PostgresSqlInfo> {
+        match &self.tiler {
+            PostgresTiler::Sql(info) => Some(info),
+            #[cfg(feature = "unstable-generate")]
+            PostgresTiler::Engine(_) => None,
         }
     }
 
@@ -200,10 +242,10 @@ impl PostgresSource {
     )]
     async fn query_row(
         &self,
+        info: &PostgresSqlInfo,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Option<Row>> {
-        let info = self.sql_for(url_query);
         let query = self
             .tile_query(info, &info.sql_query, xyz, url_query)
             .await?;
@@ -407,5 +449,13 @@ impl PostgresSqlInfo {
     pub fn with_row_query(mut self, row_query: PostgresRowQuery) -> Self {
         self.row_query = Some(row_query);
         self
+    }
+
+    /// The query answering a request, by whether the request carries a query string.
+    fn for_query(&self, url_query: Option<&UrlQuery>) -> &Self {
+        match (&self.queryless, url_query) {
+            (Some(queryless), None) => queryless,
+            _ => self,
+        }
     }
 }

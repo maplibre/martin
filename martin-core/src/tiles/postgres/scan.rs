@@ -3,17 +3,17 @@
 use bytes::BytesMut;
 use deadpool_postgres::Object;
 use deadpool_postgres::tokio_postgres::types::ToSql;
-use deadpool_postgres::tokio_postgres::{Client, Row};
+use deadpool_postgres::tokio_postgres::{Client, Row, ToStatement};
 use futures::TryStreamExt as _;
+use martin_tilegen::props::{KeyId, KeyInterner, Prop};
+use martin_tilegen::source::{
+    Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult,
+};
 use mlt_core::PropValue;
 
 use super::features::{feature_id, property};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
-use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{
-    Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult,
-};
 
 const BATCH_FEATURES: usize = 1024;
 const ARENA_BYTES: usize = 256 << 10;
@@ -59,21 +59,22 @@ pub async fn open_scan_connection(pool: &PostgresPool) -> Result<Object, Postgre
 }
 
 /// Streams one table's rows as batches, geometries left as WKB for the render workers to decode.
-/// `conn` should come from [`open_scan_connection`].
+/// A whole-table scan's `conn` should come from [`open_scan_connection`].
 ///
 /// # Errors
 ///
 /// Fails if the query or a row's columns cannot be read.
-pub async fn scan_features(
+pub async fn scan_features<T: ?Sized + ToStatement>(
     conn: &Client,
-    sql: &str,
+    query: &T,
+    params: &[&(dyn ToSql + Sync)],
     layout: &ScanLayout,
     partition: u32,
     keys: &KeyInterner,
-    emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+    mut emit: impl FnMut(FeatureBatch) -> SourceResult<()>,
 ) -> SourceResult<()> {
     let rows = conn
-        .query_raw(sql, std::iter::empty::<&(dyn ToSql + Sync)>())
+        .query_raw(query, params.iter().copied())
         .await
         .map_err(|e| PostgresError::PostgresError(e, "starting a scan"))?;
     let mut rows = std::pin::pin!(rows);

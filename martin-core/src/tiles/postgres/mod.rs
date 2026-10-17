@@ -19,7 +19,12 @@ mod mlt_encoder;
 pub use mlt_encoder::{encode_features_as_mlt, keeps_measures};
 
 mod source;
-pub use source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo};
+pub use source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo, PostgresTiler};
+
+#[cfg(feature = "unstable-generate")]
+mod engine;
+#[cfg(feature = "unstable-generate")]
+pub use engine::PostgresEngineInfo;
 
 #[cfg(feature = "unstable-generate")]
 mod scan;
