@@ -523,6 +523,9 @@ postgres:
   # - `null` (default, no sorting)
   # - `id-asc`
   # - `id-desc`
+  #
+  # Enabling this has performance implications due to the additional sorting.
+  # This may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features.
   order_by: id-asc
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
