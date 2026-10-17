@@ -65,11 +65,11 @@ The PostgreSQL source splits each table by what the relation allows:
 
 | Relation | Partitions |
 | --- | --- |
-| Tables and materialized views | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), at least 256 pages each. The last range is open, so rows added since are still read |
+| Tables and materialized views | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), 16384 pages each. The last range is open, so rows added since are still read |
 | Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids |
 | Anything else | One scan |
 
-Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There are no more readers than the pool's `pool_size`.
+Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
 ### Feature queue
 

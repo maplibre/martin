@@ -123,6 +123,6 @@ A failed or interrupted run removes the output file. Temporary files are always 
 - `--temp-dir` takes the sorted runs in turn. Directories on separate disks spread the I/O.
 - `--threads` sets the number of render workers and encoders.
 
-Tables are read over at most one connection per thread, and no more than the pool's `pool_size`.
+Tables are read over one connection per two threads, and no more than the pool's `pool_size`.
 
 [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) explains how a run reads, sorts, encodes and writes the tiles, and what bounds its memory.

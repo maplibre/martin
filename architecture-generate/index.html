@@ -1796,7 +1796,7 @@ database by key range.</p>
 <tbody>
 <tr>
 <td>Tables and materialized views</td>
-<td>Page ranges (<code>ctid &gt;= '(start,0)' AND ctid &lt; '(end,0)'</code>), at least 256 pages each. The last range is open, so rows added since are still read</td>
+<td>Page ranges (<code>ctid &gt;= '(start,0)' AND ctid &lt; '(end,0)'</code>), 16384 pages each. The last range is open, so rows added since are still read</td>
 </tr>
 <tr>
 <td>Anything else with an integer <code>id_column</code></td>
@@ -1812,7 +1812,7 @@ database by key range.</p>
 snapshot (<code>pg_export_snapshot()</code>), and every reader imports it in a <code>REPEATABLE READ</code> transaction before
 reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on
 these connections, so each partition is read in its own order, at the pace the generator asks for. There
-are no more readers than the pool's <code>pool_size</code>.</p>
+is one reader per two render workers, and no more readers than the pool's <code>pool_size</code>.</p>
 </div>
 </div>
 </div>

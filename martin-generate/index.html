@@ -2237,7 +2237,7 @@ the features near the box, not everything the tile covers.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:1"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">PostgreSQL</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>Tables are read over at most one connection per thread, and no more than the pool's <code>pool_size</code>.</p>
+<p>Tables are read over one connection per two threads, and no more than the pool's <code>pool_size</code>.</p>
 </div>
 </div>
 </div>
