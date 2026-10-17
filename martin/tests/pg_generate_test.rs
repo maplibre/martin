@@ -68,8 +68,11 @@ async fn run(
     tables: Vec<ScanTable>,
     dir: &Path,
     threads: usize,
+    partition_blocks: u32,
 ) -> (u32, u64, Vec<Row>) {
-    let source = PgScanSource::new(builder.pool().clone(), tables).unwrap();
+    let source = PgScanSource::new(builder.pool().clone(), tables, partition_blocks)
+        .await
+        .unwrap();
     let partitions = source.partitions();
     let path = dir.join(format!("out-{threads}.mbtiles"));
     let sort_dir = dir.to_path_buf();
@@ -125,17 +128,58 @@ async fn render_threads_do_not_change_the_output() {
             .map(|&name| lower(name, table_info(&specs, name)))
             .collect::<Vec<_>>()
     };
-    let (partitions, features, rows) = run(&builder, tables(), dir.path(), 1).await;
+    let (partitions, features, rows) = run(
+        &builder,
+        tables(),
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     assert_eq!(partitions, 5);
     assert!(features > 0);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 6));
-    let (threaded_partitions, threaded_features, threaded_rows) =
-        run(&builder, tables(), dir.path(), 4).await;
+    let (threaded_partitions, threaded_features, threaded_rows) = run(
+        &builder,
+        tables(),
+        dir.path(),
+        4,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     assert_eq!(threaded_partitions, partitions);
     assert_eq!(threaded_features, features);
     assert!(
         threaded_rows == rows,
         "render threads must not change the output"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn block_range_partitions_do_not_change_the_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let tables = || {
+        TABLES
+            .iter()
+            .map(|&name| lower(name, table_info(&specs, name)))
+            .collect::<Vec<_>>()
+    };
+    let (partitions, features, rows) = run(
+        &builder,
+        tables(),
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    let (split_partitions, split_features, split_rows) =
+        run(&builder, tables(), dir.path(), 4, 1).await;
+    assert_eq!((partitions, split_partitions), (5, 7));
+    assert_eq!(split_features, features);
+    assert!(
+        split_rows == rows,
+        "block range partitions must not change the output"
     );
 }
 
@@ -158,7 +202,14 @@ async fn one_table_feeds_two_layers() {
         "})
         .unwrap(),
     ));
-    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 1).await;
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     let mut decoder = Decoder::default();
     let layers: Vec<_> = rows
         .iter()
@@ -230,7 +281,14 @@ async fn a_layer_filters_features_and_computes_attributes() {
         "#})
         .unwrap(),
     ));
-    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        2,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     let [row] = rows.as_slice() else {
         panic!("expected one tile, got {}", rows.len());
     };
@@ -293,7 +351,14 @@ async fn rules_pick_settings_by_gid_range() {
         "#})
         .unwrap(),
     ));
-    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        2,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     let mut decoder = Decoder::default();
     let tiles: Vec<_> = rows
         .iter()
@@ -359,7 +424,14 @@ async fn sort_by_orders_features_across_partitions() {
         "#})
         .unwrap(),
     ));
-    let (_, _, rows) = run(&builder, vec![lower("table_source", info)], dir.path(), 2).await;
+    let (_, _, rows) = run(
+        &builder,
+        vec![lower("table_source", info)],
+        dir.path(),
+        2,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
     let [row] = rows.as_slice() else {
         panic!("expected one tile, got {}", rows.len());
     };

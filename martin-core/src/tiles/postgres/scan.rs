@@ -45,17 +45,77 @@ impl From<PostgresError> for SourceError {
 ///
 /// Fails if a connection cannot be had or the transaction cannot be opened.
 pub async fn open_scan_connection(pool: &PostgresPool) -> Result<Object, PostgresError> {
+    open_scan_transaction(pool, None).await
+}
+
+/// Opens `count` scan connections that all read one snapshot: the first exports it and the rest import it.
+///
+/// # Errors
+///
+/// Fails if a connection cannot be had, a transaction cannot be opened or the snapshot cannot be shared.
+pub async fn open_scan_connections(
+    pool: &PostgresPool,
+    count: usize,
+) -> Result<Vec<Object>, PostgresError> {
+    let first = open_scan_transaction(pool, None).await?;
+    if count <= 1 {
+        return Ok(vec![first]);
+    }
+    let snapshot: String = first
+        .query_one("SELECT pg_export_snapshot()", &[])
+        .await
+        .map_err(|e| PostgresError::PostgresError(e, "exporting the scan snapshot"))?
+        .get(0);
+    let mut conns = Vec::with_capacity(count);
+    conns.push(first);
+    for _ in 1..count {
+        conns.push(open_scan_transaction(pool, Some(&snapshot)).await?);
+    }
+    Ok(conns)
+}
+
+async fn open_scan_transaction(
+    pool: &PostgresPool,
+    snapshot: Option<&str>,
+) -> Result<Object, PostgresError> {
     let conn = pool.get().await?;
-    conn.batch_execute(
-        "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; \
+    let import = snapshot.map_or_else(String::new, |id| {
+        format!("SET TRANSACTION SNAPSHOT '{}'; ", id.replace('\'', "''"))
+    });
+    conn.batch_execute(&format!(
+        "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; {import}\
          SET LOCAL max_parallel_workers_per_gather = 0; \
          SET LOCAL synchronize_seqscans = off; \
          SET LOCAL statement_timeout = 0; \
-         SET LOCAL idle_in_transaction_session_timeout = 0;",
-    )
+         SET LOCAL idle_in_transaction_session_timeout = 0;"
+    ))
     .await
     .map_err(|e| PostgresError::PostgresError(e, "opening the scan transaction"))?;
     Ok(conn)
+}
+
+/// The table's heap size in blocks, or `None` if it cannot be split into `ctid` ranges: it is not a plain
+/// table or materialized view, or the server predates the TID range scans of `PostgreSQL` 14.
+///
+/// # Errors
+///
+/// Fails if the catalog cannot be read.
+pub async fn heap_blocks(
+    conn: &Client,
+    schema: &str,
+    table: &str,
+) -> Result<Option<u32>, PostgresError> {
+    let row = conn
+        .query_opt(
+            "SELECT pg_relation_size(c.oid) / current_setting('block_size')::bigint \
+             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
+             WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind IN ('r', 'm') \
+               AND current_setting('server_version_num')::int >= 140000",
+            &[&schema, &table],
+        )
+        .await
+        .map_err(|e| PostgresError::PostgresError(e, "reading a table's heap size"))?;
+    Ok(row.map(|row| u32::try_from(row.get::<_, i64>(0)).unwrap_or(u32::MAX)))
 }
 
 /// Streams one table's rows as batches, geometries left as WKB for the render workers to decode.

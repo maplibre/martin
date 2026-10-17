@@ -249,7 +249,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.warn_unrecognized_keys();
 
     let (pool, scans) = select_sources(&config, &options).await?;
-    let source = PgScanSource::new(pool, scans)?;
+    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
     let metadata = metadata(&options);
