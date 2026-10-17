@@ -6,6 +6,7 @@ use tracing::info;
 use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
+use super::order_by::OrderByType;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };
@@ -38,6 +39,9 @@ pub struct PostgresArgs {
     /// Can be either a positive integer or unlimited if omitted.
     #[arg(short, long)]
     pub max_feature_count: Option<usize>,
+    /// Specify how features should be sorted. [DEFAULT: No sorting]
+    #[arg(long)]
+    pub order_by: Option<OrderByType>,
     /// A file with a client SSL certificate.
     #[arg(long)]
     pub ssl_cert: Option<std::path::PathBuf>,
@@ -65,6 +69,7 @@ impl PostgresArgs {
                 tile_grid: None,
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
+                order_by: self.order_by,
                 pool_size: self.pool_size,
                 cache: CachePolicy::default(),
                 retry_timeout: self.pg_retry_timeout,
@@ -92,6 +97,7 @@ impl PostgresArgs {
             pg_retry_timeout,
             auto_bounds,
             max_feature_count,
+            order_by,
             ca_root_file,
             ssl_cert,
             ssl_key,
@@ -140,6 +146,14 @@ impl PostgresArgs {
             );
             for c in pg_config.iter_mut() {
                 c.max_feature_count = max_feature_count;
+            }
+        }
+        if let Some(value) = order_by {
+            info!(
+                "Overriding order_by to {value} on all Postgres connections because of a CLI parameter"
+            );
+            for c in pg_config.iter_mut() {
+                c.order_by = order_by;
             }
         }
         if let Some(ref value) = ca_root_file {

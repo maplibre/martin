@@ -10,6 +10,7 @@ use tilejson::TileJSON;
 use super::deserialize_checked_tables;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::BoundsCalcType;
+use crate::config::args::OrderByType;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
@@ -101,6 +102,14 @@ pub struct PostgresConfig {
     ///
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
+    /// Specify how features should be sorted:
+    /// - `null` (default, no sorting)
+    /// - `id-asc`
+    /// - `id-desc`
+    ///
+    /// Enabling this has performance implications due to the additional sorting.
+    /// This may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features.
+    pub order_by: Option<OrderByType>,
     /// Maximum Postgres connections pool size \[default: 20\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<NonZeroUsize>,
@@ -200,6 +209,7 @@ impl Default for PostgresConfig {
             tile_grid: None,
             auto_bounds: None,
             max_feature_count: None,
+            order_by: None,
             pool_size: None,
             cache: CachePolicy::default(),
             retry_timeout: None,
@@ -620,6 +630,7 @@ mod tests {
               default_srid: 4326
               pool_size: 20
               max_feature_count: 100
+              order_by: id-asc
 
               tables:
                 table_source:
@@ -653,6 +664,7 @@ mod tests {
                     default_srid: Some(4326),
                     pool_size: NonZeroUsize::new(20),
                     max_feature_count: Some(100),
+                    order_by: Some(OrderByType::IdAsc),
                     tables: Some(BTreeMap::from([(
                         "table_source".to_owned(),
                         TableInfo {

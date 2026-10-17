@@ -1351,6 +1351,20 @@
       ],
       "description": "A serde helper to store a boolean as an object."
     },
+    "OrderByType": {
+      "oneOf": [
+        {
+          "const": "id-asc",
+          "description": "Order features based on their id ascending",
+          "type": "string"
+        },
+        {
+          "const": "id-desc",
+          "description": "Order features based on their id descending",
+          "type": "string"
+        }
+      ]
+    },
     "PassthroughConfig": {
       "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
       "properties": {
@@ -1658,6 +1672,17 @@
           "format": "uint",
           "minimum": 0,
           "type": ["integer", "null"]
+        },
+        "order_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OrderByType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specify how features should be sorted:\n- `null` (default, no sorting)\n- `id-asc`\n- `id-desc`\n\nEnabling this has performance implications due to the additional sorting.\nThis may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features."
         },
         "pool_size": {
           "description": "Maximum Postgres connections pool size \\[default: 20\\]",

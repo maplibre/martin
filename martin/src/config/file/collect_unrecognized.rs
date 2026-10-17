@@ -11,6 +11,8 @@ use tilejson::Bounds;
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 use crate::config::args::BoundsCalcType;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::args::OrderByType;
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
@@ -172,6 +174,10 @@ impl_empty_collect_unrecognized!(
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 impl_empty_collect_unrecognized!(BoundsCalcType);
+
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+impl_empty_collect_unrecognized!(OrderByType);
+
 #[cfg(feature = "postgres")]
 impl_empty_collect_unrecognized!(RetryTimeout);
 

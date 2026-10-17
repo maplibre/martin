@@ -7,7 +7,11 @@ pub use connections::State;
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 mod bounds;
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+mod order_by;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 pub use bounds::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+pub use order_by::OrderByType;
 
 #[cfg(feature = "postgres")]
 mod postgres;
