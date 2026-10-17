@@ -95,6 +95,7 @@ default = [
     "lambda",
     "mbtiles",
     "metrics",
+    "mimalloc",
     "passthrough",
     "pmtiles",
     "postgres",
@@ -125,6 +126,7 @@ rendering = [
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
+mimalloc = ["dep:mimalloc"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
@@ -226,6 +228,7 @@ martin-tile-utils.workspace = true
 martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
+mimalloc = { workspace = true, optional = true }
 mlt-core.workspace = true
 notify = { workspace = true }
 num_cpus.workspace = true

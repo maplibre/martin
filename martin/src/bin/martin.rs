@@ -219,6 +219,11 @@ where
     }
 }
 
+/// mimalloc, unless `hotpath-alloc` installs its own counting allocator.
+#[cfg(all(feature = "mimalloc", not(feature = "hotpath-alloc")))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main]
 #[hotpath::main]
 async fn main() {

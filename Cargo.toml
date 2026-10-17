@@ -153,6 +153,7 @@ martin-tilegen = { path = "./martin-tilegen", version = "0.1.0", default-feature
 mbtiles = { path = "./mbtiles", version = "0.21.0" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
+mimalloc = "0.1.52"
 mlt-core = { version = "0.20.2", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
