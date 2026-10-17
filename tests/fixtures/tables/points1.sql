@@ -2,7 +2,7 @@ CREATE TABLE points1
 (
     gid SERIAL PRIMARY KEY,
     geom GEOMETRY (POINT, 4326)
-);
+) WITH (fillfactor = 10);
 
 CREATE VIEW points1_vw AS
 SELECT

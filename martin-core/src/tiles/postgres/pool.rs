@@ -203,6 +203,12 @@ impl PostgresPool {
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
+    /// The most connections this pool keeps open at once.
+    #[must_use]
+    pub fn max_size(&self) -> usize {
+        self.pool.status().max_size
+    }
+
     /// Checks that `PostGIS` can transform the SRID `from` into the SRID `to`.
     ///
     /// The probe transforms an empty geometry, so the answer never waits on a table scan or a bounds timeout.
