@@ -539,6 +539,14 @@ postgres:
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
+  # Specify how features should be sorted:
+  # - `null` (default, no sorting)
+  # - `id-asc`
+  # - `id-desc`
+  #
+  # Enabling this has performance implications due to the additional sorting.
+  # This may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features.
+  order_by: id-asc
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
   # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and

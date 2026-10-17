@@ -112,7 +112,9 @@ When every worker has spilled its last buffer, phase 1 ends.
 
 ### Merge
 
-A loser-tree merge reads all runs at once, each through a 256 KiB buffer, and streams their records in key order. Only the pieces of one feature in one tile can have equal keys. They come from one worker, and keep the order it pushed them in. Up to 256 runs are merged at once. With more, groups of 256 are first merged in parallel into longer runs, until 256 or fewer remain.
+A loser-tree merge reads up to 256 runs at once, each through a 256 KiB buffer, and streams their records in key order into phase 2. Only the pieces of one feature in one tile can have equal keys. They come from one worker, and keep the order it pushed them in.
+
+With more than 256 runs, only the excess is merged first: adjacent runs, just enough that merging them in groups of 256 leaves 256 runs in all, picked where they hold the fewest bytes. The groups are merged in parallel into new temp files. The other runs are left for the final merge, which is never written to disk. One such pass is enough for up to 65 536 runs. Merging only adjacent runs keeps equal keys in the order they were pushed.
 
 ### Grouping
 
@@ -161,7 +163,7 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | Encode window | `threads × 4` batches of 256 tiles, plus the one being written |
 | Dedup index | One copy of each distinct tile that got a dedup key |
 
-Intermediate merges, with more than 256 runs, run several 64 MiB merges at once. On disk, a feature has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another copy of the runs it merges.
+An intermediate merge, with more than 256 runs, runs several 64 MiB merges at once. On disk, a feature has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another copy of the runs it merges, which are the fewest bytes it can merge.
 
 ## Errors
 
