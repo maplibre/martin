@@ -348,7 +348,8 @@ postgres:
 
 The tile server renders a table source with `layers` itself instead of asking PostGIS for an
 `ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its
-buffer, and renders the tile bulk mode writes for the same `maxzoom`.
+buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](architecture-generate.md#serving-tiles)
+shows how.
 
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent`
   fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
