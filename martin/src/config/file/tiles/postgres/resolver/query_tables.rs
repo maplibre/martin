@@ -357,10 +357,10 @@ impl TableQuerySql {
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
             order_clause: order_by.map_or(String::new(), |v| match v {
                 OrderByType::IdAsc => {
-                    format!("ORDER BY {} ASC NULLS LAST", escaped_id_column)
+                    format!("ORDER BY {escaped_id_column} ASC NULLS LAST")
                 }
                 OrderByType::IdDesc => {
-                    format!("ORDER BY {} DESC NULLS LAST", escaped_id_column)
+                    format!("ORDER BY {escaped_id_column} DESC NULLS LAST")
                 }
             }),
             extent,
