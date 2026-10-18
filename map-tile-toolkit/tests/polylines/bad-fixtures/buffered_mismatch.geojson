@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "name": "buffered_mismatch",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "role": "tile 0/0",
+        "stroke": "#1f77b4",
+        "stroke-width": 3
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[6, 18], [17, 11], [27, 16], [34, 12]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "role": "tile 1/0",
+        "stroke": "#1f77b4",
+        "stroke-width": 3
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[17, 11], [27, 16], [34, 7]]
+      }
+    }
+  ]
+}

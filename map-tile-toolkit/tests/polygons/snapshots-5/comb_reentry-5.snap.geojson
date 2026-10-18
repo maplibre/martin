@@ -1,0 +1,471 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              6.0
+            ],
+            [
+              18.0,
+              6.0
+            ],
+            [
+              18.0,
+              10.0
+            ],
+            [
+              30.0,
+              10.0
+            ],
+            [
+              30.0,
+              14.0
+            ],
+            [
+              18.0,
+              14.0
+            ],
+            [
+              18.0,
+              18.0
+            ],
+            [
+              30.0,
+              18.0
+            ],
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "input",
+        "fill": "#f6fd31",
+        "fill-opacity": 0.35,
+        "stroke": "#b5a300",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              5.0,
+              5.0
+            ],
+            [
+              4.0,
+              22.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/-1",
+        "fill": "#261fb5",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              22.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/0",
+        "fill": "#b5211f",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ],
+            [
+              5.0,
+              19.0
+            ],
+            [
+              30.0,
+              22.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/1",
+        "fill": "#261fb5",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              5.0
+            ],
+            [
+              4.0,
+              22.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/-1",
+        "fill": "#b5211f",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              6.0
+            ],
+            [
+              18.0,
+              6.0
+            ],
+            [
+              18.0,
+              10.0
+            ],
+            [
+              30.0,
+              10.0
+            ],
+            [
+              30.0,
+              14.0
+            ],
+            [
+              18.0,
+              14.0
+            ],
+            [
+              18.0,
+              18.0
+            ],
+            [
+              30.0,
+              18.0
+            ],
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/0",
+        "fill": "#261fb5",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              19.0
+            ],
+            [
+              30.0,
+              22.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/1",
+        "fill": "#b5211f",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              6.0
+            ],
+            [
+              19.0,
+              5.0
+            ],
+            [
+              4.0,
+              2.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/-1",
+        "fill": "#261fb5",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              4.0,
+              2.0
+            ],
+            [
+              30.0,
+              2.0
+            ],
+            [
+              30.0,
+              6.0
+            ],
+            [
+              18.0,
+              6.0
+            ],
+            [
+              18.0,
+              10.0
+            ],
+            [
+              30.0,
+              10.0
+            ],
+            [
+              30.0,
+              14.0
+            ],
+            [
+              18.0,
+              14.0
+            ],
+            [
+              18.0,
+              18.0
+            ],
+            [
+              30.0,
+              18.0
+            ],
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              4.0,
+              2.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/0",
+        "fill": "#b5211f",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              30.0,
+              18.0
+            ],
+            [
+              30.0,
+              22.0
+            ],
+            [
+              4.0,
+              22.0
+            ],
+            [
+              19.0,
+              19.0
+            ],
+            [
+              30.0,
+              18.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/1",
+        "fill": "#261fb5",
+        "fill-opacity": 0.35,
+        "stroke": "#111111",
+        "stroke-width": 2
+      }
+    }
+  ]
+}

@@ -6,7 +6,7 @@ requests := env('REQUESTS', '200000')
 pg_requests := env('PG_REQUESTS', '20000')
 hit_requests := env('HIT_REQUESTS', '1000000')
 
-all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss composite-miss cache-hit composite-hit
+all: mbtiles-miss pmtiles-miss postgres-function-miss postgres-function-mlt-miss postgres-table-miss composite-miss cache-hit composite-hit toolkit-slice
 
 mbtiles-miss: (run 'mbtiles-miss' 'world_cities' '6' requests '--cache-size 0 tests/fixtures/mbtiles')
 
@@ -23,6 +23,14 @@ composite-miss: (run 'composite-miss' 'world_cities,world_cities_modified' '6' r
 cache-hit: (run 'cache-hit' 'world_cities' '0' hit_requests 'tests/fixtures/mbtiles tests/fixtures/pmtiles')
 
 composite-hit: (run 'composite-hit' 'world_cities,world_cities_modified' '2' hit_requests 'tests/fixtures/mbtiles')
+
+# map-tile-toolkit slicing a large polyline into many tiles, without a Martin server
+toolkit-slice:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "${HOTPATH_OUTPUT_DIR:-}" ]; then export HOTPATH_OUTPUT_PATH="$HOTPATH_OUTPUT_DIR/toolkit-slice.json"; fi
+    HOTPATH_BENCHMARK=toolkit-slice \
+        cargo run --release -p map-tile-toolkit --example profile --features hotpath-alloc,hotpath-cloud -- big-all-multi 5000
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':

@@ -1,0 +1,50 @@
+name: Fuzz map-tile-toolkit
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      max_total_time:
+        description: 'Max fuzzing time per target, in seconds'
+        default: '600'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    if: github.repository_owner == 'maplibre' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [slice_equivalence, polygon_equivalence, point_equivalence]
+    env:
+      # Fail on a crash or assertion only, not on nightly-only lint drift.
+      CARGO_BUILD_WARNINGS: warn
+      MAX_TOTAL_TIME: ${{ github.event.inputs.max_total_time || '600' }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { toolchain: nightly, tools: 'just,cargo-binstall,cargo-fuzz' }
+      - run: just toolkit::fuzz "$TARGET" -- "-max_total_time=$MAX_TOTAL_TIME"
+      - name: Upload crash reproducers
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: map-tile-toolkit/fuzz/artifacts
+          if-no-files-found: ignore

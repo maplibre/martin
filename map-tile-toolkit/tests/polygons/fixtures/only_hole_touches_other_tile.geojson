@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "name": "only_hole_touches_other_tile",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fill": "#f6fd31",
+        "fill-opacity": 0.3,
+        "stroke": "#b5a300"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[35, 35], [40, 35], [35, 40], [35, 35]],
+          [[33, 45], [40, 45], [37, 50], [33, 45]]
+        ]
+      }
+    }
+  ]
+}

@@ -5,6 +5,9 @@ set shell := ['bash', '-c']
 # Import demo sub-justfile as a module
 mod demo 'demo/justfile'
 
+# Import map-tile-toolkit sub-justfile as a module
+mod toolkit 'map-tile-toolkit/justfile'
+
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
@@ -731,6 +734,7 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo nextest run --package martin-tile-utils
+    cargo nextest run --package map-tile-toolkit
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
     cargo nextest run --package martin-core --features unstable-generate

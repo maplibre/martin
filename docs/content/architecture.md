@@ -72,7 +72,7 @@ graph TB
 
 ## Crates
 
-Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:
+Martin's architecture is organized into six main Rust crates, each with distinct responsibilities:
 
 === "martin"
 
@@ -140,6 +140,16 @@ Martin's architecture is organized into five main Rust crates, each with distinc
     - Rendering a requested tile in memory for the tile server
 
     See [Generation Architecture](architecture-generate.md).
+
+=== "map-tile-toolkit"
+
+    **Purpose**: Clipping integer geometries into per-tile pieces on a tile grid, used by `martin-tilegen`.
+
+    **Key Responsibilities**:
+
+    - Slicing lines, points and polygons into the tiles they touch, keeping original vertices
+    - Valid polygon pieces with synthetic edges along the tile buffer
+    - Reassembling pieces from neighbouring tiles into whole geometries
 
 ## Requests and startup
 

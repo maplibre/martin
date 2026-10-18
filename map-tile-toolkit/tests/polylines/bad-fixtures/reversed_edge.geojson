@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[18, 20], [36, 6]]},
+      "properties": {"role": "tile 0/0", "stroke": "#1f77b4", "stroke-width": 3}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[36, 6], [18, 20]]},
+      "properties": {"role": "tile 1/0", "stroke": "#ff7f0e", "stroke-width": 3}
+    }
+  ]
+}

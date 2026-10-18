@@ -41,6 +41,7 @@ just bless
   All code that is likely useful for others is here.
 - **`martin-tile-utils`** - Tile format detection, compression/decompression
 - **`mbtiles`** - MBTiles library + CLI
+- **`map-tile-toolkit`** - Clips integer geometries into per-tile pieces (used by `martin-tilegen`); `just toolkit::` for its fuzz/hotpath/fixture recipes
 
 ## Key Rules
 

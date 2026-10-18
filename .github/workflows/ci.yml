@@ -98,6 +98,7 @@ jobs:
               - 'e2e-tests/**'
               - 'tests/**'
               - 'cog-tiles/**'
+              - 'map-tile-toolkit/**'
               - 'mbtiles/**'
               - 'martin-*/**'
               - 'martin/*'
