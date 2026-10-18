@@ -1,17 +1,18 @@
-name: Fuzz map-tile-toolkit
+name: Fuzz CI
 
 on:
-  schedule:
-    - cron: '0 3 * * *'
+  workflow_call:
+    inputs:
+      max-total-time:
+        description: Max fuzzing time per map-tile-toolkit target, in seconds.
+        type: number
+        default: 60
   workflow_dispatch:
     inputs:
-      max_total_time:
-        description: 'Max fuzzing time per target, in seconds'
-        default: '600'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+      max-total-time:
+        description: Max fuzzing time per map-tile-toolkit target, in seconds
+        type: number
+        default: 600
 
 defaults:
   run:
@@ -23,7 +24,8 @@ permissions:
 jobs:
   fuzz:
     name: Fuzz ${{ matrix.target }}
-    if: github.repository_owner == 'maplibre' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -33,10 +35,11 @@ jobs:
     env:
       # Fail on a crash or assertion only, not on nightly-only lint drift.
       CARGO_BUILD_WARNINGS: warn
-      MAX_TOTAL_TIME: ${{ github.event.inputs.max_total_time || '600' }}
+      MAX_TOTAL_TIME: ${{ inputs.max-total-time }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { toolchain: nightly, tools: 'just,cargo-binstall,cargo-fuzz' }
