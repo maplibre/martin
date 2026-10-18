@@ -2,7 +2,7 @@
 source: e2e-tests/tests/martin_cp_bulk.rs
 expression: metadata
 ---
-agg_tiles_hash = 03555161E20DF1053D5B8B99509018C1
+agg_tiles_hash = 6979F5AD73BB269EAC7B061995238439
 format = mlt
 generator = martin cp v[VERSION] (bulk)
 hash_algorithm = md5
