@@ -5640,8 +5640,9 @@ dependencies = [
 
 [[package]]
 name = "map-tile-toolkit"
-version = "0.3.2"
-source = "git+https://github.com/nyurik/map-tile-toolkit?branch=polygon-within#b17da1da1811ed4df817391124fb9eb7f4c47b86"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69a0cdfd2acca86d91f83a3784444cd213fc2e89765567c31bd250ff94fb06d6"
 dependencies = [
  "geo-types",
  "thiserror 2.0.21",
