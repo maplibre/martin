@@ -55,6 +55,15 @@ fn batches() -> Vec<FeatureBatch> {
                 i64::from(i % 5),
             )
         })
+        .chain([feature(
+            130,
+            Geometry::Lines(vec![LineString::from(vec![
+                (165.0, -10.0),
+                (182.0, 4.0),
+                (196.0, -6.0),
+            ])]),
+            4,
+        )])
         .collect();
     let polygons = vec![
         feature(
@@ -69,6 +78,11 @@ fn batches() -> Vec<FeatureBatch> {
             201,
             Geometry::Polygons(vec![Polygon::new(ring(1.0, 1.0, 4.0, 3.0), vec![])]),
             1,
+        ),
+        feature(
+            202,
+            Geometry::Polygons(vec![Polygon::new(ring(170.0, -20.0, 195.0, 15.0), vec![])]),
+            2,
         ),
     ];
     [points, lines, polygons]
@@ -176,6 +190,11 @@ fn a_block_holds_the_tiles_a_generation_writes_there() {
         TileRect::new(3, 1, 2, 4, 4),
         TileRect::new(5, 13, 13, 17, 15),
         TileRect::new(6, 30, 26, 33, 29),
+        TileRect::new(4, 7, 7, 7, 7),
+        TileRect::new(4, 15, 7, 15, 8),
+        TileRect::new(4, 0, 7, 0, 8),
+        TileRect::new(6, 63, 31, 63, 31),
+        TileRect::new(6, 0, 32, 1, 33),
     ] {
         let (tiles, _) = render_block(
             &plan,

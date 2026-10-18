@@ -237,7 +237,7 @@ configuration.
    read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries,
    ordered by `id_column`, and the features are numbered in that order, as one partition.
 2. **Render**: one render worker, on a blocking thread, renders the features at the tile's zoom only,
-   and keeps only the pieces of that tile. The minimum size and simplification still follow the layer's
+   and slices them into that tile only, never into the other tiles they reach. The minimum size and simplification still follow the layer's
    zooms, so the tile comes out as bulk mode writes it for the same `maxzoom`.
 3. **Sort**: the sort buffer stays in memory. It grows as records arrive instead of reserving its
    budget, and is never written to a temp file. The merge reads its records back in key order.

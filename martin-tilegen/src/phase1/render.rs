@@ -199,6 +199,49 @@ impl RenderLayer {
         }
     }
 
+    /// The tiles of `zoom` this layer keeps that a feature quantized to `vertices` can reach, buffer
+    /// included, as the slicer's inclusive window in the feature's frame: its columns past the
+    /// antimeridian stay unwrapped, as [`Ctx::push`] wraps them. `None` when it reaches none of them.
+    fn reachable(
+        &self,
+        zoom: u8,
+        vertices: &[Coord<i32>],
+    ) -> TileGenResult<Option<(map_tile_toolkit::TileId, map_tile_toolkit::TileId)>> {
+        let (extent, buffer) = (to_i32(self.grid.extent)?, to_i32(self.grid.buffer)?);
+        let (Some(lo), Some(hi)) = (
+            vertices.iter().map(|c| c.x).min(),
+            vertices.iter().map(|c| c.x).max(),
+        ) else {
+            return Ok(None);
+        };
+        let (xs, ys) = self.tile_bounds(zoom);
+        if xs.is_empty() || ys.is_empty() {
+            return Ok(None);
+        }
+        let (first, last) = (
+            (i64::from(lo) - i64::from(buffer)).div_euclid(i64::from(extent)),
+            (i64::from(hi) + i64::from(buffer)).div_euclid(i64::from(extent)),
+        );
+        let side = 1i64 << zoom;
+        let (mut min, mut max) = (i64::MAX, i64::MIN);
+        for world in first.div_euclid(side)..=last.div_euclid(side) {
+            let start = (i64::from(xs.start) + world * side).max(first);
+            let end = (i64::from(xs.end - 1) + world * side).min(last);
+            if start <= end {
+                (min, max) = (min.min(start), max.max(end));
+            }
+        }
+        if min > max {
+            return Ok(None);
+        }
+        let tile = |x: i64, y: u32| -> TileGenResult<map_tile_toolkit::TileId> {
+            let x = i32::try_from(x).map_err(|_overflow| GeometryError::CoordOverflow)?;
+            let y = i32::try_from(y).map_err(|_overflow| GeometryError::CoordOverflow)?;
+            Ok(map_tile_toolkit::TileId::new(x, y))
+        };
+        Ok(Some((tile(min, ys.start)?, tile(max, ys.end - 1)?)))
+    }
+
     /// The RDP tolerance at `zoom` in Web Mercator units.
     fn epsilon(&self, zoom: u8, simplify: PixelThreshold) -> f64 {
         self.pixels(zoom, simplify) / (TILE_PIXELS * scale(zoom))
@@ -476,7 +519,7 @@ impl Renderer {
         result
     }
 
-    /// Slices each line into the tiles it reaches and pushes one piece per tile, holding every run
+    /// Slices each line into the kept tiles it reaches and pushes one piece per tile, holding every run
     /// of the feature's lines there (unclipped, every line that reaches the tile, whole). A slicer error drops the whole feature at this zoom: nothing is
     /// pushed until every line is sliced.
     fn slice_lines(
@@ -487,6 +530,9 @@ impl Renderer {
         vertices: &[Coord<i32>],
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
+        let Some((min, max)) = ctx.layer.reachable(zoom, vertices)? else {
+            return Ok(());
+        };
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &self.slicers[pos].1;
         self.sliced.clear();
@@ -496,6 +542,10 @@ impl Renderer {
             let (line, tail) = rest.split_at(len as usize);
             rest = tail;
             for slice in slicer.line(line).map_err(GeometryError::from)? {
+                let tile = slice.tile();
+                if !(min.x..=max.x).contains(&tile.x) || !(min.y..=max.y).contains(&tile.y) {
+                    continue;
+                }
                 let start = self.sliced_vertices.len();
                 self.sliced_vertices
                     .extend(slice.run().iter().map(|c| [c.x, c.y]));
@@ -627,6 +677,9 @@ impl Renderer {
         if polys.is_empty() {
             return Ok(());
         }
+        let Some((min, max)) = ctx.layer.reachable(zoom, vertices)? else {
+            return Ok(());
+        };
         let mut rings = Vec::with_capacity(parts.len());
         let mut rest = vertices;
         for &len in parts {
@@ -645,7 +698,10 @@ impl Renderer {
         for (polygon, &count) in (0_u32..).zip(polys) {
             let (polygon_rings, tail) = rest.split_at(count as usize);
             rest = tail;
-            let mut pieces = slicer.polygon(polygon_rings).map_err(GeometryError::from)?;
+            let mut pieces = slicer
+                .polygon(polygon_rings)
+                .map_err(GeometryError::from)?
+                .within(min, max);
             while let Some(slice) = pieces.next() {
                 match slice.map_err(GeometryError::from)? {
                     PolygonSlice::Piece(piece) => {
