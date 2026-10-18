@@ -2814,7 +2814,7 @@ shows how.</p>
 <li>Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.</li>
 <li><code>max_feature_count</code> limits the features read for each tile, or for each block with <code>prefetch</code>.
   With it, <code>order_by</code> chooses which are kept. <code>order_by</code> alone changes nothing, as <code>sort_by</code> sets the
-  draw order.</li>
+  draw order. A layer with <code>where</code> or <code>geometry</code> cannot be limited yet, and fails at startup.</li>
 <li><code>prefetch: N</code>, on the table source or as the default under <code>postgres</code>, renders the N×N block holding
   a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
   each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
