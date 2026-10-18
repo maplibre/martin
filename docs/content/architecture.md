@@ -149,7 +149,7 @@ Martin's architecture is organized into six main Rust crates, each with distinct
 
     - Slicing lines, points and polygons into the tiles they touch, keeping original vertices
     - Valid polygon pieces with synthetic edges along the tile buffer
-    - Reassembling pieces from neighbouring tiles into whole geometries
+    - Reassembling pieces from neighboring tiles into whole geometries
 
 ## Requests and startup
 
