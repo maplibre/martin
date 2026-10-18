@@ -11,13 +11,13 @@ use std::mem;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 pub use group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
 pub use key::{LayerId, Seq, SortKey};
 pub use merge::Merger;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
-use run::{Run, RunWriter};
+use run::{Run, RunWriter, SpillFile};
 
 use crate::{TileGenError, TileGenResult};
 
@@ -28,7 +28,6 @@ pub struct SortConfig {
     pub buffer_bytes: usize,
     /// Most runs merged at once; beyond that, groups are first merged into intermediate runs.
     pub max_fan_in: usize,
-    pub read_buffer_bytes: usize,
 }
 
 impl SortConfig {
@@ -102,7 +101,7 @@ impl Sorter {
         let mut runs = mem::take(self.runs.get_mut().unwrap_or_else(PoisonError::into_inner));
         runs.sort_unstable_by_key(|run| run.index);
         let Spill::Disk(config) = &self.spill else {
-            return Merger::new(runs, 0);
+            return Merger::new(runs);
         };
         let fan_in = config.max_fan_in;
         while let Some(span) = cheapest_span(&runs, fan_in) {
@@ -115,7 +114,7 @@ impl Sorter {
                 .collect::<TileGenResult<Vec<_>>>()?;
             runs.splice(span.start..span.start, merged);
         }
-        Merger::new(runs, config.read_buffer_bytes)
+        Merger::new(runs)
     }
 
     /// Call after every [`SortBuffer`] was finished: the tiles, in batches of `batch_tiles`.
@@ -129,18 +128,19 @@ impl Sorter {
 
 /// Merges `group` into one new temp file.
 fn merge_group(config: &SortConfig, group: Vec<Run>) -> TileGenResult<Run> {
-    let mut out = run_writer(config, group[0].index)?;
-    let mut merger = Merger::new(group, config.read_buffer_bytes)?;
+    let mut out = RunWriter::append(temp_file(config, group[0].index)?, group[0].index)?;
+    let mut merger = Merger::new(group)?;
     while let Some((key, record)) = merger.next_record()? {
         out.write(key, record)?;
     }
     out.finish()
 }
 
-/// A new temp file for run `index`, spread over the configured directories.
-fn run_writer(config: &SortConfig, index: u32) -> TileGenResult<RunWriter> {
+/// A new temp file starting with run `index`, spread over the configured directories.
+fn temp_file(config: &SortConfig, index: u32) -> TileGenResult<Arc<SpillFile>> {
     let dirs = &config.temp_dirs;
-    RunWriter::create(&dirs[index as usize % dirs.len()], index)
+    let file = tempfile::tempfile_in(&dirs[index as usize % dirs.len()])?;
+    Ok(Arc::new(SpillFile::new(file)))
 }
 
 /// The adjacent runs to merge next, in groups of `fan_in`: the fewest bytes that leave `fan_in` runs.
@@ -161,9 +161,10 @@ fn cheapest_span(runs: &[Run], fan_in: usize) -> Option<Range<usize>> {
 
 /// A worker's in-memory batch. Records stay where they were encoded; only the index is sorted.
 /// Spilling to disk, both vectors are allocated at their ceiling, so the buffer never outgrows its
-/// budget by regrowing.
+/// budget by regrowing, and every run is appended to one temp file.
 pub struct SortBuffer<'a> {
     sorter: &'a Sorter,
+    file: Option<Arc<SpillFile>>,
     limit: usize,
     data: Vec<u8>,
     entries: Vec<Entry>,
@@ -182,6 +183,7 @@ impl<'a> SortBuffer<'a> {
         };
         Self {
             sorter,
+            file: None,
             limit,
             data,
             entries,
@@ -244,7 +246,11 @@ impl<'a> SortBuffer<'a> {
         let index = sorter.next_run.fetch_add(1, Ordering::Relaxed);
         let run = match &sorter.spill {
             Spill::Disk(config) => {
-                let mut out = run_writer(config, index)?;
+                let file = match &self.file {
+                    Some(file) => Arc::clone(file),
+                    None => Arc::clone(self.file.insert(temp_file(config, index)?)),
+                };
+                let mut out = RunWriter::append(file, index)?;
                 for entry in &self.entries {
                     out.write(
                         entry.key,
@@ -302,7 +308,6 @@ pub(crate) mod tests {
             temp_dirs: vec![dir.path().to_path_buf()],
             buffer_bytes,
             max_fan_in,
-            read_buffer_bytes: 4096,
         })
         .unwrap()
     }
@@ -394,6 +399,26 @@ pub(crate) mod tests {
         assert_eq!(drain(sorter.merge().unwrap()), expected);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn merges_more_runs_at_once_than_files_may_be_open() {
+        use rustix::process::{Resource, getrlimit, setrlimit};
+        let mut limit = getrlimit(Resource::Nofile);
+        limit.current = Some(256);
+        setrlimit(Resource::Nofile, limit).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(&dir, 1, 4096);
+        let input = records(1000);
+        let mut buffer = sorter.buffer();
+        for (key, record) in &input {
+            buffer.push(*key, record).unwrap();
+        }
+        buffer.finish().unwrap();
+        let mut expected = input;
+        expected.sort_by_key(|(key, _)| *key);
+        assert_eq!(drain(sorter.merge().unwrap()), expected);
+    }
+
     #[test]
     fn empty_input() {
         let dir = tempfile::tempdir().unwrap();
@@ -464,7 +489,6 @@ pub(crate) mod tests {
             temp_dirs: Vec::new(),
             buffer_bytes: 1,
             max_fan_in: 2,
-            read_buffer_bytes: 1,
         };
         assert!(matches!(
             Sorter::new(config),

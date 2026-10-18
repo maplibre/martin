@@ -52,6 +52,7 @@ lasso.workspace = true
 map-tile-toolkit.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+memmap2.workspace = true
 mlt-core.workspace = true
 pmtiles.workspace = true
 radsort.workspace = true
@@ -73,6 +74,9 @@ insta.workspace = true
 martin-core = { workspace = true, features = ["_testing", "processing"] }
 martin-tilegen = { path = ".", features = ["internals"] }
 rstest.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["process", "std"] }
 
 [lints]
 workspace = true

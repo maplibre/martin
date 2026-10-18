@@ -83,7 +83,6 @@ async fn run(
                 temp_dirs: vec![sort_dir],
                 buffer_bytes: 64 << 10,
                 max_fan_in: 8,
-                read_buffer_bytes: 4096,
             },
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,

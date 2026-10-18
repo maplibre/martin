@@ -138,7 +138,6 @@ fn generated(dir: &std::path::Path) -> BTreeMap<(u8, u32, u32), Vec<u8>> {
             temp_dirs: vec![dir.to_path_buf()],
             buffer_bytes: 16 << 10,
             max_fan_in: 4,
-            read_buffer_bytes: 4096,
         },
         format: TileFormat::Mvt,
         encoding: Encoding::Gzip,
