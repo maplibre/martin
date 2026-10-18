@@ -57,7 +57,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
     buffer.finish().unwrap();
     let mut merger = sorter.merge().unwrap();
     let mut tiles = Tiles::new();
-    while let Some((key, bytes)) = merger.next_record().unwrap() {
+    while let Some((key, bytes)) = merger.peek() {
         let end = match Record::decode(bytes).unwrap().kind {
             GeomKind::FillRange { end } => end,
             GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
@@ -68,6 +68,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
             let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();
             tiles.insert((c.z(), c.x(), c.y()));
         }
+        merger.advance().unwrap();
     }
     tiles
 }

@@ -1,3 +1,5 @@
+use std::{mem, thread};
+
 use super::SortKey;
 use super::run::{Run, RunReader};
 use crate::TileGenResult;
@@ -7,8 +9,7 @@ use crate::TileGenResult;
 pub struct Merger {
     readers: Vec<RunReader>,
     tree: LoserTree,
-    /// Advanced on the next call, so the record it returned can be borrowed until then.
-    last_yielded: Option<usize>,
+    close_in_background: bool,
 }
 
 impl Merger {
@@ -21,24 +22,42 @@ impl Merger {
         Ok(Self {
             readers,
             tree,
-            last_yielded: None,
+            close_in_background: false,
         })
     }
 
-    pub fn next_record(&mut self) -> TileGenResult<Option<(SortKey, &[u8])>> {
-        if let Some(last) = self.last_yielded.take() {
-            self.readers[last].advance()?;
+    /// Unmapping a temp file frees its pages, seconds for a large merge, so the final merge does it off its thread.
+    pub(super) fn close_in_background(mut self) -> Self {
+        self.close_in_background = true;
+        self
+    }
+
+    /// The next record; it stays borrowable until [`advance`](Self::advance).
+    #[must_use]
+    pub fn peek(&self) -> Option<(SortKey, &[u8])> {
+        let reader = &self.readers[self.tree.winner()?];
+        reader.head().map(|key| (key, reader.record()))
+    }
+
+    /// Moves past the record [`peek`](Self::peek) returns.
+    pub fn advance(&mut self) -> TileGenResult<()> {
+        if let Some(winner) = self.tree.winner() {
+            self.readers[winner].advance()?;
             let readers = &self.readers;
-            self.tree.replay(last, |a, b| precedes(readers, a, b));
+            self.tree.replay(winner, |a, b| precedes(readers, a, b));
         }
-        let Some(winner) = self.tree.winner() else {
-            return Ok(None);
-        };
-        let reader = &self.readers[winner];
-        Ok(reader.head().map(|key| {
-            self.last_yielded = Some(winner);
-            (key, reader.record())
-        }))
+        Ok(())
+    }
+}
+
+impl Drop for Merger {
+    fn drop(&mut self) {
+        if self.close_in_background {
+            let readers = mem::take(&mut self.readers);
+            let _ = thread::Builder::new()
+                .name("run-close".to_owned())
+                .spawn(move || drop(readers));
+        }
     }
 }
 

@@ -1111,11 +1111,12 @@ mod tests {
         buffer.finish().unwrap();
         let mut merger = sorter.merge().unwrap();
         let mut out = Vec::new();
-        while let Some((key, bytes)) = merger.next_record().unwrap() {
+        while let Some((key, bytes)) = merger.peek() {
             let record = Record::decode(bytes).unwrap();
             let mut geom = GeomBuf::default();
             record.append_geometry(&mut geom).unwrap();
             out.push((key.tile_id().value(), record.kind, geom));
+            merger.advance().unwrap();
         }
         out
     }
@@ -1633,8 +1634,9 @@ mod tests {
         buffer.finish().unwrap();
         let mut merger = sorter.merge().unwrap();
         let mut out = Vec::new();
-        while let Some((key, bytes)) = merger.next_record().unwrap() {
+        while let Some((key, bytes)) = merger.peek() {
             out.push((key.tile_id().value(), bytes.to_vec()));
+            merger.advance().unwrap();
         }
         out
     }

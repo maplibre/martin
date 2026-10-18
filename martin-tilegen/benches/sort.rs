@@ -63,8 +63,9 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
                 }
                 buffer.finish().expect("spill");
                 let mut merger = sorter.merge().expect("merge");
-                while let Some(record) = merger.next_record().expect("read run") {
+                while let Some(record) = merger.peek() {
                     black_box(record);
+                    merger.advance().expect("read run");
                 }
             },
             BatchSize::PerIteration,
