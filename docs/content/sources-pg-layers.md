@@ -13,7 +13,8 @@ tags:
 
 `layers` is a key of a [PostgreSQL table source](sources-pg-tables.md). It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only the [bulk mode](martin-generate.md) of `martin cp` uses it so far, and the tile server ignores it.
+and draw order. The [bulk mode](martin-generate.md) of `martin cp` writes them into a tileset, and the
+tile server renders them on request, see [Serving](#serving).
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all
 of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
@@ -188,6 +189,9 @@ Without `sort_by`, the features of a layer keep the order the source reads them 
       `ORDER BY`.
     - Any other view is read in its own order.
 
+    The tile server reads each tile's features in the order PostgreSQL finds them, which can
+    differ from request to request, so only `sort_by` gives served tiles a fixed draw order.
+
 `sort_by` is a list of expressions, each a string or `{ expr: ..., desc: true }`, compared in turn.
 Features that compare equal keep the order they are read in.
 
@@ -339,6 +343,19 @@ postgres:
             source: { value: osm }
             rank: 3
 ```
+
+## Serving
+
+The tile server renders a table source with `layers` itself instead of asking PostGIS for an
+`ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its
+buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](architecture-generate.md#serving-tiles)
+shows how.
+
+- The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent`
+  fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
+- Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
+- `max_feature_count` limits the features read for each tile. With it, `order_by` chooses which are
+  kept. `order_by` alone changes nothing, as `sort_by` sets the draw order.
 
 ## Validation
 

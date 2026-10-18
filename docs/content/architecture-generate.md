@@ -1,5 +1,5 @@
 ---
-description: How bulk mode scans, renders, sorts, encodes and writes a tileset
+description: How bulk mode scans, renders, sorts, encodes and writes a tileset, and how the tile server renders tiles with the same engine
 icon: material/sitemap
 tags:
   - development
@@ -24,6 +24,9 @@ We implement this via two traits:
 
 Another database or file format is another `FeatureSource`, and another archive format is another `TileSink`.
 
+The tile server renders a table source with `layers` with the same engine, one tile at a time and in
+memory, see [Serving tiles](#serving-tiles).
+
 ## Motivation and Planetiler
 
 A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside
@@ -41,7 +44,8 @@ of features (a `FeatureSource`).
 As part of this effort, Martin can now generate a whole tileset at once, as Planetiler does. This
 expands the existing [`martin cp`](martin-cp.md) command: only its internals change, so that it supports
 more than one method of copying data from a source to an archive. Besides asking the source for each
-tile, it can read each source's features once and build the tiles itself.
+tile, it can read each source's features once and build the tiles itself. The tile server uses the same
+engine to render the tiles of a PostgreSQL table source with `layers` as they are requested.
 
 This method follows Planetiler in:
 
@@ -220,6 +224,33 @@ never sorts or buffers:
 The tileset's metadata, including the zooms, the format and each layer's fields, is only complete after the
 last tile, so the archive stores it last.
 
+## Serving tiles
+
+The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of
+bulk mode, without its queues and temp files. [Serving](sources-pg-layers.md#serving) covers its
+configuration.
+
+--8<-- "images/generate/serve.svg"
+
+1. **Read**: one query reads every feature whose geometry meets the tile grown by the largest
+   `buffer` of the table's layers. When the grown tile crosses the antimeridian, the part past it is
+   read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries
+   in the order PostgreSQL finds them, and the features are numbered in that order, as one partition.
+   `max_feature_count` limits how many it returns. Only with `max_feature_count`, `order_by` sorts them by
+   `id_column` first, to choose which are kept.
+2. **Render**: one render worker, on a blocking thread, renders the features at the tile's zoom only,
+   and slices them into that tile only, never into the other tiles they reach. The minimum size and simplification still follow the layer's
+   zooms, so the tile comes out as bulk mode writes it for the same `maxzoom`.
+3. **Sort**: the sort buffer stays in memory. It grows as records arrive instead of reserving its
+   budget, and is never written to a temp file. The merge reads its records back in key order.
+4. **Group and encode**: the grouper and encoder of phase 2, in MBTiles order, write an uncompressed
+   MVT tile. A tile no feature reaches is served empty.
+
+The server then converts, compresses and caches the tile, as it does for any other source.
+
+Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by`
+can draw them in another order than bulk mode, see [Draw order](sources-pg-layers.md#draw-order).
+
 ## Memory and disk
 
 Every queue and buffer has a bound that does not depend on the size of the input:
@@ -237,6 +268,9 @@ An intermediate merge, with more than 256 runs, runs several 64 MiB merges at on
 has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another
 copy of the runs it merges, which are the fewest bytes it can merge.
 
+[Serving a tile](#serving-tiles) has no such bound and uses no disk: it holds every feature reaching
+the tile, and their records, in memory until the tile is encoded.
+
 ## Errors
 
 - In phase 1, an error stops every reader from claiming another partition and every worker from taking
@@ -248,3 +282,6 @@ copy of the runs it merges, which are the fewest bytes it can merge.
   slicer cannot handle at a zoom are skipped at that zoom and counted.
 - A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted
   runs are removed by the operating system in every case.
+- A served tile logs the features the slicer could not handle as warnings. Expression failures are only
+  logged at debug level there, since the plan already warns about the first failure of each expression.
+  A failed query or encoding fails the request.
