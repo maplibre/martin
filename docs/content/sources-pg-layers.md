@@ -358,9 +358,9 @@ shows how.
   With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the
   draw order.
 - `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding
-  a tile on a cache miss, in one query, and caches all of its tiles. Blocks are aligned to multiples of
-  N, so the tiles of one block share it. Without a tile cache, or outside its zooms, each tile is
-  rendered alone.
+  a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
+  each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
+  tile cache, or outside its zooms, each tile is rendered alone. A table with `prefetch` needs `layers`.
 
 ```yaml
 postgres:

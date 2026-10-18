@@ -175,6 +175,12 @@ pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
                 {
                     return Err(tiling::TilingConfigError::LayerIdWithLayers(id.clone()));
                 }
+                if let Some(id) = tables
+                    .iter()
+                    .find_map(|(id, t)| (t.prefetch.is_some() && t.layers.is_none()).then_some(id))
+                {
+                    return Err(tiling::TilingConfigError::PrefetchWithoutLayers(id.clone()));
+                }
                 Ok(Self(tables))
             })
         }

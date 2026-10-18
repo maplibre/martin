@@ -60,14 +60,32 @@ impl CollectUnrecognizedKeys for Layers {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct Prefetch(NonZeroU8);
 
 impl Prefetch {
+    /// The most tiles per side of a block, so one miss renders at most 256 tiles.
+    pub const MAX: u8 = 16;
+
     #[must_use]
-    pub fn tiles_per_side(self) -> u8 {
-        self.0.get()
+    pub fn tiles_per_side(self) -> NonZeroU8 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Prefetch {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let side = u8::deserialize(deserializer)?;
+        NonZeroU8::new(side)
+            .filter(|side| side.get() <= Self::MAX)
+            .map(Self)
+            .ok_or_else(|| {
+                serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(side.into()),
+                    &format!("from 1 to {} tiles per side", Self::MAX).as_str(),
+                )
+            })
     }
 }
 

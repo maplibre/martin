@@ -1,6 +1,7 @@
 //! Serves a table with `layers`: one query reads the features around a tile, Martin's engine renders them.
 
 use std::collections::HashMap;
+use std::num::NonZeroU8;
 use std::sync::Arc;
 
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, Encoding, TileCoord, TileData, TileRect};
@@ -24,8 +25,8 @@ pub struct PostgresEngineInfo {
     /// How far past a tile its features are read, as a fraction of a tile's side: the largest buffer
     /// of the layers.
     pub margin: f64,
-    /// Tiles per side of the block a cache miss renders; 1 renders just the tile.
-    pub prefetch: u8,
+    /// Tiles per side of the block a cache miss renders; `None` renders just the tile.
+    pub prefetch: Option<NonZeroU8>,
 }
 
 impl PostgresEngineInfo {
@@ -53,10 +54,10 @@ impl PostgresEngineInfo {
         source_id: &str,
         xyz: TileCoord,
     ) -> PostgresResult<Option<Vec<(TileCoord, TileData)>>> {
-        if self.prefetch <= 1 {
+        let Some(side) = self.prefetch else {
             return Ok(None);
-        }
-        let side = u32::from(self.prefetch);
+        };
+        let side = u32::from(side.get());
         let last = (1u32 << xyz.z()) - 1;
         let (x, y) = (xyz.x() / side * side, xyz.y() / side * side);
         let block = TileRect::new(

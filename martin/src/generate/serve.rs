@@ -58,7 +58,10 @@ pub fn engine_info(
         sql_query: sql.sql,
         plan: Arc::new(plan),
         margin,
-        prefetch: info.prefetch.map_or(1, Prefetch::tiles_per_side),
+        prefetch: info
+            .prefetch
+            .map(Prefetch::tiles_per_side)
+            .filter(|side| side.get() > 1),
     })
 }
 

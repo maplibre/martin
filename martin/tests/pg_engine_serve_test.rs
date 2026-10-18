@@ -48,7 +48,13 @@ async fn generated(
     let table = lower_table("table_source", info, &options)
         .unwrap()
         .unwrap();
-    let source = PgScanSource::new(builder.pool().clone(), vec![table]).unwrap();
+    let source = PgScanSource::new(
+        builder.pool().clone(),
+        vec![table],
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await
+    .unwrap();
     let path = dir.path().join("all.mbtiles");
     let sort_dir = dir.path().to_path_buf();
     let sink_path = path.clone();
