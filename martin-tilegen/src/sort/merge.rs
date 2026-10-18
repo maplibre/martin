@@ -1,3 +1,7 @@
+use std::{mem, thread};
+
+use tracing::warn;
+
 use super::SortKey;
 use super::run::{Run, RunReader};
 use crate::TileGenResult;
@@ -7,8 +11,6 @@ use crate::TileGenResult;
 pub struct Merger {
     readers: Vec<RunReader>,
     tree: LoserTree,
-    /// Advanced on the next call, so the record it returned can be borrowed until then.
-    last_yielded: Option<usize>,
 }
 
 impl Merger {
@@ -18,27 +20,40 @@ impl Merger {
             .map(RunReader::open)
             .collect::<TileGenResult<Vec<_>>>()?;
         let tree = LoserTree::new(readers.len(), |a, b| precedes(&readers, a, b));
-        Ok(Self {
-            readers,
-            tree,
-            last_yielded: None,
-        })
+        Ok(Self { readers, tree })
     }
 
-    pub fn next_record(&mut self) -> TileGenResult<Option<(SortKey, &[u8])>> {
-        if let Some(last) = self.last_yielded.take() {
-            self.readers[last].advance()?;
+    /// The next record; it stays borrowable until [`advance`](Self::advance).
+    #[must_use]
+    pub fn peek(&self) -> Option<(SortKey, &[u8])> {
+        let reader = &self.readers[self.tree.winner()?];
+        reader.head().map(|key| (key, reader.record()))
+    }
+
+    /// Moves past the record [`peek`](Self::peek) returns.
+    pub fn advance(&mut self) -> TileGenResult<()> {
+        if let Some(winner) = self.tree.winner() {
+            self.readers[winner].advance()?;
             let readers = &self.readers;
-            self.tree.replay(last, |a, b| precedes(readers, a, b));
+            self.tree.replay(winner, |a, b| precedes(readers, a, b));
         }
-        let Some(winner) = self.tree.winner() else {
-            return Ok(None);
-        };
-        let reader = &self.readers[winner];
-        Ok(reader.head().map(|key| {
-            self.last_yielded = Some(winner);
-            (key, reader.record())
-        }))
+        Ok(())
+    }
+}
+
+impl Drop for Merger {
+    /// Unmapping a temp file frees its pages, seconds for a large merge, so it happens off the merging thread.
+    fn drop(&mut self) {
+        let readers = mem::take(&mut self.readers);
+        if readers.is_empty() {
+            return;
+        }
+        if let Err(err) = thread::Builder::new()
+            .name("run-close".to_owned())
+            .spawn(move || drop(readers))
+        {
+            warn!("closed sort runs on the merging thread, no thread could be started: {err}");
+        }
     }
 }
 

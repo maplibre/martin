@@ -199,11 +199,16 @@ impl<'a> Record<'a> {
         })
     }
 
+    /// The kind of an encoded record, without decoding the rest of it.
+    pub fn kind(mut bytes: &[u8]) -> TileGenResult<GeomKind> {
+        take(&mut bytes)
+    }
+
     /// Whether an encoded record is a fill or fill range, without decoding the rest of it.
     #[must_use]
-    pub fn is_fill(mut bytes: &[u8]) -> bool {
+    pub fn is_fill(bytes: &[u8]) -> bool {
         matches!(
-            take(&mut bytes),
+            Self::kind(bytes),
             Ok(GeomKind::Fill | GeomKind::FillRange { .. })
         )
     }

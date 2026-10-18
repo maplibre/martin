@@ -130,8 +130,9 @@ impl Sorter {
 fn merge_group(config: &SortConfig, group: Vec<Run>) -> TileGenResult<Run> {
     let mut out = RunWriter::append(temp_file(config, group[0].index)?, group[0].index)?;
     let mut merger = Merger::new(group)?;
-    while let Some((key, record)) = merger.next_record()? {
+    while let Some((key, record)) = merger.peek() {
         out.write(key, record)?;
+        merger.advance()?;
     }
     out.finish()
 }
@@ -314,8 +315,9 @@ pub(crate) mod tests {
 
     fn drain(mut merger: Merger) -> Vec<(SortKey, Vec<u8>)> {
         let mut out = Vec::new();
-        while let Some((key, record)) = merger.next_record().unwrap() {
+        while let Some((key, record)) = merger.peek() {
             out.push((key, record.to_vec()));
+            merger.advance().unwrap();
         }
         out
     }

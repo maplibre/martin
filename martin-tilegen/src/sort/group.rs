@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use super::record::{GeomKind, Record};
-use super::{Merger, Seq, SortKey};
+use super::{Merger, Seq};
 use crate::TileGenResult;
 
 /// One record of a tile, borrowed from its buffer.
@@ -121,8 +121,6 @@ struct ActiveFill {
 
 pub struct TileGrouper {
     merger: Merger,
-    /// The first record of the next tile, pulled while finishing the previous one.
-    pending: Option<(SortKey, Vec<u8>)>,
     active: Vec<ActiveFill>,
     /// The tile after the last one emitted; active ranges cover it.
     position: u64,
@@ -133,7 +131,6 @@ impl TileGrouper {
     pub fn new(merger: Merger) -> Self {
         Self {
             merger,
-            pending: None,
             active: Vec::new(),
             position: 0,
         }
@@ -163,8 +160,7 @@ impl TileGrouper {
 
     /// Fills `tile` with the next tile's records; `false` at the end. `tile` is reused to keep its buffers.
     pub fn next_tile(&mut self, tile: &mut TileRecords) -> TileGenResult<bool> {
-        self.pull()?;
-        let next_record = self.pending.as_ref().map(|(key, _)| key.tile_id().value());
+        let next_record = self.merger.peek().map(|(key, _)| key.tile_id().value());
         let tile_id = match (next_record, self.active.is_empty()) {
             (None, true) => return Ok(false),
             (Some(id), true) => id,
@@ -174,38 +170,32 @@ impl TileGrouper {
         tile.data.clear();
         tile.records.clear();
         while let Some((key, bytes)) = self
-            .pending
-            .take_if(|(key, _)| key.tile_id().value() == tile_id)
+            .merger
+            .peek()
+            .filter(|(key, _)| key.tile_id().value() == tile_id)
         {
-            match Record::decode(&bytes)?.kind {
+            match Record::kind(bytes)? {
                 GeomKind::FillRange { end } => self.active.push(ActiveFill {
                     end,
                     layer: key.layer().value(),
                     seq: key.seq(),
-                    record: bytes,
+                    record: bytes.to_vec(),
                 }),
                 GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
-                    tile.push_record(key.layer().value(), key.seq(), &bytes);
+                    tile.push_record(key.layer().value(), key.seq(), bytes);
                 }
             }
-            self.pull()?;
+            self.merger.advance()?;
         }
-        for fill in &self.active {
-            tile.push_record(fill.layer, fill.seq, &fill.record);
+        if !self.active.is_empty() {
+            for fill in &self.active {
+                tile.push_record(fill.layer, fill.seq, &fill.record);
+            }
+            tile.records.sort_by_key(|slot| (slot.layer, slot.seq));
         }
-        tile.records.sort_by_key(|slot| (slot.layer, slot.seq));
         self.position = tile_id + 1;
         self.active.retain(|fill| fill.end > self.position);
         Ok(true)
-    }
-
-    fn pull(&mut self) -> TileGenResult<()> {
-        if self.pending.is_none()
-            && let Some((key, bytes)) = self.merger.next_record()?
-        {
-            self.pending = Some((key, bytes.to_vec()));
-        }
-        Ok(())
     }
 }
 
@@ -216,7 +206,7 @@ mod tests {
     use super::*;
     use crate::TileId;
     use crate::sort::record::{EncodedProps, Geom, encode};
-    use crate::sort::{LayerId, SortConfig, Sorter};
+    use crate::sort::{LayerId, SortConfig, SortKey, Sorter};
 
     fn record(geom: Geom<'_>) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -283,6 +273,25 @@ mod tests {
             tiles,
             [(1, vec![(0, 5), (0, 8), (1, 7)]), (9, vec![(0, 2)])]
         );
+    }
+
+    #[test]
+    fn records_of_one_tile_from_several_buffers_are_sorted_by_layer_then_seq() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut first = sorter.buffer();
+        first.push(key(1, 1, 2), &point).unwrap();
+        first.push(key(1, 0, 4), &point).unwrap();
+        let mut second = sorter.buffer();
+        second.push(key(1, 1, 1), &point).unwrap();
+        second.push(key(1, 0, 3), &point).unwrap();
+        first.finish().unwrap();
+        second.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        assert_eq!(tiles, [(1, vec![(0, 3), (0, 4), (1, 1), (1, 2)])]);
     }
 
     #[test]
