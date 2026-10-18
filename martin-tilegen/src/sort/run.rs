@@ -1,9 +1,11 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read as _, Seek as _};
-use std::path::Path;
+use std::io::{self, BufWriter, Seek as _, Write};
+use std::ops::Range;
+use std::sync::{Arc, OnceLock};
 
-use wincode::SchemaWrite;
+use memmap2::Mmap;
 use wincode::config::Configuration;
+use wincode::{SchemaRead, SchemaWrite};
 
 use super::Entry;
 use super::SortKey;
@@ -11,7 +13,7 @@ use crate::TileGenResult;
 
 const WRITE_BUFFER_BYTES: usize = 1 << 20;
 
-/// Sorted `(key, record)` pairs: a temp file in fixed-width [wincode], or a spilled buffer in memory.
+/// Sorted `(key, record)` pairs: a segment of a temp file in fixed-width [wincode], or a spilled buffer in memory.
 /// Runs are numbered in creation order, and a worker's runs are created in the order it pushed
 /// records, so breaking key ties by run index keeps each worker's push order.
 pub(super) struct Run {
@@ -23,14 +25,12 @@ pub(super) struct Run {
 /// Where a run's records are.
 enum RunRecords {
     File {
-        file: File,
+        file: Arc<SpillFile>,
+        start: u64,
         records: u64,
     },
     /// `entries` is sorted and points into `data`.
-    Memory {
-        data: Vec<u8>,
-        entries: Vec<Entry>,
-    },
+    Memory { data: Vec<u8>, entries: Vec<Entry> },
 }
 
 impl Run {
@@ -44,17 +44,64 @@ impl Run {
     }
 }
 
+/// A temp file of runs, mapped whole when its first run is read.
+/// Runs share temp files, so open files do not grow with the number of runs.
+pub(super) struct SpillFile {
+    file: File,
+    map: OnceLock<Arc<Mmap>>,
+}
+
+impl SpillFile {
+    /// Wraps an empty unlinked temp file.
+    pub(super) fn new(file: File) -> Self {
+        Self {
+            file,
+            map: OnceLock::new(),
+        }
+    }
+
+    /// Every writer to the file must have finished.
+    fn map(&self) -> io::Result<Arc<Mmap>> {
+        if let Some(map) = self.map.get() {
+            return Ok(Arc::clone(map));
+        }
+        #[expect(unsafe_code, reason = "memmap2 has no safe constructor")]
+        // SAFETY: only this process holds the unlinked temp file.
+        // No run is read before its writers finish, so the mapped bytes never change.
+        let map = unsafe { Mmap::map(&self.file)? };
+        #[cfg(unix)]
+        map.advise(memmap2::Advice::Sequential)?;
+        Ok(Arc::clone(self.map.get_or_init(|| Arc::new(map))))
+    }
+}
+
+/// Writes to the end of a shared [`SpillFile`].
+struct Append(Arc<SpillFile>);
+
+impl Write for Append {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        (&self.0.file).write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        (&self.0.file).flush()
+    }
+}
+
+/// Appends a run to the end of a temp file; a file takes one writer at a time.
 pub(super) struct RunWriter {
     index: u32,
-    out: BufWriter<File>,
+    start: u64,
+    out: BufWriter<Append>,
     records: u64,
 }
 
 impl RunWriter {
-    pub(super) fn create(dir: &Path, index: u32) -> TileGenResult<Self> {
+    pub(super) fn append(file: Arc<SpillFile>, index: u32) -> TileGenResult<Self> {
         Ok(Self {
             index,
-            out: BufWriter::with_capacity(WRITE_BUFFER_BYTES, tempfile::tempfile_in(dir)?),
+            start: (&file.file).stream_position()?,
+            out: BufWriter::with_capacity(WRITE_BUFFER_BYTES, Append(file)),
             records: 0,
         })
     }
@@ -66,15 +113,16 @@ impl RunWriter {
     }
 
     pub(super) fn finish(self) -> TileGenResult<Run> {
-        let file = self
+        let Append(file) = self
             .out
             .into_inner()
-            .map_err(std::io::IntoInnerError::into_error)?;
+            .map_err(io::IntoInnerError::into_error)?;
         Ok(Run {
             index: self.index,
-            bytes: file.metadata()?.len(),
+            bytes: (&file.file).stream_position()? - self.start,
             records: RunRecords::File {
                 file,
+                start: self.start,
                 records: self.records,
             },
         })
@@ -83,11 +131,13 @@ impl RunWriter {
 
 /// Reads a run's records in order, one ahead: [`head`](Self::head) is the next key.
 pub(super) enum RunReader {
+    /// `unread` is the unread part of the run, and `record` is the current record within `map`.
     File {
-        reader: BufReader<File>,
+        map: Arc<Mmap>,
+        unread: Range<usize>,
         remaining: u64,
         head: Option<SortKey>,
-        record: Vec<u8>,
+        record: Range<usize>,
     },
     Memory {
         data: Vec<u8>,
@@ -97,16 +147,23 @@ pub(super) enum RunReader {
 }
 
 impl RunReader {
-    /// Opens `run` at its first record; `read_buffer_bytes` only applies to a temp file.
-    pub(super) fn open(run: Run, read_buffer_bytes: usize) -> TileGenResult<Self> {
+    /// Opens `run` at its first record.
+    pub(super) fn open(run: Run) -> TileGenResult<Self> {
         match run.records {
-            RunRecords::File { mut file, records } => {
-                file.rewind()?;
+            RunRecords::File {
+                file,
+                start,
+                records,
+            } => {
+                let map = file.map()?;
+                let start = usize::try_from(start).expect("a mapped file fits in memory");
+                let bytes = usize::try_from(run.bytes).expect("a mapped file fits in memory");
                 let mut reader = Self::File {
-                    reader: BufReader::with_capacity(read_buffer_bytes, file),
+                    map,
+                    unread: start..start + bytes,
                     remaining: records,
                     head: None,
-                    record: Vec::new(),
+                    record: 0..0,
                 };
                 reader.advance()?;
                 Ok(reader)
@@ -130,7 +187,7 @@ impl RunReader {
     /// The bytes of the current record; empty once the run is exhausted.
     pub(super) fn record(&self) -> &[u8] {
         match self {
-            Self::File { record, .. } => record,
+            Self::File { map, record, .. } => &map[record.clone()],
             Self::Memory {
                 data,
                 entries,
@@ -141,24 +198,27 @@ impl RunReader {
         }
     }
 
-    /// The record count of a temp file is known, so any EOF while reading is a truncated run, not the end.
+    /// The record count of a temp file is known, so running out of bytes is a truncated run, not the end.
     pub(super) fn advance(&mut self) -> TileGenResult<()> {
         match self {
             Self::File {
-                reader,
+                map,
+                unread,
                 remaining,
                 head,
                 record,
             } => {
                 if *remaining == 0 {
                     *head = None;
+                    *record = 0..0;
                     return Ok(());
                 }
                 *remaining -= 1;
-                let (key, len): (_, usize) =
-                    wincode::config::deserialize_from(&mut *reader, Configuration::default())?;
-                record.resize(len, 0);
-                reader.read_exact(record)?;
+                let mut rest = &map[unread.clone()];
+                let (key, bytes) = <(SortKey, &[u8]) as SchemaRead<Configuration>>::get(&mut rest)?;
+                let read = unread.end - rest.len();
+                *record = read - bytes.len()..read;
+                unread.start = read;
                 *head = Some(key);
             }
             Self::Memory { entries, next, .. } => *next = (*next + 1).min(entries.len()),

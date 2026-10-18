@@ -377,7 +377,6 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
             temp_dirs: options.temp_dirs.clone(),
             buffer_bytes: usize::try_from(per_thread).unwrap_or(usize::MAX),
             max_fan_in: 256,
-            read_buffer_bytes: 256 << 10,
         },
         format: options.format,
         encoding: options.encoding,

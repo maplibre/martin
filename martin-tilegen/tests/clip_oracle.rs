@@ -31,7 +31,6 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         temp_dirs: vec![dir.path().to_path_buf()],
         buffer_bytes: 1 << 20,
         max_fan_in: 8,
-        read_buffer_bytes: 4096,
     })
     .unwrap();
     let layer = RenderLayer::new(0, 0..=MAX_ZOOM, GRID).unwrap();

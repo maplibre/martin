@@ -1102,7 +1102,6 @@ mod tests {
             temp_dirs: vec![dir.path().to_path_buf()],
             buffer_bytes: 1 << 20,
             max_fan_in: 8,
-            read_buffer_bytes: 4096,
         })
         .unwrap();
         let mut buffer = sorter.buffer();
@@ -1558,7 +1557,6 @@ mod tests {
             temp_dirs: vec![dir.path().to_path_buf()],
             buffer_bytes: 1 << 20,
             max_fan_in: 8,
-            read_buffer_bytes: 4096,
         })
         .unwrap();
         let mut buffer = sorter.buffer();
@@ -1628,7 +1626,6 @@ mod tests {
             temp_dirs: vec![dir.path().to_path_buf()],
             buffer_bytes: 1 << 20,
             max_fan_in: 8,
-            read_buffer_bytes: 4096,
         })
         .unwrap();
         let mut buffer = sorter.buffer();

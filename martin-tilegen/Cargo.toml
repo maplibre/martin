@@ -52,6 +52,7 @@ lasso.workspace = true
 map-tile-toolkit.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+memmap2.workspace = true
 mlt-core.workspace = true
 pmtiles.workspace = true
 radsort.workspace = true
@@ -65,6 +66,9 @@ tracing.workspace = true
 wincode = { workspace = true, features = ["derive"] }
 wkb.workspace = true
 xxhash-rust.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["process", "std"] }
 
 [dev-dependencies]
 approx.workspace = true

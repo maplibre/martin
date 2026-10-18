@@ -213,7 +213,6 @@ fn run(
             temp_dirs: vec![temp.to_path_buf()],
             buffer_bytes: 64 << 20,
             max_fan_in: 256,
-            read_buffer_bytes: 256 << 10,
         },
         format,
         encoding: Encoding::Uncompressed,

@@ -12,10 +12,10 @@ pub struct Merger {
 }
 
 impl Merger {
-    pub(super) fn new(runs: Vec<Run>, read_buffer_bytes: usize) -> TileGenResult<Self> {
+    pub(super) fn new(runs: Vec<Run>) -> TileGenResult<Self> {
         let readers = runs
             .into_iter()
-            .map(|run| RunReader::open(run, read_buffer_bytes))
+            .map(RunReader::open)
             .collect::<TileGenResult<Vec<_>>>()?;
         let tree = LoserTree::new(readers.len(), |a, b| precedes(&readers, a, b));
         Ok(Self {
