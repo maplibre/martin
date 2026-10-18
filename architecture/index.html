@@ -1680,8 +1680,8 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 
     Cache -.-&gt;|Cached Tiles/Resources| Client</code></pre>
 <h2 id="crates">Crates</h2>
-<p>Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">martin</label><label for="__tabbed_1_2">martin-core</label><label for="__tabbed_1_3">mbtiles</label><label for="__tabbed_1_4">martin-tile-utils</label><label for="__tabbed_1_5">martin-tilegen</label></div>
+<p>Martin's architecture is organized into six main Rust crates, each with distinct responsibilities:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:6"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><input id="__tabbed_1_6" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">martin</label><label for="__tabbed_1_2">martin-core</label><label for="__tabbed_1_3">mbtiles</label><label for="__tabbed_1_4">martin-tile-utils</label><label for="__tabbed_1_5">martin-tilegen</label><label for="__tabbed_1_6">map-tile-toolkit</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><strong>Purpose</strong>: The main tile server binary and HTTP service layer.</p>
@@ -1740,9 +1740,18 @@ adapted from <a href="https://github.com/onthegomap/planetiler">Planetiler</a>.<
 <li>Rendering every feature at every zoom into tile pieces</li>
 <li>Sorting the pieces on disk by tile, and merging them back</li>
 <li>Encoding tiles in parallel and writing them in archive order</li>
-<li>Rendering a requested tile in memory for the tile server</li>
+<li>Rendering a requested tile, or its prefetch block, in memory for the tile server</li>
 </ul>
 <p>See <a href="../architecture-generate/">Generation Architecture</a>.</p>
+</div>
+<div class="tabbed-block">
+<p><strong>Purpose</strong>: Clipping integer geometries into per-tile pieces on a tile grid, used by <code>martin-tilegen</code>.</p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>Slicing lines, points and polygons into the tiles they touch, keeping original vertices</li>
+<li>Valid polygon pieces with synthetic edges along the tile buffer</li>
+<li>Reassembling pieces from neighboring tiles into whole geometries</li>
+</ul>
 </div>
 </div>
 </div>
@@ -1774,6 +1783,15 @@ adapted from <a href="https://github.com/onthegomap/planetiler">Planetiler</a>.<
         Source--&gt;&gt;Server: Tile data
         Server-&gt;&gt;Server: Postprocess (MLT, compress)
         Server-&gt;&gt;Cache: Store postprocessed tile
+        Server--&gt;&gt;Client: 200 OK (tile data)
+    else Tile not in cache, source prefetches blocks
+        Server-&gt;&gt;Source: Get block holding (z, x, y)
+        Source-&gt;&gt;DB: Query features of the block
+        DB--&gt;&gt;Source: Features
+        Source-&gt;&gt;Source: Render every tile of the block
+        Source--&gt;&gt;Server: Tiles of the block
+        Server-&gt;&gt;Server: Postprocess each tile
+        Server-&gt;&gt;Cache: Store every postprocessed tile
         Server--&gt;&gt;Client: 200 OK (tile data)
     end</code></pre>
 </div>

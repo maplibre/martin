@@ -61,7 +61,7 @@ graph TB
 
 ## Crates
 
-Martin's architecture is organized into five main Rust crates, each with distinct responsibilities:
+Martin's architecture is organized into six main Rust crates, each with distinct responsibilities:
 
 **Purpose**: The main tile server binary and HTTP service layer.
 
@@ -114,9 +114,17 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 - Rendering every feature at every zoom into tile pieces
 - Sorting the pieces on disk by tile, and merging them back
 - Encoding tiles in parallel and writing them in archive order
-- Rendering a requested tile in memory for the tile server
+- Rendering a requested tile, or its prefetch block, in memory for the tile server
 
 See [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>).
+
+**Purpose**: Clipping integer geometries into per-tile pieces on a tile grid, used by `martin-tilegen`.
+
+**Key Responsibilities**:
+
+- Slicing lines, points and polygons into the tiles they touch, keeping original vertices
+- Valid polygon pieces with synthetic edges along the tile buffer
+- Reassembling pieces from neighboring tiles into whole geometries
 
 ## Requests and startup
 
@@ -145,6 +153,15 @@ sequenceDiagram
         Source-->>Server: Tile data
         Server->>Server: Postprocess (MLT, compress)
         Server->>Cache: Store postprocessed tile
+        Server-->>Client: 200 OK (tile data)
+    else Tile not in cache, source prefetches blocks
+        Server->>Source: Get block holding (z, x, y)
+        Source->>DB: Query features of the block
+        DB-->>Source: Features
+        Source->>Source: Render every tile of the block
+        Source-->>Server: Tiles of the block
+        Server->>Server: Postprocess each tile
+        Server->>Cache: Store every postprocessed tile
         Server-->>Client: 200 OK (tile data)
     end
 ```

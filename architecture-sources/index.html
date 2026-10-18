@@ -1579,7 +1579,8 @@ See <a href="../architecture/">Serving Architecture</a> for how the server uses 
 <li>Returns results as MVT tiles</li>
 </ol>
 <p>A table source with <a href="../sources-pg-layers/"><code>layers</code></a> skips <code>ST_AsMVT</code>: its query reads the features
-around the tile, and <code>martin-tilegen</code> renders them, see <a href="../architecture-generate/#serving-tiles">Serving tiles</a>.</p>
+around the tile, or with <code>prefetch</code> around its block, and <code>martin-tilegen</code> renders them, see
+<a href="../architecture-generate/#serving-tiles">Serving tiles</a>.</p>
 </div>
 <div class="tabbed-block">
 <pre class="mermaid"><code>graph TB

@@ -33,7 +33,7 @@ graph TB
 6. Generates tile SQL queries with bbox parameters
 7. Returns results as MVT tiles
 
-A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>).
+A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>).
 
 ```
 graph TB

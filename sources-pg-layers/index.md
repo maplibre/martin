@@ -21,7 +21,6 @@
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
 > - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
-> - [ ] `prefetch`
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
 
@@ -304,7 +303,24 @@ The tile server renders a table source with `layers` itself instead of asking Po
 
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent` fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
-- `max_feature_count` limits the features read for each tile. With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the draw order.
+- `max_feature_count` limits the features read for each tile, or for each block with `prefetch`. With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the draw order.
+- `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding a tile on a cache miss, in one query, and caches all of its tiles. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a tile cache, or outside its zooms, each tile is rendered alone.
+
+```yaml
+postgres:
+  prefetch: 2
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      id_column: osm_id
+      prefetch: 4
+      properties:
+        class: text
+      layers:
+        roads: {}
+```
 
 ## Validation
 
