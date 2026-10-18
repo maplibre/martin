@@ -234,8 +234,10 @@ configuration.
 
 1. **Read**: one query reads every feature whose geometry meets the tile grown by the largest
    `buffer` of the table's layers. When the grown tile crosses the antimeridian, the part past it is
-   read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries,
-   ordered by `id_column`, and the features are numbered in that order, as one partition.
+   read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries
+   in the order PostgreSQL finds them, and the features are numbered in that order, as one partition.
+   `max_feature_count` limits how many it returns. Only with `max_feature_count`, `order_by` sorts them by
+   `id_column` first, to choose which are kept.
 2. **Render**: one render worker, on a blocking thread, renders the features at the tile's zoom only,
    and slices them into that tile only, never into the other tiles they reach. The minimum size and simplification still follow the layer's
    zooms, so the tile comes out as bulk mode writes it for the same `maxzoom`.
@@ -246,8 +248,8 @@ configuration.
 
 The server then converts, compresses and caches the tile, as it does for any other source.
 
-Inside a layer, the features keep their `id_column` order, so a layer without `sort_by` only matches
-bulk mode when bulk mode reads in that order too, see [Draw order](sources-pg-layers.md#draw-order).
+Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by`
+can draw them in another order than bulk mode, see [Draw order](sources-pg-layers.md#draw-order).
 
 ## Memory and disk
 

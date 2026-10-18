@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use indoc::indoc;
+use martin::config::args::OrderByType;
 use martin::config::file::postgres::{
     PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo,
 };
@@ -14,6 +15,7 @@ use martin::generate::postgres::PgScanSource;
 use martin_tile_utils::{Encoding, TileCoord, decode_gzip};
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
+use mlt_core::mvt::mvt_to_feature_collection;
 
 async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     let mut config = PostgresConfig {
@@ -171,4 +173,65 @@ async fn a_maxzoom_past_the_engine_grid_fails_at_startup() {
         panic!("a maxzoom of 19 at extent 4096 is served")
     };
     insta::assert_snapshot!(err.to_string(), @"Cannot serve the layers of table source table_source: layer `points`: extent 4096 at max zoom 19 overflows the i32 grid");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn max_feature_count_keeps_the_features_order_by_puts_first() {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        max_feature_count: Some(3),
+        order_by: Some(OrderByType::IdDesc),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let specs: BTreeMap<_, _> = specs.into_iter().collect();
+    let Some(SourceSpec::Table(info)) = specs.get("table_source") else {
+        panic!("no table source table_source")
+    };
+    let mut info = info.clone();
+    info.id_column = Some("gid".to_owned());
+    info.maxzoom = Some(0);
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            all:
+              sort_by: [gid]
+        "})
+        .unwrap(),
+    ));
+    let (source, _) = builder
+        .instantiate("table_source", SourceSpec::Table(info))
+        .await
+        .unwrap();
+    let tile = source
+        .get_tile(TileCoord::new_checked(0, 0, 0).unwrap(), None)
+        .await
+        .unwrap();
+    let ids: Vec<_> = mvt_to_feature_collection(tile.as_ref())
+        .unwrap()
+        .features
+        .into_iter()
+        .map(|feature| feature.id)
+        .collect();
+    insta::assert_debug_snapshot!(ids, @"
+    [
+        Some(
+            26,
+        ),
+        Some(
+            27,
+        ),
+        Some(
+            28,
+        ),
+    ]
+    ");
 }

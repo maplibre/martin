@@ -252,7 +252,7 @@ pub async fn table_to_query(
             let reason = format!("tile grid `{}` is not Web Mercator", grid.grid().id());
             return Err(EngineTable(id, reason.into()));
         }
-        return match engine_info(&id, &mut info) {
+        return match engine_info(&id, &mut info, max_feature_count, order_by) {
             Ok(engine) => Ok((id, PostgresTiler::Engine(engine), info)),
             Err(err) => Err(EngineTable(id, Box::new(err))),
         };
@@ -605,10 +605,16 @@ pub fn scan_sql(
 }
 
 /// The query a table with `layers` is served from: [`scan_sql`] limited to the geometries meeting
-/// either of two Web Mercator envelopes, `$1..$4` and `$5..$8` (`xmin, ymin, xmax, ymax`), ordered by
-/// the id when there is one. The second envelope is the part of the area past the antimeridian.
+/// either of two Web Mercator envelopes, `$1..$4` and `$5..$8` (`xmin, ymin, xmax, ymax`). The second
+/// envelope is the part of the area past the antimeridian. Rows come in the database's order: only a
+/// `max_feature_count` with an `order_by` and an id sorts them, to choose which are kept.
 #[cfg(feature = "unstable-generate")]
-pub fn engine_sql(info: &TableInfo, columns: &[String]) -> PostgresResult<ScanSql> {
+pub fn engine_sql(
+    info: &TableInfo,
+    columns: &[String],
+    max_feature_count: Option<usize>,
+    order_by: Option<OrderByType>,
+) -> PostgresResult<ScanSql> {
     let mut sql = scan_sql(info, columns, None)?;
     let column = escape_identifier(&info.geometry_column);
     let envelope = |first: u8| {
@@ -620,9 +626,14 @@ pub fn engine_sql(info: &TableInfo, columns: &[String]) -> PostgresResult<ScanSq
         }
     };
     let (main, wrapped) = (envelope(1), envelope(5));
-    let order = if sql.has_id { " ORDER BY 2" } else { "" };
+    let order = match (max_feature_count, order_by, sql.has_id) {
+        (Some(_), Some(OrderByType::IdAsc), true) => " ORDER BY 2 ASC NULLS LAST",
+        (Some(_), Some(OrderByType::IdDesc), true) => " ORDER BY 2 DESC NULLS LAST",
+        _ => "",
+    };
+    let limit = max_feature_count.map_or(String::new(), |v| format!(" LIMIT {v}"));
     sql.sql = format!(
-        "{} AND ({column} && {main} OR {column} && {wrapped}){order}",
+        "{} AND ({column} && {main} OR {column} && {wrapped}){order}{limit}",
         sql.sql
     );
     Ok(sql)

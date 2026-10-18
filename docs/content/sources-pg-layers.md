@@ -189,8 +189,8 @@ Without `sort_by`, the features of a layer keep the order the source reads them 
       `ORDER BY`.
     - Any other view is read in its own order.
 
-    The tile server reads each tile's features by their `id_column`, so it only matches
-    bulk mode without `sort_by` when that is also the order bulk mode reads them in.
+    The tile server reads each tile's features in the order PostgreSQL finds them, which can
+    differ from request to request, so only `sort_by` gives served tiles a fixed draw order.
 
 `sort_by` is a list of expressions, each a string or `{ expr: ..., desc: true }`, compared in turn.
 Features that compare equal keep the order they are read in.
@@ -354,6 +354,8 @@ shows how.
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent`
   fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
+- `max_feature_count` limits the features read for each tile. With it, `order_by` chooses which are
+  kept. `order_by` alone changes nothing, as `sort_by` sets the draw order.
 
 ## Validation
 
