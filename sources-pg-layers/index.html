@@ -2816,9 +2816,9 @@ shows how.</p>
   With it, <code>order_by</code> chooses which are kept. <code>order_by</code> alone changes nothing, as <code>sort_by</code> sets the
   draw order.</li>
 <li><code>prefetch: N</code>, on the table source or as the default under <code>postgres</code>, renders the N×N block holding
-  a tile on a cache miss, in one query, and caches all of its tiles. Blocks are aligned to multiples of
-  N, so the tiles of one block share it. Without a tile cache, or outside its zooms, each tile is
-  rendered alone.</li>
+  a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
+  each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
+  tile cache, or outside its zooms, each tile is rendered alone. A table with <code>prefetch</code> needs <code>layers</code>.</li>
 </ul>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">postgres</span><span class="p">:</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">prefetch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
