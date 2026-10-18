@@ -52,6 +52,7 @@ pub(super) struct SpillFile {
 }
 
 impl SpillFile {
+    /// Wraps an empty unlinked temp file.
     pub(super) fn new(file: File) -> Self {
         Self {
             file,
@@ -130,11 +131,10 @@ impl RunWriter {
 
 /// Reads a run's records in order, one ahead: [`head`](Self::head) is the next key.
 pub(super) enum RunReader {
-    /// `next..end` is the unread part of the run, and `record` is the current record within `map`.
+    /// `unread` is the unread part of the run, and `record` is the current record within `map`.
     File {
         map: Arc<Mmap>,
-        next: usize,
-        end: usize,
+        unread: Range<usize>,
         remaining: u64,
         head: Option<SortKey>,
         record: Range<usize>,
@@ -160,8 +160,7 @@ impl RunReader {
                 let bytes = usize::try_from(run.bytes).expect("a mapped file fits in memory");
                 let mut reader = Self::File {
                     map,
-                    next: start,
-                    end: start + bytes,
+                    unread: start..start + bytes,
                     remaining: records,
                     head: None,
                     record: 0..0,
@@ -204,8 +203,7 @@ impl RunReader {
         match self {
             Self::File {
                 map,
-                next,
-                end,
+                unread,
                 remaining,
                 head,
                 record,
@@ -216,11 +214,11 @@ impl RunReader {
                     return Ok(());
                 }
                 *remaining -= 1;
-                let mut rest = &map[*next..*end];
+                let mut rest = &map[unread.clone()];
                 let (key, bytes) = <(SortKey, &[u8]) as SchemaRead<Configuration>>::get(&mut rest)?;
-                let read = *end - rest.len();
+                let read = unread.end - rest.len();
                 *record = read - bytes.len()..read;
-                *next = read;
+                unread.start = read;
                 *head = Some(key);
             }
             Self::Memory { entries, next, .. } => *next = (*next + 1).min(entries.len()),
