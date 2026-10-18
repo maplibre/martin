@@ -456,8 +456,8 @@ mod tests {
         "});
         let pg = &config.postgres[0];
         let tables = pg.tables.as_ref().unwrap();
-        assert_eq!(pg.prefetch.unwrap().tiles_per_side(), 2);
-        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side(), 1);
+        assert_eq!(pg.prefetch.unwrap().tiles_per_side().get(), 2);
+        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side().get(), 1);
         assert_eq!(tables["cities"].layers, None);
         let expected: tiling::Layers =
             serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
@@ -487,6 +487,44 @@ mod tests {
         )
         .expect_err("must not parse");
         insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id` at line 4, column 5");
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_prefetch_above_16_tiles_per_side_is_rejected() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  prefetch: 17
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: invalid value: integer `17`, expected from 1 to 16 tiles per side at line 3, column 3");
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_prefetch_without_layers_is_rejected() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  tables:
+                    roads:
+                      schema: public
+                      table: roads
+                      srid: 4326
+                      geometry_column: geom
+                      prefetch: 2
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `prefetch` only applies to a table with `layers` at line 4, column 5");
     }
 
     #[tokio::test]
