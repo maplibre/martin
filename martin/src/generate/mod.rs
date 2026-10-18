@@ -181,6 +181,10 @@ pub enum GenerateError {
     NoSources,
     #[error("No layer has a zoom between {0} and {1}")]
     NoLayers(u8, u8),
+    #[error(
+        "layer `{0}`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet"
+    )]
+    LimitedLayerFilter(String),
     #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
     CompressedPmtilesMlt,
     #[error(

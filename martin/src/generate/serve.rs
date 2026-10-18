@@ -25,7 +25,8 @@ const GRID_LIMIT: u64 = 1 << 30;
 /// # Errors
 ///
 /// When a layer uses a setting the engine does not support yet, no layer has a zoom, a zoom is too
-/// high for the extent, or the table's query cannot be built.
+/// high for the extent, `max_feature_count` meets a layer's `where` or `geometry`, or the table's query
+/// cannot be built.
 pub fn engine_info(
     id: &str,
     info: &mut TableInfo,
@@ -40,6 +41,15 @@ pub fn engine_info(
     };
     let table = lower_table(id, info.clone(), &options)?
         .ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
+    if max_feature_count.is_some()
+        && let Some(layer) = table
+            .def
+            .layers
+            .iter()
+            .find(|layer| layer.filter.is_some() || layer.geometry.is_some())
+    {
+        return Err(GenerateError::LimitedLayerFilter(layer.name.clone()));
+    }
     let margin = table
         .def
         .layers
@@ -71,4 +81,82 @@ fn max_grid_zoom(extent: u32) -> u8 {
         .rev()
         .find(|&zoom| u64::from(extent) << zoom <= GRID_LIMIT)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::*;
+
+    fn table(yaml: &str) -> TableInfo {
+        serde_saphyr::from_str(yaml).expect("parses")
+    }
+
+    #[test]
+    fn max_feature_count_rejects_a_layer_with_where() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              major:
+                where: "class == 'motorway'"
+        "#});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet");
+    }
+
+    #[test]
+    fn max_feature_count_rejects_a_layer_with_geometry() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              lines:
+                geometry: line
+        "});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `lines`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet");
+    }
+
+    #[test]
+    fn max_feature_count_limits_a_layer_without_where_or_geometry() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              all: {}
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_query, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn without_max_feature_count_a_layer_with_where_is_served() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              major:
+                where: "class == 'motorway'"
+        "#});
+        let engine = engine_info("roads", &mut info, None, None).expect("plans");
+        insta::assert_snapshot!(engine.sql_query, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
+    }
 }
