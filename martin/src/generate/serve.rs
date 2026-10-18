@@ -25,7 +25,8 @@ const GRID_LIMIT: u64 = 1 << 30;
 /// # Errors
 ///
 /// When a layer uses a setting the engine does not support yet, no layer has a zoom, a zoom is too
-/// high for the extent, or the table's query cannot be built.
+/// high for the extent, `max_feature_count` meets a layer's `where` or `geometry`, or the table's query
+/// cannot be built.
 pub fn engine_info(
     id: &str,
     info: &mut TableInfo,
@@ -40,6 +41,15 @@ pub fn engine_info(
     };
     let table = lower_table(id, info.clone(), &options)?
         .ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
+    if max_feature_count.is_some()
+        && let Some(layer) = table
+            .def
+            .layers
+            .iter()
+            .find(|layer| layer.filter.is_some() || layer.geometry.is_some())
+    {
+        return Err(GenerateError::LimitedLayerFilter(layer.name.clone()));
+    }
     let margin = table
         .def
         .layers
