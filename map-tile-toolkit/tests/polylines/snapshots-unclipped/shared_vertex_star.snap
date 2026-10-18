@@ -1,0 +1,6 @@
+---
+source: tests/unclipped.rs
+expression: "support::feature_collection_bytes(features)"
+extension: geojson
+snapshot_kind: binary
+---

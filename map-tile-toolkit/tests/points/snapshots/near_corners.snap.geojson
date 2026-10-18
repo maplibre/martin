@@ -1,0 +1,123 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            27.0,
+            23.0
+          ],
+          [
+            48.0,
+            52.0
+          ],
+          [
+            -3.0,
+            2.0
+          ],
+          [
+            72.0,
+            27.0
+          ],
+          [
+            31.0,
+            19.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "input",
+        "marker-color": "#f6fd31",
+        "marker-size": "large"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -3.0,
+            2.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/0",
+        "indices": [
+          2
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            27.0,
+            23.0
+          ],
+          [
+            31.0,
+            19.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/0",
+        "indices": [
+          0,
+          4
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            48.0,
+            52.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/2",
+        "indices": [
+          1
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            72.0,
+            27.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 2/1",
+        "indices": [
+          3
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    }
+  ]
+}

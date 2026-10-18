@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[4, 20], [18, 8], [40, 22]]
+      },
+      "properties": {"role": "tile 0/0", "stroke": "#1f77b4", "stroke-width": 3}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[18, 8], [40, 22]]},
+      "properties": {"role": "tile 1/0", "stroke": "#ff7f0e", "stroke-width": 3}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "LineString", "coordinates": [[18, 8], [40, 2]]},
+      "properties": {"role": "tile 1/0", "stroke": "#ff7f0e", "stroke-width": 3}
+    }
+  ]
+}

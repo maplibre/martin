@@ -5,6 +5,9 @@ set shell := ['bash', '-c']
 # Import demo sub-justfile as a module
 mod demo 'demo/justfile'
 
+# Import map-tile-toolkit sub-justfile as a module
+mod toolkit 'map-tile-toolkit/justfile'
+
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
@@ -186,7 +189,7 @@ bless:
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart bless-insta ui::bless bless-pg; do
+    for target in restart bless-insta toolkit::bless ui::bless bless-pg; do
       echo "::group::just $target"
       {{just}} $target
       echo "::endgroup::"
@@ -201,7 +204,7 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
@@ -420,6 +423,7 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
 
     echo "::group::Unit tests"
     {{just}} test-cargo --all-targets
+    {{just}} toolkit::test
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -684,6 +688,7 @@ test: fetch start
     {{just}} test-cargo --all-targets
     {{just}} test-pg
     {{just}} test-doc
+    {{just}} toolkit::test
     {{just}} ui::test
     {{just}} test-e2e
 
@@ -722,15 +727,16 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features rendering
     cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
-# Run Rust unit tests
+# Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo nextest run --package martin-tile-utils
+    {{just}} toolkit::test
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
     cargo nextest run --package martin-core --features unstable-generate
@@ -748,9 +754,9 @@ test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
     cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_cp_bulk --test postgres --test process {{args}}
 
-# Run Rust doc tests
+# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
 test-doc *args: fetch
-    cargo test --doc {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit {{args}}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')

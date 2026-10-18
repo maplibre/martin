@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-20, -19]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-1, -1]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-5, -6]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-6, -5]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-12, 40]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [40, -12]}
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {"type": "Point", "coordinates": [-1, 24]}
+    }
+  ]
+}

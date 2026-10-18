@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            12.0,
+            12.0
+          ],
+          [
+            37.0,
+            62.0
+          ],
+          [
+            87.0,
+            87.0
+          ],
+          [
+            -13.0,
+            -8.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "input",
+        "marker-color": "#f6fd31",
+        "marker-size": "large"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -13.0,
+            -8.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/-1",
+        "indices": [
+          3
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            12.0,
+            12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/0",
+        "indices": [
+          0
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            37.0,
+            62.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/2",
+        "indices": [
+          1
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            87.0,
+            87.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 3/3",
+        "indices": [
+          2
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    }
+  ]
+}

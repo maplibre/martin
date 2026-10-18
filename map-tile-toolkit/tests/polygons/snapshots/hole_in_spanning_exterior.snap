@@ -1,0 +1,6 @@
+---
+source: tests/clip_polygon.rs
+expression: bytes
+extension: geojson
+snapshot_kind: binary
+---

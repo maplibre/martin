@@ -18,6 +18,9 @@ semver_check = true
 name = "cog-tiles"
 
 [[package]]
+name = "map-tile-toolkit"
+
+[[package]]
 name = "martin-core"
 
 [[package]]

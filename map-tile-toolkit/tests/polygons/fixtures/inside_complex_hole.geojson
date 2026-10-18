@@ -1,0 +1,22 @@
+{
+  "type": "FeatureCollection",
+  "name": "inside_complex_hole",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fill": "#f6fd31",
+        "fill-opacity": 0.3,
+        "stroke": "#b5a300"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[-15, -15], [90, -15], [90, 90], [-15, 90], [-15, -15]],
+          [[50, -13], [-10, -10], [-10, 85], [85, 85], [85, -10], [32, -10], [82, 80], [10, 80], [26, -10], [50, -13]],
+          [[35, 60], [35, 63], [38, 63], [35, 60]]
+        ]
+      }
+    }
+  ]
+}
