@@ -75,7 +75,10 @@ impl TileRecords {
     }
 }
 
-/// The tiles of a merge, in batches of up to `size`; only the last batch is shorter, and never empty.
+/// Record bytes that close a batch before its tile count.
+const BATCH_BYTES: usize = 16 << 20;
+
+/// The tiles of a merge, in batches that are never empty.
 pub struct TileBatches {
     grouper: TileGrouper,
     size: usize,
@@ -83,7 +86,7 @@ pub struct TileBatches {
 }
 
 impl TileBatches {
-    /// The tiles of `grouper` in batches of `size`, at least one tile each.
+    /// The tiles of `grouper` in batches of up to `size` tiles or [`BATCH_BYTES`].
     pub(super) fn new(grouper: TileGrouper, size: usize) -> Self {
         Self {
             grouper,
@@ -100,15 +103,11 @@ impl Iterator for TileBatches {
         if self.done {
             return None;
         }
-        let batch = match self.grouper.next_batch(self.size) {
-            Ok(batch) => batch,
-            Err(err) => {
-                self.done = true;
-                return Some(Err(err));
-            }
-        };
-        self.done = batch.len() < self.size;
-        (!batch.is_empty()).then_some(Ok(batch))
+        let batch = self.grouper.next_batch(self.size, BATCH_BYTES);
+        self.done = !matches!(&batch, Ok(tiles) if !tiles.is_empty());
+        batch
+            .map(|tiles| (!tiles.is_empty()).then_some(tiles))
+            .transpose()
     }
 }
 
@@ -140,15 +139,22 @@ impl TileGrouper {
         }
     }
 
-    /// The next `max` tiles, or fewer once the records run out.
-    pub fn next_batch(&mut self, max: usize) -> TileGenResult<Vec<TileRecords>> {
+    /// The next `max_tiles` tiles.
+    /// Fewer once their records reach `max_bytes` or the records run out.
+    pub fn next_batch(
+        &mut self,
+        max_tiles: usize,
+        max_bytes: usize,
+    ) -> TileGenResult<Vec<TileRecords>> {
         hotpath::measure_block!({ "group_batch" }, {
-            let mut batch = Vec::with_capacity(max);
-            while batch.len() < max {
+            let mut batch = Vec::new();
+            let mut bytes = 0;
+            while batch.len() < max_tiles && bytes < max_bytes {
                 let mut tile = TileRecords::default();
                 if !self.next_tile(&mut tile)? {
                     break;
                 }
+                bytes += tile.data.len();
                 batch.push(tile);
             }
             Ok(batch)
@@ -368,6 +374,74 @@ mod tests {
         assert_eq!(tile.tile_id, 2);
         assert_eq!(tile.records().count(), 1);
         assert!(!grouper.next_tile(&mut tile).unwrap());
+    }
+
+    #[test]
+    fn batch_closes_at_the_tile_that_reaches_the_byte_budget() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut buffer = sorter.buffer();
+        buffer.push(key(1, 0, 1), &point).unwrap();
+        buffer.push(key(2, 0, 2), &point).unwrap();
+        buffer.push(key(3, 0, 3), &point).unwrap();
+        buffer.push(key(4, 0, 4), &point).unwrap();
+        buffer.push(key(4, 0, 5), &point).unwrap();
+        buffer.push(key(5, 0, 6), &point).unwrap();
+        buffer.finish().unwrap();
+
+        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let batches: Vec<Vec<u64>> = (0..3)
+            .map(|_| {
+                let batch = grouper.next_batch(256, 2 * point.len()).unwrap();
+                batch.iter().map(|tile| tile.tile_id).collect()
+            })
+            .collect();
+
+        assert_eq!(batches, [vec![1, 2], vec![3, 4], vec![5]]);
+    }
+
+    #[test]
+    fn tile_over_the_byte_budget_is_a_batch_of_its_own() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut buffer = sorter.buffer();
+        buffer.push(key(1, 0, 1), &point).unwrap();
+        buffer.push(key(1, 0, 2), &point).unwrap();
+        buffer.push(key(1, 0, 3), &point).unwrap();
+        buffer.push(key(2, 0, 4), &point).unwrap();
+        buffer.finish().unwrap();
+
+        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let batches: Vec<Vec<u64>> = (0..3)
+            .map(|_| {
+                let batch = grouper.next_batch(256, 2 * point.len()).unwrap();
+                batch.iter().map(|tile| tile.tile_id).collect()
+            })
+            .collect();
+
+        assert_eq!(batches, [vec![1], vec![2], vec![]]);
+    }
+
+    #[test]
+    fn batch_closes_at_the_tile_count_under_the_byte_budget() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut buffer = sorter.buffer();
+        buffer.push(key(1, 0, 1), &point).unwrap();
+        buffer.push(key(2, 0, 2), &point).unwrap();
+        buffer.push(key(3, 0, 3), &point).unwrap();
+        buffer.finish().unwrap();
+
+        let batches: Vec<Vec<u64>> = sorter
+            .into_tiles(2)
+            .unwrap()
+            .map(|batch| batch.unwrap().iter().map(|tile| tile.tile_id).collect())
+            .collect();
+
+        assert_eq!(batches, [vec![1, 2], vec![3]]);
     }
 
     #[test]
