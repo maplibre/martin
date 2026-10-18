@@ -7,8 +7,8 @@
 //! 1. [`Slicer::line`] / [`Slicer::polygon`] yield each tile at most once per geometry, and exactly
 //!    the tiles the clipped slicer gives anything (a polygon's fill-run tiles included, as pieces:
 //!    no run is yielded);
-//! 2. every slice is the whole input in the tile's frame — a line without its consecutive duplicate
-//!    vertices, a polygon as each of its non-degenerate rings, distinct and closed — and its
+//! 2. every slice is the whole input in the tile's frame - a line without its consecutive duplicate
+//!    vertices, a polygon as each of its non-degenerate rings, distinct and closed - and its
 //!    [`Local::origin`] / [`Local::global`] describe that frame;
 //! 3. [`Slicer::tile_line`] / [`Slicer::tile_polygon`], asked for every tile of the padded span,
 //!    give exactly the same, and nothing elsewhere.
@@ -62,7 +62,7 @@ fn dedup(ring: &[Coord<i32>]) -> Vec<Coord<i32>> {
 }
 
 /// A polygon's rings as an unclipped slice lends them: each distinct (no consecutive duplicates, no
-/// repeated closing vertex) and then closed, rings of fewer than 3 distinct vertices dropped — and no
+/// repeated closing vertex) and then closed, rings of fewer than 3 distinct vertices dropped - and no
 /// rings at all if that drops the exterior.
 fn whole_rings(polygon: &FixturePolygon) -> Vec<Vec<Coord<i32>>> {
     let mut rings = Vec::new();

@@ -2,8 +2,8 @@
 //!
 //! Every predicate is exact across the full `i32` coordinate range and never panics (no floats, no
 //! division). A 2-D cross product of full-`i32` points can reach `2^65`, so exactness needs 128-bit
-//! arithmetic *somewhere*; following [`i_overlay`]/`i_float` — which widen `i32 → i64` and
-//! cross-multiply the edge *difference* vectors within a bounded coordinate domain — [`orient`]
+//! arithmetic *somewhere*; following [`i_overlay`]/`i_float` - which widen `i32 -> i64` and
+//! cross-multiply the edge *difference* vectors within a bounded coordinate domain - [`orient`]
 //! evaluates the cross in `i64` on the difference vectors and only widens to `i128` when a difference
 //! does not fit `i32` (the rare near-full-`i32`-span case). Ordinary tile-local geometry therefore
 //! never pays the 128-bit width, while the crate keeps its full-`i32` contract.
@@ -16,18 +16,18 @@ use geo_types::Coord;
 
 use crate::vertex::Vertex;
 
-/// Orientation of the turn `a → b → c`: the sign of the cross product `(b − a) × (c − a)`.
+/// Orientation of the turn `a -> b -> c`: the sign of the cross product `(b - a) × (c - a)`.
 ///
 /// [`Ordering::Greater`] is a left turn (counter-clockwise), [`Ordering::Less`] a right turn
 /// (clockwise), and [`Ordering::Equal`] means the three points are collinear.
 #[inline]
 pub(crate) fn orient(a: Coord<i32>, b: Coord<i32>, c: Coord<i32>) -> Ordering {
-    // Edge vectors as `i64` — an `i32 − i32` difference always fits `i64`.
+    // Edge vectors as `i64` - an `i32 - i32` difference always fits `i64`.
     let ex1 = i64::from(b.x) - i64::from(a.x);
     let ey1 = i64::from(b.y) - i64::from(a.y);
     let ex2 = i64::from(c.x) - i64::from(a.x);
     let ey2 = i64::from(c.y) - i64::from(a.y);
-    // Fast path: when every component fits `i32`, each product is `≤ (2^31 − 1)^2 < 2^62`, so the two
+    // Fast path: when every component fits `i32`, each product is `≤ (2^31 - 1)^2 < 2^62`, so the two
     // `i64` products compare exactly with no risk of overflow. Otherwise widen the two products to
     // `i128`. Comparing the products (rather than subtracting) avoids a possible `i64` overflow in the
     // difference and needs no wider type on the fast path.
@@ -44,9 +44,9 @@ fn fits_i32(v: i64) -> bool {
     i32::try_from(v).is_ok()
 }
 
-/// The smallest integer `≥ x`, where `x` is the point at which segment `a`–`b` crosses the horizontal
+/// The smallest integer `≥ x`, where `x` is the point at which segment `a`-`b` crosses the horizontal
 /// line at height `y` (`a.y ≠ b.y`, `y` between them). Exact: `x = a.x + dx·t/dy` is evaluated as a
-/// rounded-up integer quotient in `i64` when the factors fit `i32`, widening to `i128` otherwise —
+/// rounded-up integer quotient in `i64` when the factors fit `i32`, widening to `i128` otherwise -
 /// the same fast path / fallback split as [`orient`]. The result lies between `a.x` and `b.x`.
 #[expect(
     clippy::cast_possible_truncation,
@@ -56,7 +56,7 @@ pub(crate) fn crossing_x_ceil(a: Coord<i32>, b: Coord<i32>, y: i32) -> i64 {
     let dx = i64::from(b.x) - i64::from(a.x);
     let mut dy = i64::from(b.y) - i64::from(a.y);
     let mut t = i64::from(y) - i64::from(a.y);
-    // A positive divisor lets `div_euclid` floor; ceil(n/d) = −floor(−n/d).
+    // A positive divisor lets `div_euclid` floor; ceil(n/d) = -floor(-n/d).
     if dy < 0 {
         dy = -dy;
         t = -t;
@@ -69,11 +69,11 @@ pub(crate) fn crossing_x_ceil(a: Coord<i32>, b: Coord<i32>, y: i32) -> i64 {
     i64::from(a.x) + offset
 }
 
-/// Twice the signed area of `ring` (the shoelace sum `Σ xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ`), exact for any `i32`
+/// Twice the signed area of `ring` (the shoelace sum `Σ xᵢ·yᵢ₊₁ - xᵢ₊₁·yᵢ`), exact for any `i32`
 /// ring. Works whether or not the ring repeats its first vertex, and is `0` for a degenerate ring.
 ///
-/// The sign is the ring's winding: **positive** turns counter-clockwise with `y` up — which is
-/// *clockwise on screen* with `y` down, i.e. an MVT exterior ring in tile coordinates — and
+/// The sign is the ring's winding: **positive** turns counter-clockwise with `y` up - which is
+/// *clockwise on screen* with `y` down, i.e. an MVT exterior ring in tile coordinates - and
 /// **negative** the other way. The slicer preserves each input ring's winding (synthetic corners
 /// follow it), so a caller that needs a fixed convention (MVT: exterior positive, holes negative)
 /// normalizes once per feature before slicing, reversing any ring whose sign disagrees with its role.
@@ -85,8 +85,8 @@ pub fn signed_area_2x<V: Vertex>(ring: &[V]) -> i128 {
     let Some(v0) = ring.first().map(Vertex::position) else {
         return 0;
     };
-    // Measured about the first vertex, so the closing edge `v_{n-1} → v0` and the opening edge
-    // `v0 → v1` both contribute zero: iterating `windows(2)` gives the full doubled area whether or not
+    // Measured about the first vertex, so the closing edge `v_{n-1} -> v0` and the opening edge
+    // `v0 -> v1` both contribute zero: iterating `windows(2)` gives the full doubled area whether or not
     // the ring repeats its first vertex, and smaller magnitudes keep the terms well inside `i128`.
     let mut area2: i128 = 0;
     for w in ring.windows(2) {
@@ -138,7 +138,7 @@ pub(crate) fn point_in_distinct_ring(
     for i in 0..m {
         let tail = at(prev);
         let head = at(i);
-        // On-boundary check: collinear and within the edge's bounding box → treat as inside.
+        // On-boundary check: collinear and within the edge's bounding box -> treat as inside.
         if orient(tail, head, p) == Ordering::Equal
             && p.x >= tail.x.min(head.x)
             && p.x <= tail.x.max(head.x)
@@ -151,7 +151,7 @@ pub(crate) fn point_in_distinct_ring(
         // strictly above `p.y`.
         if (tail.y > p.y) != (head.y > p.y) {
             // The crossing is to the right of `p` iff `p` is on the correct side of the directed edge.
-            // For an upward edge a left turn (`Greater`) puts `p` left of it → the ray crosses to
+            // For an upward edge a left turn (`Greater`) puts `p` left of it -> the ray crosses to
             // `p`'s right; a downward edge flips the sense.
             let left = orient(tail, head, p) == Ordering::Greater;
             if left == (head.y > tail.y) {
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn crossing_x_ceil_is_exact() {
-        // x = 0 + 10·(1/3) = 3.33… → 4; reversed direction gives the same point.
+        // x = 0 + 10·(1/3) = 3.33… -> 4; reversed direction gives the same point.
         assert_eq!(crossing_x_ceil(c(0, 0), c(10, 3), 1), 4);
         assert_eq!(crossing_x_ceil(c(10, 3), c(0, 0), 1), 4);
         // Exact integer crossings stay put, negative offsets round toward +∞.
@@ -215,12 +215,12 @@ mod tests {
         // Full-`i32` spans take the `i128` path.
         let x = crossing_x_ceil(c(i32::MIN, i32::MIN), c(i32::MAX, i32::MAX), 0);
         assert_eq!(x, 0);
-        // The anti-diagonal `x + y = −1` crosses `y = 1` exactly at `x = −2`; one unit to the right
+        // The anti-diagonal `x + y = -1` crosses `y = 1` exactly at `x = -2`; one unit to the right
         // of an exact crossing must not round further.
         let x = crossing_x_ceil(c(i32::MIN, i32::MAX), c(i32::MAX, i32::MIN), 1);
         assert_eq!(x, -2);
         let x = crossing_x_ceil(c(i32::MIN, i32::MAX), c(i32::MAX - 1, i32::MIN), 1);
-        assert_eq!(x, -2); // the slightly steeper line crosses just left of −2
+        assert_eq!(x, -2); // the slightly steeper line crosses just left of -2
     }
 
     #[test]
@@ -250,7 +250,7 @@ mod tests {
         let sq = [c(0, 0), c(10, 0), c(10, 10), c(0, 10), c(0, 0)];
         assert!(point_in_ring(c(5, 5), &sq)); // interior
         assert!(!point_in_ring(c(15, 5), &sq)); // exterior
-        assert!(point_in_ring(c(0, 5), &sq)); // on the left edge → boundary counts as inside
+        assert!(point_in_ring(c(0, 5), &sq)); // on the left edge -> boundary counts as inside
         assert!(point_in_ring(c(10, 10), &sq)); // corner vertex
         assert!(!point_in_ring(c(-1, 5), &sq));
     }
@@ -270,7 +270,7 @@ mod tests {
             c(0, 0),
         ];
         assert!(point_in_ring(c(1, 5), &c_shape)); // in the spine
-        assert!(!point_in_ring(c(6, 5), &c_shape)); // in the notch → outside
+        assert!(!point_in_ring(c(6, 5), &c_shape)); // in the notch -> outside
         assert!(point_in_ring(c(6, 1), &c_shape)); // in the bottom arm
     }
 }

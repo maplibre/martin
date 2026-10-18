@@ -24,14 +24,14 @@ pub enum TileError {
     BufferTooLarge,
 
     /// A polygon has more than `u32::MAX` rings or edges, or one of its pieces more than `u32::MAX`
-    /// vertices — beyond the `u32` indices the slicer keeps.
+    /// vertices - beyond the `u32` indices the slicer keeps.
     #[error(
         "geometry too large: at most {} rings or edges are supported",
         u32::MAX
     )]
     GeometryTooLarge,
 
-    /// Coordinate arithmetic overflowed `i32` — a coordinate or tile lies too close to the limits of
+    /// Coordinate arithmetic overflowed `i32` - a coordinate or tile lies too close to the limits of
     /// the representable range for the given `extent`/`buffer`.
     #[error("coordinate arithmetic overflowed the i32 range")]
     Overflow,

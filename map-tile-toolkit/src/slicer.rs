@@ -1,4 +1,4 @@
-//! The public slicing API: [`Slicer`] takes **one geometry** at a time — a line, a point or a polygon —
+//! The public slicing API: [`Slicer`] takes **one geometry** at a time - a line, a point or a polygon -
 //! and returns a lazy iterator over its slices: [`Slicer::line`] / [`Slicer::point`] for every tile
 //! the geometry reaches, or [`Slicer::tile_line`] / [`Slicer::tile_point`] for one given tile.
 //!
@@ -28,7 +28,7 @@
 //! In terms of a line's segments (skipping zero-length ones), with "touches" meaning
 //! [`segment_intersects`] against the tile's buffered box, a run of tile `t` is the vertex range of
 //! segments `k..=e` where
-//! - `k` touches `t`, but neither `k − 1` nor `k − 2` does ([`Prev::run_started`]: the run starts
+//! - `k` touches `t`, but neither `k - 1` nor `k - 2` does ([`Prev::run_started`]: the run starts
 //!   there, and only there, so each run is yielded once, at its first segment), and
 //! - the run ends at the first `e` after which neither `e + 1` nor `e + 2` touches `t`
 //!   ([`extend_run`]: one missed segment is bridged, keeping both its endpoints).
@@ -69,7 +69,7 @@ pub enum ClipMode {
     /// can be used on its own; best effort, see the crate docs.
     #[default]
     Clipped,
-    /// Each tile the geometry reaches — exactly the tiles [`Clipped`](Self::Clipped) gives anything —
+    /// Each tile the geometry reaches - exactly the tiles [`Clipped`](Self::Clipped) gives anything -
     /// gets the **whole** geometry, once, in that tile's local frame: a line as a single
     /// [`LineSlice`] of all its vertices, a polygon as a [`PolygonPiece`] of all its rings (also in
     /// every tile it covers entirely: no [`FillRun`] is yielded). For renderers that clip themselves.
@@ -79,10 +79,10 @@ pub enum ClipMode {
 /// Slices one geometry at a time into per-tile pieces on an integer grid, lazily.
 ///
 /// Coordinates are integers in tile space: a vertex belongs to tile `x.div_euclid(extent)`, whose own
-/// area is `[0, extent)` in its local frame (`x − tile·extent`); every tile's clip box grows `buffer`
-/// on each side. Slices come in that local frame, so a vertex outside the tile's own area — in its
+/// area is `[0, extent)` in its local frame (`x - tile·extent`); every tile's clip box grows `buffer`
+/// on each side. Slices come in that local frame, so a vertex outside the tile's own area - in its
 /// buffer, a polygon's synthetic corner one unit past the buffer, or a line's first vertex beyond the
-/// box — lies outside `[0, extent)`. Project, simplify, and scale float source data into this space
+/// box - lies outside `[0, extent)`. Project, simplify, and scale float source data into this space
 /// before slicing.
 ///
 /// Generic over the [`Vertex`] type `V` (defaults to [`Coord<i32>`]): plain coordinates or
@@ -187,7 +187,7 @@ impl<V: Vertex> Slicer<V> {
         })
     }
 
-    /// Clip a line to one `tile`: yields its runs there, each in walk order — exactly the runs
+    /// Clip a line to one `tile`: yields its runs there, each in walk order - exactly the runs
     /// [`line`](Self::line) yields for that tile. [`ClipMode::Unclipped`] yields the whole line
     /// once if it reaches the tile, stopping the scan there.
     ///
@@ -252,7 +252,7 @@ impl<V: Vertex> Slicer<V> {
     pub fn tile_point(&self, tile: TileId, point: V) -> Result<Option<V>, TileError> {
         let (extent, buffer) = (i64::from(self.grid.extent()), i64::from(self.grid.buffer()));
         let p = point.position();
-        // Per axis: the tile's buffered box `[base − buffer, base + extent − 1 + buffer]`, which must fit
+        // Per axis: the tile's buffered box `[base - buffer, base + extent - 1 + buffer]`, which must fit
         // `i32` (what `Grid::tile_buffered_bounds` checks), and the point's offset from its base.
         let axis = |tile: i32, v: i32| {
             let base = i64::from(tile) * extent;
@@ -271,8 +271,8 @@ impl<V: Vertex> Slicer<V> {
 }
 
 impl<V: PolyVertex> Slicer<V> {
-    /// Slice a polygon into every tile it reaches. `rings` are its rings — the exterior first, then
-    /// the holes — each open or closed (a repeated first/last vertex is fine). Rings with fewer than
+    /// Slice a polygon into every tile it reaches. `rings` are its rings - the exterior first, then
+    /// the holes - each open or closed (a repeated first/last vertex is fine). Rings with fewer than
     /// 3 vertices once consecutive duplicates are dropped are ignored, and so is a polygon whose
     /// exterior is. For a multipolygon, call this for each of its polygons.
     ///
@@ -282,8 +282,8 @@ impl<V: PolyVertex> Slicer<V> {
     /// rings keep the winding of the input rings (see [`signed_area_2x`](crate::signed_area_2x) to
     /// normalize it first).
     ///
-    /// [`ClipMode::Unclipped`] yields the same tiles, but each — those of the fill runs too, one by
-    /// one — as a piece of the whole polygon: every kept ring, lent from the input. No piece is built.
+    /// [`ClipMode::Unclipped`] yields the same tiles, but each - those of the fill runs too, one by
+    /// one - as a piece of the whole polygon: every kept ring, lent from the input. No piece is built.
     ///
     /// Lazy and lending: see [`PolygonSlices`]. The call reads the rings once, to bound and index
     /// them (only a ring with consecutive duplicate vertices is copied, to drop them); after that the
@@ -307,7 +307,7 @@ impl<V: PolyVertex> Slicer<V> {
         PolygonSlices::new(self.grid, self.mode, rings, self.poly.get())
     }
 
-    /// Clip a polygon to one `tile`: its piece there, or `None` if it leaves nothing — what
+    /// Clip a polygon to one `tile`: its piece there, or `None` if it leaves nothing - what
     /// [`polygon`](Self::polygon) yields for that tile, with a covered tile's
     /// [`FillRun`] as its fill ring. The piece borrows the slicer's working memory
     /// until the next call. [`ClipMode::Unclipped`] gives the whole polygon instead, if it leaves
@@ -343,7 +343,7 @@ impl<V: PolyVertex> Slicer<V> {
     }
 }
 
-/// Vertices in a tile's local frame — `v − origin`, computed as they are read — every position checked
+/// Vertices in a tile's local frame - `v - origin`, computed as they are read - every position checked
 /// to fit `i32` before the slice is handed out.
 ///
 /// A line run is lent from the caller's input, and skips consecutive duplicate positions (the first
@@ -683,7 +683,7 @@ pub struct LineSlices<'a, V> {
 }
 
 impl<V: Vertex> LineSlices<'_, V> {
-    /// Route the segment `a`–`c`, with `la` the tile owning `a`.
+    /// Route the segment `a`-`c`, with `la` the tile owning `a`.
     fn route(&self, a: usize, c: usize, la: Located) -> (SegTiles, Located) {
         let (pa, pc) = (self.pts[a].position(), self.pts[c].position());
         if la.contains_inner(pa) && la.contains_inner(pc) {
@@ -849,7 +849,7 @@ impl<V: Vertex> FusedIterator for TileLines<'_, V> {}
 
 /// One axis of a point's tiles: its own, and the neighbor within `buffer` of an edge (the buffer is
 /// under half a tile, so at most one per axis). The point lies `rem` past its own tile's origin; the
-/// tile at offset `d` from its own (`-1`, `0` or `1`) has the point `rem − d · extent` past its
+/// tile at offset `d` from its own (`-1`, `0` or `1`) has the point `rem - d · extent` past its
 /// origin.
 #[derive(Debug, Clone, Copy)]
 struct AxisTiles {
@@ -898,7 +898,7 @@ impl<V: Vertex> PointSlice<V> {
         self.tile
     }
 
-    /// The point in the tile's local frame: `position − tile · extent`, the payload unchanged.
+    /// The point in the tile's local frame: `position - tile · extent`, the payload unchanged.
     #[must_use]
     #[inline]
     pub fn point(&self) -> V {

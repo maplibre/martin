@@ -1,18 +1,18 @@
-//! [`PolygonMosaic`] reassembles sliced polygon tiles back into whole rings — the accumulating inverse
+//! [`PolygonMosaic`] reassembles sliced polygon tiles back into whole rings - the accumulating inverse
 //! of the polygon slicer.
 //!
 //! One test per polygon fixture (`tests/polygons/fixtures/*.geojson`): slice the fixture's polygons
 //! into per-tile rings with [`Slicer::tile_polygon`] across the padded tile span, then reassemble them with
 //! [`PolygonMosaic`] under many tile-insertion orders. Every order must succeed (a slicer's own tiles
 //! are self-consistent, so none conflict) and reassemble the **same** rings, whose directed-edge set
-//! must equal the input polygons' edge set — proving the mosaic dropped the synthetic clip-boundary
+//! must equal the input polygons' edge set - proving the mosaic dropped the synthetic clip-boundary
 //! corners and re-chained the original edges back into the original rings. It runs at buffer 0 and
 //! buffer 5; both recover the exact same global geometry.
 //!
-//! Correctness is asserted directly — `reassembled == input` by **directed-edge set** — rather than
+//! Correctness is asserted directly - `reassembled == input` by **directed-edge set** - rather than
 //! against a golden file: the mosaic re-chains by connectivity, so rings that touch at a shared vertex
 //! may come back split/joined differently (an implementation detail the edge-set check is invariant to),
-//! but the geometry — the set of edges — is identical to the input.
+//! but the geometry - the set of edges - is identical to the input.
 //!
 //! Exhaustive order-independence of the underlying edge index is proven for polylines in `mosaic.rs`;
 //! here a small tile set still gets every permutation, while the few larger ones get a deterministic
@@ -37,7 +37,7 @@ mod files {
     test_each_path! { for ["geojson"] in "./map-tile-toolkit/tests/polygons/fixtures" => super::reassemble_fixture }
 }
 
-/// All rings (exterior + every hole) of a fixture, closed, in the global frame — the reassembly target.
+/// All rings (exterior + every hole) of a fixture, closed, in the global frame - the reassembly target.
 fn input_rings(polygons: &[FixturePolygon]) -> Vec<Vec<Coord<i32>>> {
     polygons
         .iter()
@@ -59,7 +59,7 @@ fn edge_set(rings: &[Vec<Coord<i32>>]) -> HashSet<(Coord<i32>, Coord<i32>)> {
 }
 
 /// The rings `polygons` clip to in `tile`, flattened across its pieces (exterior + holes) in the
-/// tile-local frame — exactly what a caller collects from one tile's output to feed the mosaic.
+/// tile-local frame - exactly what a caller collects from one tile's output to feed the mosaic.
 fn tile_rings(polygons: &[FixturePolygon], buffer: u16, tile: TileId) -> Vec<Vec<Coord<i32>>> {
     let mut slicer = Slicer::<Coord<i32>>::new(EXTENT, buffer).expect("valid config");
     support::tile_polygons(&mut slicer, polygons, tile)
@@ -101,7 +101,7 @@ fn reassemble_fixture([path]: [&Path; 1]) {
     let target = edge_set(&input_rings(&polygons));
 
     // Both buffers reassemble to the same global geometry, and reassembly is a pure function of the
-    // edge set, so every order (and both buffers) yields byte-identical features — pinned to `canonical`.
+    // edge set, so every order (and both buffers) yields byte-identical features - pinned to `canonical`.
     let mut canonical: Option<Vec<Vec<Coord<i32>>>> = None;
     for buffer in [0, 5] {
         let tiles = slice_tiles(&polygons, buffer);
@@ -126,7 +126,7 @@ fn reassemble_fixture([path]: [&Path; 1]) {
                 target,
                 "{stem} (buffer {buffer}, order {order:?}): reassembly did not reconstruct the input"
             );
-            // Reassembly is a pure function of the edge set, so every order — and both buffers —
+            // Reassembly is a pure function of the edge set, so every order - and both buffers -
             // yields byte-identical features; pin them to the first.
             match &canonical {
                 None => canonical = Some(features),
@@ -185,7 +185,7 @@ fn interior_fill_tile_contributes_nothing() {
 #[test]
 fn inconsistent_tiles_conflict() {
     // Tile (0,0) carries a ring reaching into tile (1,0)'s core (its right edge sits at x = 35 ∈
-    // [25,49]); tile (1,0) is then given a disjoint ring that does not corroborate that edge — a
+    // [25,49]); tile (1,0) is then given a disjoint ring that does not corroborate that edge - a
     // membership conflict, leaving the mosaic unchanged.
     let square = shell(ring(&[(15, 5), (35, 5), (35, 15), (15, 15), (15, 5)]));
     let rings0 = tile_rings(&[square], 0, TileId::new(0, 0));

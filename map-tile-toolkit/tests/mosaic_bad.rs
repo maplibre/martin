@@ -4,14 +4,14 @@
 //! Each `tests/bad-fixtures/*.geojson` is a `FeatureCollection` whose features carry a
 //! `"role": "tile x/y"` property naming the tile that (supposedly) contributed them, in global
 //! coordinates (extent [`EXTENT`]); several features may share a tile. Every fixture is loaded,
-//! grouped by tile, and — for **every** insertion order — fed to a fresh mosaic; some `add` must
+//! grouped by tile, and - for **every** insertion order - fed to a fresh mosaic; some `add` must
 //! return a `Conflict` (order-independent detection), and the failing `add` must leave the mosaic
 //! unchanged (atomicity).
 //!
 //! The inconsistencies exercised (see the fixtures): a feature spanning into a neighbor that never
 //! corroborates it, two tiles disagreeing on a shared edge's far endpoint, on both endpoints, on its
-//! direction, a middle tile missing the segments that pass through its core, and — from a buffered
-//! slice — a tile whose boundary-crossing edge is correct but a *further* overlap vertex is moved
+//! direction, a middle tile missing the segments that pass through its core, and - from a buffered
+//! slice - a tile whose boundary-crossing edge is correct but a *further* overlap vertex is moved
 //! (the moved vertex lands in some tile's core, so the core-completeness check rejects it without the
 //! mosaic ever needing the buffer).
 
@@ -44,9 +44,9 @@ fn parse_tile(role: &str) -> TileId {
     )
 }
 
-/// Load a bad fixture into `(tile, local-frame runs)` groups — the exact shape a caller feeds
+/// Load a bad fixture into `(tile, local-frame runs)` groups - the exact shape a caller feeds
 /// [`Mosaic::add`]. Each feature's `role` gives its tile; its global coordinates are localized
-/// (`global − tile·extent`) so the mosaic rebases them straight back.
+/// (`global - tile·extent`) so the mosaic rebases them straight back.
 fn load(path: &Path) -> Vec<(TileId, Vec<Vec<Coord<i32>>>)> {
     let mut groups: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = BTreeMap::new();
     for feature in support::load_fixture(path) {

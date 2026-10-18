@@ -21,7 +21,7 @@ const fn shift(c: Coord<i32>, d: i32) -> Coord<i32> {
 }
 
 /// `⌊n·m / d⌋` for `d > 0`, exactly. The product of two coordinate spans can exceed `i64`, so it
-/// falls back to `i128` — only for spans beyond ~3 billion units, so the common case stays in `i64`.
+/// falls back to `i128` - only for spans beyond ~3 billion units, so the common case stays in `i64`.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "callers pass |n| <= d, so the quotient is within |m| and fits i64"
@@ -38,9 +38,9 @@ fn mul_div_floor(n: i64, m: i64, d: i64) -> i64 {
 /// across the vertex walk: consecutive vertices in the same tile reuse it, and a segment whose two
 /// endpoints both lie in the inner box touches only that one tile.
 ///
-/// - the **core cell** `[base, base + extent − 1]` is the tile's own cell (owning `base = owner ·
+/// - the **core cell** `[base, base + extent - 1]` is the tile's own cell (owning `base = owner ·
 ///   extent`); a coordinate here has this tile as its owner.
-/// - the **inner box** `[base + buffer, base + extent − 1 − buffer]` is the core shrunk by the
+/// - the **inner box** `[base + buffer, base + extent - 1 - buffer]` is the core shrunk by the
 ///   buffer; a segment with both endpoints inside it stays ≥ `buffer` from every edge, so it cannot
 ///   reach any neighboring tile's buffered box.
 #[derive(Debug, Clone, Copy)]
@@ -109,7 +109,7 @@ impl Seg {
         let base = ty * extent;
         let start = (base - buffer).max(self.lo.y) - self.lo.y;
         let end = (base + extent - 1 + buffer).min(self.hi.y) - self.lo.y;
-        // `x(y) = lo.x + (y − lo.y)·dx/dy` at the slab's two ends (monotone in `y`): rounding the low
+        // `x(y) = lo.x + (y - lo.y)·dx/dy` at the slab's two ends (monotone in `y`): rounding the low
         // end up and the high end down keeps exactly the integers it spans, and so the closed integer
         // boxes it meets. An end at a vertex is exact, which spares the division for most short
         // segments.
@@ -231,9 +231,9 @@ impl Iterator for SegmentTiles {
 /// [`buffer`](Self::buffer), plus the clipping engine.
 ///
 /// Integers in pre-scaled tile space: `x` belongs to tile `x.div_euclid(extent)` and is emitted at
-/// `x − tile·extent ∈ [0, extent)`, so `extent` is both the tile side and its output resolution; each
+/// `x - tile·extent ∈ [0, extent)`, so `extent` is both the tile side and its output resolution; each
 /// clip box grows `buffer` on every side. The library owns no float/projection math (callers scale
-/// into this space up front), keeps original vertices, and never panics — bad input yields a
+/// into this space up front), keeps original vertices, and never panics - bad input yields a
 /// [`TileError`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Grid {
@@ -249,9 +249,9 @@ impl Grid {
     /// # Errors
     ///
     /// - [`TileError::InvalidExtent`] if `extent` is `0`, or `extent + buffer` is greater than
-    ///   `i32::MAX` — no tile's buffered box (grown one more unit for a polygon's fill box) would fit
+    ///   `i32::MAX` - no tile's buffered box (grown one more unit for a polygon's fill box) would fit
     ///   `i32`, so nothing could be sliced.
-    /// - [`TileError::BufferTooLarge`] if `2 * buffer >= extent` — the buffer must stay under half a
+    /// - [`TileError::BufferTooLarge`] if `2 * buffer >= extent` - the buffer must stay under half a
     ///   tile, so a vertex near an edge spills into at most one neighbor per axis and the
     ///   tile-minus-buffer inner box stays non-empty (both relied on by the routing).
     pub(crate) const fn new(extent: u32, buffer: u16) -> Result<Self, TileError> {
@@ -304,7 +304,7 @@ impl Grid {
     }
 
     /// The origin (`tile · extent`) of the tile whose buffered box starts at `min`, as returned by
-    /// [`Self::tile_buffered_bounds`] — which already proved `origin − buffer` fits `i32`.
+    /// [`Self::tile_buffered_bounds`] - which already proved `origin - buffer` fits `i32`.
     pub(crate) const fn origin_of(self, min: Coord<i32>) -> Coord<i32> {
         shift(min, self.buffer)
     }
@@ -378,7 +378,7 @@ impl Grid {
     }
 
     /// Whether the bounding box `[lo, hi]` lies so far from the `i32` limits that no tile meeting it
-    /// can overflow, with room to spare: the tiles lie within `2^30 + extent + buffer < 2^31 − 1` of
+    /// can overflow, with room to spare: the tiles lie within `2^30 + extent + buffer < 2^31 - 1` of
     /// the origin. Each coordinate, biased by `2^30`, is below `2^31` exactly when it is in
     /// `-2^30..2^30`, so one OR tests all four.
     #[inline]
@@ -409,7 +409,7 @@ impl Grid {
         Ok(())
     }
 
-    /// [`Self::check_tiles`], and also that `p − origin` fits `i32` for every point `p` of `[lo, hi]`
+    /// [`Self::check_tiles`], and also that `p - origin` fits `i32` for every point `p` of `[lo, hi]`
     /// and the origin of every tile it checks: what a line run, whose vertices are lent in the local
     /// frame of a tile they only reach, needs.
     ///
@@ -461,9 +461,9 @@ impl Grid {
     }
 
     /// Locate the tile owning `c`, a vertex inside bounds [`Self::check_tiles`] accepted, with its core
-    /// and inner boxes precomputed (see [`Located`]): `min = base − buffer` and
-    /// `max = base + extent − 1 + buffer` fit `i32`, and the core (`base .. base + extent − 1`) and
-    /// inner (`base + buffer .. max − 2·buffer`) boxes follow by `± buffer`, so plain arithmetic
+    /// and inner boxes precomputed (see [`Located`]): `min = base - buffer` and
+    /// `max = base + extent - 1 + buffer` fit `i32`, and the core (`base .. base + extent - 1`) and
+    /// inner (`base + buffer .. max - 2·buffer`) boxes follow by `± buffer`, so plain arithmetic
     /// cannot fail.
     pub(crate) fn locate_fit(self, c: Coord<i32>) -> Located {
         let owner = tile_of(c, self.extent);
@@ -566,7 +566,7 @@ impl Grid {
     }
 }
 
-/// How many distinct vertices `ring` has — its length, less a closing vertex repeating the first — if
+/// How many distinct vertices `ring` has - its length, less a closing vertex repeating the first - if
 /// it has at least three, no two consecutive the same (a ring closed twice included), and every one
 /// in the square `lo ..= lo + span` on both axes; else `None`, for the general path.
 ///

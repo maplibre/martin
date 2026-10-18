@@ -84,8 +84,8 @@ fn line_payload_survives_slicing_and_the_mosaic() {
 
 #[test]
 fn mosaic_rejects_a_payload_mismatch() {
-    // Two tiles share the border segment (5,5)→(5,15), but tile (0,1) carries a different M on the
-    // shared vertex — the mosaic rejects it, naming tile (0,0), and stays unchanged.
+    // Two tiles share the border segment (5,5)->(5,15), but tile (0,1) carries a different M on the
+    // shared vertex - the mosaic rejects it, naming tile (0,0), and stays unchanged.
     let mut mosaic = Mosaic::new(10).expect("valid config");
     mosaic
         .add(

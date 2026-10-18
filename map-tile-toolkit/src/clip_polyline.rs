@@ -1,6 +1,6 @@
 //! Low-level polyline clipping against a single tile box (the engine behind line slicing).
 //!
-//! Clipping keeps the **original** vertices — never cutting new ones at the tile edge. Every
+//! Clipping keeps the **original** vertices - never cutting new ones at the tile edge. Every
 //! segment that touches the box contributes both of its endpoints, so a line shows up in every tile
 //! it passes through, even ones it merely crosses with no vertex inside. A stretch that leaves the
 //! box and re-enters splits into separate pieces only where a vertex is *dropped*: a single-segment
@@ -20,7 +20,7 @@ fn inside(c: Coord<i32>, min: Coord<i32>, max: Coord<i32>) -> bool {
     c.x >= min.x && c.x <= max.x && c.y >= min.y && c.y <= max.y
 }
 
-/// Does segment `a`–`b` touch the closed integer rectangle `[min, max]`?
+/// Does segment `a`-`b` touch the closed integer rectangle `[min, max]`?
 ///
 /// Integer-only (no division, no floats): reject when the segment's bounding box is disjoint from
 /// the box, accept when an endpoint is inside, otherwise test whether the box straddles the
@@ -43,7 +43,7 @@ pub(crate) fn segment_intersects(
 
 /// The last step of [`segment_intersects`], for a segment whose endpoints are both outside the box but
 /// whose bounding box overlaps it: the segment then meets the box iff the box's four corners are not
-/// all strictly on one side of its supporting line (each side is the orientation of `a → b → corner`).
+/// all strictly on one side of its supporting line (each side is the orientation of `a -> b -> corner`).
 pub(crate) fn line_meets_box(
     a: Coord<i32>,
     b: Coord<i32>,
@@ -60,8 +60,8 @@ pub(crate) fn line_meets_box(
 }
 
 /// Re-express vertex `v` in the tile-local frame whose `[0, 0]` corner is `origin`: its position
-/// becomes `position − origin`, its payload unchanged. [`TileError::Overflow`] if the offset leaves the
-/// `i32` range — possible only when a far crossing-segment endpoint lies more than a full `i32` span
+/// becomes `position - origin`, its payload unchanged. [`TileError::Overflow`] if the offset leaves the
+/// `i32` range - possible only when a far crossing-segment endpoint lies more than a full `i32` span
 /// from the tile.
 pub(crate) fn to_local<V: Vertex>(v: V, origin: Coord<i32>) -> Result<V, TileError> {
     let p = v.position();

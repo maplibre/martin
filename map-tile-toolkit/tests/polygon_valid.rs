@@ -1,5 +1,5 @@
 //! Every piece the clipped polygon slicer gives a tile must itself be a valid polygon whenever the
-//! input polygon is — what a consumer that triangulates each piece on its own (MapLibre's earcut
+//! input polygon is - what a consumer that triangulates each piece on its own (MapLibre's earcut
 //! over an MVT tile, say) relies on: simple rings, holes inside the exterior and clear of one another.
 //!
 //! Each fixture in `tests/polygons/fixtures` is checked at buffers 0 and 5, tile by tile across the

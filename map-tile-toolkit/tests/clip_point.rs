@@ -4,11 +4,11 @@
 //! `MultiPoint` features on the same 25-unit grid as the polyline and polygon fixtures; a multipoint
 //! feature is sliced one point at a time. Every fixture is sliced three ways, which must agree:
 //!
-//! 1. [`Slicer::point`] — every feature into every tile it reaches, in one pass.
-//! 2. [`Slicer::tile_point`] — one tile at a time, across the tile span the points could reach
+//! 1. [`Slicer::point`] - every feature into every tile it reaches, in one pass.
+//! 2. [`Slicer::tile_point`] - one tile at a time, across the tile span the points could reach
 //!    (padded by one tile).
 //! 3. An independent oracle: a tile holds a point iff its closed buffered box
-//!    `[t·extent − buffer, (t+1)·extent + buffer − 1]` holds it on both axes.
+//!    `[t·extent - buffer, (t+1)·extent + buffer - 1]` holds it on both axes.
 //!
 //! The result is snapshotted as a `FeatureCollection` of two kinds of `MultiPoint` features, sorted by
 //! `role`: one with every input point (yellow), and, per tile, one with that tile's copies in global
@@ -83,7 +83,7 @@ fn slice_tile(
 }
 
 /// The tiles in `lo..=hi` whose closed buffered box holds each point, computed directly from the
-/// box bounds — independent of the slicer's per-point tile arithmetic.
+/// box bounds - independent of the slicer's per-point tile arithmetic.
 fn oracle(features: &[Vec<Coord<i32>>], buffer: u16, lo: TileId, hi: TileId) -> Tiles {
     let (e, b) = (EXTENT as i32, i32::from(buffer));
     let holds = |t: i32, v: i32| t * e - b <= v && v < (t + 1) * e + b;

@@ -1,41 +1,41 @@
-//! Stateful reassembly of sliced tiles back into whole features — the accumulating inverse of the
+//! Stateful reassembly of sliced tiles back into whole features - the accumulating inverse of the
 //! [`Slicer`](crate::Slicer).
 //!
 //! [`Mosaic`] rejoins **polyline** tiles ([`Slicer::line`](crate::Slicer::line)); [`PolygonMosaic`] rejoins
 //! **polygon** tiles ([`Slicer::polygon`](crate::Slicer::polygon)). Both take each tile's geometry
 //! in its local frame, rebase it into the global frame (`local + tile·extent`), and link geometry
 //! across borders by shared **directed edges**. [`add`](Mosaic::add) rejects a tile inconsistent with
-//! those already present — naming the ones it conflicts with, and leaving the mosaic unchanged — in
+//! those already present - naming the ones it conflicts with, and leaving the mosaic unchanged - in
 //! two ways:
 //!
 //! - **Payload:** slicing duplicates a border-crossing segment identically (position **and** payload)
 //!   in every tile that carries it, so a shared edge whose vertices *disagree* is a conflict. (A single
-//!   position may be shared by several features — edges only collide when their whole segment does — so
+//!   position may be shared by several features - edges only collide when their whole segment does - so
 //!   unrelated features meeting at a point never conflict.)
 //! - **Membership:** every tile is complete in its own *core* (the cell it owns), so an edge with an
 //!   endpoint in a present tile's core must be carried by that tile. A present tile that owns an
-//!   endpoint but lacks the edge — a line spanning into a neighbor the neighbor never corroborates,
-//!   or two tiles disagreeing at a shared junction — is a conflict. A buffer only widens the overlap
+//!   endpoint but lacks the edge - a line spanning into a neighbor the neighbor never corroborates,
+//!   or two tiles disagreeing at a shared junction - is a conflict. A buffer only widens the overlap
 //!   two tiles share, and the whole overlap must match; any *disagreement* there surfaces here too,
 //!   because the differing vertex lands in some tile's core. Only a pure *omission* of redundant
-//!   overlap geometry goes unflagged — and that is harmless, since the core tile still supplies the
+//!   overlap geometry goes unflagged - and that is harmless, since the core tile still supplies the
 //!   edge and duplicates collapse on reassembly.
 //!
 //! [`iter_features`](Mosaic::iter_features) re-chains the distinct edges into maximal chains
-//! (`stitch`) — the same reconstruction a from-scratch merge of all tiles would produce.
+//! (`stitch`) - the same reconstruction a from-scratch merge of all tiles would produce.
 //!
 //! The two mosaics differ only in how a tile's input becomes directed edges:
 //!
 //! - [`Mosaic`] uses every consecutive vertex pair of each **run**. It needs only the `extent`.
 //! - [`PolygonMosaic`] takes each tile's **rings** and keeps only the edges that **touch** the tile's
-//!   buffered box `B`. This drops all the slicer's synthetic geometry — the
+//!   buffered box `B`. This drops all the slicer's synthetic geometry - the
 //!   clip-boundary corners, fill boxes, and gap-bridging chords, which are routed strictly *outside*
-//!   `B` — while every real ring edge survives in the tile that owns its start vertex (whose cell lies
+//!   `B` - while every real ring edge survives in the tile that owns its start vertex (whose cell lies
 //!   in `B`, so the edge touches `B` there). The *same* edge machinery then reassembles the rings, with
 //!   orientation and holes falling out of the directed edges. Testing the edge rather than the vertex
 //!   is what catches a bridge chord drawn directly between two *original* crossing vertices, which no
 //!   per-vertex tag could. Because it re-derives `B`, it needs the `buffer` as well as the `extent`. A
-//!   tile lying entirely inside a polygon (an all-synthetic fill) contributes no edges — correct, since
+//!   tile lying entirely inside a polygon (an all-synthetic fill) contributes no edges - correct, since
 //!   a reassembled polygon's interior is implied by its winding, not by fill tiles.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
@@ -61,7 +61,7 @@ struct Edge<V> {
 type EdgeKey = (Coord<i32>, Coord<i32>);
 
 /// The shared global directed-edge index behind both mosaics: it holds the cross-tile edge map and
-/// per-tile bookkeeping, detects conflicts, and re-chains features — everything except how a tile's
+/// per-tile bookkeeping, detects conflicts, and re-chains features - everything except how a tile's
 /// raw geometry is turned into directed edges (runs for [`Mosaic`], synthetic-filtered rings for
 /// [`PolygonMosaic`]).
 #[derive(Debug, Clone)]
@@ -94,7 +94,7 @@ impl<V: Vertex> EdgeIndex<V> {
         // Conflict scan against *other* tiles (this tile's own prior data is replaced, not compared).
         let mut conflicts = BTreeSet::new();
         // (a) Payload conflict: another tile carries the same edge (identical positions) but different
-        // vertices — only a payload (e.g. an M value) can differ, since the key is the positions.
+        // vertices - only a payload (e.g. an M value) can differ, since the key is the positions.
         for (key, (a, b)) in &new_edges {
             if let Some(existing) = self.edges.get(key)
                 && !(existing.a == *a && existing.b == *b)
@@ -105,8 +105,8 @@ impl<V: Vertex> EdgeIndex<V> {
         // (b) Membership conflict: a tile is complete in its own core, so every edge with an endpoint
         // in a present tile's core must be carried by that tile. A present endpoint-tile that lacks the
         // edge means the tiles came from inconsistent data. Checked both ways so detection is
-        // order-independent. (Any *disagreement* in a buffer overlap surfaces here too — the differing
-        // vertex lands in some core — so only a harmless omission of a redundant overlap edge slips.)
+        // order-independent. (Any *disagreement* in a buffer overlap surfaces here too - the differing
+        // vertex lands in some core - so only a harmless omission of a redundant overlap edge slips.)
         // This tile must carry every already-present edge that names it as an endpoint-tile.
         for (key, existing) in &self.edges {
             if (tile_of(key.0, ext) == tile || tile_of(key.1, ext) == tile)
@@ -201,7 +201,7 @@ impl<V: Vertex> EdgeIndex<V> {
 /// Reassembles tiled **polyline** features back into whole features as tiles are [added](Self::add).
 ///
 /// Generic over the [`Vertex`] type `V` (defaults to [`Coord<i32>`]). Needs only the `extent` the
-/// tiles were sliced at — never the buffer (see the module docs). A payload-carrying vertex (e.g.
+/// tiles were sliced at - never the buffer (see the module docs). A payload-carrying vertex (e.g.
 /// [`Measured`](crate::Measured)) additionally makes payload [`Conflict`](TileError::Conflict)s
 /// meaningful.
 #[derive(Debug, Clone)]
@@ -265,7 +265,7 @@ impl<V: Vertex> Mosaic<V> {
         self.index.purge(tile)
     }
 
-    /// Iterate every reassembled feature — geometry stitched across tile borders into maximal
+    /// Iterate every reassembled feature - geometry stitched across tile borders into maximal
     /// polylines, in the global frame. A single iterator over the whole mosaic; deterministic order.
     pub fn iter_features(&self) -> impl Iterator<Item = Vec<V>> {
         self.index.iter_features()
@@ -295,7 +295,7 @@ impl<V: Vertex> Mosaic<V> {
     }
 }
 
-/// Reassembles tiled **polygon** features back into whole rings as tiles are [added](Self::add) — the
+/// Reassembles tiled **polygon** features back into whole rings as tiles are [added](Self::add) - the
 /// accumulating inverse of the polygon slicer.
 ///
 /// Generic over the [`Vertex`] type `V` (defaults to [`Coord<i32>`]). Needs the `extent` **and**
@@ -336,7 +336,7 @@ impl<V: Vertex> PolygonMosaic<V> {
     }
 
     /// Add `tile`'s rings (in its local frame) to the mosaic. `rings` is anything sliceable to `[V]`
-    /// (e.g. `&[&[V]]` collected from a tile's polygon features — exterior and hole rings alike, in any
+    /// (e.g. `&[&[V]]` collected from a tile's polygon features - exterior and hole rings alike, in any
     /// order). Each ring may be given open or closed. Re-adding a tile replaces its contents. A tile
     /// that contributes only synthetic geometry (a solid interior fill) records nothing.
     ///
@@ -367,7 +367,7 @@ impl<V: Vertex> PolygonMosaic<V> {
         self.index.purge(tile)
     }
 
-    /// Iterate every reassembled ring — geometry stitched across tile borders into maximal chains, in
+    /// Iterate every reassembled ring - geometry stitched across tile borders into maximal chains, in
     /// the global frame. A single iterator over the whole mosaic; deterministic order.
     pub fn iter_features(&self) -> impl Iterator<Item = Vec<V>> {
         self.index.iter_features()
@@ -427,11 +427,11 @@ fn rebase<V: Vertex>(run: &[V], off_x: i64, off_y: i64) -> Result<Vec<V>, TileEr
 /// This one test drops all the slicer's synthetic geometry and reassembles the original rings, because
 /// of a clean split:
 ///
-/// - Every **real** ring edge `p → q` is emitted by the tile that owns `p`'s cell: `p` lies in that
+/// - Every **real** ring edge `p -> q` is emitted by the tile that owns `p`'s cell: `p` lies in that
 ///   tile's core (⊆ its box), so the edge starts inside the box and touches it. Thus no real edge is
-///   ever lost — it survives in at least the one tile that owns its start.
-/// - Every **synthetic** edge — the clip-boundary corners, fill boxes, and gap-bridging chords the
-///   slicer injects — is routed strictly *outside* the box, so it never touches the box
+///   ever lost - it survives in at least the one tile that owns its start.
+/// - Every **synthetic** edge - the clip-boundary corners, fill boxes, and gap-bridging chords the
+///   slicer injects - is routed strictly *outside* the box, so it never touches the box
 ///   and is dropped. This catches even a direct bridge chord between two *original* crossing vertices,
 ///   which a per-vertex "is this corner synthetic" test cannot (its endpoints are genuine vertices).
 ///
@@ -447,7 +447,7 @@ fn ring_edges<V: Vertex>(
     new_edges: &mut HashMap<EdgeKey, (V, V)>,
 ) -> Result<(), TileError> {
     // Rebase to the global frame and drop consecutive duplicate positions in one pass (matching the
-    // slicer, so a zero-length edge never distorts the touch test) — no separate rebased copy.
+    // slicer, so a zero-length edge never distorts the touch test) - no separate rebased copy.
     let mut pts: Vec<V> = Vec::with_capacity(ring.len());
     for &v in ring {
         let g = rebase_vertex(v, off_x, off_y)?;
@@ -498,7 +498,7 @@ fn stitch<V: Vertex>(runs: &[Vec<V>]) -> Vec<Vec<V>> {
         return Vec::new();
     }
 
-    // Adjacency: each start position → its outgoing edge indices (FIFO = first-seen). Track in-degree
+    // Adjacency: each start position -> its outgoing edge indices (FIFO = first-seen). Track in-degree
     // and first-seen position order so chain starts are found deterministically.
     let mut out: HashMap<Coord<i32>, VecDeque<usize>> = HashMap::new();
     let mut indeg: HashMap<Coord<i32>, usize> = HashMap::new();
@@ -519,8 +519,8 @@ fn stitch<V: Vertex>(runs: &[Vec<V>]) -> Vec<Vec<V>> {
     let mut used = vec![false; edges.len()];
     let mut chains: Vec<Vec<V>> = Vec::new();
 
-    // Phase 1: start a chain at each path source — a position with more outgoing than incoming edges
-    // accounts for `outdeg − indeg` chain starts (the endpoints of open polylines).
+    // Phase 1: start a chain at each path source - a position with more outgoing than incoming edges
+    // accounts for `outdeg - indeg` chain starts (the endpoints of open polylines).
     for &p in &points {
         let outdeg = out.get(&p).map_or(0, VecDeque::len);
         let ind = indeg.get(&p).copied().unwrap_or(0);

@@ -1,8 +1,8 @@
 //! Fuzz the polygon slicer: it must **never panic**, and every feature it slices without error must
 //! agree with the single-tile slicer, tile by tile.
 //!
-//! For a structured input (up to two multipolygon features of arbitrary — often self-intersecting or
-//! overlapping — rings, and a slicer config):
+//! For a structured input (up to two multipolygon features of arbitrary - often self-intersecting or
+//! overlapping - rings, and a slicer config):
 //!
 //! The rings are arbitrary, so the repairs that make a piece valid (for valid input) run here on
 //! garbage too: they are bounded work per tile, and a run that does not finish is a failure.
@@ -18,8 +18,8 @@
 //!    back independently.
 //! 3. Slicing the same features again reproduces the same output.
 //! 4. **Unclipped** (`ClipMode::Unclipped`), every polygon reaches exactly the tiles it reaches
-//!    clipped (when that slices without error), each once, as a piece of the whole polygon — every
-//!    ring of 3+ distinct vertices, closed — in that tile's frame, and never as a fill run.
+//!    clipped (when that slices without error), each once, as a piece of the whole polygon - every
+//!    ring of 3+ distinct vertices, closed - in that tile's frame, and never as a fill run.
 //!    `tile_polygon` gives exactly that on every tile of the scanned span, and nothing elsewhere. An
 //!    unclipped error must be a clipped one too.
 //!
@@ -146,8 +146,8 @@ fn place(polygons: &[Vec<Vec<(i8, i8)>>], scale: i64, origin: (i32, i32)) -> Pol
         .collect()
 }
 
-/// The tiles of `coords`' reachable span, within `i32` — every piece is within one tile (plus
-/// buffer) of a vertex — or none if there are no coordinates or the span is too large to scan.
+/// The tiles of `coords`' reachable span, within `i32` - every piece is within one tile (plus
+/// buffer) of a vertex - or none if there are no coordinates or the span is too large to scan.
 fn scan_tiles<'a>(
     coords: impl Iterator<Item = &'a Coord<i32>> + Clone,
     extent: u32,
@@ -310,7 +310,7 @@ fuzz_target!(|input: Input| {
     };
     let buffer = u16::from(input.buffer);
     let Ok(mut slicer) = Slicer::<Coord<i32>>::new(extent, buffer) else {
-        return; // invalid config — rejected, nothing to test
+        return; // invalid config - rejected, nothing to test
     };
     let features: Vec<Polygons> = input
         .features

@@ -2,7 +2,7 @@
 //! clipper's output covers the same area (polygons) or length (polylines) as the toolkit's pieces
 //! once those are cut to the buffered box (they keep original vertices outside it), and so does
 //! `geo`'s overlay. Exact equality is not expected: the baselines compute intersection points, and
-//! Sutherland–Hodgman leaves degenerate segments along the box edges.
+//! Sutherland-Hodgman leaves degenerate segments along the box edges.
 //!
 //! Area is the even-odd area `geo` measures, one polygon at a time, so self-intersecting rings and
 //! overlapping holes compare the same way on every side (clipping to a half-plane keeps each inside

@@ -7,7 +7,7 @@ symbol in a stable color derived from its path, except the grid, which is styled
 per type, as QGIS itself does. The project is in EPSG:4326 and opens on the fixture grid; layer
 sources are relative to the project file, so it can be written anywhere.
 
-Everything is rebuilt on each run; only the view state of an existing project is kept — which
+Everything is rebuilt on each run; only the view state of an existing project is kept - which
 groups and layers are checked or expanded, and the map extent. Delete the file for a pristine one.
 Needs only the standard library.
 
@@ -54,7 +54,7 @@ WGS84 = {
 OUTLINE = "35,35,35,255"
 
 # The grid's line style per `role`, as `SimpleLine` options: thin lines sized in screen pixels, so
-# they stay hairlines at any zoom — dotted red buffer edges, dashed dark tile edges, blue zero axes.
+# they stay hairlines at any zoom - dotted red buffer edges, dashed dark tile edges, blue zero axes.
 GRID_PIXEL_UNITS = {
     f"{k}_unit": "Pixel" for k in ("line_width", "customdash", "dash_pattern_offset", "offset", "trim_distance_start", "trim_distance_end")
 }

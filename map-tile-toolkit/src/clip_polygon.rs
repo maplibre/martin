@@ -5,7 +5,7 @@
 //! A vertex is kept by the same rule as the polyline clip (an incident edge touches the box); the
 //! dropped outside excursions between kept arcs are replaced by detours that hug the box exterior
 //! (`B⁺`, one unit outside `B`) via its corners. Each detour is built to be **homotopic** to the
-//! excursion it replaces — it reproduces the excursion's winding around the box center — so the fill
+//! excursion it replaces - it reproduces the excursion's winding around the box center - so the fill
 //! inside the box is exact even when a ring wraps the tile. All synthetic geometry lies strictly
 //! outside `B`, which lets [`Mosaic`](crate::Mosaic) recognise and drop it geometrically.
 //!
@@ -24,7 +24,7 @@ use crate::clip_polyline::{line_meets_box, segment_intersects};
 use crate::geom::{orient, point_in_distinct_ring, ring_orientation};
 use crate::vertex::{PolyVertex, Vertex};
 
-// Cohen–Sutherland outcode bits for a point vs the inclusive box `[min, max]`.
+// Cohen-Sutherland outcode bits for a point vs the inclusive box `[min, max]`.
 const LEFT: u8 = 1;
 const RIGHT: u8 = 2;
 const BOTTOM: u8 = 4;
@@ -115,7 +115,7 @@ impl RingPlan<'_> {
     }
 }
 
-/// `[min, max]` grown by `lane` units per side — the box detour corners are placed around.
+/// `[min, max]` grown by `lane` units per side - the box detour corners are placed around.
 pub(crate) fn lane_bounds(
     min: Coord<i32>,
     max: Coord<i32>,
@@ -166,7 +166,7 @@ fn corner(slot: u8, min: Coord<i32>, max: Coord<i32>) -> Result<Coord<i32>, Tile
     })
 }
 
-/// Signed crossing of segment `a → b` with the ray `{ y = cy, x > max_x }` — the part of the `+x` ray
+/// Signed crossing of segment `a -> b` with the ray `{ y = cy, x > max_x }` - the part of the `+x` ray
 /// from the box center that lies outside the box: `+1` upward, `-1` downward, `0` if it misses
 /// (half-open in `y`, so a vertex shared by two edges is counted once). Summed along a path this is
 /// the path's winding around the box center; since every excursion and every detour lives outside the
@@ -175,7 +175,7 @@ fn ray_crossing(a: Coord<i32>, b: Coord<i32>, cy: i32, max_x: i32) -> i64 {
     if (a.y > cy) == (b.y > cy) {
         return 0;
     }
-    // Crossing `x` compared to `max_x` without division: `x − max_x = num / dy`.
+    // Crossing `x` compared to `max_x` without division: `x - max_x = num / dy`.
     let dy = i128::from(b.y) - i128::from(a.y);
     let num = (i128::from(a.x) - i128::from(max_x)) * dy
         + (i128::from(b.x) - i128::from(a.x)) * (i128::from(cy) - i128::from(a.y));
@@ -205,7 +205,7 @@ fn ray_crossings(path: impl IntoIterator<Item = Coord<i32>>, cy: i32, max_x: i32
 /// even slot passed except the final one (where the detour's other endpoint sits). `advance == 0`
 /// yields none (a direct chord).
 fn corner_slots(start: u8, advance: i64) -> impl Iterator<Item = u8> {
-    // One slot CCW (`+1`) or CW (`+7 ≡ −1`) around the 8-slot loop, staying in `u8`.
+    // One slot CCW (`+1`) or CW (`+7 ≡ -1`) around the 8-slot loop, staying in `u8`.
     let step = if advance > 0 { 1 } else { 7 };
     let mut s = start;
     (1..advance.unsigned_abs()).filter_map(move |_| {
@@ -214,7 +214,7 @@ fn corner_slots(start: u8, advance: i64) -> impl Iterator<Item = u8> {
     })
 }
 
-/// How many corners [`corner_slots`] yields, in O(1): of the `|advance| − 1` intermediate slots,
+/// How many corners [`corner_slots`] yields, in O(1): of the `|advance| - 1` intermediate slots,
 /// every other one is a corner, starting with the first when `start` is odd.
 fn corner_count(start: u8, advance: i64) -> u64 {
     let n = advance.unsigned_abs().saturating_sub(1);
@@ -225,7 +225,7 @@ fn corner_count(start: u8, advance: i64) -> u64 {
     }
 }
 
-/// The box's center `y` (overflow-safe midpoint) — the height of the winding ray.
+/// The box's center `y` (overflow-safe midpoint) - the height of the winding ray.
 pub(crate) fn center_y(min: Coord<i32>, max: Coord<i32>) -> i32 {
     i32::midpoint(min.y, max.y)
 }
@@ -244,10 +244,10 @@ enum Bridge {
 /// the box exterior: the CCW corner path from `u`'s slot to `v`'s is the reference, and whole `∂B⁺`
 /// loops (±8 slots each) make up the winding difference.
 ///
-/// Every gap vertex is outside the box (both its edges miss it — that's why it was dropped), so keeping
+/// Every gap vertex is outside the box (both its edges miss it - that's why it was dropped), so keeping
 /// the gap verbatim reproduces the real excursion with its exact winding, entirely outside the box.
 /// Synthesizing only ever trades those originals for `B⁺` corners, so it's worth doing only when it
-/// *saves* vertices — a longer excursion that would otherwise drag its far geometry into this tile.
+/// *saves* vertices - a longer excursion that would otherwise drag its far geometry into this tile.
 /// Either way `Mosaic` recovers the real geometry from the tiles that own it.
 fn plan_bridge(
     u: Coord<i32>,
@@ -293,7 +293,7 @@ fn plan_bridge_in(
 ) -> Result<Bridge, TileError> {
     let su = slot(outcode(u, min, max));
     let sv = slot(outcode(v, min, max));
-    let base = i64::from((sv + 8 - su) % 8); // 0..8, CCW distance su → sv
+    let base = i64::from((sv + 8 - su) % 8); // 0..8, CCW distance su -> sv
     // Winding of the reference detour (at most three corners).
     let mut w_ref = 0;
     let mut prev = u;
@@ -315,7 +315,7 @@ fn plan_bridge_in(
     })
 }
 
-/// Append to `out` the distinct vertices of `ring` in cyclic order — consecutive duplicate positions
+/// Append to `out` the distinct vertices of `ring` in cyclic order - consecutive duplicate positions
 /// and a repeated closing vertex dropped, so zero-length edges can't distort the clip (matching the
 /// polyline slicer's handling of consecutive duplicates). Returns how many were appended. Callers
 /// borrow a ring that is already distinct (see [`distinct_prefix`]) and copy only when it is not.
@@ -811,8 +811,8 @@ pub(crate) enum Closed {
 /// to `piece` in the ring's own coordinate frame, ending its ring.
 ///
 /// `ring` holds the ring's distinct vertices in cyclic order (see [`push_distinct`]); edge `i` runs
-/// `ring[i] → ring[(i + 1) % m]`. `arcs` holds, non-empty, the kept arcs that [`keep_edge`] built from
-/// the edges touching the box `[min, max]` in ascending order — a vertex is kept iff an incident edge
+/// `ring[i] -> ring[(i + 1) % m]`. `arcs` holds, non-empty, the kept arcs that [`keep_edge`] built from
+/// the edges touching the box `[min, max]` in ascending order - a vertex is kept iff an incident edge
 /// touches; they are consumed. `winding(first, count)` must return
 /// [`ray_crossing`] summed over the `count` consecutive edges from edge `first` (cyclically), for this
 /// box's ray; the caller supplies it so the single-tile clip can walk the edges while the all-tiles
@@ -1049,8 +1049,8 @@ fn clip_ring_by<const PLAIN: bool, V: PolyVertex>(
     }
 
     if arcs.is_empty() {
-        // No edge touches the box → the tile is uniformly inside or outside the ring, and the box
-        // center's `+x` ray meets edges only outside the box — exactly the recorded crossings — so their
+        // No edge touches the box -> the tile is uniformly inside or outside the ring, and the box
+        // center's `+x` ray meets edges only outside the box - exactly the recorded crossings - so their
         // parity is the even-odd containment of the whole tile.
         let inside = crossings.len() % 2 == 1;
         debug_assert_eq!(
@@ -1105,7 +1105,7 @@ fn clip_ring_by<const PLAIN: bool, V: PolyVertex>(
 }
 
 /// How a kept `ring` (at least 3 distinct vertices, see [`push_distinct`]) meets the box
-/// `[min, max]` — what [`clip_ring`] returns, without clipping it: [`RingClip::Clipped`] at the
+/// `[min, max]` - what [`clip_ring`] returns, without clipping it: [`RingClip::Clipped`] at the
 /// first edge touching the box, else the parity of the box center's ray crossings, as there.
 pub(crate) fn ring_meets_box<V: Vertex>(ring: &[V], min: Coord<i32>, max: Coord<i32>) -> RingClip {
     let cy = center_y(min, max);
@@ -1127,7 +1127,7 @@ pub(crate) fn ring_meets_box<V: Vertex>(ring: &[V], min: Coord<i32>, max: Coord<
 }
 
 /// The length of `ring` without its repeated closing vertices, if that prefix has no consecutive
-/// duplicate positions — exactly what [`push_distinct`] would copy, so it can be borrowed instead.
+/// duplicate positions - exactly what [`push_distinct`] would copy, so it can be borrowed instead.
 /// `None` when an inner duplicate needs the copy.
 pub(crate) fn distinct_prefix<V: Vertex>(ring: &[V]) -> Option<usize> {
     let first = ring.first()?.position();
@@ -1141,7 +1141,7 @@ pub(crate) fn distinct_prefix<V: Vertex>(ring: &[V]) -> Option<usize> {
         .then_some(n)
 }
 
-/// The kept arcs of `ring` for the box `[min, max]` — what [`clip_ring`] finds — appended to `store`,
+/// The kept arcs of `ring` for the box `[min, max]` - what [`clip_ring`] finds - appended to `store`,
 /// so a probe can revisit them without scanning the ring again. Returns the ring's distinct length
 /// and where its arcs are in `store` (empty when no edge touches the box, or every vertex is
 /// inside), or `None` if the ring has repeated vertices, which only a copy can drop.
@@ -1184,7 +1184,7 @@ mod tests {
         Coord { x, y }
     }
 
-    // Tile (0,0), extent 10, buffer 0 → inclusive box [0,0]..[9,9].
+    // Tile (0,0), extent 10, buffer 0 -> inclusive box [0,0]..[9,9].
     const MIN: Coord<i32> = Coord { x: 0, y: 0 };
     const MAX: Coord<i32> = Coord { x: 9, y: 9 };
 

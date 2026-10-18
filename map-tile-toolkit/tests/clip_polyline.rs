@@ -5,15 +5,15 @@
 //! a map); each feature is an independent polyline. Every fixture is sliced two ways and the two
 //! must be **byte identical**:
 //!
-//! 1. `slice_all_tiles` — the whole geometry into every tile it touches, in one pass.
+//! 1. `slice_all_tiles` - the whole geometry into every tile it touches, in one pass.
 //! 2. For each tile that (1) produced, `slice_tile` re-clips that single tile.
 //!
 //! The result is snapshotted as a `FeatureCollection`: the original polyline and one feature per
 //! per-tile piece, sorted by `role`. Regenerate with `just bless`.
 //!
 //! Every fixture is snapshotted at two buffer sizes, each into its own directory:
-//! - `snapshots/` — buffer 0 (tile boxes flush with the grid);
-//! - `snapshots-5/` — buffer 5 (each tile box grown 5 units per side, so near-edge vertices and
+//! - `snapshots/` - buffer 0 (tile boxes flush with the grid);
+//! - `snapshots-5/` - buffer 5 (each tile box grown 5 units per side, so near-edge vertices and
 //!   crossing segments also land in the neighboring tiles).
 
 #![allow(clippy::pedantic, reason = "test/inspection tool")]
@@ -65,7 +65,7 @@ fn padded_tile_span(polylines: &[Vec<Coord<i32>>]) -> (TileId, TileId) {
     )
 }
 
-/// A copy of `polylines` with every vertex repeated once — consecutive duplicates the slicers must
+/// A copy of `polylines` with every vertex repeated once - consecutive duplicates the slicers must
 /// transparently drop, so clipping the copy yields the same result as the original.
 fn duplicate_vertices(polylines: &[Vec<Coord<i32>>]) -> Vec<Vec<Coord<i32>>> {
     polylines
@@ -85,7 +85,7 @@ fn globalize(tile: TileId, runs: &[Vec<Coord<i32>>], extent: i32) -> Vec<Vec<Coo
 }
 
 /// Build the snapshot features: the input polylines (one gray feature each) and one feature
-/// per per-tile **run** — each a plain `LineString`, never a `MultiLineString`, so distinct
+/// per per-tile **run** - each a plain `LineString`, never a `MultiLineString`, so distinct
 /// features/runs in a tile stay distinct (colored by tile parity so neighbors contrast, tagged with
 /// the tile).
 fn build_features(
@@ -123,7 +123,7 @@ fn save_big_geometry() {
 }
 
 /// The shared `BIG_CONFIGS` slicers must slice the big polyline into the documented number of
-/// tiles: `single` → one, `few` → a 2×2 grid of four, `multi` → many. Guards the extent choices
+/// tiles: `single` -> one, `few` -> a 2×2 grid of four, `multi` -> many. Guards the extent choices
 /// the benchmarks and the `profile` example rely on.
 #[test]
 fn big_config_tile_counts() {
@@ -139,7 +139,7 @@ fn big_config_tile_counts() {
     }
 }
 
-/// A z14-scale diagonal — one segment across 16384 × 16384 tiles of extent 4096 — slices (routing
+/// A z14-scale diagonal - one segment across 16384 × 16384 tiles of extent 4096 - slices (routing
 /// charges the tiles it touches, not its 2^28-tile bounding box), and every sampled output tile and
 /// each of its neighbours agrees with a per-tile [`Slicer::tile_line`](map_tile_toolkit::Slicer::tile_line) clip.
 #[test]
@@ -182,7 +182,7 @@ fn slice_at_buffer(
         support::slice_all_runs(slicer, geom).into_iter().collect();
 
     // (2) Independently, clip one tile at a time across the whole tile span the geometry could
-    // reach (padded by one tile). Collecting every non-empty result must reproduce `all` exactly —
+    // reach (padded by one tile). Collecting every non-empty result must reproduce `all` exactly -
     // this checks the batch found no wrong pieces and missed no tile (including tiles a segment
     // only crosses, which both paths must include).
     let (lo, hi) = padded_tile_span(geom);

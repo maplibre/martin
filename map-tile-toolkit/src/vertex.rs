@@ -1,6 +1,6 @@
 //! The [`Vertex`] abstraction: what the slicer needs from a polyline vertex.
 //!
-//! The slicer keeps **original** vertices — it never cuts new ones at a tile edge — so a vertex's
+//! The slicer keeps **original** vertices - it never cuts new ones at a tile edge - so a vertex's
 //! payload (an M / measure value, an id, anything `Copy + PartialEq`) rides through slicing unchanged, with
 //! no interpolation. A vertex therefore only has to expose its integer position for the clipping and
 //! tiling math and be able to produce a copy at a shifted position (for tile-local re-framing).
@@ -19,7 +19,7 @@ pub trait Vertex: Copy + PartialEq {
     fn position(&self) -> Coord<i32>;
 
     /// A copy of `self` moved to `position`, keeping the payload unchanged. Used to re-express a
-    /// vertex in a tile-local frame (`position − origin`).
+    /// vertex in a tile-local frame (`position - origin`).
     #[must_use]
     fn with_position(self, position: Coord<i32>) -> Self;
 }
@@ -72,7 +72,7 @@ impl<M: Copy + PartialEq> Vertex for Measured<M> {
 ///
 /// These synthetic vertices live strictly outside the tile's buffered box (so they are invisible to a
 /// renderer that clips to the tile) and are dropped when [`Mosaic`](crate::Mosaic) reassembles, so
-/// their payload is pure filler — hence `Default`. Kept separate from [`Vertex`] so the polyline path
+/// their payload is pure filler - hence `Default`. Kept separate from [`Vertex`] so the polyline path
 /// never sees the extra bound.
 pub trait PolyVertex: Vertex {
     /// A synthetic vertex at `position`, carrying a default (filler) payload.

@@ -7,13 +7,13 @@
 //! Usage: `cargo run --release --example simplify_slice -- <path-to.wkt> <zoom>`
 //!
 //! Pipeline:
-//! * **load** — read the whole file into memory, one WKT `LINESTRING` per line.
-//! * **simplify** — a pixel at `<zoom>` is `EARTH_CIRCUMFERENCE / 2^zoom / EXTENT` metres wide;
-//!   run Ramer–Douglas–Peucker with an epsilon of ~3 pixels, in the source metre space.
-//! * **project** — one tile at `<zoom>` spans `divisor = EARTH_CIRCUMFERENCE / 2^zoom` metres, cut
+//! * **load** - read the whole file into memory, one WKT `LINESTRING` per line.
+//! * **simplify** - a pixel at `<zoom>` is `EARTH_CIRCUMFERENCE / 2^zoom / EXTENT` metres wide;
+//!   run Ramer-Douglas-Peucker with an epsilon of ~3 pixels, in the source metre space.
+//! * **project** - one tile at `<zoom>` spans `divisor = EARTH_CIRCUMFERENCE / 2^zoom` metres, cut
 //!   into `EXTENT` units, so the whole world is `2^zoom * EXTENT` integer units across. Web Mercator
 //!   metres map into that `i32` grid (Y flipped so tile row 0 is at the north edge).
-//! * **slice** — slice every geometry with one [`Slicer`] (all lines share a single tile grid),
+//! * **slice** - slice every geometry with one [`Slicer`] (all lines share a single tile grid),
 //!   reading each slice's tile and vertices through [`black_box`].
 
 #![allow(clippy::pedantic, clippy::print_stderr, reason = "profiling helper")]
@@ -52,7 +52,7 @@ fn main() {
     let divisor = EARTH_CIRCUMFERENCE / tile_count;
     let pixel_m = divisor / f64::from(EXTENT);
     let epsilon = SIMPLIFY_PIXELS * pixel_m;
-    // Metres → integer grid units. World is `tile_count * EXTENT` units across.
+    // Metres -> integer grid units. World is `tile_count * EXTENT` units across.
     let units_per_m = f64::from(EXTENT) / divisor;
     eprintln!(
         "zoom {zoom}: divisor {divisor:.3} m/tile, pixel {pixel_m:.4} m, simplify epsilon {epsilon:.4} m"

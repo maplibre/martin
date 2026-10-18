@@ -416,7 +416,7 @@ fn twice_area(ring: &[Coord<i32>]) -> i64 {
 }
 
 /// Every rotation and mirror image of a fixture still matches the single-tile oracle (fill rings
-/// included) and still reassembles, at both snapshot buffers and on two finer grids — tiles of 10
+/// included) and still reassembles, at both snapshot buffers and on two finer grids - tiles of 10
 /// put boundaries through many fixture vertices, tiles of 7 through few. Each symmetry walks rows
 /// and crossings in a different order, so this catches tie-breaks that hold only one way round.
 fn fixture_symmetries(path: &Path) {
@@ -460,7 +460,7 @@ fn slice_one_polygon(
 }
 
 /// A z14-like ocean: a square spanning 16384 × 16384 tiles of extent 4096 (2^28 tiles) with a
-/// 21 × 21-tile hole. Interior tiles must come back as one or two runs per row — bounded memory and
+/// 21 × 21-tile hole. Interior tiles must come back as one or two runs per row - bounded memory and
 /// time proportional to the perimeter and the rows, none per covered tile.
 #[test]
 fn huge_polygon_fills_by_runs() {
@@ -498,8 +498,8 @@ fn huge_polygon_fills_by_runs() {
     assert!(one(TileId::new(N / 2, N / 2)).is_empty(), "inside the hole");
 }
 
-/// A z14-scale polygon with a long diagonal edge — the [`support::diagonal_triangle`] over 16384 ×
-/// 16384 tiles of extent 4096 — slices, its edge tiles proportional to the perimeter, and around a
+/// A z14-scale polygon with a long diagonal edge - the [`support::diagonal_triangle`] over 16384 ×
+/// 16384 tiles of extent 4096 - slices, its edge tiles proportional to the perimeter, and around a
 /// sample of edge tiles every tile agrees with [`Slicer::tile_polygon`]: an edge tile's pieces
 /// match, a filled tile is one it fills with the fill ring, and any other tile is one it leaves empty.
 #[test]

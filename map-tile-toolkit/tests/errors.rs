@@ -28,9 +28,9 @@ fn slices(s: &Slicer<Coord<i32>>, l: &[Coord<i32>]) -> Result<Slices, TileError>
 /// (itself within buffer of the edge) but its tile's base minus the buffer underflows.
 fn overflows_midway() -> Vec<Coord<i32>> {
     line(vec![
-        (i32::MIN + 8200, 0), // tile −524286 (base i32::MIN+8192): clean, gets yielded
+        (i32::MIN + 8200, 0), // tile -524286 (base i32::MIN+8192): clean, gets yielded
         (i32::MIN + 8250, 0),
-        (i32::MIN + 8, 0), // tile −524288 (base i32::MIN): base − buffer underflows → Overflow
+        (i32::MIN + 8, 0), // tile -524288 (base i32::MIN): base - buffer underflows -> Overflow
     ])
 }
 
@@ -94,7 +94,7 @@ fn a_far_vertex_overflows_the_local_frame_of_a_tile_it_reaches() {
 fn extreme_tile_errors_instead_of_panicking() {
     let l = line(vec![(0, 0), (10, 10)]);
     let s = all(4096, 0).expect("valid config");
-    // A tile whose (buffered) box coordinates overflow i32 → Overflow, not a panic.
+    // A tile whose (buffered) box coordinates overflow i32 -> Overflow, not a panic.
     assert_eq!(
         s.tile_line(TileId::new(i32::MAX, i32::MAX), &l).err(),
         Some(TileError::Overflow)
@@ -103,7 +103,7 @@ fn extreme_tile_errors_instead_of_panicking() {
         s.tile_line(TileId::new(i32::MIN, 0), &l).err(),
         Some(TileError::Overflow)
     );
-    // A far-but-representable tile touches nothing → no slices.
+    // A far-but-representable tile touches nothing -> no slices.
     let far = s
         .tile_line(TileId::new(1000, 1000), &l)
         .expect("no error for a far tile");
@@ -148,7 +148,7 @@ fn unbuffered_gap_rows_are_skipped() {
 #[test]
 fn coordinate_overflow_errors() {
     let s = all(4096, 8).expect("valid config");
-    // A vertex within `buffer` of i32::MAX: the buffered bound overflows i32 → Overflow.
+    // A vertex within `buffer` of i32::MAX: the buffered bound overflows i32 -> Overflow.
     assert_eq!(
         slices(&s, &line(vec![(i32::MAX, 0), (i32::MAX, 10)])).err(),
         Some(TileError::Overflow)
@@ -179,7 +179,7 @@ fn an_overflow_is_reported_before_any_slice() {
     let clean = line(bad.iter().take(2).map(|c| (c.x, c.y)).collect());
     s.line(&clean).unwrap();
     // The slicer holds no state, so a later line is unaffected. (`y = 0` is within the buffer of
-    // rows −1 and 0, so the clean line lands in two tiles.)
+    // rows -1 and 0, so the clean line lands in two tiles.)
     let good = line(vec![(i32::MIN + 8210, 0), (i32::MIN + 8260, 0)]);
     assert_eq!(slices(&s, &good).expect("clean").len(), 2);
 }
@@ -187,7 +187,7 @@ fn an_overflow_is_reported_before_any_slice() {
 #[test]
 fn empty_and_degenerate_inputs_are_ok() {
     let s = all(25, 0).expect("valid config");
-    // Empty polyline → no slices, no error.
+    // Empty polyline -> no slices, no error.
     assert_eq!(slices(&s, &[]).expect("empty polyline is ok"), []);
     // A single-point polyline touches its own tile but yields no ≥2-vertex run.
     let dot = line(vec![(5, 5)]);
@@ -280,7 +280,7 @@ fn polygon_slivers_between_unbuffered_tiles_yield_little() {
 #[test]
 fn a_polygon_overflow_is_reported_by_the_call() {
     // A square whose left edge runs through the column of tiles based at x = i32::MIN (extent 4096,
-    // buffer 0): closing its ring there needs a `B⁺` corner one unit left of i32::MIN → Overflow.
+    // buffer 0): closing its ring there needs a `B⁺` corner one unit left of i32::MIN -> Overflow.
     let (x0, x1) = (i32::MIN + 10, i32::MIN + 6000);
     let bad = poly(vec![(x0, 0), (x1, 0), (x1, 10_000), (x0, 10_000)]);
     let mut s = all(4096, 0).expect("valid config");

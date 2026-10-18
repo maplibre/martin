@@ -1,16 +1,16 @@
-//! Minimal slicing driver for `hotpath` or `cargo flamegraph` — no measurement machinery, so the
+//! Minimal slicing driver for `hotpath` or `cargo flamegraph` - no measurement machinery, so the
 //! profile shows only the slicing cost. Selects one case by name and runs it in a tight loop.
 //!
 //! Usage: `cargo run --release --example profile -- <name> [iterations]`, or `just toolkit::hotpath
 //! <name> [iterations]`.
 //!
 //! Cases (`<name>`):
-//! * `all` / `one` — slice the small fixture set into all tiles ([`Slicer::line`]) / per touched
+//! * `all` / `one` - slice the small fixture set into all tiles ([`Slicer::line`]) / per touched
 //!   tile ([`Slicer::tile_line`]), reading every vertex of every slice.
-//! * `big-all-<cfg>` / `big-one-<cfg>` — the large in-memory `big_polyline` sliced with the
-//!   [`support::big_configs`] `<cfg>` (`multi`, `few`, or `single` — many / a few / one output tile).
-//! * `poly-all-<cfg>` — the large `big_polygon` through one reused `Slicer::polygon` with the same
-//!   `<cfg>`s, or `poly-all-huge` — the z14-like `huge_square` (2^28 tiles, nearly all covered).
+//! * `big-all-<cfg>` / `big-one-<cfg>` - the large in-memory `big_polyline` sliced with the
+//!   [`support::big_configs`] `<cfg>` (`multi`, `few`, or `single` - many / a few / one output tile).
+//! * `poly-all-<cfg>` - the large `big_polygon` through one reused `Slicer::polygon` with the same
+//!   `<cfg>`s, or `poly-all-huge` - the z14-like `huge_square` (2^28 tiles, nearly all covered).
 //!
 //! The second parameter is the iteration count (defaults chosen per scale). Tile ids for the `one`
 //! cases are precomputed up front, so the loop measures only clipping/accumulation.
@@ -94,7 +94,7 @@ fn main() {
     }
 }
 
-/// Slice one large polygon repeatedly through a single slicer, reading every slice — the per-worker
+/// Slice one large polygon repeatedly through a single slicer, reading every slice - the per-worker
 /// pattern of a bulk tile generator.
 fn profile_polygon(cfg: &str, iterations: Option<u64>) {
     let (polygon, slicer, default_iters) = if cfg == "huge" {

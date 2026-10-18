@@ -3,16 +3,16 @@
 //! One data-driven test loads **every** fixture (sorted), slices them all into one set of tiles, then
 //! for **every permutation** of the tile-insertion order builds a fresh mosaic, checks every `add`
 //! succeeds (a slicer's own tiles are self-consistent, so none ever conflict), and checks the
-//! reassembled geometry equals the combined input's — proving order-independence over all fixtures at
+//! reassembled geometry equals the combined input's - proving order-independence over all fixtures at
 //! once. It runs at **both** buffer sizes: flush tiles (buffer 0) and overlapping tiles (buffer 5).
 //! A buffer only duplicates near-edge segments into more tiles, so rebasing (`local + tile·extent`)
-//! must collapse those duplicates back onto the same global edges — either way the mosaic recovers
+//! must collapse those duplicates back onto the same global edges - either way the mosaic recovers
 //! the exact same original geometry. Up to seven tiles, every insertion order is tried; a larger
 //! fixture set is checked under a deterministic spread of orders (identity, reverse, every rotation).
 //!
 //! Reassembly is compared by **directed-edge set**: the mosaic re-chains the geometry by connectivity,
 //! so a self-touching path or a shared junction may come back split/joined differently than the input
-//! features, but the set of edges — the geometry — is identical.
+//! features, but the set of edges - the geometry - is identical.
 
 #![allow(clippy::pedantic, reason = "test tool")]
 
@@ -71,7 +71,7 @@ fn every_permutation_reassembles_all_fixtures() {
     }
 }
 
-/// Slice all fixtures into per-tile (local-frame) runs — exactly what a caller feeds back — then check
+/// Slice all fixtures into per-tile (local-frame) runs - exactly what a caller feeds back - then check
 /// that **every** tile-insertion order reassembles the exact same features (order-independence) and
 /// that those features match the input by directed-edge set.
 ///
@@ -97,7 +97,7 @@ fn validate_mosaic(label: &str, cfg: &Cfg, polylines: &[Vec<Coord<i32>>]) {
             "{label}: every tile must register"
         );
 
-        // The mosaic reassembles in the global frame — the input's own space at any buffer.
+        // The mosaic reassembles in the global frame - the input's own space at any buffer.
         let features: Vec<Vec<Coord<i32>>> = mosaic.iter_features().collect();
         match &canonical {
             None => canonical = Some(features),
@@ -173,7 +173,7 @@ fn purge_and_clear_manage_tiles() {
 
 #[test]
 fn purge_keeps_edges_other_tiles_still_hold() {
-    // Both tiles carry the same global border segment (20,5)→(30,5) — tile (1,0)'s local run rebases
+    // Both tiles carry the same global border segment (20,5)->(30,5) - tile (1,0)'s local run rebases
     // onto it. Purging one tile must leave the shared edge, since the other still holds it.
     let mut mosaic = Mosaic::new(25).expect("valid config");
     mosaic

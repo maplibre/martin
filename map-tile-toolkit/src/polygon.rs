@@ -9,7 +9,7 @@
 //! buffered box as it is, without clipping it (most of OSM's polygons are rings of 4 to 8 vertices).
 //! Any other polygon is sliced lazily by a row-by-row scanline:
 //!
-//! 1. **Prepare** — one pass over the polygon's rings, borrowing them in place: drop degenerate rings,
+//! 1. **Prepare** - one pass over the polygon's rings, borrowing them in place: drop degenerate rings,
 //!    take the bounding box, and record the `y`-range of every run of [`CHUNK`] consecutive edges. A
 //!    polygon inside one tile's inner box is yielded whole, without the rest.
 //! 2. **Scan rows** top to bottom. A row looks only at the chunks whose `y`-range reaches it: their
@@ -65,7 +65,7 @@ const LONG_EDGE: i64 = 4;
 /// No ring edge touches these tiles' buffered boxes, so each is uniformly covered: in each of them,
 /// [`Slicer::tile_polygon`](crate::Slicer::tile_polygon) yields this polygon as a single
 /// all-synthetic box ring around the buffered box, which [`PolygonSlices::fill_ring`] (or
-/// [`Slicer::fill_ring`](crate::Slicer::fill_ring)) returns — the same tile-local ring for every tile
+/// [`Slicer::fill_ring`](crate::Slicer::fill_ring)) returns - the same tile-local ring for every tile
 /// of the run. Runs are maximal, and never overlap the polygon's edge tiles.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
@@ -104,7 +104,7 @@ enum PieceRings<'a, V, R> {
         ends: &'a [u32],
         origin: Coord<i32>,
     },
-    /// The whole polygon — lying in the tile, or unclipped: its kept rings, lent from the input (or
+    /// The whole polygon - lying in the tile, or unclipped: its kept rings, lent from the input (or
     /// the copy of a ring that had duplicate vertices).
     Whole {
         rings: &'a [RingInfo],
@@ -221,7 +221,7 @@ struct Span {
 
 /// A ring edge crossing the current row's center line, the line of every winding ray in that row
 /// (half-open in `y`, so each crossing is counted once). The crossing lies right of tile `tx`'s
-/// buffered box — on its winding ray — iff `tx <= right_of`.
+/// buffered box - on its winding ray - iff `tx <= right_of`.
 #[derive(Debug, Clone, Copy)]
 struct Crossing {
     edge: u32,
@@ -236,9 +236,9 @@ impl Crossing {
     }
 }
 
-/// Row `ty`'s center line: the midpoint of its buffered box `[ty·e − b, ty·e + e − 1 + b]`, rounded
-/// toward zero, as the clip computes it with `midpoint` — in closed form: the buffer cancels, and the
-/// sum `2·ty·e + e − 1` is negative exactly when `ty < 0`, where rounding toward zero rounds up.
+/// Row `ty`'s center line: the midpoint of its buffered box `[ty·e - b, ty·e + e - 1 + b]`, rounded
+/// toward zero, as the clip computes it with `midpoint` - in closed form: the buffer cancels, and the
+/// sum `2·ty·e + e - 1` is negative exactly when `ty < 0`, where rounding toward zero rounds up.
 fn row_center(ty: i64, extent: i64) -> i64 {
     ty * extent + if ty < 0 { extent / 2 } else { (extent - 1) / 2 }
 }
@@ -516,8 +516,8 @@ impl<V> core::fmt::Debug for Scratch<V> {
     }
 }
 
-/// The fill ring of `run` on `grid`: tile (0, 0)'s buffered box `[-buffer, extent − 1 + buffer]`
-/// grown by one unit, wound like the run's polygon — the same in every tile's local frame. It fits
+/// The fill ring of `run` on `grid`: tile (0, 0)'s buffered box `[-buffer, extent - 1 + buffer]`
+/// grown by one unit, wound like the run's polygon - the same in every tile's local frame. It fits
 /// `i32` because [`Grid::new`] keeps `extent + buffer` within it.
 pub(crate) fn fill_ring<V: PolyVertex>(grid: Grid, run: &FillRun) -> [V; 5] {
     let (extent, buffer) = (grid.extent_i32(), grid.buffer_i32());
@@ -1256,7 +1256,7 @@ impl Sweep {
                         edge,
                         ring: chunk.ring,
                         up: b.y > a.y,
-                        // Right of tile `tx`'s box iff x > tx·extent + extent − 1 + buffer.
+                        // Right of tile `tx`'s box iff x > tx·extent + extent - 1 + buffer.
                         right_of: (x - extent - buffer).div_euclid(extent),
                     });
                 }
@@ -1497,8 +1497,8 @@ impl Sweep {
 type LoadedRing = (RingInfo, Coord<i32>, Coord<i32>);
 
 /// Load one ring of the polygon in `s` (its `index` among the input rings, its first edge `edge0`):
-/// borrowed when it is distinct as given — no consecutive duplicates once its repeated closing
-/// vertices are dropped — else its distinct vertices copied, with its bounding box. `None` for a
+/// borrowed when it is distinct as given - no consecutive duplicates once its repeated closing
+/// vertices are dropped - else its distinct vertices copied, with its bounding box. `None` for a
 /// degenerate ring (fewer than 3 distinct vertices).
 #[expect(
     clippy::inline_always,
@@ -1585,7 +1585,7 @@ fn index_chunks<V: Vertex, R: AsRef<[V]>>(
 }
 
 /// How the rings of one repair attempt place their detours: all in the same lane, or each ring (and
-/// each of its bridges) one lane further out — the exterior innermost, or outermost.
+/// each of its bridges) one lane further out - the exterior innermost, or outermost.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Lanes {
     Shared,
@@ -2072,7 +2072,7 @@ fn make_valid<V: PolyVertex, R: AsRef<[V]>>(
 }
 
 /// A polygon's `rings` whole, lent in one `tile`'s local frame; `None` if the polygon leaves nothing
-/// in the tile — the test [`clip_polygon_to_tile`] makes, without building the piece. See
+/// in the tile - the test [`clip_polygon_to_tile`] makes, without building the piece. See
 /// [`Slicer::tile_polygon`](crate::Slicer::tile_polygon) in [`ClipMode::Unclipped`].
 pub(crate) fn whole_polygon_in_tile<'s, V: PolyVertex, R: AsRef<[V]>>(
     grid: Grid,

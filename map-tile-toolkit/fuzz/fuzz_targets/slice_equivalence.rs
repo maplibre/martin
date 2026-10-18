@@ -4,7 +4,7 @@
 //! For a structured input (some polylines, a slicer config, and an arbitrary probe tile):
 //!
 //! 1. **No panic, ever.** `Slicer::tile_line` on an arbitrary (possibly extreme) tile, and
-//!    `Slicer::line`, must return `Ok`/`Err` — never panic or overflow. The fuzz build enables
+//!    `Slicer::line`, must return `Ok`/`Err` - never panic or overflow. The fuzz build enables
 //!    overflow checks, so any unchecked arithmetic surfaces here as a crash.
 //! 2. Per polyline, when `Slicer::line` returns no error, the results hold up:
 //!    - **All-tiles round-trips through single-tile:** every tile's runs equal what
@@ -46,15 +46,15 @@ struct Input {
     buffer: u16,
     /// Polylines of small (`i8`) coordinates, so slicing stays fast and the invariants run cheaply.
     lines: Vec<Vec<(i8, i8)>>,
-    /// An arbitrary tile to probe with a single-tile slicer — may be extreme, to stress the tile-box
+    /// An arbitrary tile to probe with a single-tile slicer - may be extreme, to stress the tile-box
     /// math.
     probe: (i32, i32),
 }
 
 type Runs = Vec<Vec<Coord<i32>>>;
 
-/// Slice a feature (its parts) into all touched tiles, grouped as `tile → runs` (part by part, in
-/// yield order). `None` if the slicer yields an error (overflowing input — a valid outcome).
+/// Slice a feature (its parts) into all touched tiles, grouped as `tile -> runs` (part by part, in
+/// yield order). `None` if the slicer yields an error (overflowing input - a valid outcome).
 fn slice_all_map<L: AsRef<[Coord<i32>]>>(
     extent: u32,
     buffer: u16,
@@ -85,7 +85,7 @@ fuzz_target!(|input: Input| {
     let extent = u32::from(input.extent);
     let buffer = input.buffer;
     let Ok(slicer) = Slicer::<Coord<i32>>::new(extent, buffer) else {
-        return; // extent 0 is rejected — nothing to test
+        return; // extent 0 is rejected - nothing to test
     };
 
     // Bound the input size so each run stays fast.
@@ -164,7 +164,7 @@ fuzz_target!(|input: Input| {
 
     // (5) Slicing all polylines as one multi-part feature never panics.
     let Some(map) = slice_all_map(extent, buffer, &polylines) else {
-        return; // overflowing — nothing more to check
+        return; // overflowing - nothing more to check
     };
 
     // (6) `Mosaic` reassembles the slicer's own tiles: self-consistent tiles never conflict, every
@@ -207,7 +207,7 @@ fuzz_target!(|input: Input| {
     assert!(mosaic.is_empty(), "purging every tile empties the mosaic");
 });
 
-/// Directed-edge set of a run list, skipping zero-length edges — the connectivity a `Mosaic` must
+/// Directed-edge set of a run list, skipping zero-length edges - the connectivity a `Mosaic` must
 /// preserve regardless of tile insertion order.
 fn edge_set(runs: &[Vec<Coord<i32>>]) -> HashSet<(Coord<i32>, Coord<i32>)> {
     let mut set = HashSet::new();

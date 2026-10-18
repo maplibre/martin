@@ -4,7 +4,7 @@
 //! `Polygon` or `MultiPolygon` features (whole-number coordinates in valid lon/lat range so fixtures
 //! and snapshots render on a map); a `MultiPolygon` is clipped as its separate parts. Every fixture
 //! is clipped, one tile at a time with
-//! [`Slicer::tile_polygon`], across the whole tile span the polygon could reach (padded by one tile) —
+//! [`Slicer::tile_polygon`], across the whole tile span the polygon could reach (padded by one tile) -
 //! this single per-tile pass already fills tiles that sit fully inside the polygon (the containment
 //! case) as well as border tiles.
 //!
@@ -113,7 +113,7 @@ fn slice_all_tiles(
     out
 }
 
-/// A copy of `polygons` with every vertex (exterior and holes) repeated once — consecutive duplicates
+/// A copy of `polygons` with every vertex (exterior and holes) repeated once - consecutive duplicates
 /// the slicer must transparently drop, so clipping the copy yields the same result as the original.
 fn duplicate_vertices(polygons: &[FixturePolygon]) -> Vec<FixturePolygon> {
     let dup = |ring: &[Coord<i32>]| ring.iter().flat_map(|&c| [c, c]).collect::<Vec<_>>();

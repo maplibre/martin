@@ -9,15 +9,15 @@ the geometry's original vertices. A line never gets a new vertex; a polygon ring
 corners outside the tile, to stay closed. Each tile may have a buffer (under half a tile), which widens
 the box a tile keeps and the geometry neighboring tiles share. `Mosaic` and `PolygonMosaic` reassemble
 the tiles into whole features, exactly: unlike clippers that cut new vertices at the tile edge
-(Sutherland–Hodgman, `geo`'s boolean ops), a segment crossing a border is the same original segment in
+(Sutherland-Hodgman, `geo`'s boolean ops), a segment crossing a border is the same original segment in
 both tiles.
 
 ## Usage
 
 `Slicer` takes **one geometry** at a time and returns a lazy iterator over its slices:
 
-* `line`, `point`, `polygon` — every tile the geometry reaches, even tiles holding none of its vertices;
-* `tile_line`, `tile_point`, `tile_polygon` — one given tile, exactly what the first call yields there.
+* `line`, `point`, `polygon` - every tile the geometry reaches, even tiles holding none of its vertices;
+* `tile_line`, `tile_point`, `tile_polygon` - one given tile, exactly what the first call yields there.
 
 Each slice is computed only when the iterator reaches it, so stopping early stops the work. A line run
 borrows the caller's vertices, so a line with millions of vertices costs no extra memory. Slices come in
@@ -35,7 +35,7 @@ fn main() -> Result<(), TileError> {
         coord!{ x: 60, y: 40 },
     ];
 
-    // `extent = 25` → 25-unit tiles;
+    // `extent = 25` -> 25-unit tiles;
     // `buffer = 0` = tight clip box (must be < extent / 2).
     let slicer = Slicer::new(25, 0)?;
 
@@ -274,7 +274,7 @@ fn main() -> Result<(), TileError> {
 
 The slicer is integer-only: `extent` is both the tile side and its output resolution (the vector-tile
 `extent`). Vertex `x` belongs to tile `x.div_euclid(extent)`, whose own area is `[0, extent)` in its
-local frame `x − tile · extent`; buffer vertices, a line's first vertex past an edge and synthetic
+local frame `x - tile · extent`; buffer vertices, a line's first vertex past an edge and synthetic
 corners lie outside it. Add `tile · extent` to get global coordinates back. Do float and projection work
 up front (e.g. with [`geo`](https://docs.rs/geo)); for web mercator at zoom `z`, project, simplify, then
 scale by `2^z · extent / circumference`, move the top-left corner to the origin, flip `y`, and round,

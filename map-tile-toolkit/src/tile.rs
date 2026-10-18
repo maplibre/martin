@@ -1,8 +1,8 @@
 //! Tile addressing on the integer grid.
 //!
-//! A tile of side `extent` covers the closed integer square `[x·extent, x·extent + extent − 1]` on
-//! each axis, so the boundary between tiles `k−1` and `k` sits at `k·extent − 0.5` (between two
-//! integer coordinates). Integer vertices therefore never land exactly on a tile edge — every vertex
+//! A tile of side `extent` covers the closed integer square `[x·extent, x·extent + extent - 1]` on
+//! each axis, so the boundary between tiles `k-1` and `k` sits at `k·extent - 0.5` (between two
+//! integer coordinates). Integer vertices therefore never land exactly on a tile edge - every vertex
 //! belongs to exactly one tile.
 
 use geo_types::Coord;
@@ -20,7 +20,7 @@ impl TileId {
         Self { x, y }
     }
 
-    /// This tile's origin in global coordinates — `self · extent`, the global position its local
+    /// This tile's origin in global coordinates - `self · extent`, the global position its local
     /// `[0, 0]` corner maps to. **Add** it to a tile-local coordinate to lift it into the global
     /// frame, or **subtract** it to drop a global coordinate into this tile's local frame.
     ///
@@ -32,8 +32,8 @@ impl TileId {
     /// # use geo_types::Coord;
     /// let origin = TileId::new(2, 3).origin(25).expect("in range");
     /// assert_eq!(origin, Coord { x: 50, y: 75 });
-    /// assert_eq!(Coord { x: 4, y: 1 } + origin, Coord { x: 54, y: 76 }); // local → global
-    /// assert_eq!(Coord { x: 54, y: 76 } - origin, Coord { x: 4, y: 1 }); // global → local
+    /// assert_eq!(Coord { x: 4, y: 1 } + origin, Coord { x: 54, y: 76 }); // local -> global
+    /// assert_eq!(Coord { x: 54, y: 76 } - origin, Coord { x: 4, y: 1 }); // global -> local
     /// ```
     #[must_use]
     pub fn origin(self, extent: u32) -> Option<Coord<i32>> {

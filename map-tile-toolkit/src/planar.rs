@@ -77,7 +77,7 @@ fn sign(o: Ordering) -> i8 {
     }
 }
 
-/// `p` lies on segment `a`–`b`, given that it is collinear with it.
+/// `p` lies on segment `a`-`b`, given that it is collinear with it.
 fn within(p: Coord<i32>, a: Coord<i32>, b: Coord<i32>) -> bool {
     p.x >= a.x.min(b.x) && p.x <= a.x.max(b.x) && p.y >= a.y.min(b.y) && p.y <= a.y.max(b.y)
 }

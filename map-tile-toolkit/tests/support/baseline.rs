@@ -1,11 +1,11 @@
 //! Traditional tile clippers to compare the toolkit against, on the same inputs (used by the
 //! equivalence check in `tests/baseline.rs`; never part of the library):
 //!
-//! * **geo** — [`geo`]'s `BooleanOps` (`intersection` for polygons, `clip` for lines) against each
+//! * **geo** - [`geo`]'s `BooleanOps` (`intersection` for polygons, `clip` for lines) against each
 //!   tile's buffered box. A general sweep-line overlay, so it is an *upper bound*, not a target; it
 //!   needs only [`tile_rect`].
-//! * **stripe** — a geojson-vt-style axis-stripe clipper ([`clip`], [`clip_tile`], [`clip_all`]):
-//!   Sutherland–Hodgman for rings, split parts for lines, every ring clipped on its own. This is the
+//! * **stripe** - a geojson-vt-style axis-stripe clipper ([`clip`], [`clip_tile`], [`clip_all`]):
+//!   Sutherland-Hodgman for rings, split parts for lines, every ring clipped on its own. This is the
 //!   realistic "traditional" target.
 //!
 //! Both clip in `f64` to the box the toolkit clips to: a tile's integer cell grown by the buffer.
@@ -22,7 +22,7 @@ use map_tile_toolkit::TileId;
 /// A point in `f64` tile space.
 pub type Pt = [f64; 2];
 
-/// Tile `t`'s buffered span on one axis: `[t·extent − buffer, (t+1)·extent − 1 + buffer]`.
+/// Tile `t`'s buffered span on one axis: `[t·extent - buffer, (t+1)·extent - 1 + buffer]`.
 #[must_use]
 pub fn tile_span(t: i32, extent: u32, buffer: u16) -> (f64, f64) {
     let lo = f64::from(t) * f64::from(extent) - f64::from(buffer);
@@ -42,7 +42,7 @@ pub fn tile_rect(tile: TileId, extent: u32, buffer: u16) -> Rect<f64> {
 // ---- The stripe clipper ----
 
 /// Clip `pts` to `lo..=hi` on `axis` (0 = x, 1 = y), appending to `out`: a `closed` ring yields at
-/// most one ring (Sutherland–Hodgman, unclosed), an open line one part per pass through the stripe.
+/// most one ring (Sutherland-Hodgman, unclosed), an open line one part per pass through the stripe.
 pub fn clip(pts: &[Pt], axis: usize, lo: f64, hi: f64, closed: bool, out: &mut Vec<Vec<Pt>>) {
     let mut part = Vec::new();
     for (i, &a) in pts.iter().enumerate() {

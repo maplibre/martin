@@ -59,7 +59,7 @@ type Rings = Vec<Vec<Coord<i32>>>;
 /// A tile's runs, each with the part it came from.
 type Runs = Vec<(u32, Vec<Coord<i32>>)>;
 
-/// Every polygon of `input` sliced into all tiles, as `tile → (polygon, rings)` in polygon order.
+/// Every polygon of `input` sliced into all tiles, as `tile -> (polygon, rings)` in polygon order.
 fn all_tiles(
     slicer: &mut Slicer,
     input: &[Rings],
@@ -378,7 +378,7 @@ fn random_self_intersecting_polygons_match_single_tile() {
 }
 
 /// Polygons smaller than a tile (a building): they are sliced by a walk over the few tiles they reach,
-/// not a sweep, and must still give every tile what the one-tile call gives it — straddling a border or
+/// not a sweep, and must still give every tile what the one-tile call gives it - straddling a border or
 /// a corner, on the grid lines and inside the buffer, with and without a hole.
 #[test]
 fn small_polygons_match_single_tile() {

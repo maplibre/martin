@@ -4,7 +4,7 @@
 //! For a structured input (a slicer config, some points, and an arbitrary probe tile):
 //!
 //! 1. **No panic, ever.** `Slicer::tile_point` on an arbitrary (possibly extreme) tile, and
-//!    `Slicer::point`, must return `Ok`/`Err` — never panic or overflow. The fuzz build enables
+//!    `Slicer::point`, must return `Ok`/`Err` - never panic or overflow. The fuzz build enables
 //!    overflow checks, so unchecked arithmetic surfaces here as a crash.
 //! 2. When `Slicer::point` returns no error, then for each of the nine tiles around the point's own,
 //!    `Slicer::tile_point` holds the point exactly when `point` yielded that tile (with the same local
@@ -36,7 +36,7 @@ struct Input {
 
 fuzz_target!(|input: Input| {
     let Ok(slicer) = Slicer::<Coord<i32>>::new(input.extent, input.buffer) else {
-        return; // an invalid config is rejected — nothing to test
+        return; // an invalid config is rejected - nothing to test
     };
     let scale = 1_i32 << (input.scale % 24);
     let extent = i64::from(input.extent);

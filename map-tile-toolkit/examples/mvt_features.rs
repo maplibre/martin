@@ -1,19 +1,19 @@
 //! Slice arbitrary **MVT-style features** into tiles while preserving each feature's
-//! attributes — an optional integer **id** and a map of key/value **properties** — then emit the
+//! attributes - an optional integer **id** and a map of key/value **properties** - then emit the
 //! per-tile pieces as GeoJSON.
 //!
 //! Feature attributes live at the *feature* level, not the vertex level. The [`Slicer`] takes one
 //! feature at a time, so the caller simply pairs every slice it yields with the attributes of the
-//! feature being sliced — no per-vertex bookkeeping, and nothing for the slicer to carry.
+//! feature being sliced - no per-vertex bookkeeping, and nothing for the slicer to carry.
 //!
 //! A feature that gets split is handled two complementary ways, both shown here:
-//! * **within one tile** — where the line left and re-entered, the tile gets several runs (separate
+//! * **within one tile** - where the line left and re-entered, the tile gets several runs (separate
 //!   slices, grouped here by tile) and they are emitted as a single **`MultiLineString`** feature;
-//! * **across tiles** — the feature reappears in each tile it touches, its attributes **duplicated**
+//! * **across tiles** - the feature reappears in each tile it touches, its attributes **duplicated**
 //!   onto every piece.
 //!
 //! To also carry a **per-vertex** M value, change the vertex type from `Coord<i32>` to
-//! [`Measured<M>`](map_tile_toolkit::Measured) — the attribute handling below stays exactly the
+//! [`Measured<M>`](map_tile_toolkit::Measured) - the attribute handling below stays exactly the
 //! same.
 //!
 //! Run `cargo run --example mvt_features` to print a GeoJSON `FeatureCollection` (global
@@ -49,7 +49,7 @@ struct Input {
 }
 
 /// A feature after slicing: which tile it landed in, the original attributes (duplicated per tile),
-/// and its geometry there as one or more runs — several runs means the line left and re-entered this
+/// and its geometry there as one or more runs - several runs means the line left and re-entered this
 /// tile. Coordinates are global (`local + tile · extent`).
 struct TiledFeature {
     tile: TileId,
@@ -76,7 +76,7 @@ fn main() {
     println!("{}", serde_json::to_string_pretty(&fc).expect("serializes"));
 
     eprintln!(
-        "{} input features → {} tiled pieces across {} tiles",
+        "{} input features -> {} tiled pieces across {} tiles",
         inputs.len(),
         tiled.len(),
         tiled
@@ -143,9 +143,9 @@ fn to_geojson(tf: &TiledFeature) -> Feature {
 }
 
 /// A small dataset that exercises both split strategies:
-/// * `Main St` spans several tiles → its attributes are duplicated per tile;
-/// * `River` staples out of tile (0,0) and back → one tile holds it as a `MultiLineString`;
-/// * `Pier` has no id and stays in a single tile → a plain `LineString`.
+/// * `Main St` spans several tiles -> its attributes are duplicated per tile;
+/// * `River` staples out of tile (0,0) and back -> one tile holds it as a `MultiLineString`;
+/// * `Pier` has no id and stays in a single tile -> a plain `LineString`.
 fn sample_inputs() -> Vec<Input> {
     let line = |pts: &[(i32, i32)]| pts.iter().map(|&(x, y)| Coord { x, y }).collect();
     vec![
@@ -162,8 +162,8 @@ fn sample_inputs() -> Vec<Input> {
                 id: None,
                 props: BTreeMap::from([("name", "River")]),
             },
-            // A staple out of tile (0,0) into (0,1) and back — the top runs along (0,1) for three
-            // vertices, so tile (0,0) drops two segments and keeps two separate runs → one
+            // A staple out of tile (0,0) into (0,1) and back - the top runs along (0,1) for three
+            // vertices, so tile (0,0) drops two segments and keeps two separate runs -> one
             // MultiLineString feature there.
             line: line(&[(8, 15), (8, 40), (13, 40), (18, 40), (18, 15)]),
         },

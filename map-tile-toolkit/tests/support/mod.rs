@@ -100,7 +100,7 @@ pub fn tile_polygons(
 }
 
 /// Tile-insertion orders to try: every permutation for a set of up to `exhaustive` tiles, else a
-/// deterministic spread — identity, reverse, and every rotation — for larger sets where `n!` is
+/// deterministic spread - identity, reverse, and every rotation - for larger sets where `n!` is
 /// impractical.
 #[must_use]
 pub fn orders(n: usize, exhaustive: usize) -> Vec<Vec<usize>> {
@@ -124,7 +124,7 @@ pub fn slicer(extent: u32, buffer: u16) -> Cfg {
     Cfg { extent, buffer }
 }
 
-/// Every permutation of `0..n` — used to prove tile-insertion order independence over a small tile
+/// Every permutation of `0..n` - used to prove tile-insertion order independence over a small tile
 /// set. Asserts `n <= 10`, so an unexpectedly large set can't explode into `n!` permutations.
 #[must_use]
 pub fn permutations(n: usize) -> Vec<Vec<usize>> {
@@ -161,9 +161,9 @@ pub fn grid_buffered() -> Cfg {
 /// Slicing [`big_polyline`] with each of these yields a different number of output tiles, so the
 /// same large geometry can be benchmarked/profiled across output scales (shared by the benchmarks
 /// and the `profile` example so both agree). The big polyline spans roughly `[0,420] × [0,535]`:
-/// - `multi` (extent 25) → hundreds of tiles;
-/// - `few` (extent 300) → a 2×2 grid of 4 tiles;
-/// - `single` (extent 1024) → the whole geometry in one tile.
+/// - `multi` (extent 25) -> hundreds of tiles;
+/// - `few` (extent 300) -> a 2×2 grid of 4 tiles;
+/// - `single` (extent 1024) -> the whole geometry in one tile.
 #[must_use]
 pub fn big_configs() -> [(&'static str, Cfg); 3] {
     [
@@ -173,7 +173,7 @@ pub fn big_configs() -> [(&'static str, Cfg); 3] {
     ]
 }
 
-/// A set of independent polylines — the fixture representation. Each is added as its own feature;
+/// A set of independent polylines - the fixture representation. Each is added as its own feature;
 /// this replaces the old single-`Geometry` (possibly `MultiLineString`) input.
 pub type Polylines = Vec<Vec<Coord<i32>>>;
 
@@ -193,8 +193,8 @@ pub fn polylines_of(geom: &Geometry<i32>) -> Polylines {
 }
 
 /// Slice a set of polylines into per-tile runs, grouped by tile (ordered by [`TileId`]). Each polyline
-/// is one part, and within a tile runs come part by part, then in walk order — the order the slicer
-/// yields them in. Each run is a plain polyline — runs are never assembled into a `MultiLineString`.
+/// is one part, and within a tile runs come part by part, then in walk order - the order the slicer
+/// yields them in. Each run is a plain polyline - runs are never assembled into a `MultiLineString`.
 pub fn slice_all_runs(
     cfg: &Cfg,
     polylines: &[Vec<Coord<i32>>],
@@ -221,7 +221,7 @@ pub fn group_runs<'a>(
     tiles.into_iter().collect()
 }
 
-/// Clip a set of polylines to one tile → its runs (empty if nothing lands there), part by part.
+/// Clip a set of polylines to one tile -> its runs (empty if nothing lands there), part by part.
 pub fn slice_tile_runs(
     cfg: &Cfg,
     polylines: &[Vec<Coord<i32>>],
@@ -245,7 +245,7 @@ impl TestFeature {}
 
 /// Parse a fixture file into its features: each a `LineString` (whole-number coordinates, truncated
 /// to `i32`) and its properties. Fixtures are `FeatureCollection`s; `MultiLineString` is intentionally
-/// rejected — express several polylines as several features instead. This is the shared parse/convert
+/// rejected - express several polylines as several features instead. This is the shared parse/convert
 /// core; [`load_fixture_geoms`] keeps only the geometry, other callers also read properties (e.g. a tile id).
 pub fn load_fixture(path: &Path) -> Vec<TestFeature> {
     let text = fs::read_to_string(path).expect("readable fixture");
@@ -280,7 +280,7 @@ pub fn load_fixture(path: &Path) -> Vec<TestFeature> {
     features
 }
 
-/// Parse a fixture file into its (integer) polylines — [`load_fixture`] with the properties dropped.
+/// Parse a fixture file into its (integer) polylines - [`load_fixture`] with the properties dropped.
 /// Each `LineString` feature is an independent polyline.
 pub fn load_fixture_geoms(path: &Path) -> Polylines {
     load_fixture(path).into_iter().map(|f| f.line).collect()
@@ -311,7 +311,7 @@ pub fn load_all_fixtures() -> Vec<(String, Polylines)> {
 
 /// A large, deterministic snake-shaped polyline for benchmarking and large-input correctness
 /// checks. It sweeps back and forth (boustrophedon) filling a wide area, so it has many vertices
-/// **and** touches many tiles — the case where re-clipping the whole geometry once per tile
+/// **and** touches many tiles - the case where re-clipping the whole geometry once per tile
 /// (`O(vertices × tiles)`) diverges sharply from a single routing pass. Small per-step jitter keeps
 /// rows off the axis so segments cross tile boundaries at varied angles. ~3.6k vertices spanning
 /// roughly a 420×540 area (≈17×22 tiles on a 25-unit grid).
@@ -326,7 +326,7 @@ pub fn big_polyline() -> Geometry<i32> {
     for r in 0..ROWS {
         let y0 = r * ROW_H;
         for k in 0..=COLS {
-            // Even rows sweep left→right, odd rows right→left, so the path stays connected.
+            // Even rows sweep left->right, odd rows right->left, so the path stays connected.
             let x = if r % 2 == 0 {
                 k * STEP
             } else {
@@ -340,8 +340,8 @@ pub fn big_polyline() -> Geometry<i32> {
 }
 
 /// A large, deterministic polygon for benchmarking: a jagged blob of ~3.6k vertices (radius
-/// 150–200 around `(220, 270)`, so roughly the [`big_polyline`] footprint) with a ~900-vertex hole
-/// — many vertices, many edge tiles, and a wide fully covered interior.
+/// 150-200 around `(220, 270)`, so roughly the [`big_polyline`] footprint) with a ~900-vertex hole
+/// - many vertices, many edge tiles, and a wide fully covered interior.
 #[must_use]
 pub fn big_polygon() -> FixturePolygon {
     let blob = |n: i32, (cx, cy): (f64, f64), r: f64, jitter: f64| -> Vec<Coord<i32>> {
@@ -410,7 +410,7 @@ pub fn many_holes() -> FixturePolygon {
     }
 }
 
-/// A z14-like block of buildings, the bulk of real polygon data: 2000 four-corner footprints, 10–90
+/// A z14-like block of buildings, the bulk of real polygon data: 2000 four-corner footprints, 10-90
 /// units a side and turned up to ±0.3 rad, scattered over 4 × 4 tiles of extent 4096. Most lie inside
 /// one tile; a few percent cross a tile edge or reach a neighbor's buffer.
 #[must_use]
@@ -448,7 +448,7 @@ pub fn buildings() -> Vec<FixturePolygon> {
 
 /// Building footprints as OSM has them: 2000 closed rings (the first vertex repeated) of 4 to 8
 /// distinct vertices, drawn with the shares of OSM Europe's polygons of those sizes (4: 62%, 5: 9%,
-/// 6: 14%, 7: 5%, 8: 9% — together 78% of all its polygons), 10–90 units across, turned anyhow, over
+/// 6: 14%, 7: 5%, 8: 9% - together 78% of all its polygons), 10-90 units across, turned anyhow, over
 /// the same `4 × 4` tiles of extent 4096 as [`buildings`]. Each is a ring around its center at evenly
 /// spread angles with jittered radii, so simple; the odd sizes are a little concave.
 #[must_use]
@@ -529,7 +529,7 @@ pub fn scattered_points(n: usize, edge_heavy: bool) -> Vec<Coord<i32>> {
 /// Tile side of the [`long_diagonal`] / [`diagonal_triangle`] scenes (a typical MVT extent).
 pub const DIAGONAL_EXTENT: i32 = 4096;
 
-/// One segment running diagonally across `tiles × tiles` tiles of extent [`DIAGONAL_EXTENT`] — at
+/// One segment running diagonally across `tiles × tiles` tiles of extent [`DIAGONAL_EXTENT`] - at
 /// `tiles = 16384` a z14 world-spanning edge. Slightly off 45° and off the tile corners, so it
 /// crosses tile edges at varied positions and passes near (but not through) the corners.
 #[must_use]
@@ -557,7 +557,7 @@ pub fn diagonal_triangle(tiles: i32) -> FixturePolygon {
     }
 }
 
-/// The rings of a polygon, exterior first — the per-polygon input [`Slicer::polygon`] takes.
+/// The rings of a polygon, exterior first - the per-polygon input [`Slicer::polygon`] takes.
 #[must_use]
 pub fn rings(p: &FixturePolygon) -> Vec<&[Coord<i32>]> {
     std::iter::once(p.exterior.as_slice())
@@ -636,7 +636,7 @@ pub fn line_feature(run: &[Coord<i32>], props: Vec<(&str, JsonValue)>) -> Featur
 }
 
 /// A `LineString` feature for one run tagged with the simplestyle `role`, `stroke` color, and
-/// `stroke-width` — the shape every snapshot feature uses.
+/// `stroke-width` - the shape every snapshot feature uses.
 fn styled_line(run: &[Coord<i32>], role: &str, stroke: &str, width: u32) -> Feature {
     line_feature(
         run,
@@ -714,7 +714,7 @@ pub fn load_polygon_features(path: &Path) -> Vec<Vec<FixturePolygon>> {
     features
 }
 
-/// Every polygon of a fixture, a `MultiPolygon` feature contributing each of its parts — for the
+/// Every polygon of a fixture, a `MultiPolygon` feature contributing each of its parts - for the
 /// single-tile slicer, which takes one polygon per feature.
 pub fn load_polygon_fixture(path: &Path) -> Vec<FixturePolygon> {
     load_polygon_features(path).into_iter().flatten().collect()
@@ -881,7 +881,7 @@ pub fn tile_points(points: &[Coord<i32>], tile: TileId, indices: &[u32]) -> Feat
     )
 }
 
-/// Serialize `features` as a pretty-printed GeoJSON `FeatureCollection` — the byte form the snapshot
+/// Serialize `features` as a pretty-printed GeoJSON `FeatureCollection` - the byte form the snapshot
 /// tests store and compare. Features are sorted by their `role` property: inputs, then tiles, then
 /// fills, then any other role, each group by role text (stable, so pieces sharing a role keep the
 /// order they were produced in).
