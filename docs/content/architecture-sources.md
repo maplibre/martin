@@ -44,7 +44,8 @@ See [Serving Architecture](architecture.md) for how the server uses them.
     7. Returns results as MVT tiles
 
     A table source with [`layers`](sources-pg-layers.md) skips `ST_AsMVT`: its query reads the features
-    around the tile, and `martin-tilegen` renders them, see [Serving tiles](architecture-generate.md#serving-tiles).
+    around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see
+    [Serving tiles](architecture-generate.md#serving-tiles).
 
 === "MBTiles, PMTiles and COG"
 
