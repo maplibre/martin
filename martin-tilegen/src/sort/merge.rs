@@ -1,5 +1,7 @@
 use std::{mem, thread};
 
+use tracing::warn;
+
 use super::SortKey;
 use super::run::{Run, RunReader};
 use crate::TileGenResult;
@@ -9,7 +11,6 @@ use crate::TileGenResult;
 pub struct Merger {
     readers: Vec<RunReader>,
     tree: LoserTree,
-    close_in_background: bool,
 }
 
 impl Merger {
@@ -19,17 +20,7 @@ impl Merger {
             .map(RunReader::open)
             .collect::<TileGenResult<Vec<_>>>()?;
         let tree = LoserTree::new(readers.len(), |a, b| precedes(&readers, a, b));
-        Ok(Self {
-            readers,
-            tree,
-            close_in_background: false,
-        })
-    }
-
-    /// Unmapping a temp file frees its pages, seconds for a large merge, so the final merge does it off its thread.
-    pub(super) fn close_in_background(mut self) -> Self {
-        self.close_in_background = true;
-        self
+        Ok(Self { readers, tree })
     }
 
     /// The next record; it stays borrowable until [`advance`](Self::advance).
@@ -51,12 +42,17 @@ impl Merger {
 }
 
 impl Drop for Merger {
+    /// Unmapping a temp file frees its pages, seconds for a large merge, so it happens off the merging thread.
     fn drop(&mut self) {
-        if self.close_in_background {
-            let readers = mem::take(&mut self.readers);
-            let _ = thread::Builder::new()
-                .name("run-close".to_owned())
-                .spawn(move || drop(readers));
+        let readers = mem::take(&mut self.readers);
+        if readers.is_empty() {
+            return;
+        }
+        if let Err(err) = thread::Builder::new()
+            .name("run-close".to_owned())
+            .spawn(move || drop(readers))
+        {
+            warn!("closed sort runs on the merging thread, no thread could be started: {err}");
         }
     }
 }

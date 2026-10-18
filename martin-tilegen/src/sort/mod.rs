@@ -114,7 +114,7 @@ impl Sorter {
                 .collect::<TileGenResult<Vec<_>>>()?;
             runs.splice(span.start..span.start, merged);
         }
-        Ok(Merger::new(runs)?.close_in_background())
+        Merger::new(runs)
     }
 
     /// Call after every [`SortBuffer`] was finished: the tiles, in batches of `batch_tiles`.

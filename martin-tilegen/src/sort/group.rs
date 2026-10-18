@@ -276,6 +276,25 @@ mod tests {
     }
 
     #[test]
+    fn records_of_one_tile_from_several_buffers_are_sorted_by_layer_then_seq() {
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = sorter(dir.path());
+        let point = record(Geom::Points(&[[1, 1]]));
+        let mut first = sorter.buffer();
+        first.push(key(1, 1, 2), &point).unwrap();
+        first.push(key(1, 0, 4), &point).unwrap();
+        let mut second = sorter.buffer();
+        second.push(key(1, 1, 1), &point).unwrap();
+        second.push(key(1, 0, 3), &point).unwrap();
+        first.finish().unwrap();
+        second.finish().unwrap();
+
+        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+
+        assert_eq!(tiles, [(1, vec![(0, 3), (0, 4), (1, 1), (1, 2)])]);
+    }
+
+    #[test]
     fn fill_range_covers_every_tile_up_to_its_exclusive_end() {
         let dir = tempfile::tempdir().unwrap();
         let sorter = sorter(dir.path());
