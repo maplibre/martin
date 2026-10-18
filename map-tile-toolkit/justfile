@@ -10,12 +10,12 @@ root_just := just + ' --justfile ' + quote(justfile_directory() / 'justfile')
 
 # Run the toolkit's tests, including doc tests
 test:  (_cargo-install 'cargo-nextest')
-    cargo nextest run -p map-tile-toolkit --all-features
-    cargo test -p map-tile-toolkit --all-features --doc
+    cargo nextest run -p map-tile-toolkit
+    cargo test -p map-tile-toolkit --doc
 
 # Run the toolkit's tests and save their output as the new expected output
 bless *args:  (_cargo-install 'cargo-nextest') (_cargo-install 'cargo-insta')
-    cargo insta test --test-runner nextest --disable-nextest-doctest --accept --unreferenced=delete -p map-tile-toolkit --all-features {{args}}
+    cargo insta test --test-runner nextest --disable-nextest-doctest --accept --unreferenced=delete -p map-tile-toolkit {{args}}
 
 # Fuzz a target with cargo-fuzz (needs nightly), e.g. `just toolkit::fuzz slice_equivalence -- -max_total_time=60`
 fuzz target='slice_equivalence' *args:  (_cargo-install 'cargo-fuzz')
