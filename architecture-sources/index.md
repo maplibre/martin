@@ -6,6 +6,7 @@ How each kind of source is discovered, loaded and asked for tiles, and how the c
 graph TB
     Martin[Martin Server]
     Pool[Connection Pool<br/>deadpool-postgres]
+    Engine[Tile generation<br/>martin-tilegen]
 
     subgraph PostgreSQL
         Tables[Tables with<br/>Geometry Columns]
@@ -18,6 +19,8 @@ graph TB
     Pool --> Functions
     Tables --> PostGIS
     Functions --> PostGIS
+    Tables -.->|features of tables with layers| Engine
+    Engine -.->|MVT tiles| Martin
 ```
 
 **How it works**:
@@ -29,6 +32,8 @@ graph TB
 5. Maintains connection pool for efficient query execution
 6. Generates tile SQL queries with bbox parameters
 7. Returns results as MVT tiles
+
+A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>).
 
 ```
 graph TB

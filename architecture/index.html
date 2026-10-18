@@ -1624,7 +1624,8 @@
 <h1 id="serving-architecture">Serving Architecture</h1>
 <p>How the Martin tile server is put together and how it answers requests.
 <a href="../architecture-sources/">Source Architecture</a> covers how each kind of source works and how sources reload at runtime,
-and <a href="../architecture-generate/">Generation Architecture</a> covers the bulk mode of <code>martin cp</code>.</p>
+and <a href="../architecture-generate/">Generation Architecture</a> covers the bulk mode of <code>martin cp</code> and how the server renders
+table sources with <code>layers</code>.</p>
 <h2 id="overview">Overview</h2>
 <p>Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources.
 It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.</p>
@@ -1649,6 +1650,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
             Styles[MapLibre Styles&lt;br/&gt;JSON]
         end
 
+        Engine[Tile generation&lt;br/&gt;martin-tilegen]
         Catalog[Tile Catalog&lt;br/&gt;Source Registry]
         Cache[Tile/Resources Cache&lt;br/&gt;Moka]
     end
@@ -1667,6 +1669,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
     Server --&gt; Cache
 
     PG --&gt; DB
+    PG --&gt;|tables with layers| Engine
     MBT --&gt; Files
     PMT --&gt; Files
     PMT --&gt; S3
@@ -1728,14 +1731,16 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 </ul>
 </div>
 <div class="tabbed-block">
-<p><strong>Purpose</strong>: The bulk tile generation engine behind the bulk mode of <code>martin cp</code>. It turns features
-into tiles inside Martin, using the tile generation method adapted from <a href="https://github.com/onthegomap/planetiler">Planetiler</a>.</p>
+<p><strong>Purpose</strong>: The tile generation engine behind the bulk mode of <code>martin cp</code> and PostgreSQL table
+sources with <code>layers</code>. It turns features into tiles inside Martin, using the tile generation method
+adapted from <a href="https://github.com/onthegomap/planetiler">Planetiler</a>.</p>
 <p><strong>Key Responsibilities</strong>:</p>
 <ul>
 <li>Compiling layers and their CEL expressions into a plan</li>
 <li>Rendering every feature at every zoom into tile pieces</li>
 <li>Sorting the pieces on disk by tile, and merging them back</li>
 <li>Encoding tiles in parallel and writing them in archive order</li>
+<li>Rendering a requested tile in memory for the tile server</li>
 </ul>
 <p>See <a href="../architecture-generate/">Generation Architecture</a>.</p>
 </div>

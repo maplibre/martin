@@ -1553,6 +1553,7 @@ See <a href="../architecture/">Serving Architecture</a> for how the server uses 
 <pre class="mermaid"><code>graph TB
     Martin[Martin Server]
     Pool[Connection Pool&lt;br/&gt;deadpool-postgres]
+    Engine[Tile generation&lt;br/&gt;martin-tilegen]
 
     subgraph PostgreSQL
         Tables[Tables with&lt;br/&gt;Geometry Columns]
@@ -1564,7 +1565,9 @@ See <a href="../architecture/">Serving Architecture</a> for how the server uses 
     Pool --&gt; Tables
     Pool --&gt; Functions
     Tables --&gt; PostGIS
-    Functions --&gt; PostGIS</code></pre>
+    Functions --&gt; PostGIS
+    Tables -.-&gt;|features of tables with layers| Engine
+    Engine -.-&gt;|MVT tiles| Martin</code></pre>
 <p><strong>How it works</strong>:</p>
 <ol>
 <li>Martin connects to PostgreSQL using connection string</li>
@@ -1575,6 +1578,8 @@ See <a href="../architecture/">Serving Architecture</a> for how the server uses 
 <li>Generates tile SQL queries with bbox parameters</li>
 <li>Returns results as MVT tiles</li>
 </ol>
+<p>A table source with <a href="../sources-pg-layers/"><code>layers</code></a> skips <code>ST_AsMVT</code>: its query reads the features
+around the tile, and <code>martin-tilegen</code> renders them, see <a href="../architecture-generate/#serving-tiles">Serving tiles</a>.</p>
 </div>
 <div class="tabbed-block">
 <pre class="mermaid"><code>graph TB

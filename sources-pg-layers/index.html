@@ -1348,6 +1348,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#serving" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#validation" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2426,7 +2437,8 @@ It is only built with the <code>unstable-generate</code> feature:</p>
 </div>
 <p><code>layers</code> is a key of a <a href="../sources-pg-tables/">PostgreSQL table source</a>. It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only the <a href="../martin-generate/">bulk mode</a> of <code>martin cp</code> uses it so far, and the tile server ignores it.</p>
+and draw order. The <a href="../martin-generate/">bulk mode</a> of <code>martin cp</code> writes them into a tileset, and the
+tile server renders them on request, see <a href="#serving">Serving</a>.</p>
 <p>A table source without <code>layers</code> is one layer, named by its <code>layer_id</code> or by its source id, holding all
 of its <code>properties</code> and its feature ids. A table source cannot set both <code>layer_id</code> and <code>layers</code>.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">postgres</span><span class="p">:</span>
@@ -2636,6 +2648,8 @@ without <code>where</code> takes every other feature. A feature that matches no 
   <code>ORDER BY</code>.</li>
 <li>Any other view is read in its own order.</li>
 </ul>
+<p>The tile server reads each tile's features in the order PostgreSQL finds them, which can
+differ from request to request, so only <code>sort_by</code> gives served tiles a fixed draw order.</p>
 </div>
 </div>
 </div>
@@ -2790,6 +2804,18 @@ ends with how often each one failed.</p>
 </span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">            </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> value</span><span class="p">:</span><span class="w"> </span><span class="nv">osm</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="w">            </span><span class="nt">rank</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </span></code></pre></div>
+<h2 id="serving">Serving</h2>
+<p>The tile server renders a table source with <code>layers</code> itself instead of asking PostGIS for an
+<code>ST_AsMVT</code> tile. Each request reads the whole geometry of every feature that reaches the tile or its
+buffer, and renders the tile bulk mode writes for the same <code>maxzoom</code>. <a href="../architecture-generate/#serving-tiles">Serving tiles</a>
+shows how.</p>
+<ul>
+<li>The highest zoom is the table source's <code>maxzoom</code>. Without one, it is the highest zoom the <code>extent</code>
+  fits: 18 for an <code>extent</code> of 4096. A higher <code>maxzoom</code> fails at startup.</li>
+<li>Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.</li>
+<li><code>max_feature_count</code> limits the features read for each tile. With it, <code>order_by</code> chooses which are
+  kept. <code>order_by</code> alone changes nothing, as <code>sort_by</code> sets the draw order.</li>
+</ul>
 <h2 id="validation">Validation</h2>
 <ul>
 <li><strong>Reading the configuration</strong> fails on invalid values, with their line and column: a zoom above 30,

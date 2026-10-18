@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset">
+        <meta name="description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset, and how the tile server renders tiles with the same engine">
       
       
         <meta name="author" content="Maplibre Contributors">
@@ -139,7 +139,7 @@
     
   <meta property="og:type" content="website" />
 <meta property="og:title" content="Generation - Martin Tile Server Documentation" />
-<meta property="og:description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset" />
+<meta property="og:description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset, and how the tile server renders tiles with the same engine" />
 <meta property="og:image" content="https://maplibre.org/martin/assets/images/social/architecture-generate.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
@@ -147,7 +147,7 @@
 <meta property="og:url" content="https://maplibre.org/martin/architecture-generate/" />
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:title" content="Generation - Martin Tile Server Documentation" />
-<meta property="twitter:description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset" />
+<meta property="twitter:description" content="How bulk mode scans, renders, sorts, encodes and writes a tileset, and how the tile server renders tiles with the same engine" />
 <meta property="twitter:image" content="https://maplibre.org/martin/assets/images/social/architecture-generate.png" />
 </head>
   
@@ -1487,6 +1487,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#serving-tiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving tiles
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#memory-and-disk" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1743,6 +1754,8 @@ next through a bounded queue, so the whole run needs a fixed amount of memory, w
 <li>a <code>TileSink</code> writes finished tiles in the order it asks for.</li>
 </ul>
 <p>Another database or file format is another <code>FeatureSource</code>, and another archive format is another <code>TileSink</code>.</p>
+<p>The tile server renders a table source with <code>layers</code> with the same engine, one tile at a time and in
+memory, see <a href="#serving-tiles">Serving tiles</a>.</p>
 <h2 id="motivation-and-planetiler">Motivation and Planetiler</h2>
 <p>A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside
 Martin itself, when serving tiles.
@@ -1757,7 +1770,8 @@ of features (a <code>FeatureSource</code>).</p>
 <p>As part of this effort, Martin can now generate a whole tileset at once, as Planetiler does. This
 expands the existing <a href="../martin-cp/"><code>martin cp</code></a> command: only its internals change, so that it supports
 more than one method of copying data from a source to an archive. Besides asking the source for each
-tile, it can read each source's features once and build the tiles itself.</p>
+tile, it can read each source's features once and build the tiles itself. The tile server uses the same
+engine to render the tiles of a PostgreSQL table source with <code>layers</code> as they are requested.</p>
 <p>This method follows Planetiler in:</p>
 <ul>
 <li>reading every feature once and rendering it at every zoom, instead of querying the source per tile,</li>
@@ -1938,6 +1952,29 @@ never sorts or buffers:</p>
 </table>
 <p>The tileset's metadata, including the zooms, the format and each layer's fields, is only complete after the
 last tile, so the archive stores it last.</p>
+<h2 id="serving-tiles">Serving tiles</h2>
+<p>The tile server renders a table source with <code>layers</code> with the plan, renderer, grouper and encoder of
+bulk mode, without its queues and temp files. <a href="../sources-pg-layers/#serving">Serving</a> covers its
+configuration.</p>
+<p><svg id="gen-serve" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290" width="100%" role="img" aria-label="Serving a tile: one query reads the features around it, and one thread renders, sorts, groups and encodes them in memory"><title>Serving a tile: one query reads the features around it, and one thread renders, sorts, groups and encodes them in memory</title><style>#gen-serve{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-serve .fg{fill:var(--md-default-fg-color,#000000de)}#gen-serve .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-serve .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-serve .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-serve .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-serve text{dominant-baseline:central}#gen-serve .t{font-weight:600}#gen-serve .s{font-size:11px}#gen-serve .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-serve .motion{display:none}}#gen-serve .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-serve .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-serve .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-serve .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-serve .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-serve .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-serve .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-serve .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-serve .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-serve .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-serve .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-serve .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-serve .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-serve .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-serve .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-serve .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-serve .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-serve .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}</style><rect class="b-read" x="30" y="130" width="130" height="80" rx="6"/><text class="fg t" x="95.0" y="154.0" text-anchor="middle">tile request</text><text class="muted s" x="95.0" y="170.0" text-anchor="middle">z / x / y</text><text class="muted s" x="95.0" y="186.0" text-anchor="middle">on a cache miss</text><rect class="b-read" x="184" y="130" width="130" height="80" rx="6"/><text class="fg t" x="249.0" y="154.0" text-anchor="middle">feature query</text><text class="muted s" x="249.0" y="170.0" text-anchor="middle">tile + largest buffer</text><text class="muted s" x="249.0" y="186.0" text-anchor="middle">in PostgreSQL's order</text><path class="arrow" d="M160 170.0 L184 170.0"/><path class="head" d="M184.0 170.0 L176.0 166.0 L176.0 174.0 Z"/><rect class="b-render" x="338" y="130" width="130" height="80" rx="6"/><text class="fg t" x="403.0" y="154.0" text-anchor="middle">render</text><text class="muted s" x="403.0" y="170.0" text-anchor="middle">only the tile's zoom</text><text class="muted s" x="403.0" y="186.0" text-anchor="middle">only the tile</text><path class="arrow" d="M314 170.0 L338 170.0"/><path class="head" d="M338.0 170.0 L330.0 166.0 L330.0 174.0 Z"/><rect class="b-sort" x="492" y="130" width="130" height="80" rx="6"/><text class="fg t" x="557.0" y="154.0" text-anchor="middle">sort buffer</text><text class="muted s" x="557.0" y="170.0" text-anchor="middle">in memory</text><text class="muted s" x="557.0" y="186.0" text-anchor="middle">never spilled</text><path class="arrow" d="M468 170.0 L492 170.0"/><path class="head" d="M492.0 170.0 L484.0 166.0 L484.0 174.0 Z"/><rect class="b-sort" x="646" y="130" width="130" height="80" rx="6"/><text class="fg t" x="711.0" y="154.0" text-anchor="middle">group</text><text class="muted s" x="711.0" y="170.0" text-anchor="middle">by tile</text><text class="muted s" x="711.0" y="186.0" text-anchor="middle">expand fill ranges</text><path class="arrow" d="M622 170.0 L646 170.0"/><path class="head" d="M646.0 170.0 L638.0 166.0 L638.0 174.0 Z"/><rect class="b-encode" x="800" y="130" width="130" height="80" rx="6"/><text class="fg t" x="865.0" y="154.0" text-anchor="middle">encode</text><text class="muted s" x="865.0" y="170.0" text-anchor="middle">uncompressed MVT</text><text class="muted s" x="865.0" y="186.0" text-anchor="middle">empty tile if none</text><path class="arrow" d="M776 170.0 L800 170.0"/><path class="head" d="M800.0 170.0 L792.0 166.0 L792.0 174.0 Z"/><path class="b-read" d="M209.0 26 a40.0 8 0 0 0 80 0 v34 a40.0 8 0 0 1 -80 0 Z"/><path class="b-read" d="M209.0 26 a40.0 8 0 0 1 80 0 a40.0 8 0 0 1 -80 0"/><text class="fg s" x="249.0" y="80" text-anchor="middle"></text><text class="fg s" x="249.0" y="82" text-anchor="middle">PostgreSQL</text><path class="arrow" d="M249.0 96 L249.0 130"/><path class="head" d="M249.0 130.0 L253.0 122.0 L245.0 122.0 Z"/><path class="line" d="M338 108 V100 H930 V108"/><text class="fg t s" x="634.0" y="70" text-anchor="middle">one blocking thread, in memory</text><text class="muted s" x="634.0" y="86" text-anchor="middle">phase 1 and phase 2 of bulk mode, for one tile</text><text class="muted s" x="480" y="262" text-anchor="middle">the server then converts, compresses and caches the tile, as for any other source</text></svg></p>
+<ol>
+<li><strong>Read</strong>: one query reads every feature whose geometry meets the tile grown by the largest
+   <code>buffer</code> of the table's layers. When the grown tile crosses the antimeridian, the part past it is
+   read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries
+   in the order PostgreSQL finds them, and the features are numbered in that order, as one partition.
+   <code>max_feature_count</code> limits how many it returns. Only with <code>max_feature_count</code>, <code>order_by</code> sorts them by
+   <code>id_column</code> first, to choose which are kept.</li>
+<li><strong>Render</strong>: one render worker, on a blocking thread, renders the features at the tile's zoom only,
+   and slices them into that tile only, never into the other tiles they reach. The minimum size and simplification still follow the layer's
+   zooms, so the tile comes out as bulk mode writes it for the same <code>maxzoom</code>.</li>
+<li><strong>Sort</strong>: the sort buffer stays in memory. It grows as records arrive instead of reserving its
+   budget, and is never written to a temp file. The merge reads its records back in key order.</li>
+<li><strong>Group and encode</strong>: the grouper and encoder of phase 2, in MBTiles order, write an uncompressed
+   MVT tile. A tile no feature reaches is served empty.</li>
+</ol>
+<p>The server then converts, compresses and caches the tile, as it does for any other source.</p>
+<p>Inside a layer, the features keep the order the query returns them in, so a layer without <code>sort_by</code>
+can draw them in another order than bulk mode, see <a href="../sources-pg-layers/#draw-order">Draw order</a>.</p>
 <h2 id="memory-and-disk">Memory and disk</h2>
 <p>Every queue and buffer has a bound that does not depend on the size of the input:</p>
 <table>
@@ -1977,6 +2014,8 @@ last tile, so the archive stores it last.</p>
 <p>An intermediate merge, with more than 256 runs, runs several 64 MiB merges at once. On disk, a feature
 has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another
 copy of the runs it merges, which are the fewest bytes it can merge.</p>
+<p><a href="#serving-tiles">Serving a tile</a> has no such bound and uses no disk: it holds every feature reaching
+the tile, and their records, in memory until the tile is encoded.</p>
 <h2 id="errors">Errors</h2>
 <ul>
 <li>In phase 1, an error stops every reader from claiming another partition and every worker from taking
@@ -1988,6 +2027,9 @@ copy of the runs it merges, which are the fewest bytes it can merge.</p>
   slicer cannot handle at a zoom are skipped at that zoom and counted.</li>
 <li>A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted
   runs are removed by the operating system in every case.</li>
+<li>A served tile logs the features the slicer could not handle as warnings. Expression failures are only
+  logged at debug level there, since the plan already warns about the first failure of each expression.
+  A failed query or encoding fails the request.</li>
 </ul>
 
 

@@ -1,6 +1,6 @@
 # Serving Architecture
 
-How the Martin tile server is put together and how it answers requests. [Source Architecture](<https://maplibre.org/martin/architecture-sources/index.md>) covers how each kind of source works and how sources reload at runtime, and [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) covers the bulk mode of `martin cp`.
+How the Martin tile server is put together and how it answers requests. [Source Architecture](<https://maplibre.org/martin/architecture-sources/index.md>) covers how each kind of source works and how sources reload at runtime, and [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>) covers the bulk mode of `martin cp` and how the server renders table sources with `layers`.
 
 ## Overview
 
@@ -28,6 +28,7 @@ graph TB
             Styles[MapLibre Styles<br/>JSON]
         end
 
+        Engine[Tile generation<br/>martin-tilegen]
         Catalog[Tile Catalog<br/>Source Registry]
         Cache[Tile/Resources Cache<br/>Moka]
     end
@@ -46,6 +47,7 @@ graph TB
     Server --> Cache
 
     PG --> DB
+    PG -->|tables with layers| Engine
     MBT --> Files
     PMT --> Files
     PMT --> S3
@@ -104,7 +106,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 - Tile format utilities
 - Bounding box calculations
 
-**Purpose**: The bulk tile generation engine behind the bulk mode of `martin cp`. It turns features into tiles inside Martin, using the tile generation method adapted from [Planetiler](<https://github.com/onthegomap/planetiler>).
+**Purpose**: The tile generation engine behind the bulk mode of `martin cp` and PostgreSQL table sources with `layers`. It turns features into tiles inside Martin, using the tile generation method adapted from [Planetiler](<https://github.com/onthegomap/planetiler>).
 
 **Key Responsibilities**:
 
@@ -112,6 +114,7 @@ Martin's architecture is organized into five main Rust crates, each with distinc
 - Rendering every feature at every zoom into tile pieces
 - Sorting the pieces on disk by tile, and merging them back
 - Encoding tiles in parallel and writing them in archive order
+- Rendering a requested tile in memory for the tile server
 
 See [Generation Architecture](<https://maplibre.org/martin/architecture-generate/index.md>).
 
