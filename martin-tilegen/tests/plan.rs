@@ -4,7 +4,7 @@
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError,
-    RuleDef, SortDef, TableDef, ValueDef, ZoomDef,
+    RuleDef, SortDef, TableDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -1189,5 +1189,264 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
     LayerFeature { layer: "places", id: Some(2), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"kind": Str("major")}, bands: [], sort: Some(fcfffffffffffffff6) }
     LayerFeature { layer: "places", id: Some(3), zooms: 1..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: Some(fcfffffffffffffffe) }
     LayerFeature { layer: "places", id: Some(4), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"kind": Str("major")}, bands: [], sort: Some(fcfffffffffffffff8) }
+    "#);
+}
+
+#[test]
+fn a_table_reads_the_rows_some_layer_takes() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Typed("class".to_owned(), ValueKind::String),
+            ColumnDef::Typed("rank".to_owned(), ValueKind::Int),
+        ],
+        layers: vec![
+            LayerDef {
+                filter: Some("class != 'service'".to_owned()),
+                ..LayerDef::new("roads", 0..=0, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Point),
+                filter: Some("!(rank >= 4)".to_owned()),
+                ..LayerDef::new("minor", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Matching(
+        Or(
+            [
+                Distinct {
+                    left: Column(
+                        "class",
+                    ),
+                    right: Literal(
+                        String(
+                            "service",
+                        ),
+                    ),
+                    kind: String,
+                    negated: false,
+                },
+                And(
+                    [
+                        Geometry(
+                            Point,
+                        ),
+                        Compare {
+                            left: Column(
+                                "rank",
+                            ),
+                            op: Lt,
+                            right: Literal(
+                                Int(
+                                    4,
+                                ),
+                            ),
+                            kind: Int,
+                        },
+                    ],
+                ),
+            ],
+        ),
+    )
+    "#);
+}
+
+#[test]
+fn a_layer_without_a_filter_reads_every_row() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("class".to_owned(), ValueKind::String)],
+        layers: vec![
+            LayerDef {
+                filter: Some("class == 'primary'".to_owned()),
+                ..LayerDef::new("primary", 0..=0, GRID)
+            },
+            LayerDef::new("all", 0..=0, GRID),
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @"All");
+}
+
+#[test]
+fn a_where_with_no_sql_equivalent_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("name".to_owned(), ValueKind::String)],
+        layers: vec![LayerDef {
+            filter: Some("name + '!' == 'A!'".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "named",
+            expr: "name + '!' == 'A!'",
+            reason: Function(
+                "+",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_column_of_unknown_type_is_not_compared() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("code".to_owned())],
+        layers: vec![LayerDef {
+            filter: Some("code == 'A'".to_owned()),
+            ..LayerDef::new("coded", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "coded",
+            expr: "code == 'A'",
+            reason: UnknownColumnType(
+                "code",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Typed("class".to_owned(), ValueKind::String),
+            ColumnDef::Keys("tags".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            filter: Some("class == 'primary'".to_owned()),
+            ..LayerDef::new("primary", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "primary",
+            expr: "class == 'primary'",
+            reason: KeysMayReplaceColumns(
+                "tags",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("class".to_owned(), ValueKind::String)],
+        layers: vec![
+            LayerDef {
+                filter: Some("class == 'detail'".to_owned()),
+                ..LayerDef::new("detail", 10..=14, GRID)
+            },
+            LayerDef {
+                filter: Some("class == 'overview'".to_owned()),
+                ..LayerDef::new("overview", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!([plan.row_filter(0, 5..=5), plan.row_filter(0, 9..=10)], @r#"
+    [
+        Matching(
+            Compare {
+                left: Column(
+                    "class",
+                ),
+                op: Eq,
+                right: Literal(
+                    String(
+                        "overview",
+                    ),
+                ),
+                kind: String,
+            },
+        ),
+        Matching(
+            Or(
+                [
+                    Compare {
+                        left: Column(
+                            "class",
+                        ),
+                        op: Eq,
+                        right: Literal(
+                            String(
+                                "detail",
+                            ),
+                        ),
+                        kind: String,
+                    },
+                    Compare {
+                        left: Column(
+                            "class",
+                        ),
+                        op: Eq,
+                        right: Literal(
+                            String(
+                                "overview",
+                            ),
+                        ),
+                        kind: String,
+                    },
+                ],
+            ),
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn an_int_column_compares_with_each_number_of_a_list_by_its_own_type() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("rank".to_owned(), ValueKind::Int)],
+        layers: vec![LayerDef {
+            filter: Some("rank in [0.5, 9007199254740993]".to_owned()),
+            ..LayerDef::new("ranked", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Matching(
+        Or(
+            [
+                In {
+                    term: Column(
+                        "rank",
+                    ),
+                    values: [
+                        Float(
+                            0.5,
+                        ),
+                    ],
+                    kind: Float,
+                    negated: false,
+                },
+                In {
+                    term: Column(
+                        "rank",
+                    ),
+                    values: [
+                        Int(
+                            9007199254740993,
+                        ),
+                    ],
+                    kind: Int,
+                    negated: false,
+                },
+            ],
+        ),
+    )
     "#);
 }

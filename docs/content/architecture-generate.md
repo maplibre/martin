@@ -90,6 +90,9 @@ database by key range.
     these connections, so each partition is read in its own order, at the pace the generator asks for. There
     is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
+    Each scan reads only the rows some layer takes, when the database can apply every layer's
+    `geometry` and `where`, see [Features](sources-pg-layers.md#features).
+
 ### Feature queue
 
 Readers claim the next partition from a shared counter and stream it as batches of up to 1024 features.
@@ -239,7 +242,8 @@ holding it, see [Prefetch](#prefetch).
    `buffer` of the table's layers. When the grown block crosses the antimeridian, the part past it is
    read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries
    in the order PostgreSQL finds them, and the features are numbered in that order, as one partition.
-   `max_feature_count` limits how many it returns. Only with `max_feature_count`, `order_by` sorts
+   The query keeps only rows some layer at the block's zoom takes, so `max_feature_count` limits how
+   many of those it returns. Only with `max_feature_count`, `order_by` sorts
    them by `id_column` first, to choose which are kept.
 2. **Render**: one render worker, on a blocking thread, renders the features at the block's zoom only,
    and slices them into its tiles only, never into the other tiles they reach. The minimum size and

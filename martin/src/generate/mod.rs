@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
+use martin_tilegen::plan::Untranslatable;
 use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat,
     TileGenError, TileGenResult, generate,
@@ -181,6 +182,8 @@ pub enum GenerateError {
     NoSources,
     #[error("No layer has a zoom between {0} and {1}")]
     NoLayers(u8, u8),
+    #[error("layer `{}`: `max_feature_count` needs `where` checked in SQL, but `{}` {}", .0.layer, .0.expr, .0.reason)]
+    UnlimitableWhere(Untranslatable),
     #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
     CompressedPmtilesMlt,
     #[error(

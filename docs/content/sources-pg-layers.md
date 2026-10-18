@@ -123,6 +123,21 @@ A feature belongs to a layer when all of these hold:
 
 A rule's `where` does not filter features: it only picks the rule.
 
+The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no
+layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+
+- comparisons of a column with a literal,
+- `==` or `!=` between two columns, unless both are floats,
+- `in` with a list of literals, `has(feature.x)` and `'x' in feature`,
+- `&&`, `||`, `!` and `? :`,
+- `size`, `startsWith`, `endsWith`, `contains`, `lowerAscii` and `upperAscii` on a string column,
+  compared with a literal.
+
+Columns of type `bpchar` or `name` have none, as `PostgreSQL` compares them differently.
+When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
+Listing `attributes` without the `jsonb` property's keys avoids that.
+Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.
+
 ## Attributes
 
 Without `attributes`, a layer writes all of the table source's properties. `[]` writes none.
@@ -355,6 +370,7 @@ shows how.
   fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
 - `max_feature_count` limits the features read for each tile, or for each block with `prefetch`.
+  The database must apply every `where` first, see [Features](#features), or startup fails.
   With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the
   draw order.
 - `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding

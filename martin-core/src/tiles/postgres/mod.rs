@@ -13,6 +13,8 @@ mod retry_timeout;
 pub use retry_timeout::RetryTimeout;
 
 mod features;
+#[cfg(feature = "unstable-generate")]
+pub use features::column_def;
 pub use features::{PostgresFeature, PostgresProperty, PostgresTileFeatures, is_typed_property};
 
 mod mlt_encoder;

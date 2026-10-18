@@ -1,6 +1,7 @@
 //! What to generate: source tables, and the output layers each table feeds.
 
 mod eval;
+mod filter;
 
 use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
@@ -9,6 +10,10 @@ use std::sync::atomic::AtomicBool;
 use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
+pub use filter::{
+    CompareOp, Condition, Literal, Pattern, RowFilter, Term, TranslateError, Untranslatable,
+    ValueKind,
+};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
@@ -62,6 +67,8 @@ pub struct TableDef {
 pub enum ColumnDef {
     /// A property named after the column.
     Value(String),
+    /// A property named after the column, whose values are all of one kind, for a source to filter on.
+    Typed(String, ValueKind),
     /// Properties under keys of their own, e.g. those of a JSON column.
     /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
     Keys(String),
@@ -71,7 +78,15 @@ impl ColumnDef {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Value(name) | Self::Keys(name) => name,
+            Self::Value(name) | Self::Typed(name, _) | Self::Keys(name) => name,
+        }
+    }
+
+    /// The property name of a column that is not [`ColumnDef::Keys`].
+    fn value(&self) -> Option<&str> {
+        match self {
+            Self::Value(name) | Self::Typed(name, _) => Some(name),
+            Self::Keys(_) => None,
         }
     }
 }
@@ -249,6 +264,8 @@ pub(crate) struct PlannedTable {
     pub(crate) evaluates: bool,
     /// Keys beyond `columns` that expressions read by name.
     pub(crate) reads: Vec<String>,
+    /// The rows each of its layers takes, in the order of `layers`.
+    pub(crate) rows: Vec<Result<Condition, Untranslatable>>,
 }
 
 #[derive(Debug)]
@@ -349,14 +366,7 @@ impl Plan {
             let start = layers.len();
             let first_expr = exprs.len();
             let mut reads = BTreeSet::new();
-            let values: Vec<&str> = table
-                .columns
-                .iter()
-                .filter_map(|column| match column {
-                    ColumnDef::Value(name) => Some(name.as_str()),
-                    ColumnDef::Keys(_) => None,
-                })
-                .collect();
+            let values: Vec<&str> = table.columns.iter().filter_map(ColumnDef::value).collect();
             let mut rules = false;
             for def in table.layers {
                 rules |= !def.rules.is_empty();
@@ -402,10 +412,9 @@ impl Plan {
                 .map(|(pos, column)| {
                     let scanned = all_keys
                         || table_layers.iter().any(|layer| layer.copy[pos].is_some())
-                        || match &column {
-                            ColumnDef::Value(name) => reads.contains(name),
-                            ColumnDef::Keys(_) => other_keys,
-                        };
+                        || column
+                            .value()
+                            .map_or(other_keys, |name| reads.contains(name));
                     scanned.then(|| {
                         kept.push(column);
                         key_id(kept.len() - 1)
@@ -416,7 +425,12 @@ impl Plan {
                 layer.renumber(&renumbered);
             }
             let columns: Vec<String> = kept.iter().map(|c| c.name().to_owned()).collect();
+            let rows = layers[start..]
+                .iter()
+                .map(|layer| layer_rows(&kept, layer, &exprs))
+                .collect();
             planned_tables.push(PlannedTable {
+                rows,
                 reads: reads
                     .into_iter()
                     .filter(|name| !columns.contains(name))
@@ -445,6 +459,34 @@ impl Plan {
     #[must_use]
     pub fn columns(&self, table: usize) -> &[String] {
         &self.tables[table].columns
+    }
+
+    /// The rows of table `table` that some layer takes at one of `zooms`, for its source to filter on.
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[must_use]
+    pub fn row_filter(&self, table: usize, zooms: RangeInclusive<u8>) -> RowFilter {
+        let table = &self.tables[table];
+        let mut conditions = Vec::new();
+        let mut untranslatable = None;
+        for (layer, rows) in self.layers[table.layers.clone()].iter().zip(&table.rows) {
+            if layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
+                continue;
+            }
+            match rows {
+                Ok(Condition::Const(true)) => return RowFilter::All,
+                Ok(condition) => conditions.push(condition.clone()),
+                Err(err) => {
+                    untranslatable.get_or_insert(err);
+                }
+            }
+        }
+        if let Some(err) = untranslatable {
+            return RowFilter::Untranslatable(err.clone());
+        }
+        RowFilter::Matching(Condition::or(conditions))
     }
 }
 
@@ -517,8 +559,34 @@ impl Compiler<'_> {
     fn value_position(&self, name: &str) -> Option<usize> {
         self.columns
             .iter()
-            .position(|column| matches!(column, ColumnDef::Value(value) if value == name))
+            .position(|column| column.value() == Some(name))
     }
+}
+
+/// The rows `layer` takes, by geometry type and `where`.
+fn layer_rows(
+    columns: &[ColumnDef],
+    layer: &PlannedLayer,
+    exprs: &[PlannedExpr],
+) -> Result<Condition, Untranslatable> {
+    let geometry = layer.geometry.map(Condition::Geometry);
+    let Some(filter) = layer.filter else {
+        return Ok(Condition::and(geometry));
+    };
+    let planned = &exprs[filter.index];
+    let keys = columns.iter().find(|column| column.value().is_none());
+    let condition = match keys {
+        Some(keys) => Err(TranslateError::KeysMayReplaceColumns(
+            keys.name().to_owned(),
+        )),
+        None => planned.expr.condition(columns),
+    };
+    let condition = condition.map_err(|reason| Untranslatable {
+        layer: layer.info.name.clone(),
+        expr: planned.source.clone(),
+        reason,
+    })?;
+    Ok(Condition::and(geometry.into_iter().chain([condition])))
 }
 
 fn key_id(pos: usize) -> KeyId {
