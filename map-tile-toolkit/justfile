@@ -27,8 +27,8 @@ fuzz-build:  (_cargo-install 'cargo-fuzz')
     cargo +nightly fuzz build --target "$(rustc -vV | sed -n 's/^host: //p')"
 
 # Profile a `profile` example case under `hotpath` (per-function timing + allocations), e.g. `just toolkit::hotpath big-all-multi 5000`
-hotpath name='big-all-multi' *args:
-    cargo run --release -p map-tile-toolkit --example profile --features hotpath,hotpath-alloc -- {{name}} {{args}}
+hotpath name='big-all-multi' iters='' features='hotpath-alloc':
+    cargo run --release -p map-tile-toolkit --example profile --features {{features}} -- {{name}} {{iters}}
 
 # Reformat all GeoJSON test fixtures
 fmt-geojson:  (_assert-cmd 'node') (_assert-cmd 'npm') (_assert-cmd 'jq')

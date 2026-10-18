@@ -29,8 +29,7 @@ toolkit-slice:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "${HOTPATH_OUTPUT_DIR:-}" ]; then export HOTPATH_OUTPUT_PATH="$HOTPATH_OUTPUT_DIR/toolkit-slice.json"; fi
-    HOTPATH_BENCHMARK=toolkit-slice \
-        cargo run --release -p map-tile-toolkit --example profile --features hotpath-alloc,hotpath-cloud -- big-all-multi 5000
+    HOTPATH_BENCHMARK=toolkit-slice just toolkit::hotpath big-all-multi 5000 hotpath-alloc,hotpath-cloud
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':
