@@ -224,12 +224,11 @@ fn integer_id(info: &TableInfo) -> Option<String> {
 fn key_partitions(sql: &str, id: &str, partitions: u32) -> Vec<String> {
     (0..partitions)
         .map(|k| {
-            let nulls = if k == 0 {
-                format!(" OR {id} IS NULL")
+            if k == 0 {
+                format!("{sql} AND (abs({id} % {partitions}) = {k} OR {id} IS NULL)")
             } else {
-                String::new()
-            };
-            format!("{sql} AND (abs({id} % {partitions}) = {k}{nulls})")
+                format!("{sql} AND (abs({id} % {partitions}) = {k})")
+            }
         })
         .collect()
 }
