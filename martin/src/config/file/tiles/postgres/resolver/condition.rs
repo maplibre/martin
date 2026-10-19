@@ -2,11 +2,14 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use martin_tilegen::plan::{CompareOp, Condition, GeometryType, Literal, Term, ValueKind};
+use martin_tilegen::plan::{CompareOp, Condition, GeometryType, Literal, Pattern, Term, ValueKind};
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 
 use super::query_tables::{PropertyColumn, linear_geometry, property_column};
 use crate::config::file::postgres::TableInfo;
+
+const UPPER: &str = "'ABCDEFGHIJKLMNOPQRSTUVWXYZ'";
+const LOWER: &str = "'abcdefghijklmnopqrstuvwxyz'";
 
 /// `condition` over the columns of `info`, each read as the scan selects it.
 pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
@@ -79,6 +82,25 @@ impl Display for Sql<'_, Condition> {
                     not = polarity.sql()
                 )
             }
+            Condition::Like {
+                term,
+                pattern,
+                polarity,
+            } => {
+                let escape = |text: &str| text.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+                let pattern = match pattern {
+                    Pattern::Prefix(text) => format!("{}%", escape(text)),
+                    Pattern::Suffix(text) => format!("%{}", escape(text)),
+                    Pattern::Contains(text) => format!("%{}%", escape(text)),
+                };
+                write!(
+                    f,
+                    "{term} {not}LIKE {pattern}",
+                    term = Sql(info, term),
+                    not = polarity.sql(),
+                    pattern = escape_literal(&pattern)
+                )
+            }
             Condition::Geometry(geometry) => {
                 let types = match geometry {
                     GeometryType::Point => "'ST_Point', 'ST_MultiPoint'",
@@ -104,6 +126,13 @@ impl Display for Sql<'_, Term> {
                 PropertyColumn::Typed(column) => f.write_str(&escape_identifier(column)),
                 PropertyColumn::Text(column) => write!(f, "{}::text", escape_identifier(column)),
             },
+            Term::Length(inner) => write!(f, "char_length({})", Sql(info, &**inner)),
+            Term::LowerAscii(inner) => {
+                write!(f, "translate({}, {UPPER}, {LOWER})", Sql(info, &**inner))
+            }
+            Term::UpperAscii(inner) => {
+                write!(f, "translate({}, {LOWER}, {UPPER})", Sql(info, &**inner))
+            }
         }
     }
 }
@@ -144,6 +173,7 @@ fn join(f: &mut Formatter<'_>, info: &TableInfo, parts: &[Condition], separator:
             | Condition::Distinct { .. }
             | Condition::IsNull { .. }
             | Condition::In { .. }
+            | Condition::Like { .. }
             | Condition::Geometry(_) => Sql(info, part).fmt(f)?,
         }
     }

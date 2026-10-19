@@ -10,7 +10,9 @@ use std::sync::atomic::AtomicBool;
 use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
-pub use filter::{CompareOp, Condition, Literal, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind};
+pub use filter::{
+    CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
+};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
