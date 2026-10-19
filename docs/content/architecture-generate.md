@@ -81,7 +81,7 @@ database by key range.
     | Relation                                  | Partitions                                                                                                                                    |
     |-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
     | Tables and materialized views             | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), 16384 pages each. The last range is open, so rows added since are still read        |
-    | Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids                                                                  |
+    | Anything else with an integer `id_column` | 32 partitions by id remainder (`abs(id % 32) = k`). The first also takes `NULL` ids                                                           |
     | Anything else                             | One scan                                                                                                                                      |
 
     Partitions are numbered table by table in physical order. For consistent data, one connection exports a

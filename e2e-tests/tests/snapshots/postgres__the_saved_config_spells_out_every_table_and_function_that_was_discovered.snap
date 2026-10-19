@@ -287,6 +287,19 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    points1_signed_vw:
+      schema: public
+      table: points1_signed_vw
+      srid: 4326
+      geometry_column: geom
+      bounds:
+      - -179.2731397013
+      - -67.5251856326
+      - 162.6011719373
+      - 84.9309209512
+      geometry_type: POINT
+      properties:
+        gid: int4
     points1_vw:
       schema: public
       table: points1_vw

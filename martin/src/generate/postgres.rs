@@ -1,5 +1,5 @@
 //! The `PostgreSQL` source of `martin cp --mode bulk`: whole-table scans split into `ctid` block ranges,
-//! read over several connections that share one snapshot.
+//! or by integer id for views, read over several connections that share one snapshot.
 
 use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, scan_features,
@@ -10,6 +10,7 @@ use martin_tilegen::source::{
     FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
 };
 use martin_tilegen::{LayerGrid, TileGenResult};
+use postgres_protocol::escape::escape_identifier;
 use tilejson::Bounds;
 
 use crate::config::file::postgres::TableInfo;
@@ -23,6 +24,7 @@ pub struct ScanTable {
 
 /// Each table is split into partitions of consecutive heap blocks, read in block order, so reading the
 /// partitions in order reproduces a single sequential scan.
+/// A source without heap blocks, such as a view, is split by the remainder of its integer id instead.
 pub struct PgScanSource {
     runtime: tokio::runtime::Handle,
     pool: PostgresPool,
@@ -39,7 +41,11 @@ impl PgScanSource {
     /// Heap blocks per partition: 128 MiB of 8 KiB blocks.
     pub const PARTITION_BLOCKS: u32 = 16_384;
 
+    /// Partitions of a source split by its integer id instead of by heap blocks.
+    pub const KEY_PARTITIONS: u32 = 32;
+
     /// Splits each table into partitions of `partition_blocks` heap blocks.
+    /// A source that has no heap blocks but an integer id is split into [`Self::KEY_PARTITIONS`] instead.
     ///
     /// # Errors
     ///
@@ -64,9 +70,16 @@ impl PgScanSource {
             let blocks = heap_blocks(&conn, &scan.info.schema, &scan.info.table)
                 .await
                 .map_err(SourceError::from)?;
-            for range in block_ranges(blocks, partition_blocks) {
+            let partitions = match (blocks, integer_id(&scan.info)) {
+                (None, Some(id)) => key_partitions(&sql.sql, &id, Self::KEY_PARTITIONS),
+                (blocks, _) => block_ranges(blocks, partition_blocks)
+                    .into_iter()
+                    .map(|range| with_block_range(&sql.sql, range))
+                    .collect(),
+            };
+            for sql in partitions {
                 scans.push(Scan {
-                    sql: with_block_range(&sql.sql, range),
+                    sql,
                     layout: layout.clone(),
                 });
             }
@@ -191,6 +204,34 @@ fn with_block_range(sql: &str, range: (u32, Option<u32>)) -> String {
             format!("{sql} AND ctid >= '({start},0)'::tid AND ctid < '({end},0)'::tid")
         }
     }
+}
+
+/// The escaped id column, if it holds integers a scan can be split by.
+fn integer_id(info: &TableInfo) -> Option<String> {
+    let id = info.id_column.as_deref()?;
+    matches!(info.column_type(id)?, "int2" | "int4" | "int8").then(|| {
+        let column = info
+            .discovered
+            .prop_mapping
+            .get(id)
+            .map_or(id, String::as_str);
+        escape_identifier(column)
+    })
+}
+
+/// Splits a scan query by the remainder of its id.
+/// `abs` keeps negative ids, and the first partition also reads the rows without an id.
+fn key_partitions(sql: &str, id: &str, partitions: u32) -> Vec<String> {
+    (0..partitions)
+        .map(|k| {
+            let nulls = if k == 0 {
+                format!(" OR {id} IS NULL")
+            } else {
+                String::new()
+            };
+            format!("{sql} AND (abs({id} % {partitions}) = {k}{nulls})")
+        })
+        .collect()
 }
 
 /// The union of the layers' bounds, each grown by its buffer; `None` if any layer is unbounded.

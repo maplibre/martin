@@ -144,6 +144,9 @@ async fn table_source() {
     points1:
       content_type: application/x-protobuf
       description: public.points1.geom
+    points1_signed_vw:
+      content_type: application/x-protobuf
+      description: public.points1_signed_vw.geom
     points1_vw:
       content_type: application/x-protobuf
       description: description from SQL comment

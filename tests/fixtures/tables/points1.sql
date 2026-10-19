@@ -10,6 +10,12 @@ SELECT
     geom
 FROM points1;
 
+CREATE VIEW points1_signed_vw AS
+SELECT
+    nullif(gid, 30) - 15 AS gid,
+    geom
+FROM points1;
+
 -- INSERT INTO points1
 -- SELECT generate_series(1, 3) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(18, 235085, 122323), 4326), 3))).geom;
