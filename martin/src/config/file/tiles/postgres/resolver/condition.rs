@@ -21,10 +21,10 @@ pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
             let ordered = !matches!(op, CompareOp::Eq | CompareOp::Ne);
             format!(
                 "{lhs}{collate} {op} {rhs}",
-                lhs = term_sql(info, left, *kind),
+                lhs = value_sql(info, left, *kind),
                 collate = collate_sql(info, left, right, *kind, ordered),
                 op = op.sql(),
-                rhs = term_sql(info, right, *kind)
+                rhs = value_sql(info, right, *kind)
             )
         }
         Condition::Distinct {
@@ -34,14 +34,14 @@ pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
             negated,
         } => format!(
             "{lhs}{collate} IS {not}DISTINCT FROM {rhs}",
-            lhs = term_sql(info, left, *kind),
+            lhs = value_sql(info, left, *kind),
             collate = collate_sql(info, left, right, *kind, false),
             not = not_sql(*negated),
-            rhs = term_sql(info, right, *kind)
+            rhs = value_sql(info, right, *kind)
         ),
         Condition::IsNull { term, negated } => format!(
             "{term} IS {not}NULL",
-            term = term_sql(info, term, ValueKind::String),
+            term = term_sql(info, term),
             not = not_sql(*negated)
         ),
         Condition::Geometry(geometry) => {
@@ -74,16 +74,25 @@ fn join(info: &TableInfo, parts: &[Condition], separator: &str) -> String {
     parts.join(separator)
 }
 
-/// A term as a value of `kind`: numbers compared as floats are cast.
-fn term_sql(info: &TableInfo, term: &Term, kind: ValueKind) -> String {
-    let sql = match term {
-        Term::Literal(literal) => return literal_sql(literal, kind),
-        Term::Column(name) => column_sql(info, name),
-    };
+/// A term as a value of `kind`.
+fn value_sql(info: &TableInfo, term: &Term, kind: ValueKind) -> String {
+    as_kind(term_sql(info, term), kind)
+}
+
+/// `sql` as a value of `kind`: numbers compared as floats are cast.
+fn as_kind(sql: String, kind: ValueKind) -> String {
     if kind == ValueKind::Float {
         format!("({sql})::float8")
     } else {
         sql
+    }
+}
+
+/// A term as the scan reads it.
+fn term_sql(info: &TableInfo, term: &Term) -> String {
+    match term {
+        Term::Literal(literal) => literal_sql(literal),
+        Term::Column(name) => column_sql(info, name),
     }
 }
 
@@ -120,20 +129,15 @@ fn column_sql(info: &TableInfo, name: &str) -> String {
     }
 }
 
-/// A literal as a value of `kind`.
-fn literal_sql(literal: &Literal, kind: ValueKind) -> String {
-    let sql = match literal {
-        Literal::Bool(value) => return bool_sql(*value).to_owned(),
-        Literal::String(value) => return escape_literal(value),
-        Literal::Float(value) => return format!("'{value}'::float8"),
-        Literal::Int(value) if *value < 0 => format!("({value})"),
+/// A literal as SQL.
+/// A float is quoted so that `NaN` and `inf` parse, and its kind casts it to `float8`.
+fn literal_sql(literal: &Literal) -> String {
+    match literal {
+        Literal::Bool(value) => bool_sql(*value).to_owned(),
+        Literal::String(value) => escape_literal(value),
+        Literal::Float(value) => format!("'{value}'"),
         Literal::Int(value) => value.to_string(),
         Literal::UInt(value) => value.to_string(),
-    };
-    if kind == ValueKind::Float {
-        format!("{sql}::float8")
-    } else {
-        sql
     }
 }
 
