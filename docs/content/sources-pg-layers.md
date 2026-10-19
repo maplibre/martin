@@ -131,7 +131,7 @@ layer takes are never read. This needs a SQL equivalent for each `where` of the 
 - `==` or `!=` between two columns, unless both are floats,
 - `&&`, `||`, `!` and `? :`.
 
-Columns of type `bpchar` or `name` have none, as `PostgreSQL` compares them differently.
+Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.
 When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
 Listing `attributes` without the `jsonb` property's keys avoids that.
 Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.

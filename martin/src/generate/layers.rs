@@ -353,13 +353,17 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                Typed(
+                Value(
                     "name",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "rank",
-                    Int,
+                    Some(
+                        Int,
+                    ),
                 ),
             ],
             layers: [
@@ -503,13 +507,17 @@ mod tests {
         insta::assert_debug_snapshot!(scan.def, @r#"
         TableDef {
             columns: [
-                Typed(
+                Value(
                     "class",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
             ],
             layers: [
@@ -643,25 +651,35 @@ mod tests {
             @r#"
         (
             [
-                Typed(
+                Value(
                     "class",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name:de",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name:en",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "rank",
-                    Int,
+                    Some(
+                        Int,
+                    ),
                 ),
                 Keys(
                     "tags",
@@ -796,21 +814,29 @@ mod tests {
             @r#"
         (
             [
-                Typed(
+                Value(
                     "class",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "name:en",
-                    String,
+                    Some(
+                        String,
+                    ),
                 ),
-                Typed(
+                Value(
                     "rank",
-                    Int,
+                    Some(
+                        Int,
+                    ),
                 ),
             ],
             0..=12,

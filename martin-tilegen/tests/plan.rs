@@ -89,7 +89,7 @@ fn rejects_zooms_above_the_max() {
 #[test]
 fn rejects_an_attribute_that_is_not_a_column() {
     let err = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("name".to_owned())],
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
         layers: vec![LayerDef {
             attributes: AttributesDef::Columns(vec!["kind".to_owned()]),
             ..LayerDef::new("roads", 0..=14, GRID)
@@ -105,7 +105,7 @@ fn rejects_an_attribute_that_is_not_a_column() {
 #[test]
 fn rejects_a_repeated_attribute_column() {
     let err = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("name".to_owned())],
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
         layers: vec![LayerDef {
             attributes: AttributesDef::Columns(vec!["name".to_owned(), "name".to_owned()]),
             ..LayerDef::new("roads", 0..=14, GRID)
@@ -170,7 +170,7 @@ fn rejects_a_rule_repeating_an_attribute() {
 #[test]
 fn rejects_an_expression_naming_an_unknown_property() {
     let err = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
             filter: Some("kind == 'primary'".to_owned()),
             ..LayerDef::new("roads", 0..=14, GRID)
@@ -187,9 +187,9 @@ fn rejects_an_expression_naming_an_unknown_property() {
 fn all_attributes_scan_every_column() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
         ],
         layers: vec![LayerDef::new("roads", 0..=14, GRID)],
     }])
@@ -207,9 +207,9 @@ fn all_attributes_scan_every_column() {
 fn only_the_columns_some_layer_copies_are_scanned() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![
@@ -239,7 +239,7 @@ fn only_the_columns_some_layer_copies_are_scanned() {
 fn layers_without_attributes_scan_no_columns() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![
@@ -261,12 +261,12 @@ fn layers_without_attributes_scan_no_columns() {
 fn expressions_keep_the_columns_they_read() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("gid".to_owned()),
-            ColumnDef::Value("lanes".to_owned()),
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
-            ColumnDef::Value("surface".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("gid".to_owned(), None),
+            ColumnDef::Value("lanes".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
+            ColumnDef::Value("surface".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
@@ -307,7 +307,7 @@ fn expressions_keep_the_columns_they_read() {
 fn an_expression_reading_a_key_that_is_not_a_column_scans_the_keys_columns() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
             ColumnDef::Keys("other_tags".to_owned()),
         ],
@@ -330,7 +330,7 @@ fn an_expression_reading_a_key_that_is_not_a_column_scans_the_keys_columns() {
 fn an_attribute_that_is_not_a_column_scans_the_keys_columns() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
@@ -350,9 +350,9 @@ fn an_attribute_that_is_not_a_column_scans_the_keys_columns() {
 fn an_expression_indexing_the_feature_by_a_computed_key_scans_every_column() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("lang".to_owned()),
-            ColumnDef::Value("name:de".to_owned()),
-            ColumnDef::Value("name:en".to_owned()),
+            ColumnDef::Value("lang".to_owned(), None),
+            ColumnDef::Value("name:de".to_owned(), None),
+            ColumnDef::Value("name:en".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
@@ -382,7 +382,7 @@ fn an_expression_indexing_the_feature_by_a_computed_key_scans_every_column() {
 fn attribute_prefixes_do_not_match_keys_columns() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("tag_count".to_owned()),
+            ColumnDef::Value("tag_count".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
@@ -406,8 +406,8 @@ fn each_table_scans_the_columns_of_its_own_layers() {
     let plan = Plan::new(vec![
         TableDef {
             columns: vec![
-                ColumnDef::Value("class".to_owned()),
-                ColumnDef::Value("name".to_owned()),
+                ColumnDef::Value("class".to_owned(), None),
+                ColumnDef::Value("name".to_owned(), None),
             ],
             layers: vec![LayerDef {
                 attributes: AttributesDef::Columns(vec!["class".to_owned()]),
@@ -416,8 +416,8 @@ fn each_table_scans_the_columns_of_its_own_layers() {
         },
         TableDef {
             columns: vec![
-                ColumnDef::Value("class".to_owned()),
-                ColumnDef::Value("name".to_owned()),
+                ColumnDef::Value("class".to_owned(), None),
+                ColumnDef::Value("name".to_owned(), None),
             ],
             layers: vec![LayerDef {
                 attributes: AttributesDef::Columns(vec!["name".to_owned()]),
@@ -442,11 +442,11 @@ fn each_table_scans_the_columns_of_its_own_layers() {
 fn rule_expressions_keep_the_columns_they_read() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("population".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
-            ColumnDef::Value("surface".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("population".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
+            ColumnDef::Value("surface".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
@@ -484,9 +484,9 @@ fn rule_expressions_keep_the_columns_they_read() {
 fn sort_by_keeps_the_columns_it_reads() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
@@ -567,8 +567,8 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
 fn a_where_filter_picks_the_features_of_each_layer() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![
             LayerDef {
@@ -609,7 +609,7 @@ fn a_where_filter_picks_the_features_of_each_layer() {
 #[test]
 fn zoom_expressions_set_each_features_zooms() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             minzoom_expr: Some("rank >= 10 ? 0 : (rank > 0 ? 3 - rank : 20)".to_owned()),
             maxzoom_expr: Some("rank < 0 ? 0 : (rank == 10 ? 1 : null)".to_owned()),
@@ -634,10 +634,10 @@ fn zoom_expressions_set_each_features_zooms() {
 fn computed_attributes_appear_at_their_own_zooms() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("name:en".to_owned()),
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("name:en".to_owned(), None),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::Computed {
@@ -690,7 +690,7 @@ fn computed_attributes_appear_at_their_own_zooms() {
 #[test]
 fn an_id_expression_sets_the_feature_id() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("gid".to_owned())],
+        columns: vec![ColumnDef::Value("gid".to_owned(), None)],
         layers: vec![LayerDef {
             id: IdDef::Expr("gid == 0 ? null : gid * 10".to_owned()),
             attributes: AttributesDef::None,
@@ -715,7 +715,7 @@ fn an_id_expression_sets_the_feature_id() {
 #[test]
 fn failing_expressions_count_as_null_and_are_counted() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("lanes".to_owned())],
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
             filter: Some("lanes != 1".to_owned()),
             attributes: AttributesDef::Computed {
@@ -786,8 +786,8 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
 fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::Computed {
@@ -815,7 +815,7 @@ fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
 fn a_json_key_named_like_its_column_is_kept() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef::new("places", 0..=0, GRID)],
@@ -836,7 +836,7 @@ fn a_json_key_named_like_its_column_is_kept() {
 #[test]
 fn the_first_matching_rule_wins() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
             rules: vec![
@@ -882,7 +882,7 @@ fn the_first_matching_rule_wins() {
 #[test]
 fn a_feature_matching_no_rule_keeps_the_layer_settings() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             minzoom_expr: Some("2".to_owned()),
             attributes: AttributesDef::Computed {
@@ -922,7 +922,7 @@ fn a_feature_matching_no_rule_keeps_the_layer_settings() {
 #[test]
 fn rule_zooms_are_fixed_or_per_feature() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             maxzoom_expr: Some("3".to_owned()),
             attributes: AttributesDef::None,
@@ -961,7 +961,7 @@ fn rule_zooms_are_fixed_or_per_feature() {
 #[test]
 fn a_rule_sets_its_own_simplify() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
             simplify: PixelThreshold::ZERO,
             min_size: PixelThreshold::ZERO,
@@ -994,9 +994,9 @@ fn a_rule_sets_its_own_simplify() {
 fn rule_attributes_replace_and_add_to_the_layers() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::Computed {
@@ -1056,7 +1056,7 @@ fn rule_attributes_replace_and_add_to_the_layers() {
 #[test]
 fn a_failing_rule_condition_does_not_match_and_is_counted() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("lanes".to_owned())],
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
             minzoom_expr: Some("1".to_owned()),
             attributes: AttributesDef::None,
@@ -1123,8 +1123,8 @@ fn a_rule_without_a_condition_or_expressions_still_applies() {
 fn a_rule_attribute_reads_its_column_after_unused_columns_are_dropped() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("name".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
         ],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
@@ -1152,7 +1152,7 @@ fn a_rule_attribute_reads_its_column_after_unused_columns_are_dropped() {
 #[test]
 fn sort_by_applies_whichever_rule_a_feature_matches() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             attributes: AttributesDef::None,
             rules: vec![
@@ -1195,7 +1195,7 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
 #[test]
 fn a_table_reads_the_rows_of_each_layers_geometry() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
                 geometry: Some(GeometryType::Point),
@@ -1227,7 +1227,7 @@ fn a_table_reads_the_rows_of_each_layers_geometry() {
 #[test]
 fn a_layer_without_a_filter_reads_every_row() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
                 geometry: Some(GeometryType::Line),
@@ -1243,7 +1243,7 @@ fn a_layer_without_a_filter_reads_every_row() {
 #[test]
 fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
                 geometry: Some(GeometryType::Line),
@@ -1283,8 +1283,8 @@ fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
 fn a_table_reads_the_rows_some_layer_takes() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Typed("class".to_owned(), ValueKind::String),
-            ColumnDef::Typed("rank".to_owned(), ValueKind::Int),
+            ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+            ColumnDef::Value("rank".to_owned(), Some(ValueKind::Int)),
         ],
         layers: vec![
             LayerDef {
@@ -1343,7 +1343,7 @@ fn a_table_reads_the_rows_some_layer_takes() {
 #[test]
 fn a_where_with_no_sql_equivalent_is_untranslatable() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Typed("name".to_owned(), ValueKind::String)],
+        columns: vec![ColumnDef::Value("name".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
             filter: Some("name + '!' == 'A!'".to_owned()),
             ..LayerDef::new("named", 0..=0, GRID)
@@ -1369,9 +1369,9 @@ fn a_where_with_no_sql_equivalent_is_untranslatable() {
 }
 
 #[test]
-fn a_where_with_no_sql_equivalent_is_untranslatable_beside_a_layer_without_a_filter() {
+fn a_layer_reading_every_row_does_not_hide_an_untranslatable_where() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Typed("name".to_owned(), ValueKind::String)],
+        columns: vec![ColumnDef::Value("name".to_owned(), Some(ValueKind::String))],
         layers: vec![
             LayerDef::new("all", 0..=0, GRID),
             LayerDef {
@@ -1397,7 +1397,7 @@ fn a_where_with_no_sql_equivalent_is_untranslatable_beside_a_layer_without_a_fil
 #[test]
 fn a_column_of_unknown_type_is_not_compared() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("code".to_owned())],
+        columns: vec![ColumnDef::Value("code".to_owned(), None)],
         layers: vec![LayerDef {
             filter: Some("code == 'A'".to_owned()),
             ..LayerDef::new("coded", 0..=0, GRID)
@@ -1426,7 +1426,7 @@ fn a_column_of_unknown_type_is_not_compared() {
 fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Typed("class".to_owned(), ValueKind::String),
+            ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
@@ -1450,5 +1450,5 @@ fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
     let RowFilter::Untranslatable(err) = rows else {
         panic!("translatable");
     };
-    insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` reads columns that a key of `tags` may replace");
+    insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` reads columns that a key of `tags` may replace (list `attributes` without its keys)");
 }

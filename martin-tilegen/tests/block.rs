@@ -100,8 +100,8 @@ fn batches() -> Vec<FeatureBatch> {
 
 fn plan() -> Plan {
     let columns = vec![
-        ColumnDef::Value("name".to_owned()),
-        ColumnDef::Value("rank".to_owned()),
+        ColumnDef::Value("name".to_owned(), None),
+        ColumnDef::Value("rank".to_owned(), None),
     ];
     Plan::new(vec![
         TableDef {
@@ -245,7 +245,7 @@ fn a_block_reports_the_features_it_could_not_render() {
         ],
     }];
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("lanes".to_owned())],
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "8 / lanes".to_owned(),

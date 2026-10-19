@@ -65,9 +65,8 @@ pub struct TableDef {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ColumnDef {
     /// A property named after the column.
-    Value(String),
-    /// A property named after the column, whose values are all of one kind, for a source to filter on.
-    Typed(String, ValueKind),
+    /// The kind of its values is set when they are all of one kind a source can filter on.
+    Value(String, Option<ValueKind>),
     /// Properties under keys of their own, e.g. those of a JSON column.
     /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
     Keys(String),
@@ -77,14 +76,14 @@ impl ColumnDef {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Value(name) | Self::Typed(name, _) | Self::Keys(name) => name,
+            Self::Value(name, _) | Self::Keys(name) => name,
         }
     }
 
     /// The property name of a column that is not [`ColumnDef::Keys`].
     fn value(&self) -> Option<&str> {
         match self {
-            Self::Value(name) | Self::Typed(name, _) => Some(name),
+            Self::Value(name, _) => Some(name),
             Self::Keys(_) => None,
         }
     }
@@ -571,7 +570,9 @@ fn layer_rows(
         return Ok(Condition::and(geometry));
     };
     let planned = &exprs[filter.index];
-    let keys = columns.iter().find(|column| column.value().is_none());
+    let keys = columns
+        .iter()
+        .find(|column| matches!(column, ColumnDef::Keys(_)));
     let condition = match keys {
         Some(keys) => Err(TranslateError::KeysMayReplaceColumns(
             keys.name().to_owned(),

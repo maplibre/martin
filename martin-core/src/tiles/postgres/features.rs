@@ -86,15 +86,13 @@ impl PropType {
 pub fn column_def(column: String, pg_type: &str) -> ColumnDef {
     let kind = match PropType::of(pg_type) {
         Some(PropType::Json) => return ColumnDef::Keys(column),
-        Some(PropType::Text) if matches!(pg_type, "bpchar" | "name") => {
-            return ColumnDef::Value(column);
-        }
-        Some(PropType::Bool) => ValueKind::Bool,
-        Some(PropType::Int16 | PropType::Int32 | PropType::Int64) => ValueKind::Int,
-        Some(PropType::Float | PropType::Double) => ValueKind::Float,
-        Some(PropType::Text) | None => ValueKind::String,
+        Some(PropType::Text) if matches!(pg_type, "bpchar" | "name") => None,
+        Some(PropType::Bool) => Some(ValueKind::Bool),
+        Some(PropType::Int16 | PropType::Int32 | PropType::Int64) => Some(ValueKind::Int),
+        Some(PropType::Float | PropType::Double) => Some(ValueKind::Float),
+        Some(PropType::Text) | None => Some(ValueKind::String),
     };
-    ColumnDef::Typed(column, kind)
+    ColumnDef::Value(column, kind)
 }
 
 /// Whether a column of this `PostgreSQL` type reaches a tile as a typed property.

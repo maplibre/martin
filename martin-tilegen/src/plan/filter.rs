@@ -45,14 +45,14 @@ pub struct Untranslatable {
 /// Why an expression has no [`Condition`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum TranslateError {
-    #[error("reads columns that a key of `{0}` may replace")]
+    #[error("reads columns that a key of `{0}` may replace (list `attributes` without its keys)")]
     KeysMayReplaceColumns(String),
     #[error("reads `{0}`, which is not a column the source can filter on")]
     NotAColumn(String),
     #[error("selects a field of a value")]
     SelectsField,
-    #[error("uses an expression with no SQL equivalent")]
-    Expression,
+    #[error("uses {0}, which has no SQL equivalent")]
+    Expression(&'static str),
     #[error("uses `{0}`, which has no SQL equivalent")]
     Function(String),
     #[error("compares `{0}`, whose type the source cannot compare")]
@@ -134,6 +134,19 @@ impl CompareOp {
             Self::Le => Self::Ge,
             Self::Gt => Self::Lt,
             Self::Ge => Self::Le,
+        }
+    }
+
+    /// The operator as SQL.
+    #[must_use]
+    pub fn sql(self) -> &'static str {
+        match self {
+            Self::Eq => "=",
+            Self::Ne => "<>",
+            Self::Lt => "<",
+            Self::Le => "<=",
+            Self::Gt => ">",
+            Self::Ge => ">=",
         }
     }
 }
