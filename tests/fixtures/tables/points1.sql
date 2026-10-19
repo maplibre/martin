@@ -12,8 +12,8 @@ FROM points1;
 
 CREATE VIEW points1_signed_vw AS
 SELECT
-    nullif(gid, 30) - 15 AS gid,
-    geom
+    geom,
+    nullif(gid, 30) - 15 AS gid
 FROM points1;
 
 -- INSERT INTO points1
