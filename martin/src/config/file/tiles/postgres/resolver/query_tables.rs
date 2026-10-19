@@ -574,37 +574,33 @@ pub fn scan_sql(
     });
     let column = escape_identifier(&info.geometry_column);
     let geometry = format!("ST_Force2D({})", linear_geometry(info));
-    let envelope = bbox.map(
-        |Bounds {
-             left,
-             bottom,
-             right,
-             top,
-         }| format!("ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"),
-    );
-    let (geometry, crs, bbox) = match info.srid {
-        4326 => (
-            geometry,
-            Crs::Wgs84,
-            envelope.map(|envelope| format!(" AND {column} && {envelope}")),
-        ),
-        3857 => (
-            geometry,
-            Crs::WebMercator,
-            envelope.map(|envelope| format!(" AND {column} && ST_Transform({envelope}, 3857)")),
-        ),
-        _ => (
-            format!("ST_Transform({geometry}, 4326)"),
-            Crs::Wgs84,
-            envelope.map(|envelope| {
-                format!(" AND ST_Transform({column}::geometry, 4326) && {envelope}")
-            }),
-        ),
+    let (geometry, crs) = match info.srid {
+        4326 => (geometry, Crs::Wgs84),
+        3857 => (geometry, Crs::WebMercator),
+        _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
     };
-    let bbox = bbox.unwrap_or_default();
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let filter = row_filter(info, "AND")?;
+    let bbox = match bbox {
+        None => String::new(),
+        Some(Bounds {
+            left,
+            bottom,
+            right,
+            top,
+        }) => match info.srid {
+            4326 => {
+                format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)")
+            }
+            3857 => format!(
+                " AND {column} && ST_Transform(ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326), 3857)"
+            ),
+            _ => format!(
+                " AND ST_Transform({column}::geometry, 4326) && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"
+            ),
+        },
+    };
     Ok(ScanSql {
         sql: format!(
             "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
