@@ -174,10 +174,10 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 /// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
 /// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
 /// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
-fn escape_with_alias_as_property(info: &TableInfo, field: &str, label: &str) -> String {
-    match property_column(info, field, label) {
-        (_, false) => escape_with_alias(&info.discovered.prop_mapping, field),
-        (column, true) => format!(
+fn escape_with_alias_as_property(info: &TableInfo, field: &str) -> String {
+    match property_column(info, field) {
+        PropertyColumn::Typed(_) => escape_with_alias(&info.discovered.prop_mapping, field),
+        PropertyColumn::Text(column) => format!(
             ", {column}::text AS {alias}",
             column = escape_identifier(column),
             alias = escape_identifier(field),
@@ -185,19 +185,26 @@ fn escape_with_alias_as_property(info: &TableInfo, field: &str, label: &str) -> 
     }
 }
 
-/// The column property `field` is read from, and whether a tile needs its type cast to `text`.
-pub(super) fn property_column<'a>(
-    info: &'a TableInfo,
-    field: &'a str,
-    label: &'a str,
-) -> (&'a str, bool) {
+/// The table column a property is read from.
+pub(super) enum PropertyColumn<'a> {
+    /// A column of a type a tile property can hold.
+    Typed(&'a str),
+    /// A column a tile reads cast to `text`.
+    Text(&'a str),
+}
+
+/// The column property `field` is read from.
+pub(super) fn property_column<'a>(info: &'a TableInfo, field: &'a str) -> PropertyColumn<'a> {
     let column = info
         .discovered
         .prop_mapping
         .get(field)
         .map_or(field, String::as_str);
-    let pg_type = info.column_type(field).unwrap_or(label);
-    (column, !is_typed_property(pg_type))
+    if info.property_type(field).is_some_and(is_typed_property) {
+        PropertyColumn::Typed(column)
+    } else {
+        PropertyColumn::Text(column)
+    }
 }
 
 /// Generate a query to fetch tiles from a table.
@@ -355,7 +362,10 @@ impl TableQuerySql {
             .flatten()
             .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
-        let row_properties = row_properties(info, info.properties.iter().flatten());
+        let row_properties = row_properties(
+            info,
+            info.properties.iter().flatten().map(|(column, _)| column),
+        );
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
@@ -583,11 +593,12 @@ pub fn scan_sql(
     condition: Option<&Condition>,
     bbox: Option<Bounds>,
 ) -> PostgresResult<ScanSql> {
-    let selected: Vec<(&String, &String)> = info
+    let selected: Vec<&String> = info
         .properties
         .iter()
         .flatten()
-        .filter(|(column, _)| columns.contains(column))
+        .map(|(column, _)| column)
+        .filter(|column| columns.contains(column))
         .collect();
     let row_properties = row_properties(info, selected.iter().copied());
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
@@ -631,10 +642,7 @@ pub fn scan_sql(
         ),
         crs,
         has_id: info.id_column.is_some(),
-        properties: selected
-            .into_iter()
-            .map(|(column, _)| column.clone())
-            .collect(),
+        properties: selected.into_iter().cloned().collect(),
     })
 }
 
@@ -677,11 +685,11 @@ pub fn engine_sql(
 /// The properties as tile row queries select them, cast by the type each column is returned as.
 fn row_properties<'a>(
     info: &TableInfo,
-    properties: impl IntoIterator<Item = (&'a String, &'a String)>,
+    properties: impl IntoIterator<Item = &'a String>,
 ) -> String {
     properties
         .into_iter()
-        .map(|(column, label)| escape_with_alias_as_property(info, column, label))
+        .map(|column| escape_with_alias_as_property(info, column))
         .collect()
 }
 

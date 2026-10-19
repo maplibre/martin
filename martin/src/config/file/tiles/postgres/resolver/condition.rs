@@ -3,7 +3,7 @@
 use martin_tilegen::plan::{CompareOp, Condition, GeometryType, Literal, Term, ValueKind};
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 
-use super::query_tables::{linear_geometry, property_column};
+use super::query_tables::{PropertyColumn, linear_geometry, property_column};
 use crate::config::file::postgres::TableInfo;
 
 /// `condition` over the columns of `info`, each read as the scan selects it.
@@ -115,17 +115,9 @@ fn collate_sql(
 
 /// A column as the scan selects it.
 fn column_sql(info: &TableInfo, name: &str) -> String {
-    let label = info
-        .properties
-        .as_ref()
-        .and_then(|properties| properties.get(name))
-        .map_or("", String::as_str);
-    let (column, cast) = property_column(info, name, label);
-    let column = escape_identifier(column);
-    if cast {
-        format!("{column}::text")
-    } else {
-        column
+    match property_column(info, name) {
+        PropertyColumn::Typed(column) => escape_identifier(column),
+        PropertyColumn::Text(column) => format!("{}::text", escape_identifier(column)),
     }
 }
 

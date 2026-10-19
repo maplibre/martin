@@ -264,15 +264,19 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
-    /// The type a query returns `column` as, after mapping a property to its table column.
+    /// The type a query returns `property` as: its table column's discovered type, else its configured one.
     #[must_use]
-    pub fn column_type(&self, column: &str) -> Option<&str> {
+    pub fn property_type(&self, property: &str) -> Option<&str> {
         let column = self
             .discovered
             .prop_mapping
+            .get(property)
+            .map_or(property, String::as_str);
+        self.discovered
+            .column_types
             .get(column)
-            .map_or(column, String::as_str);
-        self.discovered.column_types.get(column).map(String::as_str)
+            .or_else(|| self.properties.as_ref()?.get(property))
+            .map(String::as_str)
     }
 
     /// Whether `column` compares by a collation that may treat different strings as equal.

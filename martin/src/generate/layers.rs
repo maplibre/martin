@@ -67,9 +67,7 @@ pub fn lower_table(
         .properties
         .iter()
         .flatten()
-        .map(|(column, label)| {
-            column_def(column.clone(), info.column_type(column).unwrap_or(label))
-        })
+        .filter_map(|(column, _)| Some(column_def(column.clone(), info.property_type(column)?)))
         .collect();
     let static_columns: Vec<&str> = columns
         .iter()
