@@ -157,7 +157,11 @@ fn indented_columns(id_field: &str, properties: &str) -> String {
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
 /// Assumes to not be the first column in a SELECT statement.
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
-    let column = mapping.get(field).map_or(field, |v| v.as_str());
+    escape_column_as(mapping.get(field).map_or(field, |v| v.as_str()), field)
+}
+
+/// The snippet that selects `column` under the name `field`.
+fn escape_column_as(column: &str, field: &str) -> String {
     if field == column {
         format!(", {}", escape_identifier(column))
     } else {
@@ -176,7 +180,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 /// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
 fn escape_with_alias_as_property(info: &TableInfo, field: &str) -> String {
     match property_column(info, field) {
-        PropertyColumn::Typed(_) => escape_with_alias(&info.discovered.prop_mapping, field),
+        PropertyColumn::Typed(column) => escape_column_as(column, field),
         PropertyColumn::Text(column) => format!(
             ", {column}::text AS {alias}",
             column = escape_identifier(column),
