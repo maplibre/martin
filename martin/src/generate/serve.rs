@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 
 use martin_core::tiles::postgres::{PostgresEngineInfo, ScanLayout};
-use martin_tilegen::plan::Plan;
+use martin_tilegen::plan::{Plan, RowFilter};
 use martin_tilegen::{MAX_ZOOM, TileGenError};
 
 use super::layers::{LowerOptions, lower_table};
@@ -25,7 +25,7 @@ const GRID_LIMIT: u64 = 1 << 30;
 /// # Errors
 ///
 /// When a layer uses a setting the engine does not support yet, no layer has a zoom, a zoom is too
-/// high for the extent, `max_feature_count` meets a layer's `where` or `geometry`, or the table's query
+/// high for the extent, `max_feature_count` meets a `where` SQL cannot apply, or the table's query
 /// cannot be built.
 pub fn engine_info(
     id: &str,
@@ -41,15 +41,6 @@ pub fn engine_info(
     };
     let table = lower_table(id, info.clone(), &options)?
         .ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
-    if max_feature_count.is_some()
-        && let Some(layer) = table
-            .def
-            .layers
-            .iter()
-            .find(|layer| layer.filter.is_some() || layer.geometry.is_some())
-    {
-        return Err(GenerateError::LimitedLayerFilter(layer.name.clone()));
-    }
     let margin = table
         .def
         .layers
@@ -57,15 +48,37 @@ pub fn engine_info(
         .map(|layer| (f64::from(layer.grid.buffer) + 0.5) / f64::from(layer.grid.extent))
         .fold(0.0, f64::max);
     let plan = Plan::new(vec![table.def]).map_err(TileGenError::from)?;
-    let sql = engine_sql(&table.info, plan.columns(0), max_feature_count, order_by)?;
+    let mut sql = (0..=max_zoom)
+        .map(|zoom| {
+            let rows = plan.row_filter(0, zoom..=zoom);
+            if let RowFilter::Untranslatable(err) = &rows
+                && max_feature_count.is_some()
+            {
+                return Err(GenerateError::UnlimitableWhere(err.clone()));
+            }
+            let sql = engine_sql(
+                &table.info,
+                plan.columns(0),
+                rows.condition(),
+                max_feature_count,
+                order_by,
+            )?;
+            Ok(sql)
+        })
+        .collect::<GenerateResult<Vec<_>>>()?;
+    let last = sql.pop().expect("zoom 0 has a query");
     Ok(PostgresEngineInfo {
         layout: ScanLayout {
             table: 0,
-            crs: sql.crs,
-            has_id: sql.has_id,
-            properties: sql.properties.len(),
+            crs: last.crs,
+            has_id: last.has_id,
+            properties: last.properties.len(),
         },
-        sql_query: sql.sql,
+        sql_queries: sql
+            .into_iter()
+            .map(|sql| sql.sql)
+            .chain([last.sql])
+            .collect(),
         plan: Arc::new(plan),
         margin,
         prefetch: info
@@ -94,6 +107,85 @@ mod tests {
     }
 
     #[test]
+    fn the_engine_query_keeps_the_rows_of_each_layers_geometry() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              stops:
+                geometry: point
+              paths:
+                geometry: line
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND (ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_Point', 'ST_MultiPoint') OR ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_LineString', 'ST_MultiLineString')) AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn the_engine_query_below_a_layers_minzoom_skips_its_rows() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            maxzoom: 1
+            properties:
+              class: text
+            layers:
+              detail:
+                minzoom: 1
+                geometry: line
+              overview:
+                geometry: polygon
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND (ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn the_engine_query_at_a_layers_minzoom_keeps_its_rows() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            maxzoom: 1
+            properties:
+              class: text
+            layers:
+              detail:
+                minzoom: 1
+                geometry: line
+              overview:
+                geometry: polygon
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[1], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND (ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn the_engine_query_with_a_layer_of_any_geometry_reads_every_row() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              paths:
+                geometry: line
+              all: {}
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
     fn max_feature_count_rejects_a_layer_with_where() {
         let mut info = table(indoc! {r#"
             schema: public
@@ -107,44 +199,11 @@ mod tests {
                 where: "class == 'motorway'"
         "#});
         let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
-        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet");
+        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` needs `where` checked in SQL, but `class == 'motorway'` is not checked in SQL yet");
     }
 
     #[test]
-    fn max_feature_count_rejects_a_layer_with_geometry() {
-        let mut info = table(indoc! {"
-            schema: public
-            table: roads
-            srid: 3857
-            geometry_column: geom
-            properties:
-              class: text
-            layers:
-              lines:
-                geometry: line
-        "});
-        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
-        insta::assert_snapshot!(err, @"layer `lines`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet");
-    }
-
-    #[test]
-    fn max_feature_count_limits_a_layer_without_where_or_geometry() {
-        let mut info = table(indoc! {"
-            schema: public
-            table: roads
-            srid: 3857
-            geometry_column: geom
-            properties:
-              class: text
-            layers:
-              all: {}
-        "});
-        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
-        insta::assert_snapshot!(engine.sql_query, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
-    }
-
-    #[test]
-    fn without_max_feature_count_a_layer_with_where_is_served() {
+    fn without_max_feature_count_a_layer_with_where_reads_every_row() {
         let mut info = table(indoc! {r#"
             schema: public
             table: roads
@@ -155,9 +214,11 @@ mod tests {
             layers:
               major:
                 where: "class == 'motorway'"
+              paths:
+                geometry: line
         "#});
         let engine = engine_info("roads", &mut info, None, None).expect("plans");
-        insta::assert_snapshot!(engine.sql_query, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
     }
 
     #[test]

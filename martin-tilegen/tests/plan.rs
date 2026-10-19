@@ -1191,3 +1191,111 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
     LayerFeature { layer: "places", id: Some(4), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"kind": Str("major")}, bands: [], sort: Some(fcfffffffffffffff8) }
     "#);
 }
+
+#[test]
+fn a_table_reads_the_rows_of_each_layers_geometry() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned())],
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Point),
+                ..LayerDef::new("stops", 0..=0, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("roads", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @"
+    Matching(
+        Or(
+            [
+                Geometry(
+                    Point,
+                ),
+                Geometry(
+                    Line,
+                ),
+            ],
+        ),
+    )
+    ");
+}
+
+#[test]
+fn a_layer_without_a_filter_reads_every_row() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned())],
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("roads", 0..=0, GRID)
+            },
+            LayerDef::new("all", 0..=0, GRID),
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @"All");
+}
+
+#[test]
+fn a_layer_with_a_where_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned())],
+        layers: vec![LayerDef {
+            filter: Some("class == 'primary'".to_owned()),
+            ..LayerDef::new("primary", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "primary",
+            expr: "class == 'primary'",
+            reason: Where,
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned())],
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("detail", 10..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("overview", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!([plan.row_filter(0, 5..=5), plan.row_filter(0, 9..=10)], @"
+    [
+        Matching(
+            Geometry(
+                Polygon,
+            ),
+        ),
+        Matching(
+            Or(
+                [
+                    Geometry(
+                        Line,
+                    ),
+                    Geometry(
+                        Polygon,
+                    ),
+                ],
+            ),
+        ),
+    ]
+    ");
+}

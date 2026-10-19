@@ -1,3 +1,5 @@
+#[cfg(feature = "unstable-generate")]
+mod condition;
 mod query_functions;
 mod query_schemas;
 mod query_tables;

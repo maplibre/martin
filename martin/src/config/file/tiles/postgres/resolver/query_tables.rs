@@ -13,6 +13,8 @@ use martin_core::tiles::postgres::{
 };
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 #[cfg(feature = "unstable-generate")]
+use martin_tilegen::plan::Condition;
+#[cfg(feature = "unstable-generate")]
 use martin_tilegen::source::Crs;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -26,6 +28,9 @@ use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
 #[cfg(feature = "unstable-generate")]
 use crate::generate::serve::engine_info;
+
+#[cfg(feature = "unstable-generate")]
+use super::condition::condition_sql;
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -555,11 +560,13 @@ pub struct ScanSql {
 /// `PostGIS` projects any other SRID to WGS84.
 ///
 /// Of the table's properties, only those in `columns` are selected, in table order.
+/// `condition` keeps only the rows matching it.
 /// `bbox` (WGS84) keeps only features intersecting it.
 #[cfg(feature = "unstable-generate")]
 pub fn scan_sql(
     info: &TableInfo,
     columns: &[String],
+    condition: Option<&Condition>,
     bbox: Option<Bounds>,
 ) -> PostgresResult<ScanSql> {
     let selected: Vec<(&String, &String)> = info
@@ -582,6 +589,9 @@ pub fn scan_sql(
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let filter = row_filter(info, "AND")?;
+    let condition = condition.map_or_else(String::new, |condition| {
+        format!(" AND ({})", condition_sql(info, condition))
+    });
     let bbox = match bbox {
         None => String::new(),
         Some(Bounds {
@@ -603,7 +613,7 @@ pub fn scan_sql(
     };
     Ok(ScanSql {
         sql: format!(
-            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"
+            "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{condition}{bbox}"
         ),
         crs,
         has_id: info.id_column.is_some(),
@@ -622,10 +632,11 @@ pub fn scan_sql(
 pub fn engine_sql(
     info: &TableInfo,
     columns: &[String],
+    condition: Option<&Condition>,
     max_feature_count: Option<usize>,
     order_by: Option<OrderByType>,
 ) -> PostgresResult<ScanSql> {
-    let mut sql = scan_sql(info, columns, None)?;
+    let mut sql = scan_sql(info, columns, condition, None)?;
     let column = escape_identifier(&info.geometry_column);
     let envelope = |first: u8| {
         let [a, b, c, d] = [first, first + 1, first + 2, first + 3];
@@ -665,7 +676,7 @@ fn row_properties<'a>(
 
 /// The geometry column as `geometry`; `ST_AsMVTGeom` cannot encode arcs, so a column that may hold them
 /// is linearized.
-fn linear_geometry(info: &TableInfo) -> String {
+pub(super) fn linear_geometry(info: &TableInfo) -> String {
     let column = escape_identifier(&info.geometry_column);
     if may_contain_arcs(info.geometry_type.as_deref()) {
         format!("ST_CurveToLine({column}::geometry)")

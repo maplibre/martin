@@ -547,7 +547,7 @@ impl PostgresAutoDiscoveryBuilder {
                     }
                     #[cfg(feature = "unstable-generate")]
                     PostgresTiler::Engine(engine) => {
-                        trace!(source.id = %id, sql = %engine.sql_query, "source feature query");
+                        trace!(source.id = %id, sql = ?engine.sql_queries, "source feature queries");
                     }
                 }
                 let cache = info.cache.clone().unwrap_or_default();
