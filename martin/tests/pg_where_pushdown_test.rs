@@ -22,8 +22,16 @@ async fn connect(rows: &str) -> PostgresPool {
     pool
 }
 
-/// The ids of the rows the SQL condition keeps, and of those the plan's layer takes.
-async fn kept(pool: &PostgresPool, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>) {
+/// The ids of the rows a table's layer keeps.
+struct Kept {
+    /// The rows the SQL condition keeps.
+    by_sql: BTreeSet<u64>,
+    /// The rows the plan's layer takes from an unfiltered scan.
+    by_plan: BTreeSet<u64>,
+}
+
+/// The rows the SQL condition and the plan keep of the table `yaml` configures.
+async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
     let options = LowerOptions {
         zooms: 0..=0,
         bounds: None,
@@ -53,7 +61,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>)
     }
     let filtered = scan_sql(&info, plan.columns(0), rows.condition(), None).unwrap();
     let client = pool.get().await.unwrap();
-    let in_sql = client
+    let by_sql = client
         .query(&filtered.sql, &[])
         .await
         .unwrap()
@@ -84,7 +92,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>)
     .await
     .unwrap();
     let mut evaluator = plan.evaluator();
-    let mut in_plan = BTreeSet::new();
+    let mut by_plan = BTreeSet::new();
     for mut feature in features {
         if !feature.geometry.decode_wkb() {
             continue;
@@ -97,12 +105,12 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>)
         };
         evaluator
             .evaluate(0, &feature, geom, |_| {
-                in_plan.insert(feature.id.unwrap());
+                by_plan.insert(feature.id.unwrap());
                 Ok(())
             })
             .unwrap();
     }
-    (in_sql, in_plan)
+    Kept { by_sql, by_plan }
 }
 
 #[tokio::test]
@@ -122,7 +130,7 @@ async fn sql_matches_the_plan_on_point_geometry() {
           (10, 'SRID=4326;GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(0 0, 1 1))');
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -137,8 +145,8 @@ async fn sql_matches_the_plan_on_point_geometry() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2}");
 }
 
 #[tokio::test]
@@ -158,7 +166,7 @@ async fn sql_matches_the_plan_on_line_geometry() {
           (10, 'SRID=4326;GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(0 0, 1 1))');
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -173,8 +181,8 @@ async fn sql_matches_the_plan_on_line_geometry() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 4, 7, 9}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3, 4, 7, 9}");
 }
 
 #[tokio::test]
@@ -194,7 +202,7 @@ async fn sql_matches_the_plan_on_polygon_geometry() {
           (10, 'SRID=4326;GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(0 0, 1 1))');
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -209,8 +217,8 @@ async fn sql_matches_the_plan_on_polygon_geometry() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{5, 6, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{5, 6, 8}");
 }
 
 #[tokio::test]
@@ -230,7 +238,7 @@ async fn sql_matches_the_plan_on_bool_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -252,8 +260,8 @@ async fn sql_matches_the_plan_on_bool_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 7}");
 }
 
 #[tokio::test]
@@ -273,7 +281,7 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -295,8 +303,8 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 5, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 5, 8}");
 }
 
 #[tokio::test]
@@ -316,7 +324,7 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -338,8 +346,8 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 7}");
 }
 
 #[tokio::test]
@@ -359,7 +367,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -381,8 +389,8 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 5, 6, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 5, 6, 8}");
 }
 
 #[tokio::test]
@@ -402,7 +410,7 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -424,8 +432,8 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3, 6}");
 }
 
 #[tokio::test]
@@ -445,7 +453,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -467,8 +475,8 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 4, 5, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 5, 7, 8}");
 }
 
 #[tokio::test]
@@ -488,7 +496,7 @@ async fn sql_matches_the_plan_on_int_greater() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -510,8 +518,8 @@ async fn sql_matches_the_plan_on_int_greater() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{5, 6, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{5, 6, 7}");
 }
 
 #[tokio::test]
@@ -531,7 +539,7 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -553,8 +561,8 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 4, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 8}");
 }
 
 #[tokio::test]
@@ -574,7 +582,7 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -596,8 +604,8 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 4, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 8}");
 }
 
 #[tokio::test]
@@ -617,7 +625,7 @@ async fn sql_matches_the_plan_on_int_equals() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -639,8 +647,8 @@ async fn sql_matches_the_plan_on_int_equals() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{6}");
 }
 
 #[tokio::test]
@@ -660,7 +668,7 @@ async fn sql_matches_the_plan_on_int_not_equals() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -682,8 +690,8 @@ async fn sql_matches_the_plan_on_int_not_equals() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 3, 4, 5, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 3, 4, 5, 7, 8}");
 }
 
 #[tokio::test]
@@ -703,7 +711,7 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -725,8 +733,8 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4, 5, 6, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 5, 6, 7}");
 }
 
 #[tokio::test]
@@ -746,7 +754,7 @@ async fn sql_matches_the_plan_on_float_greater() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -768,8 +776,8 @@ async fn sql_matches_the_plan_on_float_greater() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 5, 6, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 5, 6, 8}");
 }
 
 #[tokio::test]
@@ -789,7 +797,7 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -811,8 +819,8 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{4, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{4, 7}");
 }
 
 #[tokio::test]
@@ -832,7 +840,7 @@ async fn sql_matches_the_plan_on_float_equals_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -854,8 +862,8 @@ async fn sql_matches_the_plan_on_float_equals_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{6}");
 }
 
 #[tokio::test]
@@ -875,7 +883,7 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -897,8 +905,8 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 3, 4, 5, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 3, 4, 5, 7, 8}");
 }
 
 #[tokio::test]
@@ -918,7 +926,7 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -940,8 +948,8 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{7}");
 }
 
 #[tokio::test]
@@ -961,7 +969,7 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -983,8 +991,8 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4, 5, 6, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 5, 6, 8}");
 }
 
 #[tokio::test]
@@ -1004,7 +1012,7 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1026,8 +1034,8 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 4}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3, 4}");
 }
 
 #[tokio::test]
@@ -1047,7 +1055,7 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1069,8 +1077,8 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 5, 6, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 5, 6, 7, 8}");
 }
 
 #[tokio::test]
@@ -1090,7 +1098,7 @@ async fn sql_matches_the_plan_on_string_equals() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1112,8 +1120,8 @@ async fn sql_matches_the_plan_on_string_equals() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
 }
 
 #[tokio::test]
@@ -1133,7 +1141,7 @@ async fn sql_matches_the_plan_on_string_not_equals() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1155,8 +1163,8 @@ async fn sql_matches_the_plan_on_string_not_equals() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 4, 5, 6, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4, 5, 6, 7, 8}");
 }
 
 #[tokio::test]
@@ -1176,7 +1184,7 @@ async fn sql_matches_the_plan_on_string_less() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1198,8 +1206,8 @@ async fn sql_matches_the_plan_on_string_less() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 4, 6, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 6, 7}");
 }
 
 #[tokio::test]
@@ -1219,7 +1227,7 @@ async fn sql_matches_the_plan_on_negated_string_less() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1241,8 +1249,8 @@ async fn sql_matches_the_plan_on_negated_string_less() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{5, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{5, 8}");
 }
 
 #[tokio::test]
@@ -1262,7 +1270,7 @@ async fn sql_matches_the_plan_on_string_at_least() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1284,8 +1292,8 @@ async fn sql_matches_the_plan_on_string_at_least() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 5, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 5, 7, 8}");
 }
 
 #[tokio::test]
@@ -1305,7 +1313,7 @@ async fn sql_matches_the_plan_on_date_equals() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1327,8 +1335,8 @@ async fn sql_matches_the_plan_on_date_equals() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 6}");
 }
 
 #[tokio::test]
@@ -1348,7 +1356,7 @@ async fn sql_matches_the_plan_on_date_greater() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1370,8 +1378,8 @@ async fn sql_matches_the_plan_on_date_greater() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 6}");
 }
 
 #[tokio::test]
@@ -1391,7 +1399,7 @@ async fn sql_matches_the_plan_on_string_equals_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1413,8 +1421,8 @@ async fn sql_matches_the_plan_on_string_equals_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1434,7 +1442,7 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1456,8 +1464,8 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 3, 4, 5, 6, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 3, 4, 5, 6, 7, 8}");
 }
 
 #[tokio::test]
@@ -1477,7 +1485,7 @@ async fn sql_matches_the_plan_on_int_equals_string() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1499,8 +1507,8 @@ async fn sql_matches_the_plan_on_int_equals_string() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1520,7 +1528,7 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1542,8 +1550,8 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1563,7 +1571,7 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1585,8 +1593,8 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1606,7 +1614,7 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1628,8 +1636,8 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3}");
 }
 
 #[tokio::test]
@@ -1649,7 +1657,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1671,8 +1679,8 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2, 4, 5, 6, 7, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 5, 6, 7, 8}");
 }
 
 #[tokio::test]
@@ -1692,7 +1700,7 @@ async fn sql_matches_the_plan_on_and() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1714,8 +1722,8 @@ async fn sql_matches_the_plan_on_and() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 7}");
 }
 
 #[tokio::test]
@@ -1735,7 +1743,7 @@ async fn sql_matches_the_plan_on_negated_and() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1757,8 +1765,8 @@ async fn sql_matches_the_plan_on_negated_and() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 4, 5, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 4, 5, 8}");
 }
 
 #[tokio::test]
@@ -1778,7 +1786,7 @@ async fn sql_matches_the_plan_on_or() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1800,8 +1808,8 @@ async fn sql_matches_the_plan_on_or() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4, 6, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 6, 7}");
 }
 
 #[tokio::test]
@@ -1821,7 +1829,7 @@ async fn sql_matches_the_plan_on_negated_or() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1843,8 +1851,8 @@ async fn sql_matches_the_plan_on_negated_or() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1864,7 +1872,7 @@ async fn sql_matches_the_plan_on_conditional() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1886,8 +1894,8 @@ async fn sql_matches_the_plan_on_conditional() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 7}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 7}");
 }
 
 #[tokio::test]
@@ -1907,7 +1915,7 @@ async fn sql_matches_the_plan_on_negated_conditional() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -1929,8 +1937,8 @@ async fn sql_matches_the_plan_on_negated_conditional() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 4, 5, 8}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 4, 5, 8}");
 }
 
 #[tokio::test]
@@ -1950,7 +1958,7 @@ async fn sql_matches_the_plan_on_false_literal() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -1972,8 +1980,8 @@ async fn sql_matches_the_plan_on_false_literal() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -1993,7 +2001,7 @@ async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
           (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r"
         schema: pg_temp
@@ -2016,8 +2024,8 @@ async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
         "},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 6}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3, 6}");
 }
 
 #[tokio::test]
@@ -2034,7 +2042,7 @@ async fn sql_matches_the_plan_on_string_equals_under_a_nondeterministic_collatio
           (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2052,8 +2060,8 @@ async fn sql_matches_the_plan_on_string_equals_under_a_nondeterministic_collatio
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
 }
 
 #[tokio::test]
@@ -2070,7 +2078,7 @@ async fn sql_matches_the_plan_on_string_not_equals_under_a_nondeterministic_coll
           (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2088,8 +2096,8 @@ async fn sql_matches_the_plan_on_string_not_equals_under_a_nondeterministic_coll
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 4}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4}");
 }
 
 #[tokio::test]
@@ -2106,7 +2114,7 @@ async fn sql_matches_the_plan_on_string_columns_equal_under_a_nondeterministic_c
           (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2124,8 +2132,8 @@ async fn sql_matches_the_plan_on_string_columns_equal_under_a_nondeterministic_c
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
 }
 
 #[tokio::test]
@@ -2142,7 +2150,7 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_a_nondeterminist
           (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2160,8 +2168,8 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_a_nondeterminist
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 4}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4}");
 }
 
 #[tokio::test]
@@ -2176,7 +2184,7 @@ async fn sql_matches_the_plan_on_varchar_equals() {
           (5, 'SRID=4326;POINT(4 4)', 'Übel');
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2193,8 +2201,8 @@ async fn sql_matches_the_plan_on_varchar_equals() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3}");
 }
 
 #[tokio::test]
@@ -2209,7 +2217,7 @@ async fn sql_matches_the_plan_on_varchar_less() {
           (5, 'SRID=4326;POINT(4 4)', 'Übel');
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2226,8 +2234,8 @@ async fn sql_matches_the_plan_on_varchar_less() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2}");
 }
 
 #[tokio::test]
@@ -2242,7 +2250,7 @@ async fn sql_matches_the_plan_on_int2_greater() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2261,8 +2269,8 @@ async fn sql_matches_the_plan_on_int2_greater() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 5}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3, 5}");
 }
 
 #[tokio::test]
@@ -2277,7 +2285,7 @@ async fn sql_matches_the_plan_on_float4_greater() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2296,8 +2304,8 @@ async fn sql_matches_the_plan_on_float4_greater() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2}");
 }
 
 #[tokio::test]
@@ -2312,7 +2320,7 @@ async fn sql_matches_the_plan_on_float4_equals() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2331,8 +2339,8 @@ async fn sql_matches_the_plan_on_float4_equals() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
 }
 
 #[tokio::test]
@@ -2347,7 +2355,7 @@ async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2366,8 +2374,8 @@ async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2}");
 }
 
 #[tokio::test]
@@ -2382,7 +2390,7 @@ async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2401,8 +2409,8 @@ async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{5}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{5}");
 }
 
 #[tokio::test]
@@ -2417,7 +2425,7 @@ async fn sql_matches_the_plan_on_int_less_than_uint() {
           (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
     "})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2436,8 +2444,8 @@ async fn sql_matches_the_plan_on_int_less_than_uint() {
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2}");
 }
 
 #[tokio::test]
@@ -2453,7 +2461,7 @@ async fn sql_matches_the_plan_on_string_columns_equal_under_different_collations
           (4, 'SRID=4326;POINT(3 3)', NULL, NULL);
     "#})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2471,8 +2479,8 @@ async fn sql_matches_the_plan_on_string_columns_equal_under_different_collations
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4}");
 }
 
 #[tokio::test]
@@ -2488,7 +2496,7 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_different_collat
           (4, 'SRID=4326;POINT(3 3)', NULL, NULL);
     "#})
     .await;
-    let (in_sql, in_plan) = kept(
+    let kept = kept(
         &pool,
         indoc! {r#"
         schema: pg_temp
@@ -2506,6 +2514,6 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_different_collat
         "#},
     )
     .await;
-    assert_eq!(in_sql, in_plan);
-    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3}");
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3}");
 }
