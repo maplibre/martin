@@ -116,6 +116,7 @@ SELECT
     gc.relkind,
     cols.properties,
     cols.column_types,
+    cols.nondeterministic_columns,
     exists(
         -- a single-column spatial index on the geo column
         SELECT 1
@@ -143,7 +144,7 @@ SELECT
     ) AS description
 FROM geo_columns AS gc
 CROSS JOIN LATERAL (
-    -- the table's other columns, by the type they are declared as and the type a query returns them as
+    -- the table's other columns, by the type they are declared as and the type a query returns them as, and those compared by a nondeterministic collation
     SELECT
         coalesce(
             jsonb_object_agg(attr.attname, trim(LEADING '_' FROM tp.typname))
@@ -164,9 +165,15 @@ CROSS JOIN LATERAL (
                 END
             ),
             '{}'::jsonb
-        ) AS column_types
+        ) AS column_types,
+        coalesce(
+            jsonb_agg(attr.attname) FILTER (WHERE NOT coll.collisdeterministic),
+            '[]'::jsonb
+        ) AS nondeterministic_columns
     FROM pg_catalog.pg_attribute AS attr
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
+    -- the collation a column compares by, which may treat different strings as equal
+    LEFT JOIN pg_catalog.pg_collation AS coll ON attr.attcollation = coll.oid
     WHERE
         attr.attrelid = gc.relid
         AND attr.attnum > 0

@@ -5,34 +5,46 @@ use std::collections::BTreeSet;
 
 use indoc::indoc;
 use martin::config::file::postgres::TableInfo;
-use martin::config::file::postgres::resolver::scan_sql;
+use martin::config::file::postgres::resolver::{query_available_tables, scan_sql};
 use martin::generate::layers::{LowerOptions, lower_table};
-use martin_core::tiles::postgres::{
-    PooledConnection, PostgresPool, RetryTimeout, ScanLayout, scan_features,
-};
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, ScanLayout, scan_features};
 use martin_tilegen::FeatureGeom;
 use martin_tilegen::plan::{Plan, RowFilter};
 use martin_tilegen::source::Geometry;
 
-/// A connection to the test database that has run `rows`.
-async fn connect(rows: &str) -> PooledConnection {
+/// A pool of one connection to the test database, which has run `rows`.
+async fn connect(rows: &str) -> PostgresPool {
     let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
     let pool = PostgresPool::new(&url, None, None, None, 1, RetryTimeout::default())
         .await
         .unwrap();
-    let client = pool.get().await.unwrap();
-    client.batch_execute(rows).await.unwrap();
-    client
+    pool.get().await.unwrap().batch_execute(rows).await.unwrap();
+    pool
 }
 
 /// The ids of the rows the SQL condition keeps, and of those the plan's layer takes.
-async fn kept(client: &PooledConnection, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>) {
+async fn kept(pool: &PostgresPool, yaml: &str) -> (BTreeSet<u64>, BTreeSet<u64>) {
     let options = LowerOptions {
         zooms: 0..=0,
         bounds: None,
     };
-    let info: TableInfo = serde_saphyr::from_str(yaml).unwrap();
-    let scan = lower_table("where_rows", info, &options).unwrap().unwrap();
+    let temp_schema: String = pool
+        .get()
+        .await
+        .unwrap()
+        .query_one("SELECT pg_my_temp_schema()::regnamespace::text", &[])
+        .await
+        .unwrap()
+        .get(0);
+    let discovered = query_available_tables(pool, Some(vec![temp_schema.clone()]), None)
+        .await
+        .unwrap();
+    let configured: TableInfo = serde_saphyr::from_str(yaml).unwrap();
+    let id = "where_rows".to_owned();
+    let info = discovered[&temp_schema][&id][&configured.geometry_column]
+        .append_cfg_info(&configured, &id, None)
+        .unwrap();
+    let scan = lower_table(&id, info, &options).unwrap().unwrap();
     let info = scan.info;
     let plan = Plan::new(vec![scan.def]).unwrap();
     let rows = plan.row_filter(0, 0..=0);
@@ -40,6 +52,7 @@ async fn kept(client: &PooledConnection, yaml: &str) -> (BTreeSet<u64>, BTreeSet
         panic!("{err}");
     }
     let filtered = scan_sql(&info, plan.columns(0), rows.condition(), None).unwrap();
+    let client = pool.get().await.unwrap();
     let in_sql = client
         .query(&filtered.sql, &[])
         .await
@@ -57,7 +70,7 @@ async fn kept(client: &PooledConnection, yaml: &str) -> (BTreeSet<u64>, BTreeSet
     };
     let mut features = Vec::new();
     scan_features(
-        client,
+        &client,
         &all.sql,
         &[],
         &layout,
@@ -94,7 +107,7 @@ async fn kept(client: &PooledConnection, yaml: &str) -> (BTreeSet<u64>, BTreeSet
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_point_geometry() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (id int8, geom geometry);
         INSERT INTO where_rows VALUES
           (1, 'SRID=4326;POINT(0 0)'),
@@ -110,7 +123,7 @@ async fn sql_matches_the_plan_on_point_geometry() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -130,7 +143,7 @@ async fn sql_matches_the_plan_on_point_geometry() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_line_geometry() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (id int8, geom geometry);
         INSERT INTO where_rows VALUES
           (1, 'SRID=4326;POINT(0 0)'),
@@ -146,7 +159,7 @@ async fn sql_matches_the_plan_on_line_geometry() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -166,7 +179,7 @@ async fn sql_matches_the_plan_on_line_geometry() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_polygon_geometry() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (id int8, geom geometry);
         INSERT INTO where_rows VALUES
           (1, 'SRID=4326;POINT(0 0)'),
@@ -182,7 +195,7 @@ async fn sql_matches_the_plan_on_polygon_geometry() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -202,7 +215,7 @@ async fn sql_matches_the_plan_on_polygon_geometry() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -218,7 +231,7 @@ async fn sql_matches_the_plan_on_bool_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -245,7 +258,7 @@ async fn sql_matches_the_plan_on_bool_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_bool_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -261,7 +274,7 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -288,7 +301,7 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_true() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -304,7 +317,7 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -331,7 +344,7 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_true() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -347,7 +360,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -374,7 +387,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_null() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -390,7 +403,7 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -417,7 +430,7 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_null() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -433,7 +446,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -460,7 +473,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_greater() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -476,7 +489,7 @@ async fn sql_matches_the_plan_on_int_greater() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -503,7 +516,7 @@ async fn sql_matches_the_plan_on_int_greater() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_int_greater() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -519,7 +532,7 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -546,7 +559,7 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_at_most_float() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -562,7 +575,7 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -589,7 +602,7 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -605,7 +618,7 @@ async fn sql_matches_the_plan_on_int_equals() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -632,7 +645,7 @@ async fn sql_matches_the_plan_on_int_equals() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_not_equals() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -648,7 +661,7 @@ async fn sql_matches_the_plan_on_int_not_equals() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -675,7 +688,7 @@ async fn sql_matches_the_plan_on_int_not_equals() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -691,7 +704,7 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -718,7 +731,7 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_greater() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -734,7 +747,7 @@ async fn sql_matches_the_plan_on_float_greater() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -761,7 +774,7 @@ async fn sql_matches_the_plan_on_float_greater() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_float_greater() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -777,7 +790,7 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -804,7 +817,7 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_equals_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -820,7 +833,7 @@ async fn sql_matches_the_plan_on_float_equals_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -847,7 +860,7 @@ async fn sql_matches_the_plan_on_float_equals_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_not_equals_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -863,7 +876,7 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -890,7 +903,7 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_less_than_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -906,7 +919,7 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -933,7 +946,7 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_float_less_than_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -949,7 +962,7 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -976,7 +989,7 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals_float_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -992,7 +1005,7 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1019,7 +1032,7 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_not_equals_float_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1035,7 +1048,7 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1062,7 +1075,7 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_equals() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1078,7 +1091,7 @@ async fn sql_matches_the_plan_on_string_equals() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1105,7 +1118,7 @@ async fn sql_matches_the_plan_on_string_equals() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_not_equals() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1121,7 +1134,7 @@ async fn sql_matches_the_plan_on_string_not_equals() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1148,7 +1161,7 @@ async fn sql_matches_the_plan_on_string_not_equals() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_less() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1164,7 +1177,7 @@ async fn sql_matches_the_plan_on_string_less() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1191,7 +1204,7 @@ async fn sql_matches_the_plan_on_string_less() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_string_less() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1207,7 +1220,7 @@ async fn sql_matches_the_plan_on_negated_string_less() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1234,7 +1247,7 @@ async fn sql_matches_the_plan_on_negated_string_less() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_at_least() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1250,7 +1263,7 @@ async fn sql_matches_the_plan_on_string_at_least() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1277,7 +1290,7 @@ async fn sql_matches_the_plan_on_string_at_least() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_date_equals() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1293,7 +1306,7 @@ async fn sql_matches_the_plan_on_date_equals() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1320,7 +1333,7 @@ async fn sql_matches_the_plan_on_date_equals() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_date_greater() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1336,7 +1349,7 @@ async fn sql_matches_the_plan_on_date_greater() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1363,7 +1376,7 @@ async fn sql_matches_the_plan_on_date_greater() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_equals_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1379,7 +1392,7 @@ async fn sql_matches_the_plan_on_string_equals_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1406,7 +1419,7 @@ async fn sql_matches_the_plan_on_string_equals_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_not_equals_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1422,7 +1435,7 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1449,7 +1462,7 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals_string() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1465,7 +1478,7 @@ async fn sql_matches_the_plan_on_int_equals_string() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1492,7 +1505,7 @@ async fn sql_matches_the_plan_on_int_equals_string() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_greater_than_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1508,7 +1521,7 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1535,7 +1548,7 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1551,7 +1564,7 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1578,7 +1591,7 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_string_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1594,7 +1607,7 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1621,7 +1634,7 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1637,7 +1650,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1664,7 +1677,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_and() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1680,7 +1693,7 @@ async fn sql_matches_the_plan_on_and() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1707,7 +1720,7 @@ async fn sql_matches_the_plan_on_and() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_and() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1723,7 +1736,7 @@ async fn sql_matches_the_plan_on_negated_and() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1750,7 +1763,7 @@ async fn sql_matches_the_plan_on_negated_and() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_or() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1766,7 +1779,7 @@ async fn sql_matches_the_plan_on_or() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1793,7 +1806,7 @@ async fn sql_matches_the_plan_on_or() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_or() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1809,7 +1822,7 @@ async fn sql_matches_the_plan_on_negated_or() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1836,7 +1849,7 @@ async fn sql_matches_the_plan_on_negated_or() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_conditional() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1852,7 +1865,7 @@ async fn sql_matches_the_plan_on_conditional() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1879,7 +1892,7 @@ async fn sql_matches_the_plan_on_conditional() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_conditional() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1895,7 +1908,7 @@ async fn sql_matches_the_plan_on_negated_conditional() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r#"
         schema: pg_temp
         table: where_rows
@@ -1922,7 +1935,7 @@ async fn sql_matches_the_plan_on_negated_conditional() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_false_literal() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1938,7 +1951,7 @@ async fn sql_matches_the_plan_on_false_literal() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -1965,7 +1978,7 @@ async fn sql_matches_the_plan_on_false_literal() {
 
 #[tokio::test]
 async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
-    let client = connect(indoc! {r"
+    let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
           id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
         );
@@ -1981,7 +1994,7 @@ async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
     "})
     .await;
     let (in_sql, in_plan) = kept(
-        &client,
+        &pool,
         indoc! {r"
         schema: pg_temp
         table: where_rows
@@ -2005,4 +2018,494 @@ async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
     .await;
     assert_eq!(in_sql, in_plan);
     insta::assert_compact_debug_snapshot!(in_sql, @"{3, 6}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_equals_under_a_nondeterministic_collation() {
+    let pool = connect(indoc! {r"
+        CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
+          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+          t: text
+        layers:
+          l:
+            where: "s == 'abc'"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_not_equals_under_a_nondeterministic_collation() {
+    let pool = connect(indoc! {r"
+        CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
+          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+          t: text
+        layers:
+          l:
+            where: "s != 'abc'"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 4}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_columns_equal_under_a_nondeterministic_collation() {
+    let pool = connect(indoc! {r"
+        CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
+          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+          t: text
+        layers:
+          l:
+            where: "s == t"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_columns_not_equal_under_a_nondeterministic_collation() {
+    let pool = connect(indoc! {r"
+        CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
+          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+          t: text
+        layers:
+          l:
+            where: "s != t"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3, 4}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_varchar_equals() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), v varchar(5));
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'a'),
+          (2, 'SRID=4326;POINT(1 1)', 'B'),
+          (3, 'SRID=4326;POINT(2 2)', 'b'),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 'Übel');
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          v: varchar
+        layers:
+          l:
+            where: "v == 'b'"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{3}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_varchar_less() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), v varchar(5));
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'a'),
+          (2, 'SRID=4326;POINT(1 1)', 'B'),
+          (3, 'SRID=4326;POINT(2 2)', 'b'),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 'Übel');
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          v: varchar
+        layers:
+          l:
+            where: "v < 'b'"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int2_greater() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "h > 1"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{3, 5}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float4_greater() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "r > 1.1"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float4_equals() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "r == 1.1"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "n == 9007199254740993.0"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "n > 9007199254740992.0"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{5}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_less_than_uint() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+    "})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          h: int2
+          r: float4
+          n: int8
+        layers:
+          l:
+            where: "h < 2u"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 2}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_columns_equal_under_different_collations() {
+    let pool = connect(indoc! {r#"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), a text COLLATE "C", b text COLLATE "en-x-icu"
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'x', 'x'),
+          (2, 'SRID=4326;POINT(1 1)', 'x', 'X'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'x'),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL);
+    "#})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          a: text
+          b: text
+        layers:
+          l:
+            where: "a == b"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{1, 4}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_columns_not_equal_under_different_collations() {
+    let pool = connect(indoc! {r#"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), a text COLLATE "C", b text COLLATE "en-x-icu"
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'x', 'x'),
+          (2, 'SRID=4326;POINT(1 1)', 'x', 'X'),
+          (3, 'SRID=4326;POINT(2 2)', NULL, 'x'),
+          (4, 'SRID=4326;POINT(3 3)', NULL, NULL);
+    "#})
+    .await;
+    let (in_sql, in_plan) = kept(
+        &pool,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          a: text
+          b: text
+        layers:
+          l:
+            where: "a != b"
+        "#},
+    )
+    .await;
+    assert_eq!(in_sql, in_plan);
+    insta::assert_compact_debug_snapshot!(in_sql, @"{2, 3}");
 }

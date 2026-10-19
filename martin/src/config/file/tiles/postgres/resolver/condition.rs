@@ -18,17 +18,13 @@ pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
             right,
             kind,
         } => {
-            let collate =
-                if *kind == ValueKind::String && !matches!(op, CompareOp::Eq | CompareOp::Ne) {
-                    " COLLATE \"C\""
-                } else {
-                    ""
-                };
+            let ordered = !matches!(op, CompareOp::Eq | CompareOp::Ne);
             format!(
-                "{}{collate} {} {}",
-                term_sql(info, left, *kind),
-                op_sql(*op),
-                term_sql(info, right, *kind)
+                "{lhs}{collate} {op} {rhs}",
+                lhs = term_sql(info, left, *kind),
+                collate = collate_sql(info, left, right, *kind, ordered),
+                op = op.sql(),
+                rhs = term_sql(info, right, *kind)
             )
         }
         Condition::Distinct {
@@ -37,15 +33,16 @@ pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
             kind,
             negated,
         } => format!(
-            "{} IS {}DISTINCT FROM {}",
-            term_sql(info, left, *kind),
-            not_sql(*negated),
-            term_sql(info, right, *kind)
+            "{lhs}{collate} IS {not}DISTINCT FROM {rhs}",
+            lhs = term_sql(info, left, *kind),
+            collate = collate_sql(info, left, right, *kind, false),
+            not = not_sql(*negated),
+            rhs = term_sql(info, right, *kind)
         ),
         Condition::IsNull { term, negated } => format!(
-            "{} IS {}NULL",
-            term_sql(info, term, ValueKind::String),
-            not_sql(*negated)
+            "{term} IS {not}NULL",
+            term = term_sql(info, term, ValueKind::String),
+            not = not_sql(*negated)
         ),
         Condition::Geometry(geometry) => {
             let types = match geometry {
@@ -53,7 +50,10 @@ pub fn condition_sql(info: &TableInfo, condition: &Condition) -> String {
                 GeometryType::Line => "'ST_LineString', 'ST_MultiLineString'",
                 GeometryType::Polygon => "'ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle'",
             };
-            format!("ST_GeometryType({}) IN ({types})", linear_geometry(info))
+            format!(
+                "ST_GeometryType({geometry}) IN ({types})",
+                geometry = linear_geometry(info)
+            )
         }
     }
 }
@@ -84,6 +84,23 @@ fn term_sql(info: &TableInfo, term: &Term, kind: ValueKind) -> String {
         format!("({sql})::float8")
     } else {
         sql
+    }
+}
+
+/// ` COLLATE "C"` where comparing `left` with `right` as `kind` would not compare strings by code point.
+fn collate_sql(
+    info: &TableInfo,
+    left: &Term,
+    right: &Term,
+    kind: ValueKind,
+    ordered: bool,
+) -> &'static str {
+    let loose = |term: &Term| matches!(term, Term::Column(name) if info.has_nondeterministic_collation(name));
+    let columns = matches!((left, right), (Term::Column(_), Term::Column(_)));
+    if kind == ValueKind::String && (ordered || columns || loose(left) || loose(right)) {
+        " COLLATE \"C\""
+    } else {
+        ""
     }
 }
 
@@ -128,16 +145,4 @@ fn bool_sql(value: bool) -> &'static str {
 /// `NOT ` when `negated`.
 fn not_sql(negated: bool) -> &'static str {
     if negated { "NOT " } else { "" }
-}
-
-/// A comparison operator as SQL.
-fn op_sql(op: CompareOp) -> &'static str {
-    match op {
-        CompareOp::Eq => "=",
-        CompareOp::Ne => "<>",
-        CompareOp::Lt => "<",
-        CompareOp::Le => "<=",
-        CompareOp::Gt => ">",
-        CompareOp::Ge => ">=",
-    }
 }

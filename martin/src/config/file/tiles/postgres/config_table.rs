@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use martin_tile_utils::{Encoding, Format, TileInfo};
@@ -207,6 +207,9 @@ pub struct DiscoveredTable {
     /// The type a query returns each table column as, by column name
     pub column_types: HashMap<String, String>,
 
+    /// The table columns whose collation may treat different strings as equal
+    pub nondeterministic_columns: HashSet<String>,
+
     /// `TileJSON` provider by the SQL comment
     pub tilejson: Option<serde_json::Value>,
 }
@@ -270,6 +273,17 @@ impl TableInfo {
             .get(column)
             .map_or(column, String::as_str);
         self.discovered.column_types.get(column).map(String::as_str)
+    }
+
+    /// Whether `column` compares by a collation that may treat different strings as equal.
+    #[must_use]
+    pub fn has_nondeterministic_collation(&self, column: &str) -> bool {
+        let column = self
+            .discovered
+            .prop_mapping
+            .get(column)
+            .map_or(column, String::as_str);
+        self.discovered.nondeterministic_columns.contains(column)
     }
 
     /// For a given table info discovered from the database, append the configuration info provided by the user

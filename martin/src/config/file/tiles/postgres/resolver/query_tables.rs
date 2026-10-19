@@ -111,6 +111,10 @@ pub async fn query_available_tables(
                     .and_then(|r| u8::try_from(r).ok().map(char::from)),
                 column_types: serde_json::from_value(row.get("column_types"))
                     .expect("column_types column should be a valid JSON object with string values"),
+                nondeterministic_columns: serde_json::from_value(
+                    row.get("nondeterministic_columns"),
+                )
+                .expect("nondeterministic_columns column should be a valid JSON array of strings"),
                 tilejson,
                 ..Default::default()
             },
@@ -174,9 +178,9 @@ fn escape_with_alias_as_property(info: &TableInfo, field: &str, label: &str) -> 
     match property_column(info, field, label) {
         (_, false) => escape_with_alias(&info.discovered.prop_mapping, field),
         (column, true) => format!(
-            ", {}::text AS {}",
-            escape_identifier(column),
-            escape_identifier(field),
+            ", {column}::text AS {alias}",
+            column = escape_identifier(column),
+            alias = escape_identifier(field),
         ),
     }
 }
