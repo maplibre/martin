@@ -86,20 +86,72 @@ pub enum Condition {
         right: Term,
         kind: ValueKind,
     },
-    /// `IS DISTINCT FROM`, or `IS NOT DISTINCT FROM` when `negated`, both sides compared as `kind`.
+    /// `IS DISTINCT FROM`, or `IS NOT DISTINCT FROM` once negated, both sides compared as `kind`.
     Distinct {
         left: Term,
         right: Term,
         kind: ValueKind,
-        negated: bool,
+        polarity: Polarity,
     },
-    /// `IS NULL`, or `IS NOT NULL` when `negated`.
+    /// `IS NULL`, or `IS NOT NULL` once negated.
     IsNull {
         term: Term,
-        negated: bool,
+        polarity: Polarity,
     },
     /// The geometry is of this type, single or multi.
     Geometry(GeometryType),
+}
+
+/// Whether a condition holds as written or negated.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Polarity {
+    AsWritten,
+    Negated,
+}
+
+impl Polarity {
+    /// The other polarity.
+    pub(crate) fn flip(self) -> Self {
+        match self {
+            Self::AsWritten => Self::Negated,
+            Self::Negated => Self::AsWritten,
+        }
+    }
+
+    /// Whether this is [`Polarity::Negated`].
+    pub(crate) fn negated(self) -> bool {
+        self == Self::Negated
+    }
+
+    /// `op`, or its negation.
+    pub(crate) fn op(self, op: CompareOp) -> CompareOp {
+        match self {
+            Self::AsWritten => op,
+            Self::Negated => op.negate(),
+        }
+    }
+
+    /// All of `parts`, or any of them once negated.
+    pub(crate) fn all(self, parts: [Condition; 2]) -> Condition {
+        match self {
+            Self::AsWritten => Condition::and(parts),
+            Self::Negated => Condition::or(parts),
+        }
+    }
+
+    /// `NOT ` once negated, as SQL writes it before `DISTINCT` or `NULL`.
+    #[must_use]
+    pub fn sql(self) -> &'static str {
+        match self {
+            Self::AsWritten => "",
+            Self::Negated => "NOT ",
+        }
+    }
+
+    /// Any of `parts`, or all of them once negated.
+    pub(crate) fn any(self, parts: [Condition; 2]) -> Condition {
+        self.flip().all(parts)
+    }
 }
 
 /// A comparison operator.

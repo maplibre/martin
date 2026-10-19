@@ -1313,7 +1313,7 @@ fn a_table_reads_the_rows_some_layer_takes() {
                         ),
                     ),
                     kind: String,
-                    negated: false,
+                    polarity: AsWritten,
                 },
                 And(
                     [

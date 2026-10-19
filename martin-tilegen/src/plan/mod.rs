@@ -11,7 +11,8 @@ use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use filter::{
-    CompareOp, Condition, Literal, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
+    CompareOp, Condition, Literal, Polarity, RowFilter, Term, TranslateError, Untranslatable,
+    ValueKind,
 };
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;

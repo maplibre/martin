@@ -3,7 +3,9 @@
 use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
 
 use super::{CompiledExpr, FEATURE};
-use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Term, TranslateError, ValueKind};
+use crate::plan::{
+    ColumnDef, CompareOp, Condition, Literal, Polarity, Term, TranslateError, ValueKind,
+};
 
 impl CompiledExpr {
     /// The rows this filter keeps, reading only `columns`.
@@ -26,49 +28,6 @@ enum Operand {
     /// A column, with the kind of its values if it is known.
     /// It is `null` where the row has no value.
     Column(String, Option<ValueKind>),
-}
-
-/// Whether a condition is translated as written or negated.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Polarity {
-    AsWritten,
-    Negated,
-}
-
-impl Polarity {
-    /// The other polarity.
-    fn flip(self) -> Self {
-        match self {
-            Self::AsWritten => Self::Negated,
-            Self::Negated => Self::AsWritten,
-        }
-    }
-
-    /// Whether this is [`Polarity::Negated`].
-    fn negated(self) -> bool {
-        self == Self::Negated
-    }
-
-    /// `op`, or its negation.
-    fn op(self, op: CompareOp) -> CompareOp {
-        match self {
-            Self::AsWritten => op,
-            Self::Negated => op.negate(),
-        }
-    }
-
-    /// All of `parts`, or any of them once negated.
-    fn all(self, parts: [Condition; 2]) -> Condition {
-        match self {
-            Self::AsWritten => Condition::and(parts),
-            Self::Negated => Condition::or(parts),
-        }
-    }
-
-    /// Any of `parts`, or all of them once negated.
-    fn any(self, parts: [Condition; 2]) -> Condition {
-        self.flip().all(parts)
-    }
 }
 
 impl Translator<'_> {
@@ -182,22 +141,21 @@ impl Operand {
             }
             _ => return Err(TranslateError::Constants),
         };
-        let negated = polarity.negated();
         match other {
             Self::Null => Ok(Condition::IsNull {
                 term: Term::Column(name),
-                negated,
+                polarity,
             }),
             Self::Literal(literal, literal_kind) => {
                 let kind = known_kind(&name, kind)?;
                 let (column, literal) = (Term::Column(name), Term::Literal(literal));
                 Ok(match kind.common(literal_kind) {
-                    None => Condition::Const(negated),
-                    Some(kind) if negated => Condition::Distinct {
+                    None => Condition::Const(polarity.negated()),
+                    Some(kind) if polarity.negated() => Condition::Distinct {
                         left: column,
                         right: literal,
                         kind,
-                        negated: false,
+                        polarity: Polarity::AsWritten,
                     },
                     Some(kind) => Condition::Compare {
                         left: column,
@@ -220,12 +178,10 @@ impl Operand {
                         left,
                         right,
                         kind,
-                        negated: !negated,
+                        polarity: polarity.flip(),
                     }),
-                    None => {
-                        Ok(polarity
-                            .all([left, right].map(|term| Condition::IsNull { term, negated })))
-                    }
+                    None => Ok(polarity
+                        .all([left, right].map(|term| Condition::IsNull { term, polarity }))),
                 }
             }
         }
