@@ -7,7 +7,7 @@ use actix_web::test::{TestRequest, call_service};
 use indoc::formatdoc;
 use mbtiles::temp_named_mbtiles;
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{

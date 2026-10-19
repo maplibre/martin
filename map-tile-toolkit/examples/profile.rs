@@ -25,7 +25,7 @@ use map_tile_toolkit::{LineSlice, TileId};
 #[path = "../tests/support/mod.rs"]
 mod support;
 
-use support::Cfg;
+use crate::support::Cfg;
 
 /// Which operation to profile.
 enum Op {

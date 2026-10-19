@@ -9,8 +9,8 @@ use martin_tilegen::plan::Plan;
 use martin_tilegen::{Summary, TileFormat, TileGenError, render_block};
 use tracing::{debug, warn};
 
-use super::scan::{ScanLayout, scan_features};
 use super::{PostgresError, PostgresPool, PostgresResult};
+use crate::tiles::postgres::scan::{ScanLayout, scan_features};
 
 /// How a table with `layers` is read and rendered.
 #[derive(Clone, Debug)]
@@ -40,11 +40,7 @@ impl PostgresEngineInfo {
     ) -> PostgresResult<TileData> {
         let block = TileRect::new(xyz.z(), xyz.x(), xyz.y(), xyz.x(), xyz.y());
         let tiles = self.render(pool, source_id, xyz, block).await?;
-        Ok(tiles
-            .into_iter()
-            .next()
-            .map(|(_, data)| data)
-            .unwrap_or_default())
+        Ok(tiles.into_iter().next().map_or_default(|(_, data)| data))
     }
 
     /// Every tile of the [`prefetch`](Self::prefetch) block holding `xyz`, empty ones included, or

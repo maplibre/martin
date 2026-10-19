@@ -32,7 +32,9 @@ use spreet::{Sprite, SpritesheetBuilder, sprite_name as spreet_sprite_name};
 use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
-use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use crate::resources::sprites::SpriteError::{
+    IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError,
+};
 use crate::walk_files;
 
 const SVG_EXTENSIONS: &[&str] = &["svg"];
@@ -97,10 +99,12 @@ fn join_ids<S: AsRef<str>>(ids: &[S], dpi: u8) -> String {
 }
 
 mod error;
-pub use error::SpriteError;
+pub use crate::resources::sprites::error::SpriteError;
 
 mod cache;
-pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey};
+pub use crate::resources::sprites::cache::{
+    NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey,
+};
 
 /// Sprite source metadata.
 #[skip_serializing_none]

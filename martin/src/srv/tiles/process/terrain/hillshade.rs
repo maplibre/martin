@@ -15,8 +15,8 @@ use martin_tile_utils::{Encoding, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-use super::neighbourhood::{GATHER_PERMITS, gather};
 use crate::config::file::{HillshadeRangeError, ResolvedHillshade};
+use crate::srv::tiles::process::terrain::neighbourhood::{GATHER_PERMITS, gather};
 
 /// Errors that can occur while baking a hillshade tile.
 #[derive(thiserror::Error, Debug)]

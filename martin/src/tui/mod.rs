@@ -23,9 +23,9 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-pub use data::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
-pub use observer::observe;
-use state::LogView;
+pub use crate::tui::data::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
+pub use crate::tui::observer::observe;
+use crate::tui::state::LogView;
 
 /// How many lines the page keys move the log by.
 const PAGE: usize = 10;

@@ -714,8 +714,7 @@ async fn produce_tiles(
         let pruned_by = empty_parents
             .take()
             .filter(|(parent_zoom, _)| prune_empty_subtrees && *parent_zoom + 1 == zoom)
-            .map(|(_, set)| set)
-            .unwrap_or_default();
+            .map_or_default(|(_, set)| set);
 
         stream::iter(iterate_tiles(rects))
             .map(MartinCpResult::Ok)
@@ -820,7 +819,7 @@ where
         args.url_query.as_deref().unwrap_or_default(),
         TileRequestHeaders {
             accept_enc: Some(parse_encoding(args.encoding.as_deref().unwrap_or("gzip"))?),
-            accepted_formats: args.format.map(CopyFormat::accepted).unwrap_or_default(),
+            accepted_formats: args.format.map_or_default(CopyFormat::accepted),
             ..Default::default()
         },
     )?;

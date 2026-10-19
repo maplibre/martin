@@ -7,16 +7,16 @@ use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
 use std::sync::atomic::AtomicBool;
 
-use crate::props::{KeyId, Prop};
 use eval::Keys;
-pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
-pub use filter::{Condition, RowFilter, TranslateError, Untranslatable};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::phase2::LayerInfo;
+pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
+pub use crate::plan::filter::{Condition, RowFilter, TranslateError, Untranslatable};
+use crate::props::{KeyId, Prop};
 use crate::{FeatureGeom, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
 #[derive(thiserror::Error, Debug)]

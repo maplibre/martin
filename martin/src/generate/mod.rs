@@ -26,8 +26,6 @@ use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
 use tracing::{info, warn};
 
-use self::layers::{LowerOptions, lower_table};
-use self::postgres::{PgScanSource, ScanTable};
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
@@ -35,6 +33,8 @@ use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, check_bboxes};
+use crate::generate::layers::{LowerOptions, lower_table};
+use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::logging::LogFormat;
 use crate::srv::RESERVED_KEYWORDS;
 

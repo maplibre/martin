@@ -15,23 +15,23 @@ mod sort;
 pub mod source;
 mod tile;
 
-pub use block::render_block;
-pub use error::{TileGenError, TileGenResult};
-pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
 pub use map_tile_toolkit::ClipMode;
-pub use phase1::project;
-pub use phase1::{
-    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError,
+
+pub use crate::block::render_block;
+pub use crate::error::{TileGenError, TileGenResult};
+pub use crate::generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
+pub use crate::phase1::{
+    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, project,
 };
-pub use phase2::TileFormat;
-pub use plan::{ExprErrors, LayerGrid};
+pub use crate::phase2::TileFormat;
+pub use crate::plan::{ExprErrors, LayerGrid};
 #[cfg(feature = "mbtiles")]
-pub use sink::MbtilesSink;
+pub use crate::sink::MbtilesSink;
 #[cfg(feature = "pmtiles")]
-pub use sink::PmtilesSink;
-pub use sink::{EncodedTile, TileSink};
-pub use sort::SortConfig;
-pub use tile::{MAX_ZOOM, TileId, TileOrder};
+pub use crate::sink::PmtilesSink;
+pub use crate::sink::{EncodedTile, TileSink};
+pub use crate::sort::SortConfig;
+pub use crate::tile::{MAX_ZOOM, TileId, TileOrder};
 
 /// The stages a render runs through, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]

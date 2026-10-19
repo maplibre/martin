@@ -14,7 +14,7 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 /// Builds a martin test app from a config YAML string, resolving sources first.
 macro_rules! create_app {

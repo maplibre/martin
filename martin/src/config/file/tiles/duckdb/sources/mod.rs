@@ -4,9 +4,16 @@ mod geoparquet;
 mod layer;
 mod settings;
 
-pub use auto_publish::{DuckDbCfgPublish, DuckDbCfgPublishMacros, DuckDbCfgPublishTables};
-pub use database::{DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry};
-pub use geoparquet::{GeoParquetEntry, GeoParquetLocation};
-pub use layer::MvtLayerOptions;
 pub(crate) use settings::DuckDbSourceDefaults;
-pub use settings::DuckDbSourceSettings;
+
+pub use crate::config::file::tiles::duckdb::sources::auto_publish::{
+    DuckDbCfgPublish, DuckDbCfgPublishMacros, DuckDbCfgPublishTables,
+};
+pub use crate::config::file::tiles::duckdb::sources::database::{
+    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry,
+};
+pub use crate::config::file::tiles::duckdb::sources::geoparquet::{
+    GeoParquetEntry, GeoParquetLocation,
+};
+pub use crate::config::file::tiles::duckdb::sources::layer::MvtLayerOptions;
+pub use crate::config::file::tiles::duckdb::sources::settings::DuckDbSourceSettings;

@@ -13,7 +13,7 @@ use mbtiles::{Mbtiles, temp_named_mbtiles};
 use tilejson::TileJSON;
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{

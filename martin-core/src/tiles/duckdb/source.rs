@@ -146,8 +146,7 @@ fn execute_tile_query(
         .optional()
         .map_err(|e| GetTileError(e.into(), source_id.to_owned(), xyz))?
         .flatten()
-        .map(TileData::from)
-        .unwrap_or_default();
+        .map_or_default(TileData::from);
 
     Ok(tile)
 }

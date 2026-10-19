@@ -5,7 +5,7 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use crate::config::file::tiling::error::TilingConfigError;
 
 macro_rules! forward_scalars {
     ($target:ty => $wrap:expr; $($visit:ident: $scalar:ty),+ $(,)?) => {

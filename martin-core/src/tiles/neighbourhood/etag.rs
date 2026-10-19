@@ -5,7 +5,7 @@ use std::hash::Hash;
 use compact_str::CompactString;
 use xxhash_rust::xxh3::Xxh3;
 
-use super::NEIGHBOURHOOD_LEN;
+use crate::tiles::neighbourhood::NEIGHBOURHOOD_LEN;
 
 /// What one of the nine neighbourhood slots contributes to the etag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

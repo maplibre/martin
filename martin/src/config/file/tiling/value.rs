@@ -6,9 +6,9 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, Literal, NonEmpty, forward_scalars};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, Literal, NonEmpty, forward_scalars};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {

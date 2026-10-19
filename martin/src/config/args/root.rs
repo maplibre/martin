@@ -6,12 +6,12 @@ use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 
-use super::connections::Arguments;
-use super::srv::SrvArgs;
 use crate::config::args::ArgsError::ConfigAndConnections;
 use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
+use crate::config::args::connections::Arguments;
+use crate::config::args::srv::SrvArgs;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -308,7 +308,7 @@ fn parse_file_paths(
     allow_url: bool,
     share_dirs: bool,
 ) -> Vec<PathBuf> {
-    use super::State::{Ignore, Share, Take};
+    use crate::config::args::State::{Ignore, Share, Take};
 
     cli_strings.process(|s| {
         let path = PathBuf::from(s);

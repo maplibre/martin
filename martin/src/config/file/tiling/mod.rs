@@ -8,16 +8,22 @@ mod zoom;
 
 use std::num::{NonZeroU8, NonZeroU32};
 
-pub use error::TilingConfigError;
 use indexmap::IndexMap;
-pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
-pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
-pub use setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
-pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
-pub use value::{Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec};
-pub use zoom::{Zoom, ZoomRange};
 
+pub use crate::config::file::tiling::error::TilingConfigError;
+pub use crate::config::file::tiling::primitives::{
+    Expr, Finite, Literal, NonEmpty, checked_map_with,
+};
+pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
+pub use crate::config::file::tiling::setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
+pub use crate::config::file::tiling::tile::{
+    GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps,
+};
+pub use crate::config::file::tiling::value::{
+    Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec,
+};
+pub use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

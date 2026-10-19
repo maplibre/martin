@@ -1,6 +1,6 @@
 //! Which rows of a table its layers keep, as a condition a source can check before reading them.
 
-use super::GeometryType;
+use crate::plan::GeometryType;
 
 /// The rows a source has to read for a table.
 #[derive(Clone, Debug, PartialEq)]

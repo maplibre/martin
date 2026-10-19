@@ -10,10 +10,10 @@ use ratatui::widgets::canvas::{Canvas, Context, Map, MapResolution, Points};
 use ratatui::widgets::{Block, Paragraph, Row, Sparkline, Table};
 use tracing::Level;
 
-use super::data::Snapshot;
-use super::log::LogLine;
-use super::state::{LogSize, LogView};
 use crate::logging::LogFormat;
+use crate::tui::data::Snapshot;
+use crate::tui::log::LogLine;
+use crate::tui::state::{LogSize, LogView};
 
 /// A tile asked for this recently is drawn as fresh.
 const FRESH: Duration = Duration::from_secs(10);

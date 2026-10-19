@@ -13,15 +13,15 @@ mod features;
 mod isolines;
 mod mvt;
 
-pub use elevation::HeightGrid;
-pub use error::ContourError;
-pub use features::{ContourFeature, GeometryFeatures, GeometryTransform};
-pub use isolines::{
+use martin_tile_utils::TileData;
+
+pub use crate::tiles::contour::elevation::HeightGrid;
+pub use crate::tiles::contour::error::ContourError;
+pub use crate::tiles::contour::features::{ContourFeature, GeometryFeatures, GeometryTransform};
+pub use crate::tiles::contour::isolines::{
     ContourOptions, ElevationUnits, IsolineOptions, ZoomIntervalMap, generate_contours,
 };
-use martin_tile_utils::TileData;
-pub use mvt::{MvtEncodingOptions, encode_contours};
-
+pub use crate::tiles::contour::mvt::{MvtEncodingOptions, encode_contours};
 use crate::tiles::neighbourhood::Neighbourhood;
 
 /// Builds the contour tile for `zoom` from a neighbourhood of Terrarium tiles.

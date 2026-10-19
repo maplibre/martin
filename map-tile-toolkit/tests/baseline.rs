@@ -21,8 +21,8 @@ use map_tile_toolkit::{Slicer, TileId};
 mod baseline;
 mod support;
 
-use baseline::Pt;
-use support::FixturePolygon;
+use crate::baseline::Pt;
+use crate::support::FixturePolygon;
 
 fn pts(ring: &[Coord<i32>], origin: Coord<i32>) -> Vec<Pt> {
     ring.iter()

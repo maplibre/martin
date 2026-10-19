@@ -2,10 +2,10 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, NonEmpty, checked_map};
-use super::setting::{ByZoom, Meters, Pixels};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, NonEmpty, checked_map};
+use crate::config::file::tiling::setting::{ByZoom, Meters, Pixels};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[serde_with::skip_serializing_none]

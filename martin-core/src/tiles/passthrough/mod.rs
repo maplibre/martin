@@ -8,10 +8,12 @@
 //! [`Source`]: crate::tiles::Source
 
 mod error;
-pub use error::PassthroughError;
+pub use crate::tiles::passthrough::error::PassthroughError;
 
 mod url;
-pub use url::UrlTemplate;
+pub use crate::tiles::passthrough::url::UrlTemplate;
 
 mod source;
-pub use source::{PassthroughSource, TemplateMeta, TemplateSet, Transport, Upstream};
+pub use crate::tiles::passthrough::source::{
+    PassthroughSource, TemplateMeta, TemplateSet, Transport, Upstream,
+};

@@ -23,14 +23,12 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
-use crate::config::args::OrderByType;
-use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, OrderByType};
 use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
 #[cfg(feature = "unstable-generate")]
-use crate::generate::serve::engine_info;
-
+use crate::config::file::tiles::postgres::resolver::condition::condition_sql;
 #[cfg(feature = "unstable-generate")]
-use super::condition::condition_sql;
+use crate::generate::serve::engine_info;
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;

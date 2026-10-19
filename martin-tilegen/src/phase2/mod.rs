@@ -8,10 +8,9 @@ use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 
-pub use encode::TileFormat;
-use encode::{DedupIndex, EncodeSettings, LayerStats};
-pub(crate) use encode::{LayerInfo, TileEncoder};
-
+pub use crate::phase2::encode::TileFormat;
+use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
+pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};
 use crate::plan::Plan;
 use crate::props::KeyNames;
 use crate::sort::{Sorter, TileBatches, TileRecords};
@@ -20,8 +19,10 @@ use crate::{EncodedTile, TileGenResult, TileOrder};
 /// The stage types of phase 2, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]
 pub(crate) mod internals {
-    pub use super::assemble::{AssembledLayer, LayerAssembler};
-    pub use super::encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
+    pub use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
+    pub use crate::phase2::encode::{
+        DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder,
+    };
 }
 
 /// Encodes grouped tiles of a rendered plan, shared by every encoder thread.

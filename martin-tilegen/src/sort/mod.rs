@@ -13,12 +13,12 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-pub use group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
-pub use key::{LayerId, Seq, SortKey};
-pub use merge::Merger;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use run::{Run, RunWriter, SpillFile};
 
+pub use crate::sort::group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
+pub use crate::sort::key::{LayerId, Seq, SortKey};
+pub use crate::sort::merge::Merger;
 use crate::{TileGenError, TileGenResult};
 
 #[derive(Clone, Debug)]

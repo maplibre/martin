@@ -26,9 +26,7 @@ use insta::assert_binary_snapshot;
 use map_tile_toolkit::TileId;
 
 mod support;
-use support::{feature, load_fixture_geoms};
-
-use crate::support::{EXTENT, feature_line};
+use crate::support::{EXTENT, feature, feature_line, load_fixture_geoms};
 
 /// Buffer sizes each fixture is snapshotted at, paired with the directory to write into. Buffer 0
 /// keeps the tile boxes flush with the grid; buffer 5 (a fifth of a tile) grows each box outward so

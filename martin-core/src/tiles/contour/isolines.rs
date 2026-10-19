@@ -5,10 +5,10 @@ use geo::MapCoords as _;
 use geo::algorithm::simplify::Simplify as _;
 use geo_types::{Coord, Line, LineString};
 
-use super::elevation::HeightGrid;
-use super::error::ContourError;
-use super::features::{ContourFeature, GeometryFeatures, GeometryTransform};
-use super::mvt::MvtEncodingOptions;
+use crate::tiles::contour::elevation::HeightGrid;
+use crate::tiles::contour::error::ContourError;
+use crate::tiles::contour::features::{ContourFeature, GeometryFeatures, GeometryTransform};
+use crate::tiles::contour::mvt::MvtEncodingOptions;
 
 /// Default MVT tile extent for the contour tiles we encode.
 pub const DEFAULT_MVT_EXTENT: u32 = 4096;

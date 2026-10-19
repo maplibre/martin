@@ -3,10 +3,10 @@ use std::num::NonZeroUsize;
 use martin_core::tiles::postgres::RetryTimeout;
 use tracing::info;
 
-use super::bounds::BoundsCalcType;
-use super::connections::Arguments;
-use super::connections::State::{Ignore, Take};
-use super::order_by::OrderByType;
+use crate::config::args::bounds::BoundsCalcType;
+use crate::config::args::connections::Arguments;
+use crate::config::args::connections::State::{Ignore, Take};
+use crate::config::args::order_by::OrderByType;
 use crate::config::file::postgres::{
     DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
 };

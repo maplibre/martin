@@ -6,9 +6,9 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, Finite, forward_scalars};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, Finite, forward_scalars};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 
 macro_rules! measure {
     ($name:ident, $expecting:literal) => {

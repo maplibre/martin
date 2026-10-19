@@ -1,7 +1,7 @@
 //! Builds the hillshade sampling canvas from a stitched tile neighbourhood.
 
-use super::error::HillshadeError;
-use super::shade::Canvas;
+use crate::tiles::hillshade::error::HillshadeError;
+use crate::tiles::hillshade::shade::Canvas;
 use crate::tiles::neighbourhood::Neighbourhood;
 
 impl Canvas {

@@ -8,7 +8,7 @@ use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
-use super::simplify::Simplifier;
+use crate::phase1::simplify::Simplifier;
 use crate::sort::record::{EncodedProps, Geom, Vertex, encode};
 use crate::sort::{LayerId, Seq, SortBuffer, SortKey};
 use crate::{LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};

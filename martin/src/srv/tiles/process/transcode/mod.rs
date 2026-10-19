@@ -3,10 +3,10 @@ mod to_mvt;
 
 use martin_core::tiles::Tile;
 use martin_tile_utils::Format;
-use to_mlt::convert_mvt_to_mlt;
-use to_mvt::convert_mlt_to_mvt;
 
 use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
+use crate::srv::tiles::process::transcode::to_mlt::convert_mvt_to_mlt;
+use crate::srv::tiles::process::transcode::to_mvt::convert_mlt_to_mvt;
 
 /// Errors that can occur while converting a tile between MVT and MLT.
 #[derive(thiserror::Error, Debug)]
