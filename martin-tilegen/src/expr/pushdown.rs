@@ -82,8 +82,66 @@ impl Translator<'_> {
                     }
                 }
             }
+            (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
             _ => Operand::call(call)?.into_condition(polarity),
         }
+    }
+
+    /// `value in list` of `polarity`, each element compared as it compares with `value`.
+    fn in_list(
+        &self,
+        value: &IdedExpr,
+        list: &IdedExpr,
+        polarity: Polarity,
+    ) -> Result<Condition, TranslateError> {
+        let Operand::Column(name, kind) = self.operand(value)? else {
+            return Err(TranslateError::ConstantInList);
+        };
+        let kind = known_kind(&name, kind)?;
+        let Expr::List(list) = &list.expr else {
+            return Err(TranslateError::NotALiteralList);
+        };
+        let mut has_null = false;
+        let mut lists: Vec<(ValueKind, Vec<Literal>)> = Vec::new();
+        for element in &list.elements {
+            match self.operand(element)? {
+                Operand::Null => has_null = true,
+                Operand::Literal(literal, literal_kind) => {
+                    let Some(kind) = kind.common(literal_kind) else {
+                        continue;
+                    };
+                    match lists.iter_mut().find(|(listed, _)| *listed == kind) {
+                        Some((_, values)) => values.push(literal),
+                        None => lists.push((kind, vec![literal])),
+                    }
+                }
+                Operand::Column(..) => return Err(TranslateError::NotALiteralList),
+            }
+        }
+        let negated = polarity.negated();
+        let column = Term::Column(name);
+        let null_part = (has_null != negated).then(|| Condition::IsNull {
+            term: column.clone(),
+            polarity: Polarity::AsWritten,
+        });
+        let present = if lists.is_empty() {
+            if negated {
+                Condition::IsNull {
+                    term: column,
+                    polarity: Polarity::Negated,
+                }
+            } else {
+                Condition::Const(false)
+            }
+        } else {
+            polarity.any(lists.into_iter().map(|(kind, values)| Condition::In {
+                term: column.clone(),
+                values,
+                kind,
+                polarity,
+            }))
+        };
+        Ok(Condition::or(std::iter::once(present).chain(null_part)))
     }
 
     /// `expr` as one side of a comparison.

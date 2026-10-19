@@ -129,6 +129,7 @@ layer takes are never read. This needs a SQL equivalent for each `where` of the 
 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
+- `in` with a list of literals,
 - `&&`, `||`, `!` and `? :`.
 
 Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.

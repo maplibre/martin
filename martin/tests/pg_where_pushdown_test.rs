@@ -2223,3 +2223,476 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_different_collat
     assert_eq!(kept.by_sql, kept.by_plan);
     insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3}");
 }
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_in_list_with_null() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: 'i in [1, 2, null]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 3, 7}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: '!(i in [1, 2])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4, 5, 6, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_list_with_null() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: '!(i in [1, null])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 4, 5, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_in_empty_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: 'i in []'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_empty_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: '!(i in [])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 3, 4, 5, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: 'f in [1.5, 2]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 6}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: '!(f in [1.5, 2])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4, 5, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_in_list_of_float_and_int() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: 'n in [0.5, 9007199254740993]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_in_list_of_int() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: 'n in [9007199254740992]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: "s in ['abc', 'ABC']"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+        );
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          b: bool
+          i: int4
+          f: float8
+          s: text
+          d: date
+          n: int8
+        layers:
+          l:
+            where: "!(s in ['abc', 'ABC'])"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 5, 6, 7, 8}");
+}
