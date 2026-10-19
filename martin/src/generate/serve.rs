@@ -203,6 +203,24 @@ mod tests {
     }
 
     #[test]
+    fn max_feature_count_rejects_a_layer_with_where_beside_a_layer_of_any_geometry() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              all: {}
+              major:
+                where: "class == 'motorway'"
+        "#});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` needs `where` checked in SQL, but `class == 'motorway'` is not checked in SQL yet");
+    }
+
+    #[test]
     fn without_max_feature_count_a_layer_with_where_reads_every_row() {
         let mut info = table(indoc! {r#"
             schema: public

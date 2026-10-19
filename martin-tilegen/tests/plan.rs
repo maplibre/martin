@@ -1267,6 +1267,30 @@ fn a_layer_with_a_where_is_untranslatable() {
 }
 
 #[test]
+fn a_layer_with_a_where_is_untranslatable_beside_a_layer_without_a_filter() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned())],
+        layers: vec![
+            LayerDef::new("all", 0..=0, GRID),
+            LayerDef {
+                filter: Some("class == 'primary'".to_owned()),
+                ..LayerDef::new("primary", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "primary",
+            expr: "class == 'primary'",
+            reason: Where,
+        },
+    )
+    "#);
+}
+
+#[test]
 fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned())],

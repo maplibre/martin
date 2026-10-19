@@ -465,23 +465,21 @@ impl Plan {
     pub fn row_filter(&self, table: usize, zooms: RangeInclusive<u8>) -> RowFilter {
         let table = &self.tables[table];
         let mut conditions = Vec::new();
-        let mut untranslatable = None;
         for (layer, rows) in self.layers[table.layers.clone()].iter().zip(&table.rows) {
             if layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
                 continue;
             }
             match rows {
-                Ok(Condition::Const(true)) => return RowFilter::All,
                 Ok(condition) => conditions.push(condition.clone()),
-                Err(err) => {
-                    untranslatable.get_or_insert(err);
-                }
+                Err(err) => return RowFilter::Untranslatable(err.clone()),
             }
         }
-        if let Some(err) = untranslatable {
-            return RowFilter::Untranslatable(err.clone());
+        let condition = Condition::or(conditions);
+        if condition == Condition::Const(true) {
+            RowFilter::All
+        } else {
+            RowFilter::Matching(condition)
         }
-        RowFilter::Matching(Condition::or(conditions))
     }
 }
 
