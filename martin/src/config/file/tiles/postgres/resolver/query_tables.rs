@@ -552,9 +552,10 @@ pub struct ScanSql {
 /// WKB geometry, the id, then the properties cast as for tile row queries. Geometries stay in their own
 /// SRID when it is WGS84 or Web Mercator, which the generator projects itself on its workers instead of
 /// spending the database's single-threaded per-connection CPU on `ST_Transform`.
+/// `PostGIS` projects any other SRID to WGS84.
 ///
 /// Of the table's properties, only those in `columns` are selected, in table order.
-/// `bbox` (WGS84) keeps only features intersecting it, through the spatial index.
+/// `bbox` (WGS84) keeps only features intersecting it.
 #[cfg(feature = "unstable-generate")]
 pub fn scan_sql(
     info: &TableInfo,
@@ -573,24 +574,35 @@ pub fn scan_sql(
     });
     let column = escape_identifier(&info.geometry_column);
     let geometry = format!("ST_Force2D({})", linear_geometry(info));
-    let (geometry, crs) = match info.srid {
-        4326 => (geometry, Crs::Wgs84),
-        3857 => (geometry, Crs::WebMercator),
-        _ => (format!("ST_Transform({geometry}, 4326)"), Crs::Wgs84),
+    let envelope = bbox.map(|bbox| {
+        format!(
+            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
+            bbox.left, bbox.bottom, bbox.right, bbox.top
+        )
+    });
+    let (geometry, crs, bbox) = match info.srid {
+        4326 => (
+            geometry,
+            Crs::Wgs84,
+            envelope.map(|envelope| format!(" AND {column} && {envelope}")),
+        ),
+        3857 => (
+            geometry,
+            Crs::WebMercator,
+            envelope.map(|envelope| format!(" AND {column} && ST_Transform({envelope}, 3857)")),
+        ),
+        _ => (
+            format!("ST_Transform({geometry}, 4326)"),
+            Crs::Wgs84,
+            envelope.map(|envelope| {
+                format!(" AND ST_Transform({column}::geometry, 4326) && {envelope}")
+            }),
+        ),
     };
+    let bbox = bbox.unwrap_or_default();
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let filter = row_filter(info, "AND")?;
-    let bbox = bbox.map_or_else(String::new, |bbox| {
-        let envelope = format!(
-            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
-            bbox.left, bbox.bottom, bbox.right, bbox.top
-        );
-        match info.srid {
-            4326 => format!(" AND {column} && {envelope}"),
-            srid => format!(" AND {column} && ST_Transform({envelope}, {srid})"),
-        }
-    });
     Ok(ScanSql {
         sql: format!(
             "SELECT ST_AsBinary({geometry}){id_field}{row_properties} FROM {schema}.{table} WHERE {column} IS NOT NULL{filter}{bbox}"

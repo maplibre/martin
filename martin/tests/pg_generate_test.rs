@@ -18,6 +18,7 @@ use martin_tilegen::source::FeatureSource as _;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
 use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser};
+use tilejson::Bounds;
 
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
@@ -461,6 +462,78 @@ async fn sort_by_orders_features_across_partitions() {
     Some(26) [U32(Some(2))]
     Some(23) [U32(Some(2))]
     ");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_world_bbox_keeps_every_feature_of_a_projected_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let options = LowerOptions {
+        zooms: 0..=0,
+        bounds: Some(Bounds::MAX_TILED),
+    };
+    let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
+        .unwrap()
+        .unwrap();
+    let (_, _, rows) = run(
+        &builder,
+        vec![table],
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let raw = decode_gzip(&row.3).unwrap();
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = Parser::default()
+        .parse_layers(&raw)
+        .unwrap()
+        .into_iter()
+        .map(|layer| {
+            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+            format!("{} {}", layer.name(), layer.features().len())
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @"nz_points 3");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bbox_drops_the_features_of_a_projected_table_outside_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let options = LowerOptions {
+        zooms: 0..=6,
+        bounds: Some(Bounds::new(174.0, -42.0, 175.5, -36.0)),
+    };
+    let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
+        .unwrap()
+        .unwrap();
+    let (_, _, rows) = run(
+        &builder,
+        vec![table],
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    let Some(row) = rows.iter().find(|row| row.0 == 0) else {
+        panic!("expected a zoom 0 tile");
+    };
+    let raw = decode_gzip(&row.3).unwrap();
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = Parser::default()
+        .parse_layers(&raw)
+        .unwrap()
+        .into_iter()
+        .map(|layer| {
+            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+            format!("{} {}", layer.name(), layer.features().len())
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @"nz_points 2");
 }
 
 #[tokio::test]
