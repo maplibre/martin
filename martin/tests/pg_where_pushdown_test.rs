@@ -224,18 +224,16 @@ async fn sql_matches_the_plan_on_polygon_geometry() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -249,11 +247,6 @@ async fn sql_matches_the_plan_on_bool_column() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: b
@@ -267,18 +260,16 @@ async fn sql_matches_the_plan_on_bool_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_bool_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -292,11 +283,6 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!b'
@@ -310,18 +296,16 @@ async fn sql_matches_the_plan_on_negated_bool_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_true() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -335,11 +319,6 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b == true'
@@ -353,18 +332,16 @@ async fn sql_matches_the_plan_on_bool_equals_true() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_true() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -378,11 +355,6 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b != true'
@@ -396,18 +368,16 @@ async fn sql_matches_the_plan_on_bool_not_equals_true() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_null() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -421,11 +391,6 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b == null'
@@ -439,18 +404,16 @@ async fn sql_matches_the_plan_on_bool_equals_null() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_null() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -464,11 +427,6 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b != null'
@@ -482,18 +440,16 @@ async fn sql_matches_the_plan_on_bool_not_equals_null() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -506,12 +462,7 @@ async fn sql_matches_the_plan_on_int_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i > 1'
@@ -525,18 +476,16 @@ async fn sql_matches_the_plan_on_int_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_int_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -549,12 +498,7 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(i > 1)'
@@ -568,18 +512,16 @@ async fn sql_matches_the_plan_on_negated_int_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_at_most_float() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -592,12 +534,7 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i <= 1.5'
@@ -611,18 +548,16 @@ async fn sql_matches_the_plan_on_int_at_most_float() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -635,12 +570,7 @@ async fn sql_matches_the_plan_on_int_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i == 3'
@@ -654,18 +584,16 @@ async fn sql_matches_the_plan_on_int_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_not_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -678,12 +606,7 @@ async fn sql_matches_the_plan_on_int_not_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i != 3'
@@ -697,18 +620,16 @@ async fn sql_matches_the_plan_on_int_not_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -721,12 +642,7 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '-1 < i'
@@ -740,18 +656,16 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -764,12 +678,7 @@ async fn sql_matches_the_plan_on_float_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'f > 1.0'
@@ -783,18 +692,16 @@ async fn sql_matches_the_plan_on_float_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_float_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -807,12 +714,7 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(f > 1.0)'
@@ -826,18 +728,16 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_equals_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -850,12 +750,7 @@ async fn sql_matches_the_plan_on_float_equals_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'f == 2'
@@ -869,18 +764,16 @@ async fn sql_matches_the_plan_on_float_equals_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_not_equals_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -893,12 +786,7 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'f != 2'
@@ -912,18 +800,16 @@ async fn sql_matches_the_plan_on_float_not_equals_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float_less_than_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -936,12 +822,7 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'f < 0'
@@ -955,18 +836,16 @@ async fn sql_matches_the_plan_on_float_less_than_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_float_less_than_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
     "})
     .await;
     let kept = kept(
@@ -979,12 +858,7 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(f < 0)'
@@ -998,18 +872,16 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals_float_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4, f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3, 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0, -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647, 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3, 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2, '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', -1, 3.25);
     "})
     .await;
     let kept = kept(
@@ -1022,12 +894,8 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i == f'
@@ -1041,18 +909,16 @@ async fn sql_matches_the_plan_on_int_equals_float_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_not_equals_float_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4, f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1, 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3, 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0, -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647, 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3, 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2, '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', -1, 3.25);
     "})
     .await;
     let kept = kept(
@@ -1065,12 +931,8 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'i != f'
@@ -1084,18 +946,16 @@ async fn sql_matches_the_plan_on_int_not_equals_float_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1108,12 +968,7 @@ async fn sql_matches_the_plan_on_string_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "s == 'abc'"
@@ -1127,18 +982,16 @@ async fn sql_matches_the_plan_on_string_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_not_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1151,12 +1004,7 @@ async fn sql_matches_the_plan_on_string_not_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "s != 'abc'"
@@ -1170,18 +1018,16 @@ async fn sql_matches_the_plan_on_string_not_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_less() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1194,12 +1040,7 @@ async fn sql_matches_the_plan_on_string_less() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "s < 'abd'"
@@ -1213,18 +1054,16 @@ async fn sql_matches_the_plan_on_string_less() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_string_less() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1237,12 +1076,7 @@ async fn sql_matches_the_plan_on_negated_string_less() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "!(s < 'abd')"
@@ -1256,18 +1090,16 @@ async fn sql_matches_the_plan_on_negated_string_less() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_at_least() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1280,12 +1112,7 @@ async fn sql_matches_the_plan_on_string_at_least() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "s >= 'a'"
@@ -1299,18 +1126,16 @@ async fn sql_matches_the_plan_on_string_at_least() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_date_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), d date);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', '2020-01-01'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', '1999-12-31'),
+          (5, 'SRID=4326;POINT(1 1)', NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', '2020-01-01'),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', NULL),
+          (8, 'SRID=4326;POINT(2 2)', NULL);
     "})
     .await;
     let kept = kept(
@@ -1323,12 +1148,7 @@ async fn sql_matches_the_plan_on_date_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
-          s: text
           d: date
-          n: int8
         layers:
           l:
             where: "d == '2020-01-01'"
@@ -1342,18 +1162,16 @@ async fn sql_matches_the_plan_on_date_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_date_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), d date);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', '2020-01-01'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', '1999-12-31'),
+          (5, 'SRID=4326;POINT(1 1)', NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', '2020-01-01'),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', NULL),
+          (8, 'SRID=4326;POINT(2 2)', NULL);
     "})
     .await;
     let kept = kept(
@@ -1366,12 +1184,7 @@ async fn sql_matches_the_plan_on_date_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
-          s: text
           d: date
-          n: int8
         layers:
           l:
             where: "d > '2000'"
@@ -1385,18 +1198,16 @@ async fn sql_matches_the_plan_on_date_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_equals_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1409,12 +1220,7 @@ async fn sql_matches_the_plan_on_string_equals_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 's == 1'
@@ -1428,18 +1234,16 @@ async fn sql_matches_the_plan_on_string_equals_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_not_equals_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1452,12 +1256,7 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 's != 1'
@@ -1471,18 +1270,16 @@ async fn sql_matches_the_plan_on_string_not_equals_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_equals_string() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
     "})
     .await;
     let kept = kept(
@@ -1495,12 +1292,7 @@ async fn sql_matches_the_plan_on_int_equals_string() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "i == 'x'"
@@ -1514,18 +1306,16 @@ async fn sql_matches_the_plan_on_int_equals_string() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_string_greater_than_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1538,12 +1328,7 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 's > 1'
@@ -1557,18 +1342,16 @@ async fn sql_matches_the_plan_on_string_greater_than_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -1581,12 +1364,7 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(s > 1)'
@@ -1600,18 +1378,16 @@ async fn sql_matches_the_plan_on_negated_string_greater_than_int() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_equals_string_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', false, 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', false, 'abd');
     "})
     .await;
     let kept = kept(
@@ -1625,11 +1401,7 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b == s'
@@ -1643,18 +1415,16 @@ async fn sql_matches_the_plan_on_bool_equals_string_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', false, 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', false, 'abd');
     "})
     .await;
     let kept = kept(
@@ -1668,11 +1438,7 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b != s'
@@ -1686,18 +1452,16 @@ async fn sql_matches_the_plan_on_bool_not_equals_string_column() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_and() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2),
+          (8, 'SRID=4326;POINT(2 2)', false, -1);
     "})
     .await;
     let kept = kept(
@@ -1712,10 +1476,6 @@ async fn sql_matches_the_plan_on_and() {
         properties:
           b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'b && i > 0'
@@ -1729,18 +1489,16 @@ async fn sql_matches_the_plan_on_and() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_and() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, i int4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2),
+          (8, 'SRID=4326;POINT(2 2)', false, -1);
     "})
     .await;
     let kept = kept(
@@ -1755,10 +1513,6 @@ async fn sql_matches_the_plan_on_negated_and() {
         properties:
           b: bool
           i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(b && i > 0)'
@@ -1772,18 +1526,16 @@ async fn sql_matches_the_plan_on_negated_and() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_or() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, s text);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', false, 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', false, 'abd');
     "})
     .await;
     let kept = kept(
@@ -1797,11 +1549,7 @@ async fn sql_matches_the_plan_on_or() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "b || s == ''"
@@ -1815,18 +1563,16 @@ async fn sql_matches_the_plan_on_or() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_negated_or() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool, f float8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, -0.0),
+          (5, 'SRID=4326;POINT(1 1)', false, 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', false, 3.25);
     "})
     .await;
     let kept = kept(
@@ -1840,11 +1586,7 @@ async fn sql_matches_the_plan_on_negated_or() {
         id_column: id
         properties:
           b: bool
-          i: int4
           f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: '!(b || f > 1.0)'
@@ -1859,17 +1601,17 @@ async fn sql_matches_the_plan_on_negated_or() {
 async fn sql_matches_the_plan_on_conditional() {
     let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, s text
         );
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 'abd');
     "})
     .await;
     let kept = kept(
@@ -1884,10 +1626,7 @@ async fn sql_matches_the_plan_on_conditional() {
         properties:
           b: bool
           i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "b ? i > 0 : s == ''"
@@ -1902,17 +1641,17 @@ async fn sql_matches_the_plan_on_conditional() {
 async fn sql_matches_the_plan_on_negated_conditional() {
     let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
+          id int8, geom geometry(Geometry, 4326), b bool, i int4, s text
         );
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true, 1, 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', false, -1, 'abd');
     "})
     .await;
     let kept = kept(
@@ -1927,10 +1666,7 @@ async fn sql_matches_the_plan_on_negated_conditional() {
         properties:
           b: bool
           i: int4
-          f: float8
           s: text
-          d: date
-          n: int8
         layers:
           l:
             where: "!(b ? i > 0 : s == '')"
@@ -1944,18 +1680,16 @@ async fn sql_matches_the_plan_on_negated_conditional() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_false_literal() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326));
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))'),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)'),
+          (5, 'SRID=4326;POINT(1 1)'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))'),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))'),
+          (8, 'SRID=4326;POINT(2 2)');
     "})
     .await;
     let kept = kept(
@@ -1967,13 +1701,6 @@ async fn sql_matches_the_plan_on_false_literal() {
         geometry_column: geom
         geometry_type: GEOMETRY
         id_column: id
-        properties:
-          b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             where: 'false'
@@ -1987,18 +1714,16 @@ async fn sql_matches_the_plan_on_false_literal() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), b bool, i int4, f float8, s text, d date, n int8
-        );
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), b bool);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', true, 1, 1.5, 'abc', '2020-01-01', 9007199254740992),
-          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false, -3, 'NaN', 'a%_c', NULL, NULL),
-          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL, NULL, NULL, NULL, NULL, NULL),
-          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true, 0, -0.0, 'ABC', '1999-12-31', NULL),
-          (5, 'SRID=4326;POINT(1 1)', false, 2147483647, 'Infinity', 'Übel', NULL, NULL),
-          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL, 3, 2, '', '2020-01-01', NULL),
-          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true, 2, '-Infinity', 'a\b', NULL, NULL),
-          (8, 'SRID=4326;POINT(2 2)', false, -1, 3.25, 'abd', NULL, NULL);
+          (1, 'SRID=4326;POINT(0 0)', true),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', false),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', true),
+          (5, 'SRID=4326;POINT(1 1)', false),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', true),
+          (8, 'SRID=4326;POINT(2 2)', false);
     "})
     .await;
     let kept = kept(
@@ -2012,11 +1737,6 @@ async fn sql_matches_the_plan_on_polygon_geometry_and_where() {
         id_column: id
         properties:
           b: bool
-          i: int4
-          f: float8
-          s: text
-          d: date
-          n: int8
         layers:
           l:
             geometry: polygon
@@ -2033,13 +1753,13 @@ async fn sql_matches_the_plan_on_string_equals_under_a_nondeterministic_collatio
     let pool = connect(indoc! {r"
         CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
         CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci
         );
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
-          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
-          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
-          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC'),
+          (3, 'SRID=4326;POINT(2 2)', NULL),
+          (4, 'SRID=4326;POINT(3 3)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -2053,7 +1773,6 @@ async fn sql_matches_the_plan_on_string_equals_under_a_nondeterministic_collatio
         id_column: id
         properties:
           s: text
-          t: text
         layers:
           l:
             where: "s == 'abc'"
@@ -2069,13 +1788,13 @@ async fn sql_matches_the_plan_on_string_not_equals_under_a_nondeterministic_coll
     let pool = connect(indoc! {r"
         CREATE COLLATION pg_temp.ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
         CREATE TEMP TABLE where_rows (
-          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci, t text COLLATE pg_temp.ci
+          id int8, geom geometry(Geometry, 4326), s text COLLATE pg_temp.ci
         );
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 'abc', 'abc'),
-          (2, 'SRID=4326;POINT(1 1)', 'ABC', 'abc'),
-          (3, 'SRID=4326;POINT(2 2)', NULL, 'abc'),
-          (4, 'SRID=4326;POINT(3 3)', 'abd', NULL);
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;POINT(1 1)', 'ABC'),
+          (3, 'SRID=4326;POINT(2 2)', NULL),
+          (4, 'SRID=4326;POINT(3 3)', 'abd');
     "})
     .await;
     let kept = kept(
@@ -2089,7 +1808,6 @@ async fn sql_matches_the_plan_on_string_not_equals_under_a_nondeterministic_coll
         id_column: id
         properties:
           s: text
-          t: text
         layers:
           l:
             where: "s != 'abc'"
@@ -2241,13 +1959,13 @@ async fn sql_matches_the_plan_on_varchar_less() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int2_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;POINT(1 1)', -32768),
+          (3, 'SRID=4326;POINT(2 2)', 32767),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2);
     "})
     .await;
     let kept = kept(
@@ -2261,8 +1979,6 @@ async fn sql_matches_the_plan_on_int2_greater() {
         id_column: id
         properties:
           h: int2
-          r: float4
-          n: int8
         layers:
           l:
             where: "h > 1"
@@ -2276,13 +1992,13 @@ async fn sql_matches_the_plan_on_int2_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float4_greater() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), r float4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 1.1),
+          (2, 'SRID=4326;POINT(1 1)', 2.5),
+          (3, 'SRID=4326;POINT(2 2)', 'NaN'),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', '-Infinity');
     "})
     .await;
     let kept = kept(
@@ -2295,9 +2011,7 @@ async fn sql_matches_the_plan_on_float4_greater() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          h: int2
           r: float4
-          n: int8
         layers:
           l:
             where: "r > 1.1"
@@ -2311,13 +2025,13 @@ async fn sql_matches_the_plan_on_float4_greater() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_float4_equals() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), r float4);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 1.1),
+          (2, 'SRID=4326;POINT(1 1)', 2.5),
+          (3, 'SRID=4326;POINT(2 2)', 'NaN'),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', '-Infinity');
     "})
     .await;
     let kept = kept(
@@ -2330,9 +2044,7 @@ async fn sql_matches_the_plan_on_float4_equals() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          h: int2
           r: float4
-          n: int8
         layers:
           l:
             where: "r == 1.1"
@@ -2346,13 +2058,13 @@ async fn sql_matches_the_plan_on_float4_equals() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), n int8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 9223372036854775807);
     "})
     .await;
     let kept = kept(
@@ -2365,8 +2077,6 @@ async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          h: int2
-          r: float4
           n: int8
         layers:
           l:
@@ -2381,13 +2091,13 @@ async fn sql_matches_the_plan_on_int8_equals_float_past_2_pow_53() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), n int8);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 9007199254740992),
+          (2, 'SRID=4326;POINT(1 1)', 9007199254740993),
+          (3, 'SRID=4326;POINT(2 2)', -9223372036854775808),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 9223372036854775807);
     "})
     .await;
     let kept = kept(
@@ -2400,8 +2110,6 @@ async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
         geometry_type: GEOMETRY
         id_column: id
         properties:
-          h: int2
-          r: float4
           n: int8
         layers:
           l:
@@ -2416,13 +2124,13 @@ async fn sql_matches_the_plan_on_int8_greater_than_float_past_2_pow_53() {
 #[tokio::test]
 async fn sql_matches_the_plan_on_int_less_than_uint() {
     let pool = connect(indoc! {r"
-        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2, r float4, n int8);
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), h int2);
         INSERT INTO where_rows VALUES
-          (1, 'SRID=4326;POINT(0 0)', 1, 1.1, 9007199254740992),
-          (2, 'SRID=4326;POINT(1 1)', -32768, 2.5, 9007199254740993),
-          (3, 'SRID=4326;POINT(2 2)', 32767, 'NaN', -9223372036854775808),
-          (4, 'SRID=4326;POINT(3 3)', NULL, NULL, NULL),
-          (5, 'SRID=4326;POINT(4 4)', 2, '-Infinity', 9223372036854775807);
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;POINT(1 1)', -32768),
+          (3, 'SRID=4326;POINT(2 2)', 32767),
+          (4, 'SRID=4326;POINT(3 3)', NULL),
+          (5, 'SRID=4326;POINT(4 4)', 2);
     "})
     .await;
     let kept = kept(
@@ -2436,8 +2144,6 @@ async fn sql_matches_the_plan_on_int_less_than_uint() {
         id_column: id
         properties:
           h: int2
-          r: float4
-          n: int8
         layers:
           l:
             where: "h < 2u"
