@@ -25,7 +25,7 @@ const GRID_LIMIT: u64 = 1 << 30;
 /// # Errors
 ///
 /// When a layer uses a setting the engine does not support yet, no layer has a zoom, a zoom is too
-/// high for the extent, `max_feature_count` meets a layer's `where` or `geometry`, or the table's query
+/// high for the extent, `max_feature_count` meets a `where` SQL cannot apply, or the table's query
 /// cannot be built.
 pub fn engine_info(
     id: &str,
@@ -41,20 +41,11 @@ pub fn engine_info(
     };
     let table = lower_table(id, info.clone(), &options)?
         .ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
-    if max_feature_count.is_some()
-        && let Some(layer) = table
-            .def
-            .layers
-            .iter()
-            .find(|layer| layer.filter.is_some() || layer.geometry.is_some())
-    {
-        return Err(GenerateError::LimitedLayerFilter(layer.name.clone()));
-    }
     let margin = table
         .def
         .layers
         .iter()
-        .map(|layer| f64::from(layer.grid.buffer) / f64::from(layer.grid.extent))
+        .map(|layer| (f64::from(layer.grid.buffer) + 0.5) / f64::from(layer.grid.extent))
         .fold(0.0, f64::max);
     let plan = Plan::new(vec![table.def]).map_err(TileGenError::from)?;
     let mut sql = (0..=max_zoom)
@@ -246,5 +237,23 @@ mod tests {
         "#});
         let engine = engine_info("roads", &mut info, None, None).expect("plans");
         insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "name" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
+    }
+
+    #[test]
+    fn margin_reads_half_a_grid_unit_past_the_buffer() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            extent: 4096
+            buffer: 64
+            properties:
+              class: text
+            layers:
+              all: {}
+        "});
+        let engine = engine_info("roads", &mut info, None, None).expect("plans");
+        assert_eq!(engine.margin * 4096.0, 64.5);
     }
 }
