@@ -368,7 +368,10 @@ impl TableQuerySql {
             .collect();
         let row_properties = row_properties(
             info,
-            info.properties.iter().flatten().map(|(column, _)| column),
+            info.properties
+                .iter()
+                .flatten()
+                .map(|(column, _)| column.as_str()),
         );
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
@@ -597,12 +600,13 @@ pub fn scan_sql(
     condition: Option<&Condition>,
     bbox: Option<Bounds>,
 ) -> PostgresResult<ScanSql> {
-    let selected: Vec<&String> = info
+    let selected: Vec<&str> = info
         .properties
         .iter()
         .flatten()
         .map(|(column, _)| column)
         .filter(|column| columns.contains(column))
+        .map(String::as_str)
         .collect();
     let row_properties = row_properties(info, selected.iter().copied());
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
@@ -646,7 +650,7 @@ pub fn scan_sql(
         ),
         crs,
         has_id: info.id_column.is_some(),
-        properties: selected.into_iter().cloned().collect(),
+        properties: selected.into_iter().map(str::to_owned).collect(),
     })
 }
 
@@ -687,10 +691,7 @@ pub fn engine_sql(
 }
 
 /// The properties as tile row queries select them, cast by the type each column is returned as.
-fn row_properties<'a>(
-    info: &TableInfo,
-    properties: impl IntoIterator<Item = &'a String>,
-) -> String {
+fn row_properties<'a>(info: &TableInfo, properties: impl IntoIterator<Item = &'a str>) -> String {
     properties
         .into_iter()
         .map(|column| escape_with_alias_as_property(info, column))
