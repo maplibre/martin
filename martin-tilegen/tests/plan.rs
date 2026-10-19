@@ -4,7 +4,7 @@
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError,
-    RuleDef, SortDef, TableDef, ValueDef, ZoomDef,
+    RowFilter, RuleDef, SortDef, TableDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -1250,7 +1250,8 @@ fn a_layer_with_a_where_is_untranslatable() {
         }],
     }])
     .unwrap();
-    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    let rows = plan.row_filter(0, 0..=0);
+    insta::assert_debug_snapshot!(rows, @r#"
     Untranslatable(
         Untranslatable {
             layer: "primary",
@@ -1259,6 +1260,10 @@ fn a_layer_with_a_where_is_untranslatable() {
         },
     )
     "#);
+    let RowFilter::Untranslatable(err) = rows else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` is not checked in SQL yet");
 }
 
 #[test]
@@ -1277,25 +1282,25 @@ fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
         ],
     }])
     .unwrap();
-    insta::assert_debug_snapshot!([plan.row_filter(0, 5..=5), plan.row_filter(0, 9..=10)], @"
-    [
-        Matching(
-            Geometry(
-                Polygon,
-            ),
+    insta::assert_debug_snapshot!(plan.row_filter(0, 5..=5), @"
+    Matching(
+        Geometry(
+            Polygon,
         ),
-        Matching(
-            Or(
-                [
-                    Geometry(
-                        Line,
-                    ),
-                    Geometry(
-                        Polygon,
-                    ),
-                ],
-            ),
+    )
+    ");
+    insta::assert_debug_snapshot!(plan.row_filter(0, 9..=10), @"
+    Matching(
+        Or(
+            [
+                Geometry(
+                    Line,
+                ),
+                Geometry(
+                    Polygon,
+                ),
+            ],
         ),
-    ]
+    )
     ");
 }
