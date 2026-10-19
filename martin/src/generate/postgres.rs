@@ -22,9 +22,8 @@ pub struct ScanTable {
     pub def: TableDef,
 }
 
-/// Each table is split into partitions of consecutive heap blocks, read in block order, so reading the
-/// partitions in order reproduces a single sequential scan.
-/// A source without heap blocks, such as a view, is split by the remainder of its integer id instead.
+/// Each table is split into partitions of consecutive heap blocks,
+/// or by the remainder of its integer id if it has none.
 pub struct PgScanSource {
     runtime: tokio::runtime::Handle,
     pool: PostgresPool,
@@ -44,8 +43,8 @@ impl PgScanSource {
     /// Partitions of a source split by its integer id instead of by heap blocks.
     pub const KEY_PARTITIONS: u32 = 32;
 
-    /// Splits each table into partitions of `partition_blocks` heap blocks.
-    /// A source that has no heap blocks but an integer id is split into [`Self::KEY_PARTITIONS`] instead.
+    /// Splits each table into partitions of `partition_blocks` heap blocks,
+    /// or into [`Self::KEY_PARTITIONS`] by id if it has none.
     ///
     /// # Errors
     ///
@@ -70,8 +69,8 @@ impl PgScanSource {
             let blocks = heap_blocks(&conn, &scan.info.schema, &scan.info.table)
                 .await
                 .map_err(SourceError::from)?;
-            let partitions = match (blocks, integer_id(&scan.info)) {
-                (None, Some(id)) => key_partitions(&sql.sql, &id, Self::KEY_PARTITIONS),
+            let partitions = match (blocks, escaped_integer_id(&scan.info)) {
+                (None, Some(id)) => key_partitions(&sql.sql, &id),
                 (blocks, _) => block_ranges(blocks, partition_blocks)
                     .into_iter()
                     .map(|range| with_block_range(&sql.sql, range))
@@ -207,21 +206,15 @@ fn with_block_range(sql: &str, range: (u32, Option<u32>)) -> String {
 }
 
 /// The escaped id column, if it holds integers a scan can be split by.
-fn integer_id(info: &TableInfo) -> Option<String> {
+fn escaped_integer_id(info: &TableInfo) -> Option<String> {
     let id = info.id_column.as_deref()?;
-    matches!(info.column_type(id)?, "int2" | "int4" | "int8").then(|| {
-        let column = info
-            .discovered
-            .prop_mapping
-            .get(id)
-            .map_or(id, String::as_str);
-        escape_identifier(column)
-    })
+    matches!(info.column_type(id)?, "int2" | "int4" | "int8")
+        .then(|| escape_identifier(info.table_column(id)))
 }
 
-/// Splits a scan query by the remainder of its id.
-/// `abs` keeps negative ids, and the first partition also reads the rows without an id.
-fn key_partitions(sql: &str, id: &str, partitions: u32) -> Vec<String> {
+/// Splits a scan query by the remainder of its id, with the rows without an id in the first partition.
+fn key_partitions(sql: &str, id: &str) -> Vec<String> {
+    let partitions = PgScanSource::KEY_PARTITIONS;
     (0..partitions)
         .map(|k| {
             if k == 0 {

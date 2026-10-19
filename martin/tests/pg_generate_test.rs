@@ -20,6 +20,8 @@ use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser};
 use tilejson::Bounds;
 
+pub mod utils;
+
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
 
@@ -32,8 +34,14 @@ const TABLES: [&str; 5] = [
 ];
 
 async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
+    discover_at(&std::env::var("DATABASE_URL").expect("DATABASE_URL")).await
+}
+
+async fn discover_at(
+    connection_string: &str,
+) -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     let mut config = PostgresConfig {
-        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        connection_string: Some(connection_string.to_owned()),
         ..PostgresConfig::default()
     };
     config.finalize().await.unwrap();
@@ -199,7 +207,14 @@ async fn a_view_split_by_its_integer_id_renders_like_its_table() {
     ));
     let mut view = table_info(&specs, "points1_vw");
     view.id_column = Some("gid".to_owned());
-    view.layers.clone_from(&table.layers);
+    view.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            points:
+              maxzoom: 2
+              sort_by: [gid]
+        "})
+        .unwrap(),
+    ));
     let (table_partitions, table_features, table_rows) = run(
         &builder,
         vec![lower("points", table)],
@@ -230,8 +245,20 @@ async fn a_view_split_by_its_integer_id_renders_like_its_table() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_view_split_by_its_integer_id_keeps_negative_and_null_ids() {
     let dir = tempfile::tempdir().unwrap();
-    let (builder, specs) = discover().await;
-    let mut info = table_info(&specs, "points1_signed_vw");
+    let (_container, connstr) = utils::start_postgis().await;
+    utils::seed(
+        &connstr,
+        indoc! {"
+            CREATE TABLE signed_points (gid int, geom geometry(Point, 4326));
+            INSERT INTO signed_points
+            SELECT nullif(i, 15), ST_SetSRID(ST_MakePoint(i, i), 4326)
+            FROM generate_series(-14, 15) AS i;
+            CREATE VIEW signed_points_vw AS SELECT gid, geom FROM signed_points;
+        "},
+    )
+    .await;
+    let (builder, specs) = discover_at(&connstr).await;
+    let mut info = table_info(&specs, "signed_points_vw");
     info.id_column = Some("gid".to_owned());
     info.layers = Some(Box::new(
         serde_saphyr::from_str(indoc! {"

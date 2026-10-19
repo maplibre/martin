@@ -2185,7 +2185,6 @@ async fn a_simple_grid_set_on_the_connection_auto_publishes_only_tables_without_
     WARN Skipping table error=Table public.nz_points.geom has SRID=2193, but only SRID 0 can be served on the simple tile grid FloorPlan
     WARN Skipping table error=Table public.point_bounds.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     WARN Skipping table error=Table public.points1.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
-    WARN Skipping table error=Table public.points1_signed_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     WARN Skipping table error=Table public.points1_vw.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     WARN Skipping table error=Table public.points2.geom has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     WARN Skipping table error=Table public.points3857.geom has SRID=3857, but only SRID 0 can be served on the simple tile grid FloorPlan

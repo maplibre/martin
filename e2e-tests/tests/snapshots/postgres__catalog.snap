@@ -175,10 +175,6 @@ expression: "catalog.json()[\"tiles\"]"
     "content_type": "application/x-protobuf",
     "description": "public.points1.geom"
   },
-  "points1_signed_vw": {
-    "content_type": "application/x-protobuf",
-    "description": "public.points1_signed_vw.geom"
-  },
   "points1_vw": {
     "attribution": "some attribution from SQL comment",
     "content_type": "application/x-protobuf",
