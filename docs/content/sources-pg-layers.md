@@ -121,7 +121,8 @@ A feature belongs to a layer when all of these hold:
 2. the layer's `geometry` type, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
-A rule's `where` does not filter features: it only picks the rule.
+A [rule](#rules)'s `where` is not one of them.
+A feature that matches no rule stays in the layer.
 
 The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no
 layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
