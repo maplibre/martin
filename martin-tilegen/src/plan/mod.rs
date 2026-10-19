@@ -1,6 +1,7 @@
 //! What to generate: source tables, and the output layers each table feeds.
 
 mod eval;
+mod filter;
 
 use std::collections::{BTreeSet, HashSet};
 use std::ops::{Range, RangeInclusive};
@@ -9,6 +10,7 @@ use std::sync::atomic::AtomicBool;
 use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
+pub use filter::{Condition, RowFilter, TranslateError, Untranslatable};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
@@ -72,6 +74,14 @@ impl ColumnDef {
     pub fn name(&self) -> &str {
         match self {
             Self::Value(name) | Self::Keys(name) => name,
+        }
+    }
+
+    /// The property name of a column that is not [`ColumnDef::Keys`].
+    fn value(&self) -> Option<&str> {
+        match self {
+            Self::Value(name) => Some(name),
+            Self::Keys(_) => None,
         }
     }
 }
@@ -249,6 +259,8 @@ pub(crate) struct PlannedTable {
     pub(crate) evaluates: bool,
     /// Keys beyond `columns` that expressions read by name.
     pub(crate) reads: Vec<String>,
+    /// The rows each of its layers takes, in the order of `layers`.
+    pub(crate) rows: Vec<Result<Condition, Untranslatable>>,
 }
 
 #[derive(Debug)]
@@ -349,14 +361,7 @@ impl Plan {
             let start = layers.len();
             let first_expr = exprs.len();
             let mut reads = BTreeSet::new();
-            let values: Vec<&str> = table
-                .columns
-                .iter()
-                .filter_map(|column| match column {
-                    ColumnDef::Value(name) => Some(name.as_str()),
-                    ColumnDef::Keys(_) => None,
-                })
-                .collect();
+            let values: Vec<&str> = table.columns.iter().filter_map(ColumnDef::value).collect();
             let mut rules = false;
             for def in table.layers {
                 rules |= !def.rules.is_empty();
@@ -402,10 +407,9 @@ impl Plan {
                 .map(|(pos, column)| {
                     let scanned = all_keys
                         || table_layers.iter().any(|layer| layer.copy[pos].is_some())
-                        || match &column {
-                            ColumnDef::Value(name) => reads.contains(name),
-                            ColumnDef::Keys(_) => other_keys,
-                        };
+                        || column
+                            .value()
+                            .map_or(other_keys, |name| reads.contains(name));
                     scanned.then(|| {
                         kept.push(column);
                         key_id(kept.len() - 1)
@@ -416,7 +420,12 @@ impl Plan {
                 layer.renumber(&renumbered);
             }
             let columns: Vec<String> = kept.iter().map(|c| c.name().to_owned()).collect();
+            let rows = layers[start..]
+                .iter()
+                .map(|layer| layer_rows(layer, &exprs))
+                .collect();
             planned_tables.push(PlannedTable {
+                rows,
                 reads: reads
                     .into_iter()
                     .filter(|name| !columns.contains(name))
@@ -445,6 +454,32 @@ impl Plan {
     #[must_use]
     pub fn columns(&self, table: usize) -> &[String] {
         &self.tables[table].columns
+    }
+
+    /// The rows of table `table` that some layer takes at one of `zooms`, for its source to filter on.
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[must_use]
+    pub fn row_filter(&self, table: usize, zooms: RangeInclusive<u8>) -> RowFilter {
+        let table = &self.tables[table];
+        let mut conditions = Vec::new();
+        for (layer, rows) in self.layers[table.layers.clone()].iter().zip(&table.rows) {
+            if layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
+                continue;
+            }
+            match rows {
+                Ok(condition) => conditions.push(condition.clone()),
+                Err(err) => return RowFilter::Untranslatable(err.clone()),
+            }
+        }
+        let condition = Condition::or(conditions);
+        if condition == Condition::Const(true) {
+            RowFilter::All
+        } else {
+            RowFilter::Matching(condition)
+        }
     }
 }
 
@@ -517,8 +552,20 @@ impl Compiler<'_> {
     fn value_position(&self, name: &str) -> Option<usize> {
         self.columns
             .iter()
-            .position(|column| matches!(column, ColumnDef::Value(value) if value == name))
+            .position(|column| column.value() == Some(name))
     }
+}
+
+/// The rows `layer` takes, by geometry type and `where`.
+fn layer_rows(layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
+    if let Some(filter) = layer.filter {
+        return Err(Untranslatable {
+            layer: layer.info.name.clone(),
+            expr: exprs[filter.index].source.clone(),
+            reason: TranslateError::Where,
+        });
+    }
+    Ok(Condition::and(layer.geometry.map(Condition::Geometry)))
 }
 
 fn key_id(pos: usize) -> KeyId {

@@ -17,9 +17,10 @@ use super::{PostgresError, PostgresPool, PostgresResult};
 pub struct PostgresEngineInfo {
     /// The plan of the table's layers, the table being its only one.
     pub plan: Arc<Plan>,
-    /// SQL taking `$1..$4` and `$5..$8` as two Web Mercator `xmin, ymin, xmax, ymax` envelopes of the
-    /// area to read, and returning its features once each, as `layout` says.
-    pub sql_query: String,
+    /// SQL by zoom from 0, the last one serving every zoom past it, taking `$1..$4` and `$5..$8` as two
+    /// Web Mercator `xmin, ymin, xmax, ymax` envelopes of the area to read, and returning its features
+    /// once each, as `layout` says.
+    pub sql_queries: Vec<String>,
     /// How the query's columns map to the plan's table.
     pub layout: ScanLayout,
     /// How far past a tile its features are read, as a fraction of a tile's side: the largest buffer
@@ -94,13 +95,14 @@ impl PostgresEngineInfo {
             PostgresError::EngineError(Box::new(err), source_id.to_owned(), xyz)
         };
         let [[x1, y1, x2, y2], [x3, y3, x4, y4]] = self.envelopes(block);
+        let sql = self.sql_query(block.zoom);
         let conn = pool.get().await?;
         let _cancel_guard = pool.active_query_registry().register(conn.cancel_token());
         let statement = conn
-            .prepare_cached(&self.sql_query)
+            .prepare_cached(sql)
             .await
             .map_err(|e| PostgresError::PostgresError(e, "preparing a table's feature query"))?;
-        debug!(sql = %self.sql_query, tile.coord = %xyz, "Running feature query");
+        debug!(sql = %sql, tile.coord = %xyz, "Running feature query");
         let mut batches = Vec::new();
         scan_features(
             &conn,
@@ -136,6 +138,14 @@ impl PostgresEngineInfo {
             .into_iter()
             .map(|tile| (tile.coord, TileData::from(tile.data)))
             .collect())
+    }
+
+    /// The query reading the features of a block at `zoom`.
+    fn sql_query(&self, zoom: u8) -> &str {
+        self.sql_queries
+            .get(usize::from(zoom))
+            .or_else(|| self.sql_queries.last())
+            .expect("an engine has a query for zoom 0")
     }
 
     /// The Web Mercator bounds of `block`, grown by [`Self::margin`] tiles on every side, as two
