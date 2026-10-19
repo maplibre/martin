@@ -574,12 +574,14 @@ pub fn scan_sql(
     });
     let column = escape_identifier(&info.geometry_column);
     let geometry = format!("ST_Force2D({})", linear_geometry(info));
-    let envelope = bbox.map(|bbox| {
-        format!(
-            "ST_MakeEnvelope({}, {}, {}, {}, 4326)",
-            bbox.left, bbox.bottom, bbox.right, bbox.top
-        )
-    });
+    let envelope = bbox.map(
+        |Bounds {
+             left,
+             bottom,
+             right,
+             top,
+         }| format!("ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"),
+    );
     let (geometry, crs, bbox) = match info.srid {
         4326 => (
             geometry,
