@@ -3,7 +3,7 @@
 
 mod block;
 mod error;
-pub mod expr;
+mod expr;
 mod generate;
 mod phase1;
 mod phase2;
