@@ -175,6 +175,6 @@ mod tests {
               all: {}
         "});
         let engine = engine_info("roads", &mut info, None, None).expect("plans");
-        insta::assert_snapshot!(engine.margin * 4096.0, @"64.5");
+        assert_eq!(engine.margin * 4096.0, 64.5);
     }
 }
