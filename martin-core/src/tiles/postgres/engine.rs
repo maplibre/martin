@@ -23,7 +23,7 @@ pub struct PostgresEngineInfo {
     /// How the query's columns map to the plan's table.
     pub layout: ScanLayout,
     /// How far past a tile its features are read, as a fraction of a tile's side: the largest buffer
-    /// of the layers.
+    /// of the layers plus half a grid unit, since a vertex that far out still rounds onto the buffer edge.
     pub margin: f64,
     /// Tiles per side of the block a cache miss renders; `None` renders just the tile.
     pub prefetch: Option<NonZeroU8>,

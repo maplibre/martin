@@ -54,7 +54,7 @@ pub fn engine_info(
         .def
         .layers
         .iter()
-        .map(|layer| f64::from(layer.grid.buffer) / f64::from(layer.grid.extent))
+        .map(|layer| (f64::from(layer.grid.buffer) + 0.5) / f64::from(layer.grid.extent))
         .fold(0.0, f64::max);
     let plan = Plan::new(vec![table.def]).map_err(TileGenError::from)?;
     let sql = engine_sql(&table.info, plan.columns(0), max_feature_count, order_by)?;
@@ -158,5 +158,23 @@ mod tests {
         "#});
         let engine = engine_info("roads", &mut info, None, None).expect("plans");
         insta::assert_snapshot!(engine.sql_query, @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
+    }
+
+    #[test]
+    fn margin_reads_half_a_grid_unit_past_the_buffer() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            extent: 4096
+            buffer: 64
+            properties:
+              class: text
+            layers:
+              all: {}
+        "});
+        let engine = engine_info("roads", &mut info, None, None).expect("plans");
+        assert_eq!(engine.margin * 4096.0, 64.5);
     }
 }
