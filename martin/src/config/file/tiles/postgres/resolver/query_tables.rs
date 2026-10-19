@@ -170,20 +170,30 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 /// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
 /// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
 /// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
-fn escape_with_alias_as_property(
-    mapping: &HashMap<String, String>,
-    field: &str,
-    pg_type: &str,
-) -> String {
-    if is_typed_property(pg_type) {
-        return escape_with_alias(mapping, field);
+fn escape_with_alias_as_property(info: &TableInfo, field: &str, label: &str) -> String {
+    match property_column(info, field, label) {
+        (_, false) => escape_with_alias(&info.discovered.prop_mapping, field),
+        (column, true) => format!(
+            ", {}::text AS {}",
+            escape_identifier(column),
+            escape_identifier(field),
+        ),
     }
-    let column = mapping.get(field).map_or(field, |v| v.as_str());
-    format!(
-        ", {}::text AS {}",
-        escape_identifier(column),
-        escape_identifier(field),
-    )
+}
+
+/// The column property `field` is read from, and whether a tile needs its type cast to `text`.
+pub(super) fn property_column<'a>(
+    info: &'a TableInfo,
+    field: &'a str,
+    label: &'a str,
+) -> (&'a str, bool) {
+    let column = info
+        .discovered
+        .prop_mapping
+        .get(field)
+        .map_or(field, String::as_str);
+    let pg_type = info.column_type(field).unwrap_or(label);
+    (column, !is_typed_property(pg_type))
 }
 
 /// Generate a query to fetch tiles from a table.
@@ -667,10 +677,7 @@ fn row_properties<'a>(
 ) -> String {
     properties
         .into_iter()
-        .map(|(column, label)| {
-            let pg_type = info.column_type(column).unwrap_or(label);
-            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
-        })
+        .map(|(column, label)| escape_with_alias_as_property(info, column, label))
         .collect()
 }
 

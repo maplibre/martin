@@ -10,7 +10,9 @@ use std::sync::atomic::AtomicBool;
 use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
-pub use filter::{Condition, RowFilter, TranslateError, Untranslatable};
+pub use filter::{
+    CompareOp, Condition, Literal, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
+};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
@@ -64,6 +66,8 @@ pub struct TableDef {
 pub enum ColumnDef {
     /// A property named after the column.
     Value(String),
+    /// A property named after the column, whose values are all of one kind, for a source to filter on.
+    Typed(String, ValueKind),
     /// Properties under keys of their own, e.g. those of a JSON column.
     /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
     Keys(String),
@@ -73,14 +77,14 @@ impl ColumnDef {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Value(name) | Self::Keys(name) => name,
+            Self::Value(name) | Self::Typed(name, _) | Self::Keys(name) => name,
         }
     }
 
     /// The property name of a column that is not [`ColumnDef::Keys`].
     fn value(&self) -> Option<&str> {
         match self {
-            Self::Value(name) => Some(name),
+            Self::Value(name) | Self::Typed(name, _) => Some(name),
             Self::Keys(_) => None,
         }
     }
@@ -422,7 +426,7 @@ impl Plan {
             let columns: Vec<String> = kept.iter().map(|c| c.name().to_owned()).collect();
             let rows = layers[start..]
                 .iter()
-                .map(|layer| layer_rows(layer, &exprs))
+                .map(|layer| layer_rows(&kept, layer, &exprs))
                 .collect();
             planned_tables.push(PlannedTable {
                 rows,
@@ -557,15 +561,29 @@ impl Compiler<'_> {
 }
 
 /// The rows `layer` takes, by geometry type and `where`.
-fn layer_rows(layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
-    if let Some(filter) = layer.filter {
-        return Err(Untranslatable {
-            layer: layer.info.name.clone(),
-            expr: exprs[filter.index].source.clone(),
-            reason: TranslateError::Where,
-        });
-    }
-    Ok(Condition::and(layer.geometry.map(Condition::Geometry)))
+fn layer_rows(
+    columns: &[ColumnDef],
+    layer: &PlannedLayer,
+    exprs: &[PlannedExpr],
+) -> Result<Condition, Untranslatable> {
+    let geometry = layer.geometry.map(Condition::Geometry);
+    let Some(filter) = layer.filter else {
+        return Ok(Condition::and(geometry));
+    };
+    let planned = &exprs[filter.index];
+    let keys = columns.iter().find(|column| column.value().is_none());
+    let condition = match keys {
+        Some(keys) => Err(TranslateError::KeysMayReplaceColumns(
+            keys.name().to_owned(),
+        )),
+        None => planned.expr.condition(columns),
+    };
+    let condition = condition.map_err(|reason| Untranslatable {
+        layer: layer.info.name.clone(),
+        expr: planned.source.clone(),
+        reason,
+    })?;
+    Ok(Condition::and(geometry.into_iter().chain([condition])))
 }
 
 fn key_id(pos: usize) -> KeyId {

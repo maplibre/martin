@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn max_feature_count_rejects_a_layer_with_where() {
+    fn the_engine_query_keeps_the_rows_some_layer_takes() {
         let mut info = table(indoc! {r#"
             schema: public
             table: roads
@@ -194,49 +194,104 @@ mod tests {
             geometry_column: geom
             properties:
               class: text
+              rank: int4
             layers:
               major:
-                where: "class == 'motorway'"
-        "#});
-        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
-        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` needs `where` checked in SQL, but `class == 'motorway'` is not checked in SQL yet");
-    }
-
-    #[test]
-    fn max_feature_count_rejects_a_layer_with_where_beside_a_layer_of_any_geometry() {
-        let mut info = table(indoc! {r#"
-            schema: public
-            table: roads
-            srid: 3857
-            geometry_column: geom
-            properties:
-              class: text
-            layers:
-              all: {}
-              major:
-                where: "class == 'motorway'"
-        "#});
-        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
-        insta::assert_snapshot!(err, @"layer `major`: `max_feature_count` needs `where` checked in SQL, but `class == 'motorway'` is not checked in SQL yet");
-    }
-
-    #[test]
-    fn without_max_feature_count_a_layer_with_where_reads_every_row() {
-        let mut info = table(indoc! {r#"
-            schema: public
-            table: roads
-            srid: 3857
-            geometry_column: geom
-            properties:
-              class: text
-            layers:
-              major:
-                where: "class == 'motorway'"
+                where: "class == 'motorway' && rank > 2"
               paths:
                 geometry: line
+                where: "rank < 1"
+        "#});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "rank" FROM "public"."roads" WHERE "geom" IS NOT NULL AND (("class" = 'motorway' AND "rank" > 2) OR (ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_LineString', 'ST_MultiLineString') AND "rank" < 1)) AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn max_feature_count_rejects_a_where_sql_cannot_apply() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              name: text
+            layers:
+              named:
+                where: "name + '!' == 'A!'"
+        "#});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `named`: `max_feature_count` needs `where` checked in SQL, but `name + '!' == 'A!'` uses `+`, which has no SQL equivalent");
+    }
+
+    #[test]
+    fn max_feature_count_rejects_a_where_sql_cannot_apply_beside_a_layer_of_any_geometry() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              name: text
+            layers:
+              all: {}
+              named:
+                where: "name + '!' == 'A!'"
+        "#});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `named`: `max_feature_count` needs `where` checked in SQL, but `name + '!' == 'A!'` uses `+`, which has no SQL equivalent");
+    }
+
+    #[test]
+    fn attributes_without_jsonb_keys_let_the_engine_query_apply_where() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+              tags: jsonb
+            layers:
+              major:
+                attributes: [class]
+                where: "class == 'motorway'"
+        "#});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("class" = 'motorway') AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn max_feature_count_rejects_a_where_on_a_name_column() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              ref: name
+            layers:
+              numbered:
+                where: "ref == 'A1'"
+        "#});
+        let err = engine_info("roads", &mut info, Some(100), None).expect_err("cannot limit");
+        insta::assert_snapshot!(err, @"layer `numbered`: `max_feature_count` needs `where` checked in SQL, but `ref == 'A1'` compares `ref`, whose type the source cannot compare");
+    }
+
+    #[test]
+    fn without_max_feature_count_a_where_sql_cannot_apply_reads_every_row() {
+        let mut info = table(indoc! {r#"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              name: text
+            layers:
+              named:
+                where: "name + '!' == 'A!'"
         "#});
         let engine = engine_info("roads", &mut info, None, None).expect("plans");
-        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "name" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857))"#);
     }
 
     #[test]

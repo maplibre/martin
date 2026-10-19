@@ -2,6 +2,8 @@
 
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
+#[cfg(feature = "unstable-generate")]
+use martin_tilegen::plan::{ColumnDef, ValueKind};
 use mlt_core::PropValue;
 use mlt_core::geo_types::Geometry;
 use serde_json::Value;
@@ -76,6 +78,23 @@ impl PropType {
             _ => return None,
         })
     }
+}
+
+/// A scanned column of this `PostgreSQL` type, as a plan sees it.
+#[cfg(feature = "unstable-generate")]
+#[must_use]
+pub fn column_def(column: String, pg_type: &str) -> ColumnDef {
+    let kind = match PropType::of(pg_type) {
+        Some(PropType::Json) => return ColumnDef::Keys(column),
+        Some(PropType::Text) if matches!(pg_type, "bpchar" | "name") => {
+            return ColumnDef::Value(column);
+        }
+        Some(PropType::Bool) => ValueKind::Bool,
+        Some(PropType::Int16 | PropType::Int32 | PropType::Int64) => ValueKind::Int,
+        Some(PropType::Float | PropType::Double) => ValueKind::Float,
+        Some(PropType::Text) | None => ValueKind::String,
+    };
+    ColumnDef::Typed(column, kind)
 }
 
 /// Whether a column of this `PostgreSQL` type reaches a tile as a typed property.

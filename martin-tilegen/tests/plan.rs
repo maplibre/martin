@@ -4,7 +4,7 @@
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError,
-    RowFilter, RuleDef, SortDef, TableDef, ValueDef, ZoomDef,
+    RowFilter, RuleDef, SortDef, TableDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -1241,56 +1241,6 @@ fn a_layer_without_a_filter_reads_every_row() {
 }
 
 #[test]
-fn a_layer_with_a_where_is_untranslatable() {
-    let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
-        layers: vec![LayerDef {
-            filter: Some("class == 'primary'".to_owned()),
-            ..LayerDef::new("primary", 0..=0, GRID)
-        }],
-    }])
-    .unwrap();
-    let rows = plan.row_filter(0, 0..=0);
-    insta::assert_debug_snapshot!(rows, @r#"
-    Untranslatable(
-        Untranslatable {
-            layer: "primary",
-            expr: "class == 'primary'",
-            reason: Where,
-        },
-    )
-    "#);
-    let RowFilter::Untranslatable(err) = rows else {
-        panic!("translatable");
-    };
-    insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` is not checked in SQL yet");
-}
-
-#[test]
-fn a_layer_with_a_where_is_untranslatable_beside_a_layer_without_a_filter() {
-    let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("class".to_owned())],
-        layers: vec![
-            LayerDef::new("all", 0..=0, GRID),
-            LayerDef {
-                filter: Some("class == 'primary'".to_owned()),
-                ..LayerDef::new("primary", 0..=0, GRID)
-            },
-        ],
-    }])
-    .unwrap();
-    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
-    Untranslatable(
-        Untranslatable {
-            layer: "primary",
-            expr: "class == 'primary'",
-            reason: Where,
-        },
-    )
-    "#);
-}
-
-#[test]
 fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned())],
@@ -1327,4 +1277,178 @@ fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
         ),
     )
     ");
+}
+
+#[test]
+fn a_table_reads_the_rows_some_layer_takes() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Typed("class".to_owned(), ValueKind::String),
+            ColumnDef::Typed("rank".to_owned(), ValueKind::Int),
+        ],
+        layers: vec![
+            LayerDef {
+                filter: Some("class != 'service'".to_owned()),
+                ..LayerDef::new("roads", 0..=0, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Point),
+                filter: Some("!(rank >= 4)".to_owned()),
+                ..LayerDef::new("minor", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Matching(
+        Or(
+            [
+                Distinct {
+                    left: Column(
+                        "class",
+                    ),
+                    right: Literal(
+                        String(
+                            "service",
+                        ),
+                    ),
+                    kind: String,
+                    negated: false,
+                },
+                And(
+                    [
+                        Geometry(
+                            Point,
+                        ),
+                        Compare {
+                            left: Column(
+                                "rank",
+                            ),
+                            op: Lt,
+                            right: Literal(
+                                Int(
+                                    4,
+                                ),
+                            ),
+                            kind: Int,
+                        },
+                    ],
+                ),
+            ],
+        ),
+    )
+    "#);
+}
+
+#[test]
+fn a_where_with_no_sql_equivalent_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("name".to_owned(), ValueKind::String)],
+        layers: vec![LayerDef {
+            filter: Some("name + '!' == 'A!'".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let rows = plan.row_filter(0, 0..=0);
+    insta::assert_debug_snapshot!(rows, @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "named",
+            expr: "name + '!' == 'A!'",
+            reason: Function(
+                "+",
+            ),
+        },
+    )
+    "#);
+    let RowFilter::Untranslatable(err) = rows else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `named`: `name + '!' == 'A!'` uses `+`, which has no SQL equivalent");
+}
+
+#[test]
+fn a_where_with_no_sql_equivalent_is_untranslatable_beside_a_layer_without_a_filter() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Typed("name".to_owned(), ValueKind::String)],
+        layers: vec![
+            LayerDef::new("all", 0..=0, GRID),
+            LayerDef {
+                filter: Some("name + '!' == 'A!'".to_owned()),
+                ..LayerDef::new("named", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "named",
+            expr: "name + '!' == 'A!'",
+            reason: Function(
+                "+",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_column_of_unknown_type_is_not_compared() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("code".to_owned())],
+        layers: vec![LayerDef {
+            filter: Some("code == 'A'".to_owned()),
+            ..LayerDef::new("coded", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let rows = plan.row_filter(0, 0..=0);
+    insta::assert_debug_snapshot!(rows, @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "coded",
+            expr: "code == 'A'",
+            reason: UnknownColumnType(
+                "code",
+            ),
+        },
+    )
+    "#);
+    let RowFilter::Untranslatable(err) = rows else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `coded`: `code == 'A'` compares `code`, whose type the source cannot compare");
+}
+
+#[test]
+fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Typed("class".to_owned(), ValueKind::String),
+            ColumnDef::Keys("tags".to_owned()),
+        ],
+        layers: vec![LayerDef {
+            filter: Some("class == 'primary'".to_owned()),
+            ..LayerDef::new("primary", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let rows = plan.row_filter(0, 0..=0);
+    insta::assert_debug_snapshot!(rows, @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "primary",
+            expr: "class == 'primary'",
+            reason: KeysMayReplaceColumns(
+                "tags",
+            ),
+        },
+    )
+    "#);
+    let RowFilter::Untranslatable(err) = rows else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` reads columns that a key of `tags` may replace");
 }

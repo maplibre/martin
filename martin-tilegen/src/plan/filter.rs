@@ -2,6 +2,15 @@
 
 use super::GeometryType;
 
+/// The type every non-null value of a column has, as an expression sees it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ValueKind {
+    Bool,
+    Int,
+    Float,
+    String,
+}
+
 /// The rows a source has to read for a table.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RowFilter {
@@ -36,8 +45,34 @@ pub struct Untranslatable {
 /// Why an expression has no [`Condition`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum TranslateError {
-    #[error("is not checked in SQL yet")]
-    Where,
+    #[error("reads columns that a key of `{0}` may replace")]
+    KeysMayReplaceColumns(String),
+    #[error("reads `{0}`, which is not a column the source can filter on")]
+    NotAColumn(String),
+    #[error("selects a field of a value")]
+    SelectsField,
+    #[error("uses an expression with no SQL equivalent")]
+    Expression,
+    #[error("uses `{0}`, which has no SQL equivalent")]
+    Function(String),
+    #[error("compares `{0}`, whose type the source cannot compare")]
+    UnknownColumnType(String),
+    #[error("compares a value whose type the source cannot compare")]
+    UnknownType,
+    #[error("compares two constants")]
+    Constants,
+    #[error("compares two float columns, which may hold NaN")]
+    FloatColumns,
+    #[error("orders something other than a column against a literal")]
+    Order,
+    #[error("uses a string holding a NUL character")]
+    NulInString,
+    #[error("uses a bytes literal")]
+    Bytes,
+    #[error("negates the smallest integer")]
+    NegatedMinimum,
+    #[error("negates something other than a number")]
+    NegatedNonNumber,
 }
 
 /// A condition on a row with SQL's three-valued logic: the row passes only when it is true.
@@ -46,8 +81,81 @@ pub enum Condition {
     Const(bool),
     And(Vec<Self>),
     Or(Vec<Self>),
+    /// Both sides compared as `kind`, strings by code point.
+    Compare {
+        left: Term,
+        op: CompareOp,
+        right: Term,
+        kind: ValueKind,
+    },
+    /// `IS DISTINCT FROM`, or `IS NOT DISTINCT FROM` when `negated`, both sides compared as `kind`.
+    Distinct {
+        left: Term,
+        right: Term,
+        kind: ValueKind,
+        negated: bool,
+    },
+    /// `IS NULL`, or `IS NOT NULL` when `negated`.
+    IsNull {
+        term: Term,
+        negated: bool,
+    },
     /// The geometry is of this type, single or multi.
     Geometry(GeometryType),
+}
+
+/// A comparison operator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompareOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl CompareOp {
+    /// The operator true exactly where this one is false, for values that compare.
+    pub(crate) fn negate(self) -> Self {
+        match self {
+            Self::Eq => Self::Ne,
+            Self::Ne => Self::Eq,
+            Self::Lt => Self::Ge,
+            Self::Le => Self::Gt,
+            Self::Gt => Self::Le,
+            Self::Ge => Self::Lt,
+        }
+    }
+
+    /// The operator with its sides swapped.
+    pub(crate) fn mirror(self) -> Self {
+        match self {
+            Self::Eq | Self::Ne => self,
+            Self::Lt => Self::Gt,
+            Self::Le => Self::Ge,
+            Self::Gt => Self::Lt,
+            Self::Ge => Self::Le,
+        }
+    }
+}
+
+/// A value of a row.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Term {
+    /// A column, by its [`ColumnDef`](super::ColumnDef) name.
+    Column(String),
+    Literal(Literal),
+}
+
+/// A constant value.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Literal {
+    Bool(bool),
+    Int(i64),
+    UInt(u64),
+    Float(f64),
+    String(String),
 }
 
 impl Condition {
