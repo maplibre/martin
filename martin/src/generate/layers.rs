@@ -614,6 +614,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn attributes_select_columns_and_jsonb_keys() {
         let scan = lower(
             indoc! {r#"
