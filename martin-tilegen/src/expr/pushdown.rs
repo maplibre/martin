@@ -17,31 +17,15 @@ struct Translator<'a> {
     columns: &'a [ColumnDef],
 }
 
-/// Where an operand's value comes from, which decides how it compares with `null`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum Origin {
-    Literal,
-    Null,
-    /// `null` where the row has none, and `null == null`.
-    Column,
-}
-
 /// One side of a comparison.
-struct Operand {
-    term: Term,
-    kind: Option<ValueKind>,
-    origin: Origin,
-}
-
-impl Operand {
-    /// A literal of `kind`.
-    fn literal(literal: Literal, kind: ValueKind) -> Self {
-        Self {
-            term: Term::Literal(literal),
-            kind: Some(kind),
-            origin: Origin::Literal,
-        }
-    }
+enum Operand {
+    /// The `null` literal.
+    Null,
+    /// A literal other than `null`, of `kind`.
+    Literal(Literal, ValueKind),
+    /// A column, with the kind of its values if it is known.
+    /// It is `null` where the row has no value.
+    Column(String, Option<ValueKind>),
 }
 
 impl Translator<'_> {
@@ -97,10 +81,10 @@ impl Translator<'_> {
                 ]),
             ])),
             (operators::EQUALS, None, [left, right]) => {
-                equals(self.operand(left)?, self.operand(right)?, !negated)
+                equals(self.operand(left)?, self.operand(right)?, negated)
             }
             (operators::NOT_EQUALS, None, [left, right]) => {
-                equals(self.operand(left)?, self.operand(right)?, negated)
+                equals(self.operand(left)?, self.operand(right)?, !negated)
             }
             (operators::LESS, None, [left, right]) => {
                 self.order(left, CompareOp::Lt, right, negated)
@@ -126,29 +110,32 @@ impl Translator<'_> {
         right: &IdedExpr,
         negated: bool,
     ) -> Result<Condition, TranslateError> {
-        let (left, right) = (self.operand(left)?, self.operand(right)?);
-        let (operand, op, literal) = match (left.origin, right.origin) {
-            (Origin::Column, Origin::Literal) => (left, op, right),
-            (Origin::Literal, Origin::Column) => (right, op.mirror(), left),
-            _ => return Err(TranslateError::Order),
-        };
+        let ((name, column_kind), op, (literal, literal_kind)) =
+            match (self.operand(left)?, self.operand(right)?) {
+                (Operand::Column(name, kind), Operand::Literal(literal, literal_kind)) => {
+                    ((name, kind), op, (literal, literal_kind))
+                }
+                (Operand::Literal(literal, literal_kind), Operand::Column(name, kind)) => {
+                    ((name, kind), op.mirror(), (literal, literal_kind))
+                }
+                _ => return Err(TranslateError::Order),
+            };
         let op = if negated { op.negate() } else { op };
-        if operand.kind.is_none() {
-            return Err(unknown_kind(&operand.term));
-        }
-        let Some(kind) = common_kind(operand.kind, literal.kind) else {
+        let column_kind = known_kind(&name, column_kind)?;
+        let Some(kind) = common_kind(column_kind, literal_kind) else {
             return Ok(Condition::Const(false));
         };
-        let not_nan = (operand.kind == Some(ValueKind::Float)).then(|| Condition::Compare {
-            left: operand.term.clone(),
+        let column = Term::Column(name);
+        let not_nan = (column_kind == ValueKind::Float).then(|| Condition::Compare {
+            left: column.clone(),
             op: CompareOp::Ne,
             right: Term::Literal(Literal::Float(f64::NAN)),
             kind: ValueKind::Float,
         });
         let compare = Condition::Compare {
-            left: operand.term,
+            left: column,
             op,
-            right: literal.term,
+            right: Term::Literal(literal),
             kind,
         };
         Ok(Condition::and(std::iter::once(compare).chain(not_nan)))
@@ -195,82 +182,92 @@ impl Translator<'_> {
                 ColumnDef::Typed(..) | ColumnDef::Value(_) | ColumnDef::Keys(_) => None,
             })
             .ok_or_else(|| TranslateError::NotAColumn(name.to_owned()))?;
-        Ok(Operand {
-            term: Term::Column(name.to_owned()),
-            kind,
-            origin: Origin::Column,
-        })
+        Ok(Operand::Column(name.to_owned(), kind))
     }
 }
 
 /// A value as a filter: only `true` passes, or only `false` once negated.
 fn is_true(operand: Operand, negated: bool) -> Result<Condition, TranslateError> {
-    match (operand.origin, operand.kind) {
-        (Origin::Column, Some(ValueKind::Bool)) => Ok(Condition::Compare {
-            left: operand.term,
+    match operand {
+        Operand::Column(name, Some(ValueKind::Bool)) => Ok(Condition::Compare {
+            left: Term::Column(name),
             op: CompareOp::Eq,
             right: Term::Literal(Literal::Bool(!negated)),
             kind: ValueKind::Bool,
         }),
-        (Origin::Column, None) => Err(unknown_kind(&operand.term)),
-        _ => Ok(Condition::Const(false)),
+        Operand::Column(name, None) => Err(TranslateError::UnknownColumnType(name)),
+        Operand::Column(_, Some(_)) | Operand::Literal(..) | Operand::Null => {
+            Ok(Condition::Const(false))
+        }
     }
 }
 
-/// `left == right` if `equal`, else `left != right`.
-fn equals(left: Operand, right: Operand, equal: bool) -> Result<Condition, TranslateError> {
-    let (left, right) = if left.origin < right.origin {
-        (right, left)
-    } else {
-        (left, right)
+/// `left == right`, or `left != right` if `negated`.
+fn equals(left: Operand, right: Operand, negated: bool) -> Result<Condition, TranslateError> {
+    let ((name, kind), other) = match (left, right) {
+        (Operand::Column(name, kind), other) | (other, Operand::Column(name, kind)) => {
+            ((name, kind), other)
+        }
+        _ => return Err(TranslateError::Constants),
     };
-    let kind = common_kind(left.kind, right.kind);
-    Ok(match (left.origin, right.origin, kind) {
-        (Origin::Literal | Origin::Null, _, _) => return Err(TranslateError::Constants),
-        (Origin::Column, Origin::Null, _) => Condition::IsNull {
-            term: left.term,
-            negated: !equal,
-        },
-        (Origin::Column, _, _) if left.kind.is_none() || right.kind.is_none() => {
-            return Err(unknown_kind(if left.kind.is_none() {
-                &left.term
-            } else {
-                &right.term
-            }));
+    match other {
+        Operand::Null => Ok(Condition::IsNull {
+            term: Term::Column(name),
+            negated,
+        }),
+        Operand::Literal(literal, literal_kind) => {
+            let kind = known_kind(&name, kind)?;
+            let (column, literal) = (Term::Column(name), Term::Literal(literal));
+            Ok(match common_kind(kind, literal_kind) {
+                None => Condition::Const(negated),
+                Some(kind) if negated => Condition::Distinct {
+                    left: column,
+                    right: literal,
+                    kind,
+                    negated: false,
+                },
+                Some(kind) => Condition::Compare {
+                    left: column,
+                    op: CompareOp::Eq,
+                    right: literal,
+                    kind,
+                },
+            })
         }
-        (Origin::Column, Origin::Literal, None) => Condition::Const(!equal),
-        (Origin::Column, Origin::Literal, Some(kind)) if equal => Condition::Compare {
-            left: left.term,
-            op: CompareOp::Eq,
-            right: right.term,
-            kind,
-        },
-        (Origin::Column, Origin::Column, Some(ValueKind::Float)) if left.kind == right.kind => {
-            return Err(TranslateError::FloatColumns);
-        }
-        (Origin::Column, Origin::Literal | Origin::Column, Some(kind)) => Condition::Distinct {
-            left: left.term,
-            right: right.term,
-            kind,
-            negated: right.origin == Origin::Column && equal,
-        },
-        (Origin::Column, Origin::Column, None) => {
-            let parts = [left.term, right.term].map(|term| Condition::IsNull {
-                term,
-                negated: !equal,
-            });
-            if equal {
-                Condition::and(parts)
-            } else {
-                Condition::or(parts)
+        Operand::Column(other, other_kind) => {
+            let kind = known_kind(&name, kind)?;
+            let other_kind = known_kind(&other, other_kind)?;
+            let (left, right) = (Term::Column(name), Term::Column(other));
+            match common_kind(kind, other_kind) {
+                Some(ValueKind::Float) if kind == other_kind => Err(TranslateError::FloatColumns),
+                // CEL holds `null == null`, so two columns compare like `IS NOT DISTINCT FROM`.
+                Some(kind) => Ok(Condition::Distinct {
+                    left,
+                    right,
+                    kind,
+                    negated: !negated,
+                }),
+                None => {
+                    let parts = [left, right].map(|term| Condition::IsNull { term, negated });
+                    Ok(if negated {
+                        Condition::or(parts)
+                    } else {
+                        Condition::and(parts)
+                    })
+                }
             }
         }
-    })
+    }
+}
+
+/// The kind of column `name`, an error if it is not known.
+fn known_kind(name: &str, kind: Option<ValueKind>) -> Result<ValueKind, TranslateError> {
+    kind.ok_or_else(|| TranslateError::UnknownColumnType(name.to_owned()))
 }
 
 /// The type two values compare as: numbers as floats once one is a float.
-fn common_kind(left: Option<ValueKind>, right: Option<ValueKind>) -> Option<ValueKind> {
-    match (left?, right?) {
+fn common_kind(left: ValueKind, right: ValueKind) -> Option<ValueKind> {
+    match (left, right) {
         (ValueKind::Float, ValueKind::Int) | (ValueKind::Int, ValueKind::Float) => {
             Some(ValueKind::Float)
         }
@@ -278,31 +275,19 @@ fn common_kind(left: Option<ValueKind>, right: Option<ValueKind>) -> Option<Valu
     }
 }
 
-/// The error for comparing `term`, whose type is not known.
-fn unknown_kind(term: &Term) -> TranslateError {
-    match term {
-        Term::Column(name) => TranslateError::UnknownColumnType(name.clone()),
-        Term::Literal(_) => TranslateError::UnknownType,
-    }
-}
-
 /// A literal as an operand.
 fn literal_operand(literal: &LiteralValue) -> Result<Operand, TranslateError> {
     Ok(match literal {
-        LiteralValue::Null => Operand {
-            term: Term::Literal(Literal::Bool(false)),
-            kind: None,
-            origin: Origin::Null,
-        },
-        LiteralValue::Boolean(v) => Operand::literal(Literal::Bool(*v.inner()), ValueKind::Bool),
-        LiteralValue::Int(v) => Operand::literal(Literal::Int(*v.inner()), ValueKind::Int),
-        LiteralValue::UInt(v) => Operand::literal(Literal::UInt(*v.inner()), ValueKind::Int),
-        LiteralValue::Double(v) => Operand::literal(Literal::Float(*v.inner()), ValueKind::Float),
+        LiteralValue::Null => Operand::Null,
+        LiteralValue::Boolean(v) => Operand::Literal(Literal::Bool(*v.inner()), ValueKind::Bool),
+        LiteralValue::Int(v) => Operand::Literal(Literal::Int(*v.inner()), ValueKind::Int),
+        LiteralValue::UInt(v) => Operand::Literal(Literal::UInt(*v.inner()), ValueKind::Int),
+        LiteralValue::Double(v) => Operand::Literal(Literal::Float(*v.inner()), ValueKind::Float),
         LiteralValue::String(v) if v.inner().contains('\0') => {
             return Err(TranslateError::NulInString);
         }
         LiteralValue::String(v) => {
-            Operand::literal(Literal::String(v.inner().to_owned()), ValueKind::String)
+            Operand::Literal(Literal::String(v.inner().to_owned()), ValueKind::String)
         }
         LiteralValue::Bytes(_) => return Err(TranslateError::Bytes),
     })
@@ -316,9 +301,9 @@ fn negative_literal(literal: &LiteralValue) -> Result<Operand, TranslateError> {
                 .inner()
                 .checked_neg()
                 .ok_or(TranslateError::NegatedMinimum)?;
-            Ok(Operand::literal(Literal::Int(negated), ValueKind::Int))
+            Ok(Operand::Literal(Literal::Int(negated), ValueKind::Int))
         }
-        LiteralValue::Double(v) => Ok(Operand::literal(
+        LiteralValue::Double(v) => Ok(Operand::Literal(
             Literal::Float(-v.inner()),
             ValueKind::Float,
         )),

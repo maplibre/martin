@@ -57,8 +57,6 @@ pub enum TranslateError {
     Function(String),
     #[error("compares `{0}`, whose type the source cannot compare")]
     UnknownColumnType(String),
-    #[error("compares a value whose type the source cannot compare")]
-    UnknownType,
     #[error("compares two constants")]
     Constants,
     #[error("compares two float columns, which may hold NaN")]
