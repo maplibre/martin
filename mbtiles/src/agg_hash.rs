@@ -37,9 +37,7 @@ impl AggTilesHasher {
     pub fn new(algorithm: HashAlgorithm) -> Self {
         let state = match algorithm {
             HashAlgorithm::Md5 => State::Md5(md5::Context::new()),
-            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => {
-                State::Fnv(fnv::FnvHasher::default())
-            }
+            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => State::Fnv(fnv::FnvHasher::default()),
             HashAlgorithm::Xxh64 => State::Xxh64(Xxh64::new(0)),
             HashAlgorithm::Xxh3 => State::Xxh3(Box::default()),
         };
@@ -137,9 +135,7 @@ mod tests {
             schema: NormalizedSchema::DedupId,
         };
         let (mbt, mut conn) = anonymous_mbtiles("").await;
-        init_mbtiles_schema(&mut conn, mbt_type, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, mbt_type, false).await.unwrap();
         mbt.set_metadata_value(&mut conn, HASH_ALGORITHM, algorithm.as_str())
             .await
             .unwrap();
@@ -177,9 +173,7 @@ mod tests {
     #[actix_rt::test]
     async fn no_tiles_hash_like_an_empty_file(#[case] algorithm: HashAlgorithm) {
         let (_, mut conn) = anonymous_mbtiles("").await;
-        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await.unwrap();
 
         assert_eq!(
             AggTilesHasher::new(algorithm).finish(),
@@ -209,37 +203,25 @@ mod tests {
     #[actix_rt::test]
     async fn finish_computes_the_hash_from_the_file_for_tiles_out_of_order() {
         let (mbt, mut conn) = anonymous_mbtiles("").await;
-        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await.unwrap();
         let tiles = [((1, 0, 0), b"a".as_slice()), ((1, 0, 1), b"b")];
         let mut hasher = AggTilesHasher::new(HashAlgorithm::Md5);
-        mbt.bulk_write(
-            &mut conn,
-            MbtType::Flat,
-            CopyDuplicateMode::Abort,
-            |writer| {
-                for ((z, x, y), data) in tiles {
-                    let coord = TileCoord::new_unchecked(z, x, y);
-                    writer.write(coord, data, TileDedup::Unknown)?;
-                    hasher.push(coord, data);
-                }
-                Ok::<_, crate::MbtError>(())
-            },
-        )
+        mbt.bulk_write(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, |writer| {
+            for ((z, x, y), data) in tiles {
+                let coord = TileCoord::new_unchecked(z, x, y);
+                writer.write(coord, data, TileDedup::Unknown)?;
+                hasher.push(coord, data);
+            }
+            Ok::<_, crate::MbtError>(())
+        })
         .await
         .unwrap();
 
         let stored = mbt.finish_agg_tiles_hash(&mut conn, hasher).await.unwrap();
         assert_eq!(
             stored,
-            calc_agg_tiles_hash(&mut conn, HashAlgorithm::Md5)
-                .await
-                .unwrap()
+            calc_agg_tiles_hash(&mut conn, HashAlgorithm::Md5).await.unwrap()
         );
-        assert_eq!(
-            mbt.get_agg_tiles_hash(&mut conn).await.unwrap(),
-            Some(stored)
-        );
+        assert_eq!(mbt.get_agg_tiles_hash(&mut conn).await.unwrap(), Some(stored));
     }
 }

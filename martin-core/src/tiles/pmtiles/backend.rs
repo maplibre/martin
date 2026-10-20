@@ -8,9 +8,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use derive_debug::Dbg;
-use pmtiles::{
-    AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult,
-};
+use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult};
 
 /// Reads a local `PMTiles` file through a memory map.
 ///
@@ -31,11 +29,7 @@ impl PmtFileBackend {
         let path = path.into();
         let mmap = MmapBackend::try_from(&path).await?;
         let version = data_version(&std::fs::metadata(&path)?);
-        Ok(Self {
-            mmap,
-            path,
-            version,
-        })
+        Ok(Self { mmap, path, version })
     }
 }
 

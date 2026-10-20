@@ -18,8 +18,7 @@ use crate::errors::MbtResult;
 use crate::mbtiles::parse_tile_index;
 use crate::queries::{detach_db, init_mbtiles_schema};
 use crate::{
-    CopyDuplicateMode, HASH_ALGORITHM, HashAlgorithm, MbtError, MbtType, Mbtiles, NormalizedSchema,
-    TileCoord,
+    CopyDuplicateMode, HASH_ALGORITHM, HashAlgorithm, MbtError, MbtType, Mbtiles, NormalizedSchema, TileCoord,
 };
 
 /// Default number of tiles per batch in the pipeline.
@@ -106,10 +105,7 @@ pub struct MbtilesTranscoder<F> {
 
 impl<F> MbtilesTranscoder<F>
 where
-    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
-        + Send
-        + Sync
-        + 'static,
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
 {
     /// Create a new transcoder with required parameters and sensible defaults.
     pub fn new(src_file: impl AsRef<Path>, dst_file: impl AsRef<Path>, transform: F) -> Self {
@@ -204,12 +200,8 @@ where
 
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.
-        sqlx::query("PRAGMA journal_mode=WAL")
-            .execute(&mut dst_conn)
-            .await?;
-        sqlx::query!("PRAGMA synchronous=NORMAL")
-            .execute(&mut dst_conn)
-            .await?;
+        sqlx::query("PRAGMA journal_mode=WAL").execute(&mut dst_conn).await?;
+        sqlx::query!("PRAGMA synchronous=NORMAL").execute(&mut dst_conn).await?;
 
         info!(
             src.path = %src,
@@ -233,14 +225,8 @@ where
         }
 
         let stats = if let Some(src_schema) = src_type.normalized_schema() {
-            self.run_normalized_path(
-                &mut src_conn,
-                src_schema,
-                &mut dst_conn,
-                dst_type,
-                algorithm,
-            )
-            .await?
+            self.run_normalized_path(&mut src_conn, src_schema, &mut dst_conn, dst_type, algorithm)
+                .await?
         } else {
             if needs_src_attached {
                 detach_db(&mut dst_conn, "srcDb").await?;
@@ -276,11 +262,7 @@ where
         // `tile_id`. Per-row try_get fallback would re-allocate an error
         // string every miss.
         let id_is_integer = src_schema.uses_integer_tile_id();
-        let select_col = if id_is_integer {
-            "tile_data_id"
-        } else {
-            "tile_id"
-        };
+        let select_col = if id_is_integer { "tile_data_id" } else { "tile_id" };
 
         let (raw_tx, raw_rx) = bounded::<NormRawBatch>(self.channel_buffer);
         let (enc_tx, enc_rx) = bounded::<NormEncBatch>(self.channel_buffer);
@@ -291,22 +273,11 @@ where
         let sql = format!("SELECT {select_col}, tile_data FROM {content_table}");
         let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size, id_is_integer);
         let compute = normalized_compute(raw_rx, enc_tx, transform);
-        let writer = normalized_writer(
-            dst_conn,
-            enc_rx,
-            dst_type,
-            src_map,
-            tile_id_col,
-            batch_size,
-            algorithm,
-        );
+        let writer = normalized_writer(dst_conn, enc_rx, dst_type, src_map, tile_id_col, batch_size, algorithm);
 
         let ((), (), (unique_encoded, tiles_written)) = tokio::try_join!(reader, compute, writer)?;
 
-        info!(
-            unique_encoded,
-            tiles_written, "Encoded unique tiles and wrote rows"
-        );
+        info!(unique_encoded, tiles_written, "Encoded unique tiles and wrote rows");
 
         detach_db(&mut *dst_conn, "srcDb").await?;
 
@@ -423,10 +394,7 @@ async fn normalized_compute<F>(
     transform: Arc<F>,
 ) -> MbtResult<()>
 where
-    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
-        + Send
-        + Sync
-        + 'static,
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
 {
     while let Ok(batch) = raw_rx.recv_async().await {
         let transform = Arc::clone(&transform);
@@ -490,11 +458,9 @@ async fn normalized_writer(
     // from source tile_id to new md5-based tile_id so the map INSERT can
     // reference the correct IDs.
     if is_hash_dst {
-        sqlx::query(
-            "CREATE TEMP TABLE _tile_id_map (old_id TEXT PRIMARY KEY, new_id TEXT NOT NULL)",
-        )
-        .execute(&mut *dst_conn)
-        .await?;
+        sqlx::query("CREATE TEMP TABLE _tile_id_map (old_id TEXT PRIMARY KEY, new_id TEXT NOT NULL)")
+            .execute(&mut *dst_conn)
+            .await?;
     }
 
     let mut unique_encoded = 0usize;
@@ -503,9 +469,7 @@ async fn normalized_writer(
     while let Ok(batch) = enc_rx.recv_async().await {
         let mut tx = dst_conn.begin().await?;
         for chunk in batch.chunks(chunk_rows) {
-            rows_written +=
-                write_normalized_chunk(&mut tx, chunk, dst_type, src_map, tile_id_col, algorithm)
-                    .await?;
+            rows_written += write_normalized_chunk(&mut tx, chunk, dst_type, src_map, tile_id_col, algorithm).await?;
             unique_encoded += chunk.len();
         }
         tx.commit().await?;
@@ -536,9 +500,7 @@ async fn normalized_writer(
             )
         };
 
-        let res = sqlx::query(AssertSqlSafe(sql))
-            .execute(&mut *dst_conn)
-            .await?;
+        let res = sqlx::query(AssertSqlSafe(sql)).execute(&mut *dst_conn).await?;
         rows_written = usize::try_from(res.rows_affected()).unwrap_or(usize::MAX);
     }
 
@@ -654,9 +616,7 @@ async fn general_reader(
     let is_flat_with_hash = matches!(src_type, MbtType::FlatWithHash);
     let sql = match src_type {
         MbtType::Flat => "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles",
-        MbtType::FlatWithHash => {
-            "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash FROM tiles_with_hash"
-        }
+        MbtType::FlatWithHash => "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash FROM tiles_with_hash",
         MbtType::Normalized { .. } => unreachable!("general_reader called with normalized source"),
         MbtType::Cache => unreachable!("cache files are rejected before transcoding starts"),
     };
@@ -711,10 +671,7 @@ async fn general_compute<F>(
     max_tile_track_size: usize,
 ) -> MbtResult<()>
 where
-    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
-        + Send
-        + Sync
-        + 'static,
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> + Send + Sync + 'static,
 {
     while let Ok(batch) = raw_rx.recv_async().await {
         let transform = Arc::clone(&transform);
@@ -783,9 +740,7 @@ where
 
     let entry = cache
         .entry(key)
-        .or_try_insert_with(
-            || -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> { (transform)(data) },
-        )
+        .or_try_insert_with(|| -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> { (transform)(data) })
         .inspect_err(|e| warn!(tile.coord = %coord, error = ?e, "Skipping tile"))
         .ok()?;
 
@@ -817,13 +772,8 @@ async fn general_writer(
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
-            dst.insert_tiles(
-                &mut dst_conn,
-                dst_type,
-                CopyDuplicateMode::Override,
-                &pending,
-            )
-            .await?;
+            dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+                .await?;
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
@@ -833,13 +783,8 @@ async fn general_writer(
 
     // Final flush.
     if !pending.is_empty() {
-        dst.insert_tiles(
-            &mut dst_conn,
-            dst_type,
-            CopyDuplicateMode::Override,
-            &pending,
-        )
-        .await?;
+        dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+            .await?;
         total += pending.len();
         pending.clear();
     }
@@ -872,8 +817,7 @@ mod tests {
 
         let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
-        let mut builder =
-            MbtilesTranscoder::new(&src_file, &dst_file, |data| Ok(Bytes::from(data)));
+        let mut builder = MbtilesTranscoder::new(&src_file, &dst_file, |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -902,8 +846,7 @@ mod tests {
             .unwrap();
         drop(src_conn);
 
-        let mut builder =
-            MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
+        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -917,8 +860,7 @@ mod tests {
     #[actix_rt::test]
     async fn transcode_flat_to_flat() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (stats, mut conn, _dir) =
-            transcode_identity(script, "tc_flat_flat", Some(MbtType::Flat)).await;
+        let (stats, mut conn, _dir) = transcode_identity(script, "tc_flat_flat", Some(MbtType::Flat)).await;
 
         assert_eq!(stats.tiles_written, 8);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
@@ -931,8 +873,7 @@ mod tests {
     #[actix_rt::test]
     async fn transcode_flat_to_flat_with_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (stats, mut conn, _dir) =
-            transcode_identity(script, "tc_flat_fwh", Some(MbtType::FlatWithHash)).await;
+        let (stats, mut conn, _dir) = transcode_identity(script, "tc_flat_fwh", Some(MbtType::FlatWithHash)).await;
 
         assert_eq!(stats.tiles_written, 8);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles_with_hash")
@@ -966,8 +907,7 @@ mod tests {
     #[actix_rt::test]
     async fn transcode_normalized_to_flat() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
-        let (stats, mut conn, _dir) =
-            transcode_identity(script, "tc_norm_flat", Some(MbtType::Flat)).await;
+        let (stats, mut conn, _dir) = transcode_identity(script, "tc_norm_flat", Some(MbtType::Flat)).await;
 
         assert_eq!(stats.tiles_written, 6);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")

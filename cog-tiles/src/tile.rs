@@ -72,15 +72,9 @@ impl FromStr for TileCoord {
 
     /// Parses a `z/x/y` string.
     fn from_str(value: &str) -> CogResult<Self> {
-        let invalid = || CogError::InvalidTileCoord {
-            z: u8::MAX,
-            x: 0,
-            y: 0,
-        };
+        let invalid = || CogError::InvalidTileCoord { z: u8::MAX, x: 0, y: 0 };
         let mut parts = value.split('/');
-        let (Some(z), Some(x), Some(y), None) =
-            (parts.next(), parts.next(), parts.next(), parts.next())
-        else {
+        let (Some(z), Some(x), Some(y), None) = (parts.next(), parts.next(), parts.next(), parts.next()) else {
             return Err(invalid());
         };
         Self::new(
@@ -128,8 +122,7 @@ mod tests {
 
     #[test]
     fn bounds() {
-        let [min_x, min_y, max_x, max_y] =
-            TileCoord::new(16, 32748, 21794).unwrap().mercator_bounds();
+        let [min_x, min_y, max_x, max_y] = TileCoord::new(16, 32748, 21794).unwrap().mercator_bounds();
         assert!((min_x - -12_229.924_525_629_729).abs() < 1e-6);
         assert!((max_y - 6_710_559.587_212_194).abs() < 1e-6);
         assert!((max_x - min_x - 611.496_226_281_41).abs() < 1e-6);

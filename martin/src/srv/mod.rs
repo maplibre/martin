@@ -45,9 +45,8 @@ pub use tiles::metadata::{__path_get_source_info, get_source_info};
 mod sprites;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use sprites::{
-    __path_get_sprite_json, __path_get_sprite_png, __path_get_sprite_sdf_json,
-    __path_get_sprite_sdf_png, get_sprite_json, get_sprite_png, get_sprite_sdf_json,
-    get_sprite_sdf_png,
+    __path_get_sprite_json, __path_get_sprite_png, __path_get_sprite_sdf_json, __path_get_sprite_sdf_png,
+    get_sprite_json, get_sprite_png, get_sprite_sdf_json, get_sprite_sdf_png,
 };
 
 #[cfg(feature = "resources")]

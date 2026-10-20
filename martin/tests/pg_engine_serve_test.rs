@@ -5,9 +5,7 @@ use std::collections::BTreeMap;
 
 use indoc::indoc;
 use martin::config::args::OrderByType;
-use martin::config::file::postgres::{
-    PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo,
-};
+use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo};
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
 use martin::generate::layers::{LowerOptions, lower_table};
@@ -36,25 +34,16 @@ async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpe
 }
 
 /// Every tile `martin generate` writes for `info`, uncompressed, by `(z, x, y)` with `y` from the top.
-async fn generated(
-    builder: &PostgresAutoDiscoveryBuilder,
-    info: TableInfo,
-) -> BTreeMap<(u8, u32, u32), Vec<u8>> {
+async fn generated(builder: &PostgresAutoDiscoveryBuilder, info: TableInfo) -> BTreeMap<(u8, u32, u32), Vec<u8>> {
     let dir = tempfile::tempdir().unwrap();
     let options = LowerOptions {
         zooms: 0..=4,
         bounds: None,
     };
-    let table = lower_table("table_source", info, &options)
-        .unwrap()
+    let table = lower_table("table_source", info, &options).unwrap().unwrap();
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
+        .await
         .unwrap();
-    let source = PgScanSource::new(
-        builder.pool().clone(),
-        vec![table],
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await
-    .unwrap();
     let path = dir.path().join("all.mbtiles");
     let sort_dir = dir.path().to_path_buf();
     let sink_path = path.clone();
@@ -138,14 +127,8 @@ async fn served_tiles_are_the_tiles_generate_writes() {
         }
     }
     assert!(expected.len() > 10, "{} tiles", expected.len());
-    assert_eq!(
-        served.keys().collect::<Vec<_>>(),
-        expected.keys().collect::<Vec<_>>()
-    );
-    assert!(
-        served == expected,
-        "served tiles differ from generated ones"
-    );
+    assert_eq!(served.keys().collect::<Vec<_>>(), expected.keys().collect::<Vec<_>>());
+    assert!(served == expected, "served tiles differ from generated ones");
     let tilejson = source.get_tilejson();
     let layers: Vec<_> = tilejson
         .vector_layers
@@ -218,10 +201,7 @@ async fn a_maxzoom_past_the_engine_grid_fails_at_startup() {
         "})
         .unwrap(),
     ));
-    let Err(err) = builder
-        .instantiate("table_source", SourceSpec::Table(info))
-        .await
-    else {
+    let Err(err) = builder.instantiate("table_source", SourceSpec::Table(info)).await else {
         panic!("a maxzoom of 19 at extent 4096 is served")
     };
     insta::assert_snapshot!(err.to_string(), @"Cannot serve the layers of table source table_source: layer `points`: extent 4096 at max zoom 19 overflows the i32 grid");

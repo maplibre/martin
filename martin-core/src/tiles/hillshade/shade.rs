@@ -110,12 +110,7 @@ impl Canvas {
     pub fn uniform_at(texel: [u8; CHANNELS], tile_size: usize) -> Self {
         let side = GRID_SIDE * tile_size;
         Self {
-            rgba: texel
-                .iter()
-                .copied()
-                .cycle()
-                .take(side * side * CHANNELS)
-                .collect(),
+            rgba: texel.iter().copied().cycle().take(side * side * CHANNELS).collect(),
             tile_size,
         }
     }
@@ -210,10 +205,7 @@ fn relief_shade(
         let len = nz.mul_add(nz, vy.mul_add(vy, vx * vx)).sqrt();
         // Normalise first, then dot. See the module's numeric contract.
         let s = (nz / len)
-            .mul_add(
-                light[2],
-                (vy / len).mul_add(light[1], (vx / len) * light[0]),
-            )
+            .mul_add(light[2], (vy / len).mul_add(light[1], (vx / len) * light[0]))
             .clamp(0.0, 1.0);
         // `1 - alpha` is the elevation proxy: it raises gain on high terrain.
         let elevation = 1.0 - alpha[i];
@@ -254,12 +246,7 @@ pub fn output_apron(core_side: u32, padding: u32) -> u32 {
 ///
 /// `core_side` is the nominal output size. The returned image is larger by the apron on every side.
 #[must_use]
-pub fn bake_with_light(
-    canvas: &Canvas,
-    core_side: u32,
-    p: &BakeParams,
-    light: [f64; 3],
-) -> BakedTile {
+pub fn bake_with_light(canvas: &Canvas, core_side: u32, p: &BakeParams, light: [f64; 3]) -> BakedTile {
     // Canvas texels per output texel
     // 1.0 is a 1:1 render of the centre tile.
     let tile_size = canvas.tile_size() as f64;
@@ -334,11 +321,7 @@ mod tests {
     #[case(384, 8, 12)]
     #[case::rounds_away_from_zero(384, 1, 2)]
     #[case(512, 0, 0)]
-    fn apron_rescales_with_the_core(
-        #[case] core: u32,
-        #[case] padding: u32,
-        #[case] expected: u32,
-    ) {
+    fn apron_rescales_with_the_core(#[case] core: u32, #[case] padding: u32, #[case] expected: u32) {
         assert_eq!(output_apron(core, padding), expected);
     }
 
@@ -366,17 +349,10 @@ mod tests {
             padding,
             ..BakeParams::default()
         };
-        let baked = bake_with_light(
-            &Canvas::uniform(SLOPED_TEXEL),
-            core,
-            &params,
-            LIGHT_FROM_OVERHEAD,
-        );
+        let baked = bake_with_light(&Canvas::uniform(SLOPED_TEXEL), core, &params, LIGHT_FROM_OVERHEAD);
 
         // Stated independently of the implementation.
-        let expected_apron = (f64::from(padding) * f64::from(core)
-            / f64::from(PADDING_REFERENCE_SIDE))
-        .round() as u32;
+        let expected_apron = (f64::from(padding) * f64::from(core) / f64::from(PADDING_REFERENCE_SIDE)).round() as u32;
         assert_eq!(baked.apron, expected_apron);
         assert_eq!(baked.side, core + 2 * expected_apron);
         assert_eq!(baked.gray.len(), (baked.side as usize).pow(2));
@@ -421,11 +397,7 @@ mod tests {
         };
 
         // 3 bands must differ from off for this texel, which sits away from a band boundary.
-        assert_eq!(
-            smooth(0.0),
-            smooth(1.9),
-            "any value below 2 disables banding"
-        );
+        assert_eq!(smooth(0.0), smooth(1.9), "any value below 2 disables banding");
         assert_ne!(smooth(0.0), smooth(3.0), "banding must actually quantise");
     }
 
@@ -436,8 +408,7 @@ mod tests {
         let mut rgba = Vec::with_capacity(side * side * CHANNELS);
         for y in 0..side {
             for x in 0..side {
-                let in_centre = (tile_size..2 * tile_size).contains(&x)
-                    && (tile_size..2 * tile_size).contains(&y);
+                let in_centre = (tile_size..2 * tile_size).contains(&x) && (tile_size..2 * tile_size).contains(&y);
                 rgba.extend_from_slice(if in_centre { &centre } else { &surround });
             }
         }
@@ -530,10 +501,7 @@ mod tests {
                 light,
             );
             let floor = (ambient * 255.0).round() as u8;
-            assert_eq!(
-                baked.gray[0], floor,
-                "ambient {ambient} must floor the darkest tone"
-            );
+            assert_eq!(baked.gray[0], floor, "ambient {ambient} must floor the darkest tone");
         }
     }
 }

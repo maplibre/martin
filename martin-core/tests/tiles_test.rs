@@ -101,10 +101,7 @@ async fn query_params_create_separate_cache_entries_with_same_ttl() {
 }
 
 fn test_tile(data: &[u8]) -> Tile {
-    Tile::new_hash_etag(
-        data.to_vec(),
-        TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-    )
+    Tile::new_hash_etag(data.to_vec(), TileInfo::new(Format::Mvt, Encoding::Uncompressed))
 }
 
 /// Sleep for the given duration then flush pending evictions.
@@ -117,13 +114,7 @@ fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>
     TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format, None)
 }
 
-async fn insert(
-    cache: &TileCache,
-    source: &str,
-    xyz: TileCoord,
-    query: Option<&str>,
-    data: &[u8],
-) -> Tile {
+async fn insert(cache: &TileCache, source: &str, xyz: TileCoord, query: Option<&str>, data: &[u8]) -> Tile {
     let tile = test_tile(data);
     cache
         .get_or_insert(key(source, xyz, query, None), async || {
@@ -142,13 +133,7 @@ async fn assert_hit(cache: &TileCache, source: &str, xyz: TileCoord) -> Tile {
         .unwrap()
 }
 
-async fn assert_miss(
-    cache: &TileCache,
-    source: &str,
-    xyz: TileCoord,
-    query: Option<&str>,
-    new_data: &[u8],
-) {
+async fn assert_miss(cache: &TileCache, source: &str, xyz: TileCoord, query: Option<&str>, new_data: &[u8]) {
     let mut recomputed = false;
     let tile = test_tile(new_data);
     cache
@@ -166,14 +151,8 @@ async fn assert_miss(
 async fn cache_differentiates_by_format() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
 
-    let tile_a = Tile::new_hash_etag(
-        b"mvt-data".to_vec(),
-        TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-    );
-    let tile_b = Tile::new_hash_etag(
-        b"png-data".to_vec(),
-        TileInfo::new(Format::Png, Encoding::Internal),
-    );
+    let tile_a = Tile::new_hash_etag(b"mvt-data".to_vec(), TileInfo::new(Format::Mvt, Encoding::Uncompressed));
+    let tile_b = Tile::new_hash_etag(b"png-data".to_vec(), TileInfo::new(Format::Png, Encoding::Internal));
 
     // Insert with format=Mvt
     let got_a = cache
@@ -200,10 +179,9 @@ async fn cache_differentiates_by_format() {
 
     // Requesting format=Mvt again -> must be a hit (returns original data)
     let got_a2 = cache
-        .get_or_insert::<_, _, Infallible>(
-            key("src", ORIGIN, None, Some(Format::Mvt)),
-            async || panic!("expected cache hit for Mvt"),
-        )
+        .get_or_insert::<_, _, Infallible>(key("src", ORIGIN, None, Some(Format::Mvt)), async || {
+            panic!("expected cache hit for Mvt")
+        })
         .await
         .unwrap();
     assert_eq!(got_a2.data, b"mvt-data".as_slice());
@@ -233,9 +211,7 @@ async fn raw_and_rendered_entries_never_collide() {
     assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
 
     let stored = cache
-        .get_or_insert(raw.clone(), async || {
-            Ok::<_, Infallible>(test_tile(b"raw-normals"))
-        })
+        .get_or_insert(raw.clone(), async || Ok::<_, Infallible>(test_tile(b"raw-normals")))
         .await
         .unwrap();
     assert_eq!(stored.data, b"raw-normals".as_slice());
@@ -266,22 +242,18 @@ async fn raw_and_rendered_entries_never_collide() {
 async fn raw_entries_ignore_request_shape() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(
-            TileCacheKey::new_request_static("src", ORIGIN),
-            async || Ok::<_, Infallible>(test_tile(b"normals")),
-        )
+        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
+            Ok::<_, Infallible>(test_tile(b"normals"))
+        })
         .await
         .unwrap();
 
     // A second raw request for the same tile hits, whatever the caller was
     // asked for, because a raw key cannot express a request shape at all.
     let hit = cache
-        .get_or_insert::<_, _, Infallible>(
-            TileCacheKey::new_request_static("src", ORIGIN),
-            async || {
-                panic!("raw entries must be shared across request shapes");
-            },
-        )
+        .get_or_insert::<_, _, Infallible>(TileCacheKey::new_request_static("src", ORIGIN), async || {
+            panic!("raw entries must be shared across request shapes");
+        })
         .await
         .unwrap();
     assert_eq!(hit.data, b"normals".as_slice());
@@ -291,10 +263,9 @@ async fn raw_entries_ignore_request_shape() {
 async fn invalidation_reaches_raw_and_rendered_entries() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(
-            TileCacheKey::new_request_static("src", ORIGIN),
-            async || Ok::<_, Infallible>(test_tile(b"normals")),
-        )
+        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
+            Ok::<_, Infallible>(test_tile(b"normals"))
+        })
         .await
         .unwrap();
     cache

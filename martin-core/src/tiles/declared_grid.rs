@@ -6,9 +6,7 @@ use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo};
 use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
-use crate::tiles::{
-    AnySource, BackendSource, BoxedSource, MartinCoreResult, Source, Tile, UrlQuery,
-};
+use crate::tiles::{AnySource, BackendSource, BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// A source whose `z/x/y` addresses are declared to be on `grid`.
 ///
@@ -28,14 +26,9 @@ impl DeclaredGridSource {
         let mut tilejson = inner.get_tilejson().clone();
         tilejson.other.insert(
             "tileGrid".to_owned(),
-            serde_json::to_value(&grid)
-                .expect("a validated tile grid holds only finite numbers and strings"),
+            serde_json::to_value(&grid).expect("a validated tile grid holds only finite numbers and strings"),
         );
-        Self {
-            inner,
-            grid,
-            tilejson,
-        }
+        Self { inner, grid, tilejson }
     }
 
     /// The source the grid was declared for.
@@ -88,19 +81,11 @@ impl Source for DeclaredGridSource {
         self.inner.cache_zoom()
     }
 
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         self.inner.get_tile(xyz, url_query).await
     }
 
-    async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
+    async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
         self.inner.get_tile_with_etag(xyz, url_query).await
     }
 

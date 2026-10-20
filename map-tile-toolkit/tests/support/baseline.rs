@@ -32,10 +32,7 @@ pub fn tile_span(t: i32, extent: u32, buffer: u16) -> (f64, f64) {
 /// A tile's buffered box as a `geo` rectangle.
 #[must_use]
 pub fn tile_rect(tile: TileId, extent: u32, buffer: u16) -> Rect<f64> {
-    let ((x0, x1), (y0, y1)) = (
-        tile_span(tile.x, extent, buffer),
-        tile_span(tile.y, extent, buffer),
-    );
+    let ((x0, x1), (y0, y1)) = (tile_span(tile.x, extent, buffer), tile_span(tile.y, extent, buffer));
     Rect::new(Coord { x: x0, y: y0 }, Coord { x: x1, y: y1 })
 }
 
@@ -55,10 +52,7 @@ pub fn clip(pts: &[Pt], axis: usize, lo: f64, hi: f64, closed: bool, out: &mut V
         };
         let (bk, up) = (b[axis], ak < b[axis]);
         // Crossing a bound goes between inside (`lo..=hi`, edges included) and outside.
-        let mut bounds = [
-            (lo, (ak < lo) != (bk < lo), false),
-            (hi, (ak > hi) != (bk > hi), true),
-        ];
+        let mut bounds = [(lo, (ak < lo) != (bk < lo), false), (hi, (ak > hi) != (bk > hi), true)];
         if !up {
             bounds.reverse();
         }
@@ -81,18 +75,8 @@ pub fn clip(pts: &[Pt], axis: usize, lo: f64, hi: f64, closed: bool, out: &mut V
 }
 
 /// Clip every part to one tile's buffered box: the x stripe, then each piece to the y stripe.
-pub fn clip_tile(
-    parts: &[Vec<Pt>],
-    tile: TileId,
-    extent: u32,
-    buffer: u16,
-    closed: bool,
-    out: &mut Vec<Vec<Pt>>,
-) {
-    let ((x0, x1), (y0, y1)) = (
-        tile_span(tile.x, extent, buffer),
-        tile_span(tile.y, extent, buffer),
-    );
+pub fn clip_tile(parts: &[Vec<Pt>], tile: TileId, extent: u32, buffer: u16, closed: bool, out: &mut Vec<Vec<Pt>>) {
+    let ((x0, x1), (y0, y1)) = (tile_span(tile.x, extent, buffer), tile_span(tile.y, extent, buffer));
     let mut column = Vec::new();
     for part in parts {
         clip(part, 0, x0, x1, closed, &mut column);

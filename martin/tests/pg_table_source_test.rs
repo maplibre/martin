@@ -434,12 +434,7 @@ async fn tables_tile_grid_must_be_configured() {
     let env: FauxEnv = std::env::var("DATABASE_URL")
         .map(|url| vec![("DATABASE_URL", url.into())].into_iter().collect())
         .unwrap_or_default();
-    let mut cfg = parse_config(
-        yaml,
-        &env.as_property_map(),
-        std::path::Path::new("test.yaml"),
-    )
-    .expect("config parses");
+    let mut cfg = parse_config(yaml, &env.as_property_map(), std::path::Path::new("test.yaml")).expect("config parses");
     let err = cfg
         .finalize()
         .await
@@ -478,10 +473,7 @@ async fn tables_tile_grid_is_the_connection_default_unless_a_table_names_one() {
     assert_eq!(nz.tile_grid().id(), "NZTM2000Quad");
     assert_eq!(nz.get_tilejson().other["tileGrid"]["crs"], "EPSG:2193");
     let catalog = mock.0.tile_manager.tile_sources().get_catalog();
-    assert_eq!(
-        catalog["nz_points"].tile_grid.as_deref(),
-        Some("NZTM2000Quad")
-    );
+    assert_eq!(catalog["nz_points"].tile_grid.as_deref(), Some("NZTM2000Quad"));
 
     let points = source(&mock, "points1");
     assert!(points.tile_grid().is_web_mercator());

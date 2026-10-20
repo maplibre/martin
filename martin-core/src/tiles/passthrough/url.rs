@@ -149,12 +149,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::config_overrides_extension(
-        Some(Format::Png),
-        "https://e/{z}/{x}/{y}.pbf",
-        Some("webp"),
-        Format::Png
-    )]
+    #[case::config_overrides_extension(Some(Format::Png), "https://e/{z}/{x}/{y}.pbf", Some("webp"), Format::Png)]
     #[case::extension_fallback(None, "https://e/{z}/{x}/{y}.pbf", None, Format::Mvt)]
     #[case::tilejson_fallback(None, "https://e/{z}/{x}/{y}", Some("png"), Format::Png)]
     #[case::extension_ignores_query(None, "https://e/{z}/{x}/{y}.webp?key=abc", None, Format::Webp)]
@@ -164,10 +159,7 @@ mod tests {
         #[case] tilejson_format: Option<&str>,
         #[case] expected: Format,
     ) {
-        assert_eq!(
-            derive_format("s", cfg_format, url, tilejson_format).unwrap(),
-            expected
-        );
+        assert_eq!(derive_format("s", cfg_format, url, tilejson_format).unwrap(), expected);
     }
 
     #[test]

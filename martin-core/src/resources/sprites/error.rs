@@ -33,9 +33,7 @@ pub enum SpriteError {
     EmptyAlias(String),
 
     /// A sprite alias references more sources than a single request may use.
-    #[error(
-        "Sprite alias {alias:?} references {requested} sprite sources, but at most {max} are allowed"
-    )]
+    #[error("Sprite alias {alias:?} references {requested} sprite sources, but at most {max} are allowed")]
     TooManySpritesInAlias {
         /// Alias name.
         alias: String,

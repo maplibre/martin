@@ -76,8 +76,7 @@ impl TileColumns {
     /// Fills `schema` with the final `(key, kind)` per column in column order; the index maps keys to
     /// positions in it.
     pub(crate) fn finish(&mut self, names: &KeyNames, schema: &mut Vec<(KeyId, PropKind)>) {
-        self.columns
-            .sort_by(|a, b| column_order(names, a.key, b.key));
+        self.columns.sort_by(|a, b| column_order(names, a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
             self.column_of_key[column.key.index()] = ColumnIndex::new(pos);
         }

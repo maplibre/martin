@@ -17,9 +17,8 @@ use crate::config::file::process::ProcessConfig;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
     CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfig, MAX_CONCURRENT_SOURCE_INITS, ObjectStoreConfig,
-    ResolutionResult, SourceBuildResult, TileSourceConfiguration, TileSourceWarning,
-    UnrecognizedValues, resolve_files,
+    ConfigurationLivecycleHooks, FileConfig, MAX_CONCURRENT_SOURCE_INITS, ObjectStoreConfig, ResolutionResult,
+    SourceBuildResult, TileSourceConfiguration, TileSourceWarning, UnrecognizedValues, resolve_files,
 };
 #[cfg(feature = "processing")]
 use crate::config::file::{ContourProcessConfig, HillshadeProcessConfig};
@@ -236,10 +235,7 @@ impl Serialize for CogConfig {
             map.serialize_entry("cache", &self.cache)?;
         }
         if self.reload_interval != DEFAULT_RELOAD_INTERVAL {
-            map.serialize_entry(
-                "reload_interval",
-                &humantime_serde::Serde::from(&self.reload_interval),
-            )?;
+            map.serialize_entry("reload_interval", &humantime_serde::Serde::from(&self.reload_interval))?;
         }
         if !self.mosaics.is_empty() {
             let mosaics: BTreeMap<_, _> = self
@@ -271,34 +267,17 @@ impl TileSourceConfiguration for CogConfig {
         self.cache.clone()
     }
 
-    async fn new_sources(
-        &self,
-        id: String,
-        path: PathBuf,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         let cog = CogSource::new(id, path, cache.zoom()).await?;
         Ok(BackendSource::Cog(cog))
     }
 
-    async fn new_sources_url(
-        &self,
-        id: String,
-        url: Url,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources_url(&self, id: String, url: Url, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         let (store, path) = self
             .object_store
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let source = CogSource::new_object_store(
-            id,
-            Arc::from(store),
-            path,
-            sanitized_url(&url),
-            cache.zoom(),
-        )
-        .await?;
+        let source = CogSource::new_object_store(id, Arc::from(store), path, sanitized_url(&url), cache.zoom()).await?;
         Ok(BackendSource::Cog(source))
     }
 }
@@ -313,20 +292,13 @@ impl CogConfig {
     ) -> (Vec<BoxedSource>, Vec<TileSourceWarning>) {
         let planned: Vec<_> = mem::take(&mut self.mosaics)
             .into_iter()
-            .map(|(id, mosaic)| {
-                (
-                    idr.resolve(&id, sanitized_mosaic_path(&mosaic.path)),
-                    mosaic,
-                )
-            })
+            .map(|(id, mosaic)| (idr.resolve(&id, sanitized_mosaic_path(&mosaic.path)), mosaic))
             .collect();
         let this = &*self;
         let default_cache = &default_cache;
         let opened = stream::iter(planned)
             .map(|(id, mosaic)| async move {
-                let result = this
-                    .new_mosaic_source(id.clone(), &mosaic, default_cache)
-                    .await;
+                let result = this.new_mosaic_source(id.clone(), &mosaic, default_cache).await;
                 (id, mosaic, result)
             })
             .buffered(MAX_CONCURRENT_SOURCE_INITS)
@@ -401,8 +373,7 @@ pub async fn resolve_cog(
     idr: &IdResolver,
     default_cache: CachePolicy,
 ) -> ResolutionResult {
-    let (mut sources, mut warnings) =
-        resolve_files(config, idr, &["tif", "tiff"], default_cache.clone(), None).await?;
+    let (mut sources, mut warnings) = resolve_files(config, idr, &["tif", "tiff"], default_cache.clone(), None).await?;
     let default_cache = config.cache_or(&default_cache);
     let (mosaics, mosaic_warnings) = config.custom.resolve_mosaics(idr, default_cache).await;
     sources.extend(mosaics);
@@ -429,11 +400,7 @@ mod tests {
     use crate::srv::RESERVED_KEYWORDS;
 
     #[rstest]
-    #[case(
-        "s3://bucket/ortho/{quadkey}.tif",
-        "s3://bucket/ortho/",
-        "{quadkey}.tif"
-    )]
+    #[case("s3://bucket/ortho/{quadkey}.tif", "s3://bucket/ortho/", "{quadkey}.tif")]
     #[case("s3://bucket/{z}/{x}/{y}.tif", "s3://bucket/", "{z}/{x}/{y}.tif")]
     #[case(
         "https://host/ortho/{quadkey}.tif?sig=abc",
@@ -454,10 +421,7 @@ mod tests {
     async fn resolve(yaml: &str) -> (Config, Vec<String>, serde_json::Value) {
         let mut config: Config = serde_saphyr::from_str(yaml).unwrap();
         config.finalize().await.unwrap();
-        let state = config
-            .resolve(&IdResolver::new(RESERVED_KEYWORDS))
-            .await
-            .unwrap();
+        let state = config.resolve(&IdResolver::new(RESERVED_KEYWORDS)).await.unwrap();
         let mut ids = state.tile_manager.tile_sources().source_names();
         ids.sort();
         let saved = serde_saphyr::to_string(&config.with_catalog(&state.tile_manager)).unwrap();

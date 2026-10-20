@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, bbox_to_xyz, get_zoom_precision, tile_bbox, tile_index,
-    webmercator_to_wgs84, wgs84_to_webmercator, xyz_to_bbox,
+    EARTH_CIRCUMFERENCE, bbox_to_xyz, get_zoom_precision, tile_bbox, tile_index, webmercator_to_wgs84,
+    wgs84_to_webmercator, xyz_to_bbox,
 };
 use rstest::rstest;
 
@@ -15,12 +15,7 @@ use rstest::rstest;
 #[case(0.0, 1.0, 0, (0,0))]
 #[case(0.0, 1.0, 1, (1,0))]
 #[case(0.0, 1.0, 2, (2,1))]
-fn test_tile_colrow(
-    #[case] lng: f64,
-    #[case] lat: f64,
-    #[case] zoom: u8,
-    #[case] expected: (u32, u32),
-) {
+fn test_tile_colrow(#[case] lng: f64, #[case] lat: f64, #[case] zoom: u8, #[case] expected: (u32, u32)) {
     assert_eq!(
         expected,
         tile_index(lng, lat, zoom),
@@ -106,10 +101,7 @@ fn test_box_to_xyz(#[case] zoom: u8, #[case] expected_xyz: (u32, u32, u32, u32))
         -81.374_463_852_608_33,
         zoom,
     );
-    assert_eq!(
-        actual_xyz, expected_xyz,
-        "zoom {zoom} does not have the right xyz"
-    );
+    assert_eq!(actual_xyz, expected_xyz, "zoom {zoom} does not have the right xyz");
 }
 
 #[rstest]

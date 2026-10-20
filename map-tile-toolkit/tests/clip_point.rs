@@ -160,10 +160,7 @@ fn snapshot_at_buffer(stem: &str, features: &[Vec<Coord<i32>>], buffer: u16, dir
     for (&tile, points) in &all {
         let origin = tile.origin(EXTENT).expect("tile in range");
         let global: Vec<_> = points.iter().map(|&(_, _, p)| p + origin).collect();
-        let indices: Vec<_> = points
-            .iter()
-            .map(|&(f, index, _)| starts[f] + index)
-            .collect();
+        let indices: Vec<_> = points.iter().map(|&(f, index, _)| starts[f] + index).collect();
         out.push(support::tile_points(&global, tile, &indices));
     }
     let bytes = support::feature_collection_bytes(out);

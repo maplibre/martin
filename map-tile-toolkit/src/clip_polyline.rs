@@ -26,15 +26,9 @@ fn inside(c: Coord<i32>, min: Coord<i32>, max: Coord<i32>) -> bool {
 /// the box, accept when an endpoint is inside, otherwise test whether the box straddles the
 /// segment's supporting line via i128 cross products (so full `i32` coordinates cannot overflow).
 #[inline]
-pub(crate) fn segment_intersects(
-    a: Coord<i32>,
-    b: Coord<i32>,
-    min: Coord<i32>,
-    max: Coord<i32>,
-) -> bool {
+pub(crate) fn segment_intersects(a: Coord<i32>, b: Coord<i32>, min: Coord<i32>, max: Coord<i32>) -> bool {
     // Quick reject: the segment's bounding box is disjoint from the tile box.
-    if a.x.min(b.x) > max.x || a.x.max(b.x) < min.x || a.y.min(b.y) > max.y || a.y.max(b.y) < min.y
-    {
+    if a.x.min(b.x) > max.x || a.x.max(b.x) < min.x || a.y.min(b.y) > max.y || a.y.max(b.y) < min.y {
         return false;
     }
     // Quick accept: an endpoint lies inside the (closed) box.
@@ -44,12 +38,7 @@ pub(crate) fn segment_intersects(
 /// The last step of [`segment_intersects`], for a segment whose endpoints are both outside the box but
 /// whose bounding box overlaps it: the segment then meets the box iff the box's four corners are not
 /// all strictly on one side of its supporting line (each side is the orientation of `a -> b -> corner`).
-pub(crate) fn line_meets_box(
-    a: Coord<i32>,
-    b: Coord<i32>,
-    min: Coord<i32>,
-    max: Coord<i32>,
-) -> bool {
+pub(crate) fn line_meets_box(a: Coord<i32>, b: Coord<i32>, min: Coord<i32>, max: Coord<i32>) -> bool {
     let s = [
         orient(a, b, min),
         orient(a, b, Coord { x: max.x, y: min.y }),

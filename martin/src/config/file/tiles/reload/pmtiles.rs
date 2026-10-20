@@ -6,8 +6,7 @@ use crate::config::file::tiles::discovery::{
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceConfiguration as _,
-    TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -112,9 +111,7 @@ impl PmtilesReloader {
 
         if has_remote {
             if interval.is_zero() {
-                tracing::info!(
-                    "PmtilesReloader: remote prefix polling disabled (reload_interval = 0s)"
-                );
+                tracing::info!("PmtilesReloader: remote prefix polling disabled (reload_interval = 0s)");
             } else {
                 let trigger = PollTrigger::new(interval);
                 remote.spawn(trigger, Baseline::Empty);
@@ -182,10 +179,7 @@ mod tests {
         let reloader = make_reloader(&FileConfig::default());
         assert_eq!(reloader.local.discovery().directories(), [] as [PathBuf; 0]);
         assert_eq!(reloader.remote.discovery().remote_prefixes(), []);
-        assert_eq!(
-            reloader.remote.discovery().reload_interval(),
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(reloader.remote.discovery().reload_interval(), DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]

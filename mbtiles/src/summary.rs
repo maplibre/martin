@@ -87,12 +87,8 @@ impl Display for Summary {
         }
 
         if self.zoom_info.len() > 1
-            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
-                self.min_tile_size,
-                self.max_tile_size,
-                self.bbox,
-                self.max_zoom,
-            )
+            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) =
+                (self.min_tile_size, self.max_tile_size, self.bbox, self.max_zoom)
         {
             let min = SizeFormatterSI::new(min);
             let max = SizeFormatterSI::new(max);
@@ -171,15 +167,9 @@ impl Mbtiles {
                     bbox: xyz_to_bbox(
                         zoom,
                         r.min_tile_x.expect("min_tile_x should not be None") as u32,
-                        invert_y_value(
-                            zoom,
-                            r.max_tile_y.expect("max_tile_y should not be None") as u32,
-                        ),
+                        invert_y_value(zoom, r.max_tile_y.expect("max_tile_y should not be None") as u32),
                         r.max_tile_x.expect("max_tile_x should not be None") as u32,
-                        invert_y_value(
-                            zoom,
-                            r.min_tile_y.expect("min_tile_y should not be None") as u32,
-                        ),
+                        invert_y_value(zoom, r.min_tile_y.expect("min_tile_y should not be None") as u32),
                     )
                     .into(),
                 }
@@ -222,9 +212,7 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
 
-        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await.unwrap();
         let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r#"
         file_path: ":memory:"

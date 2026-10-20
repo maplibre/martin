@@ -10,10 +10,7 @@ use std::sync::atomic::AtomicBool;
 use crate::props::{KeyId, Prop};
 use eval::Keys;
 pub use eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
-pub use filter::{
-    CompareOp, Condition, Literal, Polarity, RowFilter, Term, TranslateError, Untranslatable,
-    ValueKind,
-};
+pub use filter::{CompareOp, Condition, Literal, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
@@ -47,10 +44,7 @@ pub enum PlanError {
     LayerExpr { layer: String, error: ExprError },
 
     #[error("layer `{layer}`: {error}")]
-    InvalidLayer {
-        layer: String,
-        error: RenderLayerError,
-    },
+    InvalidLayer { layer: String, error: RenderLayerError },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -391,16 +385,12 @@ impl Plan {
                 layers.push(plan_layer(index, def, &mut compiler)?);
             }
             let table_layers = &mut layers[start..];
-            let all_keys = exprs[first_expr..]
-                .iter()
-                .any(|planned| planned.expr.needs_all_keys());
+            let all_keys = exprs[first_expr..].iter().any(|planned| planned.expr.needs_all_keys());
             let other_keys = all_keys
                 || reads.iter().any(|name| !values.contains(&name.as_str()))
                 || table_layers.iter().any(|layer| match &layer.attributes {
                     AttributesDef::All => true,
-                    AttributesDef::Columns(keys) => {
-                        keys.iter().any(|key| !values.contains(&key.as_str()))
-                    }
+                    AttributesDef::Columns(keys) => keys.iter().any(|key| !values.contains(&key.as_str())),
                     AttributesDef::None | AttributesDef::Computed { .. } => false,
                 });
             let mut kept = Vec::new();
@@ -411,9 +401,7 @@ impl Plan {
                 .map(|(pos, column)| {
                     let scanned = all_keys
                         || table_layers.iter().any(|layer| layer.copy[pos].is_some())
-                        || column
-                            .value()
-                            .map_or(other_keys, |name| reads.contains(name));
+                        || column.value().map_or(other_keys, |name| reads.contains(name));
                     scanned.then(|| {
                         kept.push(column);
                         key_id(kept.len() - 1)
@@ -430,10 +418,7 @@ impl Plan {
                 .collect();
             planned_tables.push(PlannedTable {
                 rows,
-                reads: reads
-                    .into_iter()
-                    .filter(|name| !columns.contains(name))
-                    .collect(),
+                reads: reads.into_iter().filter(|name| !columns.contains(name)).collect(),
                 columns,
                 dynamic_props: kept.iter().any(|c| matches!(c, ColumnDef::Keys(_))),
                 layers: start..layers.len(),
@@ -520,11 +505,9 @@ struct Compiler<'a> {
 impl Compiler<'_> {
     fn compile(&mut self, source: &str) -> Result<CompiledExpr, PlanError> {
         let expr =
-            CompiledExpr::compile(source, self.values, self.dynamic_props).map_err(|error| {
-                PlanError::LayerExpr {
-                    layer: self.name.clone(),
-                    error,
-                }
+            CompiledExpr::compile(source, self.values, self.dynamic_props).map_err(|error| PlanError::LayerExpr {
+                layer: self.name.clone(),
+                error,
             })?;
         self.reads.extend(expr.columns().map(str::to_owned));
         Ok(expr)
@@ -539,11 +522,7 @@ impl Compiler<'_> {
         ExprRef::new(self.exprs.len() - 1, role)
     }
 
-    fn plan<R: Role>(
-        &mut self,
-        source: Option<&String>,
-        role: R,
-    ) -> Result<Option<ExprRef<R>>, PlanError> {
+    fn plan<R: Role>(&mut self, source: Option<&String>, role: R) -> Result<Option<ExprRef<R>>, PlanError> {
         source
             .map(|source| {
                 let expr = self.compile(source)?;
@@ -554,30 +533,20 @@ impl Compiler<'_> {
 
     /// The position of the [`ColumnDef::Value`] named `name`.
     fn value_position(&self, name: &str) -> Option<usize> {
-        self.columns
-            .iter()
-            .position(|column| column.value() == Some(name))
+        self.columns.iter().position(|column| column.value() == Some(name))
     }
 }
 
 /// The rows `layer` takes, by geometry type and `where`.
-fn layer_rows(
-    columns: &[ColumnDef],
-    layer: &PlannedLayer,
-    exprs: &[PlannedExpr],
-) -> Result<Condition, Untranslatable> {
+fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
     let geometry = layer.geometry.map(Condition::Geometry);
     let Some(filter) = layer.filter else {
         return Ok(Condition::and(geometry));
     };
     let planned = &exprs[filter.index];
-    let keys = columns
-        .iter()
-        .find(|column| matches!(column, ColumnDef::Keys(_)));
+    let keys = columns.iter().find(|column| matches!(column, ColumnDef::Keys(_)));
     let condition = match keys {
-        Some(keys) => Err(TranslateError::KeysMayReplaceColumns(
-            keys.name().to_owned(),
-        )),
+        Some(keys) => Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned())),
         None => planned.expr.condition(columns),
     };
     let condition = condition.map_err(|reason| Untranslatable {
@@ -592,11 +561,7 @@ fn key_id(pos: usize) -> KeyId {
     KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys"))
 }
 
-fn plan_layer(
-    index: u8,
-    def: LayerDef,
-    compiler: &mut Compiler<'_>,
-) -> Result<PlannedLayer, PlanError> {
+fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<PlannedLayer, PlanError> {
     let (mut keys, mut copy) = layer_keys(&def, compiler)?;
     let (computed, banded) = plan_computed(&def, compiler, &mut copy)?;
     let attrs = PlannedAttrs {
@@ -704,10 +669,7 @@ fn attr_zooms(attr: &ComputedAttr, zooms: &RangeInclusive<u8>) -> Option<RangeIn
     (lo <= hi).then_some(lo..=hi)
 }
 
-fn check_duplicates<'a>(
-    layer: &str,
-    keys: impl IntoIterator<Item = &'a String>,
-) -> Result<(), PlanError> {
+fn check_duplicates<'a>(layer: &str, keys: impl IntoIterator<Item = &'a String>) -> Result<(), PlanError> {
     let mut seen = HashSet::new();
     for key in keys {
         if !seen.insert(key) {
@@ -738,13 +700,10 @@ fn plan_case(
         check_duplicates(&def.name, rule.attributes.iter().map(|attr| &attr.name))?;
         let (mut overrides, mut computed, mut banded) = (Vec::new(), Vec::new(), Vec::new());
         for attr in &rule.attributes {
-            let pos = keys
-                .iter()
-                .position(|key| *key == attr.name)
-                .unwrap_or_else(|| {
-                    keys.push(attr.name.clone());
-                    keys.len() - 1
-                });
+            let pos = keys.iter().position(|key| *key == attr.name).unwrap_or_else(|| {
+                keys.push(attr.name.clone());
+                keys.len() - 1
+            });
             let key = key_id(pos);
             overrides.push(key);
             let Some(zooms) = attr_zooms(attr, &def.zooms) else {
@@ -815,9 +774,7 @@ fn plan_value(value: &ValueDef, compiler: &mut Compiler<'_>) -> Result<PlannedVa
         ValueDef::Literal(value) => PlannedValue::Literal(value.clone()),
         ValueDef::Expr(source) => {
             let expr = compiler.compile(source)?;
-            let column = expr
-                .as_property()
-                .and_then(|name| compiler.value_position(name));
+            let column = expr.as_property().and_then(|name| compiler.value_position(name));
             match column {
                 Some(column) => PlannedValue::Column(key_id(column)),
                 None => PlannedValue::Expr(compiler.add(source, expr, Attr)),
@@ -827,10 +784,7 @@ fn plan_value(value: &ValueDef, compiler: &mut Compiler<'_>) -> Result<PlannedVa
 }
 
 /// The output layer's known keys, and the output key of each table column copied as it is.
-fn layer_keys(
-    def: &LayerDef,
-    compiler: &Compiler<'_>,
-) -> Result<(Vec<String>, Vec<Option<KeyId>>), PlanError> {
+fn layer_keys(def: &LayerDef, compiler: &Compiler<'_>) -> Result<(Vec<String>, Vec<Option<KeyId>>), PlanError> {
     let columns = compiler.columns;
     let (keys, copied_from) = match &def.attributes {
         AttributesDef::All => (columns.iter().map(|c| c.name().to_owned()).collect(), 0),
@@ -838,9 +792,7 @@ fn layer_keys(
         AttributesDef::Columns(keys) => {
             check_duplicates(&def.name, keys)?;
             if !compiler.dynamic_props
-                && let Some(key) = keys
-                    .iter()
-                    .find(|key| !compiler.values.contains(&key.as_str()))
+                && let Some(key) = keys.iter().find(|key| !compiler.values.contains(&key.as_str()))
             {
                 return Err(PlanError::UnknownColumn {
                     layer: def.name.clone(),
@@ -849,10 +801,7 @@ fn layer_keys(
             }
             (keys.clone(), 0)
         }
-        AttributesDef::Computed {
-            attributes,
-            prefixes,
-        } => {
+        AttributesDef::Computed { attributes, prefixes } => {
             check_duplicates(&def.name, attributes.iter().map(|attr| &attr.name))?;
             let mut keys: Vec<String> = attributes.iter().map(|attr| attr.name.clone()).collect();
             keys.extend(

@@ -3,8 +3,8 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError,
-    RowFilter, RuleDef, SortDef, TableDef, ValueDef, ValueKind, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter, RuleDef,
+    SortDef, TableDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -57,9 +57,7 @@ fn rejects_a_repeated_layer_name() {
 fn rejects_more_than_256_layers() {
     let err = Plan::new(vec![TableDef {
         columns: vec![],
-        layers: (0..257)
-            .map(|i| LayerDef::new(format!("l{i}"), 0..=0, GRID))
-            .collect(),
+        layers: (0..257).map(|i| LayerDef::new(format!("l{i}"), 0..=0, GRID)).collect(),
     }])
     .unwrap_err();
     assert!(matches!(err, PlanError::TooManyLayers(257)), "{err}");
@@ -69,9 +67,7 @@ fn rejects_more_than_256_layers() {
 fn accepts_256_layers() {
     Plan::new(vec![TableDef {
         columns: vec![],
-        layers: (0..256)
-            .map(|i| LayerDef::new(format!("l{i}"), 0..=0, GRID))
-            .collect(),
+        layers: (0..256).map(|i| LayerDef::new(format!("l{i}"), 0..=0, GRID)).collect(),
     }])
     .unwrap();
 }
@@ -96,10 +92,7 @@ fn rejects_an_attribute_that_is_not_a_column() {
         }],
     }])
     .unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "layer `roads`: attribute `kind` is not a table column"
-    );
+    assert_eq!(err.to_string(), "layer `roads`: attribute `kind` is not a table column");
 }
 
 #[test]
@@ -1043,10 +1036,7 @@ fn rule_attributes_replace_and_add_to_the_layers() {
             (KeyId::new(2), Prop::I64(rank)),
         ],
     };
-    let features = [
-        point(1, "Rhein", "river", 7),
-        point(2, "Bodensee", "lake", 9),
-    ];
+    let features = [point(1, "Rhein", "river", 7), point(2, "Bodensee", "lake", 9)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
     LayerFeature { layer: "water", id: Some(1), zooms: 0..=2, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"label": Str("Rhein"), "kind": Str("waterway"), "big": Bool(true)}, bands: [(2, {"label": Str("Rhein"), "kind": Str("waterway")})], sort: None }
     LayerFeature { layer: "water", id: Some(2), zooms: 0..=2, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"label": Str("Bodensee"), "kind": Str("lake")}, bands: [], sort: None }

@@ -155,18 +155,11 @@ fn pick_palette(
     let mut palette_index_of_color = vec![0u8; colors.len()];
     for budget in BUDGETS.into_iter().filter(|&b| b < max_colors) {
         let palette = quantize(&histogram, &distinct, budget, &mut palette_index_of_color)?;
-        if colors.len() <= usize::from(budget)
-            || colors.close_enough(&palette, &palette_index_of_color)
-        {
+        if colors.len() <= usize::from(budget) || colors.close_enough(&palette, &palette_index_of_color) {
             return Ok((palette, palette_index_of_color));
         }
     }
-    let palette = quantize(
-        &histogram,
-        &distinct,
-        max_colors,
-        &mut palette_index_of_color,
-    )?;
+    let palette = quantize(&histogram, &distinct, max_colors, &mut palette_index_of_color)?;
     Ok((palette, palette_index_of_color))
 }
 
@@ -250,17 +243,8 @@ fn write_png(
     let mut encoder = png::Encoder::new(&mut out, width, height);
     encoder.set_color(png::ColorType::Indexed);
     encoder.set_depth(depth);
-    encoder.set_palette(
-        palette
-            .iter()
-            .flat_map(|&[r, g, b, _]| [r, g, b])
-            .collect::<Vec<u8>>(),
-    );
-    let alphas: Vec<u8> = palette
-        .iter()
-        .map(|&[.., a]| a)
-        .take_while(|&a| a != 255)
-        .collect();
+    encoder.set_palette(palette.iter().flat_map(|&[r, g, b, _]| [r, g, b]).collect::<Vec<u8>>());
+    let alphas: Vec<u8> = palette.iter().map(|&[.., a]| a).take_while(|&a| a != 255).collect();
     if !alphas.is_empty() {
         encoder.set_trns(alphas);
     }
@@ -273,10 +257,7 @@ fn write_png(
 }
 
 fn sq_dist(a: Rgba, b: Rgba) -> u32 {
-    a.iter()
-        .zip(b)
-        .map(|(&a, b)| u32::from(a.abs_diff(b)).pow(2))
-        .sum()
+    a.iter().zip(b).map(|(&a, b)| u32::from(a.abs_diff(b)).pow(2)).sum()
 }
 
 #[cfg(test)]
@@ -329,9 +310,7 @@ mod tests {
 
     fn cycling(width: u32, height: u32, colors: &[Rgba<u8>]) -> RgbaImage {
         let mut cycle = colors.iter().copied().cycle();
-        RgbaImage::from_fn(width, height, |_, _| {
-            cycle.next().expect("a cycle never ends")
-        })
+        RgbaImage::from_fn(width, height, |_, _| cycle.next().expect("a cycle never ends"))
     }
 
     fn flat_fills() -> RgbaImage {
@@ -368,11 +347,7 @@ mod tests {
             .iter()
             .map(|(name, img)| {
                 let decoded = encoded(img, 128);
-                format!(
-                    "{name}: {} colours at {:?}",
-                    decoded.palette.len(),
-                    decoded.depth
-                )
+                format!("{name}: {} colours at {:?}", decoded.palette.len(), decoded.depth)
             })
             .collect();
         insta::assert_snapshot!(table.join("\n"), @"
@@ -404,10 +379,7 @@ mod tests {
     #[rstest]
     #[case::patches_too_small_to_see(4, 16)]
     #[case::visible_patches(5, 23)]
-    fn the_palette_grows_until_every_visible_colour_is_close(
-        #[case] patch_width: u32,
-        #[case] palette_len: usize,
-    ) {
+    fn the_palette_grows_until_every_visible_colour_is_close(#[case] patch_width: u32, #[case] palette_len: usize) {
         let img = flat_with_close_patches(patch_width);
         assert_eq!(encoded(&img, 128).palette.len(), palette_len);
     }
@@ -456,11 +428,7 @@ mod tests {
         let img = cycling(
             9,
             4,
-            &[
-                Rgba([0, 0, 0, 0]),
-                Rgba([200, 10, 10, 128]),
-                Rgba([10, 200, 10, 255]),
-            ],
+            &[Rgba([0, 0, 0, 0]), Rgba([200, 10, 10, 128]), Rgba([10, 200, 10, 255])],
         );
         assert_eq!(encoded(&img, 256).rgba, img);
     }

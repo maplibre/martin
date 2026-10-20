@@ -47,14 +47,10 @@ impl TileSink for PmtilesSink {
         TileOrder::Hilbert
     }
 
-    fn write_all(
-        &mut self,
-        batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
-    ) -> TileGenResult<()> {
+    fn write_all(&mut self, batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>) -> TileGenResult<()> {
         for batch in batches {
             for tile in batch? {
-                let coord =
-                    pmtiles::TileCoord::new(tile.coord.z(), tile.coord.x(), tile.coord.y())?;
+                let coord = pmtiles::TileCoord::new(tile.coord.z(), tile.coord.x(), tile.coord.y())?;
                 self.writer.add_tile(coord, &tile.data, tile.dedup_key)?;
             }
         }

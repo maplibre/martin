@@ -78,9 +78,7 @@ fn random_polygon(rng: &mut Rng, big: i64, holes: usize) -> Vec<Vec<Coord<i32>>>
             let d = (((c.0 - h.0).pow(2) + (c.1 - h.1).pow(2)) as f64).sqrt();
             d > (r + h.2) as f64 * 1.5 + 4.0
         };
-        if (c.0 as f64).hypot(c.1 as f64) + r as f64 * 1.5 < reach as f64 + r as f64
-            && placed.iter().all(clear)
-        {
+        if (c.0 as f64).hypot(c.1 as f64) + r as f64 * 1.5 < reach as f64 + r as f64 && placed.iter().all(clear) {
             placed.push((c.0, c.1, r));
             let n = rng.range(4, 20) as usize;
             rings.push(star(rng, c, r * 2 / 3, r, n, true));
@@ -118,19 +116,11 @@ fn pieces_of_random_valid_polygons_are_valid() {
             }
         }
     }
-    println!(
-        "{polygons} polygons, {pieces} pieces, {} invalid",
-        invalid.len()
-    );
+    println!("{polygons} polygons, {pieces} pieces, {} invalid", invalid.len());
     assert!(
         invalid.is_empty(),
         "{} of {pieces} pieces invalid:\n{}",
         invalid.len(),
-        invalid
-            .iter()
-            .take(20)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n")
+        invalid.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
     );
 }

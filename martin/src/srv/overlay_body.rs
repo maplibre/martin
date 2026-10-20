@@ -20,9 +20,7 @@
 // thus only enforced - in that configuration.
 #![cfg_attr(not(all(feature = "rendering", target_os = "linux")), allow(dead_code))]
 
-use martin_core::overlay::{
-    Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec,
-};
+use martin_core::overlay::{Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec};
 use serde::Deserialize;
 
 /// Parse a POST overlay body into the typed [`OverlaySpec`].
@@ -106,10 +104,7 @@ impl TryFrom<StaticOverlayFeature> for OverlayFeature {
     fn try_from(raw: StaticOverlayFeature) -> Result<Self, Self::Error> {
         Ok(Self {
             geometry: raw.geometry,
-            properties: raw
-                .properties
-                .map(OverlayProperties::try_from)
-                .transpose()?,
+            properties: raw.properties.map(OverlayProperties::try_from).transpose()?,
         })
     }
 }
@@ -502,10 +497,7 @@ mod tests {
         ])))
         .expect("parses");
         assert_eq!(spec.features.len(), 2, "both features retained");
-        assert!(
-            spec.features[0].geometry.is_none(),
-            "null geometry kept as None"
-        );
+        assert!(spec.features[0].geometry.is_none(), "null geometry kept as None");
         assert!(spec.features[1].geometry.is_some());
     }
 }

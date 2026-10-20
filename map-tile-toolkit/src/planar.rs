@@ -130,12 +130,7 @@ fn meet(p1: Coord<i32>, p2: Coord<i32>, q1: Coord<i32>, q2: Coord<i32>) -> Meet 
     }
     // At most one common point; each zero orientation puts an endpoint on the other line.
     let mut touch = None;
-    for (z, c, a, b) in [
-        (s1, q1, p1, p2),
-        (s2, q2, p1, p2),
-        (s3, p1, q1, q2),
-        (s4, p2, q1, q2),
-    ] {
+    for (z, c, a, b) in [(s1, q1, p1, p2), (s2, q2, p1, p2), (s3, p1, q1, q2), (s4, p2, q1, q2)] {
         if z == 0 && within(c, a, b) {
             touch = Some(c);
         }
@@ -207,9 +202,7 @@ pub(crate) fn is_planar<V: Vertex>(
         for (edge, w) in (0..).zip(ring_verts.windows(2)) {
             let (a, b) = (w[0].position(), w[1].position());
             if a != b && (outside(a) || outside(b)) {
-                let at = u32::try_from(start)
-                    .unwrap_or(u32::MAX)
-                    .saturating_add(edge);
+                let at = u32::try_from(start).unwrap_or(u32::MAX).saturating_add(edge);
                 let synthetic = synthetic.binary_search(&at).is_ok();
                 synthetic_segs += usize::from(synthetic);
                 segs.push(Seg {
@@ -226,9 +219,7 @@ pub(crate) fn is_planar<V: Vertex>(
     }
     // Only the fill box of a covered tile (a ring of nothing but synthetic edges) lies outside the
     // box: with no other outside segment, it has nothing to meet.
-    if synthetic_segs == 0
-        || (segs.len() == synthetic_segs && segs.iter().all(|s| s.ring == 0 && s.edges == 4))
-    {
+    if synthetic_segs == 0 || (segs.len() == synthetic_segs && segs.iter().all(|s| s.ring == 0 && s.edges == 4)) {
         return Verdict::Planar;
     }
     order.extend(0..u32::try_from(segs.len()).unwrap_or(u32::MAX));
@@ -248,8 +239,7 @@ pub(crate) fn is_planar<V: Vertex>(
                 return Verdict::OverBudget;
             };
             *budget = left;
-            let adjacent = p.ring == q.ring
-                && ((p.edge + 1) % p.edges == q.edge || (q.edge + 1) % q.edges == p.edge);
+            let adjacent = p.ring == q.ring && ((p.edge + 1) % p.edges == q.edge || (q.edge + 1) % q.edges == p.edge);
             match meet(p.a, p.b, q.a, q.b) {
                 Meet::Apart => {}
                 Meet::Bad => return Verdict::Crossing,
@@ -281,17 +271,11 @@ pub(crate) fn is_planar<V: Vertex>(
     clippy::many_single_char_names,
     reason = "a, b and c, d are the two segments' endpoints, as in `meet`"
 )]
-fn small_ring<V: Vertex>(
-    verts: &[V],
-    synthetic: &[u32],
-    min: Coord<i32>,
-    max: Coord<i32>,
-) -> Verdict {
+fn small_ring<V: Vertex>(verts: &[V], synthetic: &[u32], min: Coord<i32>, max: Coord<i32>) -> Verdict {
     let outside = |c: Coord<i32>| c.x < min.x || c.x > max.x || c.y < min.y || c.y > max.y;
     let n = verts.len().saturating_sub(1);
     let edge = |i: usize| (verts[i].position(), verts[i + 1].position());
-    let synthetic_at =
-        |i: usize| u32::try_from(i).is_ok_and(|i| synthetic.binary_search(&i).is_ok());
+    let synthetic_at = |i: usize| u32::try_from(i).is_ok_and(|i| synthetic.binary_search(&i).is_ok());
     for &i in synthetic {
         let i = i as usize;
         let (a, b) = edge(i);
@@ -371,14 +355,7 @@ mod tests {
         // The box is the single point (0, 0): every other vertex is outside.
         let mut budget = PAIR_BUDGET;
         let piece = PieceBuf::from_parts(verts, vec![end], synthetic.to_vec());
-        is_planar(
-            &piece,
-            only_connectors,
-            c(0, 0),
-            c(0, 0),
-            &mut scratch,
-            &mut budget,
-        ) != Verdict::Crossing
+        is_planar(&piece, only_connectors, c(0, 0), c(0, 0), &mut scratch, &mut budget) != Verdict::Crossing
     }
 
     /// Every pair with a synthetic side, tested with no sweep: what [`is_planar`] must agree with.
@@ -386,17 +363,14 @@ mod tests {
         let mut shared: Vec<(u32, u32, Coord<i32>)> = Vec::new();
         for (i, p) in segs.iter().enumerate() {
             for q in &segs[i + 1..] {
-                if !(p.synthetic || q.synthetic)
-                    || (connectors_only && !(p.synthetic && q.synthetic))
-                {
+                if !(p.synthetic || q.synthetic) || (connectors_only && !(p.synthetic && q.synthetic)) {
                     continue;
                 }
                 match meet(p.a, p.b, q.a, q.b) {
                     Meet::Apart => {}
                     Meet::Bad => return false,
                     Meet::Vertex(_) if p.ring == q.ring => {
-                        let adjacent =
-                            (p.edge + 1) % p.edges == q.edge || (q.edge + 1) % q.edges == p.edge;
+                        let adjacent = (p.edge + 1) % p.edges == q.edge || (q.edge + 1) % q.edges == p.edge;
                         if !adjacent {
                             return false;
                         }
@@ -449,14 +423,7 @@ mod tests {
             let only = case % 3 == 0;
             let mut budget = usize::MAX;
             let piece = PieceBuf::from_parts(verts.clone(), ends.clone(), synthetic.clone());
-            let got = is_planar(
-                &piece,
-                only,
-                c(0, 0),
-                c(0, 0),
-                &mut PlanarScratch::new(),
-                &mut budget,
-            );
+            let got = is_planar(&piece, only, c(0, 0), c(0, 0), &mut PlanarScratch::new(), &mut budget);
             // The same segments, collected as `is_planar` does.
             let mut segs = Vec::new();
             let mut start = 0;
@@ -482,10 +449,7 @@ mod tests {
             assert_eq!(got == Verdict::Planar, want, "case {case}");
             if want { planar += 1 } else { crossing += 1 }
         }
-        assert!(
-            planar > 100 && crossing > 100,
-            "{planar} planar, {crossing} crossing"
-        );
+        assert!(planar > 100 && crossing > 100, "{planar} planar, {crossing} crossing");
     }
 
     #[test]

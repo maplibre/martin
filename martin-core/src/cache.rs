@@ -48,11 +48,7 @@ impl<K: CacheKey, V: Cacheable> Debug for ResourceCache<K, V> {
 impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     /// Builds a new cache
     #[must_use]
-    pub fn new(
-        max_size_bytes: u64,
-        expiry: Option<Duration>,
-        idle_timeout: Option<Duration>,
-    ) -> Self {
+    pub fn new(max_size_bytes: u64, expiry: Option<Duration>, idle_timeout: Option<Duration>) -> Self {
         let mut builder = Cache::builder()
             .name(K::CACHE_NAME)
             .weigher(|_key: &K, value: &V| value.weight())
@@ -64,9 +60,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         if let Some(tti) = idle_timeout {
             builder = builder.time_to_idle(tti);
         }
-        Self {
-            inner: builder.build(),
-        }
+        Self { inner: builder.build() }
     }
 
     /// Gets a cached value or computes one.
@@ -196,9 +190,7 @@ mod tests {
 
     impl TestKey {
         fn new(ids: &str) -> Self {
-            Self {
-                ids: ids.to_owned(),
-            }
+            Self { ids: ids.to_owned() }
         }
     }
 
@@ -242,20 +234,10 @@ mod tests {
             Ok::<_, std::convert::Infallible>(vec![7])
         };
 
-        cache
-            .get_or_insert(TestKey::new("a"), compute)
-            .await
-            .unwrap();
-        cache
-            .get_or_insert(TestKey::new("a"), compute)
-            .await
-            .unwrap();
+        cache.get_or_insert(TestKey::new("a"), compute).await.unwrap();
+        cache.get_or_insert(TestKey::new("a"), compute).await.unwrap();
 
-        assert_eq!(
-            calls.load(Ordering::SeqCst),
-            1,
-            "second call should hit cache"
-        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "second call should hit cache");
     }
 
     #[rstest]
@@ -263,11 +245,7 @@ mod tests {
     #[case::substring_regression(&["foo", "foobar"], "foo", &["foobar"])]
     #[case::predicate_fires_for_csv_key(&["a,b,c"], "b", &[])]
     #[tokio::test]
-    async fn invalidate_source(
-        #[case] entries: &[&str],
-        #[case] target: &str,
-        #[case] expected_remaining: &[&str],
-    ) {
+    async fn invalidate_source(#[case] entries: &[&str], #[case] target: &str, #[case] expected_remaining: &[&str]) {
         let cache = cache();
         for ids in entries {
             cache

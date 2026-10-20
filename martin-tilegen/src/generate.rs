@@ -77,14 +77,8 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let totals = render_all(source, &sorter, plan, order, config.threads, progress)?;
     progress.writing.store(true, Ordering::Relaxed);
 
-    let (encoding, batches) = TileEncoding::start(
-        plan,
-        sorter,
-        config.format,
-        config.encoding,
-        order,
-        config.batch_tiles,
-    )?;
+    let (encoding, batches) =
+        TileEncoding::start(plan, sorter, config.format, config.encoding, order, config.batch_tiles)?;
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
@@ -101,9 +95,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
             sink.write_all(&mut batches.inspect(|batch| {
                 if let Ok(batch) = batch {
                     tiles += batch.len() as u64;
-                    progress
-                        .tiles
-                        .fetch_add(batch.len() as u64, Ordering::Relaxed);
+                    progress.tiles.fetch_add(batch.len() as u64, Ordering::Relaxed);
                 }
             }))?;
             Ok((sink, tiles))
@@ -126,10 +118,7 @@ fn send_features(tx: &FeatureTx, batch: FeatureBatch) -> Result<(), SourceError>
 }
 
 fn feature_channel(capacity: usize) -> (FeatureTx, FeatureRx) {
-    hotpath::channel!(
-        flume::bounded::<FeatureBatch>(capacity),
-        label = { "features" }
-    )
+    hotpath::channel!(flume::bounded::<FeatureBatch>(capacity), label = { "features" })
 }
 
 fn render_all<S: FeatureSource>(
@@ -166,9 +155,7 @@ fn render_all<S: FeatureSource>(
                             return Ok(());
                         }
                         reader
-                            .read(partition, plan.table_keys(), &mut |batch| {
-                                send_features(&tx, batch)
-                            })
+                            .read(partition, plan.table_keys(), &mut |batch| send_features(&tx, batch))
                             .map_err(|err| fail(err.into()))?;
                     }
                 })
@@ -219,7 +206,5 @@ fn render_all<S: FeatureSource>(
 }
 
 fn join<T>(handle: ScopedJoinHandle<'_, T>) -> T {
-    handle
-        .join()
-        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    handle.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))
 }

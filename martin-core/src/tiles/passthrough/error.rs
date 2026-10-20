@@ -70,9 +70,7 @@ pub enum PassthroughError {
     NoTilesInTileJson(String),
 
     /// The tile format could not be derived from config, URL extension, or `TileJSON`.
-    #[error(
-        "Cannot determine tile format for passthrough source {0}; set `format` explicitly in the config"
-    )]
+    #[error("Cannot determine tile format for passthrough source {0}; set `format` explicitly in the config")]
     FormatUndeterminable(String),
 
     /// A per-tile request returned an unexpected (non-success, non-404/204) HTTP status.

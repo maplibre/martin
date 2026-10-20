@@ -66,11 +66,7 @@ impl SortValue {
             }
             Self::Float(v) => {
                 let bits = v.to_bits();
-                let bits = if bits >> 63 == 1 {
-                    !bits
-                } else {
-                    bits | (1 << 63)
-                };
+                let bits = if bits >> 63 == 1 { !bits } else { bits | (1 << 63) };
                 out.push(SortTag::Double as u8);
                 out.extend(bits.to_be_bytes());
             }
@@ -150,12 +146,7 @@ mod tests {
             })
             .collect();
         for (pair, values) in descending.windows(2).zip(ascending.windows(2)) {
-            assert!(
-                pair[0] > pair[1],
-                "{:?} > {:?} descending",
-                values[0],
-                values[1]
-            );
+            assert!(pair[0] > pair[1], "{:?} > {:?} descending", values[0], values[1]);
         }
         assert!(descending.iter().all(|key| key[0] == 9));
     }

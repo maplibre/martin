@@ -195,16 +195,9 @@ pub fn polylines_of(geom: &Geometry<i32>) -> Polylines {
 /// Slice a set of polylines into per-tile runs, grouped by tile (ordered by [`TileId`]). Each polyline
 /// is one part, and within a tile runs come part by part, then in walk order - the order the slicer
 /// yields them in. Each run is a plain polyline - runs are never assembled into a `MultiLineString`.
-pub fn slice_all_runs(
-    cfg: &Cfg,
-    polylines: &[Vec<Coord<i32>>],
-) -> Vec<(TileId, Vec<Vec<Coord<i32>>>)> {
+pub fn slice_all_runs(cfg: &Cfg, polylines: &[Vec<Coord<i32>>]) -> Vec<(TileId, Vec<Vec<Coord<i32>>>)> {
     let slicer = cfg.slicer();
-    group_runs(
-        polylines
-            .iter()
-            .flat_map(|part| slicer.line(part).expect("slice")),
-    )
+    group_runs(polylines.iter().flat_map(|part| slicer.line(part).expect("slice")))
 }
 
 /// Group line slices by tile, keeping each tile's runs in yield order.
@@ -213,20 +206,13 @@ pub fn group_runs<'a>(
 ) -> Vec<(TileId, Vec<Vec<Coord<i32>>>)> {
     let mut tiles: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = BTreeMap::new();
     for slice in slices {
-        tiles
-            .entry(slice.tile())
-            .or_default()
-            .push(slice.run().to_vec());
+        tiles.entry(slice.tile()).or_default().push(slice.run().to_vec());
     }
     tiles.into_iter().collect()
 }
 
 /// Clip a set of polylines to one tile -> its runs (empty if nothing lands there), part by part.
-pub fn slice_tile_runs(
-    cfg: &Cfg,
-    polylines: &[Vec<Coord<i32>>],
-    tile: TileId,
-) -> Vec<Vec<Coord<i32>>> {
+pub fn slice_tile_runs(cfg: &Cfg, polylines: &[Vec<Coord<i32>>], tile: TileId) -> Vec<Vec<Coord<i32>>> {
     let slicer = cfg.slicer();
     polylines
         .iter()
@@ -256,8 +242,7 @@ pub fn load_fixture(path: &Path) -> Vec<TestFeature> {
         .features
         .into_iter()
         .map(|f| {
-            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry"))
-                .expect("geometry converts");
+            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry")).expect("geometry converts");
             let line = match to_i32(&geom) {
                 Geometry::LineString(ls) => ls.0,
                 other => panic!(
@@ -272,11 +257,7 @@ pub fn load_fixture(path: &Path) -> Vec<TestFeature> {
             }
         })
         .collect();
-    assert!(
-        !features.is_empty(),
-        "fixture has no features: {}",
-        path.display()
-    );
+    assert!(!features.is_empty(), "fixture has no features: {}", path.display());
     features
 }
 
@@ -295,12 +276,7 @@ pub fn load_all_fixtures() -> Vec<(String, Polylines)> {
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e == "geojson"))
         .map(|p| {
-            let name = p
-                .file_stem()
-                .expect("stem")
-                .to_str()
-                .expect("utf8")
-                .to_owned();
+            let name = p.file_stem().expect("stem").to_str().expect("utf8").to_owned();
             (name, load_fixture_geoms(&p))
         })
         .collect();
@@ -327,11 +303,7 @@ pub fn big_polyline() -> Geometry<i32> {
         let y0 = r * ROW_H;
         for k in 0..=COLS {
             // Even rows sweep left->right, odd rows right->left, so the path stays connected.
-            let x = if r % 2 == 0 {
-                k * STEP
-            } else {
-                (COLS - k) * STEP
-            };
+            let x = if r % 2 == 0 { k * STEP } else { (COLS - k) * STEP };
             let y = y0 + (k * 3) % 5; // jitter in [0, 4]
             coords.push(Coord { x, y });
         }
@@ -418,9 +390,7 @@ pub fn buildings() -> Vec<FixturePolygon> {
     // A fixed linear congruential sequence, so the benchmark input never changes.
     let mut state: u64 = 0x2545_f491_4f6c_dd1d;
     let mut next = move |n: u32| -> f64 {
-        state = state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1);
+        state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         f64::from((state >> 33) as u32 % n)
     };
     (0..2000)
@@ -434,12 +404,7 @@ pub fn buildings() -> Vec<FixturePolygon> {
                 y: (cy + dx * sin + dy * cos).round() as i32,
             };
             FixturePolygon {
-                exterior: vec![
-                    corner(-hw, -hh),
-                    corner(hw, -hh),
-                    corner(hw, hh),
-                    corner(-hw, hh),
-                ],
+                exterior: vec![corner(-hw, -hh), corner(hw, -hh), corner(hw, hh), corner(-hw, hh)],
                 holes: vec![],
             }
         })
@@ -455,9 +420,7 @@ pub fn buildings() -> Vec<FixturePolygon> {
 pub fn footprints() -> Vec<FixturePolygon> {
     let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
     let mut next = move |n: u32| -> f64 {
-        state = state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1);
+        state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         f64::from((state >> 33) as u32 % n)
     };
     (0..2000)
@@ -501,17 +464,13 @@ pub fn footprints() -> Vec<FixturePolygon> {
 pub fn scattered_points(n: usize, edge_heavy: bool) -> Vec<Coord<i32>> {
     let mut state: u64 = 0x2545_f491_4f6c_dd1d;
     let mut next = move |n: u32| -> i32 {
-        state = state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1);
+        state = state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
         ((state >> 33) as u32 % n) as i32
     };
     (0..n)
         .map(|_| {
             if edge_heavy {
-                let band = |v: &mut dyn FnMut(u32) -> i32| {
-                    v(4) * 4096 + [v(64), 4095 - v(64)][v(2) as usize]
-                };
+                let band = |v: &mut dyn FnMut(u32) -> i32| v(4) * 4096 + [v(64), 4095 - v(64)][v(2) as usize];
                 Coord {
                     x: band(&mut next),
                     y: band(&mut next),
@@ -579,9 +538,7 @@ fn to_i32(geom: &Geometry<f64>) -> Geometry<i32> {
     };
     match geom {
         Geometry::LineString(l) => Geometry::LineString(ls(l)),
-        Geometry::MultiLineString(m) => {
-            Geometry::MultiLineString(MultiLineString(m.0.iter().map(ls).collect()))
-        }
+        Geometry::MultiLineString(m) => Geometry::MultiLineString(MultiLineString(m.0.iter().map(ls).collect())),
         other => panic!("expected a polyline geometry, got {other:?}"),
     }
 }
@@ -600,9 +557,7 @@ pub fn to_f64(geom: &Geometry<i32>) -> Geometry<f64> {
     };
     match geom {
         Geometry::LineString(l) => Geometry::LineString(ls(l)),
-        Geometry::MultiLineString(m) => {
-            Geometry::MultiLineString(MultiLineString(m.0.iter().map(ls).collect()))
-        }
+        Geometry::MultiLineString(m) => Geometry::MultiLineString(MultiLineString(m.0.iter().map(ls).collect())),
         other => panic!("expected a polyline geometry, got {other:?}"),
     }
 }
@@ -629,10 +584,7 @@ pub fn feature(geom: &Geometry<f64>, props: Vec<(&str, JsonValue)>) -> Feature {
 /// A GeoJSON `LineString` [`Feature`] for one integer run (converted to `f64`) with the given
 /// [`simplestyle-spec`](https://github.com/mapbox/simplestyle-spec) properties.
 pub fn line_feature(run: &[Coord<i32>], props: Vec<(&str, JsonValue)>) -> Feature {
-    feature(
-        &to_f64(&Geometry::LineString(LineString(run.to_vec()))),
-        props,
-    )
+    feature(&to_f64(&Geometry::LineString(LineString(run.to_vec()))), props)
 }
 
 /// A `LineString` feature for one run tagged with the simplestyle `role`, `stroke` color, and
@@ -681,10 +633,7 @@ fn ring_i32(ls: &LineString<f64>) -> Vec<Coord<i32>> {
 pub fn load_polygon_features(path: &Path) -> Vec<Vec<FixturePolygon>> {
     let text = fs::read_to_string(path).expect("readable fixture");
     let GeoJson::FeatureCollection(fc) = text.parse().expect("valid GeoJSON") else {
-        panic!(
-            "polygon fixture must be a FeatureCollection: {}",
-            path.display()
-        );
+        panic!("polygon fixture must be a FeatureCollection: {}", path.display());
     };
     let polygon = |p: &Polygon<f64>| FixturePolygon {
         exterior: ring_i32(p.exterior()),
@@ -694,8 +643,7 @@ pub fn load_polygon_features(path: &Path) -> Vec<Vec<FixturePolygon>> {
         .features
         .into_iter()
         .map(|f| {
-            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry"))
-                .expect("geometry converts");
+            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry")).expect("geometry converts");
             match geom {
                 Geometry::Polygon(p) => vec![polygon(&p)],
                 Geometry::MultiPolygon(mp) => mp.0.iter().map(polygon).collect(),
@@ -734,10 +682,7 @@ pub fn padded_tile_span(rings: &[Vec<Coord<i32>>]) -> (TileId, TileId) {
             hi = TileId::new(hi.x.max(tx), hi.y.max(ty));
         }
     }
-    (
-        TileId::new(lo.x - 1, lo.y - 1),
-        TileId::new(hi.x + 1, hi.y + 1),
-    )
+    (TileId::new(lo.x - 1, lo.y - 1), TileId::new(hi.x + 1, hi.y + 1))
 }
 
 /// A ring's `f64` coordinates for GeoJSON output.
@@ -754,17 +699,8 @@ fn ring_f64(ring: &[Coord<i32>]) -> LineString<f64> {
 
 /// A filled GeoJSON `Polygon` feature (exterior plus `holes`, so holes render punched out), styled so
 /// it renders on a map and tagged with `role`.
-fn styled_polygon(
-    exterior: &[Coord<i32>],
-    holes: &[Vec<Coord<i32>>],
-    role: &str,
-    fill: &str,
-    stroke: &str,
-) -> Feature {
-    let poly = Polygon::new(
-        ring_f64(exterior),
-        holes.iter().map(|h| ring_f64(h)).collect(),
-    );
+fn styled_polygon(exterior: &[Coord<i32>], holes: &[Vec<Coord<i32>>], role: &str, fill: &str, stroke: &str) -> Feature {
+    let poly = Polygon::new(ring_f64(exterior), holes.iter().map(|h| ring_f64(h)).collect());
     feature(
         &Geometry::Polygon(poly),
         vec![
@@ -801,10 +737,7 @@ pub fn tile_polygon(exterior: &[Coord<i32>], holes: &[Vec<Coord<i32>>], tile: Ti
 pub fn load_point_features(path: &Path) -> Vec<Vec<Coord<i32>>> {
     let text = fs::read_to_string(path).expect("readable fixture");
     let GeoJson::FeatureCollection(fc) = text.parse().expect("valid GeoJSON") else {
-        panic!(
-            "point fixture must be a FeatureCollection: {}",
-            path.display()
-        );
+        panic!("point fixture must be a FeatureCollection: {}", path.display());
     };
     let point = |p: &Point<f64>| Coord {
         x: p.x() as i32,
@@ -814,8 +747,7 @@ pub fn load_point_features(path: &Path) -> Vec<Vec<Coord<i32>>> {
         .features
         .into_iter()
         .map(|f| {
-            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry"))
-                .expect("geometry converts");
+            let geom = Geometry::<f64>::try_from(f.geometry.expect("feature has geometry")).expect("geometry converts");
             match geom {
                 Geometry::Point(p) => vec![point(&p)],
                 Geometry::MultiPoint(mp) => mp.0.iter().map(point).collect(),
@@ -887,10 +819,7 @@ pub fn tile_points(points: &[Coord<i32>], tile: TileId, indices: &[u32]) -> Feat
 /// order they were produced in).
 pub fn feature_collection_bytes(mut features: Vec<Feature>) -> Vec<u8> {
     features.sort_by_cached_key(|f| {
-        let role = f
-            .property("role")
-            .and_then(JsonValue::as_str)
-            .unwrap_or_default();
+        let role = f.property("role").and_then(JsonValue::as_str).unwrap_or_default();
         let group = if role == "input" {
             0
         } else if role.starts_with("tile ") {

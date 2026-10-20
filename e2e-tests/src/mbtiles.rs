@@ -97,9 +97,10 @@ impl MbtilesCli {
             .env("RUST_LOG_FORMAT", "bare")
             .args(&self.args)
             .stdin(Stdio::null());
-        let output = cmd.output().await.unwrap_or_else(|e| {
-            panic!("failed to run `mbtiles {}`: {e}", display_args(&self.args))
-        });
+        let output = cmd
+            .output()
+            .await
+            .unwrap_or_else(|e| panic!("failed to run `mbtiles {}`: {e}", display_args(&self.args)));
         let exe = format!("mbtiles{}", env::consts::EXE_SUFFIX);
         (
             output.status,
@@ -113,8 +114,7 @@ impl MbtilesCli {
 /// The fixtures are checked in as SQL text because `*.mbtiles` is git-ignored.
 pub async fn mbtiles_from_sql(sql: impl AsRef<Path>, dest: impl AsRef<Path>) {
     let sql = sql.as_ref();
-    let script =
-        fs::read_to_string(sql).unwrap_or_else(|e| panic!("failed to read {}: {e}", sql.display()));
+    let script = fs::read_to_string(sql).unwrap_or_else(|e| panic!("failed to read {}: {e}", sql.display()));
     let options = SqliteConnectOptions::new()
         .filename(dest.as_ref())
         .create_if_missing(true);
@@ -125,9 +125,7 @@ pub async fn mbtiles_from_sql(sql: impl AsRef<Path>, dest: impl AsRef<Path>) {
         .execute(&mut conn)
         .await
         .unwrap_or_else(|e| panic!("failed to run {}: {e}", sql.display()));
-    conn.close()
-        .await
-        .expect("failed to close the mbtiles file");
+    conn.close().await.expect("failed to close the mbtiles file");
 }
 
 /// A tile with its gzip wrapper taken off, or the tile itself when it carries none.
@@ -180,9 +178,7 @@ pub async fn open_read_write(path: impl AsRef<Path>) -> SqliteConnection {
 }
 
 async fn open(path: &Path, read_only: bool) -> SqliteConnection {
-    let options = SqliteConnectOptions::new()
-        .filename(path)
-        .read_only(read_only);
+    let options = SqliteConnectOptions::new().filename(path).read_only(read_only);
     SqliteConnection::connect_with(&options)
         .await
         .unwrap_or_else(|e| panic!("failed to open {}: {e}", path.display()))
@@ -250,12 +246,10 @@ pub async fn metadata_listing(path: impl AsRef<Path>) -> String {
 /// with the deletions it records left as `NULL` tiles.
 pub async fn patch_tiles(path: impl AsRef<Path>) -> Vec<PatchTile> {
     let mut conn = open_read_only(path).await;
-    let rows = sqlx::query_as(
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-    )
-    .fetch_all(&mut conn)
-    .await
-    .expect("failed to read the tiles table");
+    let rows = sqlx::query_as("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3")
+        .fetch_all(&mut conn)
+        .await
+        .expect("failed to read the tiles table");
     conn.close().await.expect("failed to close an mbtiles file");
     rows
 }

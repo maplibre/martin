@@ -5,8 +5,8 @@ use std::fs;
 
 use indoc::indoc;
 use martin_e2e_tests::{
-    Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump,
-    mlt_layers, temp_dir, tile_listing, tiles,
+    Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, temp_dir,
+    tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -116,10 +116,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
         "},
     )
     .expect("failed to write the config");
-    let (mbtiles, pmtiles) = (
-        dir.path().join("out.mbtiles"),
-        dir.path().join("out.pmtiles"),
-    );
+    let (mbtiles, pmtiles) = (dir.path().join("out.mbtiles"), dir.path().join("out.pmtiles"));
     MartinCp::bulk()
         .with_postgres()
         .arg("--config")
@@ -326,10 +323,7 @@ async fn refuses_mlt2() {
 #[tokio::test]
 async fn contiguous_zoom_levels_are_a_zoom_range() {
     let dir = temp_dir();
-    let (levels, range) = (
-        dir.path().join("levels.mbtiles"),
-        dir.path().join("range.mbtiles"),
-    );
+    let (levels, range) = (dir.path().join("levels.mbtiles"), dir.path().join("range.mbtiles"));
     MartinCp::bulk()
         .with_postgres()
         .arg("--source")
@@ -354,10 +348,7 @@ async fn contiguous_zoom_levels_are_a_zoom_range() {
         .await;
     assert_eq!(tiles(&levels).await, tiles(&range).await);
     let listing = tile_listing(&levels).await;
-    let mut zooms: Vec<&str> = listing
-        .lines()
-        .filter_map(|tile| tile.split('/').next())
-        .collect();
+    let mut zooms: Vec<&str> = listing.lines().filter_map(|tile| tile.split('/').next()).collect();
     zooms.dedup();
     insta::assert_snapshot!(zooms.join(","), @"1,2,3");
 }
@@ -470,10 +461,7 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
         .arg("none")
         .run()
         .await;
-    assert!(
-        log.contains("Layer `even`: `12 / (gid - 4)` failed"),
-        "{log}"
-    );
+    assert!(log.contains("Layer `even`: `12 / (gid - 4)` failed"), "{log}");
     MbtilesCli::new("validate").arg(&output).run().await;
     let dump: Vec<String> = tiles(&output)
         .await
@@ -599,12 +587,9 @@ async fn features_whose_zooms_miss_the_generated_zooms_are_dropped() {
     let mut ids = std::collections::BTreeMap::<i64, std::collections::BTreeSet<u64>>::new();
     for (z, _, _, data) in tiles(&output).await {
         for layer in mlt_layers(&data) {
-            ids.entry(z).or_default().extend(
-                layer
-                    .features()
-                    .iter()
-                    .filter_map(mlt_core::TileFeature::id),
-            );
+            ids.entry(z)
+                .or_default()
+                .extend(layer.features().iter().filter_map(mlt_core::TileFeature::id));
         }
     }
     insta::assert_snapshot!(format!("{ids:?}"), @"{2: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}, 3: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}}");
@@ -724,12 +709,9 @@ async fn features_whose_rule_zooms_miss_the_generated_zooms_are_dropped() {
     let mut ids = std::collections::BTreeMap::<i64, std::collections::BTreeSet<u64>>::new();
     for (z, _, _, data) in tiles(&output).await {
         for layer in mlt_layers(&data) {
-            ids.entry(z).or_default().extend(
-                layer
-                    .features()
-                    .iter()
-                    .filter_map(mlt_core::TileFeature::id),
-            );
+            ids.entry(z)
+                .or_default()
+                .extend(layer.features().iter().filter_map(mlt_core::TileFeature::id));
         }
     }
     insta::assert_snapshot!(format!("{ids:?}"), @"{2: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}, 3: {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}}");
@@ -817,10 +799,7 @@ async fn rejects_function_sources() {
 async fn rejects_inverted_and_off_world_bboxes() {
     let dir = temp_dir();
     for (bbox, expected) in [
-        (
-            "--bbox=170,-50,-170,-30",
-            "has a minimum greater than its maximum",
-        ),
+        ("--bbox=170,-50,-170,-30", "has a minimum greater than its maximum"),
         ("--bbox=-10,-89,10,89", "latitude"),
     ] {
         let log = MartinCp::bulk()

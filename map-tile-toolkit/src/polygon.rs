@@ -41,9 +41,8 @@ use geo_types::Coord;
 
 use crate::TileError;
 use crate::clip_polygon::{
-    ClipScratch, Closed, PieceBuf, Probe, RingClip, RingPlan, arcs_points, clip_ring,
-    clip_ring_planned, convex_hull, fill_box, keep_edge, lane_bounds, push_distinct,
-    ring_meets_box, scan_arcs,
+    ClipScratch, Closed, PieceBuf, Probe, RingClip, RingPlan, arcs_points, clip_ring, clip_ring_planned, convex_hull,
+    fill_box, keep_edge, lane_bounds, push_distinct, ring_meets_box, scan_arcs,
 };
 use crate::clip_polyline::to_local;
 use crate::geom::{crossing_x_ceil, ring_orientation};
@@ -143,11 +142,7 @@ impl<'a, V: Vertex, R: AsRef<[V]>> PolygonPiece<'a, V, R> {
             PieceRings::Whole { rings, .. } => rings.len(),
         };
         (0..n).map(move |i| match rings {
-            PieceRings::Built {
-                verts,
-                ends,
-                origin,
-            } => {
+            PieceRings::Built { verts, ends, origin } => {
                 let start = i.checked_sub(1).map_or(0, |p| ends[p] as usize);
                 Local::ring(&verts[start..ends[i] as usize], origin, true)
             }
@@ -280,9 +275,9 @@ fn sort_hits(hits: &mut [Hit], tmp: &mut Vec<Hit>, counts: &mut Vec<usize>) {
     let Some(head) = hits.first() else {
         return;
     };
-    let (lo, hi) = hits.iter().fold((head.tx, head.tx), |(lo, hi), h| {
-        (lo.min(h.tx), hi.max(h.tx))
-    });
+    let (lo, hi) = hits
+        .iter()
+        .fold((head.tx, head.tx), |(lo, hi), h| (lo.min(h.tx), hi.max(h.tx)));
     let columns = hi.abs_diff(lo) as usize + 1;
     if columns == 1 {
         // One column: already in edge order.
@@ -321,12 +316,7 @@ fn check_local<V: Vertex>(verts: &[V], origin: Coord<i32>) -> Result<(), TileErr
 /// Restore edge order to `spans`, whose first `kept` are in edge order and the rest were appended (in
 /// first-column order, so in edge order too when they all start in the same column): sort the
 /// appended part only if needed, then merge the two in one pass through `tmp`.
-fn merge_by_edge<T: Copy>(
-    spans: &mut Vec<T>,
-    kept: usize,
-    tmp: &mut Vec<T>,
-    edge: impl Fn(&T) -> u32,
-) {
+fn merge_by_edge<T: Copy>(spans: &mut Vec<T>, kept: usize, tmp: &mut Vec<T>, edge: impl Fn(&T) -> u32) {
     let added = &mut spans[kept..];
     if !added.is_sorted_by_key(&edge) {
         added.sort_unstable_by_key(&edge);
@@ -364,13 +354,7 @@ fn ring_groups(mut hits: &[Hit]) -> impl Iterator<Item = &[Hit]> {
 
 /// Signed crossings, right of the current tile, of `ring`'s `count` edges from local edge `first`
 /// (cyclically): the row's still-active crossings in that edge range, summed by the Fenwick tree.
-fn excursion_winding(
-    cs: &[Crossing],
-    fenwick: &[i64],
-    ring: RingInfo,
-    first: usize,
-    count: usize,
-) -> i64 {
+fn excursion_winding(cs: &[Crossing], fenwick: &[i64], ring: RingInfo, first: usize, count: usize) -> i64 {
     let (start, len) = (ring.edge0 as usize, ring.len as usize);
     let sum = |lo: usize, hi: usize| {
         let i = cs.partition_point(|c| (c.edge as usize) < lo);
@@ -861,9 +845,7 @@ fn prepare<V: PolyVertex, R: AsRef<[V]>>(
             }
             continue;
         };
-        edges = edges
-            .checked_add(info.len)
-            .ok_or(TileError::GeometryTooLarge)?;
+        edges = edges.checked_add(info.len).ok_or(TileError::GeometryTooLarge)?;
         s.rings.push(info);
         (lo.x, lo.y) = (lo.x.min(rlo.x), lo.y.min(rlo.y));
         (hi.x, hi.y) = (hi.x.max(rhi.x), hi.y.max(rhi.y));
@@ -898,10 +880,7 @@ fn prepare<V: PolyVertex, R: AsRef<[V]>>(
     s.chunks.clear();
     index_chunks(s, rings, extent, buffer);
     s.order.clear();
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "at most one chunk per edge"
-    )]
+    #[expect(clippy::cast_possible_truncation, reason = "at most one chunk per edge")]
     s.order.extend(0..s.chunks.len() as u32);
     let chunks = &s.chunks;
     s.order.sort_unstable_by_key(|&c| chunks[c as usize].rows.0);
@@ -947,10 +926,7 @@ impl Sweep {
     // Keeps this second copy of the sweep out of `PolygonSlices::next`, so the clipped one inlines as
     // before (any extra code there costs the clipped sweep 2-5%).
     #[inline(never)]
-    fn step_whole<V: PolyVertex, R: AsRef<[V]>>(
-        &mut self,
-        cx: &mut Cx<'_, V, R>,
-    ) -> Result<Option<Event>, TileError> {
+    fn step_whole<V: PolyVertex, R: AsRef<[V]>>(&mut self, cx: &mut Cx<'_, V, R>) -> Result<Option<Event>, TileError> {
         self.step::<true, V, R>(cx)
     }
 
@@ -1011,8 +987,7 @@ impl Sweep {
                 // long span starts.
                 let next = self.next;
                 // (`long_last` is `i64::MIN` when no long edge covers the sweep, as at a row start.)
-                let covered =
-                    (self.long_last != i64::MIN && self.long_last >= next).then_some(next);
+                let covered = (self.long_last != i64::MIN && self.long_last >= next).then_some(next);
                 let short = s.hits.get(self.h).map(|c| i64::from(c.tx));
                 let long = s.long.get(self.lh).map(|c| i64::from(c.first).max(next));
                 [covered, short, long].into_iter().flatten().min()
@@ -1107,12 +1082,7 @@ impl Sweep {
             return;
         }
         merge_by_edge(&mut s.long_cover, kept, &mut s.spans_tmp, |c| c.edge);
-        self.long_last = s
-            .long_cover
-            .iter()
-            .map(|c| i64::from(c.last))
-            .max()
-            .unwrap_or(i64::MIN);
+        self.long_last = s.long_cover.iter().map(|c| i64::from(c.last)).max().unwrap_or(i64::MIN);
         s.covering.clear();
         s.covering.extend(s.long_cover.iter().map(|c| Hit {
             tx,
@@ -1165,10 +1135,7 @@ impl Sweep {
         match &mut self.pending {
             Some((_, e)) if *e == start => *e = end,
             pending => {
-                debug_assert!(
-                    pending.is_none(),
-                    "an edge tile or row end yields a span first"
-                );
+                debug_assert!(pending.is_none(), "an edge tile or row end yields a span first");
                 *pending = Some((start, end));
             }
         }
@@ -1180,16 +1147,9 @@ impl Sweep {
     // (The `hotpath` wrapper hides the body from this lint.)
     #[cfg_attr(
         not(feature = "hotpath"),
-        expect(
-            clippy::many_single_char_names,
-            reason = "edge endpoints and the scratch"
-        )
+        expect(clippy::many_single_char_names, reason = "edge endpoints and the scratch")
     )]
-    fn load_row<V: PolyVertex, R: AsRef<[V]>>(
-        &mut self,
-        cx: &mut Cx<'_, V, R>,
-        ty: i64,
-    ) -> Result<(), TileError> {
+    fn load_row<V: PolyVertex, R: AsRef<[V]>>(&mut self, cx: &mut Cx<'_, V, R>, ty: i64) -> Result<(), TileError> {
         let (extent, buffer) = (i64::from(cx.grid.extent()), i64::from(cx.grid.buffer()));
         let s = &mut *cx.s;
         let rings = cx.rings;
@@ -1247,11 +1207,7 @@ impl Sweep {
                 }
                 // Crossings of the center line, half-open in `y`.
                 if i64::from(lo.y) <= cy && cy < i64::from(hi.y) {
-                    let x = crossing_x_ceil(
-                        a,
-                        b,
-                        i32::try_from(cy).map_err(|_overflow| TileError::Overflow)?,
-                    );
+                    let x = crossing_x_ceil(a, b, i32::try_from(cy).map_err(|_overflow| TileError::Overflow)?);
                     s.crossings.push(Crossing {
                         edge,
                         ring: chunk.ring,
@@ -1269,8 +1225,7 @@ impl Sweep {
         #[expect(clippy::cast_possible_truncation, reason = "one crossing per edge")]
         s.by_x.extend(0..s.crossings.len() as u32);
         let crossings = &s.crossings;
-        s.by_x
-            .sort_unstable_by_key(|&i| crossings[i as usize].right_of);
+        s.by_x.sort_unstable_by_key(|&i| crossings[i as usize].right_of);
         fenwick_build(&mut s.fenwick, s.crossings.iter().map(|c| c.sign()));
         Ok(())
     }
@@ -1284,12 +1239,7 @@ impl Sweep {
         reason = "run per edge tile; out of line it costs the polygon benchmarks 2%"
     )]
     #[inline(always)]
-    fn tile_hits<'x>(
-        &self,
-        hits: &'x [Hit],
-        covering: &'x [Hit],
-        inside: &[bool],
-    ) -> Option<&'x [Hit]> {
+    fn tile_hits<'x>(&self, hits: &'x [Hit], covering: &'x [Hit], inside: &[bool]) -> Option<&'x [Hit]> {
         let hits = match &self.cover {
             Some(range) => &hits[range.clone()],
             None => covering,
@@ -1353,8 +1303,7 @@ impl Sweep {
                 keep_edge(&mut s.arcs, (x.edge - info.edge0) as usize);
             }
             let (cs, fenwick) = (&s.crossings, &s.fenwick);
-            let winding =
-                |first: usize, count: usize| excursion_winding(cs, fenwick, info, first, count);
+            let winding = |first: usize, count: usize| excursion_winding(cs, fenwick, info, first, count);
             let pts = info.pts(rings, &s.copies);
             let (arcs, piece) = (&mut s.arcs, &mut s.piece);
             s.clip.close_ring(pts, arcs, (min, max), winding, piece)?;
@@ -1383,15 +1332,9 @@ impl Sweep {
         // (The plain clip of a covered tile just found the exterior's winding.)
         let fill = (!exterior_touched).then(|| self.orient.unwrap_or(Ordering::Equal));
         let whole_fits = fits_whole(rings);
-        repair(
-            s,
-            (min, max),
-            origin,
-            rings.len(),
-            whole_fits,
-            budget,
-            |s, a, b| self.piece(s, rings, (min, max), fill, a, b),
-        )
+        repair(s, (min, max), origin, rings.len(), whole_fits, budget, |s, a, b| {
+            self.piece(s, rings, (min, max), fill, a, b)
+        })
     }
 
     /// Build the piece of the edge tile with box `(min, max)`, which [`Self::tile_hits`] found gets one,
@@ -1462,19 +1405,14 @@ impl Sweep {
                 keep_edge(&mut s.arcs, (x.edge - info.edge0) as usize);
             }
             let (cs, fenwick) = (&s.crossings, &s.fenwick);
-            let winding =
-                |first: usize, count: usize| excursion_winding(cs, fenwick, info, first, count);
+            let winding = |first: usize, count: usize| excursion_winding(cs, fenwick, info, first, count);
             let pts = info.pts(rings, &s.copies);
             let plan = if attempt == Attempt::PLAIN {
                 RingPlan::PLAIN
             } else {
                 let frame = attempt.frame.then(|| {
                     let ring = info.input as usize;
-                    (
-                        s.frame_hull.as_slice(),
-                        s.depths.as_slice(),
-                        s.ring_bases[ring],
-                    )
+                    (s.frame_hull.as_slice(), s.depths.as_slice(), s.ring_bases[ring])
                 });
                 attempt.ring_plan(info.input as usize, rings.len(), frame)
             };
@@ -1549,12 +1487,7 @@ fn load_ring<V: Vertex>(
 
 /// The row index of the polygon in `s.rings`: every run of [`CHUNK`] edges, with the rows its buffered
 /// `y`-range reaches.
-fn index_chunks<V: Vertex, R: AsRef<[V]>>(
-    s: &mut PolyScratch<V>,
-    rings: &[R],
-    extent: i64,
-    buffer: i64,
-) {
+fn index_chunks<V: Vertex, R: AsRef<[V]>>(s: &mut PolyScratch<V>, rings: &[R], extent: i64, buffer: i64) {
     for (ring_id, info) in (0_u32..).zip(&s.rings) {
         let pts = info.pts(rings, &s.copies);
         for first in (0..pts.len()).step_by(CHUNK) {
@@ -1567,10 +1500,7 @@ fn index_chunks<V: Vertex, R: AsRef<[V]>>(
                 let y = v.position().y;
                 (y0, y1) = (y0.min(y), y1.max(y));
             }
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "within the ring's u32 length"
-            )]
+            #[expect(clippy::cast_possible_truncation, reason = "within the ring's u32 length")]
             s.chunks.push(Chunk {
                 ring: ring_id,
                 first: first as u32,
@@ -1674,12 +1604,9 @@ fn adapt_frame(
         }
         *budget -= cost;
         depths.resize(probe.bridges, (0, 0));
-        probe.pts.extend([
-            lo,
-            Coord { x: hi.x, y: lo.y },
-            hi,
-            Coord { x: lo.x, y: hi.y },
-        ]);
+        probe
+            .pts
+            .extend([lo, Coord { x: hi.x, y: lo.y }, hi, Coord { x: lo.x, y: hi.y }]);
         convex_hull(&mut probe.pts, hull);
         let mut deepened = false;
         for &(tip, bridge, side) in &probe.tips {
@@ -1743,10 +1670,6 @@ fn repair_attempts(rings: usize) -> impl Iterator<Item = Attempt> {
 
 /// Build `rings`' piece in the box `[min, max]` for one `attempt` into the scratch's piece buffer,
 /// in the input's frame: what [`Sweep::piece`] builds for the same attempt, from the rings.
-#[expect(
-    clippy::too_many_lines,
-    reason = "one cohesive build of an attempt's piece; splitting it would only scatter shared state"
-)]
 fn build_piece<V: PolyVertex, R: AsRef<[V]>>(
     rings: &[R],
     min: Coord<i32>,
@@ -1784,13 +1707,7 @@ fn build_piece<V: PolyVertex, R: AsRef<[V]>>(
                         Some((m, arcs)) => {
                             if !arcs.is_empty() {
                                 let ring = &ring.as_ref()[..*m];
-                                arcs_points(
-                                    ring,
-                                    &mut s.probe_arcs[arcs.clone()],
-                                    plan,
-                                    (min, max),
-                                    probe,
-                                );
+                                arcs_points(ring, &mut s.probe_arcs[arcs.clone()], plan, (min, max), probe);
                             }
                         }
                         // A ring with repeated vertices is scanned from a copy, each round.
@@ -1821,25 +1738,13 @@ fn build_piece<V: PolyVertex, R: AsRef<[V]>>(
         }
     }
     let frame = |ring: usize| {
-        attempt.frame.then(|| {
-            (
-                s.frame_hull.as_slice(),
-                s.depths.as_slice(),
-                s.ring_bases[ring],
-            )
-        })
+        attempt
+            .frame
+            .then(|| (s.frame_hull.as_slice(), s.depths.as_slice(), s.ring_bases[ring]))
     };
     let plan = attempt.ring_plan(0, rings.len(), frame(0));
     // If the exterior misses the tile entirely, the whole polygon is absent here.
-    let Some(exterior_clip) = clip_ring_planned(
-        exterior.as_ref(),
-        min,
-        max,
-        &mut s.clip,
-        &plan,
-        None,
-        &mut s.piece,
-    )?
+    let Some(exterior_clip) = clip_ring_planned(exterior.as_ref(), min, max, &mut s.clip, &plan, None, &mut s.piece)?
     else {
         return Ok(Built::Failed);
     };
@@ -1852,15 +1757,7 @@ fn build_piece<V: PolyVertex, R: AsRef<[V]>>(
     }
     for (i, hole) in (1..).zip(holes) {
         let plan = attempt.ring_plan(i, rings.len(), frame(i));
-        match clip_ring_planned(
-            hole.as_ref(),
-            min,
-            max,
-            &mut s.clip,
-            &plan,
-            None,
-            &mut s.piece,
-        )? {
+        match clip_ring_planned(hole.as_ref(), min, max, &mut s.clip, &plan, None, &mut s.piece)? {
             None => return Ok(Built::Failed),
             // A hole covering the whole tile leaves nothing to draw here.
             Some(RingClip::Covers) => return Ok(Built::Empty),
@@ -1890,10 +1787,7 @@ enum Built {
 /// the box, or nothing says it is not (nothing synthetic can cross anything, and a check that runs
 /// out of budget passes it); else the budget the check left for repairs.
 #[inline]
-fn needs_repair<V: PolyVertex>(
-    s: &mut PolyScratch<V>,
-    (min, max): (Coord<i32>, Coord<i32>),
-) -> Option<usize> {
+fn needs_repair<V: PolyVertex>(s: &mut PolyScratch<V>, (min, max): (Coord<i32>, Coord<i32>)) -> Option<usize> {
     if s.piece.synthetic().is_empty() {
         return None;
     }
@@ -2060,15 +1954,9 @@ fn make_valid<V: PolyVertex, R: AsRef<[V]>>(
         return Ok(true);
     };
     let whole_fits = fits_whole(rings);
-    repair(
-        s,
-        (min, max),
-        origin,
-        rings.len(),
-        whole_fits,
-        budget,
-        |s, a, b| build_piece(rings, min, max, a, s, b),
-    )
+    repair(s, (min, max), origin, rings.len(), whole_fits, budget, |s, a, b| {
+        build_piece(rings, min, max, a, s, b)
+    })
 }
 
 /// A polygon's `rings` whole, lent in one `tile`'s local frame; `None` if the polygon leaves nothing

@@ -11,9 +11,7 @@ use brotli::Decompressor;
 use flate2::read::GzDecoder;
 use geojson::{Feature, FeatureCollection, Geometry as GjGeometry, GeometryValue, JsonObject};
 use image::{ColorType, ImageFormat, ImageReader};
-use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, decode_zlib, decode_zstd, tile_bbox, webmercator_to_wgs84,
-};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, decode_zlib, decode_zstd, tile_bbox, webmercator_to_wgs84};
 use mlt_core::fast_mvt::{MvtFeature, MvtReaderRef, MvtTile};
 use mlt_core::geo_types::{Coord, Geometry, LineString, MultiPolygon, Polygon};
 use mlt_core::{Decoder, Parser, TileLayer};
@@ -109,8 +107,8 @@ impl MartinBuilder {
     /// Serve from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
-        let url = env::var("DATABASE_URL")
-            .expect("DATABASE_URL must point at the test database; start it with `just start`");
+        let url =
+            env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
         self.database_url = Some(url);
         self
     }
@@ -178,10 +176,7 @@ impl MartinBuilder {
     }
 }
 
-fn spawn_log_reader(
-    pipe: impl AsyncRead + Unpin + Send + 'static,
-    log: Arc<Mutex<Vec<String>>>,
-) -> JoinHandle<()> {
+fn spawn_log_reader(pipe: impl AsyncRead + Unpin + Send + 'static, log: Arc<Mutex<Vec<String>>>) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut lines = BufReader::new(pipe).lines();
         while let Ok(Some(line)) = lines.next_line().await {
@@ -224,8 +219,7 @@ impl Subprocess {
     /// `--route-prefix` (as an argument or through a config file) moves the
     /// endpoints around.
     async fn wait_ready(&mut self, client: &Client) -> Result<String, StartError> {
-        let announced = Regex::new(r"Martin server is now active.*server.url=http://([^/]+)/")
-            .expect("valid regex");
+        let announced = Regex::new(r"Martin server is now active.*server.url=http://([^/]+)/").expect("valid regex");
         let deadline = Instant::now() + ready_timeout();
         let addr = loop {
             let announced = self
@@ -257,9 +251,7 @@ impl Subprocess {
             });
         }
         if Instant::now() >= deadline {
-            return Err(StartError::ReadyTimeout {
-                log: self.raw_log(),
-            });
+            return Err(StartError::ReadyTimeout { log: self.raw_log() });
         }
         sleep(READY_POLL_INTERVAL).await;
         Ok(())
@@ -272,12 +264,7 @@ impl Subprocess {
             return;
         }
         self.stopped = true;
-        if self
-            .child
-            .try_wait()
-            .expect("failed to poll martin")
-            .is_none()
-        {
+        if self.child.try_wait().expect("failed to poll martin").is_none() {
             terminate(&mut self.child).await;
         }
         self.drain_readers().await;
@@ -309,11 +296,7 @@ impl Subprocess {
             .expect("log lock poisoned")
             .iter()
             .filter(|line| problem.is_match(line))
-            .filter(|line| {
-                !ALLOWED_LOG_LINES
-                    .iter()
-                    .any(|allowed| line.contains(allowed))
-            })
+            .filter(|line| !ALLOWED_LOG_LINES.iter().any(|allowed| line.contains(allowed)))
             .cloned()
             .collect()
     }
@@ -345,8 +328,8 @@ impl Martin {
     /// [`TestResponse::json`] of `response` with this instance's `host:port` redacted.
     #[must_use]
     pub fn redacted_json(&self, response: &TestResponse) -> serde_json::Value {
-        let mut json: serde_json::Value = serde_json::from_str(&self.redact(&response.text()))
-            .expect("response body is not valid json");
+        let mut json: serde_json::Value =
+            serde_json::from_str(&self.redact(&response.text())).expect("response body is not valid json");
         json.sort_all_objects();
         json
     }
@@ -379,31 +362,17 @@ impl Martin {
 
     /// Perform a POST request carrying a JSON `body`.
     pub async fn post_json(&self, path: &str, body: &[u8]) -> TestResponse {
-        self.send(
-            Method::POST,
-            path,
-            &[("content-type", "application/json")],
-            body,
-        )
-        .await
+        self.send(Method::POST, path, &[("content-type", "application/json")], body)
+            .await
     }
 
     async fn request(&self, method: Method, path: &str, headers: &[(&str, &str)]) -> TestResponse {
         self.send(method, path, headers, b"").await
     }
 
-    async fn send(
-        &self,
-        method: Method,
-        path: &str,
-        headers: &[(&str, &str)],
-        body: &[u8],
-    ) -> TestResponse {
+    async fn send(&self, method: Method, path: &str, headers: &[(&str, &str)], body: &[u8]) -> TestResponse {
         let url = format!("http://{}{path}", self.addr);
-        let mut request = self
-            .client
-            .request(method.clone(), &url)
-            .body(body.to_vec());
+        let mut request = self.client.request(method.clone(), &url).body(body.to_vec());
         if !headers
             .iter()
             .any(|(name, _)| name.eq_ignore_ascii_case("accept-encoding"))
@@ -438,11 +407,7 @@ impl Martin {
             .find(|(name, _)| name == "content-encoding")
             .map(|(_, value)| value.as_str());
         let body = decompress(&raw, encoding);
-        TestResponse {
-            status,
-            headers,
-            body,
-        }
+        TestResponse { status, headers, body }
     }
 
     /// Wait until some log line contains `needle`, while martin keeps running.
@@ -615,13 +580,8 @@ pub fn mlt_dump(layers: &[TileLayer]) -> String {
 
     let mut out = String::new();
     for layer in layers {
-        writeln!(
-            out,
-            "layer {} extent {}",
-            layer.name(),
-            layer.extent().get()
-        )
-        .expect("writing to a String cannot fail");
+        writeln!(out, "layer {} extent {}", layer.name(), layer.extent().get())
+            .expect("writing to a String cannot fail");
         let mut rows: Vec<String> = layer
             .features()
             .iter()
@@ -694,18 +654,12 @@ pub fn rings_from_smallest_vertex(geometry: &Geometry<i32>) -> Geometry<i32> {
     let polygon = |polygon: &Polygon<i32>| {
         Polygon::new(
             ring_from_smallest_vertex(polygon.exterior()),
-            polygon
-                .interiors()
-                .iter()
-                .map(ring_from_smallest_vertex)
-                .collect(),
+            polygon.interiors().iter().map(ring_from_smallest_vertex).collect(),
         )
     };
     match geometry {
         Geometry::Polygon(p) => Geometry::Polygon(polygon(p)),
-        Geometry::MultiPolygon(mp) => {
-            Geometry::MultiPolygon(MultiPolygon(mp.iter().map(polygon).collect()))
-        }
+        Geometry::MultiPolygon(mp) => Geometry::MultiPolygon(MultiPolygon(mp.iter().map(polygon).collect())),
         other @ (Geometry::Point(_)
         | Geometry::Line(_)
         | Geometry::LineString(_)
@@ -725,11 +679,7 @@ fn ring_from_smallest_vertex(ring: &LineString<i32>) -> LineString<i32> {
     let Some(start) = (0..open.len()).min_by_key(|&i| (open[i].x, open[i].y)) else {
         return ring.clone();
     };
-    let mut coords: Vec<Coord<i32>> = open[start..]
-        .iter()
-        .chain(&open[..start])
-        .copied()
-        .collect();
+    let mut coords: Vec<Coord<i32>> = open[start..].iter().chain(&open[..start]).copied().collect();
     coords.push(open[start]);
     LineString(coords)
 }
@@ -794,8 +744,7 @@ impl TestResponse {
     /// Decompressed response body parsed as JSON with the keys of every object sorted.
     #[must_use]
     pub fn json(&self) -> serde_json::Value {
-        let mut json: serde_json::Value =
-            serde_json::from_slice(&self.body).expect("response body is not valid json");
+        let mut json: serde_json::Value = serde_json::from_slice(&self.body).expect("response body is not valid json");
         json.sort_all_objects();
         json
     }
@@ -952,22 +901,17 @@ fn to_wgs84(geometry: &Geometry<i32>, z: u8, x: u32, y: u32, extent: f64) -> GjG
         Geometry::MultiPoint(m) => GeometryValue::MultiPoint {
             coordinates: m.0.iter().map(|p| place(&p.0)).collect(),
         },
-        Geometry::LineString(l) => GeometryValue::LineString {
-            coordinates: line(l),
-        },
+        Geometry::LineString(l) => GeometryValue::LineString { coordinates: line(l) },
         Geometry::MultiLineString(m) => GeometryValue::MultiLineString {
             coordinates: m.0.iter().map(line).collect(),
         },
-        Geometry::Polygon(p) => GeometryValue::Polygon {
-            coordinates: rings(p),
-        },
+        Geometry::Polygon(p) => GeometryValue::Polygon { coordinates: rings(p) },
         Geometry::MultiPolygon(m) => GeometryValue::MultiPolygon {
             coordinates: m.0.iter().map(rings).collect(),
         },
-        other @ (Geometry::Line(_)
-        | Geometry::Rect(_)
-        | Geometry::Triangle(_)
-        | Geometry::GeometryCollection(_)) => panic!("a vector tile cannot carry {other:?}"),
+        other @ (Geometry::Line(_) | Geometry::Rect(_) | Geometry::Triangle(_) | Geometry::GeometryCollection(_)) => {
+            panic!("a vector tile cannot carry {other:?}")
+        }
     })
 }
 
@@ -992,8 +936,7 @@ fn properties(feature: &MvtFeature) -> JsonObject {
         .properties
         .iter()
         .map(|(key, value)| {
-            let value = serde_json::Value::try_from(value.clone())
-                .expect("an MVT tag is representable as JSON");
+            let value = serde_json::Value::try_from(value.clone()).expect("an MVT tag is representable as JSON");
             (key.clone(), value)
         })
         .collect()
@@ -1044,9 +987,7 @@ mod tests {
             log: "some log".to_owned(),
         };
         assert!(
-            early_exit
-                .to_string()
-                .starts_with("martin exited during startup with "),
+            early_exit.to_string().starts_with("martin exited during startup with "),
             "unexpected message: {early_exit}"
         );
         assert!(early_exit.to_string().ends_with("; log:\nsome log"));
@@ -1068,9 +1009,7 @@ mod tests {
 
         use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-        let mut layer = MvtTileBuilder::new()
-            .layer("contour")
-            .expect("failed to open a layer");
+        let mut layer = MvtTileBuilder::new().layer("contour").expect("failed to open a layer");
         layer.extent(NonZeroU32::new(4096).expect("4096 is not zero"));
         let geometry = Geometry::LineString(LineString::from(line.to_vec()));
         let mut feature = layer.feature(&geometry).expect("failed to add a feature");
@@ -1128,10 +1067,7 @@ mod tests {
         let response = TestResponse {
             status: 200,
             headers: vec![
-                (
-                    "date".to_owned(),
-                    "Fri, 25 Jul 2026 00:00:00 GMT".to_owned(),
-                ),
+                ("date".to_owned(), "Fri, 25 Jul 2026 00:00:00 GMT".to_owned()),
                 ("content-type".to_owned(), "application/json".to_owned()),
                 ("content-encoding".to_owned(), "br".to_owned()),
             ],

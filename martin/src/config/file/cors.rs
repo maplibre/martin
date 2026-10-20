@@ -7,8 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
-    UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, CollectUnrecognizedKeys)]
@@ -57,16 +56,7 @@ impl Default for CorsConfig {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    Eq,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, CollectUnrecognizedKeys, ConfigurationLivecycleHooks)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
     /// Sets the `Access-Control-Allow-Origin` header \[default: *\]
@@ -347,10 +337,7 @@ mod tests {
         let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert_matches!(
-                settings.validate(),
-                Err(ConfigFileError::CorsNoOriginsConfigured)
-            );
+            assert_matches!(settings.validate(), Err(ConfigFileError::CorsNoOriginsConfigured));
         } else {
             panic!("Expected Properties variant");
         }
@@ -375,10 +362,7 @@ mod tests {
             unrecognized: UnrecognizedValues::default(),
         };
 
-        assert_matches!(
-            properties.validate(),
-            Err(ConfigFileError::CorsNoOriginsConfigured)
-        );
+        assert_matches!(properties.validate(), Err(ConfigFileError::CorsNoOriginsConfigured));
     }
 
     #[test]

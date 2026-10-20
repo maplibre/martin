@@ -39,10 +39,7 @@ pub enum CogError {
     },
 
     /// A mosaic's file zoom is above the highest zoom a COG can have.
-    #[error(
-        "The mosaic file zoom {file_zoom} is above the highest zoom {}",
-        cog_tiles::MAX_ZOOM
-    )]
+    #[error("The mosaic file zoom {file_zoom} is above the highest zoom {}", cog_tiles::MAX_ZOOM)]
     FileZoomTooHigh {
         /// The configured file zoom.
         file_zoom: u8,
@@ -79,9 +76,7 @@ pub enum MosaicTemplateError {
     #[error("unmatched `{{`")]
     UnmatchedOpen,
     /// A placeholder other than the supported ones.
-    #[error(
-        "unknown placeholder {{{0}}}, placeholders are {{quadkey}}, {{z}}, {{x}}, {{y}} and {{-y}}"
-    )]
+    #[error("unknown placeholder {{{0}}}, placeholders are {{quadkey}}, {{z}}, {{x}}, {{y}} and {{-y}}")]
     UnknownPlaceholder(String),
     /// Neither a quadkey nor both a column and a row.
     #[error("it must contain {{quadkey}}, or {{x}} and {{y}} (or {{-y}})")]

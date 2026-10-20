@@ -16,9 +16,7 @@ pub enum HillshadeError {
     CorruptCentreTile,
 
     /// A bake produced a buffer that did not match its own declared dimensions.
-    #[error(
-        "Baked hillshade is {actual} bytes but its {side}x{side} dimensions require {expected}"
-    )]
+    #[error("Baked hillshade is {actual} bytes but its {side}x{side} dimensions require {expected}")]
     MalformedBake {
         /// Byte length produced.
         actual: usize,

@@ -105,9 +105,7 @@ impl Iterator for TileBatches {
         }
         let batch = self.grouper.next_batch(self.size, BATCH_BYTES);
         self.done = !matches!(&batch, Ok(tiles) if !tiles.is_empty());
-        batch
-            .map(|tiles| (!tiles.is_empty()).then_some(tiles))
-            .transpose()
+        batch.map(|tiles| (!tiles.is_empty()).then_some(tiles)).transpose()
     }
 }
 
@@ -138,11 +136,7 @@ impl TileGrouper {
 
     /// The next `max_tiles` tiles.
     /// Fewer once their records reach `max_bytes` or the records run out.
-    pub fn next_batch(
-        &mut self,
-        max_tiles: usize,
-        max_bytes: usize,
-    ) -> TileGenResult<Vec<TileRecords>> {
+    pub fn next_batch(&mut self, max_tiles: usize, max_bytes: usize) -> TileGenResult<Vec<TileRecords>> {
         hotpath::measure_block!({ "group_batch" }, {
             let mut batch = Vec::new();
             let mut bytes = 0;
@@ -169,11 +163,7 @@ impl TileGrouper {
         tile.tile_id = tile_id;
         tile.data.clear();
         tile.records.clear();
-        while let Some((key, bytes)) = self
-            .merger
-            .peek()
-            .filter(|(key, _)| key.tile_id().value() == tile_id)
-        {
+        while let Some((key, bytes)) = self.merger.peek().filter(|(key, _)| key.tile_id().value() == tile_id) {
             match Record::kind(bytes)? {
                 GeomKind::FillRange { end } => self.active.push(ActiveFill {
                     end,
@@ -235,10 +225,7 @@ mod tests {
         let mut tile = TileRecords::default();
         let mut out = Vec::new();
         while grouper.next_tile(&mut tile).unwrap() {
-            out.push((
-                tile.tile_id,
-                tile.records().map(|r| (r.layer, r.seq.row())).collect(),
-            ));
+            out.push((tile.tile_id, tile.records().map(|r| (r.layer, r.seq.row())).collect()));
         }
         out
     }
@@ -269,10 +256,7 @@ mod tests {
 
         let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
 
-        assert_eq!(
-            tiles,
-            [(1, vec![(0, 5), (0, 8), (1, 7)]), (9, vec![(0, 2)])]
-        );
+        assert_eq!(tiles, [(1, vec![(0, 5), (0, 8), (1, 7)]), (9, vec![(0, 2)])]);
     }
 
     #[test]
@@ -299,9 +283,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sorter = sorter(dir.path());
         let mut buffer = sorter.buffer();
-        buffer
-            .push(key(2, 1, 3), &record(Geom::FillRange { end: 6 }))
-            .unwrap();
+        buffer.push(key(2, 1, 3), &record(Geom::FillRange { end: 6 })).unwrap();
         buffer.finish().unwrap();
 
         let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
@@ -322,12 +304,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sorter = sorter(dir.path());
         let mut buffer = sorter.buffer();
-        buffer
-            .push(key(2, 0, 1), &record(Geom::FillRange { end: 2 }))
-            .unwrap();
-        buffer
-            .push(key(4, 0, 2), &record(Geom::Points(&[[0, 0]])))
-            .unwrap();
+        buffer.push(key(2, 0, 1), &record(Geom::FillRange { end: 2 })).unwrap();
+        buffer.push(key(4, 0, 2), &record(Geom::Points(&[[0, 0]]))).unwrap();
         buffer.finish().unwrap();
 
         let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
@@ -341,9 +319,7 @@ mod tests {
         let sorter = sorter(dir.path());
         let point = record(Geom::Points(&[[1, 1]]));
         let mut buffer = sorter.buffer();
-        buffer
-            .push(key(2, 1, 3), &record(Geom::FillRange { end: 5 }))
-            .unwrap();
+        buffer.push(key(2, 1, 3), &record(Geom::FillRange { end: 5 })).unwrap();
         buffer.push(key(2, 0, 9), &point).unwrap();
         buffer.push(key(4, 1, 1), &point).unwrap();
         buffer.push(key(7, 0, 2), &point).unwrap();

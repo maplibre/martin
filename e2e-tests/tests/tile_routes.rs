@@ -122,9 +122,7 @@ async fn a_vector_source_serves_mvt_when_the_accept_header_allows_it(#[case] acc
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
-        .await;
+    let tile = martin.get_with_headers("/feature_1/0/0/0", &[("accept", accept)]).await;
     assert_eq!(tile.status(), 200);
     assert_eq!(tile.header("content-type"), Some("application/x-protobuf"));
     let layers = tile.mvt().layers;
@@ -149,14 +147,9 @@ async fn a_vector_source_transcodes_to_mlt_for_an_mlt_accept_header(#[case] acce
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
-        .await;
+    let tile = martin.get_with_headers("/feature_1/0/0/0", &[("accept", accept)]).await;
     assert_eq!(tile.status(), 200);
-    assert_eq!(
-        tile.header("content-type"),
-        Some("application/vnd.maplibre-tile")
-    );
+    assert_eq!(tile.header("content-type"), Some("application/vnd.maplibre-tile"));
     let layers = tile.mlt();
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name(), "feature_1");
@@ -184,9 +177,7 @@ async fn a_source_that_opted_out_of_mlt_rejects_an_mlt_only_accept_header(#[case
         .await
         .expect("failed to start martin");
 
-    let response = martin
-        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
-        .await;
+    let response = martin.get_with_headers("/feature_1/0/0/0", &[("accept", accept)]).await;
     assert_eq!(response.status(), 406);
     assert_eq!(
         response.text(),
@@ -216,9 +207,7 @@ async fn a_source_that_opted_out_of_mlt_serves_mvt_to_a_wildcard_fallback(#[case
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
-        .await;
+    let tile = martin.get_with_headers("/feature_1/0/0/0", &[("accept", accept)]).await;
     assert_eq!(tile.status(), 200);
     assert_eq!(tile.header("content-type"), Some("application/x-protobuf"));
     let layers = tile.mvt().layers;
@@ -241,9 +230,7 @@ async fn a_vector_source_rejects_an_accept_header_of_other_formats(#[case] accep
         .await
         .expect("failed to start martin");
 
-    let response = martin
-        .get_with_headers("/feature_1/0/0/0", &[("accept", accept)])
-        .await;
+    let response = martin.get_with_headers("/feature_1/0/0/0", &[("accept", accept)]).await;
     assert_eq!(response.status(), 406);
     assert_eq!(
         response.text(),
@@ -273,9 +260,7 @@ async fn a_raster_source_serves_png_when_the_accept_header_allows_it(#[case] acc
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get_with_headers("/png/0/0/0", &[("accept", accept)])
-        .await;
+    let tile = martin.get_with_headers("/png/0/0/0", &[("accept", accept)]).await;
     assert_eq!(tile.status(), 200);
     assert_eq!(tile.header("content-type"), Some("image/png"));
     assert_eq!(&tile.body()[..8], b"\x89PNG\r\n\x1a\n");
@@ -295,9 +280,7 @@ async fn a_raster_source_is_never_transcoded_to_a_vector_format(#[case] accept: 
         .await
         .expect("failed to start martin");
 
-    let response = martin
-        .get_with_headers("/png/0/0/0", &[("accept", accept)])
-        .await;
+    let response = martin.get_with_headers("/png/0/0/0", &[("accept", accept)]).await;
     assert_eq!(response.status(), 406);
     assert_eq!(
         response.text(),
@@ -305,9 +288,7 @@ async fn a_raster_source_is_never_transcoded_to_a_vector_format(#[case] accept: 
     );
 
     martin.stop().await;
-    martin.assert_log_contains(
-        r#"ERROR error="Source produces image/png, which does not match the Accept header""#,
-    );
+    martin.assert_log_contains(r#"ERROR error="Source produces image/png, which does not match the Accept header""#);
 }
 
 #[rstest]
@@ -315,9 +296,7 @@ async fn a_raster_source_is_never_transcoded_to_a_vector_format(#[case] accept: 
 #[case::a_tile_format_rejected_with_a_zero_quality("application/x-protobuf;q=0")]
 #[case::a_wildcard_rejected_with_a_zero_quality("*/*;q=0")]
 #[tokio::test]
-async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is_resolved(
-    #[case] accept: &str,
-) {
+async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is_resolved(#[case] accept: &str) {
     let mut martin = Martin::builder()
         .arg("tests/fixtures/geojson/feature_1.geojson")
         .arg("tests/fixtures/pmtiles/png.pmtiles")
@@ -325,9 +304,7 @@ async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is
         .await
         .expect("failed to start martin");
 
-    let response = martin
-        .get_with_headers("/nosuch/0/0/0", &[("accept", accept)])
-        .await;
+    let response = martin.get_with_headers("/nosuch/0/0/0", &[("accept", accept)]).await;
     assert_eq!(response.status(), 406);
     assert_eq!(
         response.text(),
@@ -335,9 +312,7 @@ async fn an_accept_header_naming_no_tile_format_is_rejected_before_the_source_is
     );
 
     martin.stop().await;
-    martin.assert_log_contains(
-        r#"ERROR error="Accept header does not contain any supported tile format""#,
-    );
+    martin.assert_log_contains(r#"ERROR error="Accept header does not contain any supported tile format""#);
 }
 
 #[rstest]

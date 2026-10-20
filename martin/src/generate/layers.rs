@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef,
-    TableDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, ValueDef,
+    ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -17,8 +17,8 @@ use super::postgres::ScanTable;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels,
-    PropertySelector, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
+    Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels, PropertySelector,
+    RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
 };
 
 const DEFAULT_EXTENT: u32 = 4096;
@@ -37,11 +37,7 @@ pub struct LowerOptions {
 /// # Errors
 ///
 /// Fails when a layer uses a setting `--mode bulk` does not support yet.
-pub fn lower_table(
-    id: &str,
-    info: TableInfo,
-    options: &LowerOptions,
-) -> GenerateResult<Option<ScanTable>> {
+pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> GenerateResult<Option<ScanTable>> {
     let (cli_min, cli_max) = (*options.zooms.start(), *options.zooms.end());
     let min = info.minzoom.unwrap_or(0).max(cli_min);
     let max = info.maxzoom.unwrap_or(u8::MAX).min(cli_max);
@@ -56,9 +52,7 @@ pub fn lower_table(
             String::new(),
             min..=max,
             LayerGrid {
-                extent: info
-                    .extent
-                    .map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
+                extent: info.extent.map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
                 buffer: info.buffer.unwrap_or(DEFAULT_BUFFER),
             },
         )
@@ -114,23 +108,18 @@ fn lower_layer(
     let min = fixed(layer.minzoom.as_ref()).map_or(table_min, |z| z.max(table_min));
     let max = fixed(layer.maxzoom.as_ref()).map_or(table_max, |z| z.min(table_max));
     if min > max {
-        warn!(
-            "Skipping layer `{name}` of source `{id}`: it has no zoom between {table_min} and {table_max}"
-        );
+        warn!("Skipping layer `{name}` of source `{id}`: it has no zoom between {table_min} and {table_max}");
         return Ok(None);
     }
-    let threshold =
-        |below: Option<Pixels>, at: Option<Pixels>, default: PixelThreshold| PixelThreshold {
-            below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
-            at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
-        };
+    let threshold = |below: Option<Pixels>, at: Option<Pixels>, default: PixelThreshold| PixelThreshold {
+        below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
+        at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
+    };
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
         grid: LayerGrid {
-            extent: layer
-                .extent
-                .map_or(defaults.grid.extent, std::num::NonZeroU32::get),
+            extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
             buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
         },
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
@@ -157,9 +146,7 @@ fn lower_layer(
         },
         attributes: match &layer.attributes {
             Attributes::None => AttributesDef::None,
-            Attributes::Properties(selectors) => {
-                AttributesDef::Columns(expand(selectors.as_slice(), static_columns))
-            }
+            Attributes::Properties(selectors) => AttributesDef::Columns(expand(selectors.as_slice(), static_columns)),
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
@@ -234,8 +221,7 @@ fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr>
                 Value::Literal(Literal::String(v)) => ValueDef::Literal(Prop::Str(v.clone())),
                 Value::Expr(expr) => ValueDef::Expr(expr.as_str().to_owned()),
             },
-            zooms: spec.zooms.minzoom().map_or(0, Zoom::get)
-                ..=spec.zooms.maxzoom().map_or(MAX_ZOOM, Zoom::get),
+            zooms: spec.zooms.minzoom().map_or(0, Zoom::get)..=spec.zooms.maxzoom().map_or(MAX_ZOOM, Zoom::get),
         })
         .collect()
 }
@@ -311,14 +297,7 @@ mod tests {
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
-        lower_table(
-            "roads_source",
-            info,
-            &LowerOptions {
-                zooms,
-                bounds: None,
-            },
-        )
+        lower_table("roads_source", info, &LowerOptions { zooms, bounds: None })
     }
 
     #[test]
@@ -1046,13 +1025,9 @@ mod tests {
         let errors: Vec<String> = layers
             .iter()
             .map(|layers| {
-                let yaml = format!(
-                    "schema: public\ntable: roads\nsrid: 4326\ngeometry_column: geom\nlayers: {{ {layers} }}"
-                );
-                lower(&yaml, 0..=14)
-                    .map(|_| ())
-                    .expect_err(layers)
-                    .to_string()
+                let yaml =
+                    format!("schema: public\ntable: roads\nsrid: 4326\ngeometry_column: geom\nlayers: {{ {layers} }}");
+                lower(&yaml, 0..=14).map(|_| ()).expect_err(layers).to_string()
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"

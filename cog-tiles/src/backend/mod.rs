@@ -38,10 +38,7 @@ pub trait AsyncBackend: Debug + Send + Sync + 'static {
     fn read(&self, range: Range<u64>) -> impl Future<Output = CogResult<Bytes>> + Send;
 
     /// Reads several byte ranges. Implementations may merge nearby ranges into fewer requests.
-    fn read_ranges(
-        &self,
-        ranges: Vec<Range<u64>>,
-    ) -> impl Future<Output = CogResult<Vec<Bytes>>> + Send {
+    fn read_ranges(&self, ranges: Vec<Range<u64>>) -> impl Future<Output = CogResult<Vec<Bytes>>> + Send {
         async move {
             let mut result = Vec::with_capacity(ranges.len());
             for range in ranges {

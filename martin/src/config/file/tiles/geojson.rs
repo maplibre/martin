@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
-    TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 
 /// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
@@ -21,32 +21,17 @@ const fn default_buffer() -> u32 {
     64
 }
 
-#[expect(
-    clippy::trivially_copy_pass_by_ref,
-    reason = "serde skip_serializing_if requires &T"
-)]
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if requires &T")]
 fn is_default_extent(extent: &NonZeroU32) -> bool {
     *extent == default_extent()
 }
 
-#[expect(
-    clippy::trivially_copy_pass_by_ref,
-    reason = "serde skip_serializing_if requires &T"
-)]
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if requires &T")]
 const fn is_default_buffer(buffer: &u32) -> bool {
     *buffer == default_buffer()
 }
 
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
@@ -99,14 +84,8 @@ impl TileSourceConfiguration for GeoJsonConfig {
         self.cache.clone()
     }
 
-    async fn new_sources(
-        &self,
-        id: String,
-        path: PathBuf,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
-        let geojson_source =
-            GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
+    async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
+        let geojson_source = GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
         Ok(BackendSource::GeoJson(geojson_source))
     }
 
@@ -114,12 +93,7 @@ impl TileSourceConfiguration for GeoJsonConfig {
         clippy::unused_async_trait_impl,
         reason = "unreachable stub; async keeps it simple to write and read"
     )]
-    async fn new_sources_url(
-        &self,
-        _id: String,
-        _url: Url,
-        _cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url, _cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         unreachable!()
     }
 }
@@ -133,8 +107,8 @@ mod tests {
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
-        FileConfigSource, FileConfigSrc, UnrecognizedValues,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig, FileConfigSource,
+        FileConfigSrc, UnrecognizedValues,
     };
 
     #[tokio::test]
@@ -155,10 +129,7 @@ mod tests {
         .unwrap();
         cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
-        assert!(
-            unrecognised.is_empty(),
-            "unrecognized config: {unrecognised:?}"
-        );
+        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
         assert_eq!(
             cfg.paths,
             vec![
