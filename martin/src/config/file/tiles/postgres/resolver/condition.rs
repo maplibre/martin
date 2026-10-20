@@ -65,6 +65,28 @@ impl Display for Sql<'_, Condition> {
                 term = Sql(info, term),
                 not = polarity.sql()
             ),
+            Condition::In {
+                term,
+                values,
+                kind,
+                polarity,
+            } => {
+                let values = fmt::from_fn(|f| {
+                    for (i, value) in values.iter().enumerate() {
+                        if i > 0 {
+                            f.write_str(", ")?;
+                        }
+                        AsKind(LiteralSql(value), *kind).fmt(f)?;
+                    }
+                    Ok(())
+                });
+                write!(
+                    f,
+                    "{term} {not}IN ({values})",
+                    term = AsKind(Sql(info, term), *kind),
+                    not = polarity.sql()
+                )
+            }
             Condition::Geometry(geometry) => {
                 let types = match geometry {
                     GeometryType::Point => "'ST_Point', 'ST_MultiPoint'",
@@ -134,6 +156,7 @@ fn join(
             | Condition::Compare { .. }
             | Condition::Distinct { .. }
             | Condition::IsNull { .. }
+            | Condition::In { .. }
             | Condition::Geometry(_) => Sql(info, part).fmt(f)?,
         }
     }

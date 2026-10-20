@@ -2223,3 +2223,399 @@ async fn sql_matches_the_plan_on_string_columns_not_equal_under_different_collat
     assert_eq!(kept.by_sql, kept.by_plan);
     insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3}");
 }
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_in_list_with_null() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: 'i in [1, 2, null]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 3, 7}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: '!(i in [1, 2])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4, 5, 6, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_list_with_null() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: '!(i in [1, null])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 4, 5, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_in_empty_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: 'i in []'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int_not_in_empty_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 0),
+          (5, 'SRID=4326;POINT(1 1)', 2147483647),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: '!(i in [])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 3, 4, 5, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          f: float8
+        layers:
+          l:
+            where: 'f in [1.5, 2]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 6}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_float_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -0.0),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', 3.25);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          f: float8
+        layers:
+          l:
+            where: '!(f in [1.5, 2])'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 4, 5, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_in_list_of_float_and_int() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', NULL),
+          (5, 'SRID=4326;POINT(1 1)', NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', NULL),
+          (8, 'SRID=4326;POINT(2 2)', NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          n: int8
+        layers:
+          l:
+            where: 'n in [0.5, 9007199254740993]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_int8_in_list_of_int() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), n int8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 9007199254740992),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', NULL),
+          (5, 'SRID=4326;POINT(1 1)', NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', NULL),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', NULL),
+          (8, 'SRID=4326;POINT(2 2)', NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          n: int8
+        layers:
+          l:
+            where: 'n in [9007199254740992]'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: "s in ['abc', 'ABC']"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_string_not_in_list() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: "!(s in ['abc', 'ABC'])"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 5, 6, 7, 8}");
+}

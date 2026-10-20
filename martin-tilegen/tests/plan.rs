@@ -1452,3 +1452,47 @@ fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
     };
     insta::assert_snapshot!(err, @"layer `primary`: `class == 'primary'` reads columns that a key of `tags` may replace (list `attributes` without its keys)");
 }
+
+#[test]
+fn an_int_column_compares_with_each_number_of_a_list_by_its_own_type() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), Some(ValueKind::Int))],
+        layers: vec![LayerDef {
+            filter: Some("rank in [0.5, 9007199254740993]".to_owned()),
+            ..LayerDef::new("ranked", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Matching(
+        Or(
+            [
+                In {
+                    term: Column(
+                        "rank",
+                    ),
+                    values: [
+                        Float(
+                            0.5,
+                        ),
+                    ],
+                    kind: Float,
+                    polarity: AsWritten,
+                },
+                In {
+                    term: Column(
+                        "rank",
+                    ),
+                    values: [
+                        Int(
+                            9007199254740993,
+                        ),
+                    ],
+                    kind: Int,
+                    polarity: AsWritten,
+                },
+            ],
+        ),
+    )
+    "#);
+}

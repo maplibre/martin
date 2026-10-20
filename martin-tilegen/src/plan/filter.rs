@@ -63,6 +63,10 @@ pub enum TranslateError {
     FloatColumns,
     #[error("orders something other than a column against a literal")]
     Order,
+    #[error("looks up a constant in a list")]
+    ConstantInList,
+    #[error("uses `in` without a list of literals")]
+    NotALiteralList,
     #[error("uses a string holding a NUL character")]
     NulInString,
     #[error("uses a bytes literal")]
@@ -96,6 +100,13 @@ pub enum Condition {
     /// `IS NULL`, or `IS NOT NULL` once negated.
     IsNull {
         term: Term,
+        polarity: Polarity,
+    },
+    /// `IN`, or `NOT IN` once negated, over a non-empty list of values compared as `kind`.
+    In {
+        term: Term,
+        values: Vec<Literal>,
+        kind: ValueKind,
         polarity: Polarity,
     },
     /// The geometry is of this type, single or multi.
@@ -132,14 +143,14 @@ impl Polarity {
     }
 
     /// All of `parts`, or any of them once negated.
-    pub(crate) fn all(self, parts: [Condition; 2]) -> Condition {
+    pub(crate) fn all(self, parts: impl IntoIterator<Item = Condition>) -> Condition {
         match self {
             Self::AsWritten => Condition::and(parts),
             Self::Negated => Condition::or(parts),
         }
     }
 
-    /// `NOT ` once negated, as SQL writes it before `DISTINCT` or `NULL`.
+    /// `NOT ` once negated, as SQL writes it before `DISTINCT`, `NULL` or `IN`.
     #[must_use]
     pub fn sql(self) -> &'static str {
         match self {
@@ -149,7 +160,7 @@ impl Polarity {
     }
 
     /// Any of `parts`, or all of them once negated.
-    pub(crate) fn any(self, parts: [Condition; 2]) -> Condition {
+    pub(crate) fn any(self, parts: impl IntoIterator<Item = Condition>) -> Condition {
         self.flip().all(parts)
     }
 }
