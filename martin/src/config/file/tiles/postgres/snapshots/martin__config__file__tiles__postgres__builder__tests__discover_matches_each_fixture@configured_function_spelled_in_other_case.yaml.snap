@@ -5,5 +5,4 @@ input_file: tests/fixtures/pg_discover/configured_function_spelled_in_other_case
 ---
 sources:
   my_tiles: function A.Tiles
-  tiles: function a.tiles
 warnings: []

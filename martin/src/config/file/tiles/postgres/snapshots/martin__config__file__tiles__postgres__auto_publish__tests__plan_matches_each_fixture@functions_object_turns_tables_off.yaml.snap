@@ -1,0 +1,19 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/functions_object_turns_tables_off.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions:
+  - id: tiles
+    schema: public
+    function: tiles
+decisions:
+  - ScannedFunctions:
+      schemas:
+        - public
+      id_format: "{function}"

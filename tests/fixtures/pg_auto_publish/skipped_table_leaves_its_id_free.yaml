@@ -1,0 +1,6 @@
+config:
+  auto_publish: { tables: true }
+catalog:
+  tables:
+    - { schema: a, table: roads, geometry_column: geom, srid: 0 }
+    - { schema: b, table: roads, geometry_column: geom, srid: 3857 }

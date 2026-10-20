@@ -1,0 +1,24 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/from_schemas_match_ignoring_case.yaml
+---
+reads:
+  tables:
+    schemas:
+      - osm
+    only: ~
+  functions: false
+transforms: []
+tables:
+  - id: water
+    schema: osm
+    table: water
+    srid: 3857
+    geometry_column: geom
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - osm
+      id_format: "{table}"

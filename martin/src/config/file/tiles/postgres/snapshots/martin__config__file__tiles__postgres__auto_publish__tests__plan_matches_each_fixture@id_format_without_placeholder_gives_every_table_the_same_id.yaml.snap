@@ -1,0 +1,28 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/id_format_without_placeholder_gives_every_table_the_same_id.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables:
+  - id: "{tabel}"
+    schema: public
+    table: rivers
+    srid: 3857
+    geometry_column: geom
+  - id: "{tabel}"
+    schema: public
+    table: roads
+    srid: 3857
+    geometry_column: geom
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{tabel}"

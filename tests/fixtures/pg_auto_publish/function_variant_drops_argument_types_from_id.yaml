@@ -1,0 +1,6 @@
+config:
+  auto_publish: { functions: true }
+catalog:
+  functions:
+    - { schema: public, name: tiles }
+    - { schema: public, name: "tiles(integer, integer, integer, jsonb)" }

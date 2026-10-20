@@ -9,6 +9,8 @@ pub use config_table::*;
 
 pub(crate) mod utils;
 
+mod auto_publish;
+
 mod builder;
 pub use crate::config::file::tiles::postgres::builder::PostgresAutoDiscoveryBuilder;
 

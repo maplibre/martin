@@ -1,0 +1,12 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/unset_with_configured_functions_publishes_nothing.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions: []
+decisions: []

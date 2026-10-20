@@ -1,0 +1,23 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/configured_geometry_column_leaves_other_column_published.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables:
+  - id: roads.centroid
+    schema: public
+    table: roads
+    srid: 3857
+    geometry_column: centroid
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{table}.{column}"

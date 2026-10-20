@@ -1,0 +1,22 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/function_variant_drops_argument_types_from_id.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions:
+  - id: tiles
+    schema: public
+    function: tiles
+  - id: tiles
+    schema: public
+    function: "tiles(integer, integer, integer, jsonb)"
+decisions:
+  - ScannedFunctions:
+      schemas:
+        - public
+      id_format: "{function}"

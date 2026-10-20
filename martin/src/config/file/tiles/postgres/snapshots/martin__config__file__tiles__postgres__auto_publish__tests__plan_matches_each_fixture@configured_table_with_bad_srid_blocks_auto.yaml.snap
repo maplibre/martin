@@ -1,0 +1,18 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/configured_table_with_bad_srid_blocks_auto.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables: []
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{table}"

@@ -4,5 +4,5 @@ expression: discovered
 input_file: tests/fixtures/pg_discover/srid_zero_table_beside_one_with_the_same_name.yaml
 ---
 sources:
-  roads.1: table b.roads.geom SRID 3857
+  roads: table b.roads.geom SRID 3857
 warnings: []

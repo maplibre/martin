@@ -1,0 +1,9 @@
+config:
+  auto_publish:
+    tables: { source_id_format: "{schema}.{table}.{column}" }
+    functions: { id_format: "{schema}.{function}" }
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857 }
+  functions:
+    - { schema: public, name: tiles }

@@ -1,0 +1,7 @@
+config:
+  auto_publish:
+    tables: { source_id_format: "{tabel}" }
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857 }
+    - { schema: public, table: rivers, geometry_column: geom, srid: 3857 }
