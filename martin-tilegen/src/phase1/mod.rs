@@ -4,7 +4,7 @@ pub mod project;
 mod render;
 mod simplify;
 
-use geo_types::{Coord, Polygon};
+use geo_types::Coord;
 use martin_tile_utils::TileRect;
 pub use render::{
     Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError,
@@ -169,7 +169,14 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) {
     match geometry {
         Geometry::Point(point) => project_coords(crs, std::slice::from_mut(point)),
         Geometry::Line(line) => project_coords(crs, &mut line.0),
-        Geometry::Polygon(polygon) => project_polygon(crs, polygon),
+        Geometry::Polygon(polygon) => {
+            polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
+            polygon.interiors_mut(|rings| {
+                for ring in rings {
+                    project_coords(crs, &mut ring.0);
+                }
+            });
+        }
         Geometry::Points(points) => project_coords(crs, points),
         Geometry::Lines(lines) => {
             for line in lines.iter_mut() {
@@ -178,20 +185,16 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) {
         }
         Geometry::Polygons(polygons) => {
             for polygon in polygons.iter_mut() {
-                project_polygon(crs, polygon);
+                polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
+                polygon.interiors_mut(|rings| {
+                    for ring in rings {
+                        project_coords(crs, &mut ring.0);
+                    }
+                });
             }
         }
         Geometry::Wkb(_) => {}
     }
-}
-
-fn project_polygon(crs: Crs, polygon: &mut Polygon<f64>) {
-    polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
-    polygon.interiors_mut(|rings| {
-        for ring in rings {
-            project_coords(crs, &mut ring.0);
-        }
-    });
 }
 
 /// Projects coordinates from `crs` into the renderer's unit square.
