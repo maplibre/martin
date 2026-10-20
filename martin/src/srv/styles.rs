@@ -87,9 +87,7 @@ pub async fn get_style_json(
 
             HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
-                .body(format!(
-                    "The requested style {style_id} is malformed: {e:?}"
-                ))
+                .body(format!("The requested style {style_id} is malformed: {e:?}"))
         }
     }
 }
@@ -171,10 +169,7 @@ mod tests {
         let req = TestRequest::default()
             .insert_header(("X-Forwarded-Prefix", "/header"))
             .to_http_request();
-        assert_eq!(
-            path_prefix(&req, &cfg(None, Some("/from_route"))),
-            "/from_route"
-        );
+        assert_eq!(path_prefix(&req, &cfg(None, Some("/from_route"))), "/from_route");
     }
 
     #[test]

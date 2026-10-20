@@ -6,9 +6,7 @@ use martin_tile_utils::{BUILT_IN_GRIDS, TileGrid, WGS1984_QUAD_ID, WORLD_CRS84_Q
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::file_config::declared_tile_grid;
-use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, FileConfig, UnrecognizedValues,
-};
+use crate::config::file::{CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, FileConfig, UnrecognizedValues};
 
 /// The configured grids by name, as written in the config file.
 pub type TileGridsConfig = BTreeMap<String, TileGridConfig>;
@@ -75,12 +73,7 @@ impl TileGrids {
             if grids.0.contains_key(name) {
                 return Err(ConfigFileError::TileGridRedefinesBuiltIn(name.clone()));
             }
-            let mut grid = TileGrid::new(
-                name.clone(),
-                cfg.crs.clone(),
-                cfg.origin,
-                cfg.extent_at_zoom0,
-            )?;
+            let mut grid = TileGrid::new(name.clone(), cfg.crs.clone(), cfg.origin, cfg.extent_at_zoom0)?;
             if let Some(matrix) = cfg.matrix_at_zoom0 {
                 grid = grid.with_matrix_at_zoom0(matrix)?;
             }
@@ -98,10 +91,7 @@ impl TileGrids {
     /// Errors if a source of a file-backed kind declares a grid it cannot have.
     ///
     /// Kinds that only produce Web Mercator tiles pass `None` for `grids`, which turns any declaration into an error.
-    pub fn check_file_sources<T>(
-        config: &FileConfig<T>,
-        grids: Option<&Self>,
-    ) -> ConfigFileResult<()> {
+    pub fn check_file_sources<T>(config: &FileConfig<T>, grids: Option<&Self>) -> ConfigFileResult<()> {
         for (id, source) in &config.sources {
             declared_tile_grid(id, source, grids)?;
         }
@@ -175,10 +165,7 @@ MarsGeographic:
         )
         .unwrap();
         let grids = TileGrids::resolve(&config).unwrap();
-        assert_eq!(
-            grids.get("MarsGeographic").unwrap().matrix_at_zoom0(),
-            [2, 1]
-        );
+        assert_eq!(grids.get("MarsGeographic").unwrap().matrix_at_zoom0(), [2, 1]);
     }
 
     #[test]
@@ -216,14 +203,10 @@ MarsGeographic:
         let grid = config.remove("DutchRD").unwrap();
         config.insert(name.to_owned(), grid);
         let err = TileGrids::resolve(&config).unwrap_err();
-        assert!(
-            matches!(&err, ConfigFileError::TileGridRedefinesBuiltIn(built_in) if built_in == name)
-        );
+        assert!(matches!(&err, ConfigFileError::TileGridRedefinesBuiltIn(built_in) if built_in == name));
         assert_eq!(
             err.to_string(),
-            format!(
-                "Tile grid {name} is built in, refer to it by name without defining it, or pick another name"
-            )
+            format!("Tile grid {name} is built in, refer to it by name without defining it, or pick another name")
         );
     }
 

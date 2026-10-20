@@ -19,11 +19,7 @@ pub fn epsg_crs(srid: i32) -> String {
 /// Escape a `DuckDB` relation name (e.g. `"schema.table"`).
 #[must_use]
 pub fn escape_relation(relation: &str) -> String {
-    relation
-        .split('.')
-        .map(escape_identifier)
-        .collect::<Vec<_>>()
-        .join(".")
+    relation.split('.').map(escape_identifier).collect::<Vec<_>>().join(".")
 }
 
 #[cfg(test)]
@@ -73,9 +69,6 @@ mod tests {
     )]
     #[case::embedded_apostrophe("/data/O'Brien.parquet", "read_parquet('/data/O''Brien.parquet')")]
     fn read_parquet_from_expr_cases(#[case] input: &str, #[case] expected: &str) {
-        assert_eq!(
-            format!("read_parquet({})", escape_sql_string(input)),
-            expected
-        );
+        assert_eq!(format!("read_parquet({})", escape_sql_string(input)), expected);
     }
 }

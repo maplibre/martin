@@ -6,9 +6,7 @@ use martin_core::tiles::postgres::{
 };
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
 use martin_tilegen::props::KeyInterner;
-use martin_tilegen::source::{
-    FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
-};
+use martin_tilegen::source::{FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult};
 use martin_tilegen::{LayerGrid, MAX_ZOOM, TileGenResult};
 use tilejson::Bounds;
 
@@ -44,11 +42,7 @@ impl PgScanSource {
     /// # Errors
     ///
     /// Fails on an invalid plan, an invalid filter or if a table's size cannot be read.
-    pub async fn new(
-        pool: PostgresPool,
-        tables: Vec<ScanTable>,
-        partition_blocks: u32,
-    ) -> TileGenResult<Self> {
+    pub async fn new(pool: PostgresPool, tables: Vec<ScanTable>, partition_blocks: u32) -> TileGenResult<Self> {
         let plan = Plan::new(tables.iter().map(|t| t.def.clone()).collect())?;
         let conn = pool.get().await.map_err(SourceError::from)?;
         let mut scans = Vec::with_capacity(tables.len());
@@ -93,9 +87,7 @@ impl PgScanSource {
     /// Opens up to `count` readers that share one snapshot, no more than the pool holds.
     fn open_scan_readers(&self, count: usize) -> SourceResult<Vec<ScanReader<'_>>> {
         let count = count.min(self.pool.max_size()).max(1);
-        let conns = self
-            .runtime
-            .block_on(open_scan_connections(&self.pool, count))?;
+        let conns = self.runtime.block_on(open_scan_connections(&self.pool, count))?;
         Ok(conns
             .into_iter()
             .map(|conn| ScanReader {
@@ -180,10 +172,7 @@ fn block_ranges(blocks: Option<u32>, partition_blocks: u32) -> Vec<(u32, Option<
     (0..partitions)
         .map(|i| {
             let start = i * partition_blocks;
-            (
-                start,
-                (i + 1 < partitions).then(|| start + partition_blocks),
-            )
+            (start, (i + 1 < partitions).then(|| start + partition_blocks))
         })
         .collect()
 }
@@ -203,19 +192,14 @@ fn with_block_range(sql: &str, range: (u32, Option<u32>)) -> String {
 fn scan_bbox(layers: &[LayerDef]) -> Option<Bounds> {
     layers
         .iter()
-        .map(|layer| {
-            layer
-                .bounds
-                .map(|b| widen(b, layer.grid, *layer.zooms.end()))
-        })
+        .map(|layer| layer.bounds.map(|b| widen(b, layer.grid, *layer.zooms.end())))
         .reduce(|a, b| Some(a? + b?))
         .flatten()
 }
 
 /// Grows a bbox by the tile buffer at `max_zoom`, so tiles at its edge still get their buffer contents.
 fn widen(bbox: Bounds, grid: LayerGrid, max_zoom: u8) -> Bounds {
-    let margin =
-        360.0 / f64::from(1u32 << max_zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
+    let margin = 360.0 / f64::from(1u32 << max_zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
     Bounds::new(
         bbox.left - margin,
         (bbox.bottom - margin).max(-90.0),

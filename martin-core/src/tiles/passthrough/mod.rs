@@ -14,6 +14,4 @@ mod url;
 pub use crate::tiles::passthrough::url::UrlTemplate;
 
 mod source;
-pub use crate::tiles::passthrough::source::{
-    PassthroughSource, TemplateMeta, TemplateSet, Transport, Upstream,
-};
+pub use crate::tiles::passthrough::source::{PassthroughSource, TemplateMeta, TemplateSet, Transport, Upstream};

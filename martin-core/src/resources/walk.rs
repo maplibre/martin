@@ -23,9 +23,7 @@ pub fn walk_files(dir: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, walkd
                 clippy::filetype_is_file,
                 reason = "only regular files are resources; sockets and fifos must not be picked up"
             )]
-            Ok(e) if has_matching_extension(e.path(), extensions) && e.file_type().is_file() => {
-                Some(Ok(e.into_path()))
-            }
+            Ok(e) if has_matching_extension(e.path(), extensions) && e.file_type().is_file() => Some(Ok(e.into_path())),
             Ok(_) => None,
             Err(e) => Some(Err(e)),
         })
@@ -33,10 +31,7 @@ pub fn walk_files(dir: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, walkd
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .is_some_and(|s| s.starts_with('.'))
+    entry.file_name().to_str().is_some_and(|s| s.starts_with('.'))
 }
 
 fn has_matching_extension(path: &Path, extensions: &[&str]) -> bool {

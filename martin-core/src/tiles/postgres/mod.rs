@@ -23,9 +23,7 @@ mod mlt_encoder;
 pub use crate::tiles::postgres::mlt_encoder::{encode_features_as_mlt, keeps_measures};
 
 mod source;
-pub use crate::tiles::postgres::source::{
-    PostgresRowQuery, PostgresSource, PostgresSqlInfo, PostgresTiler,
-};
+pub use crate::tiles::postgres::source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo, PostgresTiler};
 
 #[cfg(feature = "unstable-generate")]
 mod engine;

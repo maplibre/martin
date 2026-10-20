@@ -7,9 +7,7 @@ use crate::config::args::bounds::BoundsCalcType;
 use crate::config::args::connections::Arguments;
 use crate::config::args::connections::State::{Ignore, Take};
 use crate::config::args::order_by::OrderByType;
-use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
-};
+use crate::config::file::postgres::{DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts};
 use crate::config::file::{CachePolicy, UnrecognizedValues};
 use crate::config::primitives::OptBoolObj;
 
@@ -149,9 +147,7 @@ impl PostgresArgs {
             }
         }
         if let Some(value) = order_by {
-            info!(
-                "Overriding order_by to {value} on all Postgres connections because of a CLI parameter"
-            );
+            info!("Overriding order_by to {value} on all Postgres connections because of a CLI parameter");
             for c in pg_config.iter_mut() {
                 c.order_by = order_by;
             }
@@ -287,13 +283,7 @@ mod tests {
         let [cfg] = config.as_slice() else {
             panic!("expected exactly one postgres config");
         };
-        assert_eq!(
-            cfg.ssl_certificates.ssl_cert,
-            Some(PathBuf::from("from-cli"))
-        );
-        assert_eq!(
-            cfg.ssl_certificates.ssl_key,
-            Some(PathBuf::from("key-from-cli"))
-        );
+        assert_eq!(cfg.ssl_certificates.ssl_cert, Some(PathBuf::from("from-cli")));
+        assert_eq!(cfg.ssl_certificates.ssl_key, Some(PathBuf::from("key-from-cli")));
     }
 }

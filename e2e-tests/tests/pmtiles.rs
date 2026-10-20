@@ -5,8 +5,8 @@ use std::fs;
 
 use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
-    LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile,
-    mbtiles_fixture, vector_pmtiles,
+    LEAFY_ZOOM, Martin, StartError, StaticFiles, WatchedDir, fixture, leafy_pmtiles, leafy_tile, mbtiles_fixture,
+    vector_pmtiles,
 };
 
 /// Every start on that directory warns about the `+` in `stamen_toner__raster_CC-BY+ODbL_z3.pmtiles`,
@@ -183,9 +183,7 @@ async fn a_raster_source_serves_png_tiles() {
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get("/stamen_toner__raster_CC-BY-ODbL_z3/3/4/2")
-        .await;
+    let tile = martin.get("/stamen_toner__raster_CC-BY-ODbL_z3/3/4/2").await;
     assert_eq!(tile.status(), 200);
     insta::assert_snapshot!(tile.headers_snapshot(), @r#"
     cache-control: max-age=0, stale-while-revalidate=86400
@@ -240,8 +238,7 @@ async fn a_configured_source_serves_tiles_under_the_id_it_was_given() {
 
 #[tokio::test]
 async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
-    let statics =
-        StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
+    let statics = StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
     let error = Martin::builder()
         .arg(statics.url("webp2.pmtiles"))
         .start()
@@ -269,8 +266,7 @@ async fn a_plain_http_source_url_is_refused_unless_allow_http_is_set() {
 
 #[tokio::test]
 async fn a_configured_source_url_is_read_over_http() {
-    let statics =
-        StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
+    let statics = StaticFiles::serving(&[("webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
     let url = statics.url("webp2.pmtiles");
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -311,11 +307,7 @@ fn assert_the_aws_environment_was_overridden(martin: &mut Martin) {
 
 #[tokio::test]
 async fn a_configured_source_is_read_from_an_s3_bucket() {
-    let statics = StaticFiles::serving(&[(
-        "pmtilestest/webp2.pmtiles",
-        fixture("pmtiles2/webp2.pmtiles"),
-    )])
-    .await;
+    let statics = StaticFiles::serving(&[("pmtilestest/webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
     let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -365,11 +357,7 @@ async fn a_configured_source_is_read_from_an_s3_bucket() {
 async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");
-    let statics = StaticFiles::serving(&[(
-        "pmtilestest/webp2.pmtiles",
-        fixture("pmtiles2/webp2.pmtiles"),
-    )])
-    .await;
+    let statics = StaticFiles::serving(&[("pmtilestest/webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles"))]).await;
     let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .arg("--save-config")
@@ -393,13 +381,9 @@ async fn saved_s3_config_reconnects_to_the_configured_endpoint() {
     assert_the_aws_environment_was_overridden(&mut martin);
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    let mut parsed = serde_saphyr::from_str::<serde_json::Value>(&saved)
-        .expect("--save-config output is valid YAML");
+    let mut parsed = serde_saphyr::from_str::<serde_json::Value>(&saved).expect("--save-config output is valid YAML");
     let endpoint = statics.base_url();
-    assert_eq!(
-        parsed["pmtiles"]["aws_endpoint"].as_str(),
-        Some(endpoint.as_str())
-    );
+    assert_eq!(parsed["pmtiles"]["aws_endpoint"].as_str(), Some(endpoint.as_str()));
     parsed["pmtiles"]["aws_endpoint"] = "[ENDPOINT]".into();
     insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(parsed["pmtiles"], @r#"
@@ -520,14 +504,8 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
 #[tokio::test]
 async fn a_configured_source_inside_a_polled_prefix_keeps_its_own_settings() {
     let statics = StaticFiles::serving(&[
-        (
-            "pmtilestest/webp2.pmtiles",
-            fixture("pmtiles2/webp2.pmtiles"),
-        ),
-        (
-            "pmtilestest/sibling.pmtiles",
-            fixture("pmtiles2/webp2.pmtiles"),
-        ),
+        ("pmtilestest/webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles")),
+        ("pmtilestest/sibling.pmtiles", fixture("pmtiles2/webp2.pmtiles")),
     ])
     .await;
     let base_url = statics.base_url();
@@ -582,14 +560,8 @@ async fn a_configured_source_inside_a_polled_prefix_keeps_its_own_settings() {
 #[tokio::test]
 async fn a_configured_source_inside_a_polled_prefix_is_not_served_twice() {
     let statics = StaticFiles::serving(&[
-        (
-            "pmtilestest/webp2.pmtiles",
-            fixture("pmtiles2/webp2.pmtiles"),
-        ),
-        (
-            "pmtilestest/sibling.pmtiles",
-            fixture("pmtiles2/webp2.pmtiles"),
-        ),
+        ("pmtilestest/webp2.pmtiles", fixture("pmtiles2/webp2.pmtiles")),
+        ("pmtilestest/sibling.pmtiles", fixture("pmtiles2/webp2.pmtiles")),
     ])
     .await;
     let base_url = statics.base_url();
@@ -635,8 +607,7 @@ async fn a_configured_source_inside_a_polled_prefix_is_not_served_twice() {
 async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let key = "pmtilestest/leafy.pmtiles";
-    let statics =
-        StaticFiles::serving(&[(key, leafy_pmtiles(1, tmp.path().join("v1.pmtiles")))]).await;
+    let statics = StaticFiles::serving(&[(key, leafy_pmtiles(1, tmp.path().join("v1.pmtiles")))]).await;
     let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -660,9 +631,7 @@ async fn a_replaced_remote_source_with_leaf_directories_is_reloaded() {
 
     statics.replace(key, &leafy_pmtiles(2, tmp.path().join("v2.pmtiles")));
 
-    let tile = martin
-        .get(&format!("/leafy/{LEAFY_ZOOM}/{last}/{last}"))
-        .await;
+    let tile = martin.get(&format!("/leafy/{LEAFY_ZOOM}/{last}/{last}")).await;
     assert_eq!(tile.status(), 200, "{}", tile.text());
     assert!(tile.text().starts_with(&leafy_tile(2, last, last)));
     let tile = martin.get(&format!("/leafy/{LEAFY_ZOOM}/0/0")).await;
@@ -871,11 +840,7 @@ async fn reload_removes_a_source_present_at_startup() {
 async fn an_archive_emptied_while_served_fails_its_uncached_tiles_without_crashing() {
     let tmp = martin_e2e_tests::temp_dir();
     let path = tmp.path().join("served.pmtiles");
-    fs::copy(
-        fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"),
-        &path,
-    )
-    .expect("failed to copy the fixture");
+    fs::copy(fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"), &path).expect("failed to copy the fixture");
     let mut martin = Martin::builder()
         .arg(&path)
         .start()

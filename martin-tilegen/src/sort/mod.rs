@@ -64,14 +64,10 @@ impl Sorter {
             ));
         }
         if config.max_fan_in < 2 {
-            return Err(TileGenError::InvalidSortConfig(
-                "max fan-in must be at least 2",
-            ));
+            return Err(TileGenError::InvalidSortConfig("max fan-in must be at least 2"));
         }
         if config.buffer_bytes > u32::MAX as usize {
-            return Err(TileGenError::InvalidSortConfig(
-                "buffer must be at most 4 GiB",
-            ));
+            return Err(TileGenError::InvalidSortConfig("buffer must be at most 4 GiB"));
         }
         Ok(Self {
             spill: Spill::Disk(config),
@@ -119,10 +115,7 @@ impl Sorter {
 
     /// Call after every [`SortBuffer`] was finished: the tiles, in batches of `batch_tiles`.
     pub fn into_tiles(self, batch_tiles: usize) -> TileGenResult<TileBatches> {
-        Ok(TileBatches::new(
-            TileGrouper::new(self.merge()?),
-            batch_tiles,
-        ))
+        Ok(TileBatches::new(TileGrouper::new(self.merge()?), batch_tiles))
     }
 }
 
@@ -147,10 +140,7 @@ fn temp_file(config: &SortConfig, index: u32) -> TileGenResult<Arc<SpillFile>> {
 /// The adjacent runs to merge next, in groups of `fan_in`: the fewest bytes that leave `fan_in` runs.
 /// Adjacent, so ties between runs still break in push order. Past `fan_in²` runs it is every run.
 fn cheapest_span(runs: &[Run], fan_in: usize) -> Option<Range<usize>> {
-    let excess = runs
-        .len()
-        .checked_sub(fan_in)
-        .filter(|&excess| excess > 0)?;
+    let excess = runs.len().checked_sub(fan_in).filter(|&excess| excess > 0)?;
     let width = (excess + excess.div_ceil(fan_in - 1)).min(runs.len());
     let (start, _) = runs
         .windows(width)
@@ -197,11 +187,7 @@ impl<'a> SortBuffer<'a> {
         self.push_with(key, |data| data.extend_from_slice(record))
     }
 
-    pub fn push_with(
-        &mut self,
-        key: SortKey,
-        encode: impl FnOnce(&mut Vec<u8>),
-    ) -> TileGenResult<()> {
+    pub fn push_with(&mut self, key: SortKey, encode: impl FnOnce(&mut Vec<u8>)) -> TileGenResult<()> {
         let offset = self.data.len();
         encode(&mut self.data);
         let len = self.data.len() - offset;
@@ -226,11 +212,7 @@ impl<'a> SortBuffer<'a> {
     }
 
     pub fn finish(mut self) -> TileGenResult<()> {
-        if self.entries.is_empty() {
-            Ok(())
-        } else {
-            self.spill()
-        }
+        if self.entries.is_empty() { Ok(()) } else { self.spill() }
     }
 
     fn footprint(&self) -> usize {
@@ -253,26 +235,15 @@ impl<'a> SortBuffer<'a> {
                 };
                 let mut out = RunWriter::append(file, index)?;
                 for entry in &self.entries {
-                    out.write(
-                        entry.key,
-                        &self.data[entry.offset as usize..][..entry.len as usize],
-                    )?;
+                    out.write(entry.key, &self.data[entry.offset as usize..][..entry.len as usize])?;
                 }
                 self.data.clear();
                 self.entries.clear();
                 out.finish()?
             }
-            Spill::Memory => Run::in_memory(
-                index,
-                mem::take(&mut self.data),
-                mem::take(&mut self.entries),
-            ),
+            Spill::Memory => Run::in_memory(index, mem::take(&mut self.data), mem::take(&mut self.entries)),
         };
-        sorter
-            .runs
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(run);
+        sorter.runs.lock().unwrap_or_else(PoisonError::into_inner).push(run);
         self.seq_sorted = true;
         Ok(())
     }
@@ -492,9 +463,6 @@ pub(crate) mod tests {
             buffer_bytes: 1,
             max_fan_in: 2,
         };
-        assert!(matches!(
-            Sorter::new(config),
-            Err(TileGenError::InvalidSortConfig(_))
-        ));
+        assert!(matches!(Sorter::new(config), Err(TileGenError::InvalidSortConfig(_))));
     }
 }

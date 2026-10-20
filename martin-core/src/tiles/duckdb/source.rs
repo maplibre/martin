@@ -78,11 +78,7 @@ impl Source for DuckDBSource {
         ),
         err(Debug),
     )]
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         let id = self.id.clone();
         let info = self.info.clone();
         let tile = self
@@ -124,14 +120,12 @@ fn execute_tile_query(
     conn: &Connection,
 ) -> DuckDBResult<TileData> {
     let sql = &info.sql_query;
-    let mut stmt = conn
-        .prepare_cached(sql)
-        .map_err(|source| PrepareQueryError {
-            source: source.into(),
-            source_id: source_id.to_owned(),
-            signature: info.signature.clone(),
-            query: info.sql_query.clone(),
-        })?;
+    let mut stmt = conn.prepare_cached(sql).map_err(|source| PrepareQueryError {
+        source: source.into(),
+        source_id: source_id.to_owned(),
+        signature: info.signature.clone(),
+        query: info.sql_query.clone(),
+    })?;
 
     trace!(%sql, %xyz, "duckdb tile query");
     let tile = stmt

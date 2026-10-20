@@ -79,21 +79,9 @@ impl FromStr for CameraRequest {
         // splitting on `,` would confuse the two groups.
         if let Some((before_at, after_at)) = s.split_once('@') {
             let mut parts = before_at.splitn(3, ',');
-            let lon: f64 = parts
-                .next()
-                .ok_or("missing lon")?
-                .parse()
-                .map_err(|_err| "lon")?;
-            let lat: f64 = parts
-                .next()
-                .ok_or("missing lat")?
-                .parse()
-                .map_err(|_err| "lat")?;
-            let zoom: f64 = parts
-                .next()
-                .ok_or("missing zoom")?
-                .parse()
-                .map_err(|_err| "zoom")?;
+            let lon: f64 = parts.next().ok_or("missing lon")?.parse().map_err(|_err| "lon")?;
+            let lat: f64 = parts.next().ok_or("missing lat")?.parse().map_err(|_err| "lat")?;
+            let zoom: f64 = parts.next().ok_or("missing zoom")?.parse().map_err(|_err| "zoom")?;
             let (bearing, pitch) = if let Some((b, p)) = after_at.split_once(',') {
                 (
                     b.parse::<f64>().map_err(|_err| "bearing")?,
@@ -201,9 +189,7 @@ impl SizeRequest {
             return Err(Box::new(
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
-                    .body(format!(
-                        "Scale factor exceeds maximum allowed ({MAX_SCALE})"
-                    )),
+                    .body(format!("Scale factor exceeds maximum allowed ({MAX_SCALE})")),
             ));
         }
         Ok(self)
@@ -224,11 +210,7 @@ impl FromStr for SizeRequest {
         let (w_str, h_str) = dims.split_once('x').ok_or("expected WIDTHxHEIGHT")?;
         let width: u32 = w_str.parse().map_err(|_err| "width")?;
         let height: u32 = h_str.parse().map_err(|_err| "height")?;
-        Ok(Self {
-            width,
-            height,
-            scale,
-        })
+        Ok(Self { width, height, scale })
     }
 }
 
@@ -261,10 +243,7 @@ impl<'de> Deserialize<'de> for SizeRequest {
 )]
 #[route("/style/{style_id}/static/{camera}/{size}.{format}", method = "GET")]
 #[hotpath::measure]
-pub async fn get_rendered_static_style(
-    path: Path<StaticImagePath>,
-    styles: Data<StyleSources>,
-) -> HttpResponse {
+pub async fn get_rendered_static_style(path: Path<StaticImagePath>, styles: Data<StyleSources>) -> HttpResponse {
     handle_static_request(&path, &styles, empty_overlay()).await
 }
 
@@ -284,11 +263,7 @@ struct StaticJpgRedirectPath {
 )]
 pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
-    let StaticJpgRedirectPath {
-        style_id,
-        camera,
-        size,
-    } = path.as_ref();
+    let StaticJpgRedirectPath { style_id, camera, size } = path.as_ref();
     WARNING
         .once_per_hour(|| {
             warn!(
@@ -300,10 +275,7 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         })
         .await;
     HttpResponse::MovedPermanently()
-        .insert_header((
-            LOCATION,
-            format!("/style/{style_id}/static/{camera}/{size}.jpg"),
-        ))
+        .insert_header((LOCATION, format!("/style/{style_id}/static/{camera}/{size}.jpg")))
         .finish()
 }
 
@@ -459,8 +431,7 @@ fn resolve_camera(camera: CameraRequest, size: SizeRequest) -> Camera {
             max_lon,
             max_lat,
         } => {
-            let (clon, clat, z) =
-                bbox_to_center_zoom(min_lon, min_lat, max_lon, max_lat, size.width, size.height);
+            let (clon, clat, z) = bbox_to_center_zoom(min_lon, min_lat, max_lon, max_lat, size.width, size.height);
             Camera {
                 center_lon: clon,
                 center_lat: clat,
@@ -521,15 +492,10 @@ async fn render_with_overlays(
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    let params = RenderParams::new(
-        style_path,
-        camera.center_lat,
-        camera.center_lon,
-        camera.zoom,
-    )
-    .with_size(size.width, size.height, size.scale)
-    .with_orientation(camera.bearing, camera.pitch)
-    .with_overlays(overlays);
+    let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom)
+        .with_size(size.width, size.height, size.scale)
+        .with_orientation(camera.bearing, camera.pitch)
+        .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| {
         Box::new(match e {
             StyleError::RenderingIsDisabled => rendering_disabled(),
@@ -567,10 +533,7 @@ mod tests {
     use super::*;
 
     fn one_style() -> (StyleSources, tempfile::NamedTempFile) {
-        let file = tempfile::Builder::new()
-            .suffix(".json")
-            .tempfile()
-            .expect("tempfile");
+        let file = tempfile::Builder::new().suffix(".json").tempfile().expect("tempfile");
         std::fs::write(file.path(), b"{}").expect("write style");
         let styles = StyleSources::default();
         styles.add_style("s".to_owned(), file.path().to_path_buf());
@@ -605,10 +568,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn unknown_style_returns_404() {
-        let resp = call!(
-            get("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(get("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }
@@ -624,10 +584,7 @@ mod tests {
     #[actix_rt::test]
     async fn valid_camera_reach_renderer(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "params={params:?}");
     }
 
@@ -644,10 +601,7 @@ mod tests {
     #[actix_rt::test]
     async fn invalid_camera_returns_404(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::NOT_FOUND, "params={params:?}");
     }
 
@@ -691,10 +645,7 @@ mod tests {
     #[case::pos_inf_scale("100x100@infx.png", "Scale factor must be a positive finite number")]
     #[case::neg_inf_scale("100x100@-infx.png", "Scale factor must be a positive finite number")]
     #[actix_rt::test]
-    async fn dimension_violations_return_400_with_specific_message(
-        #[case] size: &str,
-        #[case] expected_prefix: &str,
-    ) {
+    async fn dimension_violations_return_400_with_specific_message(#[case] size: &str, #[case] expected_prefix: &str) {
         let (styles, _f) = one_style();
         let resp = call!(get(&format!("/style/s/static/0,0,1/{size}")), styles);
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "size={size:?}");
@@ -711,10 +662,7 @@ mod tests {
     #[actix_rt::test]
     async fn inverted_bbox_returns_400(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/200x200.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/200x200.png")), styles);
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "params={params:?}");
         let body = body_text(resp).await;
         assert!(
@@ -725,10 +673,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn post_unknown_style_returns_404() {
-        let resp = call!(
-            post("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(post("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }
@@ -762,10 +707,6 @@ mod tests {
             styles
         );
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-        assert!(
-            body_text(resp)
-                .await
-                .starts_with("Invalid JSON overlay body")
-        );
+        assert!(body_text(resp).await.starts_with("Invalid JSON overlay body"));
     }
 }

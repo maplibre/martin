@@ -27,16 +27,14 @@ pub use crate::config::file::error::{ConfigFileError, ConfigFileResult};
 mod contour;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 pub use crate::config::file::contour::{
-    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings,
-    FilteredThreshold, ResolvedContour,
+    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings, FilteredThreshold, ResolvedContour,
 };
 
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 mod hillshade;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 pub use crate::config::file::hillshade::{
-    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
-    ResolvedHillshade,
+    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings, ResolvedHillshade,
 };
 
 pub mod process;
@@ -49,8 +47,7 @@ pub mod tiling;
 mod tile_grids;
 #[cfg(feature = "_tiles")]
 pub use crate::config::file::process::{
-    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,
-    MvtProcessConfig,
+    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig, MvtProcessConfig,
 };
 pub use crate::config::file::process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
 #[cfg(feature = "_tiles")]

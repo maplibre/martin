@@ -48,11 +48,10 @@ impl CogSource {
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, CogError> {
         let location = root.join(template).display().to_string();
-        let lister =
-            LocalFileSystem::new_with_prefix(&root).map_err(|source| CogError::MosaicListing {
-                location: location.clone(),
-                source,
-            })?;
+        let lister = LocalFileSystem::new_with_prefix(&root).map_err(|source| CogError::MosaicListing {
+            location: location.clone(),
+            source,
+        })?;
         let mosaic = Mosaic::new(template, &options, MosaicFiles::Dir(root))?;
         let info = mosaic.probe(&lister, &Path::default(), &location).await?;
         Self::from_mosaic(id, mosaic, &info, &options, location, cache_zoom)
@@ -123,21 +122,16 @@ pub(super) struct Mosaic {
 }
 
 impl Mosaic {
-    fn new(
-        template: &str,
-        options: &CogMosaicOptions,
-        files: MosaicFiles,
-    ) -> Result<Self, CogError> {
+    fn new(template: &str, options: &CogMosaicOptions, files: MosaicFiles) -> Result<Self, CogError> {
         if options.file_zoom > cog_tiles::MAX_ZOOM {
             return Err(CogError::FileZoomTooHigh {
                 file_zoom: options.file_zoom,
             });
         }
-        let key_template =
-            KeyTemplate::new(template).map_err(|reason| CogError::InvalidTemplate {
-                template: template.to_owned(),
-                reason,
-            })?;
+        let key_template = KeyTemplate::new(template).map_err(|reason| CogError::InvalidTemplate {
+            template: template.to_owned(),
+            reason,
+        })?;
         // Placeholders render digits only, so one rendered name shows where all of them lead.
         let sample = key_template.render(options.file_zoom, 0, 0);
         if !std::path::Path::new(&sample)
@@ -178,9 +172,7 @@ impl Mosaic {
             return Ok(None);
         };
         let file_tile = (xyz.x() >> shift, xyz.y() >> shift);
-        let key = self
-            .template
-            .render(self.file_zoom, file_tile.0, file_tile.1);
+        let key = self.template.render(self.file_zoom, file_tile.0, file_tile.1);
         let open = async {
             let Some(reader) = self.files.open(&key).await? else {
                 return Ok(None);
@@ -228,12 +220,7 @@ impl Mosaic {
     }
 
     /// Opens the first listed file under `prefix` that matches the template, to describe the mosaic.
-    async fn probe(
-        &self,
-        lister: &dyn ObjectStore,
-        prefix: &Path,
-        location: &str,
-    ) -> Result<CogInfo, CogError> {
+    async fn probe(&self, lister: &dyn ObjectStore, prefix: &Path, location: &str) -> Result<CogInfo, CogError> {
         let listing_error = |source| CogError::MosaicListing {
             location: location.to_owned(),
             source,
@@ -243,10 +230,7 @@ impl Mosaic {
             let Some(parts) = object.location.prefix_match(prefix) else {
                 continue;
             };
-            let key = parts
-                .map(|part| part.as_ref().to_owned())
-                .collect::<Vec<_>>()
-                .join("/");
+            let key = parts.map(|part| part.as_ref().to_owned()).collect::<Vec<_>>().join("/");
             let Some((x, y)) = self.template.parse(&key, self.file_zoom) else {
                 continue;
             };
@@ -268,10 +252,7 @@ enum MosaicFiles {
     /// Under a local directory.
     Dir(PathBuf),
     /// Under a prefix in an object store.
-    ObjectStore {
-        store: Arc<dyn ObjectStore>,
-        prefix: Path,
-    },
+    ObjectStore { store: Arc<dyn ObjectStore>, prefix: Path },
 }
 
 impl MosaicFiles {
@@ -380,9 +361,7 @@ impl KeyTemplate {
             if !literal.is_empty() {
                 parts.push(Part::Literal(literal.to_owned()));
             }
-            let (name, after) = tail
-                .split_once('}')
-                .ok_or(MosaicTemplateError::UnmatchedOpen)?;
+            let (name, after) = tail.split_once('}').ok_or(MosaicTemplateError::UnmatchedOpen)?;
             parts.push(match name {
                 "quadkey" => Part::Quadkey,
                 "z" => Part::Z,
@@ -506,9 +485,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::CacheZoomRange;
-    use crate::tiles::cog::{
-        CogError, CogMosaicOptions, CogSource, MosaicFileError, MosaicTemplateError,
-    };
+    use crate::tiles::cog::{CogError, CogMosaicOptions, CogSource, MosaicFileError, MosaicTemplateError};
     use crate::tiles::{MartinCoreError, Source as _};
 
     const FIXTURES: &str = "../tests/fixtures/cog";
@@ -525,10 +502,7 @@ mod tests {
     #[case("{quadkey}/../x.tif", MosaicTemplateError::NotRelative)]
     #[case("/data/{quadkey}.tif", MosaicTemplateError::NotRelative)]
     #[tokio::test]
-    async fn invalid_templates_are_rejected(
-        #[case] template: &str,
-        #[case] expected: MosaicTemplateError,
-    ) {
+    async fn invalid_templates_are_rejected(#[case] template: &str, #[case] expected: MosaicTemplateError) {
         let error = CogSource::new_mosaic_dir(
             "mosaic".to_owned(),
             MOSAIC_DIR.into(),
@@ -585,19 +559,9 @@ mod tests {
     #[case("{z}/{x}/{y}.tif", "15/32748/21794.tif", "0313131311301120.tif", None)]
     #[case("{quadkey}.tif", "031313131130112.tif", "0313131311301120.tif", None)]
     #[case("{quadkey}.tif", "0313131311301124.tif", "0313131311301120.tif", None)]
-    #[case(
-        "{quadkey}.tif",
-        "0313131311301120.tif.aux.xml",
-        "0313131311301120.tif",
-        None
-    )]
+    #[case("{quadkey}.tif", "0313131311301120.tif.aux.xml", "0313131311301120.tif", None)]
     #[case("{quadkey}.tif", "readme.txt", "0313131311301120.tif", None)]
-    #[case(
-        "sub/{quadkey}.tif",
-        "0313131311301120.tif",
-        "0313131311301120.tif",
-        None
-    )]
+    #[case("sub/{quadkey}.tif", "0313131311301120.tif", "0313131311301120.tif", None)]
     #[tokio::test]
     async fn file_names_are_matched_to_their_tiles(
         #[case] template: &str,

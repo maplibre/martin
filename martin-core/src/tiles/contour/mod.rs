@@ -31,11 +31,7 @@ use crate::tiles::neighbourhood::Neighbourhood;
 /// Returns [`ContourError::CorruptCentreTile`] when the centre tile arrived but
 /// could not be decoded, [`ContourError::Isolines`] when marching squares
 /// rejects the grid, and [`ContourError::Encoding`] when the MVT encoder does.
-pub fn trace_contours(
-    tiles: &Neighbourhood,
-    zoom: u8,
-    opts: &ContourOptions,
-) -> Result<TileData, ContourError> {
+pub fn trace_contours(tiles: &Neighbourhood, zoom: u8, opts: &ContourOptions) -> Result<TileData, ContourError> {
     let field = tiles.assemble()?;
     let tile_size = field.tile_size();
     let grid = HeightGrid::from_field(&field, opts.fetch_margin);
@@ -66,8 +62,8 @@ mod tests {
         for meters in [1000.0, 0.0, -500.0] {
             let field = RgbaField::uniform(terrarium(meters), DEFAULT_TILE_SIZE);
             let grid = HeightGrid::from_field(&field, 32);
-            let traced = generate_contours(&grid, 12, &ContourOptions::default().isoline())
-                .expect("flat terrain traces");
+            let traced =
+                generate_contours(&grid, 12, &ContourOptions::default().isoline()).expect("flat terrain traces");
             assert!(traced.is_empty(), "{meters} m");
         }
     }

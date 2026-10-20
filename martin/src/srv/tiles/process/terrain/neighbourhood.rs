@@ -17,8 +17,7 @@ use tracing::debug;
 const MAX_CONCURRENT_GATHERS: usize = 8;
 
 /// Bounds concurrent neighbourhood gathers across the process.
-pub static GATHER_PERMITS: LazyLock<Semaphore> =
-    LazyLock::new(|| Semaphore::new(MAX_CONCURRENT_GATHERS));
+pub static GATHER_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(MAX_CONCURRENT_GATHERS));
 
 /// Tile bytes and the etag identifying them.
 pub type Slot = Option<(TileData, CompactString)>;
@@ -66,10 +65,7 @@ async fn fetch_raw(
     match (cache, cacheable) {
         (Some(cache), true) => {
             cache
-                .get_or_insert(
-                    TileCacheKey::new_request_static(source.get_id(), xyz),
-                    compute,
-                )
+                .get_or_insert(TileCacheKey::new_request_static(source.get_id(), xyz), compute)
                 .await
         }
         _ => compute().await.map_err(Arc::new),

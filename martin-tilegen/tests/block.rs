@@ -11,8 +11,7 @@ use martin_tilegen::plan::{ColumnDef, LayerDef, Plan, SortDef, TableDef};
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, MemorySource, SourceFeature};
 use martin_tilegen::{
-    GenerateConfig, LayerGrid, MbtilesSink, Progress, SortConfig, TileFormat, generate,
-    render_block,
+    GenerateConfig, LayerGrid, MbtilesSink, Progress, SortConfig, TileFormat, generate, render_block,
 };
 use mbtiles::Mbtiles;
 
@@ -33,9 +32,7 @@ fn feature(id: u64, geometry: Geometry, rank: i64) -> SourceFeature {
 }
 
 fn batches() -> Vec<FeatureBatch> {
-    let ring = |w: f64, s: f64, e: f64, n: f64| {
-        LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)])
-    };
+    let ring = |w: f64, s: f64, e: f64, n: f64| LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)]);
     let points = (0..40u32)
         .map(|i| {
             let c = Coord {
@@ -49,11 +46,7 @@ fn batches() -> Vec<FeatureBatch> {
         .map(|i| {
             let (x, y) = (f64::from(i) * 6.0 - 100.0, f64::from(i) * 2.5 - 35.0);
             let line = LineString::from(vec![(x, y), (x + 20.0, y + 9.0), (x + 41.0, y - 3.0)]);
-            feature(
-                u64::from(100 + i),
-                Geometry::Lines(vec![line]),
-                i64::from(i % 5),
-            )
+            feature(u64::from(100 + i), Geometry::Lines(vec![line]), i64::from(i % 5))
         })
         .chain([feature(
             130,
@@ -195,14 +188,7 @@ fn a_block_holds_the_tiles_a_generation_writes_there() {
         TileRect::new(6, 63, 31, 63, 31),
         TileRect::new(6, 0, 32, 1, 33),
     ] {
-        let (tiles, _) = render_block(
-            &plan,
-            &mut batches(),
-            block,
-            TileFormat::Mvt,
-            Encoding::Gzip,
-        )
-        .unwrap();
+        let (tiles, _) = render_block(&plan, &mut batches(), block, TileFormat::Mvt, Encoding::Gzip).unwrap();
         let rendered: BTreeMap<_, _> = tiles
             .into_iter()
             .map(|tile| ((tile.coord.z(), tile.coord.x(), tile.coord.y()), tile.data))
@@ -210,9 +196,7 @@ fn a_block_holds_the_tiles_a_generation_writes_there() {
         let expected: BTreeMap<_, _> = all
             .iter()
             .filter(|((z, x, y), _)| {
-                *z == block.zoom
-                    && (block.min_x..=block.max_x).contains(x)
-                    && (block.min_y..=block.max_y).contains(y)
+                *z == block.zoom && (block.min_x..=block.max_x).contains(x) && (block.min_y..=block.max_y).contains(y)
             })
             .map(|(&coord, data)| (coord, data.clone()))
             .collect();

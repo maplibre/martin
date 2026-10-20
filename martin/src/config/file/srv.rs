@@ -49,11 +49,7 @@ impl<'de> Deserialize<'de> for CacheControlHeader {
         let raw = String::deserialize(deserializer)?;
         let value = HeaderValue::from_str(&raw).map_err(de::Error::custom)?;
         let directives: Vec<CacheDirective> = from_comma_delimited(std::iter::once(&value))
-            .map_err(|error| {
-                de::Error::custom(format_args!(
-                    "invalid Cache-Control header value '{raw}': {error}"
-                ))
-            })?;
+            .map_err(|error| de::Error::custom(format_args!("invalid Cache-Control header value '{raw}': {error}")))?;
         if directives.is_empty() {
             return Err(de::Error::custom(format_args!(
                 "invalid Cache-Control header value '{raw}': no valid directives"
@@ -65,15 +61,7 @@ impl<'de> Deserialize<'de> for CacheControlHeader {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
@@ -164,20 +152,16 @@ pub struct SrvConfig {
 
 impl SrvConfig {
     pub(crate) fn cache_control_header(&self) -> Option<HeaderValue> {
-        self.cache_control
-            .as_ref()
-            .map(CacheControlHeader::header_value)
+        self.cache_control.as_ref().map(CacheControlHeader::header_value)
     }
 
     /// What `PMTiles` and `MBTiles` tiles carry when no `cache_control` is configured.
     #[cfg(any(feature = "pmtiles", feature = "mbtiles"))]
     #[must_use]
     pub(crate) fn archive_cache_control(&self) -> Option<CacheControlHeader> {
-        self.cache_control.is_none().then(|| {
-            CacheControlHeader(HeaderValue::from_static(
-                "max-age=0, stale-while-revalidate=86400",
-            ))
-        })
+        self.cache_control
+            .is_none()
+            .then(|| CacheControlHeader(HeaderValue::from_static("max-age=0, stale-while-revalidate=86400")))
     }
 
     /// The URL path prefix under which Martin is publicly served, derived from
@@ -197,15 +181,7 @@ impl SrvConfig {
 #[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObservabilityConfig {
@@ -220,15 +196,7 @@ pub struct ObservabilityConfig {
 /// Configure metrics reported under `/_/metrics`
 #[cfg(feature = "metrics")]
 #[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MetricsConfig {
@@ -245,15 +213,7 @@ pub struct MetricsConfig {
 /// Optional endpoints, each off unless enabled here.
 #[cfg(feature = "_tiles")]
 #[derive(
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Default,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct EndpointsConfig {

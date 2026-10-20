@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use image::ImageFormat;
 use indoc::formatdoc;
 use martin_e2e_tests::{
-    Cassette, Martin, StartError, TestResponse, assert_image_matches, assert_images_alike,
-    assert_images_differ, fixture,
+    Cassette, Martin, StartError, TestResponse, assert_image_matches, assert_images_alike, assert_images_differ,
+    fixture,
 };
 use rstest::rstest;
 use test_each_file::test_each_path;
@@ -48,12 +48,7 @@ fn reference(group: &str, name: &str) -> PathBuf {
 
 async fn rendered(martin: &Martin, path: &str) -> Vec<u8> {
     let response = martin.get(path).await;
-    assert_eq!(
-        response.status(),
-        200,
-        "{path} did not render: {}",
-        response.text()
-    );
+    assert_eq!(response.status(), 200, "{path} did not render: {}", response.text());
     response.body().to_vec()
 }
 
@@ -135,11 +130,7 @@ async fn a_style_renders_as_a_jpeg_tile(#[case] path: &str) {
 #[case::a_western_hemisphere_as_jpeg("maplibre_demo", "1/0/0", "jpg")]
 #[case::another_style_as_jpeg("maptiler_basic", "0/0/0", "jpg")]
 #[tokio::test]
-async fn a_rendered_tile_matches_its_reference(
-    #[case] style: &str,
-    #[case] tile: &str,
-    #[case] extension: &str,
-) {
+async fn a_rendered_tile_matches_its_reference(#[case] style: &str, #[case] tile: &str, #[case] extension: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -218,10 +209,7 @@ async fn a_render_fetches_what_the_style_points_at() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/style/maplibre_demo/0/0/0.png").await.status(),
-        200
-    );
+    assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
 
     let mut fetched = cassette
         .request_log()
@@ -239,14 +227,8 @@ async fn a_render_fetches_what_the_style_points_at() {
 
 #[rstest]
 #[case::jpeg("/style/maplibre_demo/0/0/0.jpeg", "/style/maplibre_demo/0/0/0.jpg")]
-#[case::a_mid_zoom_tile(
-    "/style/maplibre_demo/5/15/15.jpeg",
-    "/style/maplibre_demo/5/15/15.jpg"
-)]
-#[case::a_pixel_ratio(
-    "/style/maplibre_demo/0/0/0@2x.jpeg",
-    "/style/maplibre_demo/0/0/0@2x.jpg"
-)]
+#[case::a_mid_zoom_tile("/style/maplibre_demo/5/15/15.jpeg", "/style/maplibre_demo/5/15/15.jpg")]
+#[case::a_pixel_ratio("/style/maplibre_demo/0/0/0@2x.jpeg", "/style/maplibre_demo/0/0/0@2x.jpg")]
 #[tokio::test]
 async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
@@ -375,19 +357,10 @@ async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
 }
 
 #[rstest]
-#[case::above_the_default_max(
-    "/style/maplibre_demo/0/0/0@5x.png",
-    "Pixel ratio above @4x is not served"
-)]
-#[case::outside_the_zoom(
-    "/style/maplibre_demo/0/4000/4000@2x.png",
-    "Invalid tile coordinates for zoom level"
-)]
+#[case::above_the_default_max("/style/maplibre_demo/0/0/0@5x.png", "Pixel ratio above @4x is not served")]
+#[case::outside_the_zoom("/style/maplibre_demo/0/4000/4000@2x.png", "Invalid tile coordinates for zoom level")]
 #[tokio::test]
-async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(
-    #[case] path: &str,
-    #[case] reason: &str,
-) {
+async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(#[case] path: &str, #[case] reason: &str) {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -652,10 +625,7 @@ async fn one_renderer_per_worker_still_renders_each_style() {
 
     for style in ["maplibre_demo", "maptiler_basic", "maplibre_demo"] {
         let body = rendered(&martin, &format!("/style/{style}/0/0/0.png")).await;
-        assert_image_matches(
-            reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")),
-            &body,
-        );
+        assert_image_matches(reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")), &body);
     }
 
     stop_and_take_rendering_log(&mut martin).await;
@@ -670,10 +640,7 @@ async fn one_renderer_per_worker_still_renders_each_style() {
 #[case::by_default("", 1)]
 #[case::disabled("ambient_cache_size_mb: 0", 2)]
 #[tokio::test]
-async fn the_ambient_cache_answers_a_reloaded_renderer(
-    #[case] ambient_cache: &str,
-    #[case] fetches: usize,
-) {
+async fn the_ambient_cache_answers_a_reloaded_renderer(#[case] ambient_cache: &str, #[case] fetches: usize) {
     // Without a freshness header, MapLibre Native asks the server again even for what it has
     // cached.
     let cassette = Cassette::serving_fresh_for(UPSTREAMS, 3600).await;
@@ -699,10 +666,7 @@ async fn the_ambient_cache_answers_a_reloaded_renderer(
 
     for style in ["maplibre_demo", "maptiler_basic", "maplibre_demo"] {
         let body = rendered(&martin, &format!("/style/{style}/0/0/0.png")).await;
-        assert_image_matches(
-            reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")),
-            &body,
-        );
+        assert_image_matches(reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")), &body);
     }
 
     let log = cassette.request_log().await;
@@ -785,10 +749,7 @@ async fn tiles_requested_at_once_each_render_their_own_coordinates() {
         assert_eq!(response.status(), 200, "{path} did not render");
         assert_eq!(response.image_size(), (512, 512), "{path} is not a tile");
     }
-    let bodies = rendered
-        .iter()
-        .map(TestResponse::body)
-        .collect::<HashSet<_>>();
+    let bodies = rendered.iter().map(TestResponse::body).collect::<HashSet<_>>();
     assert_eq!(bodies.len(), paths.len(), "the tiles are not all different");
 
     stop_and_take_rendering_log(&mut martin).await;
@@ -816,9 +777,7 @@ async fn a_static_image_renders_as_a_jpeg() {
         .await
         .expect("failed to start martin");
 
-    let response = martin
-        .get("/style/maplibre_demo/static/0,0,0/200x200.jpg")
-        .await;
+    let response = martin.get("/style/maplibre_demo/static/0,0,0/200x200.jpg").await;
     assert_eq!(response.status(), 200);
     assert_eq!(response.header("content-type"), Some("image/jpeg"));
     assert_eq!(response.image_format(), ImageFormat::Jpeg);
@@ -856,11 +815,7 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
         .await
         .expect("failed to start martin");
 
-    let body = rendered(
-        &martin,
-        &format!("/style/maplibre_demo/static/{camera}.png"),
-    )
-    .await;
+    let body = rendered(&martin, &format!("/style/maplibre_demo/static/{camera}.png")).await;
     assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
 
     stop_and_take_rendering_log(&mut martin).await;
@@ -923,11 +878,7 @@ async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
         .await
         .expect("failed to start martin");
 
-    let bbox = rendered(
-        &martin,
-        "/style/maplibre_demo/static/-30,-30,30,30/200x200.png",
-    )
-    .await;
+    let bbox = rendered(&martin, "/style/maplibre_demo/static/-30,-30,30,30/200x200.png").await;
     let center = rendered(&martin, "/style/maplibre_demo/static/0,0,2.16/200x200.png").await;
     assert_images_alike(&bbox, &center);
 
@@ -956,12 +907,8 @@ async fn a_doubled_pixel_ratio_doubles_the_static_image() {
         .await
         .expect("failed to start martin");
 
-    let one_x = martin
-        .get("/style/maplibre_demo/static/0,0,0/100x100.png")
-        .await;
-    let two_x = martin
-        .get("/style/maplibre_demo/static/0,0,0/100x100@2x.png")
-        .await;
+    let one_x = martin.get("/style/maplibre_demo/static/0,0,0/100x100.png").await;
+    let two_x = martin.get("/style/maplibre_demo/static/0,0,0/100x100@2x.png").await;
     assert_eq!(one_x.image_size(), (100, 100));
     assert_eq!(two_x.image_size(), (200, 200));
 
@@ -1192,10 +1139,7 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
         .post_json("/style/maplibre_demo/static/0,0,0/200x200.png", body)
         .await;
     assert_eq!(response.status(), 200);
-    assert_image_matches(
-        reference(CAMERA_REFERENCES, "center_z0.png"),
-        response.body(),
-    );
+    assert_image_matches(reference(CAMERA_REFERENCES, "center_z0.png"), response.body());
 
     stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
@@ -1224,25 +1168,15 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
 
     let overlay = std::fs::read(scenario).expect("failed to read the overlay scenario");
     let response = martin
-        .post_json(
-            &format!("/style/maplibre_demo/static/{camera}.png"),
-            &overlay,
-        )
+        .post_json(&format!("/style/maplibre_demo/static/{camera}.png"), &overlay)
         .await;
-    assert_eq!(
-        response.status(),
-        200,
-        "{} did not render",
-        scenario.display()
-    );
+    assert_eq!(response.status(), 200, "{} did not render", scenario.display());
     let name = scenario
         .file_stem()
         .and_then(std::ffi::OsStr::to_str)
         .expect("a scenario file has a name");
     assert_image_matches(
-        fixture("static_overlays")
-            .join(group)
-            .join(format!("{name}.png")),
+        fixture("static_overlays").join(group).join(format!("{name}.png")),
         response.body(),
     );
 

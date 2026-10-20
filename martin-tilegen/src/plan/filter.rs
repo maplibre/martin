@@ -49,6 +49,8 @@ pub enum TranslateError {
     KeysMayReplaceColumns(String),
     #[error("reads `{0}`, which is not a column the source can filter on")]
     NotAColumn(String),
+    #[error("reads `feature` by a computed key")]
+    ComputedKey,
     #[error("selects a field of a value")]
     SelectsField,
     #[error("uses {0}, which has no SQL equivalent")]

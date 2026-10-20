@@ -9,6 +9,4 @@ mod shade;
 pub use crate::tiles::hillshade::encode::SUPPORTED_FORMATS;
 pub use crate::tiles::hillshade::error::HillshadeError;
 pub use crate::tiles::hillshade::light::LightAngles;
-pub use crate::tiles::hillshade::shade::{
-    BakeParams, BakedTile, Canvas, bake_with_light, output_apron,
-};
+pub use crate::tiles::hillshade::shade::{BakeParams, BakedTile, Canvas, bake_with_light, output_apron};

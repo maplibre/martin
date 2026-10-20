@@ -50,10 +50,7 @@ async fn a_path_matching_no_route_is_counted_under_a_single_masked_label() {
         .expect("failed to start martin");
 
     assert_eq!(martin.get("/one/path/that/is/no/route").await.status(), 404);
-    assert_eq!(
-        martin.get("/another/path/that/is/no/route").await.status(),
-        404
-    );
+    assert_eq!(martin.get("/another/path/that/is/no/route").await.status(), 404);
 
     let scrape = martin.get("/_/metrics").await.text();
     insta::with_settings!({filters => scrape_filters()}, {

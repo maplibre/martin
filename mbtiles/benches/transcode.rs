@@ -49,10 +49,8 @@ fn bench_transcode(c: &mut Criterion) {
     let flat_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let norm_script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
 
-    let (_flat_mbt, _flat_conn, flat_src) =
-        rt.block_on(setup_source("bench_flat_src", flat_script));
-    let (_norm_mbt, _norm_conn, norm_src) =
-        rt.block_on(setup_source("bench_norm_src", norm_script));
+    let (_flat_mbt, _flat_conn, flat_src) = rt.block_on(setup_source("bench_flat_src", flat_script));
+    let (_norm_mbt, _norm_conn, norm_src) = rt.block_on(setup_source("bench_norm_src", norm_script));
 
     let mut group = c.benchmark_group("transcode");
 

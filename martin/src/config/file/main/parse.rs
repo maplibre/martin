@@ -7,8 +7,8 @@ use crate::config::primitives::env::Env;
 
 /// Read config from a file
 pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config> {
-    let contents = std::fs::read_to_string(file_name)
-        .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
+    let contents =
+        std::fs::read_to_string(file_name).map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, &env.as_property_map(), file_name)
 }
 
@@ -43,19 +43,11 @@ mod tests {
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
-        parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("test.yaml"),
-        )
-        .unwrap()
+        parse_config(yaml, &HashMap::<String, String>::new(), Path::new("test.yaml")).unwrap()
     }
 
     fn props(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-            .collect()
+        pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect()
     }
 
     fn parse_with_env(yaml: &str, env: &HashMap<String, String>) -> Config {
@@ -142,22 +134,15 @@ mod tests {
         // JSON document instead of the graphical snippet, suitable for editor tooling and
         // log aggregators.
         let json = render_failure_json("cors: 42\n");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
         let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(
             message.contains("invalid type: integer `42`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("severity").and_then(|s| s.as_str()),
-            Some("error")
-        );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("severity").and_then(|s| s.as_str()), Some("error"));
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
         let labels = parsed.get("labels").and_then(|l| l.as_array()).unwrap();
         assert_eq!(labels.len(), 1, "expected one label, got {labels:?}");
         let span = labels[0].get("span").unwrap();
@@ -168,18 +153,14 @@ mod tests {
     #[test]
     fn substitution_failure_renders_as_json() {
         let json = render_failure_json("cache:\n  size_mb: ${UNDEFINED_VAR}\n");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
         let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(
             message.contains("missing property `UNDEFINED_VAR`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
     }
 
     #[test]
@@ -235,8 +216,7 @@ mod tests {
 
     #[test]
     fn new_cache_format_works_directly() {
-        let config =
-            parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
+        let config = parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
         assert_eq!(config.cache.size_mb, Some(512));
         assert_eq!(config.cache.tile_size_mb, Some(256));
     }
@@ -277,9 +257,8 @@ mod tests {
 
     #[test]
     fn cache_expiry_tile_specific() {
-        let config = parse_yaml(
-            "cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m",
-        );
+        let config =
+            parse_yaml("cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m");
         assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
         assert_eq!(config.cache.tile_expiry, Some(Duration::from_mins(30)));
         assert_eq!(config.cache.tile_idle_timeout, Some(Duration::from_mins(5)));
@@ -297,9 +276,8 @@ mod tests {
     #[cfg(feature = "resources")]
     #[test]
     fn cache_expiry_sprites() {
-        let config = parse_yaml(
-            "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
-        );
+        let config =
+            parse_yaml("sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp");
         let cache = &config.sprites.custom.cache;
         assert_eq!(cache.size_mb, Some(64));
         assert_eq!(cache.expiry, Some(Duration::from_hours(2)));
@@ -332,10 +310,7 @@ mod tests {
         let yaml = format!("postgres:\n  connection_string: {input}\n");
         let config = parse_with_env(&yaml, &env);
         let [pg] = config.postgres.as_slice() else {
-            panic!(
-                "expected exactly one postgres config, got: {:?}",
-                config.postgres
-            )
+            panic!("expected exactly one postgres config, got: {:?}", config.postgres)
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
@@ -361,17 +336,10 @@ mod tests {
               #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
               connection_string: 'postgres://postgres:postgres@db:5432/ehrenamtskarte'
         "};
-        let config = parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("config.yaml"),
-        )
-        .expect("comments containing ${VAR} must not trigger substitution");
+        let config = parse_config(yaml, &HashMap::<String, String>::new(), Path::new("config.yaml"))
+            .expect("comments containing ${VAR} must not trigger substitution");
         let [one] = config.postgres.as_slice() else {
-            panic!(
-                "expected exactly one postgres config, got: {:?}",
-                config.postgres
-            )
+            panic!("expected exactly one postgres config, got: {:?}", config.postgres)
         };
         assert_eq!(
             one.connection_string.as_deref(),

@@ -4,8 +4,8 @@ use std::thread;
 
 use mbtiles::sqlx::{AssertSqlSafe, SqliteConnection, raw_sql};
 use mbtiles::{
-    AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup,
-    init_mbtiles_schema, is_empty_database,
+    AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup, init_mbtiles_schema,
+    is_empty_database,
 };
 use tilejson::TileJSON;
 use tokio::runtime::Handle;
@@ -63,10 +63,7 @@ impl TileSink for MbtilesSink {
         TileOrder::Tms
     }
 
-    fn write_all(
-        &mut self,
-        batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
-    ) -> TileGenResult<()> {
+    fn write_all(&mut self, batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>) -> TileGenResult<()> {
         let Self {
             runtime,
             mbt,
@@ -102,9 +99,7 @@ impl TileSink for MbtilesSink {
             drop(tx);
             let hashed = hashing.join().ok().flatten();
             debug_assert!(
-                written.is_err()
-                    || !hashing_in
-                    || hashed.as_ref().is_some_and(AggTilesHasher::in_key_order),
+                written.is_err() || !hashing_in || hashed.as_ref().is_some_and(AggTilesHasher::in_key_order),
                 "tiles came out of TMS order"
             );
             *hasher = if written.is_ok() { hashed } else { None };
@@ -116,11 +111,7 @@ impl TileSink for MbtilesSink {
         self.runtime.block_on(async {
             self.mbt.insert_metadata(&mut self.conn, metadata).await?;
             match self.hasher {
-                Some(hasher) => {
-                    self.mbt
-                        .finish_agg_tiles_hash(&mut self.conn, hasher)
-                        .await?
-                }
+                Some(hasher) => self.mbt.finish_agg_tiles_hash(&mut self.conn, hasher).await?,
                 None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
             };
             Ok(())
@@ -152,14 +143,8 @@ mod tests {
             move || {
                 let mut sink = MbtilesSink::create(&path).unwrap();
                 let batches = vec![
-                    Ok(vec![
-                        tile(0, 0, 0, b"root", None),
-                        tile(1, 0, 1, b"fill", Some(1)),
-                    ]),
-                    Ok(vec![
-                        tile(1, 0, 0, b"fill", Some(1)),
-                        tile(1, 1, 1, b"leaf", None),
-                    ]),
+                    Ok(vec![tile(0, 0, 0, b"root", None), tile(1, 0, 1, b"fill", Some(1))]),
+                    Ok(vec![tile(1, 0, 0, b"fill", Some(1)), tile(1, 1, 1, b"leaf", None)]),
                 ];
                 sink.write_all(&mut batches.into_iter()).unwrap();
                 let mut metadata = tilejson::tilejson! { tiles: vec![] };
@@ -175,14 +160,8 @@ mod tests {
         mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
             .await
             .unwrap();
-        assert_eq!(
-            mbt.get_tile(&mut conn, 1, 0, 1).await.unwrap().unwrap(),
-            b"fill"
-        );
-        assert_eq!(
-            mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(),
-            b"leaf"
-        );
+        assert_eq!(mbt.get_tile(&mut conn, 1, 0, 1).await.unwrap().unwrap(), b"fill");
+        assert_eq!(mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(), b"leaf");
         let blobs: i64 = mbtiles::sqlx::query_scalar("SELECT count(*) FROM tiles_data")
             .fetch_one(&mut conn)
             .await
@@ -194,16 +173,11 @@ mod tests {
     #[cfg(debug_assertions)]
     #[should_panic(expected = "tiles came out of TMS order")]
     fn tiles_out_of_tms_order_panic_in_debug() {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread().build().unwrap();
         let _runtime = runtime.enter();
         let dir = tempfile::tempdir().unwrap();
         let mut sink = MbtilesSink::create(&dir.path().join("out.mbtiles")).unwrap();
-        let batches = vec![Ok(vec![
-            tile(1, 0, 0, b"a", None),
-            tile(1, 0, 1, b"b", None),
-        ])];
+        let batches = vec![Ok(vec![tile(1, 0, 0, b"a", None), tile(1, 0, 1, b"b", None)])];
         sink.write_all(&mut batches.into_iter()).unwrap();
     }
 

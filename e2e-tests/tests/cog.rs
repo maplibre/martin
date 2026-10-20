@@ -10,8 +10,8 @@ use std::fs;
 use image::ImageFormat;
 use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
-    CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture,
-    round_floats, tag, temp_dir,
+    CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture, round_floats, tag,
+    temp_dir,
 };
 use rstest::rstest;
 use serde_json::Value;
@@ -203,8 +203,7 @@ async fn a_configured_cog_is_read_from_an_s3_compatible_store_using_ranges() {
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    let mut parsed =
-        serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
+    let mut parsed = serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
     assert!(!saved.contains("test-key"));
     assert!(!saved.contains("test-secret"));
     assert_eq!(
@@ -251,8 +250,7 @@ async fn a_configured_cog_is_read_from_an_s3_compatible_store_using_ranges() {
 #[tokio::test]
 async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
     let key = "cogtest/usda_naip_128_none_z2.tif";
-    let statics =
-        StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
+    let statics = StaticFiles::serving_failing_gets(&[(key, fixture("cog/usda_naip_128_none_z2.tif"))]).await;
     let base_url = statics.base_url();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -270,16 +268,12 @@ async fn a_configured_cog_whose_reads_fail_at_startup_loads_when_they_heal() {
         .expect("failed to start martin with a read-failing remote COG");
 
     assert!(
-        martin.get("/catalog").await.json()["tiles"]
-            .get("remote")
-            .is_none(),
+        martin.get("/catalog").await.json()["tiles"].get("remote").is_none(),
         "the failed source must not be published"
     );
     tokio::time::sleep(std::time::Duration::from_millis(1_200)).await;
     assert!(
-        martin.get("/catalog").await.json()["tiles"]
-            .get("remote")
-            .is_none(),
+        martin.get("/catalog").await.json()["tiles"].get("remote").is_none(),
         "the failed source must not appear while reads keep failing"
     );
 
@@ -351,10 +345,7 @@ async fn a_failed_update_is_retried_until_the_replacement_reads() {
     assert_eq!(martin.get(tile_url).await.status(), 200);
 
     statics.set_fail_gets(true);
-    statics.replace(
-        key,
-        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
-    );
+    statics.replace(key, &fixture("cog/regressions/usda_naip_128_none_sparse.tif"));
     tokio::time::sleep(std::time::Duration::from_millis(2_000)).await;
     assert_eq!(
         martin.get(tile_url).await.status(),
@@ -429,10 +420,7 @@ async fn a_replaced_remote_cog_is_detected_and_reloaded() {
     };
     let unchanged_log = statics.request_log().await;
     let (gets, heads) = counts(&unchanged_log);
-    assert!(
-        heads > 0,
-        "the poller must re-check the object:\n{unchanged_log}"
-    );
+    assert!(heads > 0, "the poller must re-check the object:\n{unchanged_log}");
     tokio::time::sleep(std::time::Duration::from_millis(2_500)).await;
     let idle_log = statics.request_log().await;
     assert_eq!(
@@ -440,15 +428,9 @@ async fn a_replaced_remote_cog_is_detected_and_reloaded() {
         gets,
         "an unchanged object must not be reloaded:\n{idle_log}"
     );
-    assert!(
-        counts(&idle_log).1 > heads,
-        "polling must keep running:\n{idle_log}"
-    );
+    assert!(counts(&idle_log).1 > heads, "polling must keep running:\n{idle_log}");
 
-    statics.replace(
-        key,
-        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
-    );
+    statics.replace(key, &fixture("cog/regressions/usda_naip_128_none_sparse.tif"));
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
             if martin.get(tile_url).await.status() == 204 {
@@ -499,10 +481,7 @@ async fn a_remote_cog_prefix_is_discovered_and_polled() {
     assert_eq!(original.status(), 200);
     assert_ne!(original.body(), b"");
 
-    statics.replace(
-        first_key,
-        &fixture("cog/regressions/usda_naip_128_none_sparse.tif"),
-    );
+    statics.replace(first_key, &fixture("cog/regressions/usda_naip_128_none_sparse.tif"));
     statics.insert(second_key, &original_fixture);
     statics.remove(removed_key);
 
@@ -543,11 +522,8 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
     let tmp = tempfile::tempdir().expect("failed to create a temp dir");
     let save_config = tmp.path().join("save_config.yaml");
     let name = "usda_naip_512_webp_z5.tif";
-    let statics = StaticFiles::serving_with_query(
-        "token=secret-query",
-        &[(name, fixture(&format!("cog/{name}")))],
-    )
-    .await;
+    let statics =
+        StaticFiles::serving_with_query("token=secret-query", &[(name, fixture(&format!("cog/{name}")))]).await;
     let clean_url = statics.url(name);
     let configured_url = format!("{clean_url}?token=secret-query#secret-fragment");
     let mut martin = Martin::builder()
@@ -563,13 +539,7 @@ async fn a_cog_url_is_read_over_http_using_ranges() {
         .await
         .expect("failed to start martin with an HTTP COG");
 
-    assert_eq!(
-        martin
-            .get("/usda_naip_512_webp_z5/13/1334/3042")
-            .await
-            .status(),
-        200
-    );
+    assert_eq!(martin.get("/usda_naip_512_webp_z5/13/1334/3042").await.status(), 200);
     martin.stop().await;
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
@@ -663,36 +633,11 @@ async fn the_tilejson_bounds_are_the_area_the_image_covers() {
 }
 
 #[rstest]
-#[case::none_128(
-    "usda_naip_128_none_z2/18/42712/97343",
-    "image/png",
-    ImageFormat::Png,
-    128
-)]
-#[case::lzw_256(
-    "usda_naip_256_lzw_z3/16/10677/24336",
-    "image/png",
-    ImageFormat::Png,
-    256
-)]
-#[case::deflate_512(
-    "usda_naip_512_deflate_z2/16/10677/24336",
-    "image/png",
-    ImageFormat::Png,
-    512
-)]
-#[case::jpeg_512(
-    "usda_naip_512_jpeg_z5/13/1334/3042",
-    "image/jpeg",
-    ImageFormat::Jpeg,
-    512
-)]
-#[case::webp_512(
-    "usda_naip_512_webp_z5/13/1334/3042",
-    "image/webp",
-    ImageFormat::WebP,
-    512
-)]
+#[case::none_128("usda_naip_128_none_z2/18/42712/97343", "image/png", ImageFormat::Png, 128)]
+#[case::lzw_256("usda_naip_256_lzw_z3/16/10677/24336", "image/png", ImageFormat::Png, 256)]
+#[case::deflate_512("usda_naip_512_deflate_z2/16/10677/24336", "image/png", ImageFormat::Png, 512)]
+#[case::jpeg_512("usda_naip_512_jpeg_z5/13/1334/3042", "image/jpeg", ImageFormat::Jpeg, 512)]
+#[case::webp_512("usda_naip_512_webp_z5/13/1334/3042", "image/webp", ImageFormat::WebP, 512)]
 #[tokio::test]
 async fn every_compression_serves_a_tile_of_the_images_own_format(
     #[case] path: &str,
@@ -760,14 +705,10 @@ async fn a_zoom_no_overview_resolves_to_is_rejected(#[case] coordinates: &str) {
         .await
         .expect("failed to start martin");
 
-    let tile = martin
-        .get(&format!("/usda_naip_512_jpeg_z5/{coordinates}"))
-        .await;
+    let tile = martin.get(&format!("/usda_naip_512_jpeg_z5/{coordinates}")).await;
     assert_eq!(tile.status(), 404);
     let zoom = coordinates.split('/').next().expect("a zoom level");
-    let expected = format!(
-        "Zoom {zoom} is outside the supported range: usda_naip_512_jpeg_z5 supports zoom 13-17"
-    );
+    let expected = format!("Zoom {zoom} is outside the supported range: usda_naip_512_jpeg_z5 supports zoom 13-17");
     assert_eq!(tile.text(), expected);
 
     martin.stop().await;
@@ -783,15 +724,9 @@ async fn reload_adds_updates_and_removes_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
-    watched.install(
-        fixture("cog/usda_naip_128_none_z2.tif"),
-        "usda_naip_128_none_z2.tif",
-    );
+    watched.install(fixture("cog/usda_naip_128_none_z2.tif"), "usda_naip_128_none_z2.tif");
     martin.wait_for_source("usda_naip_128_none_z2").await;
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {
@@ -800,13 +735,7 @@ async fn reload_adds_updates_and_removes_a_source() {
       }
     }
     "#);
-    assert_eq!(
-        martin
-            .get("/usda_naip_128_none_z2/18/42712/97343")
-            .await
-            .status(),
-        200
-    );
+    assert_eq!(martin.get("/usda_naip_128_none_z2/18/42712/97343").await.status(), 200);
 
     watched.touch("usda_naip_128_none_z2.tif");
     martin
@@ -814,16 +743,8 @@ async fn reload_adds_updates_and_removes_a_source() {
         .await;
 
     watched.remove("usda_naip_128_none_z2.tif");
-    martin
-        .wait_for_source_removed("usda_naip_128_none_z2")
-        .await;
-    assert_eq!(
-        martin
-            .get("/usda_naip_128_none_z2/18/42712/97343")
-            .await
-            .status(),
-        404
-    );
+    martin.wait_for_source_removed("usda_naip_128_none_z2").await;
+    assert_eq!(martin.get("/usda_naip_128_none_z2/18/42712/97343").await.status(), 404);
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=usda_naip_128_none_z2");
@@ -847,10 +768,7 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
 
     fs::write(&path, b"").expect("failed to empty the served file");
 
-    assert_eq!(
-        martin.get("/served/13/1334/3042").await.body(),
-        cached.body()
-    );
+    assert_eq!(martin.get("/served/13/1334/3042").await.body(), cached.body());
     assert_eq!(martin.get("/served/13/1334/3041").await.status(), 500);
     assert_eq!(martin.get("/health").await.status(), 200);
 
@@ -951,9 +869,7 @@ async fn a_file_that_breaks_a_requirement_is_rejected(
     |cog: CogFixture| cog.into_model_transformation().set_count(0, tag::MODEL_TRANSFORMATION, 12)
 )]
 #[tokio::test]
-async fn a_georeference_without_its_unused_values_is_accepted(
-    #[case] trim_it: fn(CogFixture) -> CogFixture,
-) {
+async fn a_georeference_without_its_unused_values_is_accepted(#[case] trim_it: fn(CogFixture) -> CogFixture) {
     let tmp = temp_dir();
     let path = trim_it(CogFixture::new("usda_naip_256_lzw_z3")).write_to(tmp.path(), "trimmed");
     let mut martin = Martin::builder()
@@ -1131,9 +1047,7 @@ async fn a_mosaic_serves_each_tile_from_the_file_its_key_names() {
     assert_eq!(martin.get("/ortho/15/16374/10897").await.status(), 404);
 
     martin.stop().await;
-    martin.assert_log_contains(
-        r#"ERROR error="Zoom 15 is outside the supported range: ortho supports zoom 16-17""#,
-    );
+    martin.assert_log_contains(r#"ERROR error="Zoom 15 is outside the supported range: ortho supports zoom 16-17""#);
 }
 
 #[tokio::test]
@@ -1217,8 +1131,7 @@ async fn a_mosaic_in_an_s3_compatible_store_matches_the_local_one() {
     );
 
     let saved = fs::read_to_string(&save_config).expect("martin did not write --save-config");
-    let parsed =
-        serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
+    let parsed = serde_saphyr::from_str::<Value>(&saved).expect("--save-config output is valid YAML");
     insta::assert_json_snapshot!(parsed["cog"]["mosaics"], @r#"
     {
       "local": {
@@ -1251,10 +1164,7 @@ async fn a_misaligned_overview_is_skipped_with_a_warning() {
     let tilejson = tilejson(&martin, "misaligned").await;
     assert_eq!(tilejson["minzoom"], 19);
     assert_eq!(tilejson["maxzoom"], 19);
-    assert_eq!(
-        martin.get("/misaligned/19/85424/194685").await.status(),
-        200
-    );
+    assert_eq!(martin.get("/misaligned/19/85424/194685").await.status(), 200);
 
     martin.stop().await;
     let skipped = martin

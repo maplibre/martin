@@ -88,9 +88,7 @@ impl Rect {
 
     /// Intersect a 2-D geometry with the tile, snap to the integer grid, orient for MVT, and validate; `None` if nothing remains.
     fn clip_area(&self, area: &impl geo::BooleanOps<Scalar = f64>) -> Option<Geometry<f64>> {
-        let clipped = self
-            .clip_polygon()
-            .intersection_with_fill_rule(area, FillRule::EvenOdd);
+        let clipped = self.clip_polygon().intersection_with_fill_rule(area, FillRule::EvenOdd);
         if clipped.0.is_empty() {
             return None;
         }
@@ -115,10 +113,7 @@ impl Rect {
 
     /// Clip a Web Mercator geometry to this (buffered) tile, snap it to the integer MVT grid, and
     /// validate; `None` when nothing of the geometry remains inside the tile.
-    pub(crate) fn clip_transform_validate_geometry(
-        &self,
-        geom: Geometry<f64>,
-    ) -> Option<Geometry<f64>> {
+    pub(crate) fn clip_transform_validate_geometry(&self, geom: Geometry<f64>) -> Option<Geometry<f64>> {
         match geom {
             Geometry::Point(p) => self
                 .inside(&[p.x(), p.y()])
@@ -162,12 +157,10 @@ impl Rect {
         let buffer = self.buffer_fraction();
         let extent = f64::from(self.extent.get());
 
-        let max_x =
-            buffer.mul_add(self.min_x, (1.0 + buffer) * self.max_x) / 2.0f64.mul_add(buffer, 1.0);
+        let max_x = buffer.mul_add(self.min_x, (1.0 + buffer) * self.max_x) / 2.0f64.mul_add(buffer, 1.0);
         let min_x = max_x.mul_add(buffer, self.min_x) / (1.0 + buffer);
 
-        let max_y =
-            buffer.mul_add(self.min_y, (1.0 + buffer) * self.max_y) / 2.0f64.mul_add(buffer, 1.0);
+        let max_y = buffer.mul_add(self.min_y, (1.0 + buffer) * self.max_y) / 2.0f64.mul_add(buffer, 1.0);
         let min_y = max_y.mul_add(buffer, self.min_y) / (1.0 + buffer);
 
         let x_multiplier = extent / (max_x - min_x);

@@ -34,11 +34,7 @@ fn format_names_round_trip(
 #[case("application", "vnd.maplibre-vector-tile", Some(Format::Mlt))]
 #[case("text", "plain", None)]
 #[case("image", "bmp", None)]
-fn content_type_aliases(
-    #[case] supertype: &str,
-    #[case] subtype: &str,
-    #[case] expected: Option<Format>,
-) {
+fn content_type_aliases(#[case] supertype: &str, #[case] subtype: &str, #[case] expected: Option<Format>) {
     assert_eq!(Format::from_content_type(supertype, subtype), expected);
 }
 
@@ -62,12 +58,7 @@ fn every_format_is_either_an_image_or_vectorish() {
                 assert!(!is_image);
                 assert_eq!(info.encoding, Encoding::Internal);
             }
-            Format::Gif
-            | Format::Jpeg
-            | Format::Png
-            | Format::Webp
-            | Format::Avif
-            | Format::Jxl => {
+            Format::Gif | Format::Jpeg | Format::Png | Format::Webp | Format::Avif | Format::Jxl => {
                 assert!(is_image, "{format}");
                 assert_eq!(info.encoding, Encoding::Internal);
             }
@@ -76,22 +67,10 @@ fn every_format_is_either_an_image_or_vectorish() {
 }
 
 #[rstest]
-#[case(
-    TileInfo::new(Format::Mvt, Encoding::Gzip),
-    "application/x-protobuf; encoding=gzip"
-)]
-#[case(
-    TileInfo::new(Format::Json, Encoding::Zstd),
-    "application/json; encoding=zstd"
-)]
-#[case(
-    TileInfo::new(Format::Mvt, Encoding::Uncompressed),
-    "application/x-protobuf"
-)]
-#[case(
-    TileInfo::new(Format::Png, Encoding::Internal),
-    "image/png; uncompressed"
-)]
+#[case(TileInfo::new(Format::Mvt, Encoding::Gzip), "application/x-protobuf; encoding=gzip")]
+#[case(TileInfo::new(Format::Json, Encoding::Zstd), "application/json; encoding=zstd")]
+#[case(TileInfo::new(Format::Mvt, Encoding::Uncompressed), "application/x-protobuf")]
+#[case(TileInfo::new(Format::Png, Encoding::Internal), "image/png; uncompressed")]
 fn tile_info_display(#[case] info: TileInfo, #[case] expected: &str) {
     assert_eq!(info.to_string(), expected);
 }

@@ -79,8 +79,7 @@ impl Cassette {
     #[must_use]
     pub fn style(&self, path: impl AsRef<Path>) -> PathBuf {
         let path = path.as_ref();
-        let body = fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+        let body = fs::read_to_string(path).unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
         let name = path.file_name().expect("a style file has a name");
         let rewritten = self.styles.path().join(name);
         fs::write(&rewritten, self.tape.rewrite(&body))
@@ -160,10 +159,7 @@ impl Tape {
     fn rewrite(&self, body: &str) -> String {
         let mut body = body.to_owned();
         for host in &self.hosts {
-            body = body.replace(
-                &format!("https://{host}"),
-                &format!("{}/{host}", self.base_url),
-            );
+            body = body.replace(&format!("https://{host}"), &format!("{}/{host}", self.base_url));
         }
         body
     }
@@ -282,11 +278,7 @@ async fn fetch(client: &Client, url: &str) -> Option<Vec<u8>> {
     let encoding = response
         .headers()
         .get("content-encoding")
-        .map(|value| {
-            value
-                .to_str()
-                .expect("a content-encoding that is not utf-8")
-        })
+        .map(|value| value.to_str().expect("a content-encoding that is not utf-8"))
         .map(str::to_owned);
     let body = response
         .bytes()
@@ -305,30 +297,21 @@ fn read_dir(dir: &Path) -> HashMap<String, Vec<u8>> {
         if !current.is_dir() {
             continue;
         }
-        let entries = fs::read_dir(&current).unwrap_or_else(|e| {
-            panic!("failed to read the cassette at {}: {e}", current.display())
-        });
+        let entries = fs::read_dir(&current)
+            .unwrap_or_else(|e| panic!("failed to read the cassette at {}: {e}", current.display()));
         for entry in entries {
             let path = entry.expect("failed to read a cassette entry").path();
             if path.is_dir() {
                 pending.push(path);
                 continue;
             }
-            let relative = path
-                .strip_prefix(dir)
-                .expect("the walk stays inside the cassette");
+            let relative = path.strip_prefix(dir).expect("the walk stays inside the cassette");
             let relative = relative
                 .to_str()
                 .expect("a cassette path is utf-8")
                 .replace(std::path::MAIN_SEPARATOR, "/");
-            let url_path = format!(
-                "/{}",
-                relative.trim_end_matches(INDEX).trim_end_matches('/')
-            );
-            responses.insert(
-                url_path,
-                fs::read(&path).expect("failed to read a recording"),
-            );
+            let url_path = format!("/{}", relative.trim_end_matches(INDEX).trim_end_matches('/'));
+            responses.insert(url_path, fs::read(&path).expect("failed to read a recording"));
         }
     }
     responses
@@ -344,8 +327,7 @@ fn write(dir: &Path, url_path: &str, body: &[u8]) {
         if ancestor.is_file() {
             let recording = fs::read(ancestor).expect("failed to read a recording");
             fs::remove_file(ancestor).expect("failed to replace a recording with its directory");
-            fs::create_dir_all(ancestor)
-                .unwrap_or_else(|e| panic!("failed to create {}: {e}", ancestor.display()));
+            fs::create_dir_all(ancestor).unwrap_or_else(|e| panic!("failed to create {}: {e}", ancestor.display()));
             fs::write(ancestor.join(INDEX), recording).expect("failed to write a recording");
             break;
         }
@@ -354,10 +336,8 @@ fn write(dir: &Path, url_path: &str, body: &[u8]) {
         target = target.join(INDEX);
     }
     let parent = target.parent().expect("a recording is inside the cassette");
-    fs::create_dir_all(parent)
-        .unwrap_or_else(|e| panic!("failed to create {}: {e}", parent.display()));
-    fs::write(&target, body)
-        .unwrap_or_else(|e| panic!("failed to write {}: {e}", target.display()));
+    fs::create_dir_all(parent).unwrap_or_else(|e| panic!("failed to create {}: {e}", parent.display()));
+    fs::write(&target, body).unwrap_or_else(|e| panic!("failed to write {}: {e}", target.display()));
 }
 
 /// What a recording is served as, from its extension, falling back to what its first byte says.
@@ -413,17 +393,8 @@ mod tests {
         let cassette = Cassette::replaying(&[HOST]).await;
         let fresh = Cassette::start(&[HOST], false, Some(60)).await;
 
-        assert!(
-            get(&cassette, RECORDED)
-                .await
-                .headers()
-                .get("cache-control")
-                .is_none()
-        );
-        assert_eq!(
-            get(&fresh, RECORDED).await.headers()["cache-control"],
-            "max-age=60"
-        );
+        assert!(get(&cassette, RECORDED).await.headers().get("cache-control").is_none());
+        assert_eq!(get(&fresh, RECORDED).await.headers()["cache-control"], "max-age=60");
     }
 
     #[tokio::test]
@@ -434,10 +405,7 @@ mod tests {
         assert_eq!(response.headers()["content-type"], "application/json");
         let tilejson = response.text().await.expect("a body");
         assert!(
-            tilejson.contains(&format!(
-                "{}/tiles.openfreemap.org/planet/",
-                cassette.server.uri()
-            )),
+            tilejson.contains(&format!("{}/tiles.openfreemap.org/planet/", cassette.server.uri())),
             "the tile urls still point elsewhere: {tilejson:.200}"
         );
         assert!(!tilejson.contains("https://tiles.openfreemap.org"));
@@ -465,9 +433,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[should_panic(
-        expected = "the cassette has no recording for:\n/demotiles.maplibre.org/tiles/9/9/9.pbf"
-    )]
+    #[should_panic(expected = "the cassette has no recording for:\n/demotiles.maplibre.org/tiles/9/9/9.pbf")]
     async fn a_path_without_a_recording_fails_the_test() {
         let cassette = Cassette::replaying(&[HOST]).await;
 
@@ -482,11 +448,7 @@ mod tests {
     #[case::a_style("/style.json", b"{}", "application/json")]
     #[case::an_extensionless_tilejson("/planet", b"{}", "application/json")]
     #[case::an_extensionless_blob("/planet", b"\x1a", "application/octet-stream")]
-    fn recordings_are_served_as_what_they_hold(
-        #[case] path: &str,
-        #[case] body: &[u8],
-        #[case] expected: &str,
-    ) {
+    fn recordings_are_served_as_what_they_hold(#[case] path: &str, #[case] body: &[u8], #[case] expected: &str) {
         assert_eq!(content_type(path, body), expected);
     }
 }

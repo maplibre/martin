@@ -57,10 +57,7 @@ fn padded_tile_span(polylines: &[Vec<Coord<i32>>]) -> (TileId, TileId) {
             hi = TileId::new(hi.x.max(tx), hi.y.max(ty));
         }
     }
-    (
-        TileId::new(lo.x - 1, lo.y - 1),
-        TileId::new(hi.x + 1, hi.y + 1),
-    )
+    (TileId::new(lo.x - 1, lo.y - 1), TileId::new(hi.x + 1, hi.y + 1))
 }
 
 /// A copy of `polylines` with every vertex repeated once - consecutive duplicates the slicers must
@@ -86,14 +83,8 @@ fn globalize(tile: TileId, runs: &[Vec<Coord<i32>>], extent: i32) -> Vec<Vec<Coo
 /// per per-tile **run** - each a plain `LineString`, never a `MultiLineString`, so distinct
 /// features/runs in a tile stay distinct (colored by tile parity so neighbors contrast, tagged with
 /// the tile).
-fn build_features(
-    input: &[Vec<Coord<i32>>],
-    tiles: &BTreeMap<TileId, Vec<Vec<Coord<i32>>>>,
-) -> Vec<geojson::Feature> {
-    let mut features: Vec<_> = input
-        .iter()
-        .map(|line| support::input_feature(line))
-        .collect();
+fn build_features(input: &[Vec<Coord<i32>>], tiles: &BTreeMap<TileId, Vec<Vec<Coord<i32>>>>) -> Vec<geojson::Feature> {
+    let mut features: Vec<_> = input.iter().map(|line| support::input_feature(line)).collect();
     for (tile, runs) in tiles {
         for run in runs {
             features.push(feature_line(run, &format!("tile {}/{}", tile.x, tile.y)));
@@ -113,10 +104,7 @@ fn slice_one_fixture([path]: [&Path; 1]) {
 #[test]
 #[ignore = "manually save big geometry"]
 fn save_big_geometry() {
-    let bytes = support::feature_collection_bytes(vec![feature(
-        &support::to_f64(&support::big_polyline()),
-        vec![],
-    )]);
+    let bytes = support::feature_collection_bytes(vec![feature(&support::to_f64(&support::big_polyline()), vec![])]);
     std::fs::write("tests/polylines/fixtures/big-geometry.geojson", bytes).expect("writes");
 }
 
@@ -145,8 +133,7 @@ fn long_diagonal_slices_at_z14() {
     const N: i32 = 1 << 14;
     let cfg = support::slicer(support::DIAGONAL_EXTENT as u32, 64);
     let line = vec![support::long_diagonal(N)];
-    let all: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> =
-        support::slice_all_runs(&cfg, &line).into_iter().collect();
+    let all: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = support::slice_all_runs(&cfg, &line).into_iter().collect();
     // Each tile row holds the one or two tiles the line crosses, plus buffer neighbours.
     assert!(
         all.len() > 2 * N as usize && all.len() < 4 * N as usize,
@@ -158,26 +145,16 @@ fn long_diagonal_slices_at_z14() {
         for (dx, dy) in (-1..=1).flat_map(|dx| (-1..=1).map(move |dy| (dx, dy))) {
             let tile = TileId::new(t.x + dx, t.y + dy);
             let expected = support::slice_tile_runs(&cfg, &line, tile);
-            assert_eq!(
-                all.get(&tile).cloned().unwrap_or_default(),
-                expected,
-                "{tile:?}"
-            );
+            assert_eq!(all.get(&tile).cloned().unwrap_or_default(), expected, "{tile:?}");
         }
     }
 }
 
 /// Run every cross-check for one fixture at one buffer size, then snapshot the result into
 /// `snapshot_dir`.
-fn slice_at_buffer(
-    slicer: &support::Cfg,
-    stem: &str,
-    geom: &[Vec<Coord<i32>>],
-    snapshot_dir: &str,
-) {
+fn slice_at_buffer(slicer: &support::Cfg, stem: &str, geom: &[Vec<Coord<i32>>], snapshot_dir: &str) {
     // (1) Slice the whole geometry into every tile it touches.
-    let all: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> =
-        support::slice_all_runs(slicer, geom).into_iter().collect();
+    let all: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = support::slice_all_runs(slicer, geom).into_iter().collect();
 
     // (2) Independently, clip one tile at a time across the whole tile span the geometry could
     // reach (padded by one tile). Collecting every non-empty result must reproduce `all` exactly -
@@ -203,9 +180,8 @@ fn slice_at_buffer(
     // (3) Duplicating every vertex must not change either slicer's output (consecutive dups are
     // dropped), so both paths on the duplicated input still match the original result.
     let duped = duplicate_vertices(geom);
-    let all_duped: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = support::slice_all_runs(slicer, &duped)
-        .into_iter()
-        .collect();
+    let all_duped: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> =
+        support::slice_all_runs(slicer, &duped).into_iter().collect();
     assert_eq!(
         all_duped, all,
         "duplicating every vertex changed the batch result for {stem} (buffer {})",
@@ -226,12 +202,9 @@ fn slice_at_buffer(
     // The two snapshots must be byte identical; snapshot the (shared) result. Pieces come back in
     // tile-local coordinates, so convert them back to the global space before rendering.
     let extent = slicer.extent as i32;
-    let global =
-        |m: &BTreeMap<TileId, Vec<Vec<Coord<i32>>>>| -> BTreeMap<TileId, Vec<Vec<Coord<i32>>>> {
-            m.iter()
-                .map(|(&t, runs)| (t, globalize(t, runs, extent)))
-                .collect()
-        };
+    let global = |m: &BTreeMap<TileId, Vec<Vec<Coord<i32>>>>| -> BTreeMap<TileId, Vec<Vec<Coord<i32>>>> {
+        m.iter().map(|(&t, runs)| (t, globalize(t, runs, extent))).collect()
+    };
     let all_bytes = support::feature_collection_bytes(build_features(geom, &global(&all)));
     let one_bytes = support::feature_collection_bytes(build_features(geom, &global(&one)));
     assert_eq!(

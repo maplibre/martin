@@ -48,8 +48,7 @@ macro_rules! measure {
                     }
 
                     fn visit_f64<E: de::Error>(self, v: f64) -> Result<$name, E> {
-                        $name::new(v)
-                            .ok_or_else(|| E::invalid_value(de::Unexpected::Float(v), &self))
+                        $name::new(v).ok_or_else(|| E::invalid_value(de::Unexpected::Float(v), &self))
                     }
                 }
 

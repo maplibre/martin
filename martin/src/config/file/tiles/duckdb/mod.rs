@@ -6,6 +6,5 @@ pub mod sql_utils;
 
 pub use crate::config::file::tiles::duckdb::config::{DuckDbConfig, DuckDbSourceEntry};
 pub use crate::config::file::tiles::duckdb::sources::{
-    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry, GeoParquetEntry, GeoParquetLocation,
-    MvtLayerOptions,
+    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry, GeoParquetEntry, GeoParquetLocation, MvtLayerOptions,
 };

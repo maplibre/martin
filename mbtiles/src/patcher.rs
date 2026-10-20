@@ -6,8 +6,8 @@ use tracing::{debug, info, warn};
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
 use crate::{
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm,
-    MbtError, MbtResult, MbtType, Mbtiles, NormalizedSchema,
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtError, MbtResult,
+    MbtType, Mbtiles, NormalizedSchema,
 };
 
 #[hotpath::measure]
@@ -57,7 +57,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let base_info = base_mbt.examine_diff(&mut conn).await?;
     if matches!(base_info.mbt_type, Cache) {
         return Err(MbtError::UnsupportedCopyOperation {
-            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first".to_owned(),
+            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first"
+                .to_owned(),
         });
     }
     let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
@@ -117,14 +118,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
-        let (map, img, id) = (
-            schema.map_table(),
-            schema.content_table(),
-            schema.tile_id_column(),
-        );
-        let sql = format!(
-            "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
-        );
+        let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
+        let sql = format!("DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})");
         query(AssertSqlSafe(sql)).execute(&mut conn).await?;
     }
 
@@ -168,10 +163,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType, algorithm: HashAlgori
         FROM patchDb.tiles"
                 )
             }
-            FlatWithHash
-            | Normalized {
-                hash_view: true, ..
-            } => "
+            FlatWithHash | Normalized { hash_view: true, .. } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, upper(tile_hash) AS hash
         FROM patchDb.tiles_with_hash"
                 .to_owned(),
@@ -227,11 +219,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Opti
             )),
         ),
         Normalized { schema, .. } => {
-            let (map, img, id) = (
-                schema.map_table(),
-                schema.content_table(),
-                schema.tile_id_column(),
-            );
+            let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
             (
                 map.to_owned(),
                 format!(
@@ -355,11 +343,9 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (_mbt, _conn, src_file) = temp_named_mbtiles("lowercase_patch_src_mem", script).await;
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
-        let (_mbt, _conn, modified_file) =
-            temp_named_mbtiles("lowercase_patch_modified_mem", script).await;
+        let (_mbt, _conn, modified_file) = temp_named_mbtiles("lowercase_patch_modified_mem", script).await;
 
-        let dst_file =
-            PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs?mode=memory&cache=shared");
+        let dst_file = PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs?mode=memory&cache=shared");
         let mut dst_conn = MbtilesCopier {
             src_file: modified_file.clone(),
             dst_file: dst_file.clone(),
@@ -373,9 +359,7 @@ mod tests {
         .await
         .unwrap();
 
-        let patch_file = PathBuf::from(
-            "file:apply_lowercase_hash_patch_adds_no_blobs_patch?mode=memory&cache=shared",
-        );
+        let patch_file = PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs_patch?mode=memory&cache=shared");
         let mut patch_conn = MbtilesCopier {
             src_file,
             dst_file: patch_file.clone(),
@@ -408,8 +392,7 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (_mbt, _conn, src_file) = temp_named_mbtiles("normalized_src_file_mem", script).await;
 
-        let dst_file =
-            PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
+        let dst_file = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
         let mut src_conn = MbtilesCopier {
             src_file: src_file.clone(),
@@ -422,8 +405,7 @@ mod tests {
 
         // Apply patch to the src data in in-memory DB
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
-        let (_mbt, _conn, patch_file) =
-            temp_named_mbtiles("normalized_patch_file_mem", script).await;
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("normalized_patch_file_mem", script).await;
         apply_patch(dst_file, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from

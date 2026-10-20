@@ -8,8 +8,7 @@ use futures::pin_mut;
 use martin_core::tiles::postgres::PostgresError::EngineTable;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
-    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler,
-    is_typed_property,
+    PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler, is_typed_property,
 };
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
 #[cfg(feature = "unstable-generate")]
@@ -49,10 +48,7 @@ pub async fn query_available_tables(
     let rows = pool
         .get()
         .await?
-        .query(
-            include_str!("scripts/query_available_tables.sql"),
-            &[&schemas],
-        )
+        .query(include_str!("scripts/query_available_tables.sql"), &[&schemas])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 
@@ -109,10 +105,8 @@ pub async fn query_available_tables(
                     .and_then(|r| u8::try_from(r).ok().map(char::from)),
                 column_types: serde_json::from_value(row.get("column_types"))
                     .expect("column_types column should be a valid JSON object with string values"),
-                nondeterministic_columns: serde_json::from_value(
-                    row.get("nondeterministic_columns"),
-                )
-                .expect("nondeterministic_columns column should be a valid JSON array of strings"),
+                nondeterministic_columns: serde_json::from_value(row.get("nondeterministic_columns"))
+                    .expect("nondeterministic_columns column should be a valid JSON array of strings"),
                 tilejson,
                 ..Default::default()
             },
@@ -163,11 +157,7 @@ fn escape_column_as(column: &str, field: &str) -> String {
     if field == column {
         format!(", {}", escape_identifier(column))
     } else {
-        format!(
-            ", {} AS {}",
-            escape_identifier(column),
-            escape_identifier(field),
-        )
+        format!(", {} AS {}", escape_identifier(column), escape_identifier(field))
     }
 }
 
@@ -197,11 +187,7 @@ pub(super) enum PropertyColumn<'a> {
 
 /// The column property `field` is read from.
 pub(super) fn property_column<'a>(info: &'a TableInfo, field: &'a str) -> PropertyColumn<'a> {
-    let column = info
-        .discovered
-        .prop_mapping
-        .get(field)
-        .map_or(field, String::as_str);
+    let column = info.discovered.prop_mapping.get(field).map_or(field, String::as_str);
     if info.property_type(field).is_some_and(is_typed_property) {
         PropertyColumn::Typed(column)
     } else {
@@ -366,10 +352,7 @@ impl TableQuerySql {
             .collect();
         let row_properties = row_properties(
             info,
-            info.properties
-                .iter()
-                .flatten()
-                .map(|(column, _)| column.as_str()),
+            info.properties.iter().flatten().map(|(column, _)| column.as_str()),
         );
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
@@ -607,9 +590,10 @@ pub fn scan_sql(
         .map(String::as_str)
         .collect();
     let row_properties = row_properties(info, selected.iter().copied());
-    let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
-        escape_with_alias(&info.discovered.prop_mapping, id)
-    });
+    let id_field = info
+        .id_column
+        .as_ref()
+        .map_or_else(String::new, |id| escape_with_alias(&info.discovered.prop_mapping, id));
     let column = escape_identifier(&info.geometry_column);
     let geometry = format!("ST_Force2D({})", linear_geometry(info));
     let (geometry, crs) = match info.srid {
@@ -634,9 +618,9 @@ pub fn scan_sql(
             4326 => {
                 format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)")
             }
-            3857 => format!(
-                " AND {column} && ST_Transform(ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326), 3857)"
-            ),
+            3857 => {
+                format!(" AND {column} && ST_Transform(ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326), 3857)")
+            }
             _ => format!(
                 " AND ST_Transform({column}::geometry, 4326) && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"
             ),
@@ -817,9 +801,8 @@ fn grid_sql(
     let bbox_search = if table_srid == grid_srid {
         format!("(SELECT {search})")
     } else {
-        let transformed = format!(
-            "ST_Transform(ST_Segmentize({search}, {extent_at_zoom0} / 2^$1::integer / 8), {table_srid})"
-        );
+        let transformed =
+            format!("ST_Transform(ST_Segmentize({search}, {extent_at_zoom0} / 2^$1::integer / 8), {table_srid})");
         match table_wrap {
             // a tile across the cut has vertices at both ends of the world once transformed, so its
             // bounding box lands on the wrong side and misses the strip next to the cut; search the
@@ -884,11 +867,7 @@ FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
             )
             .await
             .ok()
-            .and_then(|row| {
-                row.try_get::<_, Option<ewkb::Polygon>>("bounds")
-                    .ok()
-                    .flatten()
-            });
+            .and_then(|row| row.try_get::<_, Option<ewkb::Polygon>>("bounds").ok().flatten());
         if let Some(bounds) = estimate {
             return Ok(polygon_to_bbox(&bounds));
         }
@@ -927,11 +906,7 @@ FROM {schema}.{table}{filter};"),
 ///
 /// EPSG systems always can. A CRS from another authority, such as a planetary one, need not map onto WGS84 at all.
 /// That table can still be served, it just cannot advertise bounds, and the warning says so.
-async fn transforms_to_wgs84(
-    pool: &PostgresPool,
-    info: &TableInfo,
-    srid: i32,
-) -> PostgresResult<bool> {
+async fn transforms_to_wgs84(pool: &PostgresPool, info: &TableInfo, srid: i32) -> PostgresResult<bool> {
     let Some(authority) = non_epsg_authority(pool, srid).await else {
         return Ok(true);
     };
@@ -1039,9 +1014,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case::mercator_table_with_margin(3857, 64,
+    #[case::mercator_table_with_margin(
+        3857,
+        64,
         r"ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer, margin => 0.015625), 3857)",
-        r#"ST_CurveToLine("geom"::geometry)"#)]
+        r#"ST_CurveToLine("geom"::geometry)"#
+    )]
     #[case::wgs84_table(4326, 64,
         r"ST_Expand(ST_Transform(ST_TileEnvelope($1::integer, $2::integer, $3::integer), 4326), (0.015625 * 360) / 2^$1::integer)",
         r#"ST_Transform(ST_CurveToLine("geom"::geometry), 3857)"#)]
@@ -1111,8 +1089,7 @@ mod tests {
     /// `NZTM2000Quad` reaches across 180 degrees, where longitude and latitude cut the world open.
     /// A tile there has vertices at both ends of the world once transformed, so the search falls back to the whole width of the world at the tile's height.
     #[test]
-    fn a_table_in_a_crs_with_an_antimeridian_cut_is_searched_across_the_whole_width_when_the_tile_crosses_it()
-     {
+    fn a_table_in_a_crs_with_an_antimeridian_cut_is_searched_across_the_whole_width_when_the_tile_crosses_it() {
         let sql = grid_sql(
             &nztm2000quad(),
             4326,
@@ -1134,13 +1111,7 @@ mod tests {
 
     #[test]
     fn a_simple_grid_needs_no_transform_at_all() {
-        let plan = TileGrid::new(
-            "floor",
-            martin_tile_utils::SIMPLE_CRS,
-            [0.0, 1000.0],
-            1000.0,
-        )
-        .unwrap();
+        let plan = TileGrid::new("floor", martin_tile_utils::SIMPLE_CRS, [0.0, 1000.0], 1000.0).unwrap();
         let sql = grid_sql(
             &PgTileGrid::new(plan, 0),
             0,

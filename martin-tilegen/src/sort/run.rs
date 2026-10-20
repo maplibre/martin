@@ -113,10 +113,7 @@ impl RunWriter {
     }
 
     pub(super) fn finish(self) -> TileGenResult<Run> {
-        let Append(file) = self
-            .out
-            .into_inner()
-            .map_err(io::IntoInnerError::into_error)?;
+        let Append(file) = self.out.into_inner().map_err(io::IntoInnerError::into_error)?;
         Ok(Run {
             index: self.index,
             bytes: (&file.file).stream_position()? - self.start,
@@ -150,11 +147,7 @@ impl RunReader {
     /// Opens `run` at its first record.
     pub(super) fn open(run: Run) -> TileGenResult<Self> {
         match run.records {
-            RunRecords::File {
-                file,
-                start,
-                records,
-            } => {
+            RunRecords::File { file, start, records } => {
                 let map = file.map()?;
                 let start = usize::try_from(start).expect("a mapped file fits in memory");
                 let bytes = usize::try_from(run.bytes).expect("a mapped file fits in memory");
@@ -168,11 +161,7 @@ impl RunReader {
                 reader.advance()?;
                 Ok(reader)
             }
-            RunRecords::Memory { data, entries } => Ok(Self::Memory {
-                data,
-                entries,
-                next: 0,
-            }),
+            RunRecords::Memory { data, entries } => Ok(Self::Memory { data, entries, next: 0 }),
         }
     }
 
@@ -188,13 +177,9 @@ impl RunReader {
     pub(super) fn record(&self) -> &[u8] {
         match self {
             Self::File { map, record, .. } => &map[record.clone()],
-            Self::Memory {
-                data,
-                entries,
-                next,
-            } => entries.get(*next).map_or(&[], |entry| {
-                &data[entry.offset as usize..][..entry.len as usize]
-            }),
+            Self::Memory { data, entries, next } => entries
+                .get(*next)
+                .map_or(&[], |entry| &data[entry.offset as usize..][..entry.len as usize]),
         }
     }
 

@@ -10,9 +10,7 @@ use crate::config::file::postgres::utils::{normalize_key, patch_json};
 use crate::config::file::tiles::postgres::PostgresInfo;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
-use crate::config::file::{
-    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
@@ -282,22 +280,13 @@ impl TableInfo {
     /// Whether `column` compares by a collation that may treat different strings as equal.
     #[must_use]
     pub fn has_nondeterministic_collation(&self, column: &str) -> bool {
-        let column = self
-            .discovered
-            .prop_mapping
-            .get(column)
-            .map_or(column, String::as_str);
+        let column = self.discovered.prop_mapping.get(column).map_or(column, String::as_str);
         self.discovered.nondeterministic_columns.contains(column)
     }
 
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
-    pub fn append_cfg_info(
-        &self,
-        cfg_inf: &Self,
-        new_id: &String,
-        default_srid: Option<i32>,
-    ) -> Option<Self> {
+    pub fn append_cfg_info(&self, cfg_inf: &Self, new_id: &String, default_srid: Option<i32>) -> Option<Self> {
         // Assume cfg_inf and self have the same schema/table/geometry_column
         let mut inf = Self {
             // These values must match the database exactly

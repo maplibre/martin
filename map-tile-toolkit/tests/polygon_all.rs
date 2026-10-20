@@ -60,12 +60,7 @@ impl Sliced {
 /// [`PolygonSlices::within`](map_tile_toolkit::PolygonSlices::within) when given, checking the
 /// structural promises along the way: for each polygon, edge tiles in row-major order and each once,
 /// runs non-empty, row-major, disjoint and maximal, and no tile both an edge tile and filled.
-fn all_tiles(
-    polygons: &[FixturePolygon],
-    extent: u32,
-    buffer: u16,
-    window: Option<(TileId, TileId)>,
-) -> Sliced {
+fn all_tiles(polygons: &[FixturePolygon], extent: u32, buffer: u16, window: Option<(TileId, TileId)>) -> Sliced {
     let mut slicer = Slicer::<Coord<i32>>::new(extent, buffer).expect("config");
     let mut sliced = Sliced {
         tiles: BTreeMap::new(),
@@ -86,11 +81,7 @@ fn all_tiles(
                     let rings: Rings = piece.rings().map(|r| r.to_vec()).collect();
                     assert!(!rings.is_empty(), "a piece always carries geometry");
                     edges.push(piece.tile());
-                    sliced
-                        .tiles
-                        .entry(piece.tile())
-                        .or_default()
-                        .push((polygon, rings));
+                    sliced.tiles.entry(piece.tile()).or_default().push((polygon, rings));
                 }
                 PolygonSlice::Run(run) => runs.push(run),
             }
@@ -106,9 +97,7 @@ fn all_tiles(
         for (i, run) in runs.iter().enumerate() {
             assert!(!run.x.is_empty(), "empty run {run:?}");
             assert!(
-                runs[i + 1..]
-                    .iter()
-                    .all(|r| (r.y, r.x.start) > (run.y, run.x.end)),
+                runs[i + 1..].iter().all(|r| (r.y, r.x.start) > (run.y, run.x.end)),
                 "a polygon's runs are row-major, disjoint and maximal: {run:?}"
             );
             let ring = slices.fill_ring(run).to_vec();
@@ -141,10 +130,7 @@ fn span(polygons: &[FixturePolygon], extent: u32) -> (TileId, TileId) {
         lo = (lo.0.min(x), lo.1.min(y));
         hi = (hi.0.max(x), hi.1.max(y));
     }
-    (
-        TileId::new(lo.0 - 1, lo.1 - 1),
-        TileId::new(hi.0 + 1, hi.1 + 1),
-    )
+    (TileId::new(lo.0 - 1, lo.1 - 1), TileId::new(hi.0 + 1, hi.1 + 1))
 }
 
 /// Assert the all-tiles slicer agrees with the single-tile oracle on every tile of the span.
@@ -166,10 +152,7 @@ fn check(polygons: &[FixturePolygon], extent: u32, buffer: u16, label: &str) {
     );
     let (lo, hi) = span(polygons, extent);
     let in_span = |t: &TileId| (lo.x..=hi.x).contains(&t.x) && (lo.y..=hi.y).contains(&t.y);
-    assert!(
-        all.fills.keys().all(in_span),
-        "{label}: a fill run escapes the span"
-    );
+    assert!(all.fills.keys().all(in_span), "{label}: a fill run escapes the span");
     check_windows(&all, polygons, extent, buffer, label);
     for y in lo.y..=hi.y {
         for x in lo.x..=hi.x {
@@ -197,10 +180,7 @@ fn check_windows(all: &Sliced, polygons: &[FixturePolygon], extent: u32, buffer:
         (mid, hi),
         (TileId::new(lo.x, mid.y), TileId::new(mid.x, hi.y)),
         (TileId::new(mid.x, lo.y), TileId::new(hi.x, mid.y)),
-        (
-            TileId::new(lo.x - 3, lo.y - 3),
-            TileId::new(hi.x + 3, hi.y + 3),
-        ),
+        (TileId::new(lo.x - 3, lo.y - 3), TileId::new(hi.x + 3, hi.y + 3)),
     ];
     for (min, max) in windows {
         let inside = |t: &TileId| (min.x..=max.x).contains(&t.x) && (min.y..=max.y).contains(&t.y);
@@ -255,13 +235,8 @@ fn center(tile: TileId, extent: u32) -> Point<f64> {
 }
 
 fn geo_polygon(p: &FixturePolygon) -> Polygon<f64> {
-    let ring = |r: &[Coord<i32>]| {
-        LineString::from(
-            r.iter()
-                .map(|c| (f64::from(c.x), f64::from(c.y)))
-                .collect::<Vec<_>>(),
-        )
-    };
+    let ring =
+        |r: &[Coord<i32>]| LineString::from(r.iter().map(|c| (f64::from(c.x), f64::from(c.y))).collect::<Vec<_>>());
     Polygon::new(ring(&p.exterior), p.holes.iter().map(|h| ring(h)).collect())
 }
 
@@ -292,9 +267,7 @@ fn fixture_fill_matches_geo(path: &Path) {
 }
 
 /// Directed-edge set of closed rings, skipping zero-length edges.
-fn edge_set<'a>(
-    rings: impl IntoIterator<Item = &'a [Coord<i32>]>,
-) -> HashSet<(Coord<i32>, Coord<i32>)> {
+fn edge_set<'a>(rings: impl IntoIterator<Item = &'a [Coord<i32>]>) -> HashSet<(Coord<i32>, Coord<i32>)> {
     rings
         .into_iter()
         .flat_map(|r| r.windows(2))
@@ -339,18 +312,13 @@ fn reassembles(features: &[Vec<FixturePolygon>], extent: u32, buffer: u16, label
     }
     let mut mosaic = PolygonMosaic::<Coord<i32>>::new(extent, buffer).expect("config");
     for (tile, rings) in &per_tile {
-        mosaic
-            .add(*tile, rings)
-            .expect("the slicer's own tiles never conflict");
+        mosaic.add(*tile, rings).expect("the slicer's own tiles never conflict");
     }
     let rebuilt: Vec<Vec<Coord<i32>>> = mosaic.iter_features().collect();
     let rebuilt = edge_set(rebuilt.iter().map(Vec::as_slice));
     let input = edge_set(input.iter().copied());
     let at = format!("{label}: reassembly at extent {extent} buffer {buffer}");
-    if HOLE_OUTSIDE_SHELL
-        .iter()
-        .any(|stem| label.starts_with(stem))
-    {
+    if HOLE_OUTSIDE_SHELL.iter().any(|stem| label.starts_with(stem)) {
         let shells = edge_set(features.iter().flatten().map(|p| p.exterior.as_slice()));
         assert!(rebuilt.is_subset(&input), "{at}: invented edges");
         assert!(shells.is_subset(&rebuilt), "{at}: lost shell edges");
@@ -366,11 +334,7 @@ fn reassembles(features: &[Vec<FixturePolygon>], extent: u32, buffer: u16, label
 fn dihedral(polygons: &[FixturePolygon], k: u8) -> Vec<FixturePolygon> {
     let mirror = k >= 4;
     let map = |c: &Coord<i32>| {
-        let mut c = if mirror {
-            Coord { x: -c.x, y: c.y }
-        } else {
-            *c
-        };
+        let mut c = if mirror { Coord { x: -c.x, y: c.y } } else { *c };
         for _ in 0..k % 4 {
             c = Coord { x: -c.y, y: c.x };
         }
@@ -391,16 +355,9 @@ fn dihedral(polygons: &[FixturePolygon], k: u8) -> Vec<FixturePolygon> {
         })
         .collect();
     let windings = |ps: &[FixturePolygon]| -> Vec<bool> {
-        ps.iter()
-            .flat_map(support::rings)
-            .map(|r| twice_area(r) > 0)
-            .collect()
+        ps.iter().flat_map(support::rings).map(|r| twice_area(r) > 0).collect()
     };
-    assert_eq!(
-        windings(&out),
-        windings(polygons),
-        "symmetry {k} keeps winding"
-    );
+    assert_eq!(windings(&out), windings(polygons), "symmetry {k} keeps winding");
     out
 }
 

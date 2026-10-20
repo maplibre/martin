@@ -39,10 +39,7 @@ fn line_string(ring: &[Pt]) -> LineString<f64> {
 fn polygon(rings: &[Vec<Pt>]) -> Polygon<f64> {
     match rings {
         [] => Polygon::new(LineString(vec![]), vec![]),
-        [first, rest @ ..] => Polygon::new(
-            line_string(first),
-            rest.iter().map(|r| line_string(r)).collect(),
-        ),
+        [first, rest @ ..] => Polygon::new(line_string(first), rest.iter().map(|r| line_string(r)).collect()),
     }
 }
 
@@ -101,16 +98,9 @@ fn check_polygons(polygons: &[FixturePolygon], extent: u32, buffer: u16) {
     let mut stripe_all = BTreeMap::<TileId, f64>::new();
     for polygon_rings in &rings {
         let mut shell = BTreeMap::new();
-        baseline::clip_all(
-            &polygon_rings[..1],
-            &tiles,
-            extent,
-            buffer,
-            true,
-            |t, parts| {
-                shell.insert(t, area(t, parts));
-            },
-        );
+        baseline::clip_all(&polygon_rings[..1], &tiles, extent, buffer, true, |t, parts| {
+            shell.insert(t, area(t, parts));
+        });
         baseline::clip_all(polygon_rings, &tiles, extent, buffer, true, |t, parts| {
             if shell.get(&t).is_some_and(|&a| a > 0.0) {
                 *stripe_all.entry(t).or_default() += area(t, parts);
@@ -123,8 +113,7 @@ fn check_polygons(polygons: &[FixturePolygon], extent: u32, buffer: u16) {
         let (mut toolkit, mut stripe, mut geo) = (0.0, 0.0, 0.0);
         let mut slicer = Slicer::<Coord<i32>>::new(extent, buffer).expect("config");
         for (p, polygon_rings) in polygons.iter().zip(&rings) {
-            let one =
-                support::tile_polygons(&mut slicer, std::slice::from_ref(p), tile).expect("clip");
+            let one = support::tile_polygons(&mut slicer, std::slice::from_ref(p), tile).expect("clip");
             for piece in one {
                 let pieces: Vec<_> = piece.iter().map(|r| pts(r, origin)).collect();
                 toolkit += area(tile, &pieces);

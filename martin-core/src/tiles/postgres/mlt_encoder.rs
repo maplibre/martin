@@ -20,9 +20,7 @@ use serde_json::{Number, Value};
 use crate::tiles::Tile;
 #[cfg(feature = "unstable-mlt-v2")]
 use crate::tiles::postgres::PostgresFeature;
-use crate::tiles::postgres::{
-    PostgresError, PostgresProperty, PostgresResult, PostgresTileFeatures,
-};
+use crate::tiles::postgres::{PostgresError, PostgresProperty, PostgresResult, PostgresTileFeatures};
 
 /// Encodes one tile's worth of `PostgreSQL` features as a single-layer MLT tile.
 ///
@@ -30,10 +28,7 @@ use crate::tiles::postgres::{
 /// column and `jsonb` documents a nested column each, which only the v2 wire format has, so a
 /// v1 tile leaves the M ordinates out and spreads each document's top-level keys over property
 /// columns, as `ST_AsMVT` does.
-pub fn encode_features_as_mlt(
-    features: PostgresTileFeatures,
-    cfg: EncoderConfig,
-) -> PostgresResult<Tile> {
+pub fn encode_features_as_mlt(features: PostgresTileFeatures, cfg: EncoderConfig) -> PostgresResult<Tile> {
     let info = TileInfo::new(Format::Mlt, Encoding::Internal);
     let PostgresTileFeatures {
         layer_name,
@@ -100,9 +95,7 @@ pub fn encode_features_as_mlt(
         feature.id(row.id);
         #[cfg(feature = "unstable-mlt-v2")]
         if let Some(key) = measure_key {
-            feature
-                .m_value(key, MValue::F64(row.measures))
-                .map_err(mlt_error)?;
+            feature.m_value(key, MValue::F64(row.measures)).map_err(mlt_error)?;
         }
         for (idx, value) in row.values {
             feature
@@ -188,9 +181,7 @@ fn stored_measures(geometry: &Geometry<i32>, m_values: Option<Vec<f64>>) -> Opti
     let m_values = m_values?;
     Some(match geometry {
         Geometry::Polygon(polygon) => strip_closing_measures(rings(polygon), &m_values),
-        Geometry::MultiPolygon(polygons) => {
-            strip_closing_measures(polygons.iter().flat_map(rings), &m_values)
-        }
+        Geometry::MultiPolygon(polygons) => strip_closing_measures(polygons.iter().flat_map(rings), &m_values),
         Geometry::Point(_)
         | Geometry::Line(_)
         | Geometry::LineString(_)
@@ -208,10 +199,7 @@ fn rings(polygon: &Polygon<i32>) -> impl Iterator<Item = &LineString<i32>> {
 }
 
 #[cfg(feature = "unstable-mlt-v2")]
-fn strip_closing_measures<'a>(
-    rings: impl Iterator<Item = &'a LineString<i32>>,
-    m_values: &[f64],
-) -> Vec<f64> {
+fn strip_closing_measures<'a>(rings: impl Iterator<Item = &'a LineString<i32>>, m_values: &[f64]) -> Vec<f64> {
     let mut stored = Vec::with_capacity(m_values.len());
     let mut at = 0;
     for ring in rings {
@@ -291,10 +279,7 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
     match (kind, value) {
         (PropKind::U64, PropValue::I64(v)) => PropValue::U64(v.and_then(|i| u64::try_from(i).ok())),
         (PropKind::F64, PropValue::F32(v)) => PropValue::F64(v.map(f64::from)),
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "the round trip widens the same way"
-        )]
+        #[expect(clippy::cast_precision_loss, reason = "the round trip widens the same way")]
         (PropKind::F64, PropValue::I64(v)) => PropValue::F64(v.map(|v| v as f64)),
         (PropKind::Str, PropValue::Bool(v)) => PropValue::Str(v.map(|v| v.to_string())),
         (PropKind::Str, PropValue::I64(v)) => PropValue::Str(v.map(|v| v.to_string())),
@@ -306,9 +291,7 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
 
 /// The properties `ST_AsMVT` makes of a `jsonb` document: one for each top-level key holding a
 /// string, a boolean or a number, and none for a document that is not an object.
-pub(super) fn st_asmvt_properties(
-    document: Option<Value>,
-) -> impl Iterator<Item = (String, PropValue)> {
+pub(super) fn st_asmvt_properties(document: Option<Value>) -> impl Iterator<Item = (String, PropValue)> {
     let object = match document {
         Some(Value::Object(object)) => object,
         _ => serde_json::Map::new(),
@@ -333,15 +316,9 @@ fn st_asmvt_number(number: &Number) -> PropValue {
     let Some(double) = number.as_f64() else {
         return PropValue::Str(Some(number.to_string()));
     };
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "saturates the way `strtol` does"
-    )]
+    #[expect(clippy::cast_possible_truncation, reason = "saturates the way `strtol` does")]
     let integer = double.trunc() as i64;
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "compared the way `ST_AsMVT` does"
-    )]
+    #[expect(clippy::cast_precision_loss, reason = "compared the way `ST_AsMVT` does")]
     let distance = (double - integer as f64).abs();
     if distance > f64::from(f32::EPSILON) {
         PropValue::F64(Some(double))

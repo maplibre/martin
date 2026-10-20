@@ -39,8 +39,8 @@ pub fn engine_info(
         zooms: 0..=MAX_ZOOM,
         bounds: None,
     };
-    let table = lower_table(id, info.clone(), &options)?
-        .ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
+    let table =
+        lower_table(id, info.clone(), &options)?.ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
     let margin = table
         .def
         .layers
@@ -74,11 +74,7 @@ pub fn engine_info(
             has_id: last.has_id,
             properties: last.properties.len(),
         },
-        sql_queries: sql
-            .into_iter()
-            .map(|sql| sql.sql)
-            .chain([last.sql])
-            .collect(),
+        sql_queries: sql.into_iter().map(|sql| sql.sql).chain([last.sql]).collect(),
         plan: Arc::new(plan),
         margin,
         prefetch: info
@@ -255,9 +251,7 @@ mod tests {
               major:
                 where: "class == 'motorway' && name != 'A1'"
         "#});
-        info.discovered
-            .nondeterministic_columns
-            .insert("name".to_owned());
+        info.discovered.nondeterministic_columns.insert("name".to_owned());
         let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
         insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class", "name" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("class" = 'motorway' AND "name" COLLATE "C" IS DISTINCT FROM 'A1') AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
     }

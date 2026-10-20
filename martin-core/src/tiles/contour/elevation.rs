@@ -65,11 +65,7 @@ impl HeightGrid {
             width * height,
             "a height grid must hold width * height samples"
         );
-        Self {
-            values,
-            width,
-            height,
-        }
+        Self { values, width, height }
     }
 
     /// Row-major elevation values in meters.
@@ -181,19 +177,13 @@ mod tests {
 
     #[test]
     fn a_threshold_at_or_below_the_minimum_is_dropped() {
-        assert_eq!(
-            grid(&[120.0, 350.0]).get_thresholds(100.0),
-            vec![200.0, 300.0]
-        );
+        assert_eq!(grid(&[120.0, 350.0]).get_thresholds(100.0), vec![200.0, 300.0]);
         assert_eq!(grid(&[200.0, 350.0]).get_thresholds(100.0), vec![300.0]);
     }
 
     #[test]
     fn all_nodata_grid_yields_no_thresholds() {
-        assert_eq!(
-            grid(&[FLOOR, NEAR_FLOOR]).get_thresholds(100.0),
-            [] as [f32; 0]
-        );
+        assert_eq!(grid(&[FLOOR, NEAR_FLOOR]).get_thresholds(100.0), [] as [f32; 0]);
     }
 
     #[test]

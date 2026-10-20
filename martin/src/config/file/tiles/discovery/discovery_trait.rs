@@ -58,11 +58,7 @@ impl BuiltSource {
         src: FileConfigSrc,
     ) -> SourceBuildResult<Self> {
         let process = process
-            .map(|config| {
-                config
-                    .resolve()
-                    .map_err(|error| error.for_source(id.to_owned()))
-            })
+            .map(|config| config.resolve().map_err(|error| error.for_source(id.to_owned())))
             .transpose()?;
         Ok(Self {
             source,
@@ -91,11 +87,7 @@ pub trait Discovery: Send + Sync + 'static {
     fn discover(&self) -> impl Future<Output = SourceBuildResult<Discovered<Self::Args>>> + Send;
 
     /// Builds one source; an `Err` rides into that source's `NewSource`.
-    fn build(
-        &self,
-        id: &str,
-        args: &Self::Args,
-    ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send;
+    fn build(&self, id: &str, args: &Self::Args) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send;
 
     /// `ResolvedProcess` stamped onto every source this kind emits.
     fn process(&self) -> ResolvedProcess;

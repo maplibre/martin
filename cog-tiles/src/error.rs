@@ -64,10 +64,7 @@ pub enum CogError {
 
 impl CogError {
     /// Wraps an error from a backend reading `location`.
-    pub(crate) fn backend(
-        location: &str,
-        source: impl Into<Box<dyn std::error::Error + Send + Sync>>,
-    ) -> Self {
+    pub(crate) fn backend(location: &str, source: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
         Self::Backend {
             location: location.to_owned(),
             source: source.into(),
@@ -282,9 +279,5 @@ pub enum SkippedImage {
 
 /// Joins skipped-image reasons with `; `.
 fn join_skipped(skipped: &[SkippedImage]) -> String {
-    skipped
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("; ")
+    skipped.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")
 }

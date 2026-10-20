@@ -34,12 +34,8 @@ impl SourceLocation {
         if let Some(url) = Self::parse_remote(raw, &["http", "https"])? {
             return Ok(Self::Http(url));
         }
-        if let Some(url) = Self::parse_remote(
-            raw,
-            &[
-                "s3", "s3a", "gs", "az", "adl", "azure", "abfs", "abfss", "file",
-            ],
-        )? {
+        if let Some(url) = Self::parse_remote(raw, &["s3", "s3a", "gs", "az", "adl", "azure", "abfs", "abfss", "file"])?
+        {
             return Ok(Self::ObjectStore(url));
         }
         Ok(Self::Local(PathBuf::from(raw)))
@@ -122,10 +118,7 @@ mod tests {
     fn object_store_schemes_are_object_store_urls(#[case] scheme: &str) {
         let raw = format!("{scheme}://bucket/dir/tiles.pmtiles");
         let location = SourceLocation::classify(&raw).expect("classification should succeed");
-        assert_eq!(
-            location,
-            SourceLocation::ObjectStore(raw.parse().expect("valid url"))
-        );
+        assert_eq!(location, SourceLocation::ObjectStore(raw.parse().expect("valid url")));
         assert!(location.is_remote());
     }
 
@@ -135,10 +128,7 @@ mod tests {
     fn http_schemes_are_http_urls(#[case] scheme: &str) {
         let raw = format!("{scheme}://example.org/dir/tiles.pmtiles");
         let location = SourceLocation::classify(&raw).expect("classification should succeed");
-        assert_eq!(
-            location,
-            SourceLocation::Http(raw.parse().expect("valid url"))
-        );
+        assert_eq!(location, SourceLocation::Http(raw.parse().expect("valid url")));
         assert!(location.is_remote());
     }
 
@@ -186,12 +176,8 @@ mod tests {
 
     #[test]
     fn remote_locations_yield_their_url() {
-        let location = SourceLocation::classify("s3://bucket/tiles.pmtiles")
-            .expect("classification should succeed");
-        assert_eq!(
-            location.url().map(Url::as_str),
-            Some("s3://bucket/tiles.pmtiles")
-        );
+        let location = SourceLocation::classify("s3://bucket/tiles.pmtiles").expect("classification should succeed");
+        assert_eq!(location.url().map(Url::as_str), Some("s3://bucket/tiles.pmtiles"));
         assert_eq!(
             location.into_url().map(|url| url.to_string()),
             Some("s3://bucket/tiles.pmtiles".to_owned())
@@ -199,24 +185,17 @@ mod tests {
     }
 
     #[rstest]
-    #[case::in_the_table(
-        "hf://datasets/org/set/data.parquet",
-        Some("hf://datasets/org/set/data.parquet")
-    )]
+    #[case::in_the_table("hf://datasets/org/set/data.parquet", Some("hf://datasets/org/set/data.parquet"))]
     #[case::not_in_the_table("s3://bucket/data.parquet", None)]
     #[case::without_authority("hf:datasets/org/set/data.parquet", None)]
-    fn a_caller_table_parses_the_schemes_it_lists_and_no_others(
-        #[case] raw: &str,
-        #[case] expected: Option<&str>,
-    ) {
+    fn a_caller_table_parses_the_schemes_it_lists_and_no_others(#[case] raw: &str, #[case] expected: Option<&str>) {
         let url = SourceLocation::parse_remote(raw, &["hf"]).expect("parsing should succeed");
         assert_eq!(url.as_ref().map(Url::as_str), expected);
     }
 
     #[test]
     fn local_locations_yield_no_url() {
-        let location =
-            SourceLocation::classify("tiles.pmtiles").expect("classification should succeed");
+        let location = SourceLocation::classify("tiles.pmtiles").expect("classification should succeed");
         assert_eq!(location.into_url(), None);
     }
 }

@@ -2,23 +2,11 @@
 //! configured remote-object discovery, and object-store prefix discovery.
 
 mod discovery_trait;
-pub use crate::config::file::tiles::discovery::discovery_trait::{
-    BuiltSource, Discovered, Discovery, Version,
-};
+pub use crate::config::file::tiles::discovery::discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
 mod fs;
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
 pub use crate::config::file::tiles::discovery::fs::{FsDiscovery, FsSourceBuilder};
 
 #[cfg(any(feature = "pmtiles", feature = "cog"))]

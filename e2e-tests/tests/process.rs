@@ -10,7 +10,9 @@ use martin_e2e_tests::Martin;
 const MLT_ACCEPT: &str = "application/vnd.maplibre-tile";
 
 fn assert_table_source_warning(martin: &mut Martin) {
-    martin.assert_log_contains("Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom");
+    martin.assert_log_contains(
+        "Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom",
+    );
 }
 
 #[tokio::test]
@@ -106,8 +108,7 @@ async fn the_saved_config_records_the_resolved_encoder_settings() {
         .await
         .expect("failed to start martin");
 
-    let saved = fs::read_to_string(dir.path().join("save_config.yaml"))
-        .expect("martin did not write --save-config");
+    let saved = fs::read_to_string(dir.path().join("save_config.yaml")).expect("martin did not write --save-config");
     let saved = saved
         .lines()
         .filter(|line| !line.contains("connection_string:"))
@@ -208,10 +209,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
     assert_eq!(layers[0].name(), "table_source");
     assert_eq!(layers[0].extent().get(), 4096);
     assert_eq!(layers[0].property_names(), ["gid"]);
-    assert_eq!(
-        layers[0].features().len(),
-        mvt.mvt().layers[0].features.len()
-    );
+    assert_eq!(layers[0].features().len(), mvt.mvt().layers[0].features.len());
 
     martin.stop().await;
     assert_table_source_warning(&mut martin);
@@ -451,10 +449,7 @@ async fn a_passthrough_source_converts_the_proxied_tile_to_mlt() {
     let layers = proxied.mlt();
     assert_eq!(layers.len(), 1);
     assert_eq!(layers[0].name(), "table_source");
-    assert_eq!(
-        layers[0].features().len(),
-        direct.mvt().layers[0].features.len()
-    );
+    assert_eq!(layers[0].features().len(), direct.mvt().layers[0].features.len());
 
     proxy.stop().await;
     upstream.stop().await;
