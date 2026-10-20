@@ -229,10 +229,7 @@ mod tests {
         .concat();
         let mut geometry = Geometry::Wkb(Bytes::from(line));
         assert!(geometry.decode_wkb());
-        assert_eq!(
-            geometry,
-            Geometry::Line(LineString::from(vec![(0.0, 0.0), (3.0, 4.0)]))
-        );
+        assert_eq!(geometry, Geometry::Line(LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])));
 
         let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
         assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());

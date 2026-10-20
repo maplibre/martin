@@ -19,10 +19,7 @@ fn evaluate(plan: &Plan, features: &[SourceFeature]) -> String {
     let mut evaluator = plan.evaluator();
     let mut lines = Vec::new();
     for feature in features {
-        let geom = feature
-            .geometry
-            .feature_geom()
-            .expect("unprojected geometry");
+        let geom = feature.geometry.feature_geom().expect("unprojected geometry");
         evaluator
             .evaluate(0, feature, geom, |evaluated| {
                 lines.push(format!("{evaluated:?}"));
