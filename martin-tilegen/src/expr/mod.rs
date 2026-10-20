@@ -16,7 +16,6 @@ use cel::common::types::CelNull;
 pub(crate) use crate::expr::compile::CompiledExpr;
 pub use crate::expr::compile::ExprError;
 pub use crate::expr::role::{Attr, ExprRef, Filter, Id, Role, SortBy, Zoom};
-pub use crate::expr::sort::SortValue;
 pub(crate) use crate::expr::view::{ExprKeys, FeatureView, PropSlots};
 
 const FEATURE: &str = "feature";
