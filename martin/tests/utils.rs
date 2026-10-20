@@ -2,9 +2,13 @@
 
 use std::env;
 use std::path::Path;
+#[cfg(feature = "test-pg")]
+use std::time::Duration;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
+#[cfg(feature = "test-pg")]
+use backon::{ConstantBuilder, Retryable as _};
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{CollectUnrecognizedKeys as _, Config, ServerState, parse_config};
@@ -139,12 +143,20 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 /// Launches a throwaway `PostGIS` container so the run never touches the shared `just start` DB.
 #[cfg(feature = "test-pg")]
 pub async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
-    let container = Postgres::default()
-        .with_name("postgis/postgis")
-        .with_tag("15-3.5") // purposely very old and stable
-        .start()
-        .await
-        .expect("PostGIS container failed to start (is Docker running?)");
+    let container = (|| {
+        Postgres::default()
+            .with_name("postgis/postgis")
+            .with_tag("15-3.5") // purposely very old and stable
+            .start()
+    })
+    .retry(
+        ConstantBuilder::default()
+            .with_delay(Duration::from_secs(2))
+            .with_max_times(3),
+    )
+    .sleep(tokio::time::sleep)
+    .await
+    .expect("PostGIS container failed to start (is Docker running?)");
     let host = container.get_host().await.expect("container host");
     let port = container.get_host_port_ipv4(5432).await.expect("container port");
     let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");

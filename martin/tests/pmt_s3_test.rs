@@ -6,6 +6,7 @@ use std::time::Duration;
 use actix_web::dev::ServiceResponse;
 use actix_web::test::{TestRequest, call_service, init_service, read_body, read_body_json};
 use actix_web::web::Data;
+use backon::{ConstantBuilder, Retryable as _};
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::reload::pmtiles::PmtilesReloader;
@@ -69,8 +70,13 @@ impl Image for RustFsImage {
 }
 
 async fn start_s3() -> (ContainerAsync<RustFsImage>, String) {
-    let container = RustFsImage
-        .start()
+    let container = (|| RustFsImage.start())
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(Duration::from_secs(2))
+                .with_max_times(3),
+        )
+        .sleep(tokio::time::sleep)
         .await
         .expect("RustFS container failed to start (is Docker running?)");
     // RustFS maps subdirectories of `/data` to buckets, so creating the directory is
