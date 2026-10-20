@@ -1843,8 +1843,8 @@ snapshot (<code>pg_export_snapshot()</code>), and every reader imports it in a <
 reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on
 these connections, so each partition is read in its own order, at the pace the generator asks for. There
 is one reader per two render workers, and no more readers than the pool's <code>pool_size</code>.</p>
-<p>Each scan reads only the rows some layer takes, when no layer has a <code>where</code>, see
-<a href="../sources-pg-layers/#features">Features</a>.</p>
+<p>Each scan reads only the rows some layer takes, when the database can apply every layer's
+<code>geometry</code> and <code>where</code>, see <a href="../sources-pg-layers/#features">Features</a>.</p>
 </div>
 </div>
 </div>

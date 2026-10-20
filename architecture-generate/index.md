@@ -72,7 +72,7 @@ The PostgreSQL source splits each table by what the relation allows:
 
 Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
-Each scan reads only the rows some layer takes, when no layer has a `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/#features>).
+Each scan reads only the rows some layer takes, when the database can apply every layer's `geometry` and `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/#features>).
 
 ### Feature queue
 

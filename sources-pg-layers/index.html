@@ -2589,9 +2589,19 @@ A rule's <code>simplify</code> and <code>min_size</code> apply at every zoom, in
 <li>the layer's <code>geometry</code> type, if set,</li>
 <li>the layer's <code>where</code> expression, if set. <code>null</code> and failed evaluations count as <code>false</code>.</li>
 </ol>
-<p>A rule's <code>where</code> does not filter features: it only picks the rule.</p>
-<p>The database also applies the <code>geometry</code> of every layer at the zoom being read, so rows no layer takes
-are never read. When a layer at that zoom has a <code>where</code>, Martin reads every row and checks it itself.</p>
+<p>A <a href="#rules">rule</a>'s <code>where</code> is not one of them.
+A feature that matches no rule stays in the layer.</p>
+<p>The database also applies the <code>geometry</code> and <code>where</code> of every layer at the zoom being read, so rows no
+layer takes are never read. This needs a SQL equivalent for each <code>where</code> of the table. These have one:</p>
+<ul>
+<li>comparisons of a column with a literal,</li>
+<li><code>==</code> or <code>!=</code> between two columns, unless both are floats,</li>
+<li><code>&amp;&amp;</code>, <code>||</code>, <code>!</code> and <code>? :</code>.</li>
+</ul>
+<p>Columns of type <code>bpchar</code> or <code>name</code> have none, as PostgreSQL compares them differently.
+When a layer reads a <code>jsonb</code> property, no <code>where</code> has one, as any key may share a column's name.
+Listing <code>attributes</code> without the <code>jsonb</code> property's keys avoids that.
+Without a SQL equivalent, Martin reads every row and checks <code>where</code> itself, with the same result.</p>
 <h2 id="attributes">Attributes</h2>
 <p>Without <code>attributes</code>, a layer writes all of the table source's properties. <code>[]</code> writes none.</p>
 <p>A list copies those properties as they are. A map names each output attribute:</p>
@@ -2815,8 +2825,9 @@ shows how.</p>
   fits: 18 for an <code>extent</code> of 4096. A higher <code>maxzoom</code> fails at startup.</li>
 <li>Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.</li>
 <li><code>max_feature_count</code> limits the features read for each tile, or for each block with <code>prefetch</code>.
+  The database must apply every <code>where</code> first, see <a href="#features">Features</a>, or startup fails.
   With it, <code>order_by</code> chooses which are kept. <code>order_by</code> alone changes nothing, as <code>sort_by</code> sets the
-  draw order. A layer with <code>where</code> cannot be limited yet, and fails at startup.</li>
+  draw order.</li>
 <li><code>prefetch: N</code>, on the table source or as the default under <code>postgres</code>, renders the N×N block holding
   a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
   each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
