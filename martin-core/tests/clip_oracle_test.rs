@@ -2,6 +2,7 @@
 //! The renderer quantizes before slicing and the oracle clips before quantizing, so near a buffered
 //! edge they may disagree by a unit: every tile the oracle finds with the buffer shrunk by one must be
 //! rendered, and every rendered tile must be found by the oracle with the buffer grown by one.
+#![cfg(feature = "processing")]
 #![expect(clippy::unwrap_used)]
 
 use std::collections::BTreeSet;
