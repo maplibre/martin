@@ -1,6 +1,6 @@
 //! Which rows of a table its layers keep, as a condition a source can check before reading them.
 
-use super::GeometryType;
+use crate::plan::GeometryType;
 
 /// The type every non-null value of a column has, as an expression sees it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

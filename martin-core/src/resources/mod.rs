@@ -10,4 +10,4 @@ pub mod sprites;
 pub mod styles;
 
 mod walk;
-pub use walk::walk_files;
+pub use crate::resources::walk::walk_files;

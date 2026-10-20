@@ -106,7 +106,7 @@ pub mod path_or_config {
     use serde::de::{self, MapAccess, SeqAccess, Visitor};
     use serde::{Deserialize, Deserializer};
 
-    use super::FileConfig;
+    use crate::config::file::file_config::FileConfig;
 
     /// A path, a list of paths, or a configuration map.
     #[cfg(feature = "unstable-schemas")]

@@ -3,9 +3,9 @@ use martin_tile_utils::TileInfo;
 use sqlx::{SqliteExecutor, query};
 use tracing::{debug, info, warn};
 
-use self::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
+use crate::update::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::{Mbtiles, compute_min_max_zoom};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]

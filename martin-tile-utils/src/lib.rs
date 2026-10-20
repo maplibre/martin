@@ -24,15 +24,15 @@ pub const MAX_ZOOM: u8 = 30;
 mod decoders;
 pub use decoders::*;
 mod grid;
-pub use grid::{
+pub use crate::grid::{
     BUILT_IN_GRIDS, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
     UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WGS1984_QUAD_ID,
     WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
 };
 mod rectangle;
-pub use rectangle::{TileRect, append_rect};
+pub use crate::rectangle::{TileRect, append_rect};
 mod coordinate;
-pub use coordinate::TileCoord;
+pub use crate::coordinate::TileCoord;
 
 pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);

@@ -10,8 +10,8 @@ use geo_types::{Coord, Geometry};
 use martin_tile_utils::TileData;
 use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-use super::error::ContourError;
-use super::features::GeometryFeatures;
+use crate::tiles::contour::error::ContourError;
+use crate::tiles::contour::features::GeometryFeatures;
 
 /// Where encoded contour features are written.
 #[derive(Clone, Debug, PartialEq, Eq)]

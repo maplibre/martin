@@ -108,8 +108,7 @@ fn path_prefix(req: &HttpRequest, srv_config: &SrvConfig) -> String {
             .get("X-Forwarded-Prefix")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
-            .map(|v| v.path().trim_end_matches('/').to_owned())
-            .unwrap_or_default();
+            .map_or_default(|v| v.path().trim_end_matches('/').to_owned());
     };
     prefix.to_owned()
 }
