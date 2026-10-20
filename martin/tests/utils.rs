@@ -13,6 +13,14 @@ use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::{Env as _, FauxEnv};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+#[cfg(feature = "test-pg")]
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::postgres::Postgres;
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 use tracing::warn;
 
 #[must_use]
@@ -126,4 +134,32 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
         .collect();
     assert_eq!(vals.len(), 1);
     vals[0]
+}
+
+/// Launches a throwaway `PostGIS` container so the run never touches the shared `just start` DB.
+#[cfg(feature = "test-pg")]
+pub async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
+    let container = Postgres::default()
+        .with_name("postgis/postgis")
+        .with_tag("15-3.5") // purposely very old and stable
+        .start()
+        .await
+        .expect("PostGIS container failed to start (is Docker running?)");
+    let host = container.get_host().await.expect("container host");
+    let port = container.get_host_port_ipv4(5432).await.expect("container port");
+    let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
+    (container, connstr)
+}
+
+#[cfg(feature = "test-pg")]
+pub async fn seed(connstr: &str, sql: &str) {
+    let pool = PostgresPool::new(connstr, None, None, None, 2, RetryTimeout::default())
+        .await
+        .expect("open seed pool");
+    pool.get()
+        .await
+        .expect("acquire seed connection")
+        .batch_execute(sql)
+        .await
+        .expect("execute seed SQL");
 }
