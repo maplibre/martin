@@ -74,6 +74,15 @@ impl Translator<'_> {
                     op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => left.order(op, right),
                 }
             }
+            (operators::IN, None, [key, feature]) if matches!(&feature.expr, Expr::Ident(name) if name == FEATURE) =>
+            {
+                let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
+                self.column_kind(name)?;
+                Ok(Condition::IsNull {
+                    term: Term::Column(name.to_owned()),
+                    polarity: polarity.flip(),
+                })
+            }
             (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
             _ => Operand::call(call)?.into_condition(polarity),
         }
@@ -135,9 +144,21 @@ impl Translator<'_> {
     fn operand(&self, expr: &IdedExpr) -> Result<Operand, TranslateError> {
         match &expr.expr {
             Expr::Ident(name) if name != FEATURE => self.column(name),
-            Expr::Select(_) => Err(TranslateError::SelectsField),
+            Expr::Select(_) => {
+                let name = qualified_name(expr).ok_or(TranslateError::SelectsField)?;
+                self.column(&name)
+            }
             Expr::Literal(literal) => Operand::literal(literal),
-            Expr::Call(call) => Operand::call(call),
+            Expr::Call(call) => {
+                if call.func_name == operators::INDEX
+                    && let [feature, key] = call.args.as_slice()
+                    && matches!(&feature.expr, Expr::Ident(name) if name == FEATURE)
+                {
+                    let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
+                    return self.column(name);
+                }
+                Operand::call(call)
+            }
             Expr::Ident(_) => Err(TranslateError::Expression("`feature` as a value")),
             Expr::Comprehension(_) => Err(TranslateError::Expression("a comprehension")),
             Expr::List(_) => Err(TranslateError::Expression("a list")),
@@ -149,15 +170,19 @@ impl Translator<'_> {
 
     /// The column named `name`, with the kind of its values if it is known.
     fn column(&self, name: &str) -> Result<Operand, TranslateError> {
-        let kind = self
-            .columns
+        let kind = self.column_kind(name)?;
+        Ok(Operand::Column(name.to_owned(), kind))
+    }
+
+    /// The kind of the values of column `name` if it is known, an error if there is no such column.
+    fn column_kind(&self, name: &str) -> Result<Option<ValueKind>, TranslateError> {
+        self.columns
             .iter()
             .find_map(|column| match column {
                 ColumnDef::Value(column, kind) if column == name => Some(*kind),
                 ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
             })
-            .ok_or_else(|| TranslateError::NotAColumn(name.to_owned()))?;
-        Ok(Operand::Column(name.to_owned(), kind))
+            .ok_or_else(|| TranslateError::NotAColumn(name.to_owned()))
     }
 }
 
@@ -306,6 +331,34 @@ impl Operand {
 /// The kind of column `name`, an error if it is not known.
 fn known_kind(name: &str, kind: Option<ValueKind>) -> Result<ValueKind, TranslateError> {
     kind.ok_or_else(|| TranslateError::UnknownColumnType(name.to_owned()))
+}
+
+/// The dotted name `expr` selects, like `name.en`.
+fn qualified_name(expr: &IdedExpr) -> Option<String> {
+    match &expr.expr {
+        Expr::Ident(name) => Some(name.clone()),
+        Expr::Select(select) if !select.test => Some(format!(
+            "{}.{}",
+            qualified_name(&select.operand)?,
+            select.field
+        )),
+        Expr::Unspecified
+        | Expr::Call(_)
+        | Expr::Comprehension(_)
+        | Expr::List(_)
+        | Expr::Literal(_)
+        | Expr::Map(_)
+        | Expr::Select(_)
+        | Expr::Struct(_) => None,
+    }
+}
+
+/// The value of a string literal.
+fn string_literal(expr: &IdedExpr) -> Option<&str> {
+    let Expr::Literal(LiteralValue::String(value)) = &expr.expr else {
+        return None;
+    };
+    Some(value.inner())
 }
 
 impl CompareOp {

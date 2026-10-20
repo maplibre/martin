@@ -2611,3 +2611,183 @@ async fn sql_matches_the_plan_on_string_not_in_list() {
     assert_eq!(kept.by_sql, kept.by_plan);
     insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 3, 5, 6, 7, 8}");
 }
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_has_field() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: 'has(feature.s)'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 5, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_negated_has_field() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: '!has(feature.s)'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{3}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_key_in_feature() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), d date);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', '2020-01-01'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', NULL),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', '1999-12-31'),
+          (5, 'SRID=4326;POINT(1 1)', NULL),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', '2020-01-01'),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', NULL),
+          (8, 'SRID=4326;POINT(2 2)', NULL);
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          d: date
+        layers:
+          l:
+            where: "'d' in feature"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 6}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_feature_index_equals() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: "feature['s'] == 'abc'"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_feature_field_equals() {
+    let client = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), s text);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 'abc'),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'a%_c'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', 'ABC'),
+          (5, 'SRID=4326;POINT(1 1)', 'Übel'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', ''),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 'a\b'),
+          (8, 'SRID=4326;POINT(2 2)', 'abd');
+    "})
+    .await;
+    let kept = kept(
+        &client,
+        indoc! {r#"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          s: text
+        layers:
+          l:
+            where: "feature.s == 'abc'"
+        "#},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1}");
+}
