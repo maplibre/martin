@@ -36,11 +36,7 @@ impl UnrecognizedValues {
     }
 
     /// Inserts an unrecognized key/value, returning the previous value if the key was present.
-    pub fn insert(
-        &mut self,
-        key: impl Into<String>,
-        value: serde_json::Value,
-    ) -> Option<serde_json::Value> {
+    pub fn insert(&mut self, key: impl Into<String>, value: serde_json::Value) -> Option<serde_json::Value> {
         self.0.insert(key.into(), value)
     }
 

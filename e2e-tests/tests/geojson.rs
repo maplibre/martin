@@ -24,13 +24,10 @@ fn round_coordinates(value: &mut Value) {
 
 /// Web mercator round-trips the bounds, so their last digits are noise.
 fn assert_bounds(tilejson: &Value, expected: [f64; 4]) {
-    let bounds = tilejson["bounds"]
-        .as_array()
-        .expect("the tilejson has no bounds");
+    let bounds = tilejson["bounds"].as_array().expect("the tilejson has no bounds");
     let [west, south, east, north] =
         <&[Value; 4]>::try_from(bounds.as_slice()).expect("the bounds are not four numbers");
-    let actual =
-        [west, south, east, north].map(|bound| bound.as_f64().expect("a bound is not a number"));
+    let actual = [west, south, east, north].map(|bound| bound.as_f64().expect("a bound is not a number"));
     assert_abs_diff_eq!(actual[..], expected[..], epsilon = 1e-6);
 }
 
@@ -196,12 +193,7 @@ async fn a_tilejson_advertises_every_layer_the_tiles_carry(#[case] source_ids: &
         .as_array()
         .expect("the tilejson has no vector_layers")
         .iter()
-        .map(|layer| {
-            layer["id"]
-                .as_str()
-                .expect("a layer id is not a string")
-                .to_owned()
-        })
+        .map(|layer| layer["id"].as_str().expect("a layer id is not a string").to_owned())
         .collect::<Vec<_>>();
     let served = martin
         .get(&format!("/{source_ids}/0/0/0"))
@@ -245,10 +237,7 @@ async fn a_tilejson_bounds_the_features(#[case] source_id: &str, #[case] bounds:
 #[case::a_bare_geometry("bare_geometry", 1)]
 #[case::many_multi_geometries("multi_geometries", 5)]
 #[tokio::test]
-async fn a_source_serves_one_layer_named_after_itself(
-    #[case] source_id: &str,
-    #[case] features: usize,
-) {
+async fn a_source_serves_one_layer_named_after_itself(#[case] source_id: &str, #[case] features: usize) {
     let mut martin = Martin::builder()
         .arg("tests/fixtures/geojson")
         .start()
@@ -371,10 +360,7 @@ async fn reload_adds_updates_and_removes_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     watched.install(
         fixture("geojson/feature_collection_1.geojson"),
@@ -410,10 +396,7 @@ async fn reload_adds_updates_and_removes_a_source() {
 
     watched.remove("feature_collection_1.geojson");
     martin.wait_for_source_removed("feature_collection_1").await;
-    assert_eq!(
-        martin.get("/feature_collection_1/0/0/0").await.status(),
-        404
-    );
+    assert_eq!(martin.get("/feature_collection_1/0/0/0").await.status(), 404);
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=feature_collection_1");

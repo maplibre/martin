@@ -23,19 +23,13 @@ pub struct PmtCache(Cache<PmtCacheKey, Arc<pmtiles::Directory>>);
 impl PmtCache {
     /// Creates a new `PMTiles` directory cache instance
     #[must_use]
-    pub fn new(
-        max_size_bytes: u64,
-        expiry: Option<Duration>,
-        idle_timeout: Option<Duration>,
-    ) -> Self {
+    pub fn new(max_size_bytes: u64, expiry: Option<Duration>, idle_timeout: Option<Duration>) -> Self {
         let mut builder = Cache::builder()
             .name("pmtiles_directory_cache")
-            .weigher(
-                |_key: &PmtCacheKey, value: &Arc<pmtiles::Directory>| -> u32 {
-                    value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                        + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
-                },
-            )
+            .weigher(|_key: &PmtCacheKey, value: &Arc<pmtiles::Directory>| -> u32 {
+                value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                    + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
+            })
             .max_capacity(max_size_bytes);
         if let Some(ttl) = expiry {
             builder = builder.time_to_live(ttl);

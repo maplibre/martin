@@ -116,9 +116,7 @@ impl MbtilesPool {
     #[hotpath::measure]
     pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
-        let opt = SqliteConnectOptions::new()
-            .filename(mbtiles.filepath())
-            .read_only(true);
+        let opt = SqliteConnectOptions::new().filename(mbtiles.filepath()).read_only(true);
         let pool = SqlitePoolOptions::new()
             .test_before_acquire(false)
             .connect_with(opt)
@@ -308,9 +306,7 @@ impl MbtilesPool {
         y: u32,
     ) -> MbtResult<Option<(Vec<u8>, Option<String>)>> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .get_tile_and_hash(&mut conn, mbt_type, z, x, y)
-            .await
+        self.mbtiles.get_tile_and_hash(&mut conn, mbt_type, z, x, y).await
     }
     /// Check if a tile exists in the database.
     ///
@@ -403,11 +399,7 @@ mod tests {
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert_ne!(t1, b"");
         // this is an access and then md5 hash => should not fail
-        let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
-            .await
-            .unwrap()
-            .unwrap();
+        let (t2, h2) = pool.get_tile_and_hash(MbtType::Flat, 0, 0, 0).await.unwrap().unwrap();
         assert_eq!(t2, t1);
         assert_eq!(h2, None);
         for error_types in [
@@ -421,9 +413,7 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            pool.get_tile_and_hash(error_types, 0, 0, 0)
-                .await
-                .unwrap_err();
+            pool.get_tile_and_hash(error_types, 0, 0, 0).await.unwrap_err();
         }
     }
 
@@ -487,9 +477,7 @@ mod tests {
         ] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
         }
-        pool.contains(MbtType::FlatWithHash, 0, 0, 0)
-            .await
-            .unwrap_err();
+        pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.unwrap_err();
     }
 
     #[tokio::test]
@@ -526,11 +514,7 @@ mod tests {
         let expected_hash = Some("CDEE5DAAC3EBDC5180E5148B63992309".to_owned());
         assert_eq!(h2, expected_hash);
 
-        let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
-            .await
-            .unwrap()
-            .unwrap();
+        let (t3, h3) = pool.get_tile_and_hash(MbtType::Flat, 0, 0, 0).await.unwrap().unwrap();
         assert_eq!(t3, t2);
         assert_eq!(h3, None);
         for error_types in [
@@ -540,9 +524,7 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            pool.get_tile_and_hash(error_types, 0, 0, 0)
-                .await
-                .unwrap_err();
+            pool.get_tile_and_hash(error_types, 0, 0, 0).await.unwrap_err();
         }
     }
 
@@ -715,11 +697,7 @@ mod tests {
         assert_eq!(t2, t1);
         let expected_hash = Some("7029066C27AC6F5EF18D660D5741979A".to_owned());
         assert_eq!(h2, expected_hash);
-        let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Flat, 6, 38, 19)
-            .await
-            .unwrap()
-            .unwrap();
+        let (t3, h3) = pool.get_tile_and_hash(MbtType::Flat, 6, 38, 19).await.unwrap().unwrap();
         assert_eq!(t3, t1);
         assert_eq!(h3, None);
         let (t3, h3) = pool

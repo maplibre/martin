@@ -188,6 +188,8 @@ env_logger.workspace = true
 futures.workspace = true
 image.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
+martin-core = { path = ".", default-features = false, features = ["_testing"] }
+martin-tilegen = { workspace = true, features = ["internals"] }
 rcgen.workspace = true
 rstest.workspace = true
 serde_json.workspace = true

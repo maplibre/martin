@@ -307,15 +307,10 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
                     .fetch_tile(col, row, &self.bridge)
                     .await
                     .map_err(|e| unwrap_tiff_error(location, e))?;
-                let array = tile
-                    .decode(&self.decoders)
-                    .map_err(|e| CogError::tiff(location, e))?;
+                let array = tile.decode(&self.decoders).map_err(|e| CogError::tiff(location, e))?;
                 let shape = array.shape();
                 let async_tiff::TypedArray::UInt8(pixels) = array.data() else {
-                    return Err(CogError::unsupported(
-                        location,
-                        UnsupportedReason::DecodedNotEightBit,
-                    ));
+                    return Err(CogError::unsupported(location, UnsupportedReason::DecodedNotEightBit));
                 };
                 crate::encode::encode_png(pixels, shape, self.info.tile_size, location).map(Some)
             }
@@ -329,13 +324,9 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
 }
 
 /// Reads all IFDs, converting `async-tiff` panics on malformed input into errors.
-async fn read_ifds<B: AsyncBackend>(
-    bridge: &TiffBridge<B>,
-    prefetch: u64,
-) -> CogResult<Vec<ImageFileDirectory>> {
+async fn read_ifds<B: AsyncBackend>(bridge: &TiffBridge<B>, prefetch: u64) -> CogResult<Vec<ImageFileDirectory>> {
     let location = bridge.0.location();
-    let cache = ReadaheadMetadataCache::new(bridge.clone())
-        .with_initial_size(prefetch.min(bridge.0.size()).max(16));
+    let cache = ReadaheadMetadataCache::new(bridge.clone()).with_initial_size(prefetch.min(bridge.0.size()).max(16));
     let parsed = AssertUnwindSafe(async {
         let mut reader = TiffMetadataReader::try_open(&cache).await?;
         reader.read_all_ifds(&cache).await
@@ -389,8 +380,8 @@ fn tile_size(ifd: &ImageFileDirectory, location: &str) -> CogResult<u32> {
 fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileFormat, Encoding)> {
     let samples = ifd.samples_per_pixel();
     let photometric = ifd.photometric_interpretation();
-    let eight_bit = ifd.bits_per_sample().iter().all(|&b| b == 8)
-        && ifd.sample_format().iter().all(|&f| f == SampleFormat::Uint);
+    let eight_bit =
+        ifd.bits_per_sample().iter().all(|&b| b == 8) && ifd.sample_format().iter().all(|&f| f == SampleFormat::Uint);
     if !eight_bit {
         return Err(CogError::unsupported(
             location,
@@ -401,10 +392,7 @@ fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileF
         ));
     }
     if samples > 1 && ifd.planar_configuration() != PlanarConfiguration::Chunky {
-        return Err(CogError::unsupported(
-            location,
-            UnsupportedReason::PlanarBands,
-        ));
+        return Err(CogError::unsupported(location, UnsupportedReason::PlanarBands));
     }
     #[cfg(feature = "png")]
     let gray = photometric == PhotometricInterpretation::BlackIsZero && matches!(samples, 1 | 2);
@@ -413,9 +401,7 @@ fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileF
 
     let compression = ifd.compression();
     match compression {
-        Compression::WebP if matches!(samples, 3 | 4) => {
-            Ok((TileFormat::Webp, Encoding::Passthrough))
-        }
+        Compression::WebP if matches!(samples, 3 | 4) => Ok((TileFormat::Webp, Encoding::Passthrough)),
         // JPEG-in-TIFF stored as RGB labels its components `R`, `G`, `B`, which JPEG decoders
         // (libjpeg, libjpeg-turbo) read as RGB, so it passes through like YCbCr and grayscale.
         Compression::ModernJPEG
@@ -430,11 +416,7 @@ fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileF
         #[cfg(feature = "png")]
         Compression::ModernJPEG if rgb => Ok((TileFormat::Png, Encoding::Png)),
         #[cfg(feature = "png")]
-        Compression::None
-        | Compression::Deflate
-        | Compression::OldDeflate
-        | Compression::LZW
-        | Compression::ZSTD
+        Compression::None | Compression::Deflate | Compression::OldDeflate | Compression::LZW | Compression::ZSTD
             if gray || rgb =>
         {
             Ok((TileFormat::Png, Encoding::Png))
@@ -515,9 +497,7 @@ fn make_level(
         .tile_count()
         .ok_or_else(|| CogError::unsupported(location, UnsupportedReason::Untiled { index }))?;
     let to_u32 = |v: usize| {
-        u32::try_from(v).map_err(|_err| {
-            CogError::unsupported(location, UnsupportedReason::TooManyTiles { index })
-        })
+        u32::try_from(v).map_err(|_err| CogError::unsupported(location, UnsupportedReason::TooManyTiles { index }))
     };
     let tile_count = (to_u32(cols)?, to_u32(rows)?);
     let world = 1_u64 << zoom;

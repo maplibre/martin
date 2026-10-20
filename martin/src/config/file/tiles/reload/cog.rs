@@ -2,8 +2,8 @@ use crate::TileSourceManager;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{
-    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery,
-    ObjectStoreParser, ObjectStoreSourceBuilder,
+    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery, ObjectStoreParser,
+    ObjectStoreSourceBuilder,
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
@@ -113,15 +113,10 @@ impl CogReloader {
 
         if has_configured || has_prefixes {
             if interval.is_zero() {
-                tracing::info!(
-                    "CogReloader: remote object and prefix polling disabled (reload_interval = 0s)"
-                );
+                tracing::info!("CogReloader: remote object and prefix polling disabled (reload_interval = 0s)");
             } else {
                 if has_configured {
-                    configured.spawn(
-                        PollTrigger::after_interval(interval),
-                        Baseline::StartupResolved,
-                    );
+                    configured.spawn(PollTrigger::after_interval(interval), Baseline::StartupResolved);
                 }
                 if has_prefixes {
                     prefixes.spawn(PollTrigger::new(interval), Baseline::Empty);

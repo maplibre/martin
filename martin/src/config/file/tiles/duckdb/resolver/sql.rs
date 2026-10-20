@@ -7,9 +7,7 @@ use tracing::debug;
 use crate::config::file::tiles::duckdb::resolver::errors::{DuckDbSourceError, DuckDbSourceResult};
 use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
 use crate::config::file::tiles::duckdb::sources::MvtLayerOptions;
-use crate::config::file::tiles::duckdb::sql_utils::{
-    epsg_crs, escape_identifier, escape_sql_string,
-};
+use crate::config::file::tiles::duckdb::sql_utils::{epsg_crs, escape_identifier, escape_sql_string};
 
 const DEFAULT_EXTENT: u32 = 4096;
 const DEFAULT_BUFFER: u32 = 64;
@@ -76,9 +74,7 @@ pub fn build_mvt_sql(
     };
 
     let mut filters = covering_filters(introspection, &buffered_envelope, layer_id);
-    filters.push(format!(
-        "ST_Intersects({transformed_geometry}, {buffered_envelope})"
-    ));
+    filters.push(format!("ST_Intersects({transformed_geometry}, {buffered_envelope})"));
     if let Some(filter_sql) = filter_sql {
         filters.push(format!("({filter_sql})"));
     }
@@ -87,8 +83,7 @@ pub fn build_mvt_sql(
     let mut properties = String::new();
     for (column, mvt_type) in &introspection.property_columns {
         let escaped = escape_identifier(column);
-        write!(properties, ", {escaped}::{mvt_type} AS {escaped}")
-            .expect("writing to a String should not fail");
+        write!(properties, ", {escaped}::{mvt_type} AS {escaped}").expect("writing to a String should not fail");
     }
 
     let (id_name, id_field) = if let Some(id_column) = &layer.id_column {
@@ -128,11 +123,7 @@ FROM (
 /// Testing whether the covering box is *contained* in the tile would prune harder and be wrong:
 /// that is `ST_Within`, and it drops every feature straddling a tile edge or larger than the
 /// tile. The failure is invisible on point layers, where the two agree.
-fn covering_filters(
-    introspection: &LayerIntrospection,
-    buffered_envelope: &str,
-    layer_id: &str,
-) -> Vec<String> {
+fn covering_filters(introspection: &LayerIntrospection, buffered_envelope: &str, layer_id: &str) -> Vec<String> {
     let Some(covering) = &introspection.covering else {
         return Vec::new();
     };
@@ -202,10 +193,7 @@ mod tests {
     }
 
     fn from_expr() -> String {
-        format!(
-            "read_parquet({})",
-            escape_sql_string("/data/points.parquet")
-        )
+        format!("read_parquet({})", escape_sql_string("/data/points.parquet"))
     }
 
     #[test]
@@ -268,13 +256,7 @@ mod tests {
             buffer: Some(0),
             ..MvtLayerOptions::default()
         };
-        let sql = build_mvt_sql(
-            &introspection_with_srid(4326),
-            &layer,
-            "buildings",
-            &from_expr(),
-            None,
-        );
+        let sql = build_mvt_sql(&introspection_with_srid(4326), &layer, "buildings", &from_expr(), None);
 
         insta::assert_snapshot!(sql, @r#"
 
@@ -365,10 +347,7 @@ mod tests {
             None,
         );
 
-        assert!(
-            !sql.contains("bbox"),
-            "unexpected covering predicate: {sql}"
-        );
+        assert!(!sql.contains("bbox"), "unexpected covering predicate: {sql}");
     }
 
     #[test]

@@ -6,9 +6,7 @@ use tracing::info;
 use crate::config::file::tiles::duckdb::resolver::errors::{DuckDbSourceError, DuckDbSourceResult};
 use crate::config::file::tiles::duckdb::resolver::mvt_types::mvt_property_type;
 use crate::config::file::tiles::duckdb::sources::auto_publish::{MacroDiscovery, TableDiscovery};
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbMacroEntry, DuckDbTableEntry, MvtLayerOptions,
-};
+use crate::config::file::tiles::duckdb::sources::{DuckDbMacroEntry, DuckDbTableEntry, MvtLayerOptions};
 
 /// One geometry column of a relation found by [`discover_tables`], as a table entry.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,9 +42,7 @@ pub(crate) async fn discover_tables(
             }))
         })
         .await?
-        .map_err(|source| {
-            DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned())
-        })?;
+        .map_err(|source| DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned()))?;
 
     let mut relations: BTreeMap<(String, String), BTreeMap<String, String>> = BTreeMap::new();
     for (schema, table, column, data_type) in columns {
@@ -57,10 +53,7 @@ pub(crate) async fn discover_tables(
         {
             continue;
         }
-        relations
-            .entry((schema, table))
-            .or_default()
-            .insert(column, data_type);
+        relations.entry((schema, table)).or_default().insert(column, data_type);
     }
 
     let mut discovered = Vec::new();
@@ -74,8 +67,7 @@ pub(crate) async fn discover_tables(
                 .replace("{schema}", &schema)
                 .replace("{table}", &table)
                 .replace("{column}", column);
-            let id_column =
-                find_id_column(&columns, discovery.id_columns.as_deref(), &schema, &table);
+            let id_column = find_id_column(&columns, discovery.id_columns.as_deref(), &schema, &table);
             discovered.push(DiscoveredTable {
                 source_id,
                 entry: DuckDbTableEntry {
@@ -121,16 +113,12 @@ pub(crate) async fn discover_macros(
     let macros = pool
         .generate_tile(move |conn| {
             Ok(conn.prepare(query).and_then(|mut stmt| {
-                let rows = stmt.query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?;
+                let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
                 rows.collect::<Result<Vec<_>, _>>()
             }))
         })
         .await?
-        .map_err(|source| {
-            DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned())
-        })?;
+        .map_err(|source| DuckDbSourceError::introspection_query(&source, label, "discover", query.to_owned()))?;
 
     Ok(macros
         .into_iter()

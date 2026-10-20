@@ -6,9 +6,7 @@ use deadpool_postgres::tokio_postgres::types::ToSql;
 use deadpool_postgres::tokio_postgres::{Client, Row, ToStatement};
 use futures::TryStreamExt as _;
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{
-    Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult,
-};
+use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult};
 use mlt_core::PropValue;
 
 use super::features::{feature_id, property};
@@ -53,10 +51,7 @@ pub async fn open_scan_connection(pool: &PostgresPool) -> Result<Object, Postgre
 /// # Errors
 ///
 /// Fails if a connection cannot be had, a transaction cannot be opened or the snapshot cannot be shared.
-pub async fn open_scan_connections(
-    pool: &PostgresPool,
-    count: usize,
-) -> Result<Vec<Object>, PostgresError> {
+pub async fn open_scan_connections(pool: &PostgresPool, count: usize) -> Result<Vec<Object>, PostgresError> {
     let first = open_scan_transaction(pool, None).await?;
     if count <= 1 {
         return Ok(vec![first]);
@@ -74,10 +69,7 @@ pub async fn open_scan_connections(
     Ok(conns)
 }
 
-async fn open_scan_transaction(
-    pool: &PostgresPool,
-    snapshot: Option<&str>,
-) -> Result<Object, PostgresError> {
+async fn open_scan_transaction(pool: &PostgresPool, snapshot: Option<&str>) -> Result<Object, PostgresError> {
     let conn = pool.get().await?;
     let import = snapshot.map_or_else(String::new, |id| {
         format!("SET TRANSACTION SNAPSHOT '{}'; ", id.replace('\'', "''"))
@@ -100,11 +92,7 @@ async fn open_scan_transaction(
 /// # Errors
 ///
 /// Fails if the catalog cannot be read.
-pub async fn heap_blocks(
-    conn: &Client,
-    schema: &str,
-    table: &str,
-) -> Result<Option<u32>, PostgresError> {
+pub async fn heap_blocks(conn: &Client, schema: &str, table: &str) -> Result<Option<u32>, PostgresError> {
     let row = conn
         .query_opt(
             "SELECT pg_relation_size(c.oid) / current_setting('block_size')::bigint \
@@ -147,14 +135,9 @@ pub async fn scan_features<T: ?Sized + ToStatement>(
         .map_err(|e| PostgresError::PostgresError(e, "reading a scan"))?
     {
         next_row += 1;
-        batch
-            .features
-            .push(feature(&row, layout, keys, &mut arena)?);
+        batch.features.push(feature(&row, layout, keys, &mut arena)?);
         if batch.features.len() == BATCH_FEATURES {
-            emit(std::mem::replace(
-                &mut batch,
-                new_batch(layout, partition, next_row),
-            ))?;
+            emit(std::mem::replace(&mut batch, new_batch(layout, partition, next_row)))?;
         }
     }
     if !batch.features.is_empty() {
@@ -173,12 +156,7 @@ fn new_batch(layout: &ScanLayout, partition: u32, first_row: u64) -> FeatureBatc
     }
 }
 
-fn feature(
-    row: &Row,
-    layout: &ScanLayout,
-    keys: &KeyInterner,
-    arena: &mut BytesMut,
-) -> SourceResult<SourceFeature> {
+fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut BytesMut) -> SourceResult<SourceFeature> {
     let wkb: Option<&[u8]> = row
         .try_get(0)
         .map_err(|e| PostgresError::PostgresError(e, "reading a scanned geometry"))?;
@@ -211,11 +189,7 @@ fn feature(
             }
         }
     }
-    Ok(SourceFeature {
-        id,
-        geometry,
-        props,
-    })
+    Ok(SourceFeature { id, geometry, props })
 }
 
 fn prop(value: PropValue) -> Option<Prop> {

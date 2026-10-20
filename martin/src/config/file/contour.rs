@@ -183,14 +183,7 @@ impl schemars::JsonSchema for FilteredThreshold {
 /// The cartographic zoom-to-interval ramp `ContourSettings::zoom_intervals` falls back to.
 #[cfg(feature = "unstable-schemas")]
 fn zoom_intervals_example() -> BTreeMap<u8, f32> {
-    BTreeMap::from([
-        (0, 0.0),
-        (4, 400.0),
-        (6, 200.0),
-        (8, 150.0),
-        (10, 100.0),
-        (12, 50.0),
-    ])
+    BTreeMap::from([(0, 0.0), (4, 400.0), (6, 200.0), (8, 150.0), (10, 100.0), (12, 50.0)])
 }
 
 /// Contour settings as they appear in a config file.
@@ -467,9 +460,7 @@ impl ResolvedContour {
             let Some(param) = NUMERIC_PARAMS.iter().find(|param| param.name == key) else {
                 continue;
             };
-            let value = raw
-                .parse::<f64>()
-                .map_err(|_e| param.rejected(raw.to_owned()))?;
+            let value = raw.parse::<f64>().map_err(|_e| param.rejected(raw.to_owned()))?;
             (param.apply)(&mut self.opts, param.checked(value)?);
         }
         Ok(self)
@@ -542,10 +533,7 @@ mod tests {
     fn parse_auto_string() {
         let cfg: ContourProcessConfig = serde_saphyr::from_str("auto").unwrap();
         assert_eq!(cfg, ContourProcessConfig::Auto);
-        assert_eq!(
-            cfg.resolve_contour().unwrap(),
-            Some(ResolvedContour::default())
-        );
+        assert_eq!(cfg.resolve_contour().unwrap(), Some(ResolvedContour::default()));
     }
 
     #[test]
@@ -565,10 +553,7 @@ mod tests {
 
         assert!((resolved.opts.resolution - 8.0).abs() < 1e-6);
         assert!((resolved.opts.min_feature_length - 25.0).abs() < 1e-6);
-        assert_eq!(
-            resolved.opts.major_interval,
-            ContourOptions::default().major_interval
-        );
+        assert_eq!(resolved.opts.major_interval, ContourOptions::default().major_interval);
         assert_eq!(resolved.opts.layer_name, "contour");
         assert_eq!(resolved.opts.extent, 4096);
     }
@@ -593,35 +578,16 @@ mod tests {
     fn filtered_threshold_defaults_to_sea_level_and_can_be_switched_off() {
         let default: ContourProcessConfig = serde_saphyr::from_str("{}").unwrap();
         assert_eq!(
-            default
-                .resolve_contour()
-                .unwrap()
-                .unwrap()
-                .opts
-                .filtered_threshold,
+            default.resolve_contour().unwrap().unwrap().opts.filtered_threshold,
             Some(0.0)
         );
 
-        let off: ContourProcessConfig =
-            serde_saphyr::from_str("filtered_threshold: disabled").unwrap();
-        assert_eq!(
-            off.resolve_contour()
-                .unwrap()
-                .unwrap()
-                .opts
-                .filtered_threshold,
-            None
-        );
+        let off: ContourProcessConfig = serde_saphyr::from_str("filtered_threshold: disabled").unwrap();
+        assert_eq!(off.resolve_contour().unwrap().unwrap().opts.filtered_threshold, None);
 
-        let explicit: ContourProcessConfig =
-            serde_saphyr::from_str("filtered_threshold: -50").unwrap();
+        let explicit: ContourProcessConfig = serde_saphyr::from_str("filtered_threshold: -50").unwrap();
         assert_eq!(
-            explicit
-                .resolve_contour()
-                .unwrap()
-                .unwrap()
-                .opts
-                .filtered_threshold,
+            explicit.resolve_contour().unwrap().unwrap().opts.filtered_threshold,
             Some(-50.0)
         );
     }
@@ -645,10 +611,7 @@ mod tests {
     #[test]
     fn query_overrides_are_ignored_unless_opted_in() {
         let locked = ResolvedContour::default();
-        let unchanged = locked
-            .clone()
-            .with_query_overrides([("resolution", "32")])
-            .unwrap();
+        let unchanged = locked.clone().with_query_overrides([("resolution", "32")]).unwrap();
         assert_eq!(unchanged, locked);
 
         let open = ResolvedContour {
@@ -680,9 +643,7 @@ mod tests {
             "resolution"
         );
         assert_eq!(
-            open.clone()
-                .with_query_overrides([("totally_unrelated", "1")])
-                .unwrap(),
+            open.clone().with_query_overrides([("totally_unrelated", "1")]).unwrap(),
             open
         );
     }
@@ -701,8 +662,7 @@ mod tests {
         assert_ne!(layer.fingerprint(), baseline);
 
         let mut intervals = base.clone();
-        intervals.opts.threshold_intervals =
-            ZoomIntervalMap::new(&[(0, 25.0)], ElevationUnits::Meters);
+        intervals.opts.threshold_intervals = ZoomIntervalMap::new(&[(0, 25.0)], ElevationUnits::Meters);
         assert_ne!(intervals.fingerprint(), baseline);
 
         let mut filtered = base.clone();

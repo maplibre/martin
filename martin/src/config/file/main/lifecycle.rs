@@ -47,12 +47,7 @@ use crate::config::file::process::ResolvedProcess;
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "processing"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{CollectUnrecognizedKeys as _, ConfigFileError, ConfigFileResult};
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "processing"
-))]
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog", feature = "processing"))]
 use crate::config::file::{FileConfig, FileConfigSrc};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
@@ -72,11 +67,7 @@ impl Config {
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
-            self.srv.route_prefix = if normalized.is_empty() {
-                None
-            } else {
-                Some(normalized)
-            };
+            self.srv.route_prefix = if normalized.is_empty() { None } else { Some(normalized) };
         }
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
@@ -194,10 +185,7 @@ impl Config {
     }
 
     #[instrument(skip_all, err(Debug))]
-    pub async fn resolve(
-        &mut self,
-        #[cfg(feature = "_tiles")] idr: &IdResolver,
-    ) -> StartupResult<ServerState> {
+    pub async fn resolve(&mut self, #[cfg(feature = "_tiles")] idr: &IdResolver) -> StartupResult<ServerState> {
         init_aws_lc_tls();
 
         #[cfg(any(feature = "_tiles", feature = "resources"))]
@@ -209,10 +197,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         #[cfg_attr(
             not(feature = "unstable-duckdb"),
-            expect(
-                unused_variables,
-                reason = "only duckdb reports per-source process layers"
-            )
+            expect(unused_variables, reason = "only duckdb reports per-source process layers")
         )]
         let (tile_sources, warnings, duckdb_process) = self
             .resolve_tile_sources(
@@ -223,9 +208,7 @@ impl Config {
             .await?;
 
         #[cfg(feature = "_tiles")]
-        self.on_invalid
-            .unwrap_or_default()
-            .handle_tile_warnings(&warnings)?;
+        self.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
 
         #[cfg(feature = "_tiles")]
         let tile_sources_with_process = {
@@ -385,10 +368,7 @@ impl Config {
             feature = "unstable-duckdb",
             feature = "processing"
         )),
-        expect(
-            unused_variables,
-            reason = "idr is only consumed by file tile backends"
-        )
+        expect(unused_variables, reason = "idr is only consumed by file tile backends")
     )]
     async fn resolve_tile_sources(
         &mut self,
@@ -431,13 +411,7 @@ impl Config {
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = resolve_files(
-                cfg,
-                idr,
-                &["mbtiles"],
-                self.cache.policy(),
-                Some(&tile_grids),
-            );
+            let val = resolve_files(cfg, idr, &["mbtiles"], self.cache.policy(), Some(&tile_grids));
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -472,8 +446,7 @@ impl Config {
         }
 
         let all_results = try_join_all(sources_and_warnings).await?;
-        let (all_tile_sources, all_tile_warnings): (Vec<_>, Vec<_>) =
-            all_results.into_iter().unzip();
+        let (all_tile_sources, all_tile_warnings): (Vec<_>, Vec<_>) = all_results.into_iter().unzip();
 
         Ok((
             all_tile_sources,
@@ -526,29 +499,25 @@ impl Config {
             let archive_cache_control = self.srv.archive_cache_control();
 
             #[cfg(feature = "pmtiles")]
-            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| {
-                ProcessConfig {
-                    convert_to_mlt: c.convert_to_mlt.clone(),
-                    convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: archive_cache_control.clone(),
-                    #[cfg(feature = "processing")]
-                    convert_to_hillshade: None,
-                    #[cfg(feature = "processing")]
-                    convert_to_contour: None,
-                }
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
+                convert_to_mlt: c.convert_to_mlt.clone(),
+                convert_to_mvt: c.convert_to_mvt.clone(),
+                cache_control: archive_cache_control.clone(),
+                #[cfg(feature = "processing")]
+                convert_to_hillshade: None,
+                #[cfg(feature = "processing")]
+                convert_to_contour: None,
             })?;
 
             #[cfg(feature = "mbtiles")]
-            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| {
-                ProcessConfig {
-                    convert_to_mlt: c.convert_to_mlt.clone(),
-                    convert_to_mvt: c.convert_to_mvt.clone(),
-                    cache_control: archive_cache_control.clone(),
-                    #[cfg(feature = "processing")]
-                    convert_to_hillshade: None,
-                    #[cfg(feature = "processing")]
-                    convert_to_contour: None,
-                }
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| ProcessConfig {
+                convert_to_mlt: c.convert_to_mlt.clone(),
+                convert_to_mvt: c.convert_to_mvt.clone(),
+                cache_control: archive_cache_control.clone(),
+                #[cfg(feature = "processing")]
+                convert_to_hillshade: None,
+                #[cfg(feature = "processing")]
+                convert_to_contour: None,
             })?;
 
             // COG and GeoJSON have no kind-level conversion settings.
@@ -556,9 +525,7 @@ impl Config {
             // gradients are already per-pixel, whereas a COG holds elevation - which would need
             // metres-per-pixel scaling and its own quantisation handling, a separate feature.
             #[cfg(feature = "cog")]
-            Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| {
-                ProcessConfig::default()
-            })?;
+            Self::insert_file_source_configs(&mut map, &global, &self.cog, |_| ProcessConfig::default())?;
 
             #[cfg(feature = "cog")]
             Self::insert_source_configs(
@@ -570,9 +537,7 @@ impl Config {
             )?;
 
             #[cfg(feature = "processing")]
-            Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| {
-                ProcessConfig::default()
-            })?;
+            Self::insert_file_source_configs(&mut map, &global, &self.geojson, |_| ProcessConfig::default())?;
 
             #[cfg(feature = "passthrough")]
             if let Some(sources) = &self.passthrough.sources {
@@ -587,19 +552,17 @@ impl Config {
                     #[cfg(feature = "processing")]
                     convert_to_contour: None,
                 };
-                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
-                    match src {
-                        PassthroughSrc::Detailed(obj) => ProcessConfig {
-                            convert_to_mlt: obj.convert_to_mlt.clone(),
-                            convert_to_mvt: obj.convert_to_mvt.clone(),
-                            cache_control: obj.cache_control.clone(),
-                            #[cfg(feature = "processing")]
-                            convert_to_hillshade: obj.convert_to_hillshade.clone(),
-                            #[cfg(all(feature = "processing", feature = "_tiles"))]
-                            convert_to_contour: obj.convert_to_contour.clone(),
-                        },
-                        PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
-                    }
+                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| match src {
+                    PassthroughSrc::Detailed(obj) => ProcessConfig {
+                        convert_to_mlt: obj.convert_to_mlt.clone(),
+                        convert_to_mvt: obj.convert_to_mvt.clone(),
+                        cache_control: obj.cache_control.clone(),
+                        #[cfg(feature = "processing")]
+                        convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                        #[cfg(all(feature = "processing", feature = "_tiles"))]
+                        convert_to_contour: obj.convert_to_contour.clone(),
+                    },
+                    PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
                 })?;
             }
         }
@@ -633,12 +596,7 @@ impl Config {
     }
 
     /// Helper to resolve process configs for file-based source types.
-    #[cfg(any(
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "cog",
-        feature = "processing"
-    ))]
+    #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "cog", feature = "processing"))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
         map: &mut HashMap<String, ResolvedProcess>,
         global: &ProcessConfig,
@@ -646,24 +604,18 @@ impl Config {
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
     ) -> StartupResult<()> {
         let source_type = get_source_type_pc(&file_cfg.custom);
-        Self::insert_source_configs(
-            map,
-            global,
-            &source_type,
-            &file_cfg.sources,
-            |src| match src {
-                FileConfigSrc::Obj(obj) => ProcessConfig {
-                    convert_to_mlt: obj.convert_to_mlt.clone(),
-                    convert_to_mvt: obj.convert_to_mvt.clone(),
-                    cache_control: obj.cache_control.clone(),
-                    #[cfg(feature = "processing")]
-                    convert_to_hillshade: obj.convert_to_hillshade.clone(),
-                    #[cfg(all(feature = "processing", feature = "_tiles"))]
-                    convert_to_contour: obj.convert_to_contour.clone(),
-                },
-                FileConfigSrc::Path(_) => ProcessConfig::default(),
+        Self::insert_source_configs(map, global, &source_type, &file_cfg.sources, |src| match src {
+            FileConfigSrc::Obj(obj) => ProcessConfig {
+                convert_to_mlt: obj.convert_to_mlt.clone(),
+                convert_to_mvt: obj.convert_to_mvt.clone(),
+                cache_control: obj.cache_control.clone(),
+                #[cfg(feature = "processing")]
+                convert_to_hillshade: obj.convert_to_hillshade.clone(),
+                #[cfg(all(feature = "processing", feature = "_tiles"))]
+                convert_to_contour: obj.convert_to_contour.clone(),
             },
-        )
+            FileConfigSrc::Path(_) => ProcessConfig::default(),
+        })
     }
 
     #[cfg(feature = "unstable-duckdb")]
@@ -759,10 +711,7 @@ impl Config {
 
     /// Writes the running configuration, with the tile sources materialized from the catalog so
     /// the file describes what is actually served.
-    #[expect(
-        clippy::print_stdout,
-        reason = "`--save -` writes the config to stdout"
-    )]
+    #[expect(clippy::print_stdout, reason = "`--save -` writes the config to stdout")]
     pub fn save_to_file(
         &self,
         file_name: &Path,
@@ -770,10 +719,7 @@ impl Config {
     ) -> ConfigFileResult<()> {
         #[cfg(any(feature = "postgres", feature = "_file_kinds"))]
         let config = self.with_catalog(catalog);
-        #[cfg(all(
-            feature = "_tiles",
-            not(any(feature = "postgres", feature = "_file_kinds"))
-        ))]
+        #[cfg(all(feature = "_tiles", not(any(feature = "postgres", feature = "_file_kinds"))))]
         let _ = catalog;
         #[cfg(not(any(feature = "postgres", feature = "_file_kinds")))]
         let config = self;
@@ -847,10 +793,7 @@ mod tests {
                     format: webp
         "})
         .expect("parses");
-        config
-            .finalize()
-            .await
-            .expect("valid hillshade must start up");
+        config.finalize().await.expect("valid hillshade must start up");
     }
 
     #[tokio::test]

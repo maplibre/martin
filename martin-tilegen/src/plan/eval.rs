@@ -10,8 +10,8 @@ use crate::source::SourceFeature;
 use tracing::warn;
 
 use super::{
-    AttributesDef, Case, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable,
-    PlannedValue, PlannedZoom,
+    AttributesDef, Case, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
+    PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
 use crate::sort::record::EncodedProps;
@@ -72,10 +72,7 @@ impl Keys {
                 })
                 .collect(),
             tables: keys,
-            layers: layers
-                .iter()
-                .map(|layer| KeyInterner::new(&layer.keys))
-                .collect(),
+            layers: layers.iter().map(|layer| KeyInterner::new(&layer.keys)).collect(),
         }
     }
 }
@@ -123,12 +120,7 @@ impl Plan {
     }
 
     /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
-    fn eval<R: Role>(
-        &self,
-        expr: &ExprRef<R>,
-        view: &FeatureView<'_, String>,
-        errors: &mut [u64],
-    ) -> R::Out {
+    fn eval<R: Role>(&self, expr: &ExprRef<R>, view: &FeatureView<'_, String>, errors: &mut [u64]) -> R::Out {
         let index = expr.index;
         let planned = &self.exprs[index];
         match planned.expr.eval(view).and_then(|v| expr.role.coerce(v)) {
@@ -162,28 +154,15 @@ impl Plan {
         let case = layer
             .cases
             .iter()
-            .find(|case| {
-                case.when
-                    .as_ref()
-                    .is_none_or(|when| self.eval(when, view, errors))
-            })
+            .find(|case| case.when.as_ref().is_none_or(|when| self.eval(when, view, errors)))
             .unwrap_or(&layer.fallback);
         let (lo, hi) = (*layer.zooms.start(), *layer.zooms.end());
-        let min = self
-            .zoom(case.minzoom, view, errors)
-            .map_or(lo, |z| z.max(lo));
-        let max = self
-            .zoom(case.maxzoom, view, errors)
-            .map_or(hi, |z| z.min(hi));
+        let min = self.zoom(case.minzoom, view, errors).map_or(lo, |z| z.max(lo));
+        let max = self.zoom(case.maxzoom, view, errors).map_or(hi, |z| z.min(hi));
         (min <= max).then_some((min..=max, case))
     }
 
-    fn zoom(
-        &self,
-        zoom: PlannedZoom,
-        view: &FeatureView<'_, String>,
-        errors: &mut [u64],
-    ) -> Option<u8> {
+    fn zoom(&self, zoom: PlannedZoom, view: &FeatureView<'_, String>, errors: &mut [u64]) -> Option<u8> {
         match zoom {
             PlannedZoom::Fixed(zoom) => Some(zoom),
             PlannedZoom::Expr(expr, fallback) => self
@@ -228,17 +207,10 @@ impl Plan {
     }
 
     /// The layer's `sort_by` keys, concatenated; a failed one sorts as `null`.
-    fn sort_key(
-        &self,
-        layer: &PlannedLayer,
-        view: &FeatureView<'_, String>,
-        errors: &mut [u64],
-        out: &mut Vec<u8>,
-    ) {
+    fn sort_key(&self, layer: &PlannedLayer, view: &FeatureView<'_, String>, errors: &mut [u64], out: &mut Vec<u8>) {
         out.clear();
         for expr in &layer.sort_by {
-            self.eval(expr, view, errors)
-                .encode(expr.role.descending, out);
+            self.eval(expr, view, errors).encode(expr.role.descending, out);
         }
     }
 
@@ -258,10 +230,7 @@ impl Plan {
         };
         match &attr.value {
             PlannedValue::Literal(value) => Some(borrowed(value)),
-            PlannedValue::Column(key) => feature
-                .iter()
-                .find(|(k, _)| k == key)
-                .map(|(_, value)| borrowed(value)),
+            PlannedValue::Column(key) => feature.iter().find(|(k, _)| k == key).map(|(_, value)| borrowed(value)),
             PlannedValue::Expr(expr) => self.eval(expr, view?, errors),
         }
     }
@@ -310,16 +279,11 @@ impl Evaluator<'_> {
         } = self;
         let plan: &Plan = plan;
         let index = usize::from(table);
-        let planned = plan
-            .tables
-            .get(index)
-            .ok_or(TileGenError::UnknownTable(table))?;
+        let planned = plan.tables.get(index).ok_or(TileGenError::UnknownTable(table))?;
         if planned.evaluates && planned.dynamic_props {
             learn_keys(&mut names[index], &feature.props, &plan.keys.tables[index]);
         }
-        let view = planned
-            .evaluates
-            .then(|| slots.bind(&names[index].0, &feature.props));
+        let view = planned.evaluates.then(|| slots.bind(&names[index].0, &feature.props));
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];
@@ -490,10 +454,7 @@ fn output_key(
     let resolved = table.name(key).and_then(|name| match &layer.attributes {
         AttributesDef::All => Some(output.intern(&name)),
         AttributesDef::None | AttributesDef::Computed { .. } => None,
-        AttributesDef::Columns(selected) => selected
-            .contains(&name)
-            .then(|| output.get(&name))
-            .flatten(),
+        AttributesDef::Columns(selected) => selected.contains(&name).then(|| output.get(&name)).flatten(),
     });
     cache[slot] = DynamicKey::Resolved(resolved);
     resolved

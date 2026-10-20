@@ -54,11 +54,7 @@ impl StaticFiles {
         Self::serving_with(None, true, files).await
     }
 
-    async fn serving_with(
-        required_query: Option<String>,
-        fail_gets: bool,
-        files: &[(&str, PathBuf)],
-    ) -> Self {
+    async fn serving_with(required_query: Option<String>, fail_gets: bool, files: &[(&str, PathBuf)]) -> Self {
         let files = files
             .iter()
             .map(|(path, file)| ((*path).to_owned(), read(file)))
@@ -84,18 +80,12 @@ impl StaticFiles {
 
     /// Heals (or re-breaks) the transient `GET` failure gate.
     pub fn set_fail_gets(&self, failing: bool) {
-        self.state
-            .write()
-            .expect("a file map that is never poisoned")
-            .fail_gets = failing;
+        self.state.write().expect("a file map that is never poisoned").fail_gets = failing;
     }
 
     /// Adds `path`, as if a new remote object was uploaded.
     pub fn insert(&self, path: &str, file: &Path) {
-        let mut state = self
-            .state
-            .write()
-            .expect("a file map that is never poisoned");
+        let mut state = self.state.write().expect("a file map that is never poisoned");
         assert!(
             state.files.insert(path.to_owned(), read(file)).is_none(),
             "cannot insert existing static file {path}"
@@ -104,10 +94,7 @@ impl StaticFiles {
 
     /// Replaces the contents served under `path`, as if the remote object was overwritten.
     pub fn replace(&self, path: &str, file: &Path) {
-        let mut state = self
-            .state
-            .write()
-            .expect("a file map that is never poisoned");
+        let mut state = self.state.write().expect("a file map that is never poisoned");
         assert!(
             state.files.insert(path.to_owned(), read(file)).is_some(),
             "cannot replace unknown static file {path}"
@@ -116,10 +103,7 @@ impl StaticFiles {
 
     /// Removes `path`, as if the remote object was deleted.
     pub fn remove(&self, path: &str) {
-        let mut state = self
-            .state
-            .write()
-            .expect("a file map that is never poisoned");
+        let mut state = self.state.write().expect("a file map that is never poisoned");
         assert!(
             state.files.remove(path).is_some(),
             "cannot remove unknown static file {path}"
@@ -190,10 +174,7 @@ fn xml_escape(value: &str) -> String {
 }
 
 fn respond_to_s3_list(state: &RwLock<State>, request: &Request) -> ResponseTemplate {
-    let files = &state
-        .read()
-        .expect("a file map that is never poisoned")
-        .files;
+    let files = &state.read().expect("a file map that is never poisoned").files;
     let bucket = request.url.path().trim_matches('/');
     let bucket_prefix = if bucket.is_empty() {
         String::new()
@@ -280,10 +261,7 @@ fn respond(state: &RwLock<State>, request: &Request) -> ResponseTemplate {
     let (start, end) = (*range.start(), *range.end());
     ResponseTemplate::new(206)
         .insert_header("etag", etag)
-        .insert_header(
-            "content-range",
-            format!("bytes {start}-{end}/{}", body.len()),
-        )
+        .insert_header("content-range", format!("bytes {start}-{end}/{}", body.len()))
         .set_body_bytes(body[range].to_vec())
 }
 
@@ -325,10 +303,7 @@ mod tests {
     #[case::past_the_end("bytes=6-99", 6..=9)]
     #[case::suffix("bytes=-3", 7..=9)]
     #[case::suffix_longer_than_the_body("bytes=-99", 0..=9)]
-    fn ranges_resolve_against_the_body_length(
-        #[case] header: &str,
-        #[case] expected: RangeInclusive<usize>,
-    ) {
+    fn ranges_resolve_against_the_body_length(#[case] header: &str, #[case] expected: RangeInclusive<usize>) {
         assert_eq!(parse_range(header, 10), expected);
     }
 }

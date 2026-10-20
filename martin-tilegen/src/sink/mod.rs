@@ -30,10 +30,7 @@ pub trait TileSink: Send {
 
     /// Writes batches of tiles in [`tile_order`](Self::tile_order). An `Err` batch means the generation
     /// failed upstream: the sink must stop and discard what it has not committed.
-    fn write_all(
-        &mut self,
-        batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
-    ) -> TileGenResult<()>;
+    fn write_all(&mut self, batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>) -> TileGenResult<()>;
 
     /// Stores the metadata, which is complete only after the last tile.
     fn finish(self, metadata: &TileJSON) -> TileGenResult<()>;

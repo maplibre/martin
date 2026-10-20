@@ -58,12 +58,7 @@ impl Georef {
                 }
                 // The tiepoint maps raster (i, j) to model (x, y); move it to raster (0, 0).
                 let (sx, sy) = (scale[0], scale[1]);
-                (
-                    tie[0].mul_add(-sx, tie[3]),
-                    tie[1].mul_add(sy, tie[4]),
-                    sx,
-                    sy,
-                )
+                (tie[0].mul_add(-sx, tie[3]), tie[1].mul_add(sy, tie[4]), sx, sy)
             } else if let Some(m) = ifd.model_transformation() {
                 if m.len() < 8 {
                     return Err(unsupported(UnsupportedReason::ShortTransformation));
@@ -149,10 +144,7 @@ mod tests {
         assert_eq!(aligned_tile(x, y, 16, 256), Some((32748, 21794)));
         assert_eq!(aligned_tile(x, y, 21, 256), Some((32748 * 32, 21794 * 32)));
         // A millimeter off is still aligned at z21 (7.5 cm pixels); half a pixel is not.
-        assert_eq!(
-            aligned_tile(x + 0.001, y, 21, 256),
-            Some((32748 * 32, 21794 * 32))
-        );
+        assert_eq!(aligned_tile(x + 0.001, y, 21, 256), Some((32748 * 32, 21794 * 32)));
         assert_eq!(aligned_tile(x + 0.037, y, 21, 256), None);
     }
 }

@@ -7,9 +7,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
 use martin_core::tiles::hillshade::{Canvas, HillshadeError, bake_with_light};
-use martin_core::tiles::neighbourhood::{
-    InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
-};
+use martin_core::tiles::neighbourhood::{InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache};
 use martin_tile_utils::{Encoding, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
@@ -45,18 +43,12 @@ pub enum HillshadeBakeError {
 impl From<HillshadeBakeError> for actix_web::Error {
     fn from(e: HillshadeBakeError) -> Self {
         match e {
-            HillshadeBakeError::Parameter(ref inner) => {
-                actix_web::error::ErrorBadRequest(inner.to_string())
-            }
-            HillshadeBakeError::ShuttingDown => {
-                actix_web::error::ErrorServiceUnavailable(e.to_string())
-            }
+            HillshadeBakeError::Parameter(ref inner) => actix_web::error::ErrorBadRequest(inner.to_string()),
+            HillshadeBakeError::ShuttingDown => actix_web::error::ErrorServiceUnavailable(e.to_string()),
             HillshadeBakeError::Core(_)
             | HillshadeBakeError::Source(_)
             | HillshadeBakeError::SourceNeedsReload
-            | HillshadeBakeError::BakeFailed(_) => {
-                actix_web::error::ErrorInternalServerError(e.to_string())
-            }
+            | HillshadeBakeError::BakeFailed(_) => actix_web::error::ErrorInternalServerError(e.to_string()),
         }
     }
 }

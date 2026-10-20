@@ -14,11 +14,8 @@ async fn purging_a_source_makes_the_next_request_hit_the_upstream_again() {
     let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
     feature.id(Some(1));
     feature.finish().expect("finish feature");
-    std::fs::write(
-        &tile,
-        tile_layers_to_mvt(vec![builder.finish()]).expect("encode MVT"),
-    )
-    .expect("failed to write the tile");
+    std::fs::write(&tile, tile_layers_to_mvt(vec![builder.finish()]).expect("encode MVT"))
+        .expect("failed to write the tile");
     let upstream = StaticFiles::serving(&[("0/0/0.pbf", tile)]).await;
     let url = upstream.base_url();
     let config = formatdoc! {"

@@ -2,9 +2,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use cog_tiles::{
-    AsyncBackend as _, AsyncCogReader, CogInfo, FileBackend, ObjectStoreBackend, TileFormat,
-};
+use cog_tiles::{AsyncBackend as _, AsyncCogReader, CogInfo, FileBackend, ObjectStoreBackend, TileFormat};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use serde_json::Value;
@@ -41,22 +39,12 @@ pub struct CogSource {
 
 impl CogSource {
     /// Creates a new COG tile source from a file path.
-    pub async fn new(
-        id: String,
-        path: PathBuf,
-        cache_zoom: CacheZoomRange,
-    ) -> Result<Self, CogError> {
+    pub async fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, CogError> {
         let reader = AsyncCogReader::try_from_backend(FileBackend::open(path).await?).await?;
         let location = reader.backend().location().to_owned();
         warn_skipped_images(&location, reader.skipped_images());
         let info = *reader.info();
-        Self::from_info(
-            id,
-            CogTiles::File(Arc::new(reader)),
-            &info,
-            location,
-            cache_zoom,
-        )
+        Self::from_info(id, CogTiles::File(Arc::new(reader)), &info, location, cache_zoom)
     }
 
     /// Creates a COG source backed by an arbitrary `object_store` implementation.
@@ -73,13 +61,7 @@ impl CogSource {
         let reader = AsyncCogReader::try_from_backend(backend).await?;
         warn_skipped_images(&location, reader.skipped_images());
         let info = *reader.info();
-        Self::from_info(
-            id,
-            CogTiles::ObjectStore(Arc::new(reader)),
-            &info,
-            location,
-            cache_zoom,
-        )
+        Self::from_info(id, CogTiles::ObjectStore(Arc::new(reader)), &info, location, cache_zoom)
     }
 
     fn from_info(
@@ -101,14 +83,7 @@ impl CogSource {
             minzoom: info.min_zoom,
             maxzoom: info.max_zoom,
         };
-        Self::with_layout(
-            id,
-            tiles,
-            tilejson,
-            (info.tile_size, info.format),
-            location,
-            cache_zoom,
-        )
+        Self::with_layout(id, tiles, tilejson, (info.tile_size, info.format), location, cache_zoom)
     }
 
     /// Finishes a source whose `TileJSON` has its zoom range set, adding the tile layout to it.
@@ -126,9 +101,7 @@ impl CogSource {
             TileFormat::Png => Format::Png,
             format => return Err(CogError::UnsupportedFormat { location, format }),
         };
-        tilejson
-            .other
-            .insert("tileSize".to_owned(), Value::from(tile_size));
+        tilejson.other.insert("tileSize".to_owned(), Value::from(tile_size));
         tilejson
             .other
             .insert("format".to_owned(), Value::from(format.to_string()));
@@ -201,23 +174,13 @@ impl Source for CogSource {
         ),
         err(Debug),
     )]
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
             return Ok(TileData::default());
         }
         let tile = match &self.tiles {
-            CogTiles::File(reader) => reader
-                .get_tile(cog_coord(xyz)?)
-                .await
-                .map_err(CogError::from)?,
-            CogTiles::ObjectStore(reader) => reader
-                .get_tile(cog_coord(xyz)?)
-                .await
-                .map_err(CogError::from)?,
+            CogTiles::File(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
+            CogTiles::ObjectStore(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
             CogTiles::Mosaic(mosaic) => mosaic.get_tile(xyz).await?,
         };
         Ok(tile.unwrap_or_default())
@@ -276,10 +239,7 @@ mod tests {
         .await;
 
         assert!(
-            matches!(
-                result,
-                Err(CogError::Tiles(cog_tiles::CogError::Unsupported { .. }))
-            ),
+            matches!(result, Err(CogError::Tiles(cog_tiles::CogError::Unsupported { .. }))),
             "{result:?}"
         );
     }
@@ -287,8 +247,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[tokio::test]
     async fn opens_a_local_cog_with_a_non_utf8_filename() {
-        let temp =
-            tempfile::tempdir_in(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target")).unwrap();
+        let temp = tempfile::tempdir_in(Path::new(env!("CARGO_MANIFEST_DIR")).join("../target")).unwrap();
         let path = temp.path().join(OsStr::from_bytes(b"image-\xff.tif"));
         std::fs::copy("../tests/fixtures/cog/usda_naip_128_none_z2.tif", &path).unwrap();
 
@@ -307,8 +266,7 @@ mod tests {
     async fn opens_a_cog_with_more_than_32_kib_of_metadata() {
         let source = CogSource::new(
             "large-metadata".to_owned(),
-            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_large_metadata.tif")
-                .to_path_buf(),
+            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_large_metadata.tif").to_path_buf(),
             CacheZoomRange::default(),
         )
         .await
@@ -322,8 +280,7 @@ mod tests {
     async fn sparse_tile_is_returned_as_empty() {
         let source = CogSource::new(
             "sparse".to_owned(),
-            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_none_sparse.tif")
-                .to_path_buf(),
+            Path::new("../tests/fixtures/cog/regressions/usda_naip_128_none_sparse.tif").to_path_buf(),
             CacheZoomRange::default(),
         )
         .await
@@ -418,27 +375,15 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(
-            cog_file,
-            Path::new(&path).to_path_buf(),
-            CacheZoomRange::default(),
-        )
-        .await
-        .unwrap();
+        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf(), CacheZoomRange::default())
+            .await
+            .unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);
         let actual_center = source.tilejson.center.unwrap();
-        assert!(abs_diff_eq!(
-            actual_center.longitude,
-            center.longitude,
-            epsilon = 1e-12
-        ));
-        assert!(abs_diff_eq!(
-            actual_center.latitude,
-            center.latitude,
-            epsilon = 1e-12
-        ));
+        assert!(abs_diff_eq!(actual_center.longitude, center.longitude, epsilon = 1e-12));
+        assert!(abs_diff_eq!(actual_center.latitude, center.latitude, epsilon = 1e-12));
         assert_eq!(actual_center.zoom, center.zoom);
         let actual_bounds = source.tilejson.bounds.unwrap();
         assert_abs_diff_eq!(actual_bounds.left, bounds.left, epsilon = 1e-12);

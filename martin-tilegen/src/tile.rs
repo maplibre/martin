@@ -49,10 +49,7 @@ impl TileOrder {
         })
     }
 
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "x and row are below 2^MAX_ZOOM"
-    )]
+    #[expect(clippy::cast_possible_truncation, reason = "x and row are below 2^MAX_ZOOM")]
     pub fn tile_coord(self, tile: TileId) -> TileGenResult<TileCoord> {
         let id = tile.value();
         Ok(match self {
@@ -74,13 +71,7 @@ impl TileOrder {
     /// Appends contiguous id ranges that together hold exactly the tiles `x` × `y` (XYZ) of `zoom`,
     /// merging adjacent ones. A covered rectangle then costs a range per column (TMS) or per aligned
     /// quadtree cell (Hilbert, whose cells are contiguous along the curve), not a record per tile.
-    pub fn fill_ranges(
-        self,
-        zoom: u8,
-        x: Range<u32>,
-        y: Range<u32>,
-        out: &mut Vec<Range<u64>>,
-    ) -> TileGenResult<()> {
+    pub fn fill_ranges(self, zoom: u8, x: Range<u32>, y: Range<u32>, out: &mut Vec<Range<u64>>) -> TileGenResult<()> {
         let side = 1u32 << zoom.min(MAX_ZOOM);
         let (x, y) = (x.start..x.end.min(side), y.start..y.end.min(side));
         if zoom > MAX_ZOOM || x.is_empty() || y.is_empty() {
@@ -90,9 +81,7 @@ impl TileOrder {
         match self {
             Self::Tms => {
                 for col in x {
-                    let start = self
-                        .tile_id(TileCoord::new_unchecked(zoom, col, y.end - 1))?
-                        .value();
+                    let start = self.tile_id(TileCoord::new_unchecked(zoom, col, y.end - 1))?.value();
                     out.push(start..start + u64::from(y.end - y.start));
                 }
             }
@@ -130,10 +119,7 @@ impl TileOrder {
             return Ok(());
         }
         if x0 >= x.start && x1 <= x.end && y0 >= y.start && y1 <= y.end {
-            let cell = self
-                .tile_id(TileCoord::new_unchecked(level, cx, cy))?
-                .value()
-                - pyramid_base(level);
+            let cell = self.tile_id(TileCoord::new_unchecked(level, cx, cy))?.value() - pyramid_base(level);
             let start = pyramid_base(zoom) + (cell << (2 * shift));
             out.push(start..start + (1 << (2 * shift)));
             return Ok(());
@@ -150,10 +136,7 @@ pub(crate) fn pyramid_base(z: u8) -> u64 {
     PYRAMID_SIZE_BY_ZOOM[usize::from(z)]
 }
 
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "at most MAX_ZOOM + 1 bases"
-)]
+#[expect(clippy::cast_possible_truncation, reason = "at most MAX_ZOOM + 1 bases")]
 fn zoom_of(id: u64) -> u8 {
     let bases = &PYRAMID_SIZE_BY_ZOOM[..=usize::from(MAX_ZOOM)];
     (bases.partition_point(|&base| base <= id) - 1) as u8
@@ -171,23 +154,17 @@ mod tests {
     use super::*;
 
     fn all_tiles(max_zoom: u8) -> impl Iterator<Item = TileCoord> {
-        (0..=max_zoom).flat_map(|z| {
-            (0..1 << z)
-                .flat_map(move |x| (0..1 << z).map(move |y| TileCoord::new_unchecked(z, x, y)))
-        })
+        (0..=max_zoom)
+            .flat_map(|z| (0..1 << z).flat_map(move |x| (0..1 << z).map(move |y| TileCoord::new_unchecked(z, x, y))))
     }
 
     #[rstest]
     fn round_trip(#[values(TileOrder::Hilbert, TileOrder::Tms)] order: TileOrder) {
         let max = (1 << MAX_ZOOM) - 1;
-        let corners = [(0, 0), (max, 0), (0, max), (max, max)]
-            .map(|(x, y)| TileCoord::new_unchecked(MAX_ZOOM, x, y));
+        let corners = [(0, 0), (max, 0), (0, max), (max, max)].map(|(x, y)| TileCoord::new_unchecked(MAX_ZOOM, x, y));
         for coord in all_tiles(5).chain(corners) {
             let id = order.tile_id(coord).unwrap();
-            assert!(
-                id.value() < 1 << 56,
-                "{coord:#} id {id:?} leaves no room for the layer"
-            );
+            assert!(id.value() < 1 << 56, "{coord:#} id {id:?} leaves no room for the layer");
             assert_eq!(order.tile_coord(id).unwrap(), coord);
         }
     }
@@ -195,12 +172,8 @@ mod tests {
     #[test]
     fn hilbert_ids_match_pmtiles() {
         for coord in all_tiles(5) {
-            let expected =
-                PmTileId::from(pmtiles::TileCoord::new(coord.z(), coord.x(), coord.y()).unwrap());
-            assert_eq!(
-                TileOrder::Hilbert.tile_id(coord).unwrap().value(),
-                expected.value()
-            );
+            let expected = PmTileId::from(pmtiles::TileCoord::new(coord.z(), coord.x(), coord.y()).unwrap());
+            assert_eq!(TileOrder::Hilbert.tile_id(coord).unwrap().value(), expected.value());
         }
     }
 
@@ -228,9 +201,7 @@ mod tests {
     }
 
     #[rstest]
-    fn fill_ranges_hold_exactly_the_rectangle(
-        #[values(TileOrder::Hilbert, TileOrder::Tms)] order: TileOrder,
-    ) {
+    fn fill_ranges_hold_exactly_the_rectangle(#[values(TileOrder::Hilbert, TileOrder::Tms)] order: TileOrder) {
         let mut ranges = Vec::new();
         for (zoom, x, y) in [
             (0, 0..1, 0..1),
@@ -241,27 +212,17 @@ mod tests {
             (5, 7..30, 3..19),
         ] {
             ranges.clear();
-            order
-                .fill_ranges(zoom, x.clone(), y.clone(), &mut ranges)
-                .unwrap();
+            order.fill_ranges(zoom, x.clone(), y.clone(), &mut ranges).unwrap();
             let mut got: Vec<u64> = ranges.iter().flat_map(Clone::clone).collect();
             let mut want: Vec<u64> = x
                 .clone()
                 .flat_map(|tx| y.clone().map(move |ty| (tx, ty)))
-                .map(|(tx, ty)| {
-                    order
-                        .tile_id(TileCoord::new_unchecked(zoom, tx, ty))
-                        .unwrap()
-                        .value()
-                })
+                .map(|(tx, ty)| order.tile_id(TileCoord::new_unchecked(zoom, tx, ty)).unwrap().value())
                 .collect();
             got.sort_unstable();
             want.sort_unstable();
             assert_eq!(got, want, "z{zoom} {x:?} x {y:?}");
-            assert!(
-                ranges.windows(2).all(|w| w[0].end < w[1].start),
-                "merged and sorted"
-            );
+            assert!(ranges.windows(2).all(|w| w[0].end < w[1].start), "merged and sorted");
         }
         ranges.clear();
         order.fill_ranges(5, 0..32, 0..32, &mut ranges).unwrap();

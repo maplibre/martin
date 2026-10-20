@@ -12,8 +12,8 @@ use sqlx::SqliteConnection;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::{
-    CopyDuplicateMode, HASH_ALGORITHM, HashAlgorithm, MbtError, MbtResult, MbtType, Mbtiles,
-    NormalizedSchema, TileCoord, action_with_rusqlite, invert_y_value,
+    CopyDuplicateMode, HASH_ALGORITHM, HashAlgorithm, MbtError, MbtResult, MbtType, Mbtiles, NormalizedSchema,
+    TileCoord, action_with_rusqlite, invert_y_value,
 };
 
 /// Large enough to amortize commits, small enough to bound the journal of an interrupted write.
@@ -134,12 +134,8 @@ impl<'c> MbtilesBulkWriter<'c> {
             let _ = conn.pragma_update(None, "synchronous", synchronous);
             return Err(err.into());
         }
-        let prepared = hash_algorithm(conn, filepath).and_then(|algorithm| {
-            Ok((
-                algorithm,
-                Target::new(conn, mbt_type, on_duplicate, algorithm)?,
-            ))
-        });
+        let prepared = hash_algorithm(conn, filepath)
+            .and_then(|algorithm| Ok((algorithm, Target::new(conn, mbt_type, on_duplicate, algorithm)?)));
         match prepared {
             Ok((algorithm, target)) => Ok(Self {
                 batch_size: Some(DEFAULT_BATCH_SIZE),
@@ -185,11 +181,7 @@ impl<'c> MbtilesBulkWriter<'c> {
                 let values: [&dyn ToSql; 5] = [&z, &x, &y, &data, &hash];
                 tiles.execute(&values[..tiles.parameter_count()])?;
             }
-            Target::DedupId {
-                shallow,
-                blobs,
-                ids,
-            } => {
+            Target::DedupId { shallow, blobs, ids } => {
                 let conn = self.conn;
                 let id = match dedup {
                     TileDedup::Unique => blobs.id(conn, algorithm, data, false)?,
@@ -203,10 +195,7 @@ impl<'c> MbtilesBulkWriter<'c> {
             }
         }
         self.pending += 1;
-        if self
-            .batch_size
-            .is_some_and(|size| self.pending >= size.get())
-        {
+        if self.batch_size.is_some_and(|size| self.pending >= size.get()) {
             self.checkpoint()?;
         }
         Ok(())
@@ -248,30 +237,25 @@ impl<'c> Target<'c> {
         on_duplicate: CopyDuplicateMode,
         algorithm: HashAlgorithm,
     ) -> MbtResult<Self> {
-        Ok(
-            if mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
-                Self::DedupId {
-                    shallow: conn.prepare(&format!(
+        Ok(if mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
+            Self::DedupId {
+                shallow: conn.prepare(&format!(
                     "INSERT {} INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
                      VALUES (?1, ?2, ?3, ?4)",
                     on_duplicate.to_sql()
                 ))?,
-                    blobs: Blobs::new(conn, algorithm)?,
-                    ids: Keyed::default(),
-                }
-            } else {
-                let (tiles, blobs) = Mbtiles::get_insert_sql(mbt_type, on_duplicate);
-                Self::Shared {
-                    tiles: conn.prepare(&tiles)?,
-                    blobs: blobs
-                        .iter()
-                        .map(|sql| conn.prepare(sql))
-                        .collect::<Result<_, _>>()?,
-                    hashed: matches!(mbt_type, MbtType::FlatWithHash | MbtType::Normalized { .. }),
-                    known: Keyed::default(),
-                }
-            },
-        )
+                blobs: Blobs::new(conn, algorithm)?,
+                ids: Keyed::default(),
+            }
+        } else {
+            let (tiles, blobs) = Mbtiles::get_insert_sql(mbt_type, on_duplicate);
+            Self::Shared {
+                tiles: conn.prepare(&tiles)?,
+                blobs: blobs.iter().map(|sql| conn.prepare(sql)).collect::<Result<_, _>>()?,
+                hashed: matches!(mbt_type, MbtType::FlatWithHash | MbtType::Normalized { .. }),
+                known: Keyed::default(),
+            }
+        })
     }
 }
 
@@ -288,12 +272,7 @@ impl<V> Default for Keyed<V> {
 
 impl<V: Clone> Keyed<V> {
     /// The key's value, and whether `make` just created it.
-    fn get_or_insert(
-        &mut self,
-        key: u64,
-        data: &[u8],
-        make: impl FnOnce() -> MbtResult<V>,
-    ) -> MbtResult<(V, bool)> {
+    fn get_or_insert(&mut self, key: u64, data: &[u8], make: impl FnOnce() -> MbtResult<V>) -> MbtResult<(V, bool)> {
         let fingerprint = (data.len(), xxh3_64(data));
         match self.0.entry(key) {
             Entry::Occupied(known) => {
@@ -322,8 +301,7 @@ fn end(conn: &Connection, sql: &str, synchronous: i64) -> MbtResult<()> {
 impl<'c> Blobs<'c> {
     fn new(conn: &'c Connection, algorithm: HashAlgorithm) -> MbtResult<Self> {
         let mut blobs = Self {
-            insert: conn
-                .prepare("INSERT INTO tiles_data (tile_data_id, tile_data) VALUES (?1, ?2)")?,
+            insert: conn.prepare("INSERT INTO tiles_data (tile_data_id, tile_data) VALUES (?1, ?2)")?,
             next_id: next_blob_id(conn)?,
             index: None,
         };
@@ -337,13 +315,7 @@ impl<'c> Blobs<'c> {
     }
 
     /// The id of a blob holding `data`, through the index while it is in use; `by_hash` starts using it.
-    fn id(
-        &mut self,
-        conn: &'c Connection,
-        algorithm: HashAlgorithm,
-        data: &[u8],
-        by_hash: bool,
-    ) -> MbtResult<i64> {
+    fn id(&mut self, conn: &'c Connection, algorithm: HashAlgorithm, data: &[u8], by_hash: bool) -> MbtResult<i64> {
         if by_hash && self.index.is_none() {
             // Indexes every blob stored so far, this write's included.
             self.index = Some(tile_ids(conn, algorithm, &mut self.next_id)?);
@@ -376,9 +348,7 @@ fn next_blob_id(conn: &Connection) -> MbtResult<i64> {
 /// The file's [`HASH_ALGORITHM`], so that its hashes stay verifiable.
 fn hash_algorithm(conn: &Connection, filepath: &str) -> MbtResult<HashAlgorithm> {
     let sql = "SELECT value FROM metadata WHERE name = ?1";
-    let value: Option<String> = conn
-        .query_row(sql, [HASH_ALGORITHM], |row| row.get(0))
-        .optional()?;
+    let value: Option<String> = conn.query_row(sql, [HASH_ALGORITHM], |row| row.get(0)).optional()?;
     value.map_or(Ok(HashAlgorithm::Md5), |algorithm| {
         HashAlgorithm::parse(&algorithm).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
             algorithm,
@@ -410,10 +380,7 @@ mod tests {
     use sqlx::{SqliteConnection, query, query_scalar};
 
     use super::*;
-    use crate::{
-        AggHashType, IntegrityCheckType, action_with_rusqlite, anonymous_mbtiles,
-        init_mbtiles_schema,
-    };
+    use crate::{AggHashType, IntegrityCheckType, action_with_rusqlite, anonymous_mbtiles, init_mbtiles_schema};
 
     type Row = (i64, i64, i64, Vec<u8>);
     /// XYZ coordinate, bytes, dedup hint.
@@ -434,13 +401,7 @@ mod tests {
                     tiles.push(match (x + y) % 3 {
                         0 => (z, x, y, b"fill".to_vec(), TileDedup::Key(7)),
                         1 => (z, x, y, b"same".to_vec(), TileDedup::Unknown),
-                        _ => (
-                            z,
-                            x,
-                            y,
-                            format!("{z}/{x}/{y}").into_bytes(),
-                            TileDedup::Unique,
-                        ),
+                        _ => (z, x, y, format!("{z}/{x}/{y}").into_bytes(), TileDedup::Unique),
                     });
                 }
             }
@@ -450,9 +411,7 @@ mod tests {
 
     async fn schema(mbt_type: MbtType) -> (Mbtiles, SqliteConnection) {
         let (mbt, mut conn) = anonymous_mbtiles("").await;
-        init_mbtiles_schema(&mut conn, mbt_type, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, mbt_type, false).await.unwrap();
         (mbt, conn)
     }
 
@@ -522,15 +481,9 @@ mod tests {
             .unwrap();
 
         let (_, mut actual) = schema(mbt_type).await;
-        bulk_write(
-            &mbt,
-            &mut actual,
-            mbt_type,
-            CopyDuplicateMode::Abort,
-            &tiles,
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut actual, mbt_type, CopyDuplicateMode::Abort, &tiles)
+            .await
+            .unwrap();
 
         assert_eq!(rows(&mut actual).await, rows(&mut expected).await);
         if mbt_type != MbtType::Cache {
@@ -551,26 +504,15 @@ mod tests {
     async fn stores_repeated_bytes_once(#[case] mbt_type: MbtType) {
         let (mbt, mut conn) = schema(mbt_type).await;
         let tiles = tiles();
-        bulk_write(
-            &mbt,
-            &mut conn,
-            mbt_type,
-            CopyDuplicateMode::Override,
-            &tiles,
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut conn, mbt_type, CopyDuplicateMode::Override, &tiles)
+            .await
+            .unwrap();
         let unique = tiles.iter().filter(|t| t.4 == TileDedup::Unique).count();
         // Plus one `fill` and one `same`.
         assert_eq!(blob_count(&mut conn, mbt_type).await, unique + 2);
     }
 
-    async fn insert(
-        mbt: &Mbtiles,
-        conn: &mut SqliteConnection,
-        (z, x, y): (u8, u32, u32),
-        data: &[u8],
-    ) {
+    async fn insert(mbt: &Mbtiles, conn: &mut SqliteConnection, (z, x, y): (u8, u32, u32), data: &[u8]) {
         let batch = [(z, x, y, data.to_vec())];
         mbt.insert_tiles(conn, DEDUP_ID, CopyDuplicateMode::Override, &batch)
             .await
@@ -586,25 +528,13 @@ mod tests {
             (1, 1, 0, b"a".to_vec(), TileDedup::Unknown),
             (1, 0, 1, b"b".to_vec(), TileDedup::Unknown),
         ];
-        bulk_write(
-            &mbt,
-            &mut conn,
-            DEDUP_ID,
-            CopyDuplicateMode::Override,
-            &tiles,
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut conn, DEDUP_ID, CopyDuplicateMode::Override, &tiles)
+            .await
+            .unwrap();
         let unique = [(1, 1, 1, b"u".to_vec(), TileDedup::Unique)];
-        bulk_write(
-            &mbt,
-            &mut conn,
-            DEDUP_ID,
-            CopyDuplicateMode::Override,
-            &unique,
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut conn, DEDUP_ID, CopyDuplicateMode::Override, &unique)
+            .await
+            .unwrap();
         // And `insert_tiles` finds the blob the writer stored by its hash.
         insert(&mbt, &mut conn, (2, 0, 0), b"b").await;
         assert_eq!(blob_count(&mut conn, DEDUP_ID).await, 3);
@@ -655,18 +585,13 @@ mod tests {
     async fn a_failed_write_keeps_only_committed_transactions() {
         let (mbt, mut conn) = schema(MbtType::Flat).await;
         let result: Result<(), Failure> = mbt
-            .bulk_write(
-                &mut conn,
-                MbtType::Flat,
-                CopyDuplicateMode::Abort,
-                |writer| {
-                    for i in 0..u32::try_from(DEFAULT_BATCH_SIZE.get()).unwrap() + 100 {
-                        let coord = TileCoord::new_unchecked(9, i % 512, i / 512);
-                        writer.write(coord, b"t", TileDedup::Unique)?;
-                    }
-                    Err(Failure::Upstream)
-                },
-            )
+            .bulk_write(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, |writer| {
+                for i in 0..u32::try_from(DEFAULT_BATCH_SIZE.get()).unwrap() + 100 {
+                    let coord = TileCoord::new_unchecked(9, i % 512, i / 512);
+                    writer.write(coord, b"t", TileDedup::Unique)?;
+                }
+                Err(Failure::Upstream)
+            })
             .await;
         assert!(matches!(result, Err(Failure::Upstream)), "{result:?}");
         assert_eq!(tile_count(&mut conn).await, DEFAULT_BATCH_SIZE.get());
@@ -676,24 +601,16 @@ mod tests {
     #[case::single_transaction(None, 0)]
     #[case::batches_of_three(NonZeroUsize::new(3), 6)]
     #[actix_rt::test]
-    async fn batch_size_sets_what_a_failure_keeps(
-        #[case] batch_size: Option<NonZeroUsize>,
-        #[case] kept: usize,
-    ) {
+    async fn batch_size_sets_what_a_failure_keeps(#[case] batch_size: Option<NonZeroUsize>, #[case] kept: usize) {
         let (mbt, mut conn) = schema(MbtType::Flat).await;
         let result: Result<(), Failure> = mbt
-            .bulk_write(
-                &mut conn,
-                MbtType::Flat,
-                CopyDuplicateMode::Abort,
-                |writer| {
-                    writer.batch_size = batch_size;
-                    for x in 0..8 {
-                        writer.write(TileCoord::new_unchecked(3, x, 0), b"t", TileDedup::Unique)?;
-                    }
-                    Err(Failure::Upstream)
-                },
-            )
+            .bulk_write(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, |writer| {
+                writer.batch_size = batch_size;
+                for x in 0..8 {
+                    writer.write(TileCoord::new_unchecked(3, x, 0), b"t", TileDedup::Unique)?;
+                }
+                Err(Failure::Upstream)
+            })
             .await;
         assert!(matches!(result, Err(Failure::Upstream)), "{result:?}");
         assert_eq!(tile_count(&mut conn).await, kept);
@@ -732,15 +649,9 @@ mod tests {
         let (result, mut conn) = checkpointed(false).await;
         result.unwrap();
         let (mbt, mut expected) = schema(mbt_type).await;
-        bulk_write(
-            &mbt,
-            &mut expected,
-            mbt_type,
-            CopyDuplicateMode::Abort,
-            &tiles,
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut expected, mbt_type, CopyDuplicateMode::Abort, &tiles)
+            .await
+            .unwrap();
         assert_eq!(rows(&mut conn).await, rows(&mut expected).await);
         if mbt_type != MbtType::Flat {
             assert_eq!(
@@ -780,9 +691,7 @@ mod tests {
         let path = dir.path().join("locked.mbtiles");
         let mbt = Mbtiles::new(&path).unwrap();
         let mut conn = mbt.open_or_new().await.unwrap();
-        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await.unwrap();
         // In WAL mode readers do not block writers, so only the write lock keeps others out.
         let other = Connection::open(&path).unwrap();
         other.pragma_update(None, "journal_mode", "WAL").unwrap();
@@ -836,9 +745,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "synchronous", "OFF").unwrap();
         end(&conn, "ROLLBACK", 2).unwrap_err();
-        let synchronous: i64 = conn
-            .pragma_query_value(None, "synchronous", |row| row.get(0))
-            .unwrap();
+        let synchronous: i64 = conn.pragma_query_value(None, "synchronous", |row| row.get(0)).unwrap();
         assert_eq!(synchronous, 2);
     }
 
@@ -851,25 +758,13 @@ mod tests {
         let (mbt, mut conn) = schema(MbtType::Flat).await;
         let before = synchronous(&mut conn).await;
         assert_ne!(before, 0);
-        bulk_write(
-            &mbt,
-            &mut conn,
-            MbtType::Flat,
-            CopyDuplicateMode::Abort,
-            &tiles(),
-        )
-        .await
-        .unwrap();
+        bulk_write(&mbt, &mut conn, MbtType::Flat, CopyDuplicateMode::Abort, &tiles())
+            .await
+            .unwrap();
         assert_eq!(synchronous(&mut conn).await, before);
-        bulk_write(
-            &mbt,
-            &mut conn,
-            MbtType::Flat,
-            CopyDuplicateMode::Abort,
-            &tiles(),
-        )
-        .await
-        .unwrap_err();
+        bulk_write(&mbt, &mut conn, MbtType::Flat, CopyDuplicateMode::Abort, &tiles())
+            .await
+            .unwrap_err();
         assert_eq!(synchronous(&mut conn).await, before);
 
         // Also when another connection holds the write lock, so the writer never begins.
@@ -877,23 +772,15 @@ mod tests {
         let path = dir.path().join("busy.mbtiles");
         let mbt = Mbtiles::new(&path).unwrap();
         let mut conn = mbt.open_or_new().await.unwrap();
-        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await.unwrap();
         let sql = query!("PRAGMA busy_timeout = 0");
         sql.fetch_one(&mut conn).await.unwrap();
         let before = synchronous(&mut conn).await;
         let other = Connection::open(&path).unwrap();
         other.execute_batch("BEGIN IMMEDIATE").unwrap();
-        bulk_write(
-            &mbt,
-            &mut conn,
-            MbtType::Flat,
-            CopyDuplicateMode::Abort,
-            &tiles(),
-        )
-        .await
-        .unwrap_err();
+        bulk_write(&mbt, &mut conn, MbtType::Flat, CopyDuplicateMode::Abort, &tiles())
+            .await
+            .unwrap_err();
         assert_eq!(synchronous(&mut conn).await, before);
     }
 
@@ -908,18 +795,11 @@ mod tests {
             .unwrap();
         let mut during = Vec::<i64>::new();
         for x in 0..2 {
-            mbt.bulk_write(
-                &mut conn,
-                MbtType::Flat,
-                CopyDuplicateMode::Abort,
-                |writer| {
-                    let synchronous = writer
-                        .conn
-                        .pragma_query_value(None, "synchronous", |row| row.get(0));
-                    during.push(synchronous?);
-                    writer.write(TileCoord::new_unchecked(1, x, 0), b"t", TileDedup::Unique)
-                },
-            )
+            mbt.bulk_write(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, |writer| {
+                let synchronous = writer.conn.pragma_query_value(None, "synchronous", |row| row.get(0));
+                during.push(synchronous?);
+                writer.write(TileCoord::new_unchecked(1, x, 0), b"t", TileDedup::Unique)
+            })
             .await
             .unwrap();
         }

@@ -11,8 +11,7 @@ use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions}
 use sqlite_hashes::{register_fnv_functions, register_md5_functions, register_xxhash_functions};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{
-    AssertSqlSafe, Connection as _, Executor as _, Row as _, SqliteConnection, SqliteExecutor,
-    Statement as _, query,
+    AssertSqlSafe, Connection as _, Executor as _, Row as _, SqliteConnection, SqliteExecutor, Statement as _, query,
 };
 use tracing::debug;
 
@@ -286,9 +285,7 @@ impl Mbtiles {
     #[hotpath::measure]
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
         debug!(mbtiles.file = %self, "Opening as readonly");
-        let opt = SqliteConnectOptions::new()
-            .filename(self.filepath())
-            .read_only(true);
+        let opt = SqliteConnectOptions::new().filename(self.filepath()).read_only(true);
         Self::open_int(&opt).await
     }
 
@@ -335,10 +332,7 @@ impl Mbtiles {
     /// is dropped.
     ///
     /// </div>
-    pub fn stream_coords<'e, T>(
-        &self,
-        conn: &'e mut T,
-    ) -> Pin<Box<dyn Stream<Item = MbtResult<TileCoord>> + Send + 'e>>
+    pub fn stream_coords<'e, T>(&self, conn: &'e mut T) -> Pin<Box<dyn Stream<Item = MbtResult<TileCoord>> + Send + 'e>>
     where
         &'e mut T: SqliteExecutor<'e>,
     {
@@ -379,10 +373,7 @@ impl Mbtiles {
     /// is dropped.
     ///
     /// </div>
-    pub fn stream_tiles<'e, T>(
-        &self,
-        conn: &'e mut T,
-    ) -> Pin<Box<dyn Stream<Item = MbtResult<Tile>> + Send + 'e>>
+    pub fn stream_tiles<'e, T>(&self, conn: &'e mut T) -> Pin<Box<dyn Stream<Item = MbtResult<Tile>> + Send + 'e>>
     where
         &'e mut T: SqliteExecutor<'e>,
     {
@@ -458,13 +449,7 @@ impl Mbtiles {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn get_tile<T>(
-        &self,
-        conn: &mut T,
-        z: u8,
-        x: u32,
-        y: u32,
-    ) -> MbtResult<Option<Vec<u8>>>
+    pub async fn get_tile<T>(&self, conn: &mut T, z: u8, x: u32, y: u32) -> MbtResult<Option<Vec<u8>>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -546,13 +531,7 @@ impl Mbtiles {
     ) -> MbtResult<Option<(Vec<u8>, Option<String>)>> {
         let sql = Self::get_tile_and_hash_sql(mbt_type);
         let y = invert_y_value(z, y);
-        let Some(row) = query(sql)
-            .bind(z)
-            .bind(x)
-            .bind(y)
-            .fetch_optional(conn)
-            .await?
-        else {
+        let Some(row) = query(sql).bind(z).bind(x).bind(y).fetch_optional(conn).await? else {
             return Ok(None);
         };
         Ok(Some((row.get(0), row.get(1))))
@@ -566,10 +545,7 @@ impl Mbtiles {
             MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::FlatWithHash
-            | MbtType::Normalized {
-                hash_view: true, ..
-            } => {
+            MbtType::FlatWithHash | MbtType::Normalized { hash_view: true, .. } => {
                 "SELECT tile_data, tile_hash from tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
             MbtType::Normalized {
@@ -691,9 +667,7 @@ impl Mbtiles {
             MbtType::Normalized { schema, .. } => schema.map_table(),
             MbtType::Cache => "tile_cache",
         };
-        let sql = format!(
-            "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
-        );
+        let sql = format!("SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?");
         let row = query(AssertSqlSafe(sql))
             .bind(z)
             .bind(x)
@@ -704,10 +678,7 @@ impl Mbtiles {
     }
 
     /// The statements that insert one tile, with parameters bound by [`Self::insert_tiles`].
-    pub(crate) fn get_insert_sql(
-        src_type: MbtType,
-        on_duplicate: CopyDuplicateMode,
-    ) -> (String, Vec<String>) {
+    pub(crate) fn get_insert_sql(src_type: MbtType, on_duplicate: CopyDuplicateMode) -> (String, Vec<String>) {
         let on_duplicate = on_duplicate.to_sql();
         match src_type {
             MbtType::Flat => (
@@ -798,14 +769,11 @@ pub fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Optio
 
     // Inverting `y` value can panic if it is greater than `(1 << z) - 1`,
     // so we must ensure that it is vald first.
-    TileCoord::is_possible_on_zoom_level(z, x, y)
-        .then(|| TileCoord::new_unchecked(z, x, invert_y_value(z, y)))
+    TileCoord::is_possible_on_zoom_level(z, x, y).then(|| TileCoord::new_unchecked(z, x, invert_y_value(z, y)))
 }
 
 /// Registers `fnv1a_decimal`, the 64-bit `FNV-1a` of its argument as the decimal digits tippecanoe writes.
-fn register_fnv1a_decimal(
-    conn: &sqlite_hashes::rusqlite::Connection,
-) -> sqlite_hashes::rusqlite::Result<()> {
+fn register_fnv1a_decimal(conn: &sqlite_hashes::rusqlite::Connection) -> sqlite_hashes::rusqlite::Result<()> {
     use std::hash::Hasher as _;
 
     use sqlite_hashes::rusqlite::functions::FunctionFlags;

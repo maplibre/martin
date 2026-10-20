@@ -48,8 +48,7 @@ use crate::TileError;
 use crate::clip_polyline::segment_intersects;
 use crate::grid::{Grid, Located, SegmentTiles};
 use crate::polygon::{
-    FillRun, PolygonPiece, PolygonSlices, Scratch, clip_polygon_to_tile, fill_ring,
-    whole_polygon_in_tile,
+    FillRun, PolygonPiece, PolygonSlices, Scratch, clip_polygon_to_tile, fill_ring, whole_polygon_in_tile,
 };
 use crate::tile::TileId;
 use crate::vertex::{PolyVertex, Vertex};
@@ -199,20 +198,14 @@ impl<V: Vertex> Slicer<V> {
     /// [`TileError::Overflow`] if `tile`'s buffered box overflows `i32` (a tile far outside the
     /// representable range for this `extent`), or if the line reaches the tile but has a vertex more
     /// than an `i32` span from the tile origin.
-    pub fn tile_line<'a>(
-        &self,
-        tile: TileId,
-        line: &'a [V],
-    ) -> Result<TileLines<'a, V>, TileError> {
+    pub fn tile_line<'a>(&self, tile: TileId, line: &'a [V]) -> Result<TileLines<'a, V>, TileError> {
         let (min, max) = self.grid.tile_buffered_bounds(tile)?;
         let origin = self.grid.origin_of(min);
         let mut next = 0;
         match bounds(line) {
             Some((lo, hi)) if hi.x >= min.x && lo.x <= max.x && hi.y >= min.y && lo.y <= max.y => {
                 // The line reaches the tile: every vertex must fit the local frame.
-                let fits = |p: Coord<i32>| {
-                    p.x.checked_sub(origin.x).is_some() && p.y.checked_sub(origin.y).is_some()
-                };
+                let fits = |p: Coord<i32>| p.x.checked_sub(origin.x).is_some() && p.y.checked_sub(origin.y).is_some();
                 if !fits(lo) || !fits(hi) {
                     return Err(TileError::Overflow);
                 }
@@ -300,10 +293,7 @@ impl<V: PolyVertex> Slicer<V> {
     ///
     /// The only error left for the iterator is a piece of more than `u32::MAX` vertices.
     #[inline]
-    pub fn polygon<'s, R: AsRef<[V]>>(
-        &'s mut self,
-        rings: &'s [R],
-    ) -> Result<PolygonSlices<'s, V, R>, TileError> {
+    pub fn polygon<'s, R: AsRef<[V]>>(&'s mut self, rings: &'s [R]) -> Result<PolygonSlices<'s, V, R>, TileError> {
         PolygonSlices::new(self.grid, self.mode, rings, self.poly.get())
     }
 
@@ -385,11 +375,7 @@ impl<'a, V: Vertex> Local<'a, V> {
         Self {
             verts,
             origin,
-            shape: if is_closed {
-                Shape::Ring
-            } else {
-                Shape::OpenRing
-            },
+            shape: if is_closed { Shape::Ring } else { Shape::OpenRing },
         }
     }
 
@@ -497,11 +483,7 @@ impl<V: Vertex> Iterator for LocalIter<'_, V> {
         let closing = usize::from(self.closing.is_some());
         let left = self.verts.len();
         // Skipped duplicates make a run shorter, but never empty while vertices are left.
-        let low = if self.dedupe {
-            usize::from(left > 0)
-        } else {
-            left
-        };
+        let low = if self.dedupe { usize::from(left > 0) } else { left };
         (low + closing, Some(left + closing))
     }
 }
@@ -664,9 +646,7 @@ fn skip_inside<V: Vertex>(grid: Grid, pts: &[V], cur: &mut LineCursor) {
         if !loc.contains_inner(pts[n].position()) {
             break;
         }
-        cur.prev = cur
-            .prev
-            .pushed((pts[cur.a].position(), pts[cur.c].position()));
+        cur.prev = cur.prev.pushed((pts[cur.a].position(), pts[cur.c].position()));
         (cur.a, cur.c) = (cur.c, n);
     }
     cur.tiles = SegTiles::Done;

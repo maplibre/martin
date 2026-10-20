@@ -6,9 +6,8 @@ use tracing::debug;
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
 use crate::{
-    MbtError, MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables,
-    create_flat_tables, create_flat_with_hash_tables, create_normalized_tables,
-    create_tiles_with_hash_view,
+    MbtError, MbtType, NormalizedSchema, create_cache_tables, create_dedup_id_normalized_tables, create_flat_tables,
+    create_flat_with_hash_tables, create_normalized_tables, create_tiles_with_hash_view,
 };
 
 /// Returns true if the database is empty (no tables/indexes/...)
@@ -76,9 +75,7 @@ where
 {
     debug!("Resetting PRAGMA settings and vacuuming");
     query!("PRAGMA page_size = 512").execute(&mut *conn).await?;
-    query!("PRAGMA encoding = 'UTF-8'")
-        .execute(&mut *conn)
-        .await?;
+    query!("PRAGMA encoding = 'UTF-8'").execute(&mut *conn).await?;
     query!("VACUUM").execute(&mut *conn).await?;
     Ok(())
 }

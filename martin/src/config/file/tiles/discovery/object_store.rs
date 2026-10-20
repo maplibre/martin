@@ -18,19 +18,13 @@ use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::fs::per_source_process;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfig, FileConfigSrc, SourceBuildResult,
-    TileSourceConfiguration,
+    CachePolicy, ConfigFileError, FileConfig, FileConfigSrc, SourceBuildResult, TileSourceConfiguration,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
 pub type ObjectStoreParser = Box<
-    dyn Fn(
-            &Url,
-        )
-            -> object_store::Result<(Box<dyn object_store::ObjectStore>, object_store::path::Path)>
-        + Send
-        + Sync,
+    dyn Fn(&Url) -> object_store::Result<(Box<dyn object_store::ObjectStore>, object_store::path::Path)> + Send + Sync,
 >;
 
 type PrefixEntry = (String, Url, Version);
@@ -47,23 +41,12 @@ pub enum ObjectStoreSourceBuilder {
 }
 
 impl ObjectStoreSourceBuilder {
-    async fn build(
-        &self,
-        id: String,
-        url: Url,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BuiltSource> {
+    async fn build(&self, id: String, url: Url, cache: CachePolicy) -> SourceBuildResult<BuiltSource> {
         match self {
             #[cfg(feature = "pmtiles")]
-            Self::Pmtiles(config) => config
-                .new_sources_url(id, url, cache)
-                .await
-                .map(|s| s.boxed().into()),
+            Self::Pmtiles(config) => config.new_sources_url(id, url, cache).await.map(|s| s.boxed().into()),
             #[cfg(feature = "cog")]
-            Self::Cog(config) => config
-                .new_sources_url(id, url, cache)
-                .await
-                .map(|s| s.boxed().into()),
+            Self::Cog(config) => config.new_sources_url(id, url, cache).await.map(|s| s.boxed().into()),
         }
     }
 }
@@ -227,13 +210,7 @@ impl Discovery for ConfiguredObjectDiscovery {
             .build(id.to_owned(), args.url.clone(), args.policy.clone())
             .await?
             .source;
-        BuiltSource::with_file_config(
-            source,
-            id,
-            args.process.as_ref(),
-            self.kind,
-            args.src.clone(),
-        )
+        BuiltSource::with_file_config(source, id, args.process.as_ref(), self.kind, args.src.clone())
     }
 
     fn process(&self) -> ResolvedProcess {
@@ -293,9 +270,7 @@ impl ObjectStoreDiscovery {
             .sources
             .values()
             .filter_map(|src| match SourceLocation::classify_path(src.get_path()) {
-                Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => {
-                    Some(sanitized_url(&url))
-                }
+                Ok(SourceLocation::ObjectStore(url) | SourceLocation::Http(url)) => Some(sanitized_url(&url)),
                 Ok(SourceLocation::Local(_)) | Err(_) => None,
             })
             .collect();
@@ -400,8 +375,7 @@ fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
     if let Some(etag) = &meta.e_tag {
         Version::Tracked(xxhash_rust::xxh3::xxh3_128(etag.as_bytes()))
     } else {
-        u128::try_from(meta.last_modified.timestamp_millis())
-            .map_or(Version::Opaque, Version::Tracked)
+        u128::try_from(meta.last_modified.timestamp_millis()).map_or(Version::Opaque, Version::Tracked)
     }
 }
 
@@ -412,8 +386,8 @@ async fn list_remote_prefix(
     id_resolver: &IdResolver,
     parser: &ObjectStoreParser,
 ) -> SourceBuildResult<Vec<PrefixEntry>> {
-    let (store, base) = parser(prefix)
-        .map_err(|error| ConfigFileError::ObjectStoreUrlParsing(error, sanitized_url(prefix)))?;
+    let (store, base) =
+        parser(prefix).map_err(|error| ConfigFileError::ObjectStoreUrlParsing(error, sanitized_url(prefix)))?;
     let mut out = Vec::new();
     let mut stream = store.list(Some(&base));
     while let Some(meta) = stream
@@ -427,10 +401,7 @@ async fn list_remote_prefix(
         let Some((stem, extension)) = filename.rsplit_once('.') else {
             continue;
         };
-        if !extensions
-            .iter()
-            .any(|allowed| extension.eq_ignore_ascii_case(allowed))
-        {
+        if !extensions.iter().any(|allowed| extension.eq_ignore_ascii_case(allowed)) {
             continue;
         }
         if stem.is_empty() {
@@ -504,8 +475,7 @@ mod tests {
             ))
         });
         let entries = list_remote_prefix(
-            &Url::parse("https://user:secret@example.com:8443/imagery/?token=secret#fragment")
-                .unwrap(),
+            &Url::parse("https://user:secret@example.com:8443/imagery/?token=secret#fragment").unwrap(),
             &["tif".to_owned(), "tiff".to_owned()],
             &BTreeSet::new(),
             &IdResolver::new(&[]),
@@ -523,13 +493,11 @@ mod tests {
             [
                 (
                     "ortho".to_owned(),
-                    "https://user:secret@example.com:8443/imagery/ortho.TIFF?token=secret#fragment"
-                        .to_owned(),
+                    "https://user:secret@example.com:8443/imagery/ortho.TIFF?token=secret#fragment".to_owned(),
                 ),
                 (
                     "vienna".to_owned(),
-                    "https://user:secret@example.com:8443/imagery/vienna.tif?token=secret#fragment"
-                        .to_owned(),
+                    "https://user:secret@example.com:8443/imagery/vienna.tif?token=secret#fragment".to_owned(),
                 ),
             ]
         );
@@ -560,8 +528,7 @@ mod tests {
                 object_store::path::Path::from("imagery"),
             ))
         });
-        let config: FileConfig<PmtConfig> =
-            FileConfig::new(vec![PathBuf::from("s3://bucket/imagery/")]);
+        let config: FileConfig<PmtConfig> = FileConfig::new(vec![PathBuf::from("s3://bucket/imagery/")]);
         let discovery = ObjectStoreDiscovery::from_config(
             &config,
             &["pmtiles"],
@@ -602,8 +569,7 @@ mod tests {
                 object_store::path::Path::from("imagery"),
             ))
         });
-        let mut config: FileConfig<PmtConfig> =
-            FileConfig::new(vec![PathBuf::from("s3://bucket/imagery/")]);
+        let mut config: FileConfig<PmtConfig> = FileConfig::new(vec![PathBuf::from("s3://bucket/imagery/")]);
         config.sources.insert(
             "capital".to_owned(),
             FileConfigSrc::Path(PathBuf::from("s3://bucket/imagery/vienna.pmtiles")),
@@ -641,11 +607,7 @@ mod configured_object_tests {
     use crate::config::file::FileConfig;
     use crate::config::file::cog::CogConfig;
 
-    fn cog_discovery(
-        store: &InMemory,
-        config: &FileConfig<CogConfig>,
-        failing: bool,
-    ) -> ConfiguredObjectDiscovery {
+    fn cog_discovery(store: &InMemory, config: &FileConfig<CogConfig>, failing: bool) -> ConfiguredObjectDiscovery {
         let parser_store = store.clone();
         let parser: ObjectStoreParser = Box::new(move |url: &Url| {
             if failing {
@@ -675,10 +637,7 @@ mod configured_object_tests {
     async fn configured_objects_are_discovered_and_versioned() {
         let store = InMemory::new();
         let path = object_store::path::Path::from("imagery/vienna.tif");
-        store
-            .put(&path, PutPayload::from_static(b"first"))
-            .await
-            .unwrap();
+        store.put(&path, PutPayload::from_static(b"first")).await.unwrap();
         let config = FileConfig {
             paths: Vec::new(),
             collections: Vec::new(),
@@ -701,10 +660,7 @@ mod configured_object_tests {
         assert!(matches!(version, Version::Tracked(_)));
         assert_eq!(object.url.as_str(), "s3://bucket/imagery/vienna.tif");
 
-        store
-            .put(&path, PutPayload::from_static(b"replaced"))
-            .await
-            .unwrap();
+        store.put(&path, PutPayload::from_static(b"replaced")).await.unwrap();
         let next = discovery.discover().await.unwrap().sources;
         assert_ne!(next["remote"].0, *version, "a replaced object re-versions");
     }
@@ -713,10 +669,7 @@ mod configured_object_tests {
     async fn a_failed_check_retains_the_last_known_version() {
         let store = InMemory::new();
         let path = object_store::path::Path::from("imagery/vienna.tif");
-        store
-            .put(&path, PutPayload::from_static(b"first"))
-            .await
-            .unwrap();
+        store.put(&path, PutPayload::from_static(b"first")).await.unwrap();
         let config = FileConfig {
             paths: Vec::new(),
             collections: Vec::new(),

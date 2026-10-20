@@ -2,6 +2,8 @@
 
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
+#[cfg(feature = "unstable-generate")]
+use martin_tilegen::plan::{ColumnDef, ValueKind};
 use mlt_core::PropValue;
 use mlt_core::geo_types::Geometry;
 use serde_json::Value;
@@ -78,6 +80,21 @@ impl PropType {
     }
 }
 
+/// A scanned column of this `PostgreSQL` type, as a plan sees it.
+#[cfg(feature = "unstable-generate")]
+#[must_use]
+pub fn column_def(column: String, pg_type: &str) -> ColumnDef {
+    let kind = match PropType::of(pg_type) {
+        Some(PropType::Json) => return ColumnDef::Keys(column),
+        Some(PropType::Text) if matches!(pg_type, "bpchar" | "name") => None,
+        Some(PropType::Bool) => Some(ValueKind::Bool),
+        Some(PropType::Int16 | PropType::Int32 | PropType::Int64) => Some(ValueKind::Int),
+        Some(PropType::Float | PropType::Double) => Some(ValueKind::Float),
+        Some(PropType::Text) | None => Some(ValueKind::String),
+    };
+    ColumnDef::Value(column, kind)
+}
+
 /// Whether a column of this `PostgreSQL` type reaches a tile as a typed property.
 #[must_use]
 pub fn is_typed_property(pg_type: &str) -> bool {
@@ -85,10 +102,7 @@ pub fn is_typed_property(pg_type: &str) -> bool {
 }
 
 /// Decodes the rows of one tile query into features.
-pub(crate) fn features_from_rows(
-    rows: &[Row],
-    has_id_column: bool,
-) -> PostgresResult<Vec<PostgresFeature>> {
+pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresResult<Vec<PostgresFeature>> {
     let first_property = 1 + usize::from(has_id_column);
     let mut features = Vec::with_capacity(rows.len());
     for row in rows {
@@ -99,11 +113,7 @@ pub(crate) fn features_from_rows(
             continue;
         };
         let (geometry, m_values) = parse_tile_wkb(wkb)?;
-        let id = if has_id_column {
-            feature_id(row)?
-        } else {
-            None
-        };
+        let id = if has_id_column { feature_id(row)? } else { None };
         let mut properties = Vec::with_capacity(row.columns().len().saturating_sub(first_property));
         for idx in first_property..row.columns().len() {
             let column = &row.columns()[idx];
@@ -136,11 +146,7 @@ pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
-pub(super) fn property(
-    row: &Row,
-    idx: usize,
-    context: &'static str,
-) -> PostgresResult<PostgresProperty> {
+pub(super) fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
     let column = &row.columns()[idx];
     let read = |e| PgError(e, context);
     let Some(prop_type) = PropType::of(column.type_().name()) else {
@@ -152,16 +158,8 @@ pub(super) fn property(
     Ok(PostgresProperty::Value(match prop_type {
         PropType::Json => return Ok(PostgresProperty::Json(row.try_get(idx).map_err(read)?)),
         PropType::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
-        PropType::Int16 => PropValue::I64(
-            row.try_get::<_, Option<i16>>(idx)
-                .map_err(read)?
-                .map(i64::from),
-        ),
-        PropType::Int32 => PropValue::I64(
-            row.try_get::<_, Option<i32>>(idx)
-                .map_err(read)?
-                .map(i64::from),
-        ),
+        PropType::Int16 => PropValue::I64(row.try_get::<_, Option<i16>>(idx).map_err(read)?.map(i64::from)),
+        PropType::Int32 => PropValue::I64(row.try_get::<_, Option<i32>>(idx).map_err(read)?.map(i64::from)),
         PropType::Int64 => PropValue::I64(row.try_get(idx).map_err(read)?),
         PropType::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
         PropType::Double => PropValue::F64(row.try_get(idx).map_err(read)?),

@@ -6,10 +6,7 @@ use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use mbtiles::{
-    CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileCoord, TileDedup,
-    init_mbtiles_schema,
-};
+use mbtiles::{CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileCoord, TileDedup, init_mbtiles_schema};
 use sqlx::{SqliteConnection, query};
 use tempfile::TempDir;
 
@@ -55,16 +52,8 @@ const METHODS: [(&str, &str, Method); 4] = [
         "`insert_tiles`, `synchronous=OFF`",
         Method::InsertTilesNoSync,
     ),
-    (
-        "bulk-unknown",
-        "`bulk_write`, `Unknown`",
-        Method::BulkUnknown,
-    ),
-    (
-        "bulk-hinted",
-        "`bulk_write`, `Key`/`Unique`",
-        Method::BulkHinted,
-    ),
+    ("bulk-unknown", "`bulk_write`, `Unknown`", Method::BulkUnknown),
+    ("bulk-hinted", "`bulk_write`, `Key`/`Unique`", Method::BulkHinted),
 ];
 
 struct Tile {
@@ -101,19 +90,11 @@ async fn new_file(mbt_type: MbtType) -> (TempDir, Mbtiles, SqliteConnection) {
     let dir = tempfile::tempdir().expect("temp dir");
     let mbt = Mbtiles::new(dir.path().join("bench.mbtiles")).expect("mbtiles path");
     let mut conn = mbt.open_or_new().await.expect("open");
-    init_mbtiles_schema(&mut conn, mbt_type, false)
-        .await
-        .expect("schema");
+    init_mbtiles_schema(&mut conn, mbt_type, false).await.expect("schema");
     (dir, mbt, conn)
 }
 
-async fn write(
-    mbt: &Mbtiles,
-    conn: &mut SqliteConnection,
-    mbt_type: MbtType,
-    method: Method,
-    tiles: &[Tile],
-) {
+async fn write(mbt: &Mbtiles, conn: &mut SqliteConnection, mbt_type: MbtType, method: Method, tiles: &[Tile]) {
     let mode = CopyDuplicateMode::Abort;
     match method {
         Method::InsertTiles | Method::InsertTilesNoSync => {
@@ -155,9 +136,7 @@ fn bench_writes(c: &mut Criterion) {
     // Seconds per run of every (schema, method), warm-up runs included: they do the same work.
     let runs = RefCell::new(vec![Vec::new(); SCHEMAS.len() * METHODS.len()]);
     let mut group = c.benchmark_group("write");
-    group
-        .sample_size(10)
-        .throughput(Throughput::Elements(u64::from(TILES)));
+    group.sample_size(10).throughput(Throughput::Elements(u64::from(TILES)));
     for (s, &(schema, mbt_type)) in SCHEMAS.iter().enumerate() {
         for (m, &(id, _, method)) in METHODS.iter().enumerate() {
             group.bench_function(format!("{schema}/{id}"), |b| {
@@ -206,11 +185,7 @@ fn table(runs: &[Vec<f64>]) -> String {
         let baseline = secs[s * METHODS.len()];
         for (m, (_, method, _)) in METHODS.iter().enumerate() {
             let t = secs[s * METHODS.len() + m];
-            let name = if m == 0 {
-                format!("**{schema}**")
-            } else {
-                String::new()
-            };
+            let name = if m == 0 { format!("**{schema}**") } else { String::new() };
             writeln!(
                 out,
                 "| {name} | {method} | {} | {} | {:.1}× | `{}` |",

@@ -4,21 +4,13 @@ use martin_core::fonts::FontSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfig, UnrecognizedValues, subdirectories,
+    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    FileConfig, UnrecognizedValues, subdirectories,
 };
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerFontConfig {
@@ -63,8 +55,8 @@ impl FontConfig {
         }
 
         for collection in &self.collections {
-            for (_name, path) in subdirectories(collection)
-                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            for (_name, path) in
+                subdirectories(collection).map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
                 results
                     .recursively_add_directory(path.clone())

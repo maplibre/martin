@@ -28,8 +28,7 @@ const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles"
 /// Distinct fixture used to overwrite [`FIXTURE`] in place. Its tilejson omits the
 /// `name` field, while [`FIXTURE`]'s tilejson reports `name: "ne2sr"`. The contrast
 /// makes it unambiguous whether the reloader replaced the source after an overwrite.
-const STAMEN_FIXTURE: &[u8] =
-    include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
+const STAMEN_FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
 /// rustfs/rustfs writes its startup JSON logs to /logs/rustfs.log, not to stdout.
 /// The entrypoint script prints "Starting: /usr/bin/rustfs <dir>" to stdout just before
@@ -77,16 +76,10 @@ async fn start_s3() -> (ContainerAsync<RustFsImage>, String) {
     // RustFS maps subdirectories of `/data` to buckets, so creating the directory is
     // sufficient to provision the bucket without a signed PUT.
     container
-        .exec(
-            ExecCommand::new(["mkdir", &format!("/data/{BUCKET}")])
-                .with_cmd_ready_condition(CmdWaitFor::exit()),
-        )
+        .exec(ExecCommand::new(["mkdir", &format!("/data/{BUCKET}")]).with_cmd_ready_condition(CmdWaitFor::exit()))
         .await
         .expect("failed to create the bucket directory");
-    let host = container
-        .get_host()
-        .await
-        .expect("RustFS container has no host");
+    let host = container.get_host().await.expect("RustFS container has no host");
     let port = container
         .get_host_port_ipv4(9000)
         .await
@@ -106,11 +99,7 @@ fn s3_options(endpoint: &str) -> HashMap<String, String> {
     o
 }
 
-async fn upload(
-    store: &dyn ObjectStore,
-    key: &str,
-    bytes: &'static [u8],
-) -> object_store::PutResult {
+async fn upload(store: &dyn ObjectStore, key: &str, bytes: &'static [u8]) -> object_store::PutResult {
     store
         .put(&ObjPath::from(key), PutPayload::from_static(bytes))
         .await
@@ -118,11 +107,7 @@ async fn upload(
 }
 
 async fn catalog_tiles(
-    app: &impl actix_web::dev::Service<
-        actix_http::Request,
-        Response = ServiceResponse,
-        Error = actix_web::Error,
-    >,
+    app: &impl actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>,
 ) -> serde_json::Map<String, Value> {
     let req = TestRequest::get().uri("/catalog").to_request();
     let resp = call_service(app, req).await;
@@ -137,11 +122,7 @@ async fn catalog_tiles(
 /// Polls `/catalog` until the predicate returns true or the deadline is reached.
 /// Used to await reloader propagation between mutations and assertions.
 async fn wait_for_catalog<F>(
-    app: &impl actix_web::dev::Service<
-        actix_http::Request,
-        Response = ServiceResponse,
-        Error = actix_web::Error,
-    >,
+    app: &impl actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>,
     deadline: Duration,
     label: &str,
     predicate: F,
@@ -338,17 +319,9 @@ async fn pmt_s3_in_place_blob_overwrite_updates_existing_source() {
 
     // Establish the pre-overwrite baseline: wait until the reloader discovers the
     // original blob and the catalog exposes its `name` field.
-    wait_for_catalog(
-        &app,
-        Duration::from_secs(10),
-        "alpha discovered with name=ne2sr",
-        |t| {
-            t.get("alpha")
-                .and_then(|v| v.get("name"))
-                .and_then(Value::as_str)
-                == Some("ne2sr")
-        },
-    )
+    wait_for_catalog(&app, Duration::from_secs(10), "alpha discovered with name=ne2sr", |t| {
+        t.get("alpha").and_then(|v| v.get("name")).and_then(Value::as_str) == Some("ne2sr")
+    })
     .await;
 
     // Overwrite the blob with a fixture whose tilejson lacks a `name` field. Under
@@ -356,12 +329,9 @@ async fn pmt_s3_in_place_blob_overwrite_updates_existing_source() {
     // disappear from the catalog.
     upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
 
-    wait_for_catalog(
-        &app,
-        Duration::from_secs(10),
-        "alpha updated with name removed",
-        |t| t.get("alpha").is_some_and(|v| v.get("name").is_none()),
-    )
+    wait_for_catalog(&app, Duration::from_secs(10), "alpha updated with name removed", |t| {
+        t.get("alpha").is_some_and(|v| v.get("name").is_none())
+    })
     .await;
 
     // Snapshot the catalog. The `name` field should be gone.

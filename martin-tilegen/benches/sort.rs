@@ -43,9 +43,7 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
     let keys = worker_keys();
     let dir = tempfile::tempdir().expect("temp dir");
     let mut group = c.benchmark_group("external_sort");
-    group
-        .throughput(Throughput::Elements(RECORDS as u64))
-        .sample_size(10);
+    group.throughput(Throughput::Elements(RECORDS as u64)).sample_size(10);
     group.bench_function("push_spill_merge_1m_x64b", |b| {
         b.iter_batched(
             || {

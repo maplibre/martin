@@ -222,30 +222,17 @@ impl BackendSource {
         )
     )]
     pub fn as_postgres(&self) -> Option<&PostgresSource> {
-        if let Self::Postgres(s) = self {
-            Some(s)
-        } else {
-            None
-        }
+        if let Self::Postgres(s) = self { Some(s) } else { None }
     }
 
     /// Retrieves tile data for the given coordinates.
-    pub async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    pub async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         dispatch_backend!(self, |s| Box::pin(s.get_tile(xyz, url_query)).await)
     }
 
     /// Retrieves tile with etag for the given coordinates.
-    pub async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
-        dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query))
-            .await)
+    pub async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
+        dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query)).await)
     }
 
     /// Attempts to create a fresh instance of this source.
@@ -316,9 +303,7 @@ impl AnySource {
     #[cfg(feature = "postgres")]
     #[must_use]
     pub fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        self.backend()
-            .as_postgres()
-            .map(PostgresSource::active_query_registry)
+        self.backend().as_postgres().map(PostgresSource::active_query_registry)
     }
 
     /// Zoom-level bounds for tile caching.
@@ -340,11 +325,7 @@ impl AnySource {
     }
 
     /// Retrieves tile data for the given coordinates.
-    pub async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    pub async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         self.backend().get_tile(xyz, url_query).await
     }
 
@@ -360,11 +341,7 @@ impl AnySource {
         keep_measures: bool,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
         match self.backend().as_postgres() {
-            Some(source) => {
-                source
-                    .get_tile_features(xyz, url_query, keep_measures)
-                    .await
-            }
+            Some(source) => source.get_tile_features(xyz, url_query, keep_measures).await,
             None => Ok(None),
         }
     }
@@ -374,10 +351,7 @@ impl AnySource {
     /// `None` means this source renders one tile at a time, and the caller has to fall back to
     /// [`get_tile_with_etag`](Self::get_tile_with_etag).
     #[cfg(feature = "unstable-generate")]
-    pub async fn get_tile_block(
-        &self,
-        xyz: TileCoord,
-    ) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
+    pub async fn get_tile_block(&self, xyz: TileCoord) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
         match self {
             Self::Backend(backend) => match backend.as_postgres() {
                 Some(source) => source.get_tile_block(xyz).await,
@@ -388,11 +362,7 @@ impl AnySource {
     }
 
     /// Retrieves tile with etag for the given coordinates.
-    pub async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
+    pub async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
         self.backend().get_tile_with_etag(xyz, url_query).await
     }
 

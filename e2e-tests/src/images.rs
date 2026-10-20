@@ -32,15 +32,13 @@ pub fn assert_image_matches(path: impl AsRef<Path>, body: &[u8]) {
             path.display()
         );
         let parent = path.parent().expect("a reference image is inside a folder");
-        fs::create_dir_all(parent)
-            .unwrap_or_else(|e| panic!("failed to create {}: {e}", parent.display()));
+        fs::create_dir_all(parent).unwrap_or_else(|e| panic!("failed to create {}: {e}", parent.display()));
         fs::write(path, body).unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
         return;
     }
-    let reference =
-        decode(&fs::read(path).unwrap_or_else(|e| {
-            panic!("failed to read the reference image {}: {e}", path.display())
-        }));
+    let reference = decode(
+        &fs::read(path).unwrap_or_else(|e| panic!("failed to read the reference image {}: {e}", path.display())),
+    );
     let minimum = if rendered.is_jpeg {
         MIN_JPEG_SIMILARITY
     } else {

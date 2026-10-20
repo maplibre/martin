@@ -67,10 +67,7 @@ fn local_frame([path]: [&Path; 1]) {
                 }
             }
             for tile in tiles {
-                let piece = slicer
-                    .tile_polygon(tile, &rings)
-                    .expect("tile")
-                    .expect("piece");
+                let piece = slicer.tile_polygon(tile, &rings).expect("tile").expect("piece");
                 for ring in piece.rings() {
                     check_ring(&format!("{what} via tile_polygon"), tile, ring);
                 }

@@ -13,6 +13,8 @@ mod retry_timeout;
 pub use retry_timeout::RetryTimeout;
 
 mod features;
+#[cfg(feature = "unstable-generate")]
+pub use features::column_def;
 pub use features::{PostgresFeature, PostgresProperty, PostgresTileFeatures, is_typed_property};
 
 mod mlt_encoder;
@@ -31,9 +33,7 @@ mod scan;
 #[cfg(feature = "unstable-generate")]
 pub use deadpool_postgres::Object as PooledConnection;
 #[cfg(feature = "unstable-generate")]
-pub use scan::{
-    ScanLayout, heap_blocks, open_scan_connection, open_scan_connections, scan_features,
-};
+pub use scan::{ScanLayout, heap_blocks, open_scan_connection, open_scan_connections, scan_features};
 
 mod tile_wkb;
 pub use tile_wkb::{TileWkbError, parse_tile_wkb};

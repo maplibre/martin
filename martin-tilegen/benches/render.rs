@@ -11,9 +11,7 @@ use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::internals::record::EncodedProps;
 use martin_tilegen::internals::{Renderer, Seq, Sorter};
 use martin_tilegen::project::from_lonlat;
-use martin_tilegen::{
-    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileOrder,
-};
+use martin_tilegen::{Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileOrder};
 
 const VERTICES: u32 = 10_000;
 
@@ -123,9 +121,7 @@ fn bench(c: &mut Criterion<cycles::Cycles>) {
                 .collect(),
         ),
     ] {
-        group.throughput(Throughput::Elements(
-            u64::from(VERTICES) * geoms.len() as u64,
-        ));
+        group.throughput(Throughput::Elements(u64::from(VERTICES) * geoms.len() as u64));
         group.bench_function(name, |b| {
             let mut renderer = Renderer::default();
             b.iter_batched(

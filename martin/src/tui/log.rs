@@ -56,11 +56,7 @@ pub struct LogWriter {
 
 impl io::Write for LogWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut lines = self
-            .buffer
-            .lines
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut lines = self.buffer.lines.lock().unwrap_or_else(PoisonError::into_inner);
         for ch in String::from_utf8_lossy(buf).chars() {
             if ch == '\n' {
                 let text = std::mem::take(&mut lines.partial);

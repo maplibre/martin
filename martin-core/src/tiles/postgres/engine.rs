@@ -40,11 +40,7 @@ impl PostgresEngineInfo {
     ) -> PostgresResult<TileData> {
         let block = TileRect::new(xyz.z(), xyz.x(), xyz.y(), xyz.x(), xyz.y());
         let tiles = self.render(pool, source_id, xyz, block).await?;
-        Ok(tiles
-            .into_iter()
-            .next()
-            .map(|(_, data)| data)
-            .unwrap_or_default())
+        Ok(tiles.into_iter().next().map(|(_, data)| data).unwrap_or_default())
     }
 
     /// Every tile of the [`prefetch`](Self::prefetch) block holding `xyz`, empty ones included, or
@@ -61,18 +57,8 @@ impl PostgresEngineInfo {
         let side = u32::from(side.get());
         let last = (1u32 << xyz.z()) - 1;
         let (x, y) = (xyz.x() / side * side, xyz.y() / side * side);
-        let block = TileRect::new(
-            xyz.z(),
-            x,
-            y,
-            (x + side - 1).min(last),
-            (y + side - 1).min(last),
-        );
-        let mut rendered: HashMap<_, _> = self
-            .render(pool, source_id, xyz, block)
-            .await?
-            .into_iter()
-            .collect();
+        let block = TileRect::new(xyz.z(), x, y, (x + side - 1).min(last), (y + side - 1).min(last));
+        let mut rendered: HashMap<_, _> = self.render(pool, source_id, xyz, block).await?.into_iter().collect();
         let tiles = (block.min_x..=block.max_x)
             .flat_map(|x| (block.min_y..=block.max_y).map(move |y| (x, y)))
             .map(|(x, y)| {
@@ -91,9 +77,7 @@ impl PostgresEngineInfo {
         xyz: TileCoord,
         block: TileRect,
     ) -> PostgresResult<Vec<(TileCoord, TileData)>> {
-        let failed = |err: TileGenError| {
-            PostgresError::EngineError(Box::new(err), source_id.to_owned(), xyz)
-        };
+        let failed = |err: TileGenError| PostgresError::EngineError(Box::new(err), source_id.to_owned(), xyz);
         let [[x1, y1, x2, y2], [x3, y3, x4, y4]] = self.envelopes(block);
         let sql = self.sql_query(block.zoom);
         let conn = pool.get().await?;
@@ -122,13 +106,7 @@ impl PostgresEngineInfo {
 
         let plan = Arc::clone(&self.plan);
         let (tiles, summary) = tokio::task::spawn_blocking(move || {
-            render_block(
-                &plan,
-                &mut batches,
-                block,
-                TileFormat::Mvt,
-                Encoding::Uncompressed,
-            )
+            render_block(&plan, &mut batches, block, TileFormat::Mvt, Encoding::Uncompressed)
         })
         .await
         .unwrap_or_else(|panic| std::panic::resume_unwind(panic.into_panic()))

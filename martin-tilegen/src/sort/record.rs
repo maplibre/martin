@@ -2,10 +2,7 @@
 //! then the geometry of its kind. The header carries the properties as one length-prefixed blob, so
 //! the per-tile schema pass reads them without touching vertices.
 
-#![expect(
-    clippy::mem_forget,
-    reason = "the wincode SchemaRead derive forgets its drop guard"
-)]
+#![expect(clippy::mem_forget, reason = "the wincode SchemaRead derive forgets its drop guard")]
 
 use crate::props::KeyId;
 use mlt_core::PropValueRef;
@@ -136,13 +133,7 @@ impl EncodedProps {
 }
 
 /// `sort` is the feature's `sort_by` key, which orders the features of its layer in each tile.
-pub fn encode(
-    out: &mut Vec<u8>,
-    id: Option<u64>,
-    sort: Option<&[u8]>,
-    props: &EncodedProps,
-    geom: Geom<'_>,
-) {
+pub fn encode(out: &mut Vec<u8>, id: Option<u64>, sort: Option<&[u8]>, props: &EncodedProps, geom: Geom<'_>) {
     let kind = match geom {
         Geom::Points(_) => GeomKind::Point,
         Geom::Lines { .. } => GeomKind::Line,
@@ -151,15 +142,7 @@ pub fn encode(
         Geom::FillRange { end } => GeomKind::FillRange { end },
     };
     let props = &props.bytes;
-    put(
-        out,
-        &Header {
-            kind,
-            id,
-            sort,
-            props,
-        },
-    );
+    put(out, &Header { kind, id, sort, props });
     match geom {
         Geom::Points(vertices) => put(out, vertices),
         Geom::Lines { parts, vertices } => put(out, &(parts, vertices)),
@@ -184,12 +167,7 @@ pub struct Record<'a> {
 
 impl<'a> Record<'a> {
     pub fn decode(mut bytes: &'a [u8]) -> TileGenResult<Self> {
-        let Header {
-            kind,
-            id,
-            sort,
-            props,
-        } = take(&mut bytes)?;
+        let Header { kind, id, sort, props } = take(&mut bytes)?;
         Ok(Self {
             kind,
             id,
@@ -207,10 +185,7 @@ impl<'a> Record<'a> {
     /// Whether an encoded record is a fill or fill range, without decoding the rest of it.
     #[must_use]
     pub fn is_fill(bytes: &[u8]) -> bool {
-        matches!(
-            Self::kind(bytes),
-            Ok(GeomKind::Fill | GeomKind::FillRange { .. })
-        )
+        matches!(Self::kind(bytes), Ok(GeomKind::Fill | GeomKind::FillRange { .. }))
     }
 
     #[must_use]
@@ -324,10 +299,7 @@ mod tests {
             let record = Record::decode(&bytes).unwrap();
             assert_eq!(record.id, id);
             assert_eq!(record.sort, sort);
-            assert_eq!(
-                record.props().collect::<TileGenResult<Vec<_>>>().unwrap(),
-                PROPS
-            );
+            assert_eq!(record.props().collect::<TileGenResult<Vec<_>>>().unwrap(), PROPS);
             let mut buf = GeomBuf::default();
             record.append_geometry(&mut buf).unwrap();
             assert_eq!(&buf, expected);
@@ -402,10 +374,7 @@ mod tests {
                     vertices,
                 },
             );
-            Record::decode(&bytes)
-                .unwrap()
-                .append_geometry(&mut buf)
-                .unwrap();
+            Record::decode(&bytes).unwrap().append_geometry(&mut buf).unwrap();
         }
         assert_eq!(buf.parts, [2, 3]);
         assert_eq!(buf.vertices.len(), 5);
@@ -430,10 +399,7 @@ mod tests {
                 r.props().try_for_each(|p| p.map(drop))?;
                 r.append_geometry(&mut GeomBuf::default())
             });
-            assert!(
-                matches!(result, Err(TileGenError::CorruptRecord)),
-                "len {len}"
-            );
+            assert!(matches!(result, Err(TileGenError::CorruptRecord)), "len {len}");
         }
     }
 }

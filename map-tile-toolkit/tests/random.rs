@@ -184,11 +184,7 @@ fn random_polygons_match_single_tile() {
                     "case {case} extent {extent} buffer {buffer} tile {tile:?}\ninput {input:?}"
                 );
                 let w = got_whole.get(&tile).unwrap_or(&empty);
-                assert_eq!(
-                    w,
-                    &one_tile(&mut whole, tile, &input),
-                    "unclipped case {case}"
-                );
+                assert_eq!(w, &one_tile(&mut whole, tile, &input), "unclipped case {case}");
                 assert_eq!(ids(w), ids(g), "unclipped case {case} tile {tile:?}");
                 checked_tiles += 1;
             }
@@ -240,9 +236,7 @@ fn random_lines_and_points_match_single_tile() {
         for (part, line) in (0_u32..).zip(&parts) {
             for s in slicer.line(line).unwrap() {
                 assert!(s.run().iter().count() >= 2);
-                got.entry(s.tile())
-                    .or_default()
-                    .push((part, s.run().to_vec()));
+                got.entry(s.tile()).or_default().push((part, s.run().to_vec()));
                 runs_total += 1;
             }
         }
@@ -253,10 +247,7 @@ fn random_lines_and_points_match_single_tile() {
         let mut got_whole: BTreeMap<TileId, Runs> = BTreeMap::new();
         for (part, line) in (0_u32..).zip(&parts) {
             for s in whole.line(line).unwrap() {
-                got_whole
-                    .entry(s.tile())
-                    .or_default()
-                    .push((part, s.run().to_vec()));
+                got_whole.entry(s.tile()).or_default().push((part, s.run().to_vec()));
             }
         }
         for v in got_whole.values_mut() {
@@ -359,16 +350,9 @@ fn random_self_intersecting_polygons_match_single_tile() {
                 let one = one_tile(&mut slicer, tile, &input);
                 let empty = Vec::new();
                 let g = got.get(&tile).unwrap_or(&empty);
-                assert_eq!(
-                    g, &one,
-                    "case {case} e{extent} b{buffer} {tile:?}\ninput {input:?}"
-                );
+                assert_eq!(g, &one, "case {case} e{extent} b{buffer} {tile:?}\ninput {input:?}");
                 let w = got_whole.get(&tile).unwrap_or(&empty);
-                assert_eq!(
-                    w,
-                    &one_tile(&mut whole, tile, &input),
-                    "unclipped case {case}"
-                );
+                assert_eq!(w, &one_tile(&mut whole, tile, &input), "unclipped case {case}");
                 assert_eq!(ids(w), ids(g), "unclipped case {case} tile {tile:?}");
                 tiles_checked += 1;
             }
@@ -494,9 +478,7 @@ fn extreme_coordinates_never_panic() {
             _ => -1000,
         };
         let mut pt = || {
-            let v = |r: &mut Rng| {
-                (base + r.below(2000)).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
-            };
+            let v = |r: &mut Rng| (base + r.below(2000)).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
             Coord {
                 x: v(&mut rng),
                 y: v(&mut rng),
@@ -568,10 +550,7 @@ fn extreme_coordinates_never_panic() {
         }
         let _ = sl.tile_polygon(tile, &poly);
         // And the tile of the first vertex.
-        let t0 = TileId::new(
-            ring[0].x.div_euclid(extent as i32),
-            ring[0].y.div_euclid(extent as i32),
-        );
+        let t0 = TileId::new(ring[0].x.div_euclid(extent as i32), ring[0].y.div_euclid(extent as i32));
         let _ = sl.tile_polygon(t0, &poly);
 
         // Unclipped, nothing panics either (the walks capped: a fill run expands tile by tile), and
@@ -599,9 +578,7 @@ fn extreme_coordinates_never_panic() {
             }
         }
         for tile in tiles {
-            let piece = whole
-                .tile_polygon(tile, &poly)
-                .expect("accepted by polygon");
+            let piece = whole.tile_polygon(tile, &poly).expect("accepted by polygon");
             assert!(piece.is_some(), "e{extent} b{buffer} {tile:?}");
         }
         for tile in [tile, t0] {
@@ -631,16 +608,8 @@ fn points_at_the_limits_match_brute_force() {
         ][case % 10];
         let buffer = rng.below(u64::from(extent).div_ceil(2).min(60000)) as u16;
         let slicer: Slicer = Slicer::new(extent, buffer).unwrap();
-        let base: i64 = [
-            i64::from(i32::MIN),
-            i64::from(i32::MAX) - 300,
-            0,
-            -150,
-            1 << 30,
-        ][rng.below(5) as usize];
-        let coord = |r: &mut Rng| {
-            (base + r.below(300)).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
-        };
+        let base: i64 = [i64::from(i32::MIN), i64::from(i32::MAX) - 300, 0, -150, 1 << 30][rng.below(5) as usize];
+        let coord = |r: &mut Rng| (base + r.below(300)).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
         let pts: Vec<Coord<i32>> = (0..4)
             .map(|_| Coord {
                 x: coord(&mut rng),
@@ -651,18 +620,13 @@ fn points_at_the_limits_match_brute_force() {
         // asked (its box overflows); else it yields x-major over the 3x3 tiles around its own, those
         // whose `tile_point` holds it.
         for &pt in &pts {
-            let t = (
-                pt.x.div_euclid(extent as i32),
-                pt.y.div_euclid(extent as i32),
-            );
+            let t = (pt.x.div_euclid(extent as i32), pt.y.div_euclid(extent as i32));
             let mut expected: Vec<(TileId, Coord<i32>)> = Vec::new();
             let mut expected_err = false;
             for dx in -1i64..=1 {
                 for dy in -1i64..=1 {
-                    let (Ok(tx), Ok(ty)) = (
-                        i32::try_from(i64::from(t.0) + dx),
-                        i32::try_from(i64::from(t.1) + dy),
-                    ) else {
+                    let (Ok(tx), Ok(ty)) = (i32::try_from(i64::from(t.0) + dx), i32::try_from(i64::from(t.1) + dy))
+                    else {
                         continue;
                     };
                     let tile = TileId::new(tx, ty);
@@ -684,11 +648,7 @@ fn points_at_the_limits_match_brute_force() {
                 .point(pt)
                 .ok()
                 .map(|it| it.map(|s| (s.tile(), s.point())).collect());
-            assert_eq!(
-                got.is_none(),
-                expected_err,
-                "case {case} e{extent} b{buffer} {pt:?}"
-            );
+            assert_eq!(got.is_none(), expected_err, "case {case} e{extent} b{buffer} {pt:?}");
             if let Some(got) = got {
                 assert_eq!(got, expected, "case {case} e{extent} b{buffer} {pt:?}");
             }

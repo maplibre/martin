@@ -72,9 +72,7 @@ mod tests {
     #[test]
     fn pads_partial_tiles() {
         let png = encode_png(&[255; 2 * 3], [1, 2, 3], 4, "test").unwrap();
-        let mut reader = png::Decoder::new(std::io::Cursor::new(png))
-            .read_info()
-            .unwrap();
+        let mut reader = png::Decoder::new(std::io::Cursor::new(png)).read_info().unwrap();
         let mut buf = vec![0; reader.output_buffer_size().unwrap()];
         let info = reader.next_frame(&mut buf).unwrap();
         assert_eq!(info.width, 4);

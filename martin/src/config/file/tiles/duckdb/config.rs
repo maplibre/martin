@@ -6,12 +6,9 @@ use crate::config::args::BoundsCalcType;
 #[cfg(feature = "_tiles")]
 use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
-};
+use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry};
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
-    UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedValues,
 };
 
 const DEFAULT_POOL_SIZE: usize = 4;
@@ -41,10 +38,7 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
     /// Connection pool size used by `DuckDB` sources unless overridden per-source.
-    #[serde(
-        default = "default_pool_size",
-        skip_serializing_if = "is_default_pool_size"
-    )]
+    #[serde(default = "default_pool_size", skip_serializing_if = "is_default_pool_size")]
     pub pool_size: NonZeroUsize,
     /// Optional `DuckDB` execution thread count for each connection.
     pub threads: Option<NonZeroUsize>,
@@ -115,14 +109,11 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             auto_bounds: self.auto_bounds,
         };
 
-        let finalized = self
-            .sources
-            .iter_mut()
-            .try_for_each(|source| -> ConfigFileResult<()> {
-                source.finalize()?;
-                source.apply_defaults(defaults);
-                Ok(())
-            });
+        let finalized = self.sources.iter_mut().try_for_each(|source| -> ConfigFileResult<()> {
+            source.finalize()?;
+            source.apply_defaults(defaults);
+            Ok(())
+        });
 
         std::future::ready(finalized)
     }
@@ -188,10 +179,7 @@ mod tests {
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
     #[test]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one debug snapshot of both entry kinds"
-    )]
+    #[expect(clippy::too_many_lines, reason = "one debug snapshot of both entry kinds")]
     fn source_list_may_mix_database_and_geoparquet() {
         let yaml = r"
 pool_size: 4
@@ -453,8 +441,7 @@ sources:
                   memory_limit_mb: 256
                   auto_bounds: skip
         "};
-        let mut config: Config =
-            parse_config(&yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
+        let mut config: Config = parse_config(&yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
         config.finalize().await.expect("finalize");
 
         insta::assert_snapshot!(
