@@ -2,8 +2,8 @@
 
 use martin_tile_utils::Format;
 
-use super::error::HillshadeError;
-use super::shade::BakedTile;
+use crate::tiles::hillshade::error::HillshadeError;
+use crate::tiles::hillshade::shade::BakedTile;
 
 /// Image formats a baked hillshade can be encoded to.
 pub const SUPPORTED_FORMATS: &[Format] = &[Format::Png, Format::Webp, Format::Jxl];

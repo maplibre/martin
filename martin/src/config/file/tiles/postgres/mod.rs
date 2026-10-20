@@ -10,12 +10,12 @@ pub use config_table::*;
 pub(crate) mod utils;
 
 mod builder;
-pub use builder::PostgresAutoDiscoveryBuilder;
+pub use crate::config::file::tiles::postgres::builder::PostgresAutoDiscoveryBuilder;
 
 mod spec;
-pub use spec::SourceSpec;
+pub use crate::config::file::tiles::postgres::spec::SourceSpec;
 
 mod tile_grid;
-pub use tile_grid::PgTileGrid;
+pub use crate::config::file::tiles::postgres::tile_grid::PgTileGrid;
 
 pub mod resolver;

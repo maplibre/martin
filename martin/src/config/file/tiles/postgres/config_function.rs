@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
 use tracing::warn;
 
-use super::config::PostgresInfo;
 #[cfg(feature = "unstable-schemas")]
 use crate::config::file::postgres::config_table::bounds_world_example;
 use crate::config::file::postgres::utils::patch_json;
+use crate::config::file::tiles::postgres::config::PostgresInfo;
 use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};

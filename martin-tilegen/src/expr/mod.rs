@@ -12,10 +12,11 @@ mod sort;
 mod view;
 
 use cel::common::types::CelNull;
-pub(crate) use compile::CompiledExpr;
-pub use compile::ExprError;
-pub use role::{Attr, ExprRef, Filter, Id, Role, SortBy, Zoom};
-pub(crate) use view::{ExprKeys, FeatureView, PropSlots};
+
+pub(crate) use crate::expr::compile::CompiledExpr;
+pub use crate::expr::compile::ExprError;
+pub use crate::expr::role::{Attr, ExprRef, Filter, Id, Role, SortBy, Zoom};
+pub(crate) use crate::expr::view::{ExprKeys, FeatureView, PropSlots};
 
 const FEATURE: &str = "feature";
 

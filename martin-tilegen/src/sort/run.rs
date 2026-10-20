@@ -8,8 +8,8 @@ use wincode::config::Configuration;
 use wincode::{SchemaRead, SchemaWrite};
 
 use super::Entry;
-use super::SortKey;
 use crate::TileGenResult;
+use crate::sort::SortKey;
 
 const WRITE_BUFFER_BYTES: usize = 1 << 20;
 

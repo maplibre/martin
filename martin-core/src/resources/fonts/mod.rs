@@ -72,10 +72,10 @@ pub fn normalize_font_ids(ids: &str) -> String {
 }
 
 mod error;
-pub use error::FontError;
+pub use crate::resources::fonts::error::FontError;
 
 mod cache;
-pub use cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
+pub use crate::resources::fonts::cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
 
 /// Glyph information: (codepoints, count, ranges, first, last).
 type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);

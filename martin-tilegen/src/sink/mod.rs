@@ -6,12 +6,12 @@ mod mbtiles;
 mod pmtiles;
 
 use martin_tile_utils::TileCoord;
-#[cfg(feature = "mbtiles")]
-pub use mbtiles::MbtilesSink;
-#[cfg(feature = "pmtiles")]
-pub use pmtiles::PmtilesSink;
 use tilejson::TileJSON;
 
+#[cfg(feature = "mbtiles")]
+pub use crate::sink::mbtiles::MbtilesSink;
+#[cfg(feature = "pmtiles")]
+pub use crate::sink::pmtiles::PmtilesSink;
 use crate::{TileGenResult, TileOrder};
 
 /// One finished tile: encoded, compressed, and tagged for deduplication.

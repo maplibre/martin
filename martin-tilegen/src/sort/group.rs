@@ -2,9 +2,9 @@
 
 use std::ops::Range;
 
-use super::record::{GeomKind, Record};
 use super::{Merger, Seq};
 use crate::TileGenResult;
+use crate::sort::record::{GeomKind, Record};
 
 /// One record of a tile, borrowed from its buffer.
 #[derive(Clone, Copy, Debug)]

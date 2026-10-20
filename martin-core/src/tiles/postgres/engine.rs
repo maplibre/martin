@@ -9,8 +9,8 @@ use martin_tilegen::plan::Plan;
 use martin_tilegen::{Summary, TileFormat, TileGenError, render_block};
 use tracing::{debug, warn};
 
-use super::scan::{ScanLayout, scan_features};
 use super::{PostgresError, PostgresPool, PostgresResult};
+use crate::tiles::postgres::scan::{ScanLayout, scan_features};
 
 /// How a table with `layers` is read and rendered.
 #[derive(Clone, Debug)]

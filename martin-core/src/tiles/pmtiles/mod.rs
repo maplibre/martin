@@ -1,10 +1,10 @@
 mod error;
-pub use error::PmtilesError;
+pub use crate::tiles::pmtiles::error::PmtilesError;
 
 mod source;
-pub use source::PmtilesSource;
+pub use crate::tiles::pmtiles::source::PmtilesSource;
 
 mod backend;
 
 mod cache;
-pub use cache::{NO_PMT_CACHE, OptPmtCache, PmtCache, PmtCacheInstance};
+pub use crate::tiles::pmtiles::cache::{NO_PMT_CACHE, OptPmtCache, PmtCache, PmtCacheInstance};

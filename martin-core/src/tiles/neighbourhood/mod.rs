@@ -5,6 +5,8 @@ mod assemble;
 mod etag;
 
 #[cfg(feature = "processing")]
-pub(crate) use assemble::CHANNELS;
-pub use assemble::{DEFAULT_TILE_SIZE, GRID_SIDE, NEIGHBOURHOOD_LEN, Neighbourhood, NeighbourhoodError, RgbaField};
-pub use etag::{InputEtag, neighbourhood_etag};
+pub(crate) use crate::tiles::neighbourhood::assemble::CHANNELS;
+pub use crate::tiles::neighbourhood::assemble::{
+    DEFAULT_TILE_SIZE, GRID_SIDE, NEIGHBOURHOOD_LEN, Neighbourhood, NeighbourhoodError, RgbaField,
+};
+pub use crate::tiles::neighbourhood::etag::{InputEtag, neighbourhood_etag};

@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use crate::props::Prop;
 use cel::{ExecutionError, Value};
 
 use super::coerce::{to_filter, to_id, to_prop, to_zoom};
-use super::sort::{SortValue, to_sort};
+use crate::expr::sort::{SortValue, to_sort};
+use crate::props::Prop;
 
 /// What an expression is for, and how its result becomes that. A role value carries what is known when
 /// the layer is planned, so evaluating needs nothing more.
@@ -89,10 +89,9 @@ impl<R: Role> ExprRef<R> {
 
 #[cfg(test)]
 mod tests {
-    use crate::props::KeyId;
-
     use super::*;
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots};
+    use crate::props::KeyId;
 
     #[test]
     fn a_filter_over_a_missing_property_drops_the_feature() {
