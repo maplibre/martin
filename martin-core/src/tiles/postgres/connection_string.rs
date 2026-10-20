@@ -63,8 +63,7 @@ fn redact(conn_str: &str) -> String {
 /// Redacts the `scheme://user:PASSWORD@` userinfo of a URL the `url` crate could not parse.
 fn redact_url_userinfo(conn_str: &str) -> String {
     static USERINFO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)([a-z][a-z0-9+.\-]*://[^@/?#:\s]*:)[^@/?#\s]*(@)")
-            .expect("userinfo redaction regex is valid")
+        Regex::new(r"(?i)([a-z][a-z0-9+.\-]*://[^@/?#:\s]*:)[^@/?#\s]*(@)").expect("userinfo redaction regex is valid")
     });
     USERINFO
         .replace_all(conn_str, |caps: &regex::Captures| {
@@ -77,13 +76,10 @@ fn redact_url_userinfo(conn_str: &str) -> String {
 fn redact_keyword_password(conn_str: &str) -> String {
     static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
         // `password = 'quoted value'` or `password=unquoted`, delimited by whitespace or `&`.
-        Regex::new(r"(?i)(\bpassword\s*=\s*)('(?:[^'\\]|\\.)*'|[^\s&]*)")
-            .expect("password redaction regex is valid")
+        Regex::new(r"(?i)(\bpassword\s*=\s*)('(?:[^'\\]|\\.)*'|[^\s&]*)").expect("password redaction regex is valid")
     });
     KEYWORD
-        .replace_all(conn_str, |caps: &regex::Captures| {
-            format!("{}{REDACTED}", &caps[1])
-        })
+        .replace_all(conn_str, |caps: &regex::Captures| format!("{}{REDACTED}", &caps[1]))
         .into_owned()
 }
 
@@ -122,24 +118,15 @@ mod tests {
         "host=localhost password='se cret' dbname=db",
         "host=localhost password=REDACTED dbname=db"
     )]
-    #[case::url_no_password(
-        "postgres://user@localhost:5432/db",
-        "postgres://user@localhost:5432/db"
-    )]
+    #[case::url_no_password("postgres://user@localhost:5432/db", "postgres://user@localhost:5432/db")]
     #[case::url_no_userinfo("postgres://localhost:5432/db", "postgres://localhost:5432/db")]
-    #[case::keyword_password_substring(
-        "host=localhost mypassword=keep",
-        "host=localhost mypassword=keep"
-    )]
+    #[case::keyword_password_substring("host=localhost mypassword=keep", "host=localhost mypassword=keep")]
     #[case::keyword_no_password(
         "host=localhost dbname=db sslmode=verify-full",
         "host=localhost dbname=db sslmode=verify-full"
     )]
     fn redacts(#[case] conn_str: &str, #[case] expected: &str) {
-        assert_eq!(
-            RedactedConnectionString::new(conn_str).to_string(),
-            expected
-        );
+        assert_eq!(RedactedConnectionString::new(conn_str).to_string(), expected);
     }
 
     #[rstest]
@@ -152,13 +139,7 @@ mod tests {
         "postgres://postgres:REDACTED@host:notaport/db"
     )]
     fn redacts_unparseable_url(#[case] conn_str: &str, #[case] expected: &str) {
-        assert!(
-            Url::parse(conn_str).is_err(),
-            "test needs the regex fallback path"
-        );
-        assert_eq!(
-            RedactedConnectionString::new(conn_str).to_string(),
-            expected
-        );
+        assert!(Url::parse(conn_str).is_err(), "test needs the regex fallback path");
+        assert_eq!(RedactedConnectionString::new(conn_str).to_string(), expected);
     }
 }

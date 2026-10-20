@@ -44,8 +44,8 @@ impl MartinCp {
     /// Copy from the `PostgreSQL` database that `DATABASE_URL` points at, given on the command line or through `${DATABASE_URL}` in the config.
     #[must_use]
     pub fn with_postgres(mut self) -> Self {
-        let url = env::var("DATABASE_URL")
-            .expect("DATABASE_URL must point at the test database; start it with `just start`");
+        let url =
+            env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
         self.database_url = Some(url);
         self
     }

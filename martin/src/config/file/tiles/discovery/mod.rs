@@ -4,27 +4,15 @@
 mod discovery_trait;
 pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
 mod fs;
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
 pub use fs::{FsDiscovery, FsSourceBuilder};
 
 #[cfg(any(feature = "pmtiles", feature = "cog"))]
 mod object_store;
 #[cfg(any(feature = "pmtiles", feature = "cog"))]
-pub use object_store::{
-    ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,
-};
+pub use object_store::{ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder};
 
 #[cfg(feature = "postgres")]
 mod postgres;

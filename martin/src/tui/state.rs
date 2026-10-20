@@ -33,10 +33,7 @@ impl LogView {
 
     /// Moves `lines` towards the oldest of the `len` lines the log holds, stopping at it.
     pub(super) fn scroll_back(&mut self, lines: usize, len: usize) {
-        self.scroll = self
-            .clamped(len)
-            .saturating_add(lines)
-            .min(Self::oldest(len));
+        self.scroll = self.clamped(len).saturating_add(lines).min(Self::oldest(len));
     }
 
     /// Moves `lines` back towards the newest line, stopping at it.

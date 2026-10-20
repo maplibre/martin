@@ -1,7 +1,4 @@
-#![expect(
-    clippy::mem_forget,
-    reason = "the wincode SchemaRead derive forgets its drop guard"
-)]
+#![expect(clippy::mem_forget, reason = "the wincode SchemaRead derive forgets its drop guard")]
 
 use wincode::{SchemaRead, SchemaWrite};
 
@@ -59,9 +56,7 @@ impl Seq {
 /// padding to 32.
 ///
 /// `tile_layer` holds the [`TileId`] in bits 63..8 and the [`LayerId`] in bits 7..0; `seq` is the [`Seq`].
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, SchemaWrite, SchemaRead,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, SchemaWrite, SchemaRead)]
 pub struct SortKey {
     tile_layer: u64,
     seq: u64,
@@ -115,11 +110,9 @@ mod tests {
         let max_tile = pyramid_base(MAX_ZOOM + 1) - 1;
         let max_partition = (1 << 24) - 1;
         let max_row = (1 << 40) - 1;
-        for (tile_id, layer, partition, row) in [
-            (0, 0, 0, 0),
-            (max_tile, u8::MAX, max_partition, max_row),
-            (7, 3, 5, 11),
-        ] {
+        for (tile_id, layer, partition, row) in
+            [(0, 0, 0, 0), (max_tile, u8::MAX, max_partition, max_row), (7, 3, 5, 11)]
+        {
             let k = key(tile_id, layer, partition, row);
             assert_eq!(
                 (
@@ -148,13 +141,7 @@ mod tests {
 
     #[test]
     fn rejects_seq_overflow() {
-        assert!(matches!(
-            Seq::new(1 << 24, 0),
-            Err(TileGenError::PartitionOverflow(_))
-        ));
-        assert!(matches!(
-            Seq::new(0, 1 << 40),
-            Err(TileGenError::RowOverflow(_))
-        ));
+        assert!(matches!(Seq::new(1 << 24, 0), Err(TileGenError::PartitionOverflow(_))));
+        assert!(matches!(Seq::new(0, 1 << 40), Err(TileGenError::RowOverflow(_))));
     }
 }

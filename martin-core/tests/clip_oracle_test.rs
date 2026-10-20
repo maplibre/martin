@@ -14,14 +14,9 @@ use martin_core::tiles::geojson::clip_to_tile;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::internals::record::{EncodedProps, GeomKind, Record};
 use martin_tilegen::internals::{Renderer, Seq, Sorter};
-use martin_tilegen::{
-    Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileId, TileOrder,
-};
+use martin_tilegen::{Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileId, TileOrder};
 
-const GRID: LayerGrid = LayerGrid {
-    extent: 256,
-    buffer: 8,
-};
+const GRID: LayerGrid = LayerGrid { extent: 256, buffer: 8 };
 const MAX_ZOOM: u8 = 5;
 
 type Tiles = BTreeSet<(u8, u32, u32)>;
@@ -47,13 +42,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         min_size: PixelThreshold::ZERO,
     };
     Renderer::default()
-        .render(
-            TileOrder::Tms,
-            &layer,
-            Seq::default(),
-            &feature,
-            &mut buffer,
-        )
+        .render(TileOrder::Tms, &layer, Seq::default(), &feature, &mut buffer)
         .unwrap();
     buffer.finish().unwrap();
     let mut merger = sorter.merge().unwrap();
@@ -61,9 +50,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
     while let Some((key, bytes)) = merger.peek() {
         let end = match Record::decode(bytes).unwrap().kind {
             GeomKind::FillRange { end } => end,
-            GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
-                key.tile_id().value() + 1
-            }
+            GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => key.tile_id().value() + 1,
         };
         for id in key.tile_id().value()..end {
             let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();
@@ -120,12 +107,7 @@ fn random_coords(seed: u64, n: usize) -> Vec<Coord<f64>> {
             .wrapping_add(1_442_695_040_888_963_407);
         0.05 + 0.9 * f64::from(u32::try_from(state >> 40).unwrap()) / f64::from(1u32 << 24)
     };
-    (0..n)
-        .map(|_| Coord {
-            x: next(),
-            y: next(),
-        })
-        .collect()
+    (0..n).map(|_| Coord { x: next(), y: next() }).collect()
 }
 
 #[test]
@@ -134,24 +116,18 @@ fn lines_cover_the_same_tiles() {
         let coords = random_coords(seed, 2 + usize::try_from(seed % 5).unwrap());
         let line = LineString::new(coords);
         let ours = rendered(FeatureGeom::Lines(std::slice::from_ref(&line)));
-        let geom = Geometry::LineString(LineString::new(
-            line.0.iter().copied().map(meters).collect(),
-        ));
+        let geom = Geometry::LineString(LineString::new(line.0.iter().copied().map(meters).collect()));
         check(&format!("line {seed}"), &ours, &geom);
     }
 }
 
 #[test]
 fn polygons_cover_the_same_tiles() {
-    let to_meters =
-        |ring: &LineString<f64>| LineString::new(ring.0.iter().copied().map(meters).collect());
+    let to_meters = |ring: &LineString<f64>| LineString::new(ring.0.iter().copied().map(meters).collect());
     let mut polygons: Vec<Polygon<f64>> = (200..210)
-        .map(|seed| {
-            MultiPoint(random_coords(seed, 6).into_iter().map(Point).collect()).convex_hull()
-        })
+        .map(|seed| MultiPoint(random_coords(seed, 6).into_iter().map(Point).collect()).convex_hull())
         .collect();
-    let square =
-        |lo: f64, hi: f64| LineString::from(vec![(lo, lo), (hi, lo), (hi, hi), (lo, hi), (lo, lo)]);
+    let square = |lo: f64, hi: f64| LineString::from(vec![(lo, lo), (hi, lo), (hi, hi), (lo, hi), (lo, lo)]);
     polygons.push(Polygon::new(square(0.1, 0.9), vec![square(0.3, 0.6)]));
     for (i, polygon) in polygons.iter().enumerate() {
         let ours = rendered(FeatureGeom::Polygons(std::slice::from_ref(polygon)));
@@ -168,9 +144,7 @@ fn points_cover_the_same_tiles() {
     for seed in 100..112 {
         let coords = random_coords(seed, 3);
         let ours = rendered(FeatureGeom::Points(&coords));
-        let geom = Geometry::MultiPoint(MultiPoint(
-            coords.iter().map(|&c| Point(meters(c))).collect(),
-        ));
+        let geom = Geometry::MultiPoint(MultiPoint(coords.iter().map(|&c| Point(meters(c))).collect()));
         check(&format!("points {seed}"), &ours, &geom);
     }
 }

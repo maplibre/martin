@@ -102,12 +102,7 @@ where
     debug!(
         "Creating if needed dedup-id normalized tables and tiles view: tiles_shallow(z,x,y,id) + tiles_data(id,data)"
     );
-    create_schema(
-        conn,
-        include_str!("../../sql/init-normalized-dedup-id.sql"),
-        strict,
-    )
-    .await
+    create_schema(conn, include_str!("../../sql/init-normalized-dedup-id.sql"), strict).await
 }
 
 pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
@@ -115,12 +110,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed tiles_with_hash view for normalized map+images structure");
-    create_schema(
-        conn,
-        include_str!("../../sql/init-normalized-with-hash.sql"),
-        false,
-    )
-    .await
+    create_schema(conn, include_str!("../../sql/init-normalized-with-hash.sql"), false).await
 }
 
 #[cfg(test)]
@@ -128,8 +118,7 @@ mod tests {
     use super::*;
     use crate::metadata::anonymous_mbtiles;
     use crate::{
-        CopyDuplicateMode, MbtType, NormalizedSchema, has_tiles_with_hash, init_mbtiles_schema,
-        is_flat_tables_type,
+        CopyDuplicateMode, MbtType, NormalizedSchema, has_tiles_with_hash, init_mbtiles_schema, is_flat_tables_type,
     };
 
     #[actix_rt::test]
@@ -151,9 +140,7 @@ mod tests {
     #[actix_rt::test]
     async fn create_and_detect_dedup_id_normalized() {
         let (_mbt, mut conn) = anonymous_mbtiles("").await;
-        create_dedup_id_normalized_tables(&mut conn, false)
-            .await
-            .unwrap();
+        create_dedup_id_normalized_tables(&mut conn, false).await.unwrap();
 
         assert!(is_dedup_id_normalized_tables_type(&mut conn).await.unwrap());
         assert!(!is_normalized_tables_type(&mut conn).await.unwrap());
@@ -167,9 +154,7 @@ mod tests {
             hash_view: false,
             schema: NormalizedSchema::DedupId,
         };
-        init_mbtiles_schema(&mut conn, dedup_id, false)
-            .await
-            .unwrap();
+        init_mbtiles_schema(&mut conn, dedup_id, false).await.unwrap();
 
         let first: Vec<(u8, u32, u32, Vec<u8>)> = vec![
             (1, 0, 0, b"same".to_vec()),
@@ -183,19 +168,12 @@ mod tests {
                 .unwrap();
         }
 
-        let shallow: Vec<(i64, i64, i64, i64)> =
-            sqlx::query_as("SELECT * FROM tiles_shallow ORDER BY 1, 2, 3")
-                .fetch_all(&mut conn)
-                .await
-                .unwrap();
-        assert_eq!(
-            shallow,
-            [(1, 0, 0, 1), (1, 0, 1, 1), (1, 1, 0, 2), (1, 1, 1, 1)]
-        );
-        assert_eq!(
-            mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(),
-            b"other"
-        );
+        let shallow: Vec<(i64, i64, i64, i64)> = sqlx::query_as("SELECT * FROM tiles_shallow ORDER BY 1, 2, 3")
+            .fetch_all(&mut conn)
+            .await
+            .unwrap();
+        assert_eq!(shallow, [(1, 0, 0, 1), (1, 0, 1, 1), (1, 1, 0, 2), (1, 1, 1, 1)]);
+        assert_eq!(mbt.get_tile(&mut conn, 1, 1, 1).await.unwrap().unwrap(), b"other");
     }
 
     #[actix_rt::test]

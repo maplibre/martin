@@ -51,24 +51,13 @@ impl From<PatchTypeCli> for Option<PatchType> {
 }
 
 pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync + 'static {
-    fn query(
-        &self,
-        sql_where: String,
-        tx_wrk: Sender<S>,
-    ) -> impl Future<Output = MbtResult<()>> + Send;
+    fn query(&self, sql_where: String, tx_wrk: Sender<S>) -> impl Future<Output = MbtResult<()>> + Send;
 
     fn process(&self, value: S) -> MbtResult<T>;
 
-    fn before_insert(
-        &self,
-        conn: &mut SqliteConnection,
-    ) -> impl Future<Output = MbtResult<()>> + Send;
+    fn before_insert(&self, conn: &mut SqliteConnection) -> impl Future<Output = MbtResult<()>> + Send;
 
-    fn insert(
-        &self,
-        value: T,
-        conn: &mut SqliteConnection,
-    ) -> impl Future<Output = MbtResult<()>> + Send;
+    fn insert(&self, value: T, conn: &mut SqliteConnection) -> impl Future<Output = MbtResult<()>> + Send;
 
     async fn run(self, conn: &mut SqliteConnection, sql_where: String) -> MbtResult<()> {
         let patcher = Arc::new(self);
@@ -87,12 +76,7 @@ pub trait BinDiffer<S: Send + 'static, T: Send + 'static>: Sized + Send + Sync +
             });
         }
 
-        start_processor_threads(
-            Arc::clone(&patcher),
-            rx_wrk,
-            tx_ins,
-            Arc::clone(&has_errors),
-        );
+        start_processor_threads(Arc::clone(&patcher), rx_wrk, tx_ins, Arc::clone(&has_errors));
         recv_and_insert(patcher, conn, rx_ins).await?;
 
         if has_errors.load(Relaxed) {
@@ -125,10 +109,7 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
         }
     }
     conn.execute("COMMIT").await?;
-    info!(
-        bindiff.inserted = inserted,
-        "Finished processing bindiff tiles"
-    );
+    info!(bindiff.inserted = inserted, "Finished processing bindiff tiles");
 
     Ok(())
 }
@@ -192,13 +173,7 @@ pub struct BinDiffDiffer {
 }
 
 impl BinDiffDiffer {
-    pub fn new(
-        src_mbt: Mbtiles,
-        dif_mbt: Mbtiles,
-        dif_type: MbtType,
-        patch_type: PatchType,
-        strict: bool,
-    ) -> Self {
+    pub fn new(src_mbt: Mbtiles, dif_mbt: Mbtiles, dif_type: MbtType, patch_type: PatchType, strict: bool) -> Self {
         let insert_sql = format!(
             "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
             get_bsdiff_tbl_name(patch_type)
@@ -219,17 +194,11 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let diff_tiles: String = match self.dif_type {
             // A Cache diff file is read via its `tiles` view, like Flat
             Flat | Cache => "diffDb.tiles".to_owned(),
-            FlatWithHash
-            | Normalized {
-                hash_view: true, ..
-            } => "diffDb.tiles_with_hash".to_owned(),
+            FlatWithHash | Normalized { hash_view: true, .. } => "diffDb.tiles_with_hash".to_owned(),
             Normalized {
                 schema,
                 hash_view: false,
-            } => format!(
-                "({})",
-                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
-            ),
+            } => format!("({})", schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")),
         };
 
         let sql = format!(
@@ -395,13 +364,11 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             value.old_tile
         };
 
-        let patch_data = decode_brotli(&value.patch_data).inspect_err(
-            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"),
-        )?;
+        let patch_data = decode_brotli(&value.patch_data)
+            .inspect_err(|e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"))?;
 
-        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data).inspect_err(
-            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"),
-        )?;
+        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
+            .inspect_err(|e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"))?;
 
         // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);
@@ -428,10 +395,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         })
     }
 
-    fn before_insert(
-        &self,
-        _conn: &mut SqliteConnection,
-    ) -> impl Future<Output = MbtResult<()>> + Send {
+    fn before_insert(&self, _conn: &mut SqliteConnection) -> impl Future<Output = MbtResult<()>> + Send {
         std::future::ready(Ok(()))
     }
 
@@ -464,11 +428,7 @@ pub const fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     }
 }
 
-pub async fn create_bsdiffraw_tables<T>(
-    conn: &mut T,
-    patch_type: PatchType,
-    strict: bool,
-) -> MbtResult<()>
+pub async fn create_bsdiffraw_tables<T>(conn: &mut T, patch_type: PatchType, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {

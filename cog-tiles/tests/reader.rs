@@ -10,9 +10,7 @@ use common::*;
 use rstest::rstest;
 
 async fn open(name: &str) -> AsyncCogReader<MemoryBackend> {
-    AsyncCogReader::try_from_backend(memory(name))
-        .await
-        .unwrap()
+    AsyncCogReader::try_from_backend(memory(name)).await.unwrap()
 }
 
 async fn open_err(name: &str) -> String {
@@ -135,10 +133,7 @@ async fn sparse_tiles_are_none() {
     "float32.tif",
     "only 8-bit unsigned samples are supported, found [32] bits of [Float]"
 )]
-#[case::utm(
-    "utm.tif",
-    "its CRS is EPSG:32630, but only EPSG:3857 (Web Mercator) is supported"
-)]
+#[case::utm("utm.tif", "its CRS is EPSG:32630, but only EPSG:3857 (Web Mercator) is supported")]
 #[case::unaligned(
     "unaligned.tif",
     "image 0 is not aligned to the zoom 16 tile grid; image 1 is not aligned to the zoom 15 tile grid"
@@ -151,10 +146,7 @@ async fn sparse_tiles_are_none() {
 async fn unsupported_files_are_rejected_with_a_reason(#[case] name: &str, #[case] reason: &str) {
     assert_eq!(
         open_err(name).await,
-        format!(
-            "{} cannot be read as tiles: {reason}",
-            fixture(name).display()
-        )
+        format!("{} cannot be read as tiles: {reason}", fixture(name).display())
     );
 }
 
@@ -168,9 +160,7 @@ async fn malformed_files_are_errors_not_panics() {
 
     let full = std::fs::read(fixture("rgb_jpeg.tif")).unwrap();
     let truncated = MemoryBackend::new(full[..600].to_vec(), "truncated");
-    AsyncCogReader::try_from_backend(truncated)
-        .await
-        .unwrap_err();
+    AsyncCogReader::try_from_backend(truncated).await.unwrap_err();
 }
 
 #[tokio::test]
@@ -180,11 +170,7 @@ async fn opening_reads_headers_in_one_request() {
     let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
     assert_eq!(reads.load(Ordering::SeqCst), 1);
     reader.get_tile(z16(0, 0)).await.unwrap().unwrap();
-    assert_eq!(
-        reads.load(Ordering::SeqCst),
-        2,
-        "a passthrough tile is one range read"
-    );
+    assert_eq!(reads.load(Ordering::SeqCst), 2, "a passthrough tile is one range read");
 }
 
 #[tokio::test]
@@ -200,14 +186,10 @@ async fn backend_errors_keep_their_type() {
 #[cfg(feature = "fs")]
 #[tokio::test]
 async fn local_files() {
-    let backend = cog_tiles::FileBackend::open(fixture("rgb_jpeg.tif"))
-        .await
-        .unwrap();
+    let backend = cog_tiles::FileBackend::open(fixture("rgb_jpeg.tif")).await.unwrap();
     let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
     assert!(reader.get_tile(z16(0, 1)).await.unwrap().is_some());
-    cog_tiles::FileBackend::open(fixture("missing.tif"))
-        .await
-        .unwrap_err();
+    cog_tiles::FileBackend::open(fixture("missing.tif")).await.unwrap_err();
 }
 
 const PHOTOMETRIC: u16 = 262;
@@ -221,11 +203,7 @@ async fn rgb_jpeg_tiles_pass_through_too() {
     // The same tiles, labelled RGB instead of YCbCr.
     let rgb = patched("rgb_jpeg.tif", |bytes| {
         patch_tag(bytes, PHOTOMETRIC, 0, |v| {
-            if v == PHOTOMETRIC_YCBCR {
-                PHOTOMETRIC_RGB
-            } else {
-                v
-            }
+            if v == PHOTOMETRIC_YCBCR { PHOTOMETRIC_RGB } else { v }
         });
     });
     let rgb = AsyncCogReader::try_from_backend(rgb).await.unwrap();

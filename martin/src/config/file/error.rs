@@ -49,10 +49,7 @@ pub enum ConfigFileError {
     #[error(
         "Passthrough source {source_id} has an unknown tile format {tile_format:?}; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif"
     )]
-    InvalidPassthroughFormat {
-        source_id: String,
-        tile_format: String,
-    },
+    InvalidPassthroughFormat { source_id: String, tile_format: String },
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
@@ -120,9 +117,7 @@ pub enum ConfigFileError {
     RendererPoolSpawnFailed(#[source] std::io::Error),
 
     #[cfg(feature = "_tiles")]
-    #[error(
-        "Tile grid {0} is built in, refer to it by name without defining it, or pick another name"
-    )]
+    #[error("Tile grid {0} is built in, refer to it by name without defining it, or pick another name")]
     TileGridRedefinesBuiltIn(String),
 
     #[cfg(feature = "_tiles")]
@@ -130,18 +125,12 @@ pub enum ConfigFileError {
     InvalidTileGrid(#[from] martin_tile_utils::TileGridError),
 
     #[cfg(feature = "_tiles")]
-    #[error(
-        "{what} names a tile grid, but only PostgreSQL, MBTiles and PMTiles sources can be served on one"
-    )]
+    #[error("{what} names a tile grid, but only PostgreSQL, MBTiles and PMTiles sources can be served on one")]
     TileGridNotSupported { what: String },
 
     #[cfg(feature = "_tiles")]
     #[error("{what} refers to tile grid {grid}, which is not configured. Known grids: {known}")]
-    UnknownTileGrid {
-        what: String,
-        grid: String,
-        known: String,
-    },
+    UnknownTileGrid { what: String, grid: String, known: String },
 
     #[cfg(feature = "postgres")]
     #[error("Tile grid {grid} uses {crs}, whose code is not an integer")]
@@ -204,8 +193,7 @@ impl YamlReportKind {
     )]
     fn for_error(err: &serde_saphyr::Error) -> Self {
         use serde_saphyr::Error::{
-            InvalidPropertyName, PropertyRequiredButEmpty, PropertyRequiredButUnset,
-            UnresolvedProperty, WithSnippet,
+            InvalidPropertyName, PropertyRequiredButEmpty, PropertyRequiredButUnset, UnresolvedProperty, WithSnippet,
         };
 
         match err {
@@ -353,9 +341,7 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "postgres")]
             Self::TileGridCrsCodeNotNumeric { .. } => "martin::config::tile_grids::crs_code",
             #[cfg(feature = "postgres")]
-            Self::TileGridCrsNotInDatabase { .. } => {
-                "martin::config::tile_grids::crs_not_in_database"
-            }
+            Self::TileGridCrsNotInDatabase { .. } => "martin::config::tile_grids::crs_not_in_database",
             #[cfg(feature = "postgres")]
             Self::TileGridResolution(..) => "martin::config::tile_grids::resolution",
         };
@@ -487,8 +473,7 @@ mod tests {
         format!(
             "message: {err}\ncode: {}\nhelp: {}\nurl: {}\nlabels: {}\nsource_code: {}\nmiette_report: {}",
             err.code().expect("a code"),
-            err.help()
-                .map_or_else(|| "none".to_owned(), |h| h.to_string()),
+            err.help().map_or_else(|| "none".to_owned(), |h| h.to_string()),
             err.url().expect("a url"),
             some_or_none(err.labels().is_some()),
             some_or_none(err.source_code().is_some()),
@@ -568,8 +553,7 @@ mod tests {
 
     #[test]
     fn invalid_source_url() {
-        let err =
-            ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
+        let err = ConfigFileError::InvalidSourceUrl(url::ParseError::EmptyHost, "http://".to_owned());
         insta::assert_snapshot!(describe(&err), @"
         message: Error empty host while parsing URL http://
         code: martin::config::invalid_source_url
@@ -723,10 +707,7 @@ mod tests {
             .next()
             .expect("a missing root yields an entry")
             .expect_err("a missing root yields an error");
-        let os_error = walk_err
-            .io_error()
-            .expect("a missing root is an IO error")
-            .to_string();
+        let os_error = walk_err.io_error().expect("a missing root is an IO error").to_string();
         let err = ConfigFileError::DirectoryWalking(walk_err, config_yaml());
         let described = describe(&err).replace(&os_error, "<OS ERROR>");
         insta::assert_snapshot!(described, @"
@@ -758,10 +739,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn postgres_pool_creation_failed() {
-        let err = ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter(
-            "x".to_owned(),
-            "y".to_owned(),
-        ));
+        let err =
+            ConfigFileError::PostgresPoolCreationFailed(PostgresError::InvalidFilter("x".to_owned(), "y".to_owned()));
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to create postgres pool: Filter 'x' is not valid CQL2: y
         code: martin::config::postgres::pool_creation
@@ -776,10 +755,7 @@ mod tests {
     #[cfg(feature = "resources")]
     #[test]
     fn font_resolution_failed() {
-        let err = ConfigFileError::FontResolutionFailed(
-            FontError::FontNotFound("Roboto".to_owned()),
-            config_yaml(),
-        );
+        let err = ConfigFileError::FontResolutionFailed(FontError::FontNotFound("Roboto".to_owned()), config_yaml());
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to load fonts from config.yaml: Font Roboto not found
         code: martin::config::fonts::resolution
@@ -794,9 +770,7 @@ mod tests {
     #[cfg(feature = "resources")]
     #[test]
     fn font_alias_resolution_failed() {
-        let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound(
-            "Roboto".to_owned(),
-        ));
+        let err = ConfigFileError::FontAliasResolutionFailed(FontError::FontNotFound("Roboto".to_owned()));
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to configure font alias: Font Roboto not found
         code: martin::config::fonts::alias
@@ -811,9 +785,7 @@ mod tests {
     #[cfg(feature = "resources")]
     #[test]
     fn sprite_alias_resolution_failed() {
-        let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound(
-            "icons".to_owned(),
-        ));
+        let err = ConfigFileError::SpriteAliasResolutionFailed(SpriteError::SpriteNotFound("icons".to_owned()));
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to configure sprite alias: Sprite icons not found
         code: martin::config::sprites::alias
@@ -828,9 +800,8 @@ mod tests {
     #[cfg(feature = "_tiles")]
     #[test]
     fn tile_alias_resolution_failed() {
-        let err = ConfigFileError::TileAliasResolutionFailed(
-            crate::source::TileAliasError::EmptyAlias("all".to_owned()),
-        );
+        let err =
+            ConfigFileError::TileAliasResolutionFailed(crate::source::TileAliasError::EmptyAlias("all".to_owned()));
         insta::assert_snapshot!(describe(&err), @r#"
         message: Failed to configure tile source alias: Tile source alias "all" does not reference any tile sources
         code: martin::config::aliases
@@ -845,8 +816,7 @@ mod tests {
     #[cfg(any(feature = "pmtiles", feature = "cog"))]
     #[test]
     fn object_store_url_parsing() {
-        let err =
-            ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned());
+        let err = ConfigFileError::ObjectStoreUrlParsing(object_store_error(), "s3://bucket".to_owned());
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to parse object store URL of s3://bucket: Operation list not yet implemented by test.
         code: martin::config::pmtiles::object_store_url
@@ -902,10 +872,7 @@ mod tests {
     #[test]
     fn yaml_parse_error_carries_the_source() {
         let err = yaml_error("key: [unterminated", false);
-        assert_eq!(
-            err.code().expect("a code").to_string(),
-            "martin::config::yaml"
-        );
+        assert_eq!(err.code().expect("a code").to_string(), "martin::config::yaml");
         assert!(err.help().is_some());
         assert!(err.source_code().is_some());
         assert!(
@@ -913,20 +880,10 @@ mod tests {
                 .starts_with("Unable to parse YAML in config file config.yaml")
         );
 
-        let report = err
-            .to_miette_report()
-            .expect("yaml errors render as reports");
+        let report = err.to_miette_report().expect("yaml errors render as reports");
         let diag: &dyn Diagnostic = report.as_ref();
-        assert_eq!(
-            diag.code().expect("a code").to_string(),
-            "martin::config::yaml"
-        );
-        assert!(
-            diag.help()
-                .expect("help")
-                .to_string()
-                .contains("highlighted token")
-        );
+        assert_eq!(diag.code().expect("a code").to_string(), "martin::config::yaml");
+        assert!(diag.help().expect("help").to_string().contains("highlighted token"));
         assert_eq!(
             diag.url().expect("a url").to_string(),
             "https://maplibre.org/martin/config-file/"

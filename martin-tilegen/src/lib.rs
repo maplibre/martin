@@ -3,7 +3,7 @@
 
 mod block;
 mod error;
-pub mod expr;
+mod expr;
 mod generate;
 mod phase1;
 mod phase2;
@@ -20,9 +20,7 @@ pub use error::{TileGenError, TileGenResult};
 pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
 pub use map_tile_toolkit::ClipMode;
 pub use phase1::project;
-pub use phase1::{
-    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError,
-};
+pub use phase1::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 pub use phase2::TileFormat;
 pub use plan::{ExprErrors, LayerGrid};
 #[cfg(feature = "mbtiles")]

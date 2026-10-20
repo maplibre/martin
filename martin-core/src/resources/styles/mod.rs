@@ -52,10 +52,7 @@ pub use tile_size::{InvalidTileSize, TileSize};
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub enum StyleKind {
     /// Style only references vector tile sources.
     Vector,
@@ -68,10 +65,7 @@ pub enum StyleKind {
 /// Style metadata.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct CatalogStyleEntry {
     /// Path to the style JSON file.
     // utoipa 5.4 has no native `PathBuf` support - present it as a `String`
@@ -199,8 +193,7 @@ impl StyleSources {
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN)
-            .await
+        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN).await
     }
 
     /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
@@ -299,10 +292,7 @@ mod tests {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
         let styles = StyleSources::default();
-        styles.add_style(
-            "maplibre_demo".to_owned(),
-            style_dir.join("maplibre_demo.json"),
-        );
+        styles.add_style("maplibre_demo".to_owned(), style_dir.join("maplibre_demo.json"));
         styles.add_style(
             "maptiler_basic".to_owned(),
             style_dir.join("src2").join("maptiler_basic.json"),

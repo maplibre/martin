@@ -8,11 +8,8 @@ use super::NULL;
 
 const COALESCE: &str = "coalesce";
 
-type Function = Box<
-    dyn for<'c, 'v> Fn(&mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError>
-        + Send
-        + Sync,
->;
+type Function =
+    Box<dyn for<'c, 'v> Fn(&mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> + Send + Sync>;
 
 pub(super) static SHARED: LazyLock<Shared> = LazyLock::new(Shared::new);
 
@@ -45,10 +42,7 @@ impl Shared {
     }
 }
 
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "signature fixed by cel's function registry"
-)]
+#[expect(clippy::unnecessary_wraps, reason = "signature fixed by cel's function registry")]
 fn coalesce<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> {
     let args = std::mem::take(&mut ftx.args);
     Ok(ftx

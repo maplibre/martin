@@ -39,9 +39,7 @@ impl TryFrom<IndexMap<String, Layer>> for Layers {
 
 impl<'de> Deserialize<'de> for Layers {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        checked_map_with(deserializer, |layers: IndexMap<String, Layer>| {
-            Self::try_from(layers)
-        })
+        checked_map_with(deserializer, |layers: IndexMap<String, Layer>| Self::try_from(layers))
     }
 }
 
@@ -50,12 +48,8 @@ impl CollectUnrecognizedKeys for Layers {
         for (name, layer) in &self.0 {
             let path = format!("{path}{name}.");
             layer.unrecognized.collect_unrecognized(&path, out);
-            layer
-                .rules
-                .collect_unrecognized(&format!("{path}rules."), out);
-            layer
-                .tile
-                .collect_unrecognized(&format!("{path}tile."), out);
+            layer.rules.collect_unrecognized(&format!("{path}rules."), out);
+            layer.tile.collect_unrecognized(&format!("{path}tile."), out);
         }
     }
 }
@@ -148,13 +142,11 @@ impl Layer {
     fn check(&self, name: &str) -> Result<(), TilingConfigError> {
         let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
         match (fixed(self.minzoom.as_ref()), fixed(self.maxzoom.as_ref())) {
-            (Some(min), Some(max)) if min > max => {
-                Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
-                    layer: name.to_owned(),
-                    min: min.get(),
-                    max: max.get(),
-                })
-            }
+            (Some(min), Some(max)) if min > max => Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
+                layer: name.to_owned(),
+                min: min.get(),
+                max: max.get(),
+            }),
             _ => Ok(()),
         }
     }
@@ -197,10 +189,7 @@ mod tests {
             roads: {}
             buildings: {}
         "});
-        assert_eq!(
-            layers.names().collect::<Vec<_>>(),
-            ["water", "roads", "buildings"]
-        );
+        assert_eq!(layers.names().collect::<Vec<_>>(), ["water", "roads", "buildings"]);
     }
 
     #[test]
@@ -268,10 +257,7 @@ mod tests {
         "#});
         assert_eq!(
             layers.get("roads").expect("layer exists").r#where,
-            Some(
-                Expr::new("highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])")
-                    .expect("valid CEL")
-            )
+            Some(Expr::new("highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])").expect("valid CEL"))
         );
     }
 
@@ -316,20 +302,14 @@ mod tests {
             dropped: { id: false }
             computed: { id: 'osm_id * 10' }
         "});
-        let ids: Vec<_> = layers
-            .iter()
-            .map(|(name, l)| (name, l.id.clone()))
-            .collect();
+        let ids: Vec<_> = layers.iter().map(|(name, l)| (name, l.id.clone())).collect();
         assert_eq!(
             ids,
             [
                 ("omitted", IdPolicy::Keep),
                 ("kept", IdPolicy::Keep),
                 ("dropped", IdPolicy::Drop),
-                (
-                    "computed",
-                    IdPolicy::Expr(Expr::new("osm_id * 10").expect("valid CEL"))
-                ),
+                ("computed", IdPolicy::Expr(Expr::new("osm_id * 10").expect("valid CEL"))),
             ]
         );
     }

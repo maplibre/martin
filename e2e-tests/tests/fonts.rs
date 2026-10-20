@@ -63,14 +63,8 @@ async fn a_single_font_file_publishes_only_that_font() {
     let fonts = martin.get("/catalog").await.json()["fonts"].clone();
     assert!(fonts.get("Overpass Mono Regular").is_some(), "{fonts}");
     assert!(fonts.get("Overpass Mono Light").is_none(), "{fonts}");
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
-    assert_eq!(
-        martin.get(&format!("/font/{LIGHT}/0-255")).await.status(),
-        404
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
+    assert_eq!(martin.get(&format!("/font/{LIGHT}/0-255")).await.status(), 404);
 
     martin.stop().await;
     martin.assert_log_contains(r#"error=FontNotFound("Overpass Mono Light")"#);
@@ -178,10 +172,7 @@ async fn a_client_accepting_no_encoding_is_refused() {
 #[case::latin_extended_a("256-511", 144)]
 #[case::codepoints_the_font_lacks("65280-65535", 0)]
 #[tokio::test]
-async fn a_glyph_range_carries_every_codepoint_the_font_covers(
-    #[case] range: &str,
-    #[case] glyphs: usize,
-) {
+async fn a_glyph_range_carries_every_codepoint_the_font_covers(#[case] range: &str, #[case] glyphs: usize) {
     let mut martin = Martin::builder()
         .arg("--font")
         .arg(fixture("fonts"))
@@ -212,16 +203,10 @@ async fn a_fontstack_takes_each_glyph_from_the_first_font_that_has_it() {
     let regular_first = fontstack(&martin.get(&format!("/font/{REGULAR},{LIGHT}/0-255")).await);
     let light_first = fontstack(&martin.get(&format!("/font/{LIGHT},{REGULAR}/0-255")).await);
 
-    assert_eq!(
-        regular_first.name,
-        "Overpass Mono Regular, Overpass Mono Light"
-    );
+    assert_eq!(regular_first.name, "Overpass Mono Regular, Overpass Mono Light");
     assert_eq!(regular_first.range, "0-255");
     assert_eq!(regular_first.glyphs, regular.glyphs);
-    assert_eq!(
-        light_first.name,
-        "Overpass Mono Light, Overpass Mono Regular"
-    );
+    assert_eq!(light_first.name, "Overpass Mono Light, Overpass Mono Regular");
     assert_eq!(light_first.glyphs, light.glyphs);
 
     martin.stop().await;
@@ -238,16 +223,10 @@ async fn a_fontstack_takes_what_its_first_font_lacks_from_the_next() {
         .await
         .expect("failed to start martin");
 
-    let fallback = fontstack(
-        &martin
-            .get("/font/DummyTestFont%20Regular/13056-13311")
-            .await,
-    );
+    let fallback = fontstack(&martin.get("/font/DummyTestFont%20Regular/13056-13311").await);
     let stack = fontstack(
         &martin
-            .get(&format!(
-                "/font/{REGULAR},DummyTestFont%20Regular/13056-13311"
-            ))
+            .get(&format!("/font/{REGULAR},DummyTestFont%20Regular/13056-13311"))
             .await,
     );
 
@@ -351,17 +330,12 @@ async fn a_glyph_range_answers_conditional_requests() {
         .expect("a glyph range must carry an etag")
         .to_owned();
 
-    let cached = martin
-        .get_with_headers(&path, &[("if-none-match", &etag)])
-        .await;
+    let cached = martin.get_with_headers(&path, &[("if-none-match", &etag)]).await;
     assert_eq!(cached.status(), 304);
     assert_eq!(cached.body(), b"");
 
     let stale = martin
-        .get_with_headers(
-            &path,
-            &[("if-none-match", r#"W/"0-0000000000000000000000""#)],
-        )
+        .get_with_headers(&path, &[("if-none-match", r#"W/"0-0000000000000000000000""#)])
         .await;
     assert_eq!(stale.status(), 200);
     assert_eq!(stale.body(), first.body());
@@ -389,10 +363,7 @@ async fn the_plural_fonts_path_redirects() {
             ");
         }
     }
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
 }
@@ -420,10 +391,7 @@ async fn a_glyph_url_with_a_file_extension_redirects(#[case] segment: &str) {
             ");
         }
     }
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
 }
@@ -440,15 +408,8 @@ async fn a_font_configured_from_two_paths_is_registered_once() {
         .expect("failed to start martin");
 
     let fonts = martin.get("/catalog").await.json()["fonts"].clone();
-    assert_eq!(
-        fonts.as_object().map(serde_json::Map::len),
-        Some(2),
-        "{fonts}"
-    );
-    assert_eq!(
-        martin.get(&format!("/font/{REGULAR}/0-255")).await.status(),
-        200
-    );
+    assert_eq!(fonts.as_object().map(serde_json::Map::len), Some(2), "{fonts}");
+    assert_eq!(martin.get(&format!("/font/{REGULAR}/0-255")).await.status(), 200);
 
     martin.stop().await;
     martin.assert_log_contains(
@@ -526,9 +487,7 @@ async fn an_alias_may_shadow_the_font_it_extends() {
     assert_eq!(stack.name, "Overpass Mono Regular, Overpass Mono Light");
 
     martin.stop().await;
-    martin.assert_log_contains(
-        "Font alias shadows a font of the same name; requests for it will serve the alias",
-    );
+    martin.assert_log_contains("Font alias shadows a font of the same name; requests for it will serve the alias");
 }
 
 #[tokio::test]

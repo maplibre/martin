@@ -14,10 +14,7 @@ use testcontainers_modules::testcontainers::runners::SyncRunner as _;
 const SIZES: &[usize] = &[10, 100, 200];
 
 /// Setup [`PostGIS`](https://hub.docker.com/r/postgis/postgis/) container
-fn setup_postgres_container() -> (
-    testcontainers_modules::testcontainers::Container<Postgres>,
-    String,
-) {
+fn setup_postgres_container() -> (testcontainers_modules::testcontainers::Container<Postgres>, String) {
     let container = Postgres::default()
         .with_name("postgis/postgis")
         .with_tag("18-3.6-alpine")
@@ -29,27 +26,17 @@ fn setup_postgres_container() -> (
         .expect("Failed to start container");
 
     let host = container.get_host().expect("Failed to get host");
-    let port = container
-        .get_host_port_ipv4(5432)
-        .expect("Failed to get port");
+    let port = container.get_host_port_ipv4(5432).expect("Failed to get port");
 
-    let connection_string =
-        format!("postgres://postgres:postgres@{host}:{port}/bench?sslmode=disable");
+    let connection_string = format!("postgres://postgres:postgres@{host}:{port}/bench?sslmode=disable");
 
     (container, connection_string)
 }
 
 async fn pool(connection_string: &str) -> PostgresPool {
-    PostgresPool::new(
-        connection_string,
-        None,
-        None,
-        None,
-        10,
-        RetryTimeout::default(),
-    )
-    .await
-    .expect("Failed to create pool")
+    PostgresPool::new(connection_string, None, None, None, 10, RetryTimeout::default())
+        .await
+        .expect("Failed to create pool")
 }
 
 /// Create test tables with various geometries
@@ -95,9 +82,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
         // Add spatial index
         client
             .execute(
-                &format!(
-                    "CREATE INDEX bench_table_{i}_geom_idx ON bench_table_{i} USING GIST (geom)"
-                ),
+                &format!("CREATE INDEX bench_table_{i}_geom_idx ON bench_table_{i} USING GIST (geom)"),
                 &[],
             )
             .await
@@ -107,9 +92,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
         if i % 2 == 0 {
             client
                 .execute(
-                    &format!(
-                        "CREATE INDEX bench_table_{i}_category_idx ON bench_table_{i} (category)"
-                    ),
+                    &format!("CREATE INDEX bench_table_{i}_category_idx ON bench_table_{i} (category)"),
                     &[],
                 )
                 .await

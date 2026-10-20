@@ -36,11 +36,9 @@ const VERSION: &str = "0.0.0";
 
 /// Draws `view` onto the whole frame.
 pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
-    let [header, rest] =
-        Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(frame.area());
+    let [header, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(frame.area());
     let keys_width = u16::try_from(KEYS.len()).unwrap_or(u16::MAX);
-    let [stats, keys] =
-        Layout::horizontal([Constraint::Min(0), Constraint::Length(keys_width)]).areas(header);
+    let [stats, keys] = Layout::horizontal([Constraint::Min(0), Constraint::Length(keys_width)]).areas(header);
     frame.render_widget(header_line(view), stats);
     frame.render_widget(Line::from(KEYS).dim(), keys);
 
@@ -49,10 +47,8 @@ pub fn frame(frame: &mut Frame, view: &Snapshot, log_view: LogView) {
         return;
     }
 
-    let [body, log] =
-        Layout::vertical([Constraint::Min(8), Constraint::Length(LOG_HEIGHT)]).areas(rest);
-    let [left, map] =
-        Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(body);
+    let [body, log] = Layout::vertical([Constraint::Min(8), Constraint::Length(LOG_HEIGHT)]).areas(rest);
+    let [left, map] = Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)]).areas(body);
     let [sources, rate] = Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).areas(left);
 
     frame.render_widget(sources_table(view), sources);
@@ -77,12 +73,7 @@ fn header_line(view: &Snapshot) -> Line<'static> {
 
 fn uptime(uptime: Duration) -> String {
     let seconds = uptime.as_secs();
-    format!(
-        "{:02}:{:02}:{:02}",
-        seconds / 3600,
-        seconds % 3600 / 60,
-        seconds % 60
-    )
+    format!("{:02}:{:02}:{:02}", seconds / 3600, seconds % 3600 / 60, seconds % 60)
 }
 
 fn sources_table(view: &Snapshot) -> Table<'static> {
@@ -178,8 +169,7 @@ fn log_line(line: &LogLine, log_format: LogFormat) -> Line<'_> {
     if let Some(note) = line.text.strip_prefix(NOTE_INDENT) {
         return note_line(note);
     }
-    event_line(&line.text, line.level, color)
-        .unwrap_or_else(|| Line::from(line.text.as_str()).fg(color))
+    event_line(&line.text, line.level, color).unwrap_or_else(|| Line::from(line.text.as_str()).fg(color))
 }
 
 /// The color the pretty format gives a level.
@@ -234,10 +224,7 @@ fn field_spans(text: &str, color: Color) -> Vec<Span<'_>> {
 /// The name `part` gives a field, if it opens with one.
 fn field_name(part: &str) -> Option<&str> {
     let (name, _) = part.split_once(": ")?;
-    let plain = !name.is_empty()
-        && name
-            .chars()
-            .all(|char| char.is_alphanumeric() || "_.-".contains(char));
+    let plain = !name.is_empty() && name.chars().all(|char| char.is_alphanumeric() || "_.-".contains(char));
     plain.then_some(name)
 }
 

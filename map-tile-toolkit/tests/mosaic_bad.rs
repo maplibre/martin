@@ -69,10 +69,7 @@ fn load(path: &Path) -> Vec<(TileId, Vec<Vec<Coord<i32>>>)> {
 fn one_bad_fixture([path]: [&Path; 1]) {
     let name = path.file_stem().and_then(|s| s.to_str()).expect("stem");
     let tiles = load(path);
-    assert!(
-        tiles.len() >= 2,
-        "{name}: a conflict needs at least two tiles"
-    );
+    assert!(tiles.len() >= 2, "{name}: a conflict needs at least two tiles");
 
     for order in permutations(tiles.len()) {
         let mut mosaic = Mosaic::new(EXTENT).expect("valid config");

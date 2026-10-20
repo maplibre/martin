@@ -57,38 +57,13 @@ fn requests_fill_the_sources_the_map_and_the_rate() {
 
     // Berlin and Munich at street zooms, the whole world at zoom 2, one tile that was not there,
     // and a catalog request that is counted but has no place on the map.
-    dashboard.record_at(
-        Some(tile("berlin", 12, 2200, 1343)),
-        StatusCode::OK,
-        ms(12),
-        at(1),
-    );
-    dashboard.record_at(
-        Some(tile("berlin", 13, 4401, 2686)),
-        StatusCode::OK,
-        ms(8),
-        at(1),
-    );
-    dashboard.record_at(
-        Some(tile("munich", 12, 2180, 1409)),
-        StatusCode::OK,
-        ms(30),
-        at(2),
-    );
+    dashboard.record_at(Some(tile("berlin", 12, 2200, 1343)), StatusCode::OK, ms(12), at(1));
+    dashboard.record_at(Some(tile("berlin", 13, 4401, 2686)), StatusCode::OK, ms(8), at(1));
+    dashboard.record_at(Some(tile("munich", 12, 2180, 1409)), StatusCode::OK, ms(30), at(2));
     dashboard.record_at(Some(tile("world", 2, 0, 1)), StatusCode::OK, ms(3), at(2));
-    dashboard.record_at(
-        Some(tile("world", 5, 9, 12)),
-        StatusCode::NOT_FOUND,
-        ms(1),
-        at(2),
-    );
+    dashboard.record_at(Some(tile("world", 5, 9, 12)), StatusCode::NOT_FOUND, ms(1), at(2));
     dashboard.record_at(None, StatusCode::OK, ms(1), at(3));
-    dashboard.record_at(
-        Some(tile("berlin", 14, 8802, 5373)),
-        StatusCode::OK,
-        ms(9),
-        at(18),
-    );
+    dashboard.record_at(Some(tile("berlin", 14, 8802, 5373)), StatusCode::OK, ms(9), at(18));
 
     insta::assert_snapshot!(render(&dashboard, at(20), LogView::default()));
 }
@@ -235,26 +210,16 @@ fn quit_keys_stop_the_dashboard() {
     }
     let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(press(ctrl_c, &dashboard, &mut log, 0), Flow::Quit);
-    assert_eq!(
-        press(key(KeyCode::Char('x')), &dashboard, &mut log, 0),
-        Flow::Continue
-    );
+    assert_eq!(press(key(KeyCode::Char('x')), &dashboard, &mut log, 0), Flow::Continue);
 }
 
 #[test]
 fn c_clears_and_l_toggles_the_log_size() {
     let dashboard = Dashboard::new(LogFormat::Pretty);
-    dashboard.record(
-        Some(tile("berlin", 1, 0, 0)),
-        StatusCode::OK,
-        Duration::ZERO,
-    );
+    dashboard.record(Some(tile("berlin", 1, 0, 0)), StatusCode::OK, Duration::ZERO);
     let mut log = LogView::default();
 
-    assert_eq!(
-        press(key(KeyCode::Char('c')), &dashboard, &mut log, 0),
-        Flow::Continue
-    );
+    assert_eq!(press(key(KeyCode::Char('c')), &dashboard, &mut log, 0), Flow::Continue);
     assert_eq!(dashboard.snapshot().requests, 0);
 
     press(key(KeyCode::Char('l')), &dashboard, &mut log, 0);

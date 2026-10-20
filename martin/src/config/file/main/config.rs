@@ -37,8 +37,7 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
-    UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig, UnrecognizedValues,
 };
 #[cfg(any(
     feature = "pmtiles",
@@ -229,9 +228,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>")
     )]
     pub sprites: SpriteConfig,
 
@@ -245,9 +242,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>")
     )]
     pub styles: StyleConfig,
 
@@ -260,9 +255,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>")
     )]
     pub fonts: FontConfig,
 
@@ -300,12 +293,7 @@ pub struct Config {
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical
-    #[serde(
-        alias = "warnings",
-        alias = "warning",
-        alias = "continue",
-        alias = "ignore"
-    )]
+    #[serde(alias = "warnings", alias = "warning", alias = "continue", alias = "ignore")]
     Warn,
     /// Log warnings as errors, abort startup
     #[default]
@@ -385,9 +373,8 @@ mod tests {
         // For errors that don't carry source location info, JSON mode still emits a JSON
         // document so downstream tools can keep parsing rather than choking on a free-form
         // log line.
-        let envelope =
-            crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
-                .render_diagnostic_with(LogFormat::Json);
+        let envelope = crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
+            .render_diagnostic_with(LogFormat::Json);
         let parsed: serde_json::Value =
             serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
         let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");

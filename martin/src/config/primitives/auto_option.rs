@@ -67,11 +67,7 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
     }
 
     fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
-        Ok(if v {
-            AutoOption::Auto
-        } else {
-            AutoOption::Disabled
-        })
+        Ok(if v { AutoOption::Auto } else { AutoOption::Disabled })
     }
 
     fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {

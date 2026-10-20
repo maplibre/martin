@@ -5,23 +5,11 @@ use tilejson::TileJSON;
 use tracing::{error, info};
 
 #[must_use]
-pub fn normalize_key<T>(
-    map: &BTreeMap<String, T>,
-    key: &str,
-    info: &str,
-    id: &str,
-) -> Option<String> {
-    find_info_kv(map, key, info, id)
-        .map(|(k, _)| k.to_owned())
-        .ok()
+pub fn normalize_key<T>(map: &BTreeMap<String, T>, key: &str, info: &str, id: &str) -> Option<String> {
+    find_info_kv(map, key, info, id).map(|(k, _)| k.to_owned()).ok()
 }
 
-pub fn find_info<'a, T>(
-    map: &'a BTreeMap<String, T>,
-    key: &'a str,
-    info: &str,
-    id: &str,
-) -> Result<&'a T, String> {
+pub fn find_info<'a, T>(map: &'a BTreeMap<String, T>, key: &'a str, info: &str, id: &str) -> Result<&'a T, String> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
@@ -98,10 +86,7 @@ pub fn find_schema_info<'a, T>(
 /// If there is no exact match, but there is a case-insensitive match, return that as `Ok(Some(value))`.
 /// If there is no exact match and there are multiple case-insensitive matches, return an error with a vector of the possible matches.
 /// If there is no match, return `Ok(None)`.
-pub fn find_kv_ignore_case<'a, T>(
-    map: &'a BTreeMap<String, T>,
-    key: &str,
-) -> Result<Option<&'a String>, Vec<String>> {
+pub fn find_kv_ignore_case<'a, T>(map: &'a BTreeMap<String, T>, key: &str) -> Result<Option<&'a String>, Vec<String>> {
     let key = key.to_lowercase();
     let mut result = None;
     let mut multiple = Vec::new();
@@ -118,11 +103,7 @@ pub fn find_kv_ignore_case<'a, T>(
             }
         }
     }
-    if multiple.is_empty() {
-        Ok(result)
-    } else {
-        Err(multiple)
-    }
+    if multiple.is_empty() { Ok(result) } else { Err(multiple) }
 }
 
 #[must_use]

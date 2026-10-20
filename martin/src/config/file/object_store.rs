@@ -12,9 +12,7 @@ use aws_runtime::env_config::file::EnvConfigFiles;
 use dashmap::DashMap;
 use object_store::aws::{AmazonS3Builder, AmazonS3ConfigKey, AwsCredential, AwsCredentialProvider};
 use object_store::azure::MicrosoftAzureBuilder;
-use object_store::client::{
-    ClientConfigKey, ClientOptions, HttpClient, HttpConnector, ReqwestConnector,
-};
+use object_store::client::{ClientConfigKey, ClientOptions, HttpClient, HttpConnector, ReqwestConnector};
 use object_store::gcp::GoogleCloudStorageBuilder;
 use object_store::http::HttpBuilder;
 use object_store::{CredentialProvider, ObjectStore, ObjectStoreScheme};
@@ -41,11 +39,7 @@ const AWS_CREDENTIAL_DISCOVERY_KEYS: &[AmazonS3ConfigKey] = &[
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObjectStoreConfig {
     /// AWS SDK profile used for S3 credentials and region resolution.
-    #[serde(
-        default,
-        alias = "aws_profile",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, alias = "aws_profile", skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub profile: Option<String>,
 
@@ -115,12 +109,10 @@ fn is_sensitive_option(key: &str) -> bool {
 }
 
 fn is_proxy_option(key: &str) -> bool {
-    matches!(
-        key.parse::<ClientConfigKey>(),
-        Ok(ClientConfigKey::ProxyUrl)
-    ) || key
-        .parse::<AmazonS3ConfigKey>()
-        .is_ok_and(|key| key.as_ref() == "proxy_url")
+    matches!(key.parse::<ClientConfigKey>(), Ok(ClientConfigKey::ProxyUrl))
+        || key
+            .parse::<AmazonS3ConfigKey>()
+            .is_ok_and(|key| key.as_ref() == "proxy_url")
         || key
             .parse::<object_store::gcp::GoogleConfigKey>()
             .is_ok_and(|key| key.as_ref() == "proxy_url")
@@ -129,10 +121,7 @@ fn is_proxy_option(key: &str) -> bool {
             .is_ok_and(|key| key.as_ref() == "proxy_url")
 }
 
-fn serializable_option<'a>(
-    key: &str,
-    json_value: &'a serde_json::Value,
-) -> Option<Cow<'a, serde_json::Value>> {
+fn serializable_option<'a>(key: &str, json_value: &'a serde_json::Value) -> Option<Cow<'a, serde_json::Value>> {
     if is_sensitive_option(key) {
         return None;
     }
@@ -199,8 +188,7 @@ impl ObjectStoreConfig {
         let Some(profile) = self.profile.clone() else {
             return;
         };
-        let loader = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .profile_name(profile.clone());
+        let loader = aws_config::defaults(aws_config::BehaviorVersion::latest()).profile_name(profile.clone());
         #[cfg(test)]
         let loader = if let Some(files) = &self.aws_profile_files {
             let region_provider = ProfileFileRegionProvider::builder()
@@ -216,19 +204,12 @@ impl ObjectStoreConfig {
     }
 
     fn apply_aws_config(&mut self, sdk_config: &aws_config::SdkConfig, namespace: &str) {
-        let has_region = [
-            "region",
-            "aws_region",
-            "default_region",
-            "aws_default_region",
-        ]
-        .iter()
-        .any(|key| self.options.contains_key(*key));
+        let has_region = ["region", "aws_region", "default_region", "aws_default_region"]
+            .iter()
+            .any(|key| self.options.contains_key(*key));
         if has_region {
             if namespace == "pmtiles" {
-                warn!(
-                    "Region from pmtiles.profile is ignored in favor of explicit PMTiles region configuration."
-                );
+                warn!("Region from pmtiles.profile is ignored in favor of explicit PMTiles region configuration.");
             } else {
                 warn!(
                     config.key = %format_args!("{namespace}.profile"),
@@ -236,8 +217,7 @@ impl ObjectStoreConfig {
                 );
             }
         } else if let Some(region) = sdk_config.region() {
-            self.options
-                .insert("region".to_owned(), region.as_ref().to_owned());
+            self.options.insert("region".to_owned(), region.as_ref().to_owned());
         }
 
         let has_explicit_credentials = [
@@ -298,10 +278,7 @@ impl ObjectStoreConfig {
     }
 
     /// Builds the store for `url`, sharing HTTP connection pools across sources.
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "ObjectStoreScheme is non-exhaustive"
-    )]
+    #[expect(clippy::wildcard_enum_match_arm, reason = "ObjectStoreScheme is non-exhaustive")]
     pub(crate) fn parse_url_opts(
         &self,
         url: &Url,
@@ -330,19 +307,12 @@ impl ObjectStoreConfig {
                 }
                 Box::new(builder.build()?)
             }
-            ObjectStoreScheme::GoogleCloudStorage => {
-                Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?)
-            }
-            ObjectStoreScheme::MicrosoftAzure => {
-                Box::new(with_options!(MicrosoftAzureBuilder, url).build()?)
-            }
+            ObjectStoreScheme::GoogleCloudStorage => Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?),
+            ObjectStoreScheme::MicrosoftAzure => Box::new(with_options!(MicrosoftAzureBuilder, url).build()?),
             ObjectStoreScheme::Http => {
                 // object_store keeps its boolean parser private, these are the spellings it accepts
                 let allow_http = self.options.get("allow_http").is_some_and(|value| {
-                    matches!(
-                        value.to_ascii_lowercase().as_str(),
-                        "1" | "true" | "on" | "yes" | "y"
-                    )
+                    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
                 });
                 if url.scheme() == "http" && !allow_http {
                     return Err(object_store::Error::Generic {
@@ -380,9 +350,7 @@ impl ObjectStoreConfig {
                 serde_json::Value::Bool(value) => Some(value.to_string()),
                 serde_json::Value::Number(value) => Some(value.to_string()),
                 serde_json::Value::String(value) => Some(value.clone()),
-                value @ (serde_json::Value::Null
-                | serde_json::Value::Array(_)
-                | serde_json::Value::Object(_)) => {
+                value @ (serde_json::Value::Null | serde_json::Value::Array(_) | serde_json::Value::Object(_)) => {
                     warn!(
                         config.key = %format_args!("{namespace}.{key}"),
                         config.value = ?value,
@@ -413,14 +381,7 @@ impl ObjectStoreConfig {
         }
     }
 
-    fn adopt_aws_value(
-        &mut self,
-        kind: &str,
-        key: &str,
-        new_key: &str,
-        value: String,
-        namespace: &str,
-    ) -> bool {
+    fn adopt_aws_value(&mut self, kind: &str, key: &str, new_key: &str, value: String, namespace: &str) -> bool {
         let prefixed = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
             warn!(
@@ -477,9 +438,7 @@ mod tests {
 
     use super::*;
 
-    fn prepared(
-        values: impl IntoIterator<Item = (&'static str, serde_json::Value)>,
-    ) -> ObjectStoreConfig {
+    fn prepared(values: impl IntoIterator<Item = (&'static str, serde_json::Value)>) -> ObjectStoreConfig {
         let mut config = ObjectStoreConfig::default();
         let mut unrecognized = values.into_iter().collect();
         config.prepare(&mut unrecognized, "pmtiles");
@@ -492,10 +451,7 @@ mod tests {
     #[case::disabled(Some(json!(false)), false)]
     #[case::enabled(Some(json!(true)), true)]
     #[case::enabled_as_a_word(Some(json!("yes")), true)]
-    fn plain_http_needs_allow_http(
-        #[case] allow_http: Option<serde_json::Value>,
-        #[case] accepted: bool,
-    ) {
+    fn plain_http_needs_allow_http(#[case] allow_http: Option<serde_json::Value>, #[case] accepted: bool) {
         let config = prepared(allow_http.map(|value| ("allow_http", value)));
         let url = Url::parse("http://example.com/tiles.pmtiles").unwrap();
         assert_eq!(config.parse_url_opts(&url).is_ok(), accepted);
@@ -527,16 +483,8 @@ mod tests {
         ]);
         assert_eq!(serde_json::to_value(config).unwrap(), json!({}));
 
-        for key in [
-            "proxy_url",
-            "aws_proxy_url",
-            "google_proxy_url",
-            "azure_proxy_url",
-        ] {
-            let config = prepared([(
-                key,
-                json!("http://proxy-user:proxy-password@proxy.example.com:8080"),
-            )]);
+        for key in ["proxy_url", "aws_proxy_url", "google_proxy_url", "azure_proxy_url"] {
+            let config = prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
             assert_eq!(
                 serde_json::to_value(config).unwrap(),
                 json!({key: "http://proxy.example.com:8080/"})
@@ -647,15 +595,9 @@ mod cog_tests {
         .unwrap();
         config.finalize().await.unwrap();
         let cog = &config.cog;
-        assert_eq!(
-            cog.custom.object_store.options["aws_endpoint"],
-            "http://localhost:9000"
-        );
+        assert_eq!(cog.custom.object_store.options["aws_endpoint"], "http://localhost:9000");
 
-        let state = config
-            .resolve(&IdResolver::new(RESERVED_KEYWORDS))
-            .await
-            .unwrap();
+        let state = config.resolve(&IdResolver::new(RESERVED_KEYWORDS)).await.unwrap();
         let saved = serde_saphyr::to_string(&config.with_catalog(&state.tile_manager)).unwrap();
         let saved: serde_json::Value = serde_saphyr::from_str(&saved).unwrap();
         insta::assert_json_snapshot!(saved["cog"], @r#"

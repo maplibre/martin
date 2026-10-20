@@ -88,8 +88,7 @@ pub trait Source: Send + Sync + Debug {
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
-        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
-            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
+        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom) && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
     }
 
     /// Attempts to create a fresh instance of this source.

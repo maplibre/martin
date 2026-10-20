@@ -5,9 +5,7 @@ use std::num::NonZeroU32;
 
 use itertools::Itertools as _;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, PostgresError};
-use martin_core::tiles::postgres::{
-    PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo, PostgresTiler,
-};
+use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo, PostgresTiler};
 use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
@@ -17,16 +15,12 @@ use crate::config::args::OrderByType;
 use crate::config::file::postgres::resolver::{
     function_name, query_available_function, query_available_tables, query_schemas, table_to_query,
 };
-use crate::config::file::postgres::utils::{
-    find_info, find_kv_ignore_case, find_schema_info, normalize_key,
-};
+use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, find_schema_info, normalize_key};
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish,
-    PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
-use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning,
-};
+use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
 
@@ -94,12 +88,13 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
         // plain planar units are PostGIS's "unknown" SRID, and never contain a pole
         return Ok(PgTileGrid::new(grid.clone(), 0));
     }
-    let code: i32 = grid.crs_code().parse().map_err(|_not_an_integer| {
-        ConfigFileError::TileGridCrsCodeNotNumeric {
+    let code: i32 = grid
+        .crs_code()
+        .parse()
+        .map_err(|_not_an_integer| ConfigFileError::TileGridCrsCodeNotNumeric {
             grid: grid.id().to_owned(),
             crs: grid.crs().to_owned(),
-        }
-    })?;
+        })?;
     let is_epsg = grid.crs_authority().eq_ignore_ascii_case("EPSG");
     let srid = if is_epsg {
         code
@@ -115,10 +110,7 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
         .await
         .map_err(|e| {
             ConfigFileError::TileGridResolution(
-                Box::new(PostgresError(
-                    e,
-                    "looking up a tile grid's CRS in spatial_ref_sys",
-                )),
+                Box::new(PostgresError(e, "looking up a tile grid's CRS in spatial_ref_sys")),
                 grid.id().to_owned(),
             )
         })?
@@ -149,10 +141,7 @@ FROM ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, $5::integer
     let Ok(conn) = pool.get().await else {
         return false;
     };
-    match conn
-        .query_one(sql, &[&min_x, &min_y, &max_x, &max_y, &srid])
-        .await
-    {
+    match conn.query_one(sql, &[&min_x, &min_y, &max_x, &max_y, &srid]).await {
         Ok(row) => row.get::<_, Option<bool>>(0).unwrap_or(false),
         Err(e) => {
             debug!(
@@ -215,34 +204,25 @@ impl PostgresAutoDiscoveryBuilder {
             .tile_grid
             .clone()
             .unwrap_or_else(|| WEB_MERCATOR_QUAD_ID.to_owned());
-        let connection = std::iter::once((
-            "The connection's tile_grid".to_owned(),
-            default_tile_grid.as_str(),
-        ));
+        let connection = std::iter::once(("The connection's tile_grid".to_owned(), default_tile_grid.as_str()));
         let tables = config.tables.iter().flatten().filter_map(|(id, table)| {
             let grid = table.tile_grid.as_deref()?;
             Some((format!("Table source {id}"), grid))
         });
-        let functions = config
-            .functions
-            .iter()
-            .flatten()
-            .filter_map(|(id, function)| {
-                let grid = function.tile_grid.as_deref()?;
-                Some((format!("Function source {id}"), grid))
-            });
+        let functions = config.functions.iter().flatten().filter_map(|(id, function)| {
+            let grid = function.tile_grid.as_deref()?;
+            Some((format!("Function source {id}"), grid))
+        });
         let mut tile_grids = HashMap::new();
         for (what, name) in connection.chain(tables).chain(functions) {
             if tile_grids.contains_key(name) {
                 continue;
             }
-            let grid = grids
-                .get(name)
-                .ok_or_else(|| ConfigFileError::UnknownTileGrid {
-                    what,
-                    grid: name.to_owned(),
-                    known: grids.names().join(", "),
-                })?;
+            let grid = grids.get(name).ok_or_else(|| ConfigFileError::UnknownTileGrid {
+                what,
+                grid: name.to_owned(),
+                known: grids.names().join(", "),
+            })?;
             tile_grids.insert(name.to_owned(), resolve_tile_grid(&pool, grid).await?);
         }
 
@@ -292,16 +272,12 @@ impl PostgresAutoDiscoveryBuilder {
     ///
     /// The cheap half of discovery: one catalog round-trip per source kind, config merge, auto-publish filtering, and id resolution.
     /// Building each source's SQL and computing its bounds is [`instantiate`](Self::instantiate)'s job.
-    pub async fn discover(
-        &self,
-    ) -> PostgresResult<(BTreeMap<String, SourceSpec>, Vec<TileSourceWarning>)> {
+    pub async fn discover(&self) -> PostgresResult<(BTreeMap<String, SourceSpec>, Vec<TileSourceWarning>)> {
         let mut specs = BTreeMap::new();
         let mut warnings = Vec::new();
         let all_schemas = query_schemas(&self.pool).await?;
-        self.discover_tables(&all_schemas, &mut specs, &mut warnings)
-            .await?;
-        self.discover_functions(&all_schemas, &mut specs, &mut warnings)
-            .await?;
+        self.discover_tables(&all_schemas, &mut specs, &mut warnings).await?;
+        self.discover_functions(&all_schemas, &mut specs, &mut warnings).await?;
         self.pool.check_postgis().await?;
         Ok((specs, warnings))
     }
@@ -322,8 +298,7 @@ impl PostgresAutoDiscoveryBuilder {
             return Ok(());
         }
         let restrict_to_tables = self.auto_tables.is_none().then(|| self.configured_tables());
-        let mut db_tables_info =
-            query_available_tables(&self.pool, self.source_schemas(), restrict_to_tables).await?;
+        let mut db_tables_info = query_available_tables(&self.pool, self.source_schemas(), restrict_to_tables).await?;
 
         // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -375,9 +350,9 @@ impl PostgresAutoDiscoveryBuilder {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else {
                     continue;
                 };
-                let db_tables = db_tables_info.remove(&schema).expect(
-                    "schema should be present in db_tables_info after normalize_key lookup",
-                );
+                let db_tables = db_tables_info
+                    .remove(&schema)
+                    .expect("schema should be present in db_tables_info after normalize_key lookup");
                 for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
                     for (geom_column, mut db_inf) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), geom_column.as_str())) {
@@ -514,11 +489,7 @@ impl PostgresAutoDiscoveryBuilder {
     ///
     /// The slow half of discovery: a table builds its SQL and computes its bounds here (the work [`discover`](Self::discover) deferred); a function is cheap, as its SQL is already known.
     /// The returned [`SourceSpec`] carries any computed bounds back for `--save-config`.
-    pub async fn instantiate(
-        &self,
-        id: &str,
-        spec: SourceSpec,
-    ) -> PostgresResult<(BoxedSource, SourceSpec)> {
+    pub async fn instantiate(&self, id: &str, spec: SourceSpec) -> PostgresResult<(BoxedSource, SourceSpec)> {
         match spec {
             SourceSpec::Table(info) => {
                 let grid = self.tile_grid_for(info.tile_grid.as_deref());
@@ -585,12 +556,7 @@ impl PostgresAutoDiscoveryBuilder {
             "tables with a geometry column",
             id,
         )?;
-        let table_infos_for_table = find_info(
-            table_infos_for_schema,
-            &table_info_from_config.table,
-            "table",
-            id,
-        )?;
+        let table_infos_for_table = find_info(table_infos_for_schema, &table_info_from_config.table, "table", id)?;
         let table_info_for_geometry_column = find_info(
             table_infos_for_table,
             &table_info_from_config.geometry_column,
@@ -613,10 +579,7 @@ impl PostgresAutoDiscoveryBuilder {
     ///
     /// If the given (schema, function) combination is not found, returns Err.
     fn build_one_function_info(
-        function_infos_from_db: &BTreeMap<
-            String,
-            BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
-        >,
+        function_infos_from_db: &BTreeMap<String, BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>>,
         all_schemas: &BTreeSet<String>,
         id: &str,
         function_info_from_config: &FunctionInfo,
@@ -631,8 +594,7 @@ impl PostgresAutoDiscoveryBuilder {
         let function_name = &function_info_from_config.function;
         let (function_sql_info, table_info_from_schema) =
             find_info(function_infos_for_schema, function_name, "function", id)?;
-        let merged_function_info =
-            table_info_from_schema.append_cfg_info(function_info_from_config);
+        let merged_function_info = table_info_from_schema.append_cfg_info(function_info_from_config);
         Ok((merged_function_info, function_sql_info.clone()))
     }
 
@@ -688,8 +650,7 @@ impl PostgresAutoDiscoveryBuilder {
             // MapLibre GL JS takes for a custom projection
             tilejson.other.insert(
                 "tileGrid".to_owned(),
-                serde_json::to_value(grid.grid())
-                    .expect("a validated tile grid holds only finite numbers and strings"),
+                serde_json::to_value(grid.grid()).expect("a validated tile grid holds only finite numbers and strings"),
             );
         }
         let tile_info = pg_info.tile_info();
@@ -729,11 +690,7 @@ impl PostgresAutoDiscoveryBuilder {
     }
 }
 
-fn update_auto_fields(
-    id: &str,
-    inf: &mut TableInfo,
-    auto_tables: &PostgresAutoDiscoveryBuilderTables,
-) {
+fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PostgresAutoDiscoveryBuilderTables) {
     if inf.clip_geom.is_none() {
         inf.clip_geom = auto_tables.clip_geom;
     }
@@ -765,7 +722,12 @@ fn update_auto_fields(
                         id_column.found = %result,
                         "id_column not found by exact name, using case-insensitive match"
                     );
-                    (result, props.get(result).expect("result key should be present in props after find_kv_ignore_case lookup"))
+                    (
+                        result,
+                        props
+                            .get(result)
+                            .expect("result key should be present in props after find_kv_ignore_case lookup"),
+                    )
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
@@ -816,17 +778,10 @@ fn calc_auto(
     let auto_tables = use_auto_publish(config, false).then(|| {
         let schemas = get_auto_schemas!(config, tables);
 
-        if let Object(PostgresCfgPublish {
-            tables: Object(v), ..
-        }) = &config.auto_publish
-        {
+        if let Object(PostgresCfgPublish { tables: Object(v), .. }) = &config.auto_publish {
             PostgresAutoDiscoveryBuilderTables {
                 schemas,
-                source_id_format: v
-                    .source_id_format
-                    .as_deref()
-                    .unwrap_or("{table}")
-                    .to_owned(),
+                source_id_format: v.source_id_format.as_deref().unwrap_or("{table}").to_owned(),
                 id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
@@ -841,23 +796,22 @@ fn calc_auto(
         }
     });
 
-    let auto_functions =
-        use_auto_publish(config, true).then(|| PostgresAutoDiscoveryBuilderFunctions {
-            schemas: get_auto_schemas!(config, functions),
-            source_id_format: if let Object(PostgresCfgPublish {
-                functions:
-                    Object(PostgresCfgPublishFuncs {
-                        source_id_format: Some(v),
-                        ..
-                    }),
-                ..
-            }) = &config.auto_publish
-            {
-                v.clone()
-            } else {
-                "{function}".to_owned()
-            },
-        });
+    let auto_functions = use_auto_publish(config, true).then(|| PostgresAutoDiscoveryBuilderFunctions {
+        schemas: get_auto_schemas!(config, functions),
+        source_id_format: if let Object(PostgresCfgPublish {
+            functions:
+                Object(PostgresCfgPublishFuncs {
+                    source_id_format: Some(v),
+                    ..
+                }),
+            ..
+        }) = &config.auto_publish
+        {
+            v.clone()
+        } else {
+            "{function}".to_owned()
+        },
+    });
 
     (auto_tables, auto_functions)
 }
@@ -919,13 +873,9 @@ mod tests {
         auto_funcs: Option<PostgresAutoDiscoveryBuilderFunctions>,
     }
     fn auto(content: &str) -> AutoCfg {
-        let cfg: PostgresConfig =
-            serde_saphyr::from_str(content).expect("parse PostgresConfig YAML");
+        let cfg: PostgresConfig = serde_saphyr::from_str(content).expect("parse PostgresConfig YAML");
         let (auto_table, auto_funcs) = calc_auto(&cfg);
-        AutoCfg {
-            auto_table,
-            auto_funcs,
-        }
+        AutoCfg { auto_table, auto_funcs }
     }
 
     #[rstest]
@@ -1183,8 +1133,7 @@ mod tests {
         let (mut specs, warnings) = builder.discover().await.expect("discover failed");
         assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
 
-        let SourceSpec::Function(info, sql) = specs.get("my_func").expect("spec for my_func")
-        else {
+        let SourceSpec::Function(info, sql) = specs.get("my_func").expect("spec for my_func") else {
             panic!("expected a Function spec");
         };
         assert_yaml_snapshot!(info, @"
@@ -1205,10 +1154,7 @@ mod tests {
         "#);
 
         let spec = specs.remove("my_func").expect("spec for my_func");
-        let (source, _) = builder
-            .instantiate("my_func", spec)
-            .await
-            .expect("instantiate failed");
+        let (source, _) = builder.instantiate("my_func", spec).await.expect("instantiate failed");
         assert_eq!(source.get_id(), "my_func");
     }
 
@@ -1275,10 +1221,7 @@ mod tests {
                 }
             })
             .collect();
-        assert_eq!(
-            warned_ids,
-            HashSet::from(["nonexistent_table", "nonexistent_function"]),
-        );
+        assert_eq!(warned_ids, HashSet::from(["nonexistent_table", "nonexistent_function"]));
     }
 
     #[tokio::test]

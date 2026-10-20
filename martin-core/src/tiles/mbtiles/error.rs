@@ -28,9 +28,7 @@ impl crate::Classify for MbtilesError {
         use crate::ErrorKind::{Internal, Unavailable};
         match self {
             Self::AcquireConnError(..) => Unavailable,
-            Self::MbtilesLibraryError(_) | Self::IoError(..) | Self::InvalidMetadata(..) => {
-                Internal
-            }
+            Self::MbtilesLibraryError(_) | Self::IoError(..) | Self::InvalidMetadata(..) => Internal,
         }
     }
 }

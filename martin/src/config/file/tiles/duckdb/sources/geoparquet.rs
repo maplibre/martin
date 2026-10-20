@@ -33,9 +33,7 @@ impl GeoParquetLocation {
     pub fn from_config(raw: &str) -> ConfigFileResult<Self> {
         if let Some(url) = SourceLocation::parse_remote(
             raw,
-            &[
-                "http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf",
-            ],
+            &["http", "https", "s3", "gs", "gcs", "r2", "az", "azure", "abfss", "hf"],
         )? {
             return Ok(Self::Remote(url));
         }
@@ -84,9 +82,7 @@ impl GeoParquetLocation {
                 })
                 .or_else(|| url.host_str()),
         };
-        stem.filter(|value| !value.is_empty())
-            .unwrap_or("duckdb")
-            .to_owned()
+        stem.filter(|value| !value.is_empty()).unwrap_or("duckdb").to_owned()
     }
 }
 
@@ -175,10 +171,7 @@ mod tests {
     #[case::r2("r2://bucket/data.parquet", "data")]
     #[case::azure("az://account/container/data.parquet", "data")]
     #[case::huggingface("hf://datasets/org/set/data.parquet", "data")]
-    fn from_config_classifies_duckdb_remote_schemes_as_remote(
-        #[case] raw: &str,
-        #[case] stem: &str,
-    ) {
+    fn from_config_classifies_duckdb_remote_schemes_as_remote(#[case] raw: &str, #[case] stem: &str) {
         let location = GeoParquetLocation::from_config(raw).expect("parse remote");
         assert_matches!(location, GeoParquetLocation::Remote(_));
         assert_eq!(location.to_source_string(), raw);

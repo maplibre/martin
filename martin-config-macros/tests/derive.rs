@@ -242,9 +242,7 @@ where
 
 #[test]
 fn where_clauses_are_preserved() {
-    let value = WithWhereClause {
-        inner: bag(&["typo"]),
-    };
+    let value = WithWhereClause { inner: bag(&["typo"]) };
     assert_eq!(keys(&value), ["inner.typo"]);
 }
 

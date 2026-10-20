@@ -4,8 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use martin_e2e_tests::{
-    MartinCp, MbtilesCli, mbtiles_fixture, metadata_listing, summary, summary_filters, temp_dir,
-    tile_listing,
+    MartinCp, MbtilesCli, mbtiles_fixture, metadata_listing, summary, summary_filters, temp_dir, tile_listing,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -134,10 +133,7 @@ async fn copies_as_mlt_under_every_v1_spelling(#[case] format: &str) {
         .await;
 
     let metadata = metadata_listing(&output).await;
-    assert!(
-        metadata.contains("mlt"),
-        "`--format {format}` wrote {metadata}"
-    );
+    assert!(metadata.contains("mlt"), "`--format {format}` wrote {metadata}");
 }
 
 #[tokio::test]
@@ -187,10 +183,7 @@ async fn falls_back_to_the_source_bounds_without_a_bbox() {
     let bounded = dir.path().join("bounded.mbtiles");
     let unbounded = dir.path().join("unbounded.mbtiles");
 
-    for (output, bbox) in [
-        (&bounded, Some("--bbox=0,0,180,85.0511287798066")),
-        (&unbounded, None),
-    ] {
+    for (output, bbox) in [(&bounded, Some("--bbox=0,0,180,85.0511287798066")), (&unbounded, None)] {
         let mut command = MartinCp::new()
             .arg(&source)
             .arg("--output-file")
@@ -227,19 +220,11 @@ async fn writes_the_requested_schema(#[case] mbtiles_type: Option<&str>, #[case]
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let output = dir.path().join("out.mbtiles");
 
-    let mut cp = MartinCp::new()
-        .arg(&source)
-        .arg("--output-file")
-        .arg(&output);
+    let mut cp = MartinCp::new().arg(&source).arg("--output-file").arg(&output);
     if let Some(mbtiles_type) = mbtiles_type {
         cp = cp.arg("--mbtiles-type").arg(mbtiles_type);
     }
-    cp.arg("--min-zoom")
-        .arg("0")
-        .arg("--max-zoom")
-        .arg("1")
-        .run()
-        .await;
+    cp.arg("--min-zoom").arg("0").arg("--max-zoom").arg("1").run().await;
 
     let summary = summary(&output).run_json().await;
     assert_eq!(summary["mbt_type"], expected);
@@ -325,18 +310,14 @@ mod postgres {
 
     use indoc::indoc;
     use martin_e2e_tests::{
-        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-        summary, summary_filters, temp_dir, tiles,
+        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump, summary,
+        summary_filters, temp_dir, tiles,
     };
 
     use crate::{snapshot_filters, validate};
 
     async fn lowest_zoom_tile(path: &Path) -> Vec<u8> {
-        let (_, _, _, data) = tiles(path)
-            .await
-            .into_iter()
-            .next()
-            .expect("the copy wrote no tiles");
+        let (_, _, _, data) = tiles(path).await.into_iter().next().expect("the copy wrote no tiles");
         data
     }
 
@@ -586,10 +567,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/measured_shapes/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/measured_shapes/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -692,11 +670,7 @@ mod postgres {
                 .or_default()
                 .insert(format!("{:?}", feature.geometry()));
         }
-        assert_eq!(
-            geometries.len(),
-            7,
-            "a geometry type is missing: {geometries:#?}"
-        );
+        assert_eq!(geometries.len(), 7, "a geometry type is missing: {geometries:#?}");
         assert!(
             geometries.values().all(|shapes| shapes.len() == 1),
             "a Z or M ordinate moved a geometry: {geometries:#?}"
@@ -714,9 +688,7 @@ mod postgres {
         use std::fs;
 
         use indoc::indoc;
-        use martin_e2e_tests::{
-            MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles,
-        };
+        use martin_e2e_tests::{MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles};
         use mlt_core::geo_types::Geometry;
         use mlt_core::{MValue, PropValue, TileLayer};
 
@@ -1033,10 +1005,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/array_props/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/array_props/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -1116,10 +1085,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/domain_props/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/domain_props/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -1185,9 +1151,7 @@ mod postgres {
             .run()
             .await;
         assert!(
-            log.contains(
-                "Copying through MVT instead of encoding MLT from its rows source.id=table_source"
-            ),
+            log.contains("Copying through MVT instead of encoding MLT from its rows source.id=table_source"),
             "the copy did not report falling back off the row-per-feature path:\n{log}"
         );
 

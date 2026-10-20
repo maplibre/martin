@@ -66,10 +66,7 @@ impl StartupError {
     /// render against.
     #[must_use]
     pub fn render_diagnostic_with(&self, format: crate::logging::LogFormat) -> String {
-        if let Some(report) = self
-            .spanned_config_error()
-            .and_then(ConfigFileError::to_miette_report)
-        {
+        if let Some(report) = self.spanned_config_error().and_then(ConfigFileError::to_miette_report) {
             if format.is_json() {
                 let mut buf = String::new();
                 miette::JSONReportHandler::new()
@@ -83,8 +80,7 @@ impl StartupError {
             // Best-effort JSON envelope so machine consumers always receive a JSON document
             // even for non-spanned errors. `serde_json::to_string` on a `String` is
             // infallible - strings are always valid JSON.
-            let message = serde_json::to_string(&self.to_string())
-                .expect("string serialization is infallible");
+            let message = serde_json::to_string(&self.to_string()).expect("string serialization is infallible");
             return format!(r#"{{"message": {message}}}"#);
         }
         format!("{self}")

@@ -28,9 +28,7 @@ pub fn derive_configuration_livecycle_hooks(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(CollectUnrecognizedKeys)]
 pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    expand(&input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    expand(&input).unwrap_or_else(syn::Error::into_compile_error).into()
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
@@ -76,9 +74,7 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(type_param) = param {
-            type_param
-                .bounds
-                .push(syn::parse_quote!(CollectUnrecognizedKeys));
+            type_param.bounds.push(syn::parse_quote!(CollectUnrecognizedKeys));
         }
     }
     generics
@@ -275,9 +271,7 @@ mod tests {
     #[case::rename_all_fields_is_a_different_option(
         r#"#[serde(rename_all_fields = "kebab-case")] enum E { A { b: bool } }"#
     )]
-    #[case::rename_all_on_a_variant(
-        r#"enum E { #[serde(rename_all = "kebab-case")] A { b: bool } }"#
-    )]
+    #[case::rename_all_on_a_variant(r#"enum E { #[serde(rename_all = "kebab-case")] A { b: bool } }"#)]
     #[case::non_serde_rename_all(r#"#[schemars(rename_all = "kebab-case")] struct S { a: bool }"#)]
     fn expand_accepts(#[case] src: &str) {
         let input: DeriveInput = syn::parse_str(src).expect("input parses");
@@ -287,15 +281,9 @@ mod tests {
     #[rstest]
     #[case::no_attributes("a: bool", "a")]
     #[case::rename(r#"#[serde(rename = "renamed")] a: bool"#, "renamed")]
-    #[case::rename_after_a_valued_option(
-        r#"#[serde(default = "d", rename = "renamed")] a: bool"#,
-        "renamed"
-    )]
+    #[case::rename_after_a_valued_option(r#"#[serde(default = "d", rename = "renamed")] a: bool"#, "renamed")]
     #[case::rename_after_a_bare_flag(r#"#[serde(default, rename = "renamed")] a: bool"#, "renamed")]
-    #[case::rename_in_a_second_attribute(
-        r#"#[serde(default)] #[serde(rename = "renamed")] a: bool"#,
-        "renamed"
-    )]
+    #[case::rename_in_a_second_attribute(r#"#[serde(default)] #[serde(rename = "renamed")] a: bool"#, "renamed")]
     #[case::rename_without_a_value("#[serde(rename)] a: bool", "a")]
     #[case::rename_with_a_non_string_value("#[serde(rename = 7)] a: bool", "a")]
     #[case::other_namespace(r#"#[schemars(rename = "renamed")] a: bool"#, "a")]
@@ -308,23 +296,11 @@ mod tests {
 
     #[rstest]
     #[case::bare_flag("#[serde(flatten)] a: bool", "flatten", true)]
-    #[case::flag_after_a_valued_option(
-        r#"#[serde(default = "d", flatten)] a: bool"#,
-        "flatten",
-        true
-    )]
-    #[case::flag_before_a_valued_option(
-        r#"#[serde(flatten, default = "d")] a: bool"#,
-        "flatten",
-        true
-    )]
+    #[case::flag_after_a_valued_option(r#"#[serde(default = "d", flatten)] a: bool"#, "flatten", true)]
+    #[case::flag_before_a_valued_option(r#"#[serde(flatten, default = "d")] a: bool"#, "flatten", true)]
     #[case::flag_in_a_second_attribute("#[serde(default)] #[serde(skip)] a: bool", "skip", true)]
     #[case::absent("#[serde(default)] a: bool", "flatten", false)]
-    #[case::prefix_of_another_option(
-        r#"#[serde(skip_serializing_if = "f")] a: bool"#,
-        "skip",
-        false
-    )]
+    #[case::prefix_of_another_option(r#"#[serde(skip_serializing_if = "f")] a: bool"#, "skip", false)]
     #[case::other_namespace("#[schemars(flatten)] a: bool", "flatten", false)]
     #[case::no_attributes("a: bool", "flatten", false)]
     fn flag_is_set(#[case] src: &str, #[case] name: &str, #[case] expected: bool) {

@@ -19,7 +19,4 @@ pub use error::{CogError, CogResult, SkippedImage, UnsupportedReason};
 #[cfg(feature = "object-store")]
 pub use object_store;
 pub use reader::{AsyncCogReader, CogInfo, DEFAULT_PREFETCH, TileFormat};
-pub use tile::{
-    EARTH_CIRCUMFERENCE, HALF_EARTH, MAX_ZOOM, TileCoord, mercator_to_lnglat, resolution,
-    tile_extent,
-};
+pub use tile::{EARTH_CIRCUMFERENCE, HALF_EARTH, MAX_ZOOM, TileCoord, mercator_to_lnglat, resolution, tile_extent};

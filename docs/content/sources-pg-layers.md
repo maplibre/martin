@@ -121,10 +121,21 @@ A feature belongs to a layer when all of these hold:
 2. the layer's `geometry` type, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
-A rule's `where` does not filter features: it only picks the rule.
+A [rule](#rules)'s `where` is not one of them.
+A feature that matches no rule stays in the layer.
 
-The database also applies the `geometry` of every layer at the zoom being read, so rows no layer takes
-are never read. When a layer at that zoom has a `where`, Martin reads every row and checks it itself.
+The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no
+layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+
+- comparisons of a column with a literal,
+- `==` or `!=` between two columns, unless both are floats,
+- `in` with a list of literals, `has(feature.x)` and `'x' in feature`,
+- `&&`, `||`, `!` and `? :`.
+
+Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.
+When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
+Listing `attributes` without the `jsonb` property's keys avoids that.
+Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.
 
 ## Attributes
 
@@ -358,8 +369,9 @@ shows how.
   fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
 - `max_feature_count` limits the features read for each tile, or for each block with `prefetch`.
+  The database must apply every `where` first, see [Features](#features), or startup fails.
   With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the
-  draw order. A layer with `where` cannot be limited yet, and fails at startup.
+  draw order.
 - `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding
   a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
   each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a

@@ -85,9 +85,7 @@ pub enum DuckDBError {
     DuckDBTaskJoinError(#[source] JoinError, &'static str),
 
     /// Query preparation failed while serving a tile.
-    #[error(
-        "Error preparing DuckDB query for tile source '{source_id}' ({signature}): {query} {source}"
-    )]
+    #[error("Error preparing DuckDB query for tile source '{source_id}' ({signature}): {query} {source}")]
     PrepareQueryError {
         /// The underlying `DuckDB` error.
         #[source]
@@ -106,12 +104,7 @@ pub enum DuckDBError {
 
     /// Query execution unexpectedly received URL query parameters.
     #[error(r"Unable to get tile {2:#} with query params from DuckDB source {1}: {0}")]
-    GetTileWithQueryError(
-        #[source] Box<DuckdbError>,
-        String,
-        TileCoord,
-        Option<UrlQuery>,
-    ),
+    GetTileWithQueryError(#[source] Box<DuckdbError>, String, TileCoord, Option<UrlQuery>),
 }
 
 impl crate::Classify for DuckDBError {

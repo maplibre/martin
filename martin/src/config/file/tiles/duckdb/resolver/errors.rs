@@ -83,11 +83,6 @@ impl DuckDbSourceError {
         signature: &'static str,
         query: String,
     ) -> Self {
-        Self::IntrospectionQuery(
-            source.to_string(),
-            source_label,
-            signature.to_owned(),
-            query,
-        )
+        Self::IntrospectionQuery(source.to_string(), source_label, signature.to_owned(), query)
     }
 }

@@ -57,16 +57,9 @@ impl ValueFormatter for Cycles {
     }
 
     #[expect(clippy::cast_precision_loss, reason = "statistics only")]
-    fn scale_throughputs(
-        &self,
-        _typical: f64,
-        throughput: &Throughput,
-        values: &mut [f64],
-    ) -> &'static str {
+    fn scale_throughputs(&self, _typical: f64, throughput: &Throughput, values: &mut [f64]) -> &'static str {
         let (count, unit) = match *throughput {
-            Throughput::Elements(n) | Throughput::ElementsAndBytes { elements: n, .. } => {
-                (n, "cycles/elem")
-            }
+            Throughput::Elements(n) | Throughput::ElementsAndBytes { elements: n, .. } => (n, "cycles/elem"),
             Throughput::Bytes(n) | Throughput::BytesDecimal(n) => (n, "cycles/byte"),
             Throughput::Bits(n) => (n, "cycles/bit"),
         };

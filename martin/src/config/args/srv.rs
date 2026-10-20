@@ -3,9 +3,7 @@ use std::time::Duration;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{
-    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
-};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig};
 
 #[allow(
     clippy::doc_markdown,

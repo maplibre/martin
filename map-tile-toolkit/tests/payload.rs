@@ -53,18 +53,11 @@ fn line_payload_survives_slicing_and_the_mosaic() {
     );
 
     // The positions match the same polyline sliced as plain `Coord`s.
-    let plain = vec![
-        Coord { x: 5, y: 5 },
-        Coord { x: 5, y: 15 },
-        Coord { x: 5, y: 25 },
-    ];
+    let plain = vec![Coord { x: 5, y: 5 }, Coord { x: 5, y: 15 }, Coord { x: 5, y: 25 }];
     let positions: BTreeMap<TileId, Vec<Vec<Coord<i32>>>> = tiles
         .iter()
         .map(|(t, runs)| {
-            let runs = runs
-                .iter()
-                .map(|r| r.iter().map(|v| v.position).collect())
-                .collect();
+            let runs = runs.iter().map(|r| r.iter().map(|v| v.position).collect()).collect();
             (*t, runs)
         })
         .collect();
@@ -123,8 +116,7 @@ fn point_payload_rides_into_every_tile_of_the_point() {
 #[test]
 fn polygon_payload_rides_through_pieces_and_fill() {
     // Each vertex carries its index as an M value; the all-tiles pieces equal the single-tile clips.
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/polygons/fixtures/big_fill.geojson");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/polygons/fixtures/big_fill.geojson");
     let polygons = support::load_polygon_fixture(&path);
     let mut m = 0;
     let mut measured = |ring: &[Coord<i32>]| -> Vec<Measured<u32>> {
