@@ -1282,4 +1282,52 @@ mod tests {
         ]
         "#);
     }
+
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct DiscoverFixture {
+        sql: String,
+        config: String,
+    }
+
+    #[derive(serde::Serialize)]
+    struct Discovered {
+        sources: BTreeMap<String, String>,
+        warnings: Vec<String>,
+    }
+
+    #[test]
+    fn discover_matches_each_fixture() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build runtime");
+        insta::glob!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/pg_discover"),
+            "*.yaml",
+            |path| {
+                let text = std::fs::read_to_string(path).expect("read fixture");
+                let fixture: DiscoverFixture = serde_saphyr::from_str(&text).expect("parse fixture");
+                let (specs, warnings) = runtime.block_on(async {
+                    let (builder, _container, connstr) = builder_for(&fixture.config).await;
+                    seed(&connstr, &fixture.sql).await;
+                    builder.discover().await.expect("discover failed")
+                });
+                let discovered = Discovered {
+                    sources: specs
+                        .into_iter()
+                        .map(|(id, spec)| {
+                            let source = match spec {
+                                SourceSpec::Table(info) => format!("table {} SRID {}", info.format_id(), info.srid),
+                                SourceSpec::Function(info, _) => format!("function {}", info.format_id()),
+                            };
+                            (id, source)
+                        })
+                        .collect(),
+                    warnings: warnings.iter().map(ToString::to_string).collect(),
+                };
+                assert_yaml_snapshot!(discovered);
+            }
+        );
+    }
 }

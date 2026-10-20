@@ -1,0 +1,9 @@
+sql: |
+  CREATE SCHEMA a;
+  CREATE SCHEMA b;
+  CREATE TABLE a.roads (gid serial PRIMARY KEY, geom geometry(LineString));
+  CREATE TABLE b.roads (gid serial PRIMARY KEY, geom geometry(LineString, 3857));
+config: |
+  auto_publish:
+    from_schemas: [a, b]
+    tables: true

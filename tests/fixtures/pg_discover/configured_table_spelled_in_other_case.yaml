@@ -1,0 +1,9 @@
+sql: |
+  CREATE SCHEMA a;
+  CREATE TABLE a.roads (gid serial PRIMARY KEY, geom geometry(LineString, 3857));
+config: |
+  auto_publish:
+    from_schemas: a
+    tables: true
+  tables:
+    my_roads: { schema: A, table: Roads, geometry_column: GEOM, srid: 3857 }

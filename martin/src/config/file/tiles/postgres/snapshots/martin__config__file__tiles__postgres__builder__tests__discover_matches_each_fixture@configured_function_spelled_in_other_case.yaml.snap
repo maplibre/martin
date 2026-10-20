@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/postgres/builder.rs
+expression: discovered
+input_file: tests/fixtures/pg_discover/configured_function_spelled_in_other_case.yaml
+---
+sources:
+  my_tiles: function A.Tiles
+  tiles: function a.tiles
+warnings: []
