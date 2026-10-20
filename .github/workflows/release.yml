@@ -273,7 +273,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24 }
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
-      # which pre-commit.ci and autofix.yml otherwise push after it, a commit each.
+      # which autofix.yml otherwise pushes after it.
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Generate the files that follow martin's next version
         id: generate
@@ -283,13 +283,13 @@ jobs:
           # release-plz is on the PATH from the release step
           release-plz update --package martin
           mapfile -t bumped < <(git diff --name-only)
-          # what pre-commit.ci and the autofix.yml jobs push, in the order they push it
-          uvx pre-commit run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
+          # what the autofix.yml jobs push, in the order they push it
+          uvx prek@0.5.5 run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
           just fmt-toml
           npm --prefix demo/frontend install --package-lock-only --no-fund
           npm --prefix martin/martin-ui install --package-lock-only --no-fund
           just gen-schemas
-          uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          uvx prek@0.5.5 run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
           just update-lockfile
