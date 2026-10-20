@@ -82,7 +82,8 @@ impl Translator<'_> {
                     }
                 }
             }
-            (operators::IN, None, [key, feature]) if is_feature(feature) => {
+            (operators::IN, None, [key, feature]) if matches!(&feature.expr, Expr::Ident(name) if name == FEATURE) =>
+            {
                 let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
                 self.column_kind(name)?;
                 Ok(Condition::IsNull {
@@ -164,7 +165,7 @@ impl Translator<'_> {
             Expr::Call(call) => {
                 if call.func_name == operators::INDEX
                     && let [feature, key] = call.args.as_slice()
-                    && is_feature(feature)
+                    && matches!(&feature.expr, Expr::Ident(name) if name == FEATURE)
                 {
                     let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
                     return self.column(name);
@@ -357,11 +358,6 @@ impl Operand {
 /// The kind of column `name`, an error if it is not known.
 fn known_kind(name: &str, kind: Option<ValueKind>) -> Result<ValueKind, TranslateError> {
     kind.ok_or_else(|| TranslateError::UnknownColumnType(name.to_owned()))
-}
-
-/// Whether `expr` is the `feature` variable.
-fn is_feature(expr: &IdedExpr) -> bool {
-    matches!(&expr.expr, Expr::Ident(name) if name == FEATURE)
 }
 
 /// The dotted name `expr` selects, like `name.en`.
