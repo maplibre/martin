@@ -18,11 +18,10 @@ mod memory;
 mod object_store;
 
 #[cfg(feature = "fs")]
-pub use file::FileBackend;
-pub use memory::MemoryBackend;
-
+pub use crate::backend::file::FileBackend;
+pub use crate::backend::memory::MemoryBackend;
 #[cfg(feature = "object-store")]
-pub use self::object_store::ObjectStoreBackend;
+pub use crate::backend::object_store::ObjectStoreBackend;
 
 /// A source of bytes that a COG is read from, such as a local file or an object in S3.
 ///

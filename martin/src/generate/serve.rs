@@ -7,12 +7,12 @@ use martin_core::tiles::postgres::{PostgresEngineInfo, ScanLayout};
 use martin_tilegen::plan::{Plan, RowFilter};
 use martin_tilegen::{MAX_ZOOM, TileGenError};
 
-use super::layers::{LowerOptions, lower_table};
 use super::{GenerateError, GenerateResult};
 use crate::config::args::OrderByType;
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::postgres::resolver::engine_sql;
 use crate::config::file::tiling::Prefetch;
+use crate::generate::layers::{LowerOptions, lower_table};
 
 const DEFAULT_EXTENT: u32 = 4096;
 /// The engine quantizes each zoom into one `i32` grid of `extent << zoom` units, at most `2^30`.

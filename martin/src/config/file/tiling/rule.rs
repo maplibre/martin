@@ -5,10 +5,10 @@ use serde::de::value::SeqAccessDeserializer;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, NonEmpty};
-use super::setting::{Pixels, ZoomSetting, fixed_zoom_range};
-use super::value::ValueSpec;
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, NonEmpty};
+use crate::config::file::tiling::setting::{Pixels, ZoomSetting, fixed_zoom_range};
+use crate::config::file::tiling::value::ValueSpec;
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, PartialEq)]

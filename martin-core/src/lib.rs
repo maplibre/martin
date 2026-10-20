@@ -4,13 +4,13 @@
 #![warn(missing_debug_implementations)]
 
 mod error;
-pub use error::{Classify, ErrorKind};
+pub use crate::error::{Classify, ErrorKind};
 
 /// Generic resource cache shared by sprite, font, and tile caches.
 pub mod cache;
 
 mod cache_zoom_range;
-pub use cache_zoom_range::CacheZoomRange;
+pub use crate::cache_zoom_range::CacheZoomRange;
 
 #[cfg(feature = "metrics")]
 pub mod metrics;

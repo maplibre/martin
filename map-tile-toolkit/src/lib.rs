@@ -2,20 +2,20 @@
 #![forbid(unsafe_code)]
 
 mod error;
-pub use error::TileError;
+pub use crate::error::TileError;
 
 mod tile;
-pub use tile::TileId;
+pub use crate::tile::TileId;
 
 mod vertex;
-pub use vertex::{Measured, PolyVertex, Vertex};
+pub use crate::vertex::{Measured, PolyVertex, Vertex};
 
 // Low-level per-tile polyline clipping used by the slicer.
 mod clip_polyline;
 
 // Exact integer geometry predicates (orientation, point-in-ring) shared across clipping and polygons.
 mod geom;
-pub use geom::signed_area_2x;
+pub use crate::geom::signed_area_2x;
 
 // Low-level per-tile polygon-ring clipping (keep-original with synthetic clip-boundary corners).
 mod clip_polygon;
@@ -28,10 +28,12 @@ mod grid;
 
 // Lazy polygon slicing: the row-by-row scanline behind `Slicer::polygon`.
 mod polygon;
-pub use polygon::{FillRun, PolygonPiece, PolygonSlice, PolygonSlices};
+pub use crate::polygon::{FillRun, PolygonPiece, PolygonSlice, PolygonSlices};
 
 mod slicer;
-pub use slicer::{ClipMode, LineSlice, LineSlices, Local, LocalIter, PointSlice, PointSlices, Slicer, TileLines};
+pub use crate::slicer::{
+    ClipMode, LineSlice, LineSlices, Local, LocalIter, PointSlice, PointSlices, Slicer, TileLines,
+};
 
 mod mosaic;
-pub use mosaic::{Mosaic, PolygonMosaic};
+pub use crate::mosaic::{Mosaic, PolygonMosaic};

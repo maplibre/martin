@@ -1,17 +1,17 @@
 #[cfg(feature = "cog")]
-use super::cog::CogError;
+use crate::tiles::cog::CogError;
 #[cfg(feature = "unstable-duckdb")]
-use super::duckdb::DuckDBError;
+use crate::tiles::duckdb::DuckDBError;
 #[cfg(feature = "processing")]
-use super::hillshade::HillshadeError;
+use crate::tiles::hillshade::HillshadeError;
 #[cfg(feature = "mbtiles")]
-use super::mbtiles::MbtilesError;
+use crate::tiles::mbtiles::MbtilesError;
 #[cfg(feature = "passthrough")]
-use super::passthrough::PassthroughError;
+use crate::tiles::passthrough::PassthroughError;
 #[cfg(feature = "pmtiles")]
-use super::pmtiles::PmtilesError;
+use crate::tiles::pmtiles::PmtilesError;
 #[cfg(feature = "postgres")]
-use super::postgres::PostgresError;
+use crate::tiles::postgres::PostgresError;
 
 /// Errors that can occur during tile processing operations.
 #[non_exhaustive]

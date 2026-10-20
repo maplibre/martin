@@ -1,5 +1,5 @@
 mod error;
-pub use error::MbtilesError;
+pub use crate::tiles::mbtiles::error::MbtilesError;
 
 mod source;
-pub use source::MbtSource;
+pub use crate::tiles::mbtiles::source::MbtSource;

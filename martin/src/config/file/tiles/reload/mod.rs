@@ -29,4 +29,4 @@ mod reloaders;
     feature = "pmtiles",
     feature = "postgres"
 ))]
-pub use reloaders::TileReloaders;
+pub use crate::config::file::tiles::reload::reloaders::TileReloaders;
