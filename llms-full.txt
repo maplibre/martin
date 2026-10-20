@@ -2658,6 +2658,8 @@ A feature belongs to a layer when all of these hold:
 
 A rule's `where` does not filter features: it only picks the rule.
 
+The database also applies the `geometry` of every layer at the zoom being read, so rows no layer takes are never read. When a layer at that zoom has a `where`, Martin reads every row and checks it itself.
+
 ## Attributes
 
 Without `attributes`, a layer writes all of the table source's properties. `[]` writes none.
@@ -2850,7 +2852,7 @@ The tile server renders a table source with `layers` itself instead of asking Po
 
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent` fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
-- `max_feature_count` limits the features read for each tile, or for each block with `prefetch`. With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the draw order. A layer with `where` or `geometry` cannot be limited yet, and fails at startup.
+- `max_feature_count` limits the features read for each tile, or for each block with `prefetch`. With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the draw order. A layer with `where` cannot be limited yet, and fails at startup.
 - `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a tile cache, or outside its zooms, each tile is rendered alone. A table with `prefetch` needs `layers`.
 
 ```yaml
@@ -7703,6 +7705,8 @@ The PostgreSQL source splits each table by what the relation allows:
 
 Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
+Each scan reads only the rows some layer takes, when no layer has a `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/#features>).
+
 ### Feature queue
 
 Readers claim the next partition from a shared counter and stream it as batches of up to 1024 features. The batches go into one queue that holds at most `threads × 2` batches, and every render worker takes the next batch from it. When the workers fall behind, the queue fills and the readers wait, which in turn stops reading from the source. Memory does not grow with the source, and fast readers never race ahead of slow rendering.
@@ -7786,7 +7790,7 @@ The tileset's metadata, including the zooms, the format and each layer's fields,
 
 The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of bulk mode, without its queues and temp files. [Serving](<https://maplibre.org/martin/sources-pg-layers/#serving>) covers its configuration. A request renders a **block**: the tile alone, or with `prefetch`, the block of tiles holding it, see [Prefetch](<#prefetch>).
 
-1. **Read**: one query reads every feature whose geometry meets the block grown by the largest `buffer` of the table's layers. When the grown block crosses the antimeridian, the part past it is read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries in the order PostgreSQL finds them, and the features are numbered in that order, as one partition. `max_feature_count` limits how many it returns. Only with `max_feature_count`, `order_by` sorts them by `id_column` first, to choose which are kept.
+1. **Read**: one query reads every feature whose geometry meets the block grown by the largest `buffer` of the table's layers. When the grown block crosses the antimeridian, the part past it is read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries in the order PostgreSQL finds them, and the features are numbered in that order, as one partition. The query keeps only rows some layer at the block's zoom takes, so `max_feature_count` limits how many of those it returns. Only with `max_feature_count`, `order_by` sorts them by `id_column` first, to choose which are kept.
 2. **Render**: one render worker, on a blocking thread, renders the features at the block's zoom only, and slices them into its tiles only, never into the other tiles they reach. The minimum size and simplification still follow the layer's zooms, so each tile comes out as bulk mode writes it for the same `maxzoom`.
 3. **Sort**: the sort buffer stays in memory. It grows as records arrive instead of reserving its budget, and is never written to a temp file. The merge reads its records back in key order.
 4. **Group and encode**: the grouper and encoder of phase 2, in MBTiles order, write an uncompressed MVT tile for each tile of the block. A tile no feature reaches is empty.
