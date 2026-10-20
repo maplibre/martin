@@ -109,6 +109,10 @@ pub async fn query_available_tables(
                     .and_then(|r| u8::try_from(r).ok().map(char::from)),
                 column_types: serde_json::from_value(row.get("column_types"))
                     .expect("column_types column should be a valid JSON object with string values"),
+                nondeterministic_columns: serde_json::from_value(
+                    row.get("nondeterministic_columns"),
+                )
+                .expect("nondeterministic_columns column should be a valid JSON array of strings"),
                 tilejson,
                 ..Default::default()
             },
@@ -151,7 +155,11 @@ fn indented_columns(id_field: &str, properties: &str) -> String {
 /// Generate an SQL snippet to escape a column name, and optionally alias it.
 /// Assumes to not be the first column in a SELECT statement.
 fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
-    let column = mapping.get(field).map_or(field, |v| v.as_str());
+    escape_column_as(mapping.get(field).map_or(field, |v| v.as_str()), field)
+}
+
+/// The snippet that selects `column` under the name `field`.
+fn escape_column_as(column: &str, field: &str) -> String {
     if field == column {
         format!(", {}", escape_identifier(column))
     } else {
@@ -168,20 +176,37 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 /// `ST_AsMVT` runs such a column through its text output function, so casting keeps the
 /// row-per-feature query's properties identical to the ones the MVT blob carries. A `jsonb`
 /// column is left as it is, for the encoder to spread over properties as `ST_AsMVT` does.
-fn escape_with_alias_as_property(
-    mapping: &HashMap<String, String>,
-    field: &str,
-    pg_type: &str,
-) -> String {
-    if is_typed_property(pg_type) {
-        return escape_with_alias(mapping, field);
+fn escape_with_alias_as_property(info: &TableInfo, field: &str) -> String {
+    match property_column(info, field) {
+        PropertyColumn::Typed(column) => escape_column_as(column, field),
+        PropertyColumn::Text(column) => format!(
+            ", {column}::text AS {alias}",
+            column = escape_identifier(column),
+            alias = escape_identifier(field),
+        ),
     }
-    let column = mapping.get(field).map_or(field, |v| v.as_str());
-    format!(
-        ", {}::text AS {}",
-        escape_identifier(column),
-        escape_identifier(field),
-    )
+}
+
+/// The table column a property is read from.
+pub(super) enum PropertyColumn<'a> {
+    /// A column of a type a tile property can hold.
+    Typed(&'a str),
+    /// A column a tile reads cast to `text`.
+    Text(&'a str),
+}
+
+/// The column property `field` is read from.
+pub(super) fn property_column<'a>(info: &'a TableInfo, field: &'a str) -> PropertyColumn<'a> {
+    let column = info
+        .discovered
+        .prop_mapping
+        .get(field)
+        .map_or(field, String::as_str);
+    if info.property_type(field).is_some_and(is_typed_property) {
+        PropertyColumn::Typed(column)
+    } else {
+        PropertyColumn::Text(column)
+    }
 }
 
 /// Generate a query to fetch tiles from a table.
@@ -339,7 +364,13 @@ impl TableQuerySql {
             .flatten()
             .map(|(column, _)| escape_with_alias(&info.discovered.prop_mapping, column))
             .collect();
-        let row_properties = row_properties(info, info.properties.iter().flatten());
+        let row_properties = row_properties(
+            info,
+            info.properties
+                .iter()
+                .flatten()
+                .map(|(column, _)| column.as_str()),
+        );
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
@@ -567,11 +598,13 @@ pub fn scan_sql(
     condition: Option<&Condition>,
     bbox: Option<Bounds>,
 ) -> PostgresResult<ScanSql> {
-    let selected: Vec<(&String, &String)> = info
+    let selected: Vec<&str> = info
         .properties
         .iter()
         .flatten()
-        .filter(|(column, _)| columns.contains(column))
+        .map(|(column, _)| column)
+        .filter(|column| columns.contains(column))
+        .map(String::as_str)
         .collect();
     let row_properties = row_properties(info, selected.iter().copied());
     let id_field = info.id_column.as_ref().map_or_else(String::new, |id| {
@@ -615,10 +648,7 @@ pub fn scan_sql(
         ),
         crs,
         has_id: info.id_column.is_some(),
-        properties: selected
-            .into_iter()
-            .map(|(column, _)| column.clone())
-            .collect(),
+        properties: selected.into_iter().map(str::to_owned).collect(),
     })
 }
 
@@ -659,16 +689,10 @@ pub fn engine_sql(
 }
 
 /// The properties as tile row queries select them, cast by the type each column is returned as.
-fn row_properties<'a>(
-    info: &TableInfo,
-    properties: impl IntoIterator<Item = (&'a String, &'a String)>,
-) -> String {
+fn row_properties<'a>(info: &TableInfo, properties: impl IntoIterator<Item = &'a str>) -> String {
     properties
         .into_iter()
-        .map(|(column, label)| {
-            let pg_type = info.column_type(column).unwrap_or(label);
-            escape_with_alias_as_property(&info.discovered.prop_mapping, column, pg_type)
-        })
+        .map(|column| escape_with_alias_as_property(info, column))
         .collect()
 }
 

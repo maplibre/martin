@@ -13,6 +13,8 @@ mod retry_timeout;
 pub use crate::tiles::postgres::retry_timeout::RetryTimeout;
 
 mod features;
+#[cfg(feature = "unstable-generate")]
+pub use crate::tiles::postgres::features::column_def;
 pub use crate::tiles::postgres::features::{
     PostgresFeature, PostgresProperty, PostgresTileFeatures, is_typed_property,
 };

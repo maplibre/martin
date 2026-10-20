@@ -3,6 +3,7 @@
 use std::ops::RangeInclusive;
 
 use indexmap::{IndexMap, IndexSet};
+use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef,
     TableDef, ValueDef, ZoomDef,
@@ -62,19 +63,16 @@ pub fn lower_table(
             },
         )
     };
-    let properties: Vec<(&str, bool)> = info
+    let columns: Vec<ColumnDef> = info
         .properties
         .iter()
         .flatten()
-        .map(|(column, label)| {
-            let jsonb = info.column_type(column).unwrap_or(label) == "jsonb";
-            (column.as_str(), jsonb)
-        })
+        .filter_map(|(column, _)| Some(column_def(column.clone(), info.property_type(column)?)))
         .collect();
-    let static_columns: Vec<&str> = properties
+    let static_columns: Vec<&str> = columns
         .iter()
-        .filter(|(_, jsonb)| !jsonb)
-        .map(|(column, _)| *column)
+        .filter(|column| !matches!(column, ColumnDef::Keys(_)))
+        .map(ColumnDef::name)
         .collect();
     let layers = match info.layers.as_deref() {
         None => vec![LayerDef {
@@ -94,20 +92,7 @@ pub fn lower_table(
     if layers.is_empty() {
         return Ok(None);
     }
-    let def = TableDef {
-        columns: properties
-            .into_iter()
-            .map(|(column, jsonb)| {
-                let column = column.to_owned();
-                if jsonb {
-                    ColumnDef::Keys(column)
-                } else {
-                    ColumnDef::Value(column)
-                }
-            })
-            .collect(),
-        layers,
-    };
+    let def = TableDef { columns, layers };
     Ok(Some(ScanTable { info, def }))
 }
 
@@ -368,9 +353,15 @@ mod tests {
             columns: [
                 Value(
                     "name",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "rank",
+                    Some(
+                        Int,
+                    ),
                 ),
             ],
             layers: [
@@ -516,9 +507,15 @@ mod tests {
             columns: [
                 Value(
                     "class",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name",
+                    Some(
+                        String,
+                    ),
                 ),
             ],
             layers: [
@@ -615,6 +612,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn attributes_select_columns_and_jsonb_keys() {
         let scan = lower(
             indoc! {r#"
@@ -654,18 +652,33 @@ mod tests {
             [
                 Value(
                     "class",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name:de",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name:en",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "rank",
+                    Some(
+                        Int,
+                    ),
                 ),
                 Keys(
                     "tags",
@@ -764,6 +777,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::too_many_lines)]
     fn expressions_lower_into_the_layer() {
         let scan = lower(
             indoc! {r#"
@@ -801,15 +815,27 @@ mod tests {
             [
                 Value(
                     "class",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "name:en",
+                    Some(
+                        String,
+                    ),
                 ),
                 Value(
                     "rank",
+                    Some(
+                        Int,
+                    ),
                 ),
             ],
             0..=12,
