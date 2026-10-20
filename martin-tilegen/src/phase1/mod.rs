@@ -67,7 +67,7 @@ impl<'a> RenderWorker<'a> {
         } = self;
         for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
             project_geometry(batch.crs, &mut feature.geometry);
-            let Some(geom) = feature_geom(&feature.geometry) else {
+            let Some(geom) = feature.geometry.feature_geom() else {
                 *skipped += 1;
                 continue;
             };
@@ -160,6 +160,16 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) {
         return;
     }
     match geometry {
+        Geometry::Point(point) => project_coords(crs, std::slice::from_mut(point)),
+        Geometry::Line(line) => project_coords(crs, &mut line.0),
+        Geometry::Polygon(polygon) => {
+            polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
+            polygon.interiors_mut(|rings| {
+                for ring in rings {
+                    project_coords(crs, &mut ring.0);
+                }
+            });
+        }
         Geometry::Points(points) => project_coords(crs, points),
         Geometry::Lines(lines) => {
             for line in lines.iter_mut() {
@@ -177,16 +187,6 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) {
             }
         }
         Geometry::Wkb(_) => {}
-    }
-}
-
-/// The renderable view of a decoded geometry; `None` for one still in WKB.
-fn feature_geom(geometry: &Geometry) -> Option<FeatureGeom<'_>> {
-    match geometry {
-        Geometry::Points(points) => Some(FeatureGeom::Points(points)),
-        Geometry::Lines(lines) => Some(FeatureGeom::Lines(lines)),
-        Geometry::Polygons(polygons) => Some(FeatureGeom::Polygons(polygons)),
-        Geometry::Wkb(_) => None,
     }
 }
 
