@@ -63,11 +63,7 @@ pub fn decode_jpeg(data: &[u8]) -> (u16, u16, Vec<u8>) {
 
 pub fn mean_abs_diff(a: &[u8], b: &[u8]) -> f64 {
     assert_eq!(a.len(), b.len());
-    let sum: u64 = a
-        .iter()
-        .zip(b)
-        .map(|(&x, &y)| u64::from(x.abs_diff(y)))
-        .sum();
+    let sum: u64 = a.iter().zip(b).map(|(&x, &y)| u64::from(x.abs_diff(y))).sum();
     sum as f64 / a.len() as f64
 }
 
@@ -116,10 +112,7 @@ pub fn patch_tag(bytes: &mut [u8], tag: u16, index: usize, change: impl Fn(f64) 
                 continue;
             }
             let kind = u16_at(bytes, entry + 2);
-            assert!(
-                matches!(kind, 3 | 12),
-                "tag {tag} has unsupported type {kind}"
-            );
+            assert!(matches!(kind, 3 | 12), "tag {tag} has unsupported type {kind}");
             if kind == 3 {
                 let at = entry + 8 + index * 2;
                 let value = change(f64::from(u16_at(bytes, at)));

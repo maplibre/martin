@@ -14,9 +14,10 @@ use std::time::{Duration, Instant};
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
+use martin_tilegen::plan::Untranslatable;
 use martin_tilegen::{
-    GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat,
-    TileGenError, TileGenResult, generate,
+    GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, TileGenResult,
+    generate,
 };
 use tilejson::{Bounds, tilejson};
 #[cfg(unix)]
@@ -89,9 +90,7 @@ impl GenerateOptions {
         let encoding = args
             .encoding
             .as_deref()
-            .map(|value| {
-                Encoding::parse(value).ok_or_else(|| GenerateError::BadEncoding(value.to_owned()))
-            })
+            .map(|value| Encoding::parse(value).ok_or_else(|| GenerateError::BadEncoding(value.to_owned())))
             .transpose()?;
         let encoding = resolve_encoding(&args.output_file, format, encoding)?;
         let bbox = match args.bbox.as_slice() {
@@ -130,17 +129,11 @@ impl GenerateOptions {
 }
 
 /// The zooms to render: `--zoom-levels` without gaps, or `--min-zoom` to `--max-zoom`.
-fn zoom_range(
-    min_zoom: Option<u8>,
-    max_zoom: Option<u8>,
-    mut levels: Vec<u8>,
-) -> GenerateResult<RangeInclusive<u8>> {
+fn zoom_range(min_zoom: Option<u8>, max_zoom: Option<u8>, mut levels: Vec<u8>) -> GenerateResult<RangeInclusive<u8>> {
     levels.sort_unstable();
     levels.dedup();
     match (levels.first(), levels.last()) {
-        (Some(&first), Some(&last)) if usize::from(last - first) + 1 == levels.len() => {
-            Ok(first..=last)
-        }
+        (Some(&first), Some(&last)) if usize::from(last - first) + 1 == levels.len() => Ok(first..=last),
         (Some(_), _) => Err(GenerateError::ZoomGaps),
         _ => Ok(min_zoom.unwrap_or(0)..=max_zoom.unwrap_or(DEFAULT_MAX_ZOOM)),
     }
@@ -181,15 +174,11 @@ pub enum GenerateError {
     NoSources,
     #[error("No layer has a zoom between {0} and {1}")]
     NoLayers(u8, u8),
-    #[error(
-        "layer `{0}`: `max_feature_count` with a layer's `where` or `geometry` is not supported yet"
-    )]
-    LimitedLayerFilter(String),
+    #[error("layer `{}`: `max_feature_count` needs `where` checked in SQL, but `{}` {}", .0.layer, .0.expr, .0.reason)]
+    UnlimitableWhere(Untranslatable),
     #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
     CompressedPmtilesMlt,
-    #[error(
-        "Martin cannot detect {0} compression in MBTiles; use `--encoding gzip`, `zlib` or `none`"
-    )]
+    #[error("Martin cannot detect {0} compression in MBTiles; use `--encoding gzip`, `zlib` or `none`")]
     UndetectableMbtilesEncoding(&'static str),
     #[error("Interrupted; removed the partial output {}", .0.display())]
     Interrupted(PathBuf),
@@ -269,9 +258,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     let reporter = tokio::spawn(report(Arc::clone(&progress)));
     let task = tokio::task::spawn_blocking({
         let progress = Arc::clone(&progress);
-        move || -> GenerateResult<Summary> {
-            Ok(sink.generate(&source, &generate_config, metadata, &progress)?)
-        }
+        move || -> GenerateResult<Summary> { Ok(sink.generate(&source, &generate_config, metadata, &progress)?) }
     });
     let result = tokio::select! {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),
@@ -336,34 +323,23 @@ impl Output {
         progress: &Progress,
     ) -> TileGenResult<Summary> {
         match self {
-            Self::Mbtiles(sink) => {
-                generate(source, source.plan(), sink, config, metadata, progress)
-            }
-            Self::Pmtiles(sink) => {
-                generate(source, source.plan(), sink, config, metadata, progress)
-            }
+            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
         }
     }
 }
 
 fn is_pmtiles(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
+    path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
 }
 
 /// The tile compression to write, refusing any that Martin could not serve the output with.
-fn resolve_encoding(
-    output_file: &Path,
-    format: TileFormat,
-    encoding: Option<Encoding>,
-) -> GenerateResult<Encoding> {
+fn resolve_encoding(output_file: &Path, format: TileFormat, encoding: Option<Encoding>) -> GenerateResult<Encoding> {
     let pmtiles_mlt = is_pmtiles(output_file) && matches!(format, TileFormat::Mlt);
     match encoding {
         None if pmtiles_mlt => Ok(Encoding::Uncompressed),
         None => Ok(Encoding::Gzip),
-        Some(encoding) if pmtiles_mlt && encoding.is_encoded() => {
-            Err(GenerateError::CompressedPmtilesMlt)
-        }
+        Some(encoding) if pmtiles_mlt && encoding.is_encoded() => Err(GenerateError::CompressedPmtilesMlt),
         Some(encoding @ (Encoding::Brotli | Encoding::Zstd)) if !is_pmtiles(output_file) => Err(
             GenerateError::UndetectableMbtilesEncoding(encoding.compression().unwrap_or_default()),
         ),
@@ -373,8 +349,7 @@ fn resolve_encoding(
 
 fn generate_config(options: &GenerateOptions) -> GenerateConfig {
     let threads = options.threads;
-    let per_thread =
-        (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+    let per_thread = (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
     GenerateConfig {
         threads,
         sort: SortConfig {
@@ -397,18 +372,14 @@ fn metadata(options: &GenerateOptions) -> tilejson::TileJSON {
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned());
     metadata.bounds = options.bbox;
-    metadata.other.insert(
-        "generator".to_owned(),
-        format!("martin cp v{VERSION} (bulk)").into(),
-    );
+    metadata
+        .other
+        .insert("generator".to_owned(), format!("martin cp v{VERSION} (bulk)").into());
     metadata
 }
 
 /// Discovers the table sources and lowers the requested ones.
-async fn select_sources(
-    config: &Config,
-    options: &GenerateOptions,
-) -> GenerateResult<(PostgresPool, Vec<ScanTable>)> {
+async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<(PostgresPool, Vec<ScanTable>)> {
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
     let grids = TileGrids::resolve(&config.tile_grids)?;
     let mut pools = Vec::new();
@@ -416,9 +387,7 @@ async fn select_sources(
     let mut functions = HashSet::new();
     let mut warnings = Vec::new();
     for pg in &config.postgres {
-        let builder =
-            PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids)
-                .await?;
+        let builder = PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids).await?;
         let (specs, pg_warnings) = builder.discover().await?;
         warnings.extend(pg_warnings);
         for (id, spec) in specs {
@@ -433,10 +402,7 @@ async fn select_sources(
         }
         pools.push(builder.pool().clone());
     }
-    config
-        .on_invalid
-        .unwrap_or_default()
-        .handle_tile_warnings(&warnings)?;
+    config.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
     let requested: Vec<String> = if options.sources.is_empty() {
         tables.keys().cloned().collect()
     } else {
@@ -459,11 +425,7 @@ async fn select_sources(
                 tables.keys().cloned().collect::<Vec<_>>().join(", "),
             ));
         };
-        if let Some(grid) = info
-            .tile_grid
-            .as_deref()
-            .filter(|g| *g != "WebMercatorQuad")
-        {
+        if let Some(grid) = info.tile_grid.as_deref().filter(|g| *g != "WebMercatorQuad") {
             return Err(GenerateError::UnsupportedGrid(id, grid.to_owned()));
         }
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
@@ -473,10 +435,7 @@ async fn select_sources(
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;
     if scans.is_empty() {
-        return Err(GenerateError::NoLayers(
-            *options.zooms.start(),
-            *options.zooms.end(),
-        ));
+        return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
     }
     Ok((pools.swap_remove(pool), scans))
 }

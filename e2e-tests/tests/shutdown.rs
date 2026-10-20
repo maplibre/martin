@@ -20,12 +20,7 @@ async fn stop_with_a_request_in_flight(
     let in_flight = tokio::spawn(async move { Ok(reqwest::get(url).await?.status()) });
 
     timeout(Duration::from_secs(10), async {
-        while upstream
-            .received_requests()
-            .await
-            .unwrap_or_default()
-            .is_empty()
-        {
+        while upstream.received_requests().await.unwrap_or_default().is_empty() {
             sleep(Duration::from_millis(20)).await;
         }
     })
@@ -93,8 +88,5 @@ async fn a_zero_shutdown_timeout_drops_requests_in_flight() {
 
     let status = stop_with_a_request_in_flight(&mut martin, &upstream).await;
 
-    assert!(
-        status.is_err(),
-        "the request in flight must be dropped, got {status:?}"
-    );
+    assert!(status.is_err(), "the request in flight must be dropped, got {status:?}");
 }

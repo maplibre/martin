@@ -148,9 +148,7 @@ fn is_single_tile(matrix: &[u32; 2]) -> bool {
 pub enum TileGridError {
     #[error("tile grid id must not be empty")]
     EmptyId,
-    #[error(
-        "tile grid {0}: crs must be an authority-prefixed identifier such as EPSG:3857, got {1:?}"
-    )]
+    #[error("tile grid {0}: crs must be an authority-prefixed identifier such as EPSG:3857, got {1:?}")]
     InvalidCrs(String, String),
     #[error("tile grid {0}: extent_at_zoom0 must be a positive finite number, got {1}")]
     InvalidExtent(String, f64),
@@ -207,11 +205,7 @@ impl TileGrid {
     /// `WorldCRS84Quad` and most planetary geographic grids are two wide, the OGC UTM quads are two tall.
     pub fn with_matrix_at_zoom0(mut self, matrix: [u32; 2]) -> Result<Self, TileGridError> {
         if !matches!(matrix, [1, 1 | 2] | [2, 1]) {
-            return Err(TileGridError::InvalidMatrix(
-                self.id.into_owned(),
-                matrix[0],
-                matrix[1],
-            ));
+            return Err(TileGridError::InvalidMatrix(self.id.into_owned(), matrix[0], matrix[1]));
         }
         self.matrix_at_zoom0 = matrix;
         Ok(self)
@@ -344,11 +338,7 @@ mod tests {
             .collect();
         assert_eq!(
             wrapping,
-            [
-                "WebMercatorQuad",
-                "WorldCRS84Quad",
-                "WorldMercatorWGS84Quad"
-            ]
+            ["WebMercatorQuad", "WorldCRS84Quad", "WorldMercatorWGS84Quad"]
         );
         let mercator: Vec<&str> = BUILT_IN_GRIDS
             .iter()
@@ -416,9 +406,7 @@ mod tests {
     #[case([0, 1])]
     fn only_one_by_one_two_by_one_and_one_by_two_matrices_exist(#[case] matrix: [u32; 2]) {
         let err = NZTM2000_QUAD.with_matrix_at_zoom0(matrix).unwrap_err();
-        assert!(
-            matches!(err, TileGridError::InvalidMatrix(id, c, r) if id == "NZTM2000Quad" && [c, r] == matrix)
-        );
+        assert!(matches!(err, TileGridError::InvalidMatrix(id, c, r) if id == "NZTM2000Quad" && [c, r] == matrix));
     }
 
     #[test]

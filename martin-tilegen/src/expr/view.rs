@@ -28,9 +28,7 @@ impl ExprKeys {
     pub fn insert(&mut self, name: &str, key: KeyId) {
         match self.keys.binary_search_by(|(k, _)| k.inner().cmp(name)) {
             Ok(pos) => self.keys[pos].1 = key,
-            Err(pos) => self
-                .keys
-                .insert(pos, (CelString::from(name.to_owned()), key)),
+            Err(pos) => self.keys.insert(pos, (CelString::from(name.to_owned()), key)),
         }
     }
 
@@ -63,11 +61,7 @@ pub struct PropSlots {
 
 impl PropSlots {
     /// Indexes `props` once; the view then serves every expression of every layer for this feature.
-    pub fn bind<'a, S>(
-        &'a mut self,
-        keys: &'a ExprKeys,
-        props: &'a [(KeyId, Prop<S>)],
-    ) -> FeatureView<'a, S> {
+    pub fn bind<'a, S>(&'a mut self, keys: &'a ExprKeys, props: &'a [(KeyId, Prop<S>)]) -> FeatureView<'a, S> {
         self.generation = self.generation.wrapping_add(1);
         if self.generation == 0 {
             self.slots.fill((0, 0));
@@ -114,12 +108,12 @@ impl<'a, S: AsRef<str>> FeatureView<'a, S> {
     }
 
     fn lookup_val(&self, key: &dyn Val) -> Result<Option<PropValueRef<'a>>, ExecutionError> {
-        let name =
-            key.downcast_ref::<CelString>()
-                .ok_or_else(|| ExecutionError::UnexpectedType {
-                    got: key.get_type().name().to_owned(),
-                    want: "string".to_owned(),
-                })?;
+        let name = key
+            .downcast_ref::<CelString>()
+            .ok_or_else(|| ExecutionError::UnexpectedType {
+                got: key.get_type().name().to_owned(),
+                want: "string".to_owned(),
+            })?;
         Ok(self.keys.get(name.inner()).and_then(|key| self.prop(key)))
     }
 }
@@ -214,11 +208,7 @@ impl<S: AsRef<str>> Iterable for FeatureView<'_, S> {
 
 impl<S: AsRef<str>> Sizer for FeatureView<'_, S> {
     fn size(&self) -> CelInt {
-        let present = self
-            .keys
-            .keys
-            .iter()
-            .filter(|(_, key)| self.prop(*key).is_some());
+        let present = self.keys.keys.iter().filter(|(_, key)| self.prop(*key).is_some());
         CelInt::from(i64::try_from(present.count()).expect("fewer than 2^63 properties"))
     }
 }
@@ -285,8 +275,7 @@ mod tests {
 
     #[test]
     fn feature_index_reads_keys_that_are_not_identifiers() {
-        let expr =
-            CompiledExpr::compile("feature['name:en']", &["name", "name:en"], false).unwrap();
+        let expr = CompiledExpr::compile("feature['name:en']", &["name", "name:en"], false).unwrap();
         let keys = ExprKeys::columns(&["name", "name:en"]);
         let props = vec![
             (KeyId::new(0), Prop::Str("München".to_owned())),
@@ -299,8 +288,7 @@ mod tests {
 
     #[test]
     fn feature_index_of_a_missing_key_is_null() {
-        let expr =
-            CompiledExpr::compile("feature['name:en'] == null", &["name:en"], false).unwrap();
+        let expr = CompiledExpr::compile("feature['name:en'] == null", &["name:en"], false).unwrap();
         let keys = ExprKeys::columns(&["name:en"]);
         let props: Vec<(KeyId, Prop)> = vec![];
         let mut slots = PropSlots::default();
@@ -362,8 +350,7 @@ mod tests {
 
     #[test]
     fn iterating_feature_yields_the_present_property_names() {
-        let expr =
-            CompiledExpr::compile("feature.map(k, k)", &["ref", "name", "rank"], false).unwrap();
+        let expr = CompiledExpr::compile("feature.map(k, k)", &["ref", "name", "rank"], false).unwrap();
         let keys = ExprKeys::columns(&["ref", "name", "rank"]);
         let props = vec![
             (KeyId::new(2), Prop::I64(2)),

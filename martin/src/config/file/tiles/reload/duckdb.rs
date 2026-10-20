@@ -11,9 +11,7 @@ use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::file::tiles::duckdb::resolver::DuckDbSourceError;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
-use crate::config::file::{
-    CachePolicy, ResolvedProcess, SourceBuildError, SourceBuildResult, TileSourceWarning,
-};
+use crate::config::file::{CachePolicy, ResolvedProcess, SourceBuildError, SourceBuildResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 
 pub struct DuckDbReloader {
@@ -31,11 +29,7 @@ impl DuckDbReloader {
     ) -> Self {
         let default_cache = config.cache.or(default_cache);
 
-        let kind_process = ProcessConfig::layered(
-            global_process,
-            &config.process_config(),
-            &ProcessConfig::default(),
-        );
+        let kind_process = ProcessConfig::layered(global_process, &config.process_config(), &ProcessConfig::default());
 
         let mut local_entries: Vec<(String, GeoParquetEntry)> = Vec::new();
         for source in &config.sources {
@@ -57,10 +51,7 @@ impl DuckDbReloader {
         }
     }
 
-    #[expect(
-        clippy::unused_self,
-        reason = "interface symmetry with other reloaders"
-    )]
+    #[expect(clippy::unused_self, reason = "interface symmetry with other reloaders")]
     pub fn init(&mut self) -> impl Future<Output = SourceBuildResult<Vec<TileSourceWarning>>> {
         ready(Ok(Vec::new()))
     }
@@ -84,11 +75,7 @@ pub struct DuckDbLocalDiscovery {
 }
 
 impl DuckDbLocalDiscovery {
-    fn new(
-        entries: Vec<(String, GeoParquetEntry)>,
-        default_cache: CachePolicy,
-        kind_process: ProcessConfig,
-    ) -> Self {
+    fn new(entries: Vec<(String, GeoParquetEntry)>, default_cache: CachePolicy, kind_process: ProcessConfig) -> Self {
         let kind_process_resolved = kind_process
             .resolve()
             .expect("DuckDB kind-level process config validated at startup");
@@ -131,9 +118,7 @@ impl Discovery for DuckDbLocalDiscovery {
                 Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
                 Err(error) => return ready(Err(SourceBuildError::Io(error))),
             };
-            let mtime = modified
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |d| d.as_nanos());
+            let mtime = modified.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
             sources.insert(id.clone(), (Version::Tracked(mtime), entry.clone()));
         }
         ready(Ok(Discovered::new(sources)))
@@ -166,9 +151,7 @@ impl Discovery for DuckDbLocalDiscovery {
         )
         .map_err(DuckDbSourceError::Pool)?;
 
-        let source =
-            resolve_geoparquet_source(id.to_owned(), entry, pool, self.default_cache.clone())
-                .await?;
+        let source = resolve_geoparquet_source(id.to_owned(), entry, pool, self.default_cache.clone()).await?;
 
         let per_source = entry.process_config();
         let resolved_process = if per_source == ProcessConfig::default() {

@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use mlt_core::{
-    MltResult, NestedKey, NestedKind, NestedValue, PropKind, PropValue, PropertyKey,
-    TileFeatureBuilder, TileLayerBuilder,
+    MltResult, NestedKey, NestedKind, NestedValue, PropKind, PropValue, PropertyKey, TileFeatureBuilder,
+    TileLayerBuilder,
 };
 use serde_json::Value;
 
@@ -21,12 +21,7 @@ pub(super) struct Documents {
 
 impl Documents {
     /// Files one feature's `document` for the column `name` into `docs`.
-    pub(super) fn push(
-        &mut self,
-        name: &str,
-        document: Option<Value>,
-        docs: &mut Vec<(usize, Value)>,
-    ) {
+    pub(super) fn push(&mut self, name: &str, document: Option<Value>, docs: &mut Vec<(usize, Value)>) {
         let Some(document) = document.filter(|d| !d.is_null()) else {
             return;
         };
@@ -55,13 +50,8 @@ impl Documents {
             .map(|(name, shape)| {
                 Ok(match shape.kind(1) {
                     None => None,
-                    Some(NestedKind::Leaf(kind)) => {
-                        Some(Column::Scalar(builder.add_property(name, kind)?, kind))
-                    }
-                    Some(kind) => Some(Column::Nested(
-                        builder.add_nested(name, kind.clone())?,
-                        kind,
-                    )),
+                    Some(NestedKind::Leaf(kind)) => Some(Column::Scalar(builder.add_property(name, kind)?, kind)),
+                    Some(kind) => Some(Column::Nested(builder.add_nested(name, kind.clone())?, kind)),
                 })
             })
             .collect()
@@ -75,11 +65,7 @@ pub(super) enum Column {
 }
 
 impl Column {
-    pub(super) fn set(
-        &self,
-        feature: &mut TileFeatureBuilder<'_>,
-        document: Value,
-    ) -> MltResult<()> {
+    pub(super) fn set(&self, feature: &mut TileFeatureBuilder<'_>, document: Value) -> MltResult<()> {
         match self {
             Self::Scalar(key, kind) => feature.property(*key, leaf(*kind, document))?,
             Self::Nested(key, kind) => feature.nested(*key, value(document, kind))?,
@@ -108,9 +94,7 @@ impl Shape {
             Value::Number(n) if n.is_i64() => Self::Leaf(PropKind::I64),
             Value::Number(_) => Self::Leaf(PropKind::F64),
             Value::String(_) => Self::Leaf(PropKind::Str),
-            Value::Array(items) => Self::List(Box::new(
-                items.iter().map(Self::of).fold(Self::Null, Self::merge),
-            )),
+            Value::Array(items) => Self::List(Box::new(items.iter().map(Self::of).fold(Self::Null, Self::merge))),
             Value::Object(entries) => Self::Map(
                 entries
                     .iter()
@@ -150,9 +134,7 @@ impl Shape {
             Self::Leaf(kind) => Some(NestedKind::Leaf(kind)),
             _ if depth >= MAX_DEPTH => Some(NestedKind::Leaf(PropKind::Str)),
             Self::List(element) => Some(NestedKind::list(
-                element
-                    .kind(depth + 1)
-                    .unwrap_or(NestedKind::Leaf(PropKind::Str)),
+                element.kind(depth + 1).unwrap_or(NestedKind::Leaf(PropKind::Str)),
             )),
             Self::Map(fields) => {
                 let fields: BTreeMap<_, _> = fields
@@ -170,9 +152,9 @@ fn value(document: Value, kind: &NestedKind) -> NestedValue {
     match (kind, document) {
         (_, Value::Null) => kind.null_value(),
         (NestedKind::Leaf(kind), document) => NestedValue::Leaf(leaf(*kind, document)),
-        (NestedKind::List(element), Value::Array(items)) => NestedValue::List(Some(
-            items.into_iter().map(|item| value(item, element)).collect(),
-        )),
+        (NestedKind::List(element), Value::Array(items)) => {
+            NestedValue::List(Some(items.into_iter().map(|item| value(item, element)).collect()))
+        }
         (NestedKind::Map(fields), Value::Object(entries)) => NestedValue::Map(Some(
             entries
                 .into_iter()

@@ -58,11 +58,7 @@ impl TileEncoding {
     }
 
     /// Encodes `batch` with `encoder`, which keeps the layer stats of every tile it encodes.
-    pub(crate) fn encode(
-        &self,
-        encoder: &mut TileEncoder,
-        batch: Vec<TileRecords>,
-    ) -> TileGenResult<Vec<EncodedTile>> {
+    pub(crate) fn encode(&self, encoder: &mut TileEncoder, batch: Vec<TileRecords>) -> TileGenResult<Vec<EncodedTile>> {
         let settings = EncodeSettings {
             layers: &self.infos,
             keys: &self.names,

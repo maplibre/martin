@@ -13,10 +13,7 @@ use crate::config::file::ServerState;
 use crate::srv::ServerStartError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct Catalog {
     // utoipa <=5.4 names every `BTreeMap<K, V>` as `BTreeMap`, so the four
     // catalog fields would collide on a single `$ref` if we let them factor
@@ -40,10 +37,7 @@ pub struct Catalog {
 
 /// Server-wide capability flags
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct CatalogSettings {
     /// Whether server-side style rendering endpoints are enabled.
     #[cfg(all(feature = "rendering", feature = "resources"))]
@@ -51,9 +45,7 @@ pub struct CatalogSettings {
 }
 
 impl Catalog {
-    pub fn new(
-        #[cfg(feature = "resources")] state: &ServerState,
-    ) -> Result<Self, ServerStartError> {
+    pub fn new(#[cfg(feature = "resources")] state: &ServerState) -> Result<Self, ServerStartError> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
             tiles: BTreeMap::default(),
@@ -66,11 +58,7 @@ impl Catalog {
             settings: CatalogSettings {
                 #[cfg(all(feature = "rendering", feature = "resources", target_os = "linux"))]
                 rendering: state.styles.is_rendering_enabled(),
-                #[cfg(all(
-                    feature = "rendering",
-                    feature = "resources",
-                    not(target_os = "linux")
-                ))]
+                #[cfg(all(feature = "rendering", feature = "resources", not(target_os = "linux")))]
                 rendering: false,
             },
         })

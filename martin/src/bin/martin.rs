@@ -1,7 +1,4 @@
-#![expect(
-    clippy::print_stderr,
-    reason = "binary entrypoint reports startup errors to stderr"
-)]
+#![expect(clippy::print_stderr, reason = "binary entrypoint reports startup errors to stderr")]
 
 use std::env;
 #[cfg(feature = "tui")]
@@ -39,14 +36,8 @@ use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "the startup steps in the order they run"
-)]
-async fn start(
-    args: Args,
-    #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
-) -> StartupResult<()> {
+#[expect(clippy::too_many_lines, reason = "the startup steps in the order they run")]
+async fn start(args: Args, #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>) -> StartupResult<()> {
     info!(martin.version = %VERSION, "Starting Martin");
 
     let env = OsEnv;

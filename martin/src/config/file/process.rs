@@ -14,9 +14,7 @@ use tilejson::VectorLayer;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::contour::{ContourProcessConfig, ContourRangeError, ResolvedContour};
 #[cfg(all(feature = "processing", feature = "_tiles"))]
-use crate::config::file::hillshade::{
-    HillshadeProcessConfig, HillshadeRangeError, ResolvedHillshade,
-};
+use crate::config::file::hillshade::{HillshadeProcessConfig, HillshadeRangeError, ResolvedHillshade};
 use crate::config::file::{CacheControlHeader, ConfigFileError};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
@@ -85,20 +83,14 @@ impl ProcessConfig {
         Ok(ResolvedProcess {
             #[cfg(feature = "_tiles")]
             mlt: match &self.convert_to_mlt {
-                None | Some(MltProcessConfig::Auto) => {
-                    MltConversion::Encode(EncoderConfig::default())
-                }
-                Some(MltProcessConfig::Explicit(cfg)) => {
-                    MltConversion::Encode(EncoderConfig::from(cfg.clone()))
-                }
+                None | Some(MltProcessConfig::Auto) => MltConversion::Encode(EncoderConfig::default()),
+                Some(MltProcessConfig::Explicit(cfg)) => MltConversion::Encode(EncoderConfig::from(cfg.clone())),
                 Some(MltProcessConfig::Disabled) => MltConversion::Disabled,
             },
             #[cfg(feature = "_tiles")]
             mvt: match &self.convert_to_mvt {
                 Some(MvtProcessConfig::Disabled) => MvtConversion::Disabled,
-                None | Some(MvtProcessConfig::Auto | MvtProcessConfig::Explicit(_)) => {
-                    MvtConversion::Encode
-                }
+                None | Some(MvtProcessConfig::Auto | MvtProcessConfig::Explicit(_)) => MvtConversion::Encode,
             },
             cache_control: self.cache_control.clone(),
             #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -134,10 +126,7 @@ impl ProcessResolveError {
             all(feature = "processing", feature = "_tiles"),
             all(feature = "processing", feature = "_tiles")
         )),
-        expect(
-            unused_variables,
-            reason = "nothing can fail to resolve without those features"
-        )
+        expect(unused_variables, reason = "nothing can fail to resolve without those features")
     )]
     pub fn for_source(self, source_id: String) -> ConfigFileError {
         match self {
@@ -232,10 +221,7 @@ impl ResolvedProcess {
 
     /// Whether a post-cache processor shapes this source's tiles.
     #[must_use]
-    #[cfg_attr(
-        not(all(feature = "processing", feature = "_tiles")),
-        expect(clippy::unused_self)
-    )]
+    #[cfg_attr(not(all(feature = "processing", feature = "_tiles")), expect(clippy::unused_self))]
     pub const fn is_post_processed(&self) -> bool {
         #[cfg(all(feature = "processing", feature = "_tiles"))]
         if self.hillshade.is_some() {
@@ -625,11 +611,7 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = ProcessConfig::layered(
-            &global,
-            &ProcessConfig::default(),
-            &ProcessConfig::default(),
-        );
+        let resolved = ProcessConfig::layered(&global, &ProcessConfig::default(), &ProcessConfig::default());
         assert_eq!(resolved, global);
     }
 
@@ -673,16 +655,9 @@ mod tests {
         };
         let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Auto));
-        assert_eq!(
-            resolved.cache_control,
-            Some(cache_control("public, max-age=60"))
-        );
+        assert_eq!(resolved.cache_control, Some(cache_control("public, max-age=60")));
 
-        let resolved = ProcessConfig::layered(
-            &ProcessConfig::default(),
-            &source_type,
-            &only_cache_control("no-store"),
-        );
+        let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &only_cache_control("no-store"));
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
         assert_eq!(resolved.cache_control, Some(cache_control("no-store")));
     }
@@ -831,18 +806,12 @@ mod tests {
                 saw_encoder_ref = true;
             }
         }
-        assert!(
-            saw_encoder_ref,
-            "expected $ref to MltEncoderConfig: {schema}"
-        );
+        assert!(saw_encoder_ref, "expected $ref to MltEncoderConfig: {schema}");
     }
 
     #[test]
     fn resolve_of_nothing_configured_is_the_default() {
-        assert_eq!(
-            ProcessConfig::default().resolve().unwrap(),
-            ResolvedProcess::default()
-        );
+        assert_eq!(ProcessConfig::default().resolve().unwrap(), ResolvedProcess::default());
     }
 
     #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -857,10 +826,7 @@ mod tests {
             })),
             ..Default::default()
         };
-        let err = out_of_range
-            .resolve()
-            .unwrap_err()
-            .for_source("dem".to_owned());
+        let err = out_of_range.resolve().unwrap_err().for_source("dem".to_owned());
         insta::assert_snapshot!(err, @"Source dem has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`");
     }
 }

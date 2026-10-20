@@ -131,10 +131,7 @@ mod tests {
     #[case::bool(Value::Bool(true), Ok(Some(Prop::Bool(true))))]
     #[case::list(Value::from(vec![1]), Err(ExecutionError::UnexpectedType { got: "list".to_owned(), want: "a scalar".to_owned() }))]
     #[case::map(Value::from(std::collections::HashMap::from([("k", 1)])), Err(ExecutionError::UnexpectedType { got: "map".to_owned(), want: "a scalar".to_owned() }))]
-    fn prop_coercion(
-        #[case] value: Value,
-        #[case] expected: Result<Option<Prop<Cow<'static, str>>>, ExecutionError>,
-    ) {
+    fn prop_coercion(#[case] value: Value, #[case] expected: Result<Option<Prop<Cow<'static, str>>>, ExecutionError>) {
         assert_eq!(to_prop(value), expected);
     }
 

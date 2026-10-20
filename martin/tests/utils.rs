@@ -31,8 +31,8 @@ pub async fn mock_cfg(yaml: &str) -> Config {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
-        .expect("source can be parsed as yaml");
+    let mut cfg: Config =
+        parse_config(yaml, &env.as_property_map(), Path::new("test.yaml")).expect("source can be parsed as yaml");
     cfg.finalize().await.expect("source can be finalized");
     let res = cfg.get_unrecognized_keys();
     assert!(res.is_empty(), "unrecognized config: {res:?}");
@@ -146,10 +146,7 @@ pub async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
         .await
         .expect("PostGIS container failed to start (is Docker running?)");
     let host = container.get_host().await.expect("container host");
-    let port = container
-        .get_host_port_ipv4(5432)
-        .await
-        .expect("container port");
+    let port = container.get_host_port_ipv4(5432).await.expect("container port");
     let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
     (container, connstr)
 }

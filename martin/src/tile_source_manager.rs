@@ -127,13 +127,7 @@ impl TileSourceManager {
         out
     }
 
-    fn insert(
-        &self,
-        id: String,
-        src: BoxedSource,
-        process: ResolvedProcess,
-        provenance: Option<SourceProvenance>,
-    ) {
+    fn insert(&self, id: String, src: BoxedSource, process: ResolvedProcess, provenance: Option<SourceProvenance>) {
         if let Some(p) = provenance {
             self.provenance.insert(id.clone(), p);
         }
@@ -292,9 +286,7 @@ mod tests {
         ");
 
         let mut removals = BTreeSet::new();
-        removals.insert(DeletedSource {
-            id: "src_a".to_owned(),
-        });
+        removals.insert(DeletedSource { id: "src_a".to_owned() });
         let remove = ReloadAdvisory {
             removals,
             ..Default::default()
@@ -342,10 +334,7 @@ mod tests {
             async move { mgr.wait_for_sources("src_b").await }
         });
         tokio::task::yield_now().await;
-        assert!(
-            !waiting.is_finished(),
-            "a missing source waits while the sources load"
-        );
+        assert!(!waiting.is_finished(), "a missing source waits while the sources load");
         mgr.finish_loading();
         waiting
             .await
@@ -361,28 +350,20 @@ mod tests {
             async move { mgr.wait_for_sources("src_b").await }
         });
         tokio::task::yield_now().await;
-        assert!(
-            !waiting.is_finished(),
-            "a missing source waits while the sources load"
-        );
+        assert!(!waiting.is_finished(), "a missing source waits while the sources load");
         let advisory = ReloadAdvisory {
             additions: vec![new_source("src_b")],
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        waiting
-            .await
-            .expect("a source published during the load ends the wait");
+        waiting.await.expect("a source published during the load ends the wait");
     }
 
     #[test]
     fn from_sources_populates_map() {
         let src = TestSource::empty("x".to_owned()).boxed() as BoxedSource;
-        let mgr = TileSourceManager::from_sources(
-            None,
-            OnInvalid::Abort,
-            vec![vec![(src, ResolvedProcess::default())]],
-        );
+        let mgr =
+            TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(src, ResolvedProcess::default())]]);
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }
@@ -435,10 +416,7 @@ mod tests {
             out
         }
 
-        #[expect(
-            clippy::unused_async,
-            reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
-        )]
+        #[expect(clippy::unused_async, reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps")]
         async fn build(id: String, dir: PathBuf) -> SourceBuildResult<BuiltSource> {
             if id.starts_with(BAD_PREFIX) {
                 return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(

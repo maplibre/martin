@@ -7,23 +7,15 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
-    TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
@@ -65,27 +57,15 @@ impl TileSourceConfiguration for MbtConfig {
     fn cache(&self) -> CachePolicy {
         self.cache.clone()
     }
-    async fn new_sources(
-        &self,
-        id: String,
-        path: PathBuf,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
-        Ok(BackendSource::Mbtiles(
-            MbtSource::new(id, path, cache.zoom()).await?,
-        ))
+    async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
+        Ok(BackendSource::Mbtiles(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
     #[expect(
         clippy::unused_async_trait_impl,
         reason = "unreachable stub; async keeps it simple to write and read"
     )]
-    async fn new_sources_url(
-        &self,
-        _id: String,
-        _url: Url,
-        _cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url, _cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         unreachable!()
     }
 }
@@ -100,8 +80,8 @@ mod tests {
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
-        FileConfigSource, FileConfigSrc, UnrecognizedValues,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig, FileConfigSource,
+        FileConfigSrc, UnrecognizedValues,
     };
 
     #[tokio::test]
@@ -144,10 +124,7 @@ mod tests {
         .unwrap();
         cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
-        assert!(
-            unrecognised.is_empty(),
-            "unrecognized config: {unrecognised:?}"
-        );
+        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
         assert_eq!(
             cfg.paths,
             vec![

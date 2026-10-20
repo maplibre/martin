@@ -1,7 +1,4 @@
-#![expect(
-    clippy::print_stdout,
-    reason = "binary entrypoint writes results to stdout"
-)]
+#![expect(clippy::print_stdout, reason = "binary entrypoint writes results to stdout")]
 
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
@@ -12,9 +9,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
-    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError,
-    MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme,
-    UnixSeconds, UpdateZoomType, apply_patch, pack, unpack,
+    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
+    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType, apply_patch, pack,
+    unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -45,9 +42,7 @@ pub struct Args {
     command: Commands,
 }
 
-#[derive(
-    Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum,
-)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum)]
 #[enum_display(case = "Kebab")]
 pub enum OutputFormat {
     #[default]
@@ -329,13 +324,9 @@ async fn main_int() -> anyhow::Result<()> {
         }
         Commands::Copy(args) => copy(args).await?,
         Commands::Diff(args) => {
-            let copier = args.options.into_copier(
-                args.file1,
-                args.diff,
-                Some(args.file2),
-                None,
-                args.patch_type,
-            );
+            let copier = args
+                .options
+                .into_copier(args.file1, args.diff, Some(args.file2), None, args.patch_type);
             copier.run().instrument(info_span!("diff")).await?;
         }
         Commands::ApplyPatch {
@@ -402,9 +393,7 @@ async fn main_int() -> anyhow::Result<()> {
         } => {
             let span = info_span!("unpack");
             span.pb_set_style(&bar_style());
-            unpack(&input_file, &output_directory, scheme)
-                .instrument(span)
-                .await?;
+            unpack(&input_file, &output_directory, scheme).instrument(span).await?;
         }
         Commands::CachePurge { file, max_size } => {
             cache_purge(file.as_path(), max_size).await?;
@@ -509,8 +498,7 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
 
 /// Spinner with the command name and elapsed time.
 fn spinner_style() -> ProgressStyle {
-    ProgressStyle::with_template("{spinner} {span_name} {elapsed}")
-        .expect("valid progress template")
+    ProgressStyle::with_template("{spinner} {span_name} {elapsed}").expect("valid progress template")
 }
 
 /// Progress bar for a command that knows how many tiles it will handle.
@@ -525,11 +513,9 @@ fn bar_style() -> ProgressStyle {
 
 /// Progress line for a command that counts tiles as it goes.
 fn counting_style() -> ProgressStyle {
-    ProgressStyle::with_template(
-        "{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)",
-    )
-    .expect("valid progress template")
-    .with_key("rate", rate)
+    ProgressStyle::with_template("{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)")
+        .expect("valid progress template")
+        .with_key("rate", rate)
 }
 
 /// Tiles per second, rounded to a whole number.
@@ -545,17 +531,13 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{
-        ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate,
-    };
+    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
     fn copy_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "copy"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "copy"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -638,16 +620,9 @@ mod tests {
     #[test]
     fn copy_min_max_zoom_no_arguments() {
         assert_eq!(
-            Args::try_parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--max-zoom",
-                "--min-zoom",
-            ])
-            .unwrap_err()
-            .kind(),
+            Args::try_parse_from(["mbtiles", "copy", "src_file", "dst_file", "--max-zoom", "--min-zoom",])
+                .unwrap_err()
+                .kind(),
             ErrorKind::InvalidValue
         );
     }
@@ -676,14 +651,7 @@ mod tests {
     #[test]
     fn copy_zoom_levels_arguments() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--zoom-levels",
-                "3,7,1"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--zoom-levels", "3,7,1"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -701,14 +669,7 @@ mod tests {
     #[test]
     fn copy_diff_with_file_arguments() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--diff-with-file",
-                "no_file",
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--diff-with-file", "no_file",]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -723,14 +684,7 @@ mod tests {
     #[test]
     fn copy_diff_with_override_copy_duplicate_mode() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--on-duplicate",
-                "override"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--on-duplicate", "override"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -748,9 +702,7 @@ mod tests {
     #[test]
     fn copy_limit() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -795,9 +747,7 @@ mod tests {
     #[test]
     fn meta_get_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "meta-get"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "meta-get"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -818,9 +768,7 @@ mod tests {
     #[test]
     fn meta_set_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "meta-get"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "meta-get"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -940,14 +888,7 @@ mod tests {
     #[test]
     fn unpack_scheme() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "unpack",
-                "in.mbtiles",
-                "out_dir",
-                "--scheme",
-                "tms"
-            ]),
+            Args::parse_from(["mbtiles", "unpack", "in.mbtiles", "out_dir", "--scheme", "tms"]),
             Args {
                 command: Unpack {
                     input_file: PathBuf::from("in.mbtiles"),

@@ -8,12 +8,8 @@ use tilejson::Bounds;
 use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::auto_publish::{MacroDiscovery, TableDiscovery};
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbCfgPublish, DuckDbSourceSettings, MvtLayerOptions,
-};
-use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
-};
+use crate::config::file::tiles::duckdb::sources::{DuckDbCfgPublish, DuckDbSourceSettings, MvtLayerOptions};
+use crate::config::file::{CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues};
 use crate::config::primitives::OptBoolObj;
 
 #[serde_with::skip_serializing_none]

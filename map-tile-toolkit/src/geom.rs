@@ -128,11 +128,7 @@ pub(crate) fn point_in_ring(p: Coord<i32>, ring: &[Coord<i32>]) -> bool {
 }
 
 /// [`point_in_ring`] over the `m ≥ 3` vertices `at(0..m)` of a ring with no repeated closing vertex.
-pub(crate) fn point_in_distinct_ring(
-    p: Coord<i32>,
-    m: usize,
-    at: impl Fn(usize) -> Coord<i32>,
-) -> bool {
+pub(crate) fn point_in_distinct_ring(p: Coord<i32>, m: usize, at: impl Fn(usize) -> Coord<i32>) -> bool {
     let mut inside = false;
     let mut prev = m - 1;
     for i in 0..m {
@@ -187,11 +183,7 @@ mod tests {
         assert_eq!(orient(c(0, 0), c(2, 2), c(1, 1)), Ordering::Equal); // collinear
         // Full-`i32`-span vectors take the `i128` fallback and must stay exact.
         assert_eq!(
-            orient(
-                c(i32::MIN, i32::MIN),
-                c(i32::MAX, i32::MIN),
-                c(i32::MIN, i32::MAX)
-            ),
+            orient(c(i32::MIN, i32::MIN), c(i32::MAX, i32::MIN), c(i32::MIN, i32::MAX)),
             Ordering::Greater
         );
         assert_eq!(
@@ -236,11 +228,7 @@ mod tests {
         assert_eq!(signed_area_2x(&cw), -32);
         assert_eq!(signed_area_2x::<Coord<i32>>(&[]), 0);
         // Full-`i32` extremes stay exact.
-        let big = [
-            c(i32::MIN, i32::MIN),
-            c(i32::MAX, i32::MIN),
-            c(i32::MAX, i32::MAX),
-        ];
+        let big = [c(i32::MIN, i32::MIN), c(i32::MAX, i32::MIN), c(i32::MAX, i32::MAX)];
         let side = i128::from(i32::MAX) - i128::from(i32::MIN);
         assert_eq!(signed_area_2x(&big), side * side);
     }

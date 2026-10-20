@@ -40,13 +40,7 @@ fn lines_and_points_allocate_nothing() {
             y: (i * 91) % 1000,
         })
         .collect();
-    let diagonal = vec![
-        Coord { x: 3, y: 5 },
-        Coord {
-            x: 999_990,
-            y: 999_000,
-        },
-    ];
+    let diagonal = vec![Coord { x: 3, y: 5 }, Coord { x: 999_990, y: 999_000 }];
     let points: Vec<Coord<i32>> = zigzag.iter().step_by(7).copied().collect();
     let slicer = Slicer::new(25, 2).expect("config");
     let lines = [zigzag.as_slice(), diagonal.as_slice()];
@@ -153,10 +147,7 @@ fn polygon_index_is_a_fraction_of_the_input() {
     let mut slices = 0;
     let first = bytes(|| slices = drain(&mut slicer, &input));
     assert!(slices > 10_000, "{slices}");
-    assert!(
-        first < 8 * N,
-        "first slicing allocated {first} bytes for {N} vertices"
-    );
+    assert!(first < 8 * N, "first slicing allocated {first} bytes for {N} vertices");
     assert_eq!(
         allocations(|| {
             drain(&mut slicer, &input);

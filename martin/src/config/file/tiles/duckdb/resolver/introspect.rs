@@ -42,20 +42,12 @@ pub(crate) async fn introspect(
         return Err(DuckDbSourceError::IdColumnNotFound(id_column.clone()));
     }
 
-    let property_columns = select_property_columns(
-        &all_columns,
-        &geometry_column,
-        layer.id_column.as_deref(),
-        source_label,
-    );
+    let property_columns =
+        select_property_columns(&all_columns, &geometry_column, layer.id_column.as_deref(), source_label);
 
     let srid = match layer.srid {
         Some(srid) => NonZeroI32::new(srid).ok_or_else(|| {
-            DuckDbSourceError::SridNonPositive(
-                geometry_column.clone(),
-                "(configuration)".to_owned(),
-                srid,
-            )
+            DuckDbSourceError::SridNonPositive(geometry_column.clone(), "(configuration)".to_owned(), srid)
         })?,
         None => query_srid(pool, from_expr, source_label, &geometry_column).await?,
     };
@@ -135,10 +127,7 @@ fn select_geometry_column(
         0 => Err(DuckDbSourceError::NoGeometryColumn),
         1 => Ok(geometry_columns[0].0.clone()),
         _ => Err(DuckDbSourceError::AmbiguousGeometryColumn(
-            geometry_columns
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect(),
+            geometry_columns.iter().map(|(name, _)| name.clone()).collect(),
         )),
     }
 }
@@ -154,16 +143,12 @@ async fn query_columns(
 
     pool.generate_tile(move |conn| {
         Ok(conn.prepare(&query).and_then(|mut stmt| {
-            let rows = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?;
+            let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
             rows.collect::<Result<Vec<_>, _>>()
         }))
     })
     .await?
-    .map_err(|source| {
-        DuckDbSourceError::introspection_query(&source, source_label, "columns", query_for_error)
-    })
+    .map_err(|source| DuckDbSourceError::introspection_query(&source, source_label, "columns", query_for_error))
     .map(|rows| rows.into_iter().collect())
 }
 
@@ -193,9 +178,7 @@ async fn query_srid(
                 .optional())
         })
         .await?
-        .map_err(|source| {
-            DuckDbSourceError::introspection_query(&source, source_label, "srid", query_for_error)
-        })?;
+        .map_err(|source| DuckDbSourceError::introspection_query(&source, source_label, "srid", query_for_error))?;
 
     match crs.flatten() {
         None => Err(DuckDbSourceError::SridUnknown(geometry_column)),
@@ -203,36 +186,24 @@ async fn query_srid(
     }
 }
 
-pub(crate) fn parse_crs_to_srid(
-    crs: &str,
-    geometry_column: &str,
-) -> DuckDbSourceResult<NonZeroI32> {
+pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> DuckDbSourceResult<NonZeroI32> {
     let geometry_column = geometry_column.to_owned();
     let crs = crs.trim();
     if crs.is_empty() {
-        return Err(DuckDbSourceError::SridEmpty(
-            geometry_column,
-            crs.to_owned(),
-        ));
+        return Err(DuckDbSourceError::SridEmpty(geometry_column, crs.to_owned()));
     }
 
     if crs.eq_ignore_ascii_case("OGC:CRS84") {
         return Ok(NonZeroI32::new(4326).expect("4326 is non-zero"));
     }
 
-    let Some(auth_code) = crs
-        .strip_prefix("EPSG:")
-        .or_else(|| crs.strip_prefix("epsg:"))
-    else {
-        return Err(DuckDbSourceError::SridUnsupportedCrs(
-            geometry_column,
-            crs.to_owned(),
-        ));
+    let Some(auth_code) = crs.strip_prefix("EPSG:").or_else(|| crs.strip_prefix("epsg:")) else {
+        return Err(DuckDbSourceError::SridUnsupportedCrs(geometry_column, crs.to_owned()));
     };
 
-    let srid = auth_code.parse::<i32>().map_err(|_err| {
-        DuckDbSourceError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_owned())
-    })?;
+    let srid = auth_code
+        .parse::<i32>()
+        .map_err(|_err| DuckDbSourceError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_owned()))?;
 
     NonZeroI32::new(srid).ok_or(DuckDbSourceError::SridNonPositive(
         geometry_column,
@@ -254,10 +225,7 @@ mod tests {
     #[case::epsg_lower("epsg:3857", 3857)]
     #[case::ogc_crs84("OGC:CRS84", 4326)]
     fn parse_crs_to_srid_accepts_epsg_and_crs84(#[case] crs: &str, #[case] expected: i32) {
-        assert_eq!(
-            parse_crs_to_srid(crs, "geom").expect("crs parsed").get(),
-            expected
-        );
+        assert_eq!(parse_crs_to_srid(crs, "geom").expect("crs parsed").get(), expected);
     }
 
     #[test]

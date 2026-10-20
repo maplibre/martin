@@ -8,9 +8,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use object_store::path::Path;
-use object_store::{
-    GetOptions, OBJECT_STORE_COALESCE_DEFAULT, ObjectStore, ObjectStoreExt as _, coalesce_ranges,
-};
+use object_store::{GetOptions, OBJECT_STORE_COALESCE_DEFAULT, ObjectStore, ObjectStoreExt as _, coalesce_ranges};
 
 use crate::backend::{AsyncBackend, check_range};
 use crate::{CogError, CogResult};
@@ -37,10 +35,7 @@ impl ObjectStoreBackend {
     pub async fn open(store: Arc<dyn ObjectStore>, path: impl Into<Path>) -> CogResult<Self> {
         let path = path.into();
         let location = format!("{store}/{path}");
-        let meta = store
-            .head(&path)
-            .await
-            .map_err(|e| CogError::backend(&location, e))?;
+        let meta = store.head(&path).await.map_err(|e| CogError::backend(&location, e))?;
         Ok(Self {
             store,
             path,
@@ -90,11 +85,6 @@ impl AsyncBackend for ObjectStoreBackend {
         for range in &ranges {
             check_range(&self.location, self.size, range)?;
         }
-        coalesce_ranges(
-            &ranges,
-            |range| self.get_pinned(range),
-            OBJECT_STORE_COALESCE_DEFAULT,
-        )
-        .await
+        coalesce_ranges(&ranges, |range| self.get_pinned(range), OBJECT_STORE_COALESCE_DEFAULT).await
     }
 }

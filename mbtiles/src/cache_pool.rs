@@ -100,18 +100,9 @@ impl MbtilesCache {
     ///
     /// See [`Mbtiles::set_cached`] for de-duplication and collision behavior.
     #[hotpath::measure]
-    pub async fn set_cached(
-        &self,
-        z: u8,
-        x: u32,
-        y: u32,
-        data: &[u8],
-        meta: CacheEntryMeta<'_>,
-    ) -> MbtResult<()> {
+    pub async fn set_cached(&self, z: u8, x: u32, y: u32, data: &[u8], meta: CacheEntryMeta<'_>) -> MbtResult<()> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .set_cached(&mut conn, z, x, y, data, meta)
-            .await
+        self.mbtiles.set_cached(&mut conn, z, x, y, data, meta).await
     }
 
     /// Update only the `fetched`/`expires`/`etag` metadata of an existing entry (revalidation).
@@ -119,17 +110,9 @@ impl MbtilesCache {
     /// Returns `false` if there is no entry at the given coordinates.
     /// See [`Mbtiles::update_cached_meta`].
     #[hotpath::measure]
-    pub async fn update_cached_meta(
-        &self,
-        z: u8,
-        x: u32,
-        y: u32,
-        meta: CacheEntryMeta<'_>,
-    ) -> MbtResult<bool> {
+    pub async fn update_cached_meta(&self, z: u8, x: u32, y: u32, meta: CacheEntryMeta<'_>) -> MbtResult<bool> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles
-            .update_cached_meta(&mut *conn, z, x, y, meta)
-            .await
+        self.mbtiles.update_cached_meta(&mut *conn, z, x, y, meta).await
     }
 
     /// Delete entries expired before `now` and any orphaned blobs.
@@ -212,12 +195,7 @@ mod tests {
         // Revalidate the expiring entry without rewriting its blob.
         assert!(
             cache
-                .update_cached_meta(
-                    2,
-                    1,
-                    1,
-                    CacheEntryMeta::new(UnixSeconds(60), UnixSeconds(75), "v1")
-                )
+                .update_cached_meta(2, 1, 1, CacheEntryMeta::new(UnixSeconds(60), UnixSeconds(75), "v1"))
                 .await
                 .unwrap()
         );
@@ -237,10 +215,7 @@ mod tests {
         let path = dir.path().join("av.mbtiles");
         let cache = MbtilesCache::open(&path).await.unwrap();
         let mut conn = cache.pool.acquire().await.unwrap();
-        let mode: i64 = query_scalar("PRAGMA auto_vacuum")
-            .fetch_one(&mut *conn)
-            .await
-            .unwrap();
+        let mode: i64 = query_scalar("PRAGMA auto_vacuum").fetch_one(&mut *conn).await.unwrap();
         assert_eq!(mode, 2, "expected auto_vacuum = INCREMENTAL");
     }
 

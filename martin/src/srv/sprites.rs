@@ -5,9 +5,7 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::sprites::{
-    OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources, normalize_sprite_ids,
-};
+use martin_core::sprites::{OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources, normalize_sprite_ids};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -80,9 +78,7 @@ pub async fn get_sprite_png(
             .await
             .map_err(|e| map_sprite_compute_error(&e))?
     };
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::png())
-        .body(png))
+    Ok(HttpResponse::Ok().content_type(ContentType::png()).body(png))
 }
 
 /// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
@@ -153,9 +149,7 @@ pub async fn get_sprite_sdf_png(
             .await
             .map_err(|e| map_sprite_compute_error(&e))?
     };
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::png())
-        .body(png))
+    Ok(HttpResponse::Ok().content_type(ContentType::png()).body(png))
 }
 
 /// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
@@ -227,9 +221,7 @@ pub async fn get_sprite_json(
             .await
             .map_err(|e| map_sprite_compute_error(&e))?
     };
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::json())
-        .body(json))
+    Ok(HttpResponse::Ok().content_type(ContentType::json()).body(json))
 }
 
 /// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
@@ -301,9 +293,7 @@ pub async fn get_sprite_sdf_json(
             .await
             .map_err(|e| map_sprite_compute_error(&e))?
     };
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::json())
-        .body(json))
+    Ok(HttpResponse::Ok().content_type(ContentType::json()).body(json))
 }
 
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
@@ -327,11 +317,7 @@ pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResp
 }
 
 #[hotpath::measure]
-async fn get_sprite(
-    source_ids: &str,
-    sprites: &SpriteSources,
-    as_sdf: bool,
-) -> Result<Bytes, SpriteComputeError> {
+async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> Result<Bytes, SpriteComputeError> {
     let sheet = sprites.get_sprites(source_ids, as_sdf).await?;
     let png = sheet
         .encode_png()
@@ -340,11 +326,7 @@ async fn get_sprite(
 }
 
 #[hotpath::measure]
-async fn get_index(
-    source_ids: &str,
-    sprites: &SpriteSources,
-    as_sdf: bool,
-) -> Result<Bytes, SpriteComputeError> {
+async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> Result<Bytes, SpriteComputeError> {
     let sheet = sprites.get_sprites(source_ids, as_sdf).await?;
     let json = serde_json::to_vec(&sheet.get_index())?;
     Ok(Bytes::from(json))

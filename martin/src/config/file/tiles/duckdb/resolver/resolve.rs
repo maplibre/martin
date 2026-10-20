@@ -20,11 +20,8 @@ type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>
 /// Every source one config entry resolves to.
 type ResolvedEntry = BoxFuture<'static, Vec<Result<BoxedSource, TileSourceWarning>>>;
 
-pub type DuckDbResolution = SourceBuildResult<(
-    Vec<BoxedSource>,
-    Vec<TileSourceWarning>,
-    HashMap<String, ProcessConfig>,
-)>;
+pub type DuckDbResolution =
+    SourceBuildResult<(Vec<BoxedSource>, Vec<TileSourceWarning>, HashMap<String, ProcessConfig>)>;
 
 fn resolve_geoparquet_entry(
     entry: &GeoParquetEntry,
@@ -93,9 +90,7 @@ fn resolve_source_entry(
         DuckDbSourceEntry::Database(entry) => {
             let entry = entry.clone();
             let id_resolver = id_resolver.clone();
-            Box::pin(
-                async move { resolve_database_entry(&entry, &id_resolver, default_cache).await },
-            )
+            Box::pin(async move { resolve_database_entry(&entry, &id_resolver, default_cache).await })
         }
         DuckDbSourceEntry::GeoParquet(entry) => {
             let source = resolve_geoparquet_entry(entry, id_resolver, default_cache);
@@ -106,11 +101,7 @@ fn resolve_source_entry(
 
 impl DuckDbConfig {
     /// Resolve configured `DuckDB` sources into live tile sources.
-    pub async fn resolve(
-        &self,
-        id_resolver: IdResolver,
-        default_cache: CachePolicy,
-    ) -> DuckDbResolution {
+    pub async fn resolve(&self, id_resolver: IdResolver, default_cache: CachePolicy) -> DuckDbResolution {
         let default_cache = self.cache.or(&default_cache);
         let pending = self
             .sources
@@ -184,10 +175,7 @@ mod tests {
 
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(
-            sources
-                .iter()
-                .map(|source| source.get_id())
-                .collect::<Vec<_>>(),
+            sources.iter().map(|source| source.get_id()).collect::<Vec<_>>(),
             ["polygons", "polygons.1"]
         );
     }
@@ -240,8 +228,7 @@ mod tests {
         };
         let err = cfg.finalize().await.expect_err("missing file");
         assert!(
-            err.to_string().contains("no/such/file.parquet")
-                || err.to_string().contains("No such file"),
+            err.to_string().contains("no/such/file.parquet") || err.to_string().contains("No such file"),
             "unexpected error: {err}"
         );
     }
@@ -257,8 +244,7 @@ mod tests {
         };
         let err = cfg.finalize().await.expect_err("missing file");
         assert!(
-            err.to_string().contains("no/such/file.duckdb")
-                || err.to_string().contains("No such file"),
+            err.to_string().contains("no/such/file.duckdb") || err.to_string().contains("No such file"),
             "unexpected error: {err}"
         );
     }

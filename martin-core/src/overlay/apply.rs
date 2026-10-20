@@ -1,9 +1,7 @@
 //! [`OverlaySpec`] -> side-effects on a maplibre [`StyleRef`].
 
 use geojson::{GeoJson as GjGeoJson, Geometry, GeometryValue};
-use maplibre_native::{
-    CircleLayer, FillLayer, GeoJson, GeoJsonSource, LineLayer, Static, StyleError, StyleRef,
-};
+use maplibre_native::{CircleLayer, FillLayer, GeoJson, GeoJsonSource, LineLayer, Static, StyleError, StyleRef};
 
 use crate::overlay::{ApplyError, OverlayFeature, OverlayProperties, OverlaySpec};
 
@@ -39,10 +37,7 @@ impl AppliedOverlay {
 /// # Errors
 ///
 /// Returns [`ApplyError`] on `GeoJSON` conversion failure or any maplibre rejection.
-pub fn apply_to_style(
-    spec: &OverlaySpec,
-    style: &mut StyleRef<'_, Static>,
-) -> Result<AppliedOverlay, ApplyError> {
+pub fn apply_to_style(spec: &OverlaySpec, style: &mut StyleRef<'_, Static>) -> Result<AppliedOverlay, ApplyError> {
     let mut guard = OverlayGuard::new(style);
     for (index, feature) in spec.features.iter().enumerate() {
         guard.apply_feature(index, feature)?;
@@ -66,9 +61,8 @@ fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<La
             vec![LayerKind::Line]
         }
         GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => {
-            let has_fill = props.fill_color.is_some()
-                || props.fill_opacity.is_some()
-                || props.fill_outline_color.is_some();
+            let has_fill =
+                props.fill_color.is_some() || props.fill_opacity.is_some() || props.fill_outline_color.is_some();
             let has_line = props.line_color.is_some()
                 || props.line_opacity.is_some()
                 || props.line_width.is_some()
@@ -133,12 +127,10 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
             .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
         let mut gs = GeoJsonSource::new(&source_id);
         gs.set_geojson(&mln_gj);
-        self.style
-            .add_source(gs)
-            .map_err(|source| ApplyError::Maplibre {
-                id: format!("f{index}"),
-                source,
-            })?;
+        self.style.add_source(gs).map_err(|source| ApplyError::Maplibre {
+            id: format!("f{index}"),
+            source,
+        })?;
         self.source_ids.push(source_id.clone());
 
         for kind in kinds {

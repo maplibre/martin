@@ -38,9 +38,7 @@ const SIMPLIFY_PIXELS: f64 = 3.0;
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let path = args
-        .next()
-        .expect("usage: simplify_slice <path-to.wkt> <zoom>");
+    let path = args.next().expect("usage: simplify_slice <path-to.wkt> <zoom>");
     let zoom: u32 = args
         .next()
         .expect("usage: simplify_slice <path-to.wkt> <zoom>")
@@ -54,9 +52,7 @@ fn main() {
     let epsilon = SIMPLIFY_PIXELS * pixel_m;
     // Metres -> integer grid units. World is `tile_count * EXTENT` units across.
     let units_per_m = f64::from(EXTENT) / divisor;
-    eprintln!(
-        "zoom {zoom}: divisor {divisor:.3} m/tile, pixel {pixel_m:.4} m, simplify epsilon {epsilon:.4} m"
-    );
+    eprintln!("zoom {zoom}: divisor {divisor:.3} m/tile, pixel {pixel_m:.4} m, simplify epsilon {epsilon:.4} m");
 
     // --- load: whole file into memory, parse each line as a WKT LINESTRING (f64, metres) ---
     let t = Instant::now();
@@ -87,10 +83,7 @@ fn main() {
         })
         .collect();
     let vertices: usize = geoms.iter().map(|ls| ls.0.len()).sum();
-    eprintln!(
-        "simplified + projected to {vertices} vertices in {:?}",
-        t.elapsed()
-    );
+    eprintln!("simplified + projected to {vertices} vertices in {:?}", t.elapsed());
 
     // --- slice: the hot loop the flamegraph is meant to show ---
     let t = Instant::now();

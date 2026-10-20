@@ -22,10 +22,7 @@ async fn a_zero_timeout_fails_on_the_first_refused_connection() {
         log.contains("Unable to get a Postgres connection from the pool"),
         "log must carry the connection error; log:\n{log}"
     );
-    assert!(
-        !log.contains("retrying"),
-        "no retry must be announced; log:\n{log}"
-    );
+    assert!(!log.contains("retrying"), "no retry must be announced; log:\n{log}");
 }
 
 #[tokio::test]

@@ -52,12 +52,11 @@ impl AsyncBackend for FileBackend {
 
     async fn read(&self, range: Range<u64>) -> CogResult<Bytes> {
         check_range(&self.location, self.size, &range)?;
-        let length =
-            usize::try_from(range.end - range.start).map_err(|_err| CogError::InvalidRange {
-                location: self.location.clone(),
-                requested: range.clone(),
-                size: self.size,
-            })?;
+        let length = usize::try_from(range.end - range.start).map_err(|_err| CogError::InvalidRange {
+            location: self.location.clone(),
+            requested: range.clone(),
+            size: self.size,
+        })?;
         let file = Arc::clone(&self.file);
         tokio::task::spawn_blocking(move || {
             let mut buf = vec![0; length];

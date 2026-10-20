@@ -36,9 +36,7 @@ async fn fetch_bounds(
             let ymax: Option<f64> = row.get("ymax")?;
 
             Ok(match (xmin, ymin, xmax, ymax) {
-                (Some(xmin), Some(ymin), Some(xmax), Some(ymax)) => {
-                    Some(Bounds::new(xmin, ymin, xmax, ymax))
-                }
+                (Some(xmin), Some(ymin), Some(xmax), Some(ymax)) => Some(Bounds::new(xmin, ymin, xmax, ymax)),
                 _ => None,
             })
         }))
@@ -169,16 +167,7 @@ pub async fn bounds_with_auto(
     match auto_bounds {
         BoundsCalcType::Skip => Ok(None),
         BoundsCalcType::Calc => {
-            calc_bounds(
-                pool,
-                from_sql,
-                label,
-                geom_col,
-                srid,
-                BoundsCalcMode::Exact,
-                filter_sql,
-            )
-            .await
+            calc_bounds(pool, from_sql, label, geom_col, srid, BoundsCalcMode::Exact, filter_sql).await
         }
         BoundsCalcType::Quick => {
             if let Ok(bounds) = timeout(
@@ -229,43 +218,19 @@ mod tests {
         let pool = db.read_only_pool("bounds-test", 1);
         let from_sql = escape_relation("test_geom");
 
-        let calc = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Calc,
-            None,
-        )
-        .await
-        .expect("calculate bounds");
+        let calc = bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Calc, None)
+            .await
+            .expect("calculate bounds");
         assert_eq!(calc, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let quick = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Quick,
-            None,
-        )
-        .await
-        .expect("approx bounds");
+        let quick = bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Quick, None)
+            .await
+            .expect("approx bounds");
         assert_eq!(quick, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let skip = bounds_with_auto(
-            &pool,
-            &from_sql,
-            "test_geom",
-            "geom",
-            4326,
-            BoundsCalcType::Skip,
-            None,
-        )
-        .await
-        .expect("skip bounds");
+        let skip = bounds_with_auto(&pool, &from_sql, "test_geom", "geom", 4326, BoundsCalcType::Skip, None)
+            .await
+            .expect("skip bounds");
         assert_eq!(skip, None);
     }
 
@@ -276,18 +241,9 @@ mod tests {
         use martin_core::tiles::duckdb::DuckDBPool;
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
-        let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet".to_owned(),
-            path.clone(),
-            1,
-            None,
-            None,
-        )
-        .expect("local GeoParquet pool");
-        let from_expr = format!(
-            "read_parquet('{}')",
-            path.to_str().expect("utf-8 parquet path")
-        );
+        let pool = DuckDBPool::new_local_geoparquet("bounds-parquet".to_owned(), path.clone(), 1, None, None)
+            .expect("local GeoParquet pool");
+        let from_expr = format!("read_parquet('{}')", path.to_str().expect("utf-8 parquet path"));
 
         let bounds = bounds_with_auto(
             &pool,
@@ -311,18 +267,10 @@ mod tests {
         use martin_core::tiles::duckdb::DuckDBPool;
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
-        let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet-filter-matching".to_owned(),
-            path.clone(),
-            1,
-            None,
-            None,
-        )
-        .expect("local GeoParquet pool");
-        let from_expr = format!(
-            "read_parquet('{}')",
-            path.to_str().expect("utf-8 parquet path")
-        );
+        let pool =
+            DuckDBPool::new_local_geoparquet("bounds-parquet-filter-matching".to_owned(), path.clone(), 1, None, None)
+                .expect("local GeoParquet pool");
+        let from_expr = format!("read_parquet('{}')", path.to_str().expect("utf-8 parquet path"));
 
         let bounds = bounds_with_auto(
             &pool,
@@ -346,21 +294,11 @@ mod tests {
         use martin_core::tiles::duckdb::DuckDBPool;
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
-        let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet-filter-quick".to_owned(),
-            path.clone(),
-            1,
-            None,
-            None,
-        )
-        .expect("local GeoParquet pool");
-        pool.generate_tile(|_| Ok(()))
-            .await
-            .expect("warm up DuckDB connection");
-        let from_expr = format!(
-            "read_parquet('{}')",
-            path.to_str().expect("utf-8 parquet path")
-        );
+        let pool =
+            DuckDBPool::new_local_geoparquet("bounds-parquet-filter-quick".to_owned(), path.clone(), 1, None, None)
+                .expect("local GeoParquet pool");
+        pool.generate_tile(|_| Ok(())).await.expect("warm up DuckDB connection");
+        let from_expr = format!("read_parquet('{}')", path.to_str().expect("utf-8 parquet path"));
 
         let quick_bounds = bounds_with_auto(
             &pool,
@@ -384,18 +322,10 @@ mod tests {
         use martin_core::tiles::duckdb::DuckDBPool;
 
         let path = PathBuf::from("../tests/fixtures/duckdb/geoparquet_polygons.parquet");
-        let pool = DuckDBPool::new_local_geoparquet(
-            "bounds-parquet-filter-empty".to_owned(),
-            path.clone(),
-            1,
-            None,
-            None,
-        )
-        .expect("local GeoParquet pool");
-        let from_expr = format!(
-            "read_parquet('{}')",
-            path.to_str().expect("utf-8 parquet path")
-        );
+        let pool =
+            DuckDBPool::new_local_geoparquet("bounds-parquet-filter-empty".to_owned(), path.clone(), 1, None, None)
+                .expect("local GeoParquet pool");
+        let from_expr = format!("read_parquet('{}')", path.to_str().expect("utf-8 parquet path"));
 
         let empty_bounds = bounds_with_auto(
             &pool,

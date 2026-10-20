@@ -19,8 +19,7 @@ pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, TranscodeError> {
     let mut etag = std::mem::take(&mut tile.etag);
     etag.write_str("+mvt").expect("can write");
 
-    let mlt =
-        content::decode(tile).map_err(|e| TranscodeError::DecompressionFailed(e.to_string()))?;
+    let mlt = content::decode(tile).map_err(|e| TranscodeError::DecompressionFailed(e.to_string()))?;
 
     let mut parser = Parser::default();
     let layers = parser
@@ -33,15 +32,13 @@ pub fn convert_mlt_to_mvt(mut tile: Tile) -> Result<Tile, TranscodeError> {
         // Skip unknown layer tags - they have no MVT analogue.
         if let Layer::Tag01(l) = layer {
             tile_layers.push(
-                l.into_tile(&mut decoder).map_err(|e| {
-                    TranscodeError::MvtConversion(format!("MLT decode failed: {e}"))
-                })?,
+                l.into_tile(&mut decoder)
+                    .map_err(|e| TranscodeError::MvtConversion(format!("MLT decode failed: {e}")))?,
             );
         }
     }
 
-    let mvt_bytes = tile_layers_to_mvt(tile_layers)
-        .map_err(|e| TranscodeError::MvtConversion(e.to_string()))?;
+    let mvt_bytes = tile_layers_to_mvt(tile_layers).map_err(|e| TranscodeError::MvtConversion(e.to_string()))?;
 
     Ok(Tile::new_with_etag(
         mvt_bytes,
@@ -58,9 +55,7 @@ pub(super) fn mvt_with_feature_bytes() -> Vec<u8> {
     use mlt_core::{PropKind, PropValue, TileLayer};
 
     let mut builder = TileLayer::builder("test", 4096).expect("layer builder");
-    let name_key = builder
-        .add_property("name", PropKind::Str)
-        .expect("add property");
+    let name_key = builder.add_property("name", PropKind::Str).expect("add property");
     {
         let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
         feature.id(Some(1));
@@ -77,9 +72,7 @@ pub(super) fn mvt_with_feature_bytes() -> Vec<u8> {
 pub(super) fn empty_layer_mvt_bytes() -> Vec<u8> {
     use mlt_core::TileLayer;
 
-    let layer = TileLayer::builder("x", 4096)
-        .expect("layer builder")
-        .finish();
+    let layer = TileLayer::builder("x", 4096).expect("layer builder").finish();
     tile_layers_to_mvt(vec![layer]).expect("encode empty MVT")
 }
 

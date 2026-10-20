@@ -1,20 +1,15 @@
 #![cfg(feature = "postgres")]
 
 use martin_core::tiles::postgres::{TileWkbError, parse_tile_wkb};
-use mlt_core::geo_types::{
-    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-};
+use mlt_core::geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use rstest::rstest;
 
 fn wkb(hex: &str) -> Vec<u8> {
     hex.as_bytes()
         .chunks(2)
         .map(|pair| {
-            u8::from_str_radix(
-                std::str::from_utf8(pair).expect("fixture is valid utf-8"),
-                16,
-            )
-            .expect("fixture is valid hex")
+            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture is valid utf-8"), 16)
+                .expect("fixture is valid hex")
         })
         .collect()
 }
@@ -81,9 +76,7 @@ fn polygon_with_interior_ring() {
 #[test]
 fn multipoint() {
     assert_eq!(
-        parse(
-            "0104000000020000000101000000000000000000f03f0000000000000040010100000000000000000008400000000000001040"
-        ),
+        parse("0104000000020000000101000000000000000000f03f0000000000000040010100000000000000000008400000000000001040"),
         Geometry::MultiPoint(MultiPoint(vec![Point(c(1, 2)), Point(c(3, 4))]))
     );
 }
@@ -162,10 +155,7 @@ fn xym_multipolygon_keeps_measure() {
             vec![line(&[(1, 1), (2, 1), (2, 2), (1, 1)])],
         ))
     );
-    assert_eq!(
-        measures(hex),
-        Some(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
-    );
+    assert_eq!(measures(hex), Some(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]));
 }
 
 #[test]
@@ -182,10 +172,7 @@ fn big_endian_polygon() {
         parse(
             "0000000003000000010000000400000000000000000000000000000000401000000000000000000000000000004010000000000000401000000000000000000000000000000000000000000000"
         ),
-        Geometry::Polygon(Polygon::new(
-            line(&[(0, 0), (4, 0), (4, 4), (0, 0)]),
-            Vec::new()
-        ))
+        Geometry::Polygon(Polygon::new(line(&[(0, 0), (4, 0), (4, 4), (0, 0)]), Vec::new()))
     );
 }
 
@@ -216,10 +203,7 @@ fn ewkb_srid_with_zm_flags_drops_z() {
     let hex = "01030000e0e6100000010000000400000000000000000000000000000000000000000000000000f03f0000000000000040000000000000f03f000000000000000000000000000008400000000000001040000000000000f03f000000000000f03f00000000000014400000000000001840000000000000000000000000000000000000000000001c400000000000002040";
     assert_eq!(
         parse(hex),
-        Geometry::Polygon(Polygon::new(
-            line(&[(0, 0), (1, 0), (1, 1), (0, 0)]),
-            Vec::new()
-        ))
+        Geometry::Polygon(Polygon::new(line(&[(0, 0), (1, 0), (1, 1), (0, 0)]), Vec::new()))
     );
     assert_eq!(measures(hex), Some(vec![2.0, 4.0, 6.0, 8.0]));
 }
@@ -241,20 +225,14 @@ fn multilinestring_with_an_empty_part() {
         parse(
             "010500000002000000010200000000000000010200000002000000000000000000f03f000000000000f03f00000000000000400000000000000040"
         ),
-        Geometry::MultiLineString(MultiLineString(vec![
-            LineString(Vec::new()),
-            line(&[(1, 1), (2, 2)]),
-        ]))
+        Geometry::MultiLineString(MultiLineString(vec![LineString(Vec::new()), line(&[(1, 1), (2, 2)]),]))
     );
 }
 
 #[test]
 fn st_asmvtgeom_linestring_keeps_measure() {
     let hex = "01d207000002000000000000000000a040000000000000a0400000000000002440000000000016a0400000000000d49f400000000000003440";
-    assert_eq!(
-        parse(hex),
-        Geometry::LineString(line(&[(2048, 2048), (2059, 2037)]))
-    );
+    assert_eq!(parse(hex), Geometry::LineString(line(&[(2048, 2048), (2059, 2037)])));
     assert_eq!(measures(hex), Some(vec![10.0, 20.0]));
 }
 
@@ -265,13 +243,7 @@ fn st_asmvtgeom_polygon_with_interior_ring() {
             "01030000000200000005000000000000000000a040000000000000a040000000000000a0400000000000d49f40000000000016a0400000000000d49f40000000000016a040000000000000a040000000000000a040000000000000a04005000000000000000004a0400000000000f89f4000000000000aa0400000000000f89f4000000000000aa0400000000000ec9f40000000000004a0400000000000ec9f40000000000004a0400000000000f89f40"
         ),
         Geometry::Polygon(Polygon::new(
-            line(&[
-                (2048, 2048),
-                (2048, 2037),
-                (2059, 2037),
-                (2059, 2048),
-                (2048, 2048),
-            ]),
+            line(&[(2048, 2048), (2048, 2037), (2059, 2037), (2059, 2048), (2048, 2048),]),
             vec![line(&[
                 (2050, 2046),
                 (2053, 2046),
@@ -343,10 +315,7 @@ fn empty_point_is_rejected() {
 #[case::collection("010700000000000000")]
 #[case::collection_with_a_point("0107000000010000000101000000000000000000f03f0000000000000040")]
 fn geometry_collections_are_rejected(#[case] hex: &str) {
-    assert_eq!(
-        err(hex),
-        TileWkbError::UnsupportedGeometry("GeometryCollection")
-    );
+    assert_eq!(err(hex), TileWkbError::UnsupportedGeometry("GeometryCollection"));
 }
 
 #[rstest]
@@ -362,9 +331,7 @@ fn geometry_collections_are_rejected(#[case] hex: &str) {
 #[case::unknown_type_code("010800000000000000")]
 #[case::zero_type_code("010000000000000000")]
 #[case::trailing_bytes("010100000000000000000024400000000000003440ff")]
-#[case::trailing_geometry(
-    "010100000000000000000024400000000000003440010100000000000000000024400000000000003440"
-)]
+#[case::trailing_geometry("010100000000000000000024400000000000003440010100000000000000000024400000000000003440")]
 fn malformed_input_is_rejected(#[case] hex: &str) {
     err(hex);
 }

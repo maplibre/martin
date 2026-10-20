@@ -169,11 +169,7 @@ impl Source for TestSource {
         self.cache_zoom
     }
 
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         if let Some(flag) = &self.block_after_fetch {
             flag.store(true, Ordering::Release);
             std::future::pending::<()>().await;
@@ -183,9 +179,9 @@ impl Source for TestSource {
         }
         match self.behaviour {
             Behaviour::Fail => {
-                return Err(MartinCoreError::OtherError(Box::new(
-                    std::io::Error::other("some error".to_owned()),
-                )));
+                return Err(MartinCoreError::OtherError(Box::new(std::io::Error::other(
+                    "some error".to_owned(),
+                ))));
             }
             Behaviour::NeedsReload if self.reloads == 0 => {
                 return Err(MartinCoreError::SourceNeedsReload);

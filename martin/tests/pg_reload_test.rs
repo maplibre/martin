@@ -19,16 +19,9 @@ pub mod utils;
 const RELOAD_INTERVAL: Duration = Duration::from_millis(100);
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
 
-trait App:
-    actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>
-{
-}
+trait App: actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error> {}
 impl<T> App for T where
-    T: actix_web::dev::Service<
-            actix_http::Request,
-            Response = ServiceResponse,
-            Error = actix_web::Error,
-        >
+    T: actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>
 {
 }
 
@@ -64,24 +57,17 @@ async fn wait_for_catalog(app: &impl App, id: &str, present: bool) {
         assert!(
             Instant::now() < deadline,
             "{id} {} in /catalog after {CATALOG_TIMEOUT:?}: {tiles:?}",
-            if present {
-                "never appeared"
-            } else {
-                "still listed"
-            }
+            if present { "never appeared" } else { "still listed" }
         );
         tokio::time::sleep(RELOAD_INTERVAL).await;
     }
 }
 
 async fn tile_status(app: &impl App, id: &str) -> u16 {
-    call_service(
-        app,
-        TestRequest::get().uri(&format!("/{id}/0/0/0")).to_request(),
-    )
-    .await
-    .status()
-    .as_u16()
+    call_service(app, TestRequest::get().uri(&format!("/{id}/0/0/0")).to_request())
+        .await
+        .status()
+        .as_u16()
 }
 
 #[actix_rt::test]
@@ -113,11 +99,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     let mut reloader = PostgresReloader::new(
         tsm.clone(),
         resolver,
-        config
-            .postgres
-            .first()
-            .cloned()
-            .expect("one postgres config"),
+        config.postgres.first().cloned().expect("one postgres config"),
         &config.cache.policy(),
         &ProcessConfig::default(),
         &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
@@ -126,9 +108,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
 
     utils::seed(&connstr, "DROP TABLE public.reload_boundary;").await;
-    let _driver = reloader
-        .start()
-        .expect("reload_interval > 0 spawns the driver");
+    let _driver = reloader.start().expect("reload_interval > 0 spawns the driver");
 
     let app = init_service(
         actix_web::App::new()

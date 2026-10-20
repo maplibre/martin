@@ -5,9 +5,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use indoc::indoc;
-use martin::config::file::postgres::{
-    PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo,
-};
+use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec, TableInfo};
 use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGrids};
 use martin::config::primitives::IdResolver;
 use martin::generate::layers::{LowerOptions, lower_table};
@@ -25,21 +23,13 @@ pub mod utils;
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
 
-const TABLES: [&str; 5] = [
-    "points1",
-    "points3857",
-    "linestring_bounds",
-    "points1_vw",
-    "MixPoints",
-];
+const TABLES: [&str; 5] = ["points1", "points3857", "linestring_bounds", "points1_vw", "MixPoints"];
 
 async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     discover_at(&std::env::var("DATABASE_URL").expect("DATABASE_URL")).await
 }
 
-async fn discover_at(
-    connection_string: &str,
-) -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
+async fn discover_at(connection_string: &str) -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     let mut config = PostgresConfig {
         connection_string: Some(connection_string.to_owned()),
         ..PostgresConfig::default()
@@ -117,12 +107,11 @@ async fn run(
     let (summary, path) = summary;
     let mbt = Mbtiles::new(&path).unwrap();
     let mut conn = mbt.open_readonly().await.unwrap();
-    let rows = mbtiles::sqlx::query_as(
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-    )
-    .fetch_all(&mut conn)
-    .await
-    .unwrap();
+    let rows =
+        mbtiles::sqlx::query_as("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3")
+            .fetch_all(&mut conn)
+            .await
+            .unwrap();
     (partitions, summary.features, rows)
 }
 
@@ -136,31 +125,15 @@ async fn render_threads_do_not_change_the_output() {
             .map(|&name| lower(name, table_info(&specs, name)))
             .collect::<Vec<_>>()
     };
-    let (partitions, features, rows) = run(
-        &builder,
-        tables(),
-        dir.path(),
-        1,
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await;
+    let (partitions, features, rows) = run(&builder, tables(), dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
     assert_eq!(partitions, 5);
     assert!(features > 0);
     assert!(rows.iter().any(|r| r.0 == 0) && rows.iter().any(|r| r.0 == 6));
-    let (threaded_partitions, threaded_features, threaded_rows) = run(
-        &builder,
-        tables(),
-        dir.path(),
-        4,
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await;
+    let (threaded_partitions, threaded_features, threaded_rows) =
+        run(&builder, tables(), dir.path(), 4, PgScanSource::PARTITION_BLOCKS).await;
     assert_eq!(threaded_partitions, partitions);
     assert_eq!(threaded_features, features);
-    assert!(
-        threaded_rows == rows,
-        "render threads must not change the output"
-    );
+    assert!(threaded_rows == rows, "render threads must not change the output");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -173,22 +146,11 @@ async fn block_range_partitions_do_not_change_the_output() {
             .map(|&name| lower(name, table_info(&specs, name)))
             .collect::<Vec<_>>()
     };
-    let (partitions, features, rows) = run(
-        &builder,
-        tables(),
-        dir.path(),
-        1,
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await;
-    let (split_partitions, split_features, split_rows) =
-        run(&builder, tables(), dir.path(), 4, 1).await;
+    let (partitions, features, rows) = run(&builder, tables(), dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
+    let (split_partitions, split_features, split_rows) = run(&builder, tables(), dir.path(), 4, 1).await;
     assert_eq!((partitions, split_partitions), (5, 7));
     assert_eq!(split_features, features);
-    assert!(
-        split_rows == rows,
-        "block range partitions must not change the output"
-    );
+    assert!(split_rows == rows, "block range partitions must not change the output");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -231,15 +193,9 @@ async fn a_view_split_by_its_integer_id_renders_like_its_table() {
         PgScanSource::PARTITION_BLOCKS,
     )
     .await;
-    assert_eq!(
-        (table_partitions, view_partitions),
-        (1, PgScanSource::KEY_PARTITIONS)
-    );
+    assert_eq!((table_partitions, view_partitions), (1, PgScanSource::KEY_PARTITIONS));
     assert_eq!(view_features, table_features);
-    assert!(
-        view_rows == table_rows,
-        "key partitions must not change the output"
-    );
+    assert!(view_rows == table_rows, "key partitions must not change the output");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -454,12 +410,7 @@ async fn a_layer_filters_features_and_computes_attributes() {
                 .iter()
                 .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
                 .collect();
-            format!(
-                "{} {:?}\n{}",
-                layer.name(),
-                layer.property_names(),
-                features.join("\n")
-            )
+            format!("{} {:?}\n{}", layer.name(), layer.property_names(), features.join("\n"))
         })
         .collect();
     insta::assert_snapshot!(layers.join("\n"), @r#"
@@ -524,12 +475,7 @@ async fn rules_pick_settings_by_gid_range() {
                         .iter()
                         .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
                         .collect();
-                    format!(
-                        "{} {:?}\n{}",
-                        layer.name(),
-                        layer.property_names(),
-                        features.join("\n")
-                    )
+                    format!("{} {:?}\n{}", layer.name(), layer.property_names(), features.join("\n"))
                 })
                 .collect();
             format!("{}/{}/{}\n{}", row.0, row.1, row.2, layers.join("\n"))
@@ -624,14 +570,7 @@ async fn a_world_bbox_keeps_every_feature_of_a_projected_table() {
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
         .unwrap();
-    let (_, _, rows) = run(
-        &builder,
-        vec![table],
-        dir.path(),
-        1,
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await;
+    let (_, _, rows) = run(&builder, vec![table], dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
     let [row] = rows.as_slice() else {
         panic!("expected one tile, got {}", rows.len());
     };
@@ -660,14 +599,7 @@ async fn a_bbox_drops_the_features_of_a_projected_table_outside_it() {
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
         .unwrap();
-    let (_, _, rows) = run(
-        &builder,
-        vec![table],
-        dir.path(),
-        1,
-        PgScanSource::PARTITION_BLOCKS,
-    )
-    .await;
+    let (_, _, rows) = run(&builder, vec![table], dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
     let Some(row) = rows.iter().find(|row| row.0 == 0) else {
         panic!("expected a zoom 0 tile");
     };

@@ -5,8 +5,8 @@ use std::fs;
 use std::path::Path;
 
 use martin_e2e_tests::{
-    MbtilesCli, Tile, gunzip, mbtiles_fixture, metadata, open_read_only, open_read_write,
-    patch_tiles, summary, summary_filters, temp_dir, tiles,
+    MbtilesCli, Tile, gunzip, mbtiles_fixture, metadata, open_read_only, open_read_write, patch_tiles, summary,
+    summary_filters, temp_dir, tiles,
 };
 use regex::Regex;
 use sqlx::Connection as _;
@@ -117,10 +117,7 @@ async fn a_cache_round_trip_leaves_the_differ_nothing_to_report() {
         .run()
         .await;
 
-    assert_eq!(
-        patch_tiles(&patch).await,
-        [] as [(i64, i64, i64, Option<Vec<u8>>); 0]
-    );
+    assert_eq!(patch_tiles(&patch).await, [] as [(i64, i64, i64, Option<Vec<u8>>); 0]);
     // The hash of an empty tileset, which is how the differ reports "no changes".
     assert_eq!(
         metadata(&patch).await["agg_tiles_hash"],
@@ -203,10 +200,7 @@ async fn purging_refuses_a_tileset_that_is_not_a_cache() {
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let before = tiles(&source).await;
 
-    let output = MbtilesCli::new("cache-purge")
-        .arg(&source)
-        .run_failing()
-        .await;
+    let output = MbtilesCli::new("cache-purge").arg(&source).run_failing().await;
 
     insta::assert_snapshot!(redact(&dir, &output), @"ERROR File [TMP]/world_cities.mbtiles exists but does not use the tile-cache schema, refusing to modify it. Use an empty/new file or an existing cache file");
     assert_eq!(before, tiles(&source).await, "the file must be left alone");
@@ -234,10 +228,7 @@ async fn diff_and_copy_with_diff_with_file_write_the_same_patch() {
         .run()
         .await;
 
-    assert!(
-        !patch_tiles(&from_copy).await.is_empty(),
-        "the patch is empty"
-    );
+    assert!(!patch_tiles(&from_copy).await.is_empty(), "the patch is empty");
     assert_eq!(patch_tiles(&from_copy).await, patch_tiles(&from_diff).await);
     assert_eq!(metadata(&from_copy).await, metadata(&from_diff).await);
 }

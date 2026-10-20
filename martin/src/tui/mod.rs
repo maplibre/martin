@@ -122,9 +122,7 @@ enum Flow {
 /// Applies a pressed key to the dashboard and the log view of `lines` lines.
 fn press(key: KeyEvent, dashboard: &Dashboard, log: &mut LogView, lines: usize) -> Flow {
     let control = key.modifiers.contains(KeyModifiers::CONTROL);
-    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
-        || (control && key.code == KeyCode::Char('c'))
-    {
+    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) || (control && key.code == KeyCode::Char('c')) {
         return Flow::Quit;
     }
     if key.code == KeyCode::Char('c') {

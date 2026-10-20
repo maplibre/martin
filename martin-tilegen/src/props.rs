@@ -159,13 +159,7 @@ mod tests {
 
         let ids: Vec<Vec<KeyId>> = std::thread::scope(|scope| {
             let handles: Vec<_> = (0..4)
-                .map(|_| {
-                    scope.spawn(|| {
-                        (0..100)
-                            .map(|i| interner.intern(&format!("k{i}")))
-                            .collect()
-                    })
-                })
+                .map(|_| scope.spawn(|| (0..100).map(|i| interner.intern(&format!("k{i}"))).collect()))
                 .collect();
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         });

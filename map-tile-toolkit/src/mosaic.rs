@@ -85,12 +85,7 @@ impl<V: Vertex> EdgeIndex<V> {
     /// into the global frame), after rejecting any conflict with the other tiles. `ext` is the signed
     /// extent, used to map an endpoint to its owner tile for the membership check. On conflict nothing
     /// is mutated.
-    fn commit(
-        &mut self,
-        tile: TileId,
-        new_edges: HashMap<EdgeKey, (V, V)>,
-        ext: i32,
-    ) -> Result<(), TileError> {
+    fn commit(&mut self, tile: TileId, new_edges: HashMap<EdgeKey, (V, V)>, ext: i32) -> Result<(), TileError> {
         // Conflict scan against *other* tiles (this tile's own prior data is replaced, not compared).
         let mut conflicts = BTreeSet::new();
         // (a) Payload conflict: another tile carries the same edge (identical positions) but different
@@ -109,9 +104,7 @@ impl<V: Vertex> EdgeIndex<V> {
         // vertex lands in some core - so only a harmless omission of a redundant overlap edge slips.)
         // This tile must carry every already-present edge that names it as an endpoint-tile.
         for (key, existing) in &self.edges {
-            if (tile_of(key.0, ext) == tile || tile_of(key.1, ext) == tile)
-                && !new_edges.contains_key(key)
-            {
+            if (tile_of(key.0, ext) == tile || tile_of(key.1, ext) == tile) && !new_edges.contains_key(key) {
                 conflicts.extend(existing.tiles.iter().copied().filter(|&t| t != tile));
             }
         }
@@ -120,10 +113,7 @@ impl<V: Vertex> EdgeIndex<V> {
             for endpoint in [tile_of(key.0, ext), tile_of(key.1, ext)] {
                 if endpoint != tile
                     && self.tile_edges.contains_key(&endpoint)
-                    && !self
-                        .edges
-                        .get(key)
-                        .is_some_and(|e| e.tiles.contains(&endpoint))
+                    && !self.edges.get(key).is_some_and(|e| e.tiles.contains(&endpoint))
                 {
                     conflicts.insert(endpoint);
                 }
@@ -256,8 +246,7 @@ impl<V: Vertex> Mosaic<V> {
                 }
             }
         }
-        self.index
-            .commit(tile, new_edges, self.extent.cast_signed())
+        self.index.commit(tile, new_edges, self.extent.cast_signed())
     }
 
     /// Remove `tile` and all geometry it contributed. Returns whether the tile was present.
@@ -416,9 +405,7 @@ fn rebase_vertex<V: Vertex>(v: V, off_x: i64, off_y: i64) -> Result<V, TileError
 
 /// Rebase every vertex of `run` by `(off_x, off_y)`, range-checking each result back into `i32`.
 fn rebase<V: Vertex>(run: &[V], off_x: i64, off_y: i64) -> Result<Vec<V>, TileError> {
-    run.iter()
-        .map(|&v| rebase_vertex(v, off_x, off_y))
-        .collect()
+    run.iter().map(|&v| rebase_vertex(v, off_x, off_y)).collect()
 }
 
 /// Rebase one closed `ring` to the global frame and add to `new_edges` every directed edge that
@@ -466,11 +453,8 @@ fn ring_edges<V: Vertex>(
     // Emit each cyclic edge that touches the tile's box; drop the rest (synthetic or redundant).
     for i in 0..m {
         let (p, q) = (pts[i], pts[(i + 1) % m]);
-        if p.position() != q.position() && segment_intersects(p.position(), q.position(), min, max)
-        {
-            new_edges
-                .entry((p.position(), q.position()))
-                .or_insert((p, q));
+        if p.position() != q.position() && segment_intersects(p.position(), q.position(), min, max) {
+            new_edges.entry((p.position(), q.position())).or_insert((p, q));
         }
     }
     Ok(())
@@ -541,11 +525,7 @@ fn stitch<V: Vertex>(runs: &[Vec<V>]) -> Vec<Vec<V>> {
 
 /// Pop and return the next not-yet-used outgoing edge index from position `p`, discarding used ones
 /// from the front. `None` when `p` has no remaining unused outgoing edge. Used by [`stitch`].
-fn next_unused(
-    out: &mut HashMap<Coord<i32>, VecDeque<usize>>,
-    p: Coord<i32>,
-    used: &[bool],
-) -> Option<usize> {
+fn next_unused(out: &mut HashMap<Coord<i32>, VecDeque<usize>>, p: Coord<i32>, used: &[bool]) -> Option<usize> {
     let dq = out.get_mut(&p)?;
     while let Some(&i) = dq.front() {
         if used[i] {
