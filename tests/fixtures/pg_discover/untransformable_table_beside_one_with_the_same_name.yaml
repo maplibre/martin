@@ -1,0 +1,11 @@
+sql: |
+  INSERT INTO spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext)
+  VALUES (949900, 'IAU_2015', 49900, '+proj=longlat +a=3396190 +b=3376200 +no_defs +type=crs', NULL);
+  CREATE SCHEMA a;
+  CREATE SCHEMA b;
+  CREATE TABLE a.roads (gid serial PRIMARY KEY, geom geometry(Point, 949900));
+  CREATE TABLE b.roads (gid serial PRIMARY KEY, geom geometry(Point, 3857));
+config: |
+  auto_publish:
+    from_schemas: [a, b]
+    tables: true

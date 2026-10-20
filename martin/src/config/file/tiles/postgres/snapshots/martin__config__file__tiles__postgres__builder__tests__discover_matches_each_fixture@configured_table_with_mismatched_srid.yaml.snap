@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/postgres/builder.rs
+expression: discovered
+input_file: tests/fixtures/pg_discover/configured_table_with_mismatched_srid.yaml
+---
+sources:
+  roads: table a.roads.geom SRID 3857
+warnings:
+  - "Source my_roads: Failed to merge config info for table my_roads"
