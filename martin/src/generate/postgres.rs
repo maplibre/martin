@@ -9,7 +9,7 @@ use martin_tilegen::props::KeyInterner;
 use martin_tilegen::source::{
     FeatureBatch, FeatureReader, FeatureSource, SourceError, SourceResult,
 };
-use martin_tilegen::{LayerGrid, TileGenResult};
+use martin_tilegen::{LayerGrid, MAX_ZOOM, TileGenResult};
 use postgres_protocol::escape::escape_identifier;
 use tilejson::Bounds;
 
@@ -58,8 +58,14 @@ impl PgScanSource {
         let conn = pool.get().await.map_err(SourceError::from)?;
         let mut scans = Vec::with_capacity(tables.len());
         for (index, scan) in tables.into_iter().enumerate() {
-            let sql = scan_sql(&scan.info, plan.columns(index), scan_bbox(&scan.def.layers))
-                .map_err(SourceError::from)?;
+            let rows = plan.row_filter(index, 0..=MAX_ZOOM);
+            let sql = scan_sql(
+                &scan.info,
+                plan.columns(index),
+                rows.condition(),
+                scan_bbox(&scan.def.layers),
+            )
+            .map_err(SourceError::from)?;
             let layout = ScanLayout {
                 table: u16::try_from(index).expect("the plan has fewer than 2^16 tables"),
                 crs: sql.crs,
