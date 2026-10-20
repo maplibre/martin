@@ -1,5 +1,5 @@
 //! What `Plan::new` accepts and rejects, which columns it scans, and what each layer makes of a feature.
-#![expect(clippy::panic, clippy::unwrap_used)]
+#![expect(clippy::unwrap_used)]
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
@@ -8,7 +8,7 @@ use martin_tilegen::plan::{
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
-use martin_tilegen::{FeatureGeom, LayerGrid, PixelThreshold};
+use martin_tilegen::{LayerGrid, PixelThreshold};
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -19,12 +19,10 @@ fn evaluate(plan: &Plan, features: &[SourceFeature]) -> String {
     let mut evaluator = plan.evaluator();
     let mut lines = Vec::new();
     for feature in features {
-        let geom = match &feature.geometry {
-            Geometry::Points(points) => FeatureGeom::Points(points),
-            Geometry::Lines(lines) => FeatureGeom::Lines(lines),
-            Geometry::Polygons(polygons) => FeatureGeom::Polygons(polygons),
-            Geometry::Wkb(_) => panic!("unprojected geometry"),
-        };
+        let geom = feature
+            .geometry
+            .feature_geom()
+            .expect("unprojected geometry");
         evaluator
             .evaluate(0, feature, geom, |evaluated| {
                 lines.push(format!("{evaluated:?}"));

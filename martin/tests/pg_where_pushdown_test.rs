@@ -10,9 +10,7 @@ use martin::generate::layers::{LowerOptions, lower_table};
 use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, RetryTimeout, ScanLayout, scan_features,
 };
-use martin_tilegen::FeatureGeom;
 use martin_tilegen::plan::{Plan, RowFilter};
-use martin_tilegen::source::Geometry;
 
 /// A connection to the test database that has run `rows`.
 async fn connect(rows: &str) -> PooledConnection {
@@ -76,12 +74,7 @@ async fn kept(client: &PooledConnection, yaml: &str) -> (BTreeSet<u64>, BTreeSet
         if !feature.geometry.decode_wkb() {
             continue;
         }
-        let geom = match &feature.geometry {
-            Geometry::Points(points) => FeatureGeom::Points(points),
-            Geometry::Lines(lines) => FeatureGeom::Lines(lines),
-            Geometry::Polygons(polygons) => FeatureGeom::Polygons(polygons),
-            Geometry::Wkb(_) => panic!("undecoded geometry"),
-        };
+        let geom = feature.geometry.feature_geom().expect("undecoded geometry");
         evaluator
             .evaluate(0, &feature, geom, |_| {
                 in_plan.insert(feature.id.unwrap());

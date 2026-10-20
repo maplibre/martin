@@ -5,6 +5,7 @@ use geo_traits::to_geo::ToGeoGeometry as _;
 use geo_types::{Coord, Geometry as GeoGeometry, LineString, Polygon};
 use wkb::reader::Wkb;
 
+use crate::FeatureGeom;
 use crate::props::{KeyId, KeyInterner, Prop};
 
 /// Result of reading a [`FeatureSource`].
@@ -39,6 +40,9 @@ pub enum Crs {
 #[derive(Clone, Debug, PartialEq)]
 #[expect(missing_docs)]
 pub enum Geometry {
+    Point(Coord<f64>),
+    Line(LineString<f64>),
+    Polygon(Polygon<f64>),
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
     Polygons(Vec<Polygon<f64>>),
@@ -61,19 +65,33 @@ impl Geometry {
             None => false,
         }
     }
+
+    /// The renderable view of the geometry; `None` while it is still [`Geometry::Wkb`].
+    #[must_use]
+    pub fn feature_geom(&self) -> Option<FeatureGeom<'_>> {
+        Some(match self {
+            Self::Point(point) => FeatureGeom::Points(std::slice::from_ref(point)),
+            Self::Line(line) => FeatureGeom::Lines(std::slice::from_ref(line)),
+            Self::Polygon(polygon) => FeatureGeom::Polygons(std::slice::from_ref(polygon)),
+            Self::Points(points) => FeatureGeom::Points(points),
+            Self::Lines(lines) => FeatureGeom::Lines(lines),
+            Self::Polygons(polygons) => FeatureGeom::Polygons(polygons),
+            Self::Wkb(_) => return None,
+        })
+    }
 }
 
 fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
     Some(match Wkb::try_new(bytes).ok()?.try_to_geometry()? {
-        GeoGeometry::Point(p) => Geometry::Points(vec![p.0]),
+        GeoGeometry::Point(p) => Geometry::Point(p.0),
         GeoGeometry::MultiPoint(mp) => Geometry::Points(mp.0.into_iter().map(|p| p.0).collect()),
-        GeoGeometry::LineString(ls) => Geometry::Lines(vec![ls]),
+        GeoGeometry::LineString(ls) => Geometry::Line(ls),
         GeoGeometry::MultiLineString(mls) => Geometry::Lines(mls.0),
-        GeoGeometry::Polygon(polygon) => Geometry::Polygons(vec![polygon]),
+        GeoGeometry::Polygon(polygon) => Geometry::Polygon(polygon),
         GeoGeometry::MultiPolygon(mp) => Geometry::Polygons(mp.0),
-        GeoGeometry::Line(line) => Geometry::Lines(vec![line.into()]),
-        GeoGeometry::Rect(rect) => Geometry::Polygons(vec![rect.to_polygon()]),
-        GeoGeometry::Triangle(triangle) => Geometry::Polygons(vec![triangle.to_polygon()]),
+        GeoGeometry::Line(line) => Geometry::Line(line.into()),
+        GeoGeometry::Rect(rect) => Geometry::Polygon(rect.to_polygon()),
+        GeoGeometry::Triangle(triangle) => Geometry::Polygon(triangle.to_polygon()),
         GeoGeometry::GeometryCollection(_) => return None,
     })
 }
@@ -204,7 +222,7 @@ mod tests {
         .concat();
         let mut geometry = Geometry::Wkb(Bytes::from(point));
         assert!(geometry.decode_wkb());
-        assert_eq!(geometry, Geometry::Points(vec![Coord { x: 1.5, y: -2.0 }]));
+        assert_eq!(geometry, Geometry::Point(Coord { x: 1.5, y: -2.0 }));
 
         let line = [
             &[1, 2, 0, 0, 0, 2, 0, 0, 0][..],
@@ -218,7 +236,7 @@ mod tests {
         assert!(geometry.decode_wkb());
         assert_eq!(
             geometry,
-            Geometry::Lines(vec![LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])])
+            Geometry::Line(LineString::from(vec![(0.0, 0.0), (3.0, 4.0)]))
         );
 
         let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
