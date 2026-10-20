@@ -1,8 +1,12 @@
 //! Feature properties as they travel through the engine: interned keys and typed values.
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
+pub use bytestring::ByteString;
 use lasso::{Capacity, Key as _, Rodeo, RodeoResolver, Spur, ThreadedRodeo};
 use mlt_core::PropValueRef;
+
+/// A source's text value, a slice of a buffer shared with the rest of its batch.
+pub type SourceStr = ByteString;
 
 /// An interned property key of one layer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

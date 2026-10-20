@@ -1,15 +1,15 @@
 //! Streams whole-table scans into the bulk tile generator's feature batches.
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use deadpool_postgres::Object;
 use deadpool_postgres::tokio_postgres::types::ToSql;
 use deadpool_postgres::tokio_postgres::{Client, Row, ToStatement};
 use futures::TryStreamExt as _;
-use martin_tilegen::props::{KeyId, KeyInterner, Prop};
+use martin_tilegen::props::{KeyId, KeyInterner, Prop, SourceStr};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult};
 use mlt_core::PropValue;
 
-use super::features::{feature_id, property};
+use super::features::{feature_id, is_text, property};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
 
@@ -160,12 +160,7 @@ fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut Bytes
     let wkb: Option<&[u8]> = row
         .try_get(0)
         .map_err(|e| PostgresError::PostgresError(e, "reading a scanned geometry"))?;
-    let wkb = wkb.unwrap_or_default();
-    if arena.capacity() < wkb.len() {
-        arena.reserve(wkb.len().max(ARENA_BYTES));
-    }
-    arena.extend_from_slice(wkb);
-    let geometry = Geometry::Wkb(arena.split().freeze());
+    let geometry = Geometry::Wkb(copy_into(arena, wkb.unwrap_or_default()));
 
     let (id, column) = if layout.has_id {
         (feature_id(row)?, 2)
@@ -174,6 +169,16 @@ fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut Bytes
     };
     let mut props = Vec::with_capacity(layout.properties);
     for (pos, idx) in (0u32..).zip(column..column + layout.properties) {
+        if is_text(row, idx) {
+            let text: Option<&str> = row
+                .try_get(idx)
+                .map_err(|e| PostgresError::PostgresError(e, "reading a scanned property"))?;
+            if let Some(text) = text {
+                let text = SourceStr::try_from(copy_into(arena, text.as_bytes())).expect("a str is valid UTF-8");
+                props.push((KeyId::new(pos), Prop::Str(text)));
+            }
+            continue;
+        }
         match property(row, idx, "reading a scanned property")? {
             PostgresProperty::Value(value) => {
                 if let Some(value) = prop(value) {
@@ -192,7 +197,16 @@ fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut Bytes
     Ok(SourceFeature { id, geometry, props })
 }
 
-fn prop(value: PropValue) -> Option<Prop> {
+/// Copies `bytes` to the end of `arena` and returns them, sharing the arena's buffer.
+fn copy_into(arena: &mut BytesMut, bytes: &[u8]) -> Bytes {
+    if arena.capacity() < bytes.len() {
+        arena.reserve(bytes.len().max(ARENA_BYTES));
+    }
+    arena.extend_from_slice(bytes);
+    arena.split().freeze()
+}
+
+fn prop(value: PropValue) -> Option<Prop<SourceStr>> {
     Some(match value {
         PropValue::Bool(v) => Prop::Bool(v?),
         PropValue::I8(v) => Prop::I64(v?.into()),
@@ -202,10 +216,10 @@ fn prop(value: PropValue) -> Option<Prop> {
         PropValue::I64(v) => Prop::I64(v?),
         PropValue::U64(v) => {
             let v = v?;
-            i64::try_from(v).map_or_else(|_too_large| Prop::Str(v.to_string()), Prop::I64)
+            i64::try_from(v).map_or_else(|_too_large| Prop::Str(v.to_string().into()), Prop::I64)
         }
         PropValue::F32(v) => Prop::F32(v?),
         PropValue::F64(v) => Prop::F64(v?),
-        PropValue::Str(v) => Prop::Str(v?),
+        PropValue::Str(v) => Prop::Str(v?.into()),
     })
 }

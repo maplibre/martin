@@ -109,7 +109,10 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
 
     let pois = (0..20_000)
         .map(|i| {
-            let props = vec![(k0, Prop::Str(format!("poi {i}"))), (k1, Prop::I64(i64::from(i % 5)))];
+            let props = vec![
+                (k0, Prop::Str(format!("poi {i}").into())),
+                (k1, Prop::I64(i64::from(i % 5))),
+            ];
             feature(i, Geometry::Points(vec![rng.near(CENTER, 0.15)]), props)
         })
         .collect();

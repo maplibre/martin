@@ -145,6 +145,11 @@ pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     Ok(value.and_then(|v| u64::try_from(v).ok()))
 }
 
+/// Whether [`property`] reads the column as text.
+pub(super) fn is_text(row: &Row, idx: usize) -> bool {
+    PropType::of(row.columns()[idx].type_().name()) == Some(PropType::Text)
+}
+
 /// One column's value, typed by what the column's runtime type says it holds.
 pub(super) fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
     let column = &row.columns()[idx];

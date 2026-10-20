@@ -6,7 +6,7 @@ use geo_types::{Coord, Geometry as GeoGeometry, LineString, Polygon};
 use wkb::reader::Wkb;
 
 use crate::FeatureGeom;
-use crate::props::{KeyId, KeyInterner, Prop};
+use crate::props::{KeyId, KeyInterner, Prop, SourceStr};
 
 /// Result of reading a [`FeatureSource`].
 pub type SourceResult<T> = Result<T, SourceError>;
@@ -102,7 +102,7 @@ fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
 pub struct SourceFeature {
     pub id: Option<u64>,
     pub geometry: Geometry,
-    pub props: Vec<(KeyId, Prop)>,
+    pub props: Vec<(KeyId, Prop<SourceStr>)>,
 }
 
 /// Consecutive features of one partition and table: feature `i` is row `first_row + i`.

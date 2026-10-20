@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::RangeInclusive;
 use std::sync::atomic::Ordering;
 
-use crate::props::{KeyId, KeyInterner, KeyNames, Prop};
+use crate::props::{KeyId, KeyInterner, KeyNames, Prop, SourceStr};
 use crate::source::SourceFeature;
 use tracing::warn;
 
@@ -120,7 +120,7 @@ impl Plan {
     }
 
     /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
-    fn eval<R: Role>(&self, expr: &ExprRef<R>, view: &FeatureView<'_, String>, errors: &mut [u64]) -> R::Out {
+    fn eval<R: Role>(&self, expr: &ExprRef<R>, view: &FeatureView<'_, SourceStr>, errors: &mut [u64]) -> R::Out {
         let index = expr.index;
         let planned = &self.exprs[index];
         match planned.expr.eval(view).and_then(|v| expr.role.coerce(v)) {
@@ -143,7 +143,7 @@ impl Plan {
     fn feature_case<'p>(
         &self,
         layer: &'p PlannedLayer,
-        view: &FeatureView<'_, String>,
+        view: &FeatureView<'_, SourceStr>,
         errors: &mut [u64],
     ) -> Option<(RangeInclusive<u8>, &'p Case)> {
         if let Some(filter) = &layer.filter
@@ -162,7 +162,7 @@ impl Plan {
         (min <= max).then_some((min..=max, case))
     }
 
-    fn zoom(&self, zoom: PlannedZoom, view: &FeatureView<'_, String>, errors: &mut [u64]) -> Option<u8> {
+    fn zoom(&self, zoom: PlannedZoom, view: &FeatureView<'_, SourceStr>, errors: &mut [u64]) -> Option<u8> {
         match zoom {
             PlannedZoom::Fixed(zoom) => Some(zoom),
             PlannedZoom::Expr(expr, fallback) => self
@@ -175,8 +175,8 @@ impl Plan {
     fn computed(
         &self,
         attrs: &PlannedAttrs,
-        feature: &[(KeyId, Prop)],
-        view: Option<&FeatureView<'_, String>>,
+        feature: &[(KeyId, Prop<SourceStr>)],
+        view: Option<&FeatureView<'_, SourceStr>>,
         errors: &mut [u64],
         props: &mut EncodedProps,
         bands: &mut Vec<(u8, EncodedProps)>,
@@ -207,7 +207,7 @@ impl Plan {
     }
 
     /// The layer's `sort_by` keys, concatenated; a failed one sorts as `null`.
-    fn sort_key(&self, layer: &PlannedLayer, view: &FeatureView<'_, String>, errors: &mut [u64], out: &mut Vec<u8>) {
+    fn sort_key(&self, layer: &PlannedLayer, view: &FeatureView<'_, SourceStr>, errors: &mut [u64], out: &mut Vec<u8>) {
         out.clear();
         for expr in &layer.sort_by {
             self.eval(expr, view, errors).encode(expr.role.descending, out);
@@ -217,17 +217,10 @@ impl Plan {
     fn attr<'v>(
         &self,
         attr: &'v PlannedAttr,
-        feature: &'v [(KeyId, Prop)],
-        view: Option<&'v FeatureView<'_, String>>,
+        feature: &'v [(KeyId, Prop<SourceStr>)],
+        view: Option<&'v FeatureView<'_, SourceStr>>,
         errors: &mut [u64],
     ) -> Option<Prop<Cow<'v, str>>> {
-        let borrowed = |value: &'v Prop| match value {
-            Prop::Bool(v) => Prop::Bool(*v),
-            Prop::I64(v) => Prop::I64(*v),
-            Prop::F32(v) => Prop::F32(*v),
-            Prop::F64(v) => Prop::F64(*v),
-            Prop::Str(v) => Prop::Str(Cow::Borrowed(v.as_str())),
-        };
         match &attr.value {
             PlannedValue::Literal(value) => Some(borrowed(value)),
             PlannedValue::Column(key) => feature.iter().find(|(k, _)| k == key).map(|(_, value)| borrowed(value)),
@@ -468,8 +461,19 @@ fn learn_all(names: &mut (ExprKeys, u32), table: &KeyInterner) {
     }
 }
 
+/// Borrows `value`, whether it is a plan literal or a source's property.
+fn borrowed<S: AsRef<str>>(value: &Prop<S>) -> Prop<Cow<'_, str>> {
+    match value {
+        Prop::Bool(v) => Prop::Bool(*v),
+        Prop::I64(v) => Prop::I64(*v),
+        Prop::F32(v) => Prop::F32(*v),
+        Prop::F64(v) => Prop::F64(*v),
+        Prop::Str(v) => Prop::Str(Cow::Borrowed(v.as_ref())),
+    }
+}
+
 /// Makes the table's keys interned since the last feature known to expressions.
-fn learn_keys(names: &mut (ExprKeys, u32), props: &[(KeyId, Prop)], table: &KeyInterner) {
+fn learn_keys(names: &mut (ExprKeys, u32), props: &[(KeyId, Prop<SourceStr>)], table: &KeyInterner) {
     let (names, known) = names;
     for (key, _) in props {
         while *known <= key.get() {
