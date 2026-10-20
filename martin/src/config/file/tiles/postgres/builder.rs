@@ -17,8 +17,8 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, find_schema_info, normalize_key};
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish, PostgresCfgPublishFuncs,
-    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, IdFormat, PgTileGrid, PostgresCfgPublish,
+    PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, Srid, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -97,7 +97,12 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
         })?;
     let is_epsg = grid.crs_authority().eq_ignore_ascii_case("EPSG");
     let srid = if is_epsg {
-        code
+        Srid::try_from(code)
+            .map_err(|_out_of_range| ConfigFileError::TileGridCrsCodeNotSrid {
+                grid: grid.id().to_owned(),
+                crs: grid.crs().to_owned(),
+            })?
+            .get()
     } else {
         let conn = pool
             .get()
@@ -235,7 +240,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         Ok(Self {
             pool,
-            default_srid: config.default_srid,
+            default_srid: config.default_srid.map(Srid::get),
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
@@ -781,7 +786,11 @@ fn calc_auto(
         if let Object(PostgresCfgPublish { tables: Object(v), .. }) = &config.auto_publish {
             PostgresAutoDiscoveryBuilderTables {
                 schemas,
-                source_id_format: v.source_id_format.as_deref().unwrap_or("{table}").to_owned(),
+                source_id_format: v
+                    .source_id_format
+                    .as_ref()
+                    .map_or("{table}", IdFormat::as_str)
+                    .to_owned(),
                 id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
@@ -807,7 +816,7 @@ fn calc_auto(
             ..
         }) = &config.auto_publish
         {
-            v.clone()
+            v.to_string()
         } else {
             "{function}".to_owned()
         },

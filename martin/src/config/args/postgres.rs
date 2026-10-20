@@ -7,7 +7,9 @@ use crate::config::args::bounds::BoundsCalcType;
 use crate::config::args::connections::Arguments;
 use crate::config::args::connections::State::{Ignore, Take};
 use crate::config::args::order_by::OrderByType;
-use crate::config::file::postgres::{DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts};
+use crate::config::file::postgres::{
+    DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts, Srid,
+};
 use crate::config::file::{CachePolicy, UnrecognizedValues};
 use crate::config::primitives::OptBoolObj;
 
@@ -22,7 +24,7 @@ pub struct PostgresArgs {
     pub ca_root_file: Option<std::path::PathBuf>,
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
-    pub default_srid: Option<i32>,
+    pub default_srid: Option<Srid>,
     #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
     pub pool_size: Option<NonZeroUsize>,
     /// How long the first PostgreSQL connection is retried before startup fails, a duration like `30s` or `infinite`. [DEFAULT: 30s]
@@ -103,7 +105,7 @@ impl PostgresArgs {
 
         if let Some(value) = default_srid {
             info!(
-                postgres.default_srid = value,
+                postgres.default_srid = %value,
                 "Overriding configured default SRID on all Postgres connections because of a CLI parameter"
             );
             for c in pg_config.iter_mut() {
@@ -240,7 +242,7 @@ mod tests {
     fn merge_into_config2() {
         let mut args = Arguments::new(vec!["postgres://localhost:5432".to_owned()]);
         let pg_args = PostgresArgs {
-            default_srid: Some(20),
+            default_srid: Some(Srid::try_from(20).unwrap()),
             ca_root_file: Some(PathBuf::from("root")),
             ssl_cert: Some(PathBuf::from("cert")),
             ssl_key: Some(PathBuf::from("key")),
@@ -251,7 +253,7 @@ mod tests {
             config,
             vec![PostgresConfig {
                 connection_string: Some("postgres://localhost:5432".to_owned()),
-                default_srid: Some(20),
+                default_srid: Some(Srid::try_from(20).unwrap()),
                 ssl_certificates: PostgresSslCerts {
                     ssl_cert: Some(PathBuf::from("cert")),
                     ssl_key: Some(PathBuf::from("key")),
