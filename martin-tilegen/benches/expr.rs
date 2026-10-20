@@ -24,7 +24,7 @@ fn plan(layer: LayerDef) -> Plan {
     Plan::new(vec![TableDef {
         columns: COLUMNS
             .iter()
-            .map(|&name| ColumnDef::Value(name.to_owned()))
+            .map(|&name| ColumnDef::Value(name.to_owned(), None))
             .collect(),
         layers: vec![layer],
     }])

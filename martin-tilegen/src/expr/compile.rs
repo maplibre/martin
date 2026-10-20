@@ -47,7 +47,7 @@ pub enum ExprError {
 
 #[derive(Debug)]
 pub struct CompiledExpr {
-    expr: IdedExpr,
+    pub(super) expr: IdedExpr,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
 }

@@ -90,8 +90,8 @@ database by key range.
     these connections, so each partition is read in its own order, at the pace the generator asks for. There
     is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
-    Each scan reads only the rows some layer takes, when no layer has a `where`, see
-    [Features](sources-pg-layers.md#features).
+    Each scan reads only the rows some layer takes, when the database can apply every layer's
+    `geometry` and `where`, see [Features](sources-pg-layers.md#features).
 
 ### Feature queue
 

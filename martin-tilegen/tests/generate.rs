@@ -30,7 +30,7 @@ fn table(name: &str, keys: &[&str]) -> TableDef {
     TableDef {
         columns: keys
             .iter()
-            .map(|&k| ColumnDef::Value(k.to_owned()))
+            .map(|&k| ColumnDef::Value(k.to_owned(), None))
             .collect(),
         layers: vec![LayerDef::new(name, 0..=4, GRID)],
     }
@@ -413,9 +413,9 @@ fn one_table_feeds_layers_with_their_own_settings() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("lanes".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("lanes".to_owned(), None),
         ],
         layers: vec![
             LayerDef {
@@ -524,8 +524,8 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
     let plan = || {
         Plan::new(vec![TableDef {
             columns: vec![
-                ColumnDef::Value("name".to_owned()),
-                ColumnDef::Value("rank".to_owned()),
+                ColumnDef::Value("name".to_owned(), None),
+                ColumnDef::Value("rank".to_owned(), None),
                 ColumnDef::Keys("tags".to_owned()),
             ],
             layers: vec![
@@ -591,7 +591,7 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![
             LayerDef {
                 sort_by: vec![SortDef {
@@ -662,8 +662,8 @@ fn sort_by_compares_its_keys_in_order() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![LayerDef {
             sort_by: vec![
@@ -713,7 +713,7 @@ fn null_and_failing_sort_keys_sort_first() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("lanes".to_owned())],
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "lanes < 0 ? null : 8 / lanes".to_owned(),
@@ -777,7 +777,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "rank".to_owned(),
@@ -849,7 +849,7 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             encoder: EncoderConfig::default()
                 .with_id_sort(true)

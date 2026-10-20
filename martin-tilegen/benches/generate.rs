@@ -64,7 +64,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
         let table = TableDef {
             columns: keys
                 .iter()
-                .map(|&k| ColumnDef::Value(k.to_owned()))
+                .map(|&k| ColumnDef::Value(k.to_owned(), None))
                 .collect(),
             layers: vec![LayerDef::new(
                 name,
