@@ -125,10 +125,7 @@ fn to_geojson(tf: &TiledFeature) -> Feature {
     };
 
     let mut props = Map::new();
-    props.insert(
-        "tile".to_owned(),
-        json!(format!("{},{}", tf.tile.x, tf.tile.y)),
-    );
+    props.insert("tile".to_owned(), json!(format!("{},{}", tf.tile.x, tf.tile.y)));
     for (k, v) in &tf.attrs.props {
         props.insert((*k).to_owned(), json!(v));
     }

@@ -22,12 +22,8 @@ fn registered(id: &str) -> Registered {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures/tile-matrix-sets")
         .join(format!("{id}.json"));
-    let document = std::fs::read_to_string(&path).unwrap_or_else(|e| {
-        panic!(
-            "every built-in grid has its registry document, {}: {e}",
-            path.display()
-        )
-    });
+    let document = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("every built-in grid has its registry document, {}: {e}", path.display()));
     let doc: Value = serde_json::from_str(&document).unwrap();
     let zoom0 = &doc["tileMatrices"][0];
     assert_eq!(zoom0["id"], "0", "{id}");
@@ -39,12 +35,7 @@ fn registered(id: &str) -> Registered {
     if matches!(doc["orderedAxes"][0].as_str().unwrap(), "Y" | "N" | "Lat") {
         origin.reverse();
     }
-    let code = doc["crs"]
-        .as_str()
-        .unwrap()
-        .rsplit(['/', ':'])
-        .next()
-        .unwrap();
+    let code = doc["crs"].as_str().unwrap().rsplit(['/', ':']).next().unwrap();
     Registered {
         id: doc["id"].as_str().unwrap().to_owned(),
         crs: match code {
@@ -64,15 +55,8 @@ fn assert_same_grid(grid: &TileGrid, registered: &Registered) {
     let id = &registered.id;
     assert_eq!(grid.crs(), registered.crs, "{id}");
     assert!(
-        relative_eq!(
-            grid.origin()[0],
-            registered.origin[0],
-            max_relative = REGISTRY_ROUNDING
-        ) && relative_eq!(
-            grid.origin()[1],
-            registered.origin[1],
-            max_relative = REGISTRY_ROUNDING
-        ),
+        relative_eq!(grid.origin()[0], registered.origin[0], max_relative = REGISTRY_ROUNDING)
+            && relative_eq!(grid.origin()[1], registered.origin[1], max_relative = REGISTRY_ROUNDING),
         "{id}: origin {:?}, the registry has {:?}",
         grid.origin(),
         registered.origin

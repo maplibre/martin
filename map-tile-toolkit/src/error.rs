@@ -25,10 +25,7 @@ pub enum TileError {
 
     /// A polygon has more than `u32::MAX` rings or edges, or one of its pieces more than `u32::MAX`
     /// vertices - beyond the `u32` indices the slicer keeps.
-    #[error(
-        "geometry too large: at most {} rings or edges are supported",
-        u32::MAX
-    )]
+    #[error("geometry too large: at most {} rings or edges are supported", u32::MAX)]
     GeometryTooLarge,
 
     /// Coordinate arithmetic overflowed `i32` - a coordinate or tile lies too close to the limits of

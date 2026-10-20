@@ -61,18 +61,12 @@ mod tests {
 
     #[test]
     fn config_and_connections_lists_the_offending_parameters() {
-        let err = ArgsError::ConfigAndConnections(vec![
-            "postgres://x".to_owned(),
-            "b.mbtiles".to_owned(),
-        ]);
+        let err = ArgsError::ConfigAndConnections(vec!["postgres://x".to_owned(), "b.mbtiles".to_owned()]);
         assert_eq!(
             err.to_string(),
             "The --config and the connection parameters cannot be used together. Please remove unsupported parameters 'postgres://x b.mbtiles'"
         );
         let err = ArgsError::UnrecognizableConnections(vec!["what".to_owned()]);
-        assert_eq!(
-            err.to_string(),
-            r#"Unrecognizable connection strings: ["what"]"#
-        );
+        assert_eq!(err.to_string(), r#"Unrecognizable connection strings: ["what"]"#);
     }
 }

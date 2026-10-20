@@ -4,14 +4,10 @@ use actix_web::http::header::{
     AcceptEncoding, CONTENT_ENCODING, ContentEncoding, Encoding as HeaderEnc, LOCATION, VARY,
 };
 use actix_web::web::{Bytes, Data, Path};
-use actix_web::{
-    HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route, routes,
-};
+use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route, routes};
 use martin_core::cache::CacheKey as _;
 use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache, normalize_font_ids};
-use martin_tile_utils::{
-    Encoding, encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd,
-};
+use martin_tile_utils::{Encoding, encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -72,8 +68,7 @@ pub async fn get_font(
         // so invalidating a font also evicts entries reached through an alias.
         let expanded_ids = fonts.expand_font_ids(&path.fontstack);
         let key = FontCacheKey::new(normalize_font_ids(&expanded_ids), path.start, path.end);
-        let served =
-            (encoding != Encoding::Uncompressed).then(|| key.clone().with_encoding(encoding));
+        let served = (encoding != Encoding::Uncompressed).then(|| key.clone().with_encoding(encoding));
         if let Some(served) = &served
             && let Some(data) = cache.get(served).await
         {

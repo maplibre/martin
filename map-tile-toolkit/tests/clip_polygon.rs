@@ -97,10 +97,7 @@ fn clip_all_tiles(polygons: &[FixturePolygon], buffer: u16) -> BTreeMap<TileId, 
 /// Slice each feature (a list of polygons, one polygon at a time) with [`Slicer::polygon`] and expand the result
 /// into per-tile pieces the way a consumer renders it: each edge tile's pieces, and in each tile of a
 /// fill run its polygon's fill ring. Within a tile, pieces follow the features, then the polygons.
-fn slice_all_tiles(
-    features: &[Vec<FixturePolygon>],
-    buffer: u16,
-) -> BTreeMap<TileId, Vec<TiledFeature>> {
+fn slice_all_tiles(features: &[Vec<FixturePolygon>], buffer: u16) -> BTreeMap<TileId, Vec<TiledFeature>> {
     let mut slicer = Slicer::<Coord<i32>>::new(EXTENT, buffer).expect("valid config");
     let mut out: BTreeMap<TileId, Vec<TiledFeature>> = BTreeMap::new();
     for f in features {

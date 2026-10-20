@@ -36,10 +36,7 @@ fn all_fixture_polylines() -> Vec<Vec<Coord<i32>>> {
         .collect();
     paths.sort();
     assert!(!paths.is_empty(), "no fixtures found");
-    paths
-        .iter()
-        .flat_map(|p| support::load_fixture_geoms(p))
-        .collect()
+    paths.iter().flat_map(|p| support::load_fixture_geoms(p)).collect()
 }
 
 /// A polyline of plain `Coord`s.
@@ -63,10 +60,7 @@ fn edge_set(runs: &[Vec<Coord<i32>>]) -> HashSet<(Coord<i32>, Coord<i32>)> {
 #[test]
 fn every_permutation_reassembles_all_fixtures() {
     let polylines = all_fixture_polylines();
-    for (label, cfg) in [
-        ("buffer 0", support::grid()),
-        ("buffer 5", support::grid_buffered()),
-    ] {
+    for (label, cfg) in [("buffer 0", support::grid()), ("buffer 5", support::grid_buffered())] {
         validate_mosaic(label, &cfg, &polylines);
     }
 }
@@ -91,11 +85,7 @@ fn validate_mosaic(label: &str, cfg: &Cfg, polylines: &[Vec<Coord<i32>>]) {
                 .add(*tile, runs.as_slice())
                 .expect("a slicer's own tiles are self-consistent and never conflict");
         }
-        assert_eq!(
-            mosaic.len(),
-            tiles.len(),
-            "{label}: every tile must register"
-        );
+        assert_eq!(mosaic.len(), tiles.len(), "{label}: every tile must register");
 
         // The mosaic reassembles in the global frame - the input's own space at any buffer.
         let features: Vec<Vec<Coord<i32>>> = mosaic.iter_features().collect();
@@ -123,10 +113,7 @@ fn validate_mosaic(label: &str, cfg: &Cfg, polylines: &[Vec<Coord<i32>>]) {
 #[test]
 fn bad_config_and_far_tiles_are_errors_and_an_empty_mosaic_is_empty() {
     for extent in [0, u32::MAX] {
-        assert_eq!(
-            Mosaic::<Coord<i32>>::new(extent).err(),
-            Some(TileError::InvalidExtent)
-        );
+        assert_eq!(Mosaic::<Coord<i32>>::new(extent).err(), Some(TileError::InvalidExtent));
     }
     let empty = Mosaic::<Coord<i32>>::new(25).expect("valid config");
     assert_eq!(empty.iter_features().count(), 0);
@@ -160,10 +147,7 @@ fn purge_and_clear_manage_tiles() {
     assert!(!mosaic.contains(TileId::new(0, 0)));
     assert!(mosaic.contains(TileId::new(5, 5)));
     assert_eq!(mosaic.len(), 1);
-    assert!(
-        !mosaic.purge(TileId::new(0, 0)),
-        "purging an absent tile is a no-op"
-    );
+    assert!(!mosaic.purge(TileId::new(0, 0)), "purging an absent tile is a no-op");
 
     // Clear drops everything.
     mosaic.clear();

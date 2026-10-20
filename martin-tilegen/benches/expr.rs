@@ -2,21 +2,12 @@ use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use geo_types::Coord;
-use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, TableDef, ValueDef,
-};
+use martin_tilegen::plan::{AttributesDef, ColumnDef, ComputedAttr, IdDef, LayerDef, Plan, TableDef, ValueDef};
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
 use martin_tilegen::{FeatureGeom, LayerGrid};
 
-const COLUMNS: [&str; 6] = [
-    "highway",
-    "railway",
-    "place",
-    "population",
-    "name",
-    "name:en",
-];
+const COLUMNS: [&str; 6] = ["highway", "railway", "place", "population", "name", "name:en"];
 
 const POINT: [Coord<f64>; 1] = [Coord { x: 0.0, y: 0.0 }];
 
@@ -94,8 +85,7 @@ fn eval(c: &mut Criterion) {
             "rank",
             plan(LayerDef {
                 id: IdDef::Expr(
-                    "population >= 1000000 ? 1 : population >= 100000 ? 2 : population >= 10000 ? 3 : 4"
-                        .to_owned(),
+                    "population >= 1000000 ? 1 : population >= 100000 ? 2 : population >= 10000 ? 3 : 4".to_owned(),
                 ),
                 ..layer()
             }),

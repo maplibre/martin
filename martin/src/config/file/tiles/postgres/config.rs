@@ -14,8 +14,8 @@ use crate::config::args::OrderByType;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileGrids,
+    UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -195,8 +195,7 @@ pub struct PostgresConfig {
 }
 
 /// Default connection pool size.
-pub const DEFAULT_POOL_SIZE: NonZeroUsize =
-    NonZeroUsize::new(20).expect("default pool size is non-zero");
+pub const DEFAULT_POOL_SIZE: NonZeroUsize = NonZeroUsize::new(20).expect("default pool size is non-zero");
 
 impl Default for PostgresConfig {
     // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
@@ -229,25 +228,14 @@ impl Default for PostgresConfig {
 }
 
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Here we enable both tables and functions auto discovery.
     /// You can also enable just one of them by not mentioning the other, or
@@ -265,25 +253,14 @@ pub struct PostgresCfgPublish {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
@@ -300,10 +277,7 @@ pub struct PostgresCfgPublishTables {
     /// feature ID.
     #[serde(alias = "id_column")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
@@ -323,25 +297,14 @@ pub struct PostgresCfgPublishTables {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the function's
     /// name and schema
@@ -368,14 +331,10 @@ impl PostgresConfig {
             let grid = table.tile_grid.as_deref()?;
             Some((format!("Table source {id}"), grid))
         });
-        let functions = self
-            .functions
-            .iter()
-            .flatten()
-            .filter_map(|(id, function)| {
-                let grid = function.tile_grid.as_deref()?;
-                Some((format!("Function source {id}"), grid))
-            });
+        let functions = self.functions.iter().flatten().filter_map(|(id, function)| {
+            let grid = function.tile_grid.as_deref()?;
+            Some((format!("Function source {id}"), grid))
+        });
         for (what, grid) in connection.into_iter().chain(tables).chain(functions) {
             if grids.get(grid).is_none() {
                 return Err(ConfigFileError::UnknownTileGrid {
@@ -459,8 +418,7 @@ mod tests {
         assert_eq!(pg.prefetch.unwrap().tiles_per_side().get(), 2);
         assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side().get(), 1);
         assert_eq!(tables["cities"].layers, None);
-        let expected: tiling::Layers =
-            serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
+        let expected: tiling::Layers = serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
         assert_eq!(tables["roads"].layers.as_deref(), Some(&expected));
         assert!(config.get_unrecognized_keys().is_empty());
     }
@@ -551,10 +509,7 @@ mod tests {
     #[test]
     fn default_impl_yields_ten_minute_reload_interval() {
         // `..Default::default()` must yield 10m so the config-equality tests below still hold.
-        assert_eq!(
-            PostgresConfig::default().reload_interval,
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(PostgresConfig::default().reload_interval, DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]
@@ -646,9 +601,7 @@ mod tests {
                         ..Default::default()
                     },
                     PostgresConfig {
-                        connection_string: Some(
-                            "postgresql://postgres@localhost:5433/db".to_owned(),
-                        ),
+                        connection_string: Some("postgresql://postgres@localhost:5433/db".to_owned()),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
@@ -718,10 +671,7 @@ mod tests {
                             clip_geom: Some(false),
                             filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),
-                            properties: Some(BTreeMap::from([(
-                                "gid".to_owned(),
-                                "int4".to_owned(),
-                            )])),
+                            properties: Some(BTreeMap::from([("gid".to_owned(), "int4".to_owned())])),
                             ..Default::default()
                         },
                     )])),
@@ -752,8 +702,7 @@ mod tests {
             geometry_column: geom
             extent: 0
         "};
-        let err = serde_saphyr::from_str::<TableInfo>(yaml)
-            .expect_err("extent: 0 must be rejected by NonZeroU32");
+        let err = serde_saphyr::from_str::<TableInfo>(yaml).expect_err("extent: 0 must be rejected by NonZeroU32");
         let msg = err.to_string();
         assert!(
             msg.contains("extent") || msg.contains("zero") || msg.contains("nonzero"),

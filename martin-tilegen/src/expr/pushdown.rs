@@ -3,9 +3,7 @@
 use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
 
 use super::{CompiledExpr, FEATURE};
-use crate::plan::{
-    ColumnDef, CompareOp, Condition, Literal, Polarity, Term, TranslateError, ValueKind,
-};
+use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Polarity, Term, TranslateError, ValueKind};
 
 impl CompiledExpr {
     /// The rows this filter keeps, reading only `columns`.
@@ -34,9 +32,7 @@ impl Translator<'_> {
     /// `expr` as a condition of `polarity`.
     fn condition(&self, expr: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
         match &expr.expr {
-            Expr::Literal(LiteralValue::Boolean(value)) => {
-                Ok(Condition::Const(*value.inner() != polarity.negated()))
-            }
+            Expr::Literal(LiteralValue::Boolean(value)) => Ok(Condition::Const(*value.inner() != polarity.negated())),
             Expr::Call(call) => self.call(call, polarity),
             Expr::Unspecified
             | Expr::Ident(_)
@@ -54,14 +50,12 @@ impl Translator<'_> {
         let name = call.func_name.as_str();
         match (name, call.target.as_deref(), call.args.as_slice()) {
             (operators::LOGICAL_NOT, None, [arg]) => self.condition(arg, polarity.flip()),
-            (operators::LOGICAL_AND, None, [left, right]) => Ok(polarity.all([
-                self.condition(left, polarity)?,
-                self.condition(right, polarity)?,
-            ])),
-            (operators::LOGICAL_OR, None, [left, right]) => Ok(polarity.any([
-                self.condition(left, polarity)?,
-                self.condition(right, polarity)?,
-            ])),
+            (operators::LOGICAL_AND, None, [left, right]) => {
+                Ok(polarity.all([self.condition(left, polarity)?, self.condition(right, polarity)?]))
+            }
+            (operators::LOGICAL_OR, None, [left, right]) => {
+                Ok(polarity.any([self.condition(left, polarity)?, self.condition(right, polarity)?]))
+            }
             (operators::CONDITIONAL, None, [test, then, otherwise]) => Ok(Condition::or([
                 Condition::and([
                     self.condition(test, Polarity::AsWritten)?,
@@ -77,9 +71,7 @@ impl Translator<'_> {
                 match polarity.op(op) {
                     CompareOp::Eq => left.equals(right, Polarity::AsWritten),
                     CompareOp::Ne => left.equals(right, Polarity::Negated),
-                    op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => {
-                        left.order(op, right)
-                    }
+                    op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => left.order(op, right),
                 }
             }
             (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
@@ -88,12 +80,7 @@ impl Translator<'_> {
     }
 
     /// `value in list` of `polarity`, each element compared as it compares with `value`.
-    fn in_list(
-        &self,
-        value: &IdedExpr,
-        list: &IdedExpr,
-        polarity: Polarity,
-    ) -> Result<Condition, TranslateError> {
+    fn in_list(&self, value: &IdedExpr, list: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
         let Operand::Column(name, kind) = self.operand(value)? else {
             return Err(TranslateError::ConstantInList);
         };
@@ -185,18 +172,14 @@ impl Operand {
                 kind: ValueKind::Bool,
             }),
             Self::Column(name, None) => Err(TranslateError::UnknownColumnType(name)),
-            Self::Column(_, Some(_)) | Self::Literal(..) | Self::Null => {
-                Ok(Condition::Const(false))
-            }
+            Self::Column(_, Some(_)) | Self::Literal(..) | Self::Null => Ok(Condition::Const(false)),
         }
     }
 
     /// `self == right`, or `self != right` once negated.
     fn equals(self, right: Self, polarity: Polarity) -> Result<Condition, TranslateError> {
         let ((name, kind), other) = match (self, right) {
-            (Self::Column(name, kind), other) | (other, Self::Column(name, kind)) => {
-                ((name, kind), other)
-            }
+            (Self::Column(name, kind), other) | (other, Self::Column(name, kind)) => ((name, kind), other),
             _ => return Err(TranslateError::Constants),
         };
         match other {
@@ -228,9 +211,7 @@ impl Operand {
                 let other_kind = known_kind(&other, other_kind)?;
                 let (left, right) = (Term::Column(name), Term::Column(other));
                 match kind.common(other_kind) {
-                    Some(ValueKind::Float) if kind == other_kind => {
-                        Err(TranslateError::FloatColumns)
-                    }
+                    Some(ValueKind::Float) if kind == other_kind => Err(TranslateError::FloatColumns),
                     // CEL holds `null == null`, so two columns compare like `IS NOT DISTINCT FROM`.
                     Some(kind) => Ok(Condition::Distinct {
                         left,
@@ -238,8 +219,7 @@ impl Operand {
                         kind,
                         polarity: polarity.flip(),
                     }),
-                    None => Ok(polarity
-                        .all([left, right].map(|term| Condition::IsNull { term, polarity }))),
+                    None => Ok(polarity.all([left, right].map(|term| Condition::IsNull { term, polarity }))),
                 }
             }
         }
@@ -301,9 +281,7 @@ impl Operand {
             LiteralValue::String(v) if v.inner().contains('\0') => {
                 return Err(TranslateError::NulInString);
             }
-            LiteralValue::String(v) => {
-                Self::Literal(Literal::String(v.inner().to_owned()), ValueKind::String)
-            }
+            LiteralValue::String(v) => Self::Literal(Literal::String(v.inner().to_owned()), ValueKind::String),
             LiteralValue::Bytes(_) => return Err(TranslateError::Bytes),
         })
     }
@@ -312,15 +290,10 @@ impl Operand {
     fn negative(literal: &LiteralValue) -> Result<Self, TranslateError> {
         match literal {
             LiteralValue::Int(v) => {
-                let negated = v
-                    .inner()
-                    .checked_neg()
-                    .ok_or(TranslateError::NegatedMinimum)?;
+                let negated = v.inner().checked_neg().ok_or(TranslateError::NegatedMinimum)?;
                 Ok(Self::Literal(Literal::Int(negated), ValueKind::Int))
             }
-            LiteralValue::Double(v) => {
-                Ok(Self::Literal(Literal::Float(-v.inner()), ValueKind::Float))
-            }
+            LiteralValue::Double(v) => Ok(Self::Literal(Literal::Float(-v.inner()), ValueKind::Float)),
             LiteralValue::Boolean(_)
             | LiteralValue::Bytes(_)
             | LiteralValue::Null

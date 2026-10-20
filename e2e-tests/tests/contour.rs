@@ -14,15 +14,7 @@ fn neighbour_tile(x: u32, y: u32) -> PathBuf {
 
 fn neighbourhood() -> Vec<(u32, u32, u32)> {
     (-1i32..=1)
-        .flat_map(|dy| {
-            (-1i32..=1).map(move |dx| {
-                (
-                    10,
-                    163u32.wrapping_add_signed(dx),
-                    396u32.wrapping_add_signed(dy),
-                )
-            })
-        })
+        .flat_map(|dy| (-1i32..=1).map(move |dx| (10, 163u32.wrapping_add_signed(dx), 396u32.wrapping_add_signed(dy))))
         .collect()
 }
 
@@ -43,12 +35,7 @@ fn tile_path() -> String {
 }
 
 async fn sorted_log(files: &StaticFiles) -> String {
-    let mut lines = files
-        .request_log()
-        .await
-        .lines()
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+    let mut lines = files.request_log().await.lines().map(str::to_owned).collect::<Vec<_>>();
     lines.sort();
     lines.join("\n")
 }
@@ -239,10 +226,7 @@ async fn an_out_of_range_setting_is_rejected_at_startup() {
         "})
         .start()
         .await;
-    assert!(
-        started.is_err(),
-        "a resolution outside 1-64 must not start the server"
-    );
+    assert!(started.is_err(), "a resolution outside 1-64 must not start the server");
 }
 
 #[tokio::test]
@@ -347,20 +331,14 @@ async fn a_contoured_source_accepts_a_vector_tile_accept_header() {
         .expect("failed to start martin");
 
     let response = martin
-        .get_with_headers(
-            &tile_path(),
-            &[("Accept", "application/vnd.mapbox-vector-tile")],
-        )
+        .get_with_headers(&tile_path(), &[("Accept", "application/vnd.mapbox-vector-tile")])
         .await;
     assert_eq!(
         response.status(),
         200,
         "negotiation must run against the traced format, not the elevation source's"
     );
-    assert_eq!(
-        response.header("content-type"),
-        Some("application/x-protobuf")
-    );
+    assert_eq!(response.header("content-type"), Some("application/x-protobuf"));
     assert_eq!(response.mvt().layers[0].name, "contour");
     martin.stop().await;
 }

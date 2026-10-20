@@ -41,10 +41,7 @@ fn as_polygon<R: AsRef<[Coord<i32>]>>(rings: &[R]) -> Polygon<f64> {
 }
 
 fn pieces_are_valid([path]: [&Path; 1]) {
-    let polygons: Vec<FixturePolygon> = support::load_polygon_features(path)
-        .into_iter()
-        .flatten()
-        .collect();
+    let polygons: Vec<FixturePolygon> = support::load_polygon_features(path).into_iter().flatten().collect();
     let all_exteriors: Vec<Vec<Coord<i32>>> = polygons.iter().map(|p| p.exterior.clone()).collect();
     let (lo, hi) = support::padded_tile_span(&all_exteriors);
 

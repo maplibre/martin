@@ -253,10 +253,7 @@ async fn the_saved_config_fills_in_the_source_defaults() {
     "id_column 'nonexistent' was not found"
 )]
 #[tokio::test]
-async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
-    #[case] config: &str,
-    #[case] warning: &str,
-) {
+async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(#[case] config: &str, #[case] warning: &str) {
     let dir = temp_dir();
     let mut martin = start_with_config(&dir, config).await;
 
@@ -274,10 +271,7 @@ async fn an_invalid_sibling_warns_without_taking_down_the_valid_source(
 }
 
 #[tokio::test]
-#[expect(
-    clippy::too_many_lines,
-    reason = "two inline snapshots of every column"
-)]
+#[expect(clippy::too_many_lines, reason = "two inline snapshots of every column")]
 async fn a_tile_casts_the_property_columns_mvt_cannot_carry_and_drops_the_rest() {
     let dir = temp_dir();
     let mut martin = martin_with_config(
@@ -856,10 +850,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_a_plain_request_stays_mvt() 
     assert_eq!(mvt.header("content-type"), Some("application/x-protobuf"));
 
     let mlt = martin
-        .get_with_headers(
-            "/polygons/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/polygons/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert_eq!(mlt.status(), 200);
     insta::assert_snapshot!(mlt.headers_snapshot(), @r#"
@@ -959,23 +950,20 @@ async fn an_mlt_accept_header_converts_the_tile_and_a_plain_request_stays_mvt() 
     "}
 )]
 #[tokio::test]
-async fn a_disabled_conversion_answers_an_mlt_only_request_with_not_acceptable(
-    #[case] config: &str,
-) {
+async fn a_disabled_conversion_answers_an_mlt_only_request_with_not_acceptable(#[case] config: &str) {
     let dir = temp_dir();
     let mut martin = start_with_config(&dir, config).await;
 
     let mlt = martin
-        .get_with_headers(
-            "/polygons/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/polygons/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert_eq!(mlt.status(), 406, "{:?}", mlt.header("content-type"));
     assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_contains(r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#);
+    martin.assert_log_contains(
+        r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#,
+    );
 }
 
 #[tokio::test]
@@ -997,16 +985,10 @@ async fn a_per_source_conversion_overrides_the_duckdb_level_one() {
     .await;
 
     let mlt = martin
-        .get_with_headers(
-            "/polygons/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/polygons/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert_eq!(mlt.status(), 200);
-    assert_eq!(
-        mlt.header("content-type"),
-        Some("application/vnd.maplibre-tile")
-    );
+    assert_eq!(mlt.header("content-type"), Some("application/vnd.maplibre-tile"));
 
     martin.stop().await;
 }
@@ -1034,16 +1016,10 @@ async fn per_source_encoder_settings_reach_the_mlt_encoder() {
     .await;
 
     let tessellated = martin
-        .get_with_headers(
-            "/tessellated/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/tessellated/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     let plain = martin
-        .get_with_headers(
-            "/plain/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/plain/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert!(
         tessellated.body().len() > plain.body().len(),
@@ -1051,10 +1027,7 @@ async fn per_source_encoder_settings_reach_the_mlt_encoder() {
         tessellated.body().len(),
         plain.body().len()
     );
-    assert_eq!(
-        tessellated.mlt()[0].features().len(),
-        plain.mlt()[0].features().len()
-    );
+    assert_eq!(tessellated.mlt()[0].features().len(), plain.mlt()[0].features().len());
 
     martin.stop().await;
 }
@@ -1074,10 +1047,7 @@ async fn reload_rebuilds_a_replaced_geoparquet_file() {
               geometry_column: geom
               srid: 4326
     "};
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
+    watched.seed(fixture("duckdb/geoparquet_polygons.parquet"), "polygons.parquet");
     let mut martin = start_with_config(&dir, &config).await;
 
     let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
@@ -1088,28 +1058,17 @@ async fn reload_rebuilds_a_replaced_geoparquet_file() {
     }
     "#);
 
-    watched.install(
-        fixture("duckdb/geoparquet_mixed_types.parquet"),
-        "polygons.parquet",
-    );
-    martin
-        .wait_for_log("Updated source source.id=polygons")
-        .await;
+    watched.install(fixture("duckdb/geoparquet_mixed_types.parquet"), "polygons.parquet");
+    martin.wait_for_log("Updated source source.id=polygons").await;
 
     let fields = martin.get("/polygons").await.json()["vector_layers"][0]["fields"].clone();
     assert!(fields.get("population").is_some(), "{fields}");
     let mlt = martin
-        .get_with_headers(
-            "/polygons/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/polygons/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert_eq!(mlt.status(), 200);
     assert!(
-        mlt.mlt()[0]
-            .property_names()
-            .iter()
-            .any(|name| name == "population"),
+        mlt.mlt()[0].property_names().iter().any(|name| name == "population"),
         "the reloaded mlt tile must carry the new columns"
     );
 
@@ -1148,28 +1107,22 @@ async fn reload_keeps_the_disabled_conversion(#[case] config: &str) {
         "{parquet}",
         &watched.dir().join("polygons.parquet").display().to_string(),
     );
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
+    watched.seed(fixture("duckdb/geoparquet_polygons.parquet"), "polygons.parquet");
     let mut martin = start_with_config(&dir, &config).await;
 
     watched.touch("polygons.parquet");
-    martin
-        .wait_for_log("Updated source source.id=polygons")
-        .await;
+    martin.wait_for_log("Updated source source.id=polygons").await;
 
     let mlt = martin
-        .get_with_headers(
-            "/polygons/1/0/0",
-            &[("accept", "application/vnd.maplibre-tile")],
-        )
+        .get_with_headers("/polygons/1/0/0", &[("accept", "application/vnd.maplibre-tile")])
         .await;
     assert_eq!(mlt.status(), 406, "{:?}", mlt.header("content-type"));
     assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
 
     martin.stop().await;
-    martin.assert_log_contains(r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#);
+    martin.assert_log_contains(
+        r#"ERROR error="Source produces application/x-protobuf, which does not match the Accept header""#,
+    );
 }
 
 #[cfg(not(windows))]
@@ -1187,20 +1140,14 @@ async fn reload_removes_a_deleted_geoparquet_file_and_restores_it_when_it_return
               geometry_column: geom
               srid: 4326
     "};
-    watched.seed(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
+    watched.seed(fixture("duckdb/geoparquet_polygons.parquet"), "polygons.parquet");
     let mut martin = start_with_config(&dir, &config).await;
 
     watched.remove("polygons.parquet");
     martin.wait_for_source_removed("polygons").await;
     assert_eq!(martin.get("/polygons/1/0/0").await.status(), 404);
 
-    watched.install(
-        fixture("duckdb/geoparquet_polygons.parquet"),
-        "polygons.parquet",
-    );
+    watched.install(fixture("duckdb/geoparquet_polygons.parquet"), "polygons.parquet");
     martin.wait_for_source("polygons").await;
     assert_eq!(martin.get("/polygons/1/0/0").await.status(), 200);
 
@@ -1232,10 +1179,7 @@ async fn a_cql2_filter_limits_the_rows_a_geoparquet_source_serves_and_its_bounds
     assert_eq!(response.status(), 200);
     let tilejson = martin.redacted_json(&response);
     // Unfiltered bounds were [-50.0, 20.0, 5.0, 30.0]. With id = 1 (boundary_span polygon), bounds are [-5.0, 20.0, 5.0, 30.0].
-    assert_eq!(
-        tilejson["bounds"],
-        serde_json::json!([-5.0, 20.0, 5.0, 30.0])
-    );
+    assert_eq!(tilejson["bounds"], serde_json::json!([-5.0, 20.0, 5.0, 30.0]));
 
     let tile = martin.get("/polygons/1/0/0").await;
     assert_eq!(tile.status(), 200);
@@ -1280,10 +1224,7 @@ async fn a_cql2_filter_limits_the_rows_a_database_table_serves_and_its_bounds() 
     assert_eq!(response.status(), 200);
     let tilejson = martin.redacted_json(&response);
     // Point gid = 1 is 'west' at (-45.0, 25.0). Single point bounds are expanded by 1 degree.
-    assert_eq!(
-        tilejson["bounds"],
-        serde_json::json!([-46.0, 24.0, -44.0, 26.0])
-    );
+    assert_eq!(tilejson["bounds"], serde_json::json!([-46.0, 24.0, -44.0, 26.0]));
 
     let tile = martin.get("/places_points/1/0/0").await;
     assert_eq!(tile.status(), 200);

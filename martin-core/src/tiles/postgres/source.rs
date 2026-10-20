@@ -11,15 +11,11 @@ use tracing::{debug, instrument};
 use crate::CacheZoomRange;
 #[cfg(feature = "unstable-generate")]
 use crate::tiles::postgres::PostgresEngineInfo;
-use crate::tiles::postgres::PostgresError::{
-    GetTileError, GetTileWithQueryError, PrepareQueryError,
-};
+use crate::tiles::postgres::PostgresError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::tiles::postgres::features::features_from_rows;
 use crate::tiles::postgres::pool::ActiveQueryGuard;
 use crate::tiles::postgres::utils::query_to_json;
-use crate::tiles::postgres::{
-    ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures,
-};
+use crate::tiles::postgres::{ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures};
 use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -117,10 +113,7 @@ impl PostgresSource {
 impl PostgresSource {
     /// Every tile of the block a cache miss of `xyz` renders, `xyz` among them, or `None` when the
     /// source does not prefetch.
-    pub async fn get_tile_block(
-        &self,
-        xyz: TileCoord,
-    ) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
+    pub async fn get_tile_block(&self, xyz: TileCoord) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
         let PostgresTiler::Engine(engine) = &self.tiler else {
             return Ok(None);
         };
@@ -163,19 +156,14 @@ impl Source for PostgresSource {
     }
 
     fn empty_tile_implies_empty_children(&self) -> bool {
-        self.sql()
-            .is_some_and(|info| info.empty_tile_implies_empty_children)
+        self.sql().is_some_and(|info| info.empty_tile_implies_empty_children)
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {
         self.cache_zoom
     }
 
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         let info = match &self.tiler {
             PostgresTiler::Sql(info) => info.for_query(url_query),
             #[cfg(feature = "unstable-generate")]
@@ -191,11 +179,7 @@ impl Source for PostgresSource {
             .unwrap_or_default())
     }
 
-    async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
+    async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
         let Some(info) = self.sql_for(url_query).filter(|info| info.has_etag_column) else {
             let data = self.get_tile(xyz, url_query).await?;
             let info = self.tile_info_for(&data);
@@ -212,9 +196,7 @@ impl Source for PostgresSource {
             .map(CompactString::from);
         let info = self.tile_info_for(&data);
         match etag {
-            Some(etag) if !data.is_empty() && !etag.is_empty() => {
-                Ok(Tile::new_with_etag(data, info, etag))
-            }
+            Some(etag) if !data.is_empty() && !etag.is_empty() => Ok(Tile::new_with_etag(data, info, etag)),
             _ => Ok(Tile::new_hash_etag(data, info)),
         }
     }
@@ -230,10 +212,7 @@ impl PostgresSource {
     /// The tile query, `None` when the engine renders the tiles.
     #[cfg_attr(
         not(feature = "unstable-generate"),
-        expect(
-            clippy::unnecessary_wraps,
-            reason = "only the engine has no tile query"
-        )
+        expect(clippy::unnecessary_wraps, reason = "only the engine has no tile query")
     )]
     fn sql(&self) -> Option<&PostgresSqlInfo> {
         match &self.tiler {
@@ -269,13 +248,8 @@ impl PostgresSource {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Option<Row>> {
-        let query = self
-            .tile_query(info, &info.sql_query, xyz, url_query)
-            .await?;
-        let row = query
-            .conn
-            .query_opt(&query.statement, &query.params())
-            .await;
+        let query = self.tile_query(info, &info.sql_query, xyz, url_query).await?;
+        let row = query.conn.query_opt(&query.statement, &query.params()).await;
         Ok(row.map_err(|e| self.run_error(e, xyz, url_query, info.use_url_query))?)
     }
 
@@ -321,10 +295,7 @@ impl PostgresSource {
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileQuery> {
         let conn = self.pool.get().await?;
-        let guard = self
-            .pool
-            .active_query_registry()
-            .register(conn.cancel_token());
+        let guard = self.pool.active_query_registry().register(conn.cancel_token());
 
         let param_types: &[Type] = if info.use_url_query {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]

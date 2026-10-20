@@ -30,12 +30,7 @@ impl Display for Sql<'_, Condition> {
             Condition::Const(value) => LiteralSql(&Literal::Bool(*value)).fmt(f),
             Condition::And(parts) => join(f, info, parts, " AND "),
             Condition::Or(parts) => join(f, info, parts, " OR "),
-            Condition::Compare {
-                left,
-                op,
-                right,
-                kind,
-            } => {
+            Condition::Compare { left, op, right, kind } => {
                 let ordered = !matches!(op, CompareOp::Eq | CompareOp::Ne);
                 write!(
                     f,
@@ -59,12 +54,9 @@ impl Display for Sql<'_, Condition> {
                 not = polarity.sql(),
                 rhs = AsKind(Sql(info, right), *kind)
             ),
-            Condition::IsNull { term, polarity } => write!(
-                f,
-                "{term} IS {not}NULL",
-                term = Sql(info, term),
-                not = polarity.sql()
-            ),
+            Condition::IsNull { term, polarity } => {
+                write!(f, "{term} IS {not}NULL", term = Sql(info, term), not = polarity.sql())
+            }
             Condition::In {
                 term,
                 values,
@@ -140,12 +132,7 @@ impl<T: Display> Display for AsKind<T> {
 }
 
 /// `parts` joined by `separator`, each nested `AND` or `OR` in parentheses.
-fn join(
-    f: &mut Formatter<'_>,
-    info: &TableInfo,
-    parts: &[Condition],
-    separator: &str,
-) -> fmt::Result {
+fn join(f: &mut Formatter<'_>, info: &TableInfo, parts: &[Condition], separator: &str) -> fmt::Result {
     for (i, part) in parts.iter().enumerate() {
         if i > 0 {
             f.write_str(separator)?;
@@ -164,13 +151,7 @@ fn join(
 }
 
 /// ` COLLATE "C"` where comparing `left` with `right` as `kind` would not compare strings by code point.
-fn collate_sql(
-    info: &TableInfo,
-    left: &Term,
-    right: &Term,
-    kind: ValueKind,
-    ordered: bool,
-) -> &'static str {
+fn collate_sql(info: &TableInfo, left: &Term, right: &Term, kind: ValueKind, ordered: bool) -> &'static str {
     let loose = |term: &Term| matches!(term, Term::Column(name) if info.has_nondeterministic_collation(name));
     let columns = matches!((left, right), (Term::Column(_), Term::Column(_)));
     if kind == ValueKind::String && (ordered || columns || loose(left) || loose(right)) {

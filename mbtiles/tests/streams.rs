@@ -35,10 +35,7 @@ async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
             VALUES ({row});"
         );
-        query(AssertSqlSafe(sql.as_str()))
-            .execute(&mut conn)
-            .await
-            .expect(&sql);
+        query(AssertSqlSafe(sql.as_str())).execute(&mut conn).await.expect(&sql);
     }
 
     (mbtiles, conn)
@@ -82,12 +79,7 @@ async fn mbtiles_stream_tiles() {
                     .unwrap()
             );
         }
-        assert!(
-            !mbtiles
-                .contains(&mut conn, mbt_type, 0, 0, 0)
-                .await
-                .unwrap()
-        );
+        assert!(!mbtiles.contains(&mut conn, mbt_type, 0, 0, 0).await.unwrap());
     }
 
     {
@@ -102,14 +94,8 @@ async fn mbtiles_stream_tiles() {
         assert_eq!(
             tiles,
             [
-                (
-                    TileCoord::new_unchecked(1, 0, 0),
-                    Some(TileData::from_static(b"tl"))
-                ),
-                (
-                    TileCoord::new_unchecked(1, 1, 1),
-                    Some(TileData::from_static(b"br"))
-                ),
+                (TileCoord::new_unchecked(1, 0, 0), Some(TileData::from_static(b"tl"))),
+                (TileCoord::new_unchecked(1, 1, 1), Some(TileData::from_static(b"br"))),
                 (TileCoord::new_unchecked(2, 0, 3), None),
             ]
         );
@@ -124,12 +110,7 @@ async fn mbtiles_stream_tiles() {
                     .unwrap()
             );
         }
-        assert!(
-            !mbtiles
-                .contains(&mut conn, mbt_type, 0, 0, 0)
-                .await
-                .unwrap()
-        );
+        assert!(!mbtiles.contains(&mut conn, mbt_type, 0, 0, 0).await.unwrap());
     }
 }
 
@@ -144,10 +125,7 @@ async fn mbtiles_stream_errors() {
 
     {
         let mut stream = mbtiles.stream_coords(&mut conn);
-        assert_matches!(
-            stream.next().await,
-            Some(Err(MbtError::InvalidTileIndex { .. }))
-        );
+        assert_matches!(stream.next().await, Some(Err(MbtError::InvalidTileIndex { .. })));
     }
 
     // Counter test: mbtiles must contain all tiles
@@ -155,11 +133,6 @@ async fn mbtiles_stream_errors() {
     // This is impossible to achieve without overflows.
     let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
     for y in 0..=20 {
-        assert!(
-            !mbtiles
-                .contains(&mut conn, mbt_type, 2, y, 0)
-                .await
-                .unwrap()
-        );
+        assert!(!mbtiles.contains(&mut conn, mbt_type, 2, y, 0).await.unwrap());
     }
 }

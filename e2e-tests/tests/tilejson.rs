@@ -93,10 +93,7 @@ async fn a_tilejson_answers_head_without_a_body() {
 #[case::a_forwarded_host(&[("forwarded", "host=tiles.example.com")], "http://tiles.example.com/webp2/{z}/{x}/{y}")]
 #[case::a_forwarded_proto_and_host(&[("forwarded", "proto=https;host=tiles.example.com")], "https://tiles.example.com/webp2/{z}/{x}/{y}")]
 #[tokio::test]
-async fn proxy_headers_set_the_scheme_and_authority(
-    #[case] headers: &[(&str, &str)],
-    #[case] expected: &str,
-) {
+async fn proxy_headers_set_the_scheme_and_authority(#[case] headers: &[(&str, &str)], #[case] expected: &str) {
     let mut martin = Martin::builder()
         .arg("tests/fixtures/pmtiles2")
         .start()
@@ -128,10 +125,7 @@ async fn an_x_forwarded_for_does_not_change_the_url() {
 #[case::an_x_rewrite_url(&[("x-rewrite-url", "/footiles/webp2")], "http://[ADDR]/footiles/webp2/{z}/{x}/{y}")]
 #[case::an_x_forwarded_prefix(&[("x-forwarded-prefix", "/tiles/webp2")], "http://[ADDR]/tiles/webp2/{z}/{x}/{y}")]
 #[tokio::test]
-async fn a_rewrite_header_replaces_the_path(
-    #[case] headers: &[(&str, &str)],
-    #[case] expected: &str,
-) {
+async fn a_rewrite_header_replaces_the_path(#[case] headers: &[(&str, &str)], #[case] expected: &str) {
     let mut martin = Martin::builder()
         .arg("tests/fixtures/pmtiles2")
         .start()

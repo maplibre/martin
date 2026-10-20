@@ -31,9 +31,7 @@ pub struct ResolvedSources {
 #[derive(Debug, thiserror::Error)]
 pub enum TileAliasError {
     /// The alias name cannot be requested.
-    #[error(
-        "Tile source alias {0:?} is invalid: alias names must be non-empty and must not contain commas"
-    )]
+    #[error("Tile source alias {0:?} is invalid: alias names must be non-empty and must not contain commas")]
     InvalidAliasName(String),
 
     /// The alias lists no sources.
@@ -41,9 +39,7 @@ pub enum TileAliasError {
     EmptyAlias(String),
 
     /// The alias references more sources than a single request may use.
-    #[error(
-        "Tile source alias {alias:?} references {requested} tile sources, but at most {max} are allowed"
-    )]
+    #[error("Tile source alias {alias:?} references {requested} tile sources, but at most {max} are allowed")]
     TooManySourcesInAlias {
         /// Alias name.
         alias: String,
@@ -94,12 +90,7 @@ impl TileSources {
         Self::new_with_process(
             sources
                 .into_iter()
-                .map(|group| {
-                    group
-                        .into_iter()
-                        .map(|src| (src, ResolvedProcess::default()))
-                        .collect()
-                })
+                .map(|group| group.into_iter().map(|src| (src, ResolvedProcess::default())).collect())
                 .collect(),
         )
     }
@@ -140,9 +131,7 @@ impl TileSources {
                 let (src, pc) = v.value();
                 let mut entry = src.get_catalog_entry();
                 let info = pc.advertised_tile_info(src.get_tile_info());
-                info.format
-                    .content_type()
-                    .clone_into(&mut entry.content_type);
+                info.format.content_type().clone_into(&mut entry.content_type);
                 entry.content_encoding = info.encoding.compression().map(str::to_owned);
                 (v.key().clone(), entry)
             })
@@ -154,9 +143,7 @@ impl TileSources {
             let (src, pc) = member.value();
             let info = pc.advertised_tile_info(src.get_tile_info());
             let mut entry = CatalogSourceEntry::default();
-            info.format
-                .content_type()
-                .clone_into(&mut entry.content_type);
+            info.format.content_type().clone_into(&mut entry.content_type);
             entry.content_encoding = info.encoding.compression().map(str::to_owned);
             catalog.insert(alias.key().clone(), entry);
         }
@@ -248,11 +235,7 @@ impl TileSources {
     /// Optionally filters by zoom level support.
     ///
     #[hotpath::measure]
-    pub fn get_sources(
-        &self,
-        source_ids: &str,
-        zoom: Option<u8>,
-    ) -> Result<ResolvedSources, TileError> {
+    pub fn get_sources(&self, source_ids: &str, zoom: Option<u8>) -> Result<ResolvedSources, TileError> {
         let id_count = source_ids.split(',').count();
         if id_count > MAX_SOURCE_IDS_PER_REQUEST {
             return Err(TileError::TooManySources {
@@ -269,24 +252,10 @@ impl TileSources {
         for id in source_ids.split(',') {
             if let Some(alias) = self.aliases.get(id) {
                 for member in alias.value() {
-                    self.collect_source(
-                        member,
-                        zoom,
-                        &mut sources,
-                        &mut info,
-                        &mut grid,
-                        &mut use_url_query,
-                    )?;
+                    self.collect_source(member, zoom, &mut sources, &mut info, &mut grid, &mut use_url_query)?;
                 }
             } else {
-                self.collect_source(
-                    id,
-                    zoom,
-                    &mut sources,
-                    &mut info,
-                    &mut grid,
-                    &mut use_url_query,
-                )?;
+                self.collect_source(id, zoom, &mut sources, &mut info, &mut grid, &mut use_url_query)?;
             }
         }
 
@@ -382,12 +351,9 @@ mod tests {
 
     fn sources_with_one_valid() -> TileSources {
         TileSources::new(vec![vec![
-            TestSource::new(
-                "valid",
-                martin_tile_utils::TileData::from_static(&[1, 2, 3]),
-            )
-            .with_format(martin_tile_utils::Format::Mvt)
-            .boxed(),
+            TestSource::new("valid", martin_tile_utils::TileData::from_static(&[1, 2, 3]))
+                .with_format(martin_tile_utils::Format::Mvt)
+                .boxed(),
         ]])
     }
 
@@ -410,15 +376,9 @@ mod tests {
     fn an_alias_expands_to_its_member_sources_in_order() {
         let sources = sources_with_one_valid();
         sources
-            .add_alias(
-                "both".to_owned(),
-                vec!["valid".to_owned(), "valid".to_owned()],
-            )
+            .add_alias("both".to_owned(), vec!["valid".to_owned(), "valid".to_owned()])
             .unwrap();
-        assert_eq!(
-            sources.expand_ids("both,valid"),
-            ["valid", "valid", "valid"]
-        );
+        assert_eq!(sources.expand_ids("both,valid"), ["valid", "valid", "valid"]);
         let resolved = sources.get_sources("both,valid", None).unwrap();
         assert_eq!(resolved.sources.len(), 3);
     }

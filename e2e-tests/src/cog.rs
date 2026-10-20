@@ -37,8 +37,7 @@ impl CogFixture {
     #[must_use]
     pub fn new(name: &str) -> Self {
         let path = fixture(&format!("cog/{name}.tif"));
-        let bytes = fs::read(&path)
-            .unwrap_or_else(|e| panic!("failed to read the fixture {}: {e}", path.display()));
+        let bytes = fs::read(&path).unwrap_or_else(|e| panic!("failed to read the fixture {}: {e}", path.display()));
         assert_eq!(
             bytes[..4],
             BIG_TIFF_LE_HEADER,
@@ -50,8 +49,7 @@ impl CogFixture {
 
     pub fn write_to(&self, dir: impl AsRef<Path>, name: &str) -> PathBuf {
         let path = dir.as_ref().join(format!("{name}.tif"));
-        fs::write(&path, &self.bytes)
-            .unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
+        fs::write(&path, &self.bytes).unwrap_or_else(|e| panic!("failed to write {}: {e}", path.display()));
         path
     }
 
@@ -70,10 +68,7 @@ impl CogFixture {
         let entry = self.entry(ifd, tag);
         let (kind, count) = self.entry_type(entry);
         assert_eq!(kind, TYPE_DOUBLE, "tag {tag} at ifd {ifd} is not a DOUBLE");
-        assert!(
-            index < count,
-            "tag {tag} at ifd {ifd} has only {count} values"
-        );
+        assert!(index < count, "tag {tag} at ifd {ifd} has only {count} values");
         let at = self.value_offset(entry) + index * 8;
         self.bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
         self
@@ -99,8 +94,7 @@ impl CogFixture {
         let ifd_at = self.ifd_offset(ifd);
         let count = self.entry_count(ifd_at);
         let after_entries = ifd_at + 8 + count * ENTRY_LEN;
-        self.bytes
-            .copy_within(entry + ENTRY_LEN..after_entries + 8, entry);
+        self.bytes.copy_within(entry + ENTRY_LEN..after_entries + 8, entry);
         self.bytes[ifd_at..ifd_at + 8].copy_from_slice(&Self::eight_bytes(count - 1));
         self
     }
@@ -166,9 +160,7 @@ impl CogFixture {
         let (kind, count) = self.entry_type(entry);
         assert_eq!(kind, TYPE_DOUBLE, "tag {tag} is not a DOUBLE");
         let at = self.value_offset(entry);
-        (0..count)
-            .map(|i| f64::from_le_bytes(self.eight(at + i * 8)))
-            .collect()
+        (0..count).map(|i| f64::from_le_bytes(self.eight(at + i * 8))).collect()
     }
 
     fn ifd_offset(&self, index: usize) -> usize {
@@ -194,10 +186,7 @@ impl CogFixture {
     }
 
     fn entry_type(&self, entry: usize) -> (u16, usize) {
-        (
-            u16::from_le_bytes(self.two(entry + 2)),
-            self.offset(entry + 4),
-        )
+        (u16::from_le_bytes(self.two(entry + 2)), self.offset(entry + 4))
     }
 
     fn value_offset(&self, entry: usize) -> usize {
@@ -220,9 +209,7 @@ impl CogFixture {
     }
 
     fn eight_bytes(value: usize) -> [u8; 8] {
-        u64::try_from(value)
-            .expect("a usize always fits a u64")
-            .to_le_bytes()
+        u64::try_from(value).expect("a usize always fits a u64").to_le_bytes()
     }
 
     fn geo_key_offset(&self, key: u16) -> usize {

@@ -9,16 +9,12 @@ use tracing::{debug, info};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
-use crate::config::file::tiles::duckdb::resolver::database::discover::{
-    discover_macros, discover_tables,
-};
+use crate::config::file::tiles::duckdb::resolver::database::discover::{discover_macros, discover_tables};
 use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
 use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
 use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
 use crate::config::file::tiles::duckdb::resolver::sql::{build_mvt_sql, parse_cql2_filter};
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry,
-};
+use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry};
 use crate::config::file::tiles::duckdb::sql_utils::escape_identifier;
 use crate::config::file::{CachePolicy, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -82,12 +78,7 @@ pub async fn resolve_database_entry(
     for (id, r#macro) in macros {
         let source_id = id_resolver.resolve(
             &id,
-            format!(
-                "{}:{}.{}()",
-                path.to_string_lossy(),
-                r#macro.schema(),
-                r#macro.r#macro
-            ),
+            format!("{}:{}.{}()", path.to_string_lossy(), r#macro.schema(), r#macro.r#macro),
         );
         info!(source.id = %source_id, "Configured DuckDB macro source");
         resolved.push(Ok(resolve_macro_source(

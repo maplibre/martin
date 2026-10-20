@@ -77,18 +77,10 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
         properties: all.properties.len(),
     };
     let mut features = Vec::new();
-    scan_features(
-        &client,
-        &all.sql,
-        &[],
-        &layout,
-        0,
-        &plan.table_keys()[0],
-        |batch| {
-            features.extend(batch.features);
-            Ok(())
-        },
-    )
+    scan_features(&client, &all.sql, &[], &layout, 0, &plan.table_keys()[0], |batch| {
+        features.extend(batch.features);
+        Ok(())
+    })
     .await
     .unwrap();
     let mut evaluator = plan.evaluator();

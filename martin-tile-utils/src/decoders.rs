@@ -55,10 +55,7 @@ pub fn encode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 }
 
 pub fn decode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let decoder = hotpath::io!(
-        brotli::Decompressor::new(data, 4096),
-        label = { "decode_brotli" }
-    );
+    let decoder = hotpath::io!(brotli::Decompressor::new(data, 4096), label = { "decode_brotli" });
     read_all(decoder, 0)
 }
 
@@ -85,10 +82,7 @@ pub fn decode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 }
 
 pub fn encode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let encoder = hotpath::io!(
-        zstd::stream::read::Encoder::new(data, 0)?,
-        label = { "encode_zstd" }
-    );
+    let encoder = hotpath::io!(zstd::stream::read::Encoder::new(data, 0)?, label = { "encode_zstd" });
     read_all(encoder, 0)
 }
 

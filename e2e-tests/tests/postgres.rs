@@ -153,10 +153,7 @@ async fn tilejson(martin: &Martin, path: &str) -> Value {
 async fn tile_dump(martin: &Martin, path: &str) -> String {
     let response = martin.get(path).await;
     assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.header("content-type"),
-        Some("application/x-protobuf")
-    );
+    assert_eq!(response.header("content-type"), Some("application/x-protobuf"));
     response.mvt_dump()
 }
 
@@ -474,10 +471,7 @@ async fn a_table_keeps_its_own_srid_and_one_without_a_srid_gets_the_default() {
 
     let srid_3857 = tilejson(&martin, "/points3857").await;
     insta::assert_json_snapshot!("srid_3857_tilejson", srid_3857);
-    insta::assert_snapshot!(
-        "srid_3857_0_0_0",
-        tile_dump(&martin, "/points3857/0/0/0").await
-    );
+    insta::assert_snapshot!("srid_3857_0_0_0", tile_dump(&martin, "/points3857/0/0/0").await);
     // points_empty_srid has SRID 0 in the database and is only published because of --default-srid.
     insta::assert_snapshot!(
         "default_srid_0_0_0",
@@ -502,14 +496,8 @@ async fn a_geometry_crossing_the_antimeridian_is_served_on_both_sides() {
         .await
         .expect("failed to start martin");
 
-    insta::assert_snapshot!(
-        "antimeridian_4_0_4",
-        tile_dump(&martin, "/antimeridian/4/0/4").await
-    );
-    insta::assert_snapshot!(
-        "antimeridian_4_0_5",
-        tile_dump(&martin, "/antimeridian/4/0/5").await
-    );
+    insta::assert_snapshot!("antimeridian_4_0_4", tile_dump(&martin, "/antimeridian/4/0/4").await);
+    insta::assert_snapshot!("antimeridian_4_0_5", tile_dump(&martin, "/antimeridian/4/0/5").await);
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
@@ -554,10 +542,7 @@ async fn a_materialized_view_is_published_like_a_table() {
 
     let materialized_view = tilejson(&martin, "/mat_view").await;
     insta::assert_json_snapshot!("materialized_view_tilejson", materialized_view);
-    insta::assert_snapshot!(
-        "materialized_view_0_0_0",
-        tile_dump(&martin, "/mat_view/0/0/0").await
-    );
+    insta::assert_snapshot!("materialized_view_0_0_0", tile_dump(&martin, "/mat_view/0/0/0").await);
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
@@ -996,20 +981,14 @@ async fn a_function_returning_gzip_compressed_tiles_is_served_in_the_encoding_th
 
     // The harness always advertises gzip, so ask without it directly to see the tile decompressed.
     let plain = reqwest::Client::new()
-        .get(format!(
-            "http://{}/function_zxy_gzip/6/57/29",
-            martin.addr()
-        ))
+        .get(format!("http://{}/function_zxy_gzip/6/57/29", martin.addr()))
         .header("accept-encoding", "identity")
         .send()
         .await
         .expect("request failed");
     assert_eq!(plain.status(), 200);
     assert_eq!(plain.headers().get("content-encoding"), None);
-    assert_eq!(
-        plain.bytes().await.expect("body failed").as_ref(),
-        compressed.body()
-    );
+    assert_eq!(plain.bytes().await.expect("body failed").as_ref(), compressed.body());
 
     martin.stop().await;
     assert_discovery_warnings(&mut martin);
@@ -1596,10 +1575,7 @@ async fn the_same_function_name_in_two_schemas_keeps_each_comment() {
 }
 
 #[tokio::test]
-#[expect(
-    clippy::too_many_lines,
-    reason = "inline config and snapshots of every variant"
-)]
+#[expect(clippy::too_many_lines, reason = "inline config and snapshots of every variant")]
 async fn a_configured_function_names_a_further_variant_by_its_signature() {
     let mut martin = Martin::builder()
         .with_postgres()
@@ -2033,10 +2009,7 @@ async fn the_same_table_on_two_grids_splits_the_world_differently() {
     // on the square WGS84 grid, zoom 1 splits the world at the equator and the prime meridian
     for zxy in ["1/0/0", "1/1/0"] {
         let dump = tile_dump(&martin, &format!("/points1_wgs84/{zxy}")).await;
-        insta::assert_snapshot!(
-            format!("wgs84square_points1_{}", zxy.replace('/', "_")),
-            dump
-        );
+        insta::assert_snapshot!(format!("wgs84square_points1_{}", zxy.replace('/', "_")), dump);
     }
     // the lower half of the square is below the south pole, so those tiles are empty
     assert_eq!(martin.get("/points1_wgs84/1/0/1").await.status(), 204);
@@ -2051,8 +2024,7 @@ async fn the_same_table_on_two_grids_splits_the_world_differently() {
 
     martin.stop().await;
     assert_tile_grid_warnings(&mut martin);
-    martin
-        .assert_log_contains("Cannot merge sources in tile grid WGS84Square with WebMercatorQuad");
+    martin.assert_log_contains("Cannot merge sources in tile grid WGS84Square with WebMercatorQuad");
 }
 
 #[tokio::test]
@@ -2092,16 +2064,10 @@ async fn a_two_wide_grid_splits_the_world_at_the_prime_meridian() {
 
     let tilejson = tilejson(&martin, "/points1_crs84").await;
     assert_eq!(tilejson["tileGrid"]["id"], "WorldCRS84Quad");
-    assert_eq!(
-        tilejson["tileGrid"]["matrixAtZoom0"],
-        serde_json::json!([2, 1])
-    );
+    assert_eq!(tilejson["tileGrid"]["matrixAtZoom0"], serde_json::json!([2, 1]));
     for zxy in ["0/0/0", "0/1/0"] {
         let dump = tile_dump(&martin, &format!("/points1_crs84/{zxy}")).await;
-        insta::assert_snapshot!(
-            format!("worldcrs84quad_points1_{}", zxy.replace('/', "_")),
-            dump
-        );
+        insta::assert_snapshot!(format!("worldcrs84quad_points1_{}", zxy.replace('/', "_")), dump);
     }
     // there is no third column and no second row at zoom 0
     assert_eq!(martin.get("/points1_crs84/0/2/0").await.status(), 404);

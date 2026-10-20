@@ -95,9 +95,7 @@ pub enum TileError {
     UndecodableEncoding(TileInfo),
 
     /// The resolved tiles are not concatenable vector tiles, so they cannot be merged.
-    #[error(
-        "Cannot merge non-vector-tile formats. Format is {format:?} with encoding {encoding:?} "
-    )]
+    #[error("Cannot merge non-vector-tile formats. Format is {format:?} with encoding {encoding:?} ")]
     UnmergeableTiles { format: Format, encoding: Encoding },
 
     /// The source itself failed; it classifies its own status.
@@ -141,9 +139,7 @@ impl From<Arc<MartinCoreError>> for TileError {
 #[cfg(feature = "_tiles")]
 impl From<TileError> for actix_web::Error {
     fn from(e: TileError) -> Self {
-        use actix_web::error::{
-            ErrorBadRequest, ErrorInternalServerError, ErrorNotAcceptable, ErrorNotFound,
-        };
+        use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotAcceptable, ErrorNotFound};
 
         let msg = e.to_string();
         match e {
@@ -158,9 +154,7 @@ impl From<TileError> for actix_web::Error {
             | TileError::UnmergeableTiles { .. }
             | TileError::UndecodableEncoding(_) => ErrorBadRequest(msg),
 
-            TileError::UnacceptableFormat(_) | TileError::NoAcceptableEncoding => {
-                ErrorNotAcceptable(msg)
-            }
+            TileError::UnacceptableFormat(_) | TileError::NoAcceptableEncoding => ErrorNotAcceptable(msg),
 
             TileError::Compression(ref inner) => {
                 tracing::error!("{inner}");

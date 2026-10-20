@@ -105,14 +105,10 @@ fn reassemble_fixture([path]: [&Path; 1]) {
     let mut canonical: Option<Vec<Vec<Coord<i32>>>> = None;
     for buffer in [0, 5] {
         let tiles = slice_tiles(&polygons, buffer);
-        assert!(
-            !tiles.is_empty(),
-            "{stem} (buffer {buffer}) produced no tiles"
-        );
+        assert!(!tiles.is_empty(), "{stem} (buffer {buffer}) produced no tiles");
 
         for order in orders(tiles.len(), 6) {
-            let mut mosaic =
-                PolygonMosaic::<Coord<i32>>::new(EXTENT, buffer).expect("valid config");
+            let mut mosaic = PolygonMosaic::<Coord<i32>>::new(EXTENT, buffer).expect("valid config");
             for &i in &order {
                 let (tile, rings) = &tiles[i];
                 mosaic
@@ -167,17 +163,11 @@ fn interior_fill_tile_contributes_nothing() {
     // polygon's interior is implied by its winding, not by fill tiles).
     let ext = ring(&[(-10, -10), (80, -10), (80, 80), (-10, 80), (-10, -10)]);
     let rings = tile_rings(&[shell(ext)], 0, TileId::new(1, 1));
-    assert!(
-        !rings.is_empty(),
-        "the fill tile does carry (synthetic) geometry"
-    );
+    assert!(!rings.is_empty(), "the fill tile does carry (synthetic) geometry");
 
     let mut m = PolygonMosaic::<Coord<i32>>::new(EXTENT, 0).expect("valid config");
     m.add(TileId::new(1, 1), &rings).expect("add");
-    assert!(
-        m.is_empty(),
-        "an all-synthetic fill tile records no original edges"
-    );
+    assert!(m.is_empty(), "an all-synthetic fill tile records no original edges");
     assert!(!m.contains(TileId::new(1, 1)));
     assert_eq!(m.iter_features().count(), 0);
 }
@@ -247,8 +237,7 @@ fn purge_and_clear_manage_tiles() {
     let sq = ring(&[(5, 5), (20, 5), (20, 20), (5, 20), (5, 5)]);
     let mut m = PolygonMosaic::<Coord<i32>>::new(EXTENT, 0).expect("valid config");
     assert!(m.is_empty());
-    m.add(TileId::new(0, 0), std::slice::from_ref(&sq))
-        .expect("tile 0");
+    m.add(TileId::new(0, 0), std::slice::from_ref(&sq)).expect("tile 0");
     m.add(TileId::new(3, 3), &[sq]).expect("tile 3");
     assert_eq!(m.len(), 2);
     assert!(m.contains(TileId::new(0, 0)));
@@ -256,10 +245,7 @@ fn purge_and_clear_manage_tiles() {
     assert!(m.purge(TileId::new(0, 0)));
     assert!(!m.contains(TileId::new(0, 0)));
     assert_eq!(m.len(), 1);
-    assert!(
-        !m.purge(TileId::new(0, 0)),
-        "purging an absent tile is a no-op"
-    );
+    assert!(!m.purge(TileId::new(0, 0)), "purging an absent tile is a no-op");
 
     m.clear();
     assert!(m.is_empty());

@@ -27,17 +27,14 @@ pub use crate::cassette::Cassette;
 pub use crate::cog::{CogFixture, PROJECTED_CRS_GEO_KEY, tag};
 pub use crate::images::{assert_image_matches, assert_images_alike, assert_images_differ};
 pub use crate::martin::{
-    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump,
-    rings_from_smallest_vertex,
+    Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump, rings_from_smallest_vertex,
 };
 pub use crate::martin_cp::MartinCp;
 pub use crate::mbtiles::{
-    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing,
-    open_read_only, open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
+    GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing, open_read_only,
+    open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
-pub use crate::pmtiles::{
-    LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles,
-};
+pub use crate::pmtiles::{LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles};
 pub use crate::statics::StaticFiles;
 
 /// A temporary directory for a test to build its fixtures and outputs in.
@@ -101,8 +98,7 @@ fn binary_command(env_var: &str, name: &str) -> Command {
         cmd.args(parts);
         return cmd;
     }
-    let target_dir = env::var_os("CARGO_TARGET_DIR")
-        .map_or_else(|| workspace_root().join("target"), PathBuf::from);
+    let target_dir = env::var_os("CARGO_TARGET_DIR").map_or_else(|| workspace_root().join("target"), PathBuf::from);
     let bin = target_dir
         .join("debug")
         .join(format!("{name}{}", env::consts::EXE_SUFFIX));
@@ -141,8 +137,7 @@ pub fn round_floats(value: &mut serde_json::Value) {
     match value {
         Value::Number(number) if number.is_f64() => {
             let float = number.as_f64().expect("a f64 number");
-            *number = Number::from_f64((float * 1e10).round() / 1e10)
-                .expect("rounding keeps a finite float finite");
+            *number = Number::from_f64((float * 1e10).round() / 1e10).expect("rounding keeps a finite float finite");
         }
         Value::Array(items) => items.iter_mut().for_each(round_floats),
         Value::Object(entries) => entries.values_mut().for_each(round_floats),
@@ -177,8 +172,7 @@ impl WatchedDir {
     #[must_use]
     pub fn new() -> Self {
         let root = tempfile::tempdir().expect("failed to create a temp dir");
-        fs::create_dir_all(root.path().join("watch"))
-            .expect("failed to create the watched directory");
+        fs::create_dir_all(root.path().join("watch")).expect("failed to create the watched directory");
         Self { root }
     }
 
@@ -204,13 +198,8 @@ impl WatchedDir {
     pub fn install(&self, src: impl AsRef<Path>, name: &str) {
         let src = src.as_ref();
         let staging = self.outside(&format!("{name}.staging"));
-        fs::copy(src, &staging).unwrap_or_else(|e| {
-            panic!(
-                "failed to stage {} at {}: {e}",
-                src.display(),
-                staging.display()
-            )
-        });
+        fs::copy(src, &staging)
+            .unwrap_or_else(|e| panic!("failed to stage {} at {}: {e}", src.display(), staging.display()));
         let dest = self.dir().join(name);
         // Antivirus scanning the freshly staged file can briefly hold it locked on Windows,
         // so the rename can transiently fail with access denied; a short retry clears it.
@@ -221,11 +210,7 @@ impl WatchedDir {
             match fs::rename(&staging, &dest) {
                 Ok(()) => break,
                 Err(_) if attempt < 20 => thread::sleep(Duration::from_millis(100)),
-                Err(e) => panic!(
-                    "failed to move {} into {}: {e}",
-                    staging.display(),
-                    dest.display()
-                ),
+                Err(e) => panic!("failed to move {} into {}: {e}", staging.display(), dest.display()),
             }
         }
     }
@@ -234,13 +219,8 @@ impl WatchedDir {
     /// picked up by config resolution rather than by a watcher event.
     pub fn seed(&self, src: impl AsRef<Path>, name: &str) {
         let (src, dest) = (src.as_ref(), self.dir().join(name));
-        fs::copy(src, &dest).unwrap_or_else(|e| {
-            panic!(
-                "failed to seed {} with {}: {e}",
-                dest.display(),
-                src.display()
-            )
-        });
+        fs::copy(src, &dest)
+            .unwrap_or_else(|e| panic!("failed to seed {} with {}: {e}", dest.display(), src.display()));
     }
 
     /// Bump the modification time of a watched file, as `touch` does.
@@ -255,7 +235,6 @@ impl WatchedDir {
 
     pub fn remove(&self, name: &str) {
         let path = self.dir().join(name);
-        fs::remove_file(&path)
-            .unwrap_or_else(|e| panic!("failed to remove {}: {e}", path.display()));
+        fs::remove_file(&path).unwrap_or_else(|e| panic!("failed to remove {}: {e}", path.display()));
     }
 }

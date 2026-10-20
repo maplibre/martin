@@ -60,9 +60,7 @@ pub async fn create_cache_tables<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!(
-        "Creating if needed cache table and tiles view: tile_cache(z,x,y,fetched,expires,etag,data)"
-    );
+    debug!("Creating if needed cache table and tiles view: tile_cache(z,x,y,fetched,expires,etag,data)");
     create_schema(conn, include_str!("../../sql/init-cache.sql"), strict).await
 }
 

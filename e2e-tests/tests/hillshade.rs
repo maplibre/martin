@@ -2,9 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use indoc::formatdoc;
-use martin_e2e_tests::{
-    Martin, StartError, StaticFiles, assert_image_matches, assert_images_differ, fixture,
-};
+use martin_e2e_tests::{Martin, StartError, StaticFiles, assert_image_matches, assert_images_differ, fixture};
 
 const CENTRE: (u32, u32) = (163, 396);
 const ZOOM: u32 = 10;
@@ -28,13 +26,7 @@ fn centre() -> (u32, u32, u32) {
 fn neighbourhood() -> Vec<(u32, u32, u32)> {
     (-1i32..=1)
         .flat_map(|dy| {
-            (-1i32..=1).map(move |dx| {
-                (
-                    ZOOM,
-                    CENTRE.0.wrapping_add_signed(dx),
-                    CENTRE.1.wrapping_add_signed(dy),
-                )
-            })
+            (-1i32..=1).map(move |dx| (ZOOM, CENTRE.0.wrapping_add_signed(dx), CENTRE.1.wrapping_add_signed(dy)))
         })
         .collect()
 }
@@ -56,12 +48,7 @@ fn tile_path() -> String {
 }
 
 async fn sorted_log(files: &StaticFiles) -> String {
-    let mut lines = files
-        .request_log()
-        .await
-        .lines()
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+    let mut lines = files.request_log().await.lines().map(str::to_owned).collect::<Vec<_>>();
     lines.sort();
     lines.join("\n")
 }
@@ -400,9 +387,7 @@ async fn an_absent_centre_tile_serves_no_content() {
 async fn a_tile_at_the_pole_still_serves() {
     let tile = normal_tile();
     let coords = (0..4).flat_map(|x| (0..4).map(move |y| (2, x, y)));
-    let paths = coords
-        .map(|(z, x, y)| format!("{z}/{x}/{y}"))
-        .collect::<Vec<_>>();
+    let paths = coords.map(|(z, x, y)| format!("{z}/{x}/{y}")).collect::<Vec<_>>();
     let entries = paths
         .iter()
         .map(|path| (path.as_str(), tile.clone()))
@@ -554,9 +539,7 @@ async fn a_matching_etag_answers_not_modified() {
     let first = martin.get(&tile_path()).await;
     let etag = first.header("etag").expect("etag").to_owned();
 
-    let second = martin
-        .get_with_headers(&tile_path(), &[("if-none-match", &etag)])
-        .await;
+    let second = martin.get_with_headers(&tile_path(), &[("if-none-match", &etag)]).await;
     assert_eq!(second.status(), 304);
     assert_eq!(second.body(), b"");
     martin.stop().await;

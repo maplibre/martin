@@ -10,8 +10,7 @@ use url::Url;
 
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, ObjectStoreConfig, SourceBuildResult, TileSourceConfiguration,
-    UnrecognizedValues,
+    ConfigurationLivecycleHooks, ObjectStoreConfig, SourceBuildResult, TileSourceConfiguration, UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -133,10 +132,7 @@ impl Serialize for PmtConfig {
             map.serialize_entry("directory_cache", &self.directory_cache)?;
         }
         if !is_default_reload_interval(&self.reload_interval) {
-            map.serialize_entry(
-                "reload_interval",
-                &humantime_serde::Serde::from(&self.reload_interval),
-            )?;
+            map.serialize_entry("reload_interval", &humantime_serde::Serde::from(&self.reload_interval))?;
         }
         self.object_store.serialize_entries(&mut map)?;
         #[cfg(feature = "_tiles")]
@@ -166,9 +162,7 @@ impl PartialEq for PmtConfig {
             && self.cache == other.cache
             && self.unrecognized == other.unrecognized;
         #[cfg(feature = "_tiles")]
-        let base = base
-            && self.convert_to_mlt == other.convert_to_mlt
-            && self.convert_to_mvt == other.convert_to_mvt;
+        let base = base && self.convert_to_mlt == other.convert_to_mlt && self.convert_to_mvt == other.convert_to_mvt;
         // pmtiles_directory_cache and http_clients are intentionally excluded from equality check
         base
     }
@@ -205,25 +199,13 @@ impl TileSourceConfiguration for PmtConfig {
         self.cache.clone()
     }
 
-    async fn new_sources(
-        &self,
-        id: String,
-        path: PathBuf,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         // canonicalize to resolve symlinks
-        let path = path
-            .canonicalize()
-            .map_err(|e| ConfigFileError::IoError(e, path))?;
+        let path = path.canonicalize().map_err(|e| ConfigFileError::IoError(e, path))?;
         self.new_local_source(id, path, cache).await
     }
 
-    async fn new_sources_url(
-        &self,
-        id: String,
-        url: Url,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources_url(&self, id: String, url: Url, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         if url.scheme() == "file"
             && let Ok(path) = url.to_file_path()
         {
@@ -299,10 +281,7 @@ mod tests {
             Some("/v2/credentials/12345678-1234-1234-1234-123456789012")
         );
         assert_eq!(
-            config
-                .options
-                .get("web_identity_token_file")
-                .map(String::as_str),
+            config.options.get("web_identity_token_file").map(String::as_str),
             Some("/var/run/secrets/eks.amazonaws.com/serviceaccount/token")
         );
         assert_eq!(
@@ -342,25 +321,17 @@ mod tests {
 
     #[rstest]
     #[case::s3("s3://bucket-a/one.pmtiles", "s3://bucket-b/two.pmtiles")]
-    #[case::https(
-        "https://tiles.example.com/one.pmtiles",
-        "https://other.example.com/two.pmtiles"
-    )]
+    #[case::https("https://tiles.example.com/one.pmtiles", "https://other.example.com/two.pmtiles")]
     #[case::gcs("gs://bucket-a/one.pmtiles", "gs://bucket-b/two.pmtiles")]
     #[case::azure("az://container-a/one.pmtiles", "az://container-b/two.pmtiles")]
     #[case::mixed("s3://bucket-a/one.pmtiles", "https://tiles.example.com/two.pmtiles")]
     fn remote_sources_share_http_clients(#[case] first: &str, #[case] second: &str) {
         let mut config = PmtConfig::default();
+        config.options.insert("aws_region".to_owned(), "us-east-1".to_owned());
+        config.options.insert("skip_signature".to_owned(), "true".to_owned());
         config
             .options
-            .insert("aws_region".to_owned(), "us-east-1".to_owned());
-        config
-            .options
-            .insert("skip_signature".to_owned(), "true".to_owned());
-        config.options.insert(
-            "azure_storage_account_name".to_owned(),
-            "account".to_owned(),
-        );
+            .insert("azure_storage_account_name".to_owned(), "account".to_owned());
         config.parse_url_opts(&Url::parse(first).unwrap()).unwrap();
         let clients = config.http_clients.0.len();
         assert!(clients > 0);
@@ -409,10 +380,7 @@ mod tests {
         profile.aws_profile_files = Some(files.clone());
         profile.finalize().await.unwrap();
         assert_eq!(profile.profile.as_deref(), Some("staging"));
-        assert_eq!(
-            profile.options.get("region").map(String::as_str),
-            Some("eu-west-2")
-        );
+        assert_eq!(profile.options.get("region").map(String::as_str), Some("eu-west-2"));
         let credentials = profile
             .aws_credentials
             .as_ref()
@@ -433,16 +401,11 @@ mod tests {
             ("endpoint_url_sts", "http://localhost:4566"),
             ("aws_endpoint_url_sts", "http://localhost:4566"),
         ] {
-            let mut explicit: PmtConfig = serde_saphyr::from_str(&format!(
-                "profile: staging\nregion: us-east-2\n{key}: {value}\n"
-            ))
-            .unwrap();
+            let mut explicit: PmtConfig =
+                serde_saphyr::from_str(&format!("profile: staging\nregion: us-east-2\n{key}: {value}\n")).unwrap();
             explicit.aws_profile_files = Some(files.clone());
             explicit.finalize().await.unwrap();
-            assert_eq!(
-                explicit.options.get("region").map(String::as_str),
-                Some("us-east-2")
-            );
+            assert_eq!(explicit.options.get("region").map(String::as_str), Some("us-east-2"));
             assert_eq!(explicit.options.get(key).map(String::as_str), Some(value));
             assert!(
                 explicit.aws_credentials.is_none(),

@@ -49,11 +49,7 @@ mod tests {
         let got = LightAngles::default().to_vector();
         assert_abs_diff_eq!(
             got[..],
-            [
-                -0.612_372_435_695_794_6,
-                0.353_553_390_593_273_84,
-                FRAC_1_SQRT_2
-            ][..],
+            [-0.612_372_435_695_794_6, 0.353_553_390_593_273_84, FRAC_1_SQRT_2][..],
             epsilon = 1e-9
         );
     }
@@ -64,11 +60,7 @@ mod tests {
     #[case::east(90.0, 0.0, [1.0, 0.0, 0.0])]
     #[case::south(180.0, 0.0, [0.0, -1.0, 0.0])]
     #[case::west(270.0, 0.0, [-1.0, 0.0, 0.0])]
-    fn cardinal_angles_map_to_axes(
-        #[case] azimuth_deg: f64,
-        #[case] altitude_deg: f64,
-        #[case] expected: [f64; 3],
-    ) {
+    fn cardinal_angles_map_to_axes(#[case] azimuth_deg: f64, #[case] altitude_deg: f64, #[case] expected: [f64; 3]) {
         let got = LightAngles {
             azimuth_deg,
             altitude_deg,

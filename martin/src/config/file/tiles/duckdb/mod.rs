@@ -6,6 +6,5 @@ pub mod sql_utils;
 
 pub use config::{DuckDbConfig, DuckDbSourceEntry};
 pub use sources::{
-    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry, GeoParquetEntry, GeoParquetLocation,
-    MvtLayerOptions,
+    DuckDbDatabaseEntry, DuckDbMacroEntry, DuckDbTableEntry, GeoParquetEntry, GeoParquetLocation, MvtLayerOptions,
 };

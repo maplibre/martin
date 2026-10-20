@@ -73,15 +73,9 @@ fn bench_geojson(c: &mut Criterion) {
     // Load path: read + parse + build the R-tree.
     c.bench_function("build_source", |b| {
         b.to_async(&rt).iter(|| async {
-            let source = GeoJsonSource::new(
-                "bench".to_owned(),
-                path.clone(),
-                CacheZoomRange::default(),
-                extent,
-                64,
-            )
-            .await
-            .expect("failed to build GeoJSON source");
+            let source = GeoJsonSource::new("bench".to_owned(), path.clone(), CacheZoomRange::default(), extent, 64)
+                .await
+                .expect("failed to build GeoJSON source");
             black_box(source);
         });
     });

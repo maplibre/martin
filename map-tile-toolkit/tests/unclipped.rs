@@ -88,13 +88,7 @@ fn local(tile: TileId, ring: Local<'_, Coord<i32>>) -> Vec<Coord<i32>> {
     let origin = tile.origin(EXTENT).expect("tile in range");
     assert_eq!(ring.origin(), origin, "tile {tile:?} origin");
     let local = ring.to_vec();
-    let from_global = dedup(
-        &ring
-            .global()
-            .iter()
-            .map(|&g| g - origin)
-            .collect::<Vec<_>>(),
-    );
+    let from_global = dedup(&ring.global().iter().map(|&g| g - origin).collect::<Vec<_>>());
     assert_eq!(
         local[..from_global.len()],
         from_global[..],
@@ -135,11 +129,7 @@ fn lines([path]: [&Path; 1]) {
                     to_local(tile, &[dedup(line)])[0],
                     "{what}: tile {tile:?} is not the whole line"
                 );
-                assert_eq!(
-                    slice.run().global(),
-                    &line[..],
-                    "{what}: not the whole line"
-                );
+                assert_eq!(slice.run().global(), &line[..], "{what}: not the whole line");
                 reached.push(tile);
             }
             let yielded = reached.len();
@@ -192,30 +182,22 @@ fn polygons([path]: [&Path; 1]) {
                 };
                 let tile = piece.tile();
                 let got: Vec<_> = piece.rings().map(|r| local(tile, r)).collect();
-                assert_eq!(
-                    got,
-                    to_local(tile, &whole),
-                    "{what}: tile {tile:?} is not whole"
-                );
+                assert_eq!(got, to_local(tile, &whole), "{what}: tile {tile:?} is not whole");
                 reached.push(tile);
             }
             let yielded = reached.len();
             reached.sort_unstable();
             reached.dedup();
             assert_eq!(yielded, reached.len(), "{what}: a tile came twice");
-            let expected: Vec<_> =
-                support::slice_polygons(&mut clipped, std::slice::from_ref(polygon))
-                    .expect("clipped")
-                    .into_keys()
-                    .collect();
+            let expected: Vec<_> = support::slice_polygons(&mut clipped, std::slice::from_ref(polygon))
+                .expect("clipped")
+                .into_keys()
+                .collect();
             assert_eq!(reached, expected, "{what}: not the clipped slicer's tiles");
             for tile in padded_tiles(std::slice::from_ref(&polygon.exterior)) {
                 let one = slicer.tile_polygon(tile, &rings).expect("tile_polygon");
                 let one = one.map(|p| p.rings().map(|r| local(tile, r)).collect::<Vec<_>>());
-                let expected = reached
-                    .binary_search(&tile)
-                    .is_ok()
-                    .then(|| to_local(tile, &whole));
+                let expected = reached.binary_search(&tile).is_ok().then(|| to_local(tile, &whole));
                 assert_eq!(one, expected, "{what}: tile_polygon differs at {tile:?}");
                 let mut within = Vec::new();
                 let mut slices = slicer.polygon(&rings).expect("polygon").within(tile, tile);
@@ -223,35 +205,23 @@ fn polygons([path]: [&Path; 1]) {
                     let PolygonSlice::Piece(piece) = slice.expect("slice") else {
                         panic!("{what}: an unclipped slicer yielded a fill run");
                     };
-                    within.push((
-                        piece.tile(),
-                        piece.rings().map(|r| local(tile, r)).collect(),
-                    ));
+                    within.push((piece.tile(), piece.rings().map(|r| local(tile, r)).collect()));
                 }
-                let expected: Vec<(TileId, Vec<_>)> =
-                    expected.into_iter().map(|e| (tile, e)).collect();
+                let expected: Vec<(TileId, Vec<_>)> = expected.into_iter().map(|e| (tile, e)).collect();
                 assert_eq!(within, expected, "{what}: within({tile:?}) differs");
             }
             for tile in reached {
                 *tiles.entry(tile).or_default() += 1;
             }
         }
-        let inputs = polygons
-            .iter()
-            .map(|p| support::input_polygon(&p.exterior, &p.holes));
+        let inputs = polygons.iter().map(|p| support::input_polygon(&p.exterior, &p.holes));
         snapshot("polygons", stem, buffer, inputs.collect(), &tiles);
     }
 }
 
 /// Snapshot `inputs` and the buffered box of every reached tile, with how many geometries it holds,
 /// into `{kind}/snapshots-unclipped/` (buffer 0 only).
-fn snapshot(
-    kind: &str,
-    stem: &str,
-    buffer: u16,
-    mut features: Vec<geojson::Feature>,
-    tiles: &BTreeMap<TileId, u32>,
-) {
+fn snapshot(kind: &str, stem: &str, buffer: u16, mut features: Vec<geojson::Feature>, tiles: &BTreeMap<TileId, u32>) {
     if buffer > 0 {
         return;
     }
@@ -264,10 +234,7 @@ fn snapshot(
         f.set_property("geometries", json!(count));
         features.push(f);
     }
-    let (dir, name) = (
-        format!("{kind}/snapshots-unclipped"),
-        format!("{stem}.geojson"),
-    );
+    let (dir, name) = (format!("{kind}/snapshots-unclipped"), format!("{stem}.geojson"));
     insta::with_settings!({
         snapshot_path => dir,
         prepend_module_to_snapshot => false,

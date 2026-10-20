@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use sqlite_hashes::rusqlite;
 
-use crate::{
-    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtType,
-};
+use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtType};
 
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
@@ -66,9 +64,7 @@ pub enum MbtError {
         computed: String,
     },
 
-    #[error(
-        "Map table references tile id `{tile_id}` that does not exist in `{table}` in MBTile file {filepath}"
-    )]
+    #[error("Map table references tile id `{tile_id}` that does not exist in `{table}` in MBTile file {filepath}")]
     MissingTileReference {
         filepath: String,
         tile_id: String,
@@ -102,10 +98,7 @@ pub enum MbtError {
     #[error(
         "MBTiles file {filepath} declares an unsupported tile hash algorithm `{algorithm}` in its metadata. This build can only validate `md5` hashes."
     )]
-    UnsupportedHashAlgorithm {
-        algorithm: String,
-        filepath: PathBuf,
-    },
+    UnsupportedHashAlgorithm { algorithm: String, filepath: PathBuf },
 
     #[error(
         "Cannot copy with hash algorithm `{requested}` into {filepath}, which stores its hashes as `{destination}`"
@@ -139,9 +132,7 @@ pub enum MbtError {
     #[error("Applying a patch while diffing is not supported")]
     CannotApplyPatchAndDiff,
 
-    #[error(
-        "The MBTiles file {filepath} has data of type {actual}, but the desired type was set to {desired}"
-    )]
+    #[error("The MBTiles file {filepath} has data of type {actual}, but the desired type was set to {desired}")]
     MismatchedTargetType {
         filepath: PathBuf,
         actual: MbtType,
@@ -220,11 +211,7 @@ pub enum MbtError {
     UnsupportedFileExtension(PathBuf),
 
     #[error("Inconsistent tile formats: found {new} at {path} but earlier tiles were {old}")]
-    InconsistentTileFormats {
-        old: Format,
-        new: Format,
-        path: PathBuf,
-    },
+    InconsistentTileFormats { old: Format, new: Format, path: PathBuf },
 
     #[error("Cannot re-encode {0:?}-compressed tile data")]
     CannotRecodeCompressedTile(Encoding),
@@ -245,9 +232,7 @@ pub enum MbtError {
     #[error("Transcoding error: {0}")]
     TranscodeError(String),
 
-    #[error(
-        "Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first"
-    )]
+    #[error("Cannot transcode a normalized file into the dedup-id schema, copy it to a flat file first")]
     CannotTranscodeNormalizedToDedupId,
 }
 

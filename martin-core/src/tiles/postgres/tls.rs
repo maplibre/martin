@@ -19,8 +19,8 @@ use tokio_postgres_rustls::MakeRustlsConnect;
 use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
-    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
-    InvalidPrivateKey, UnknownSslMode,
+    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey, InvalidPrivateKey,
+    UnknownSslMode,
 };
 use crate::tiles::postgres::PostgresResult;
 
@@ -350,10 +350,7 @@ mod tests {
 
     #[test]
     fn default_connector_is_plain() {
-        assert!(matches!(
-            PgTlsConnector::default(),
-            PgTlsConnector::NoTls(_)
-        ));
+        assert!(matches!(PgTlsConnector::default(), PgTlsConnector::NoTls(_)));
     }
 
     struct Pki {
@@ -375,11 +372,7 @@ mod tests {
         let server_key = KeyPair::generate().unwrap();
         let server_params = CertificateParams::new(vec![hostname.to_owned()]).unwrap();
         let server = server_params.signed_by(&server_key, &issuer).unwrap();
-        Pki {
-            ca,
-            server,
-            server_key,
-        }
+        Pki { ca, server, server_key }
     }
 
     fn native_roots_are_loadable() -> bool {
@@ -429,8 +422,7 @@ mod tests {
         let trusted = pki("postgres.internal");
         let ca_file = write_temp(&trusted.ca.pem());
         let ca_path = ca_file.path().to_path_buf();
-        let verify_ca =
-            || client_config(None, None, Some(&ca_path), SslModeOverride::VerifyCa).unwrap();
+        let verify_ca = || client_config(None, None, Some(&ca_path), SslModeOverride::VerifyCa).unwrap();
 
         handshake(verify_ca(), &trusted, "postgres.internal").unwrap();
         handshake(verify_ca(), &trusted, "db.example.com").unwrap();
@@ -439,8 +431,7 @@ mod tests {
         let err = handshake(verify_ca(), &untrusted, "postgres.internal").unwrap_err();
         assert!(matches!(err, Error::InvalidCertificate(_)), "{err}");
 
-        let verify_full =
-            client_config(None, None, Some(&ca_path), SslModeOverride::VerifyFull).unwrap();
+        let verify_full = client_config(None, None, Some(&ca_path), SslModeOverride::VerifyFull).unwrap();
         let err = handshake(verify_full, &trusted, "db.example.com").unwrap_err();
         assert!(matches!(err, Error::InvalidCertificate(_)), "{err}");
     }
@@ -454,8 +445,7 @@ mod tests {
             SslModeOverride::Unmodified(SslMode::Require),
         ] {
             let config = client_config(None, None, None, mode).unwrap();
-            handshake(config, &untrusted, "db.example.com")
-                .unwrap_or_else(|e| panic!("{mode:?}: {e}"));
+            handshake(config, &untrusted, "db.example.com").unwrap_or_else(|e| panic!("{mode:?}: {e}"));
         }
     }
 
@@ -487,35 +477,22 @@ mod tests {
         let cert = cert_file.path().to_path_buf();
         let pkcs8_key_file = write_temp(&pki.server_key.serialize_pem());
         let pkcs8_key = pkcs8_key_file.path().to_path_buf();
-        let garbage_file =
-            write_temp("-----BEGIN CERTIFICATE-----\nnot base64!\n-----END CERTIFICATE-----\n");
+        let garbage_file = write_temp("-----BEGIN CERTIFICATE-----\nnot base64!\n-----END CERTIFICATE-----\n");
         let garbage = garbage_file.path().to_path_buf();
         let missing = PathBuf::from("/definitely/not/here.pem");
         let mode = SslModeOverride::Unmodified(SslMode::Require);
 
         let err = client_config(Some(&cert), Some(&pkcs8_key), None, mode).unwrap_err();
-        assert!(
-            matches!(err, InvalidPrivateKey(ref p) if *p == pkcs8_key),
-            "{err}"
-        );
+        assert!(matches!(err, InvalidPrivateKey(ref p) if *p == pkcs8_key), "{err}");
 
         let err = client_config(Some(&cert), Some(&missing), None, mode).unwrap_err();
-        assert!(
-            matches!(err, CannotOpenCert(_, ref p) if *p == missing),
-            "{err}"
-        );
+        assert!(matches!(err, CannotOpenCert(_, ref p) if *p == missing), "{err}");
 
         let err = client_config(None, None, Some(&missing), mode).unwrap_err();
-        assert!(
-            matches!(err, CannotOpenCert(_, ref p) if *p == missing),
-            "{err}"
-        );
+        assert!(matches!(err, CannotOpenCert(_, ref p) if *p == missing), "{err}");
 
         let err = client_config(None, None, Some(&garbage), mode).unwrap_err();
-        assert!(
-            matches!(err, CannotParseCert(_, ref p) if *p == garbage),
-            "{err}"
-        );
+        assert!(matches!(err, CannotParseCert(_, ref p) if *p == garbage), "{err}");
 
         make_connector(None, Some(&pkcs8_key), None, mode).expect("a lone key is ignored");
     }

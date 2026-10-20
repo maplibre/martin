@@ -4,8 +4,7 @@ use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
 use martin_e2e_tests::{
-    MbtilesCli, fixture, mbtiles_fixture, mbtiles_from_sql, metadata, summary, summary_filters,
-    temp_dir,
+    MbtilesCli, fixture, mbtiles_fixture, mbtiles_from_sql, metadata, summary, summary_filters, temp_dir,
 };
 use regex::Regex;
 use rstest::rstest;
@@ -76,12 +75,8 @@ async fn summary_reports_how_the_file_is_laid_out_on_disk() {
 
     let summary = summary(&source).run_json().await;
 
-    let file_size = summary["file_size"]
-        .as_u64()
-        .expect("the summary reports a file size");
-    let page_size = summary["page_size"]
-        .as_u64()
-        .expect("the summary reports a page size");
+    let file_size = summary["file_size"].as_u64().expect("the summary reports a file size");
+    let page_size = summary["page_size"].as_u64().expect("the summary reports a page size");
     let page_count = summary["page_count"]
         .as_u64()
         .expect("the summary reports a page count");
@@ -108,8 +103,7 @@ async fn the_two_json_summary_formats_carry_the_same_document() {
 
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&compact).expect("`--format json` prints json"),
-        serde_json::from_str::<serde_json::Value>(&pretty)
-            .expect("`--format json-pretty` prints json"),
+        serde_json::from_str::<serde_json::Value>(&pretty).expect("`--format json-pretty` prints json"),
     );
     assert_eq!(
         compact.trim_end().lines().count(),
@@ -149,11 +143,7 @@ async fn meta_get_reads_one_value() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
 
-    let output = MbtilesCli::new("meta-get")
-        .arg(&source)
-        .arg("name")
-        .run()
-        .await;
+    let output = MbtilesCli::new("meta-get").arg(&source).arg("name").run().await;
 
     insta::assert_snapshot!(output, @"Major cities from Natural Earth data");
 }

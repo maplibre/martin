@@ -5,13 +5,10 @@
 //! output of `ST_AsBinary(ST_AsMVTGeom(...))` here instead.
 
 use geo_traits::{
-    CoordTrait, Dimensions, GeometryTrait as _, GeometryType, LineStringTrait,
-    MultiLineStringTrait as _, MultiPointTrait as _, MultiPolygonTrait as _, PointTrait,
-    PolygonTrait,
+    CoordTrait, Dimensions, GeometryTrait as _, GeometryType, LineStringTrait, MultiLineStringTrait as _,
+    MultiPointTrait as _, MultiPolygonTrait as _, PointTrait, PolygonTrait,
 };
-use mlt_core::geo_types::{
-    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-};
+use mlt_core::geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use wkb::reader::Wkb;
 
 /// Errors that can occur while reading tile-space WKB.
@@ -99,10 +96,7 @@ impl Reader {
         Ok(Point(self.coord(&coord)?))
     }
 
-    fn line(
-        &mut self,
-        line: &impl LineStringTrait<T = f64>,
-    ) -> Result<LineString<i32>, TileWkbError> {
+    fn line(&mut self, line: &impl LineStringTrait<T = f64>) -> Result<LineString<i32>, TileWkbError> {
         let mut coords = Vec::with_capacity(line.num_coords());
         for coord in line.coords() {
             coords.push(self.coord(&coord)?);
@@ -110,10 +104,7 @@ impl Reader {
         Ok(LineString(coords))
     }
 
-    fn polygon(
-        &mut self,
-        polygon: &impl PolygonTrait<T = f64>,
-    ) -> Result<Polygon<i32>, TileWkbError> {
+    fn polygon(&mut self, polygon: &impl PolygonTrait<T = f64>) -> Result<Polygon<i32>, TileWkbError> {
         let Some(exterior) = polygon.exterior() else {
             return Ok(Polygon::new(LineString(Vec::new()), Vec::new()));
         };

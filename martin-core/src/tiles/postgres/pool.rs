@@ -8,20 +8,16 @@ use std::time::{Duration, Instant};
 
 use deadpool_postgres::tokio_postgres::error::SqlState;
 use deadpool_postgres::tokio_postgres::{CancelToken, NoTls};
-use deadpool_postgres::{
-    Manager, ManagerConfig, Object, Pool, PoolError, QueueMode, RecyclingMethod, Timeouts,
-};
+use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, PoolError, QueueMode, RecyclingMethod, Timeouts};
 use postgres::config::SslMode;
 use semver::Version;
 use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
-    BadPostgisVersion, BadPostgresVersion, CannotTransform, PostgisTooOld, PostgresError,
-    PostgresPoolBuildError, PostgresPoolConnError, PostgresqlTooOld,
+    BadPostgisVersion, BadPostgresVersion, CannotTransform, PostgisTooOld, PostgresError, PostgresPoolBuildError,
+    PostgresPoolConnError, PostgresqlTooOld,
 };
-use crate::tiles::postgres::tls::{
-    PgTlsConnector, SslModeOverride, make_connector, parse_conn_str,
-};
+use crate::tiles::postgres::tls::{PgTlsConnector, SslModeOverride, make_connector, parse_conn_str};
 use crate::tiles::postgres::{PostgresResult, RetryTimeout};
 
 /// `PostGIS` 3.5 stopped hiding some geometry on some zoom levels.
@@ -64,8 +60,7 @@ impl PostgresPool {
         pool_size: usize,
         retry_timeout: RetryTimeout,
     ) -> PostgresResult<Self> {
-        let (id, mgr, tls) =
-            Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
+        let (id, mgr, tls) = Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
 
         let pool = Pool::builder(mgr)
             .max_size(pool_size)
@@ -84,10 +79,7 @@ impl PostgresPool {
             wait: Some(Duration::ZERO),
             ..Timeouts::default()
         };
-        let (conn, _) = tokio::join!(
-            res.first_connection(retry_timeout),
-            res.pool.timeout_get(&no_wait)
-        );
+        let (conn, _) = tokio::join!(res.first_connection(retry_timeout), res.pool.timeout_get(&no_wait));
         let conn = conn?;
         let pg_ver = get_postgres_version(&conn).await?;
         if pg_ver < MINIMUM_POSTGRES_VERSION {
@@ -170,9 +162,7 @@ impl PostgresPool {
         loop {
             let error = match self.get().await {
                 Ok(conn) => return Ok(conn),
-                Err(error) if retry_timeout.allows(started.elapsed()) && is_transient(&error) => {
-                    error
-                }
+                Err(error) if retry_timeout.allows(started.elapsed()) && is_transient(&error) => error,
                 Err(error) => return Err(error),
             };
             attempts += 1;
@@ -286,10 +276,7 @@ fn is_transient(error: &super::PostgresError) -> bool {
     match pool_error {
         PoolError::Timeout(_) => true,
         PoolError::Backend(backend) => match backend.as_db_error() {
-            None => {
-                backend.is_closed()
-                    || matches!(backend.source(), Some(cause) if cause.is::<std::io::Error>())
-            }
+            None => backend.is_closed() || matches!(backend.source(), Some(cause) if cause.is::<std::io::Error>()),
             Some(db) => matches!(
                 *db.code(),
                 SqlState::CANNOT_CONNECT_NOW
@@ -324,10 +311,7 @@ fn parse_postgres_version(version_num: i32) -> Option<Version> {
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
 async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
     let version_num: i32 = conn
-        .query_one(
-            "SELECT current_setting('server_version_num')::int as version;",
-            &[],
-        )
+        .query_one("SELECT current_setting('server_version_num')::int as version;", &[])
         .await
         .map(|row| row.get("version"))
         .map_err(|e| PostgresError(e, "querying postgres version"))?;
@@ -435,11 +419,7 @@ impl ActiveQueryRegistry {
 impl std::fmt::Debug for ActiveQueryRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (next_id, active_count, ids) = self.inner.try_lock().map_or((0, 0, Vec::new()), |g| {
-            (
-                g.next_id,
-                g.tokens.len(),
-                g.tokens.keys().copied().collect::<Vec<_>>(),
-            )
+            (g.next_id, g.tokens.len(), g.tokens.keys().copied().collect::<Vec<_>>())
         });
 
         f.debug_struct("ActiveQueryRegistry")
@@ -543,14 +523,8 @@ mod tests {
         };
 
         let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-        let pool = Pool::builder(mgr)
-            .max_size(2)
-            .build()
-            .expect("pool created");
-        let conn = pool
-            .get()
-            .await
-            .expect("able to establish connection to the pool");
+        let pool = Pool::builder(mgr).max_size(2).build().expect("pool created");
+        let conn = pool.get().await.expect("able to establish connection to the pool");
 
         let pg_version = get_postgres_version(&conn)
             .await
@@ -575,8 +549,7 @@ mod tests {
 
     fn generate_tls_certs_with_mismatched_hostname() -> TlsCerts {
         use rcgen::{
-            BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
-            KeyUsagePurpose,
+            BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose,
         };
 
         let ca_key = KeyPair::generate().unwrap();
@@ -588,8 +561,7 @@ mod tests {
         let issuer = Issuer::new(ca_params, ca_key);
 
         let server_key = KeyPair::generate().unwrap();
-        let mut server_params =
-            CertificateParams::new(vec!["postgres.internal".to_owned()]).unwrap();
+        let mut server_params = CertificateParams::new(vec!["postgres.internal".to_owned()]).unwrap();
         server_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
         let server_cert = server_params.signed_by(&server_key, &issuer).unwrap();
 
@@ -703,26 +675,20 @@ mod tests {
             conn.query_one("SELECT pg_sleep(5)", &[]).await
         });
 
-        registered_rx
-            .await
-            .expect("sleep task failed before registering");
+        registered_rx.await.expect("sleep task failed before registering");
         // Let `query_one` reach Postgres before we cancel.
         tokio::time::sleep(Duration::from_millis(100)).await;
         pool.active_query_registry.cancel_all().await;
 
         let db_err = sleep_task.await.unwrap().unwrap_err();
-        assert_eq!(
-            db_err.as_db_error().unwrap().code(),
-            &SqlState::QUERY_CANCELED
-        );
+        assert_eq!(db_err.as_db_error().unwrap().code(), &SqlState::QUERY_CANCELED);
     }
 
     /// Uses `DATABASE_URL` when set (CI runs this with both `sslmode=disable` and
     /// `sslmode=require`); falls back to a local non-SSL URL.
     fn test_database_url() -> String {
-        std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://postgres:postgres@localhost:5411/db?sslmode=disable".to_owned()
-        })
+        std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5411/db?sslmode=disable".to_owned())
     }
 
     #[tokio::test]

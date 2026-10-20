@@ -90,9 +90,7 @@ pub(super) async fn encode_image_response(
     png_max_colors: Option<u16>,
 ) -> HttpResponse {
     match encode_off_worker(image, format, png_max_colors).await {
-        Ok(bytes) => HttpResponse::Ok()
-            .content_type(format.content_type())
-            .body(bytes),
+        Ok(bytes) => HttpResponse::Ok().content_type(format.content_type()).body(bytes),
         Err(e) => {
             error!(error = %e, "Failed to encode image");
             HttpResponse::InternalServerError()
@@ -115,8 +113,7 @@ async fn encode_off_worker(
         .map_err(|_closed| EncodeError::ShuttingDown)?;
     // Encoding is CPU-bound for milliseconds, which would stall
     // every other request on this actix worker if it ran inline.
-    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors))
-        .await?
+    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors)).await?
 }
 
 /// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set.
@@ -175,10 +172,7 @@ struct StyleRenderRequest {
 #[get("/style/{style_id}/{z}/{x}/{y:[0-9]+}@{pixel_ratio:[1-9][0-9]*}x.{format}")]
 #[get("/style/{style_id}/{z}/{x}/{y:[0-9]+}.{format}")]
 #[hotpath::measure]
-pub async fn get_rendered_tile_style(
-    path: Path<StyleRenderRequest>,
-    styles: Data<StyleSources>,
-) -> HttpResponse {
+pub async fn get_rendered_tile_style(path: Path<StyleRenderRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()
@@ -190,9 +184,7 @@ pub async fn get_rendered_tile_style(
     if pixel_ratio > max_pixel_ratio {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
-            .body(format!(
-                "Pixel ratio above @{max_pixel_ratio}x is not served"
-            ));
+            .body(format!("Pixel ratio above @{max_pixel_ratio}x is not served"));
     }
     let Some(zxy) = TileCoord::new_checked(path.z, path.x, path.y) else {
         return HttpResponse::BadRequest()
@@ -302,18 +294,15 @@ mod tests {
 
         let encoded = encode_image(&image, format, None).expect("encodes");
 
-        let decoded =
-            image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
+        let decoded = image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
         assert_eq!(decoded.to_rgba8(), image);
     }
 
     #[test]
     fn a_jpeg_encode_drops_the_alpha_channel() {
-        let encoded =
-            encode_image(&translucent_image(), ImageFormatRequest::Jpeg, None).expect("encodes");
+        let encoded = encode_image(&translucent_image(), ImageFormatRequest::Jpeg, None).expect("encodes");
 
-        let decoded =
-            image::load_from_memory_with_format(&encoded, ImageFormat::Jpeg).expect("decodes");
+        let decoded = image::load_from_memory_with_format(&encoded, ImageFormat::Jpeg).expect("decodes");
         assert_eq!(decoded.color(), ColorType::Rgb8);
         assert_eq!((decoded.width(), decoded.height()), (64, 32));
     }

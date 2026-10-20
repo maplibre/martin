@@ -40,9 +40,7 @@ pub struct HillshadeRangeError {
 pub type HillshadeProcessConfig = AutoOption<HillshadeSettings>;
 
 /// Image format for the baked hillshade.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub enum HillshadeFormat {
     /// Lossless PNG. Universally supported.
@@ -299,9 +297,7 @@ impl ResolvedHillshade {
             let Some(param) = NUMERIC_PARAMS.iter().find(|param| param.name == key) else {
                 continue;
             };
-            let value = raw
-                .parse::<f64>()
-                .map_err(|_e| param.rejected(raw.to_owned()))?;
+            let value = raw.parse::<f64>().map_err(|_e| param.rejected(raw.to_owned()))?;
             *(param.slot)(&mut self) = param.checked(value)?;
         }
         Ok(self)
@@ -320,11 +316,10 @@ impl ResolvedHillshade {
     )]
     pub fn fingerprint(&self) -> String {
         let Self {
-            light:
-                LightAngles {
-                    azimuth_deg: _,
-                    altitude_deg: _,
-                },
+            light: LightAngles {
+                azimuth_deg: _,
+                altitude_deg: _,
+            },
             bake:
                 BakeParams {
                     padding,
@@ -411,17 +406,13 @@ mod tests {
 
     #[test]
     fn disabled_switches_hillshading_off() {
-        let resolved = parse("disabled")
-            .resolve_hillshade()
-            .expect("disabling is valid");
+        let resolved = parse("disabled").resolve_hillshade().expect("disabling is valid");
         assert_eq!(resolved, None);
     }
 
     #[test]
     fn false_switches_hillshading_off() {
-        let resolved = parse("false")
-            .resolve_hillshade()
-            .expect("disabling is valid");
+        let resolved = parse("false").resolve_hillshade().expect("disabling is valid");
         assert_eq!(resolved, None);
     }
 
@@ -538,10 +529,7 @@ mod tests {
         let HillshadeProcessConfig::Explicit(settings) = cfg else {
             unreachable!("a map parses as explicit settings");
         };
-        let keys = settings
-            .get_unrecognized_keys()
-            .into_iter()
-            .collect::<Vec<_>>();
+        let keys = settings.get_unrecognized_keys().into_iter().collect::<Vec<_>>();
         assert_eq!(keys.as_slice(), ["azimuht_foo"]);
     }
 
@@ -578,9 +566,7 @@ mod tests {
     #[test]
     fn query_parameters_that_are_not_ours_are_left_alone() {
         let open = opted_in();
-        let after = open
-            .with_query_overrides([("filter", "roads"), ("v", "3")])
-            .unwrap();
+        let after = open.with_query_overrides([("filter", "roads"), ("v", "3")]).unwrap();
         assert_eq!(after, open);
     }
 

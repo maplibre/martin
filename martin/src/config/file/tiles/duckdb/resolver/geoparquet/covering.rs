@@ -70,8 +70,7 @@ pub(crate) async fn query_covering(
     geometry_column: &str,
     source_label: &str,
 ) -> Option<CoveringBbox> {
-    let query =
-        format!("SELECT value FROM parquet_kv_metadata({source_literal}) WHERE key = 'geo'");
+    let query = format!("SELECT value FROM parquet_kv_metadata({source_literal}) WHERE key = 'geo'");
     let rows = pool
         .generate_tile(move |conn| {
             Ok(conn.prepare(&query).and_then(|mut stmt| {
