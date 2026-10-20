@@ -19,9 +19,7 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{
-    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
-};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig};
 use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
@@ -46,8 +44,8 @@ use crate::srv::tiles;
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
 /// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
 pub const RESERVED_KEYWORDS: &[&str] = &[
-    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh",
-    "reload", "sprite", "status",
+    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh", "reload", "sprite",
+    "status",
 ];
 
 /// Maps any classified error onto an HTTP response.
@@ -57,9 +55,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 /// caller cannot act on are logged.
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
-    use actix_web::error::{
-        ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,
-    };
+    use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable};
     use martin_core::ErrorKind::{Internal, InvalidInput, NotFound, Unavailable};
 
     match e.kind() {
@@ -88,9 +84,7 @@ impl DebouncedWarning {
     /// Create a new `DebouncedWarning` instance
     pub const fn new() -> Self {
         Self {
-            last_warning: std::sync::LazyLock::new(|| {
-                tokio::sync::Mutex::new(std::time::Instant::now())
-            }),
+            last_warning: std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::time::Instant::now())),
         }
     }
 
@@ -191,8 +185,7 @@ fn register_services(
         .service(fonts::redirect_fonts);
 
     #[cfg(feature = "resources")]
-    cfg.service(styles::get_style_json)
-        .service(styles::redirect_styles);
+    cfg.service(styles::get_style_json).service(styles::redirect_styles);
 
     // `.jpeg` redirects must register before the main routes so they win.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -208,13 +201,8 @@ fn register_services(
             cfg.service(webui_scope());
         }
         WebUiMode::Enable => {
-            let guard = fn_guard(|c| {
-                c.head()
-                    .peer_addr
-                    .is_some_and(|addr| addr.ip().is_loopback())
-            });
-            cfg.service(webui_scope().guard(guard))
-                .service(get_index_ui_disabled);
+            let guard = fn_guard(|c| c.head().peer_addr.is_some_and(|addr| addr.ip().is_loopback()));
+            cfg.service(webui_scope().guard(guard)).service(get_index_ui_disabled);
         }
         WebUiMode::Disable => {
             cfg.service(get_index_ui_disabled);
@@ -230,10 +218,7 @@ fn webui_scope() -> actix_web::Scope {
     use actix_web_static_files::ResourceFiles;
 
     let mut files = webui::generate();
-    let index = files
-        .remove_entry("index.html")
-        .into_iter()
-        .collect::<HashMap<_, _>>();
+    let index = files.remove_entry("index.html").into_iter().collect::<HashMap<_, _>>();
     let assets = files
         .into_iter()
         .filter_map(|(path, file)| Some((path.strip_prefix("_/assets/")?, file)))
@@ -343,13 +328,10 @@ pub fn new_server(
             middleware::from_fn(crate::tui::observe),
         ));
 
-        app.wrap(middleware::Condition::new(
-            request_spans,
-            TracingLogger::default(),
-        ))
-        .wrap(cache_control_middleware(cache_control.clone()))
-        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-        .configure(|c| router(c, &config))
+        app.wrap(middleware::Condition::new(request_spans, TracingLogger::default()))
+            .wrap(cache_control_middleware(cache_control.clone()))
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+            .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
@@ -362,10 +344,7 @@ pub fn new_server(
         .bind(listen_addresses.clone())
         .map_err(|e| ServerStartError::Binding(e, listen_addresses.clone()))?;
 
-    let listen_addresses = server
-        .addrs()
-        .first()
-        .map_or(listen_addresses, ToString::to_string);
+    let listen_addresses = server.addrs().first().map_or(listen_addresses, ToString::to_string);
 
     let server = server
         .keep_alive(keep_alive)

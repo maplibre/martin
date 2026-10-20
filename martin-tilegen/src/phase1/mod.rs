@@ -6,11 +6,9 @@ mod simplify;
 
 use geo_types::Coord;
 use martin_tile_utils::TileRect;
-pub use render::{
-    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError,
-};
-use render::{Renderer, SliceErrors};
 
+pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
+use crate::phase1::render::{Renderer, SliceErrors};
 use crate::plan::{Evaluator, ExprTallies, Plan};
 use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry};
@@ -19,7 +17,7 @@ use crate::{LayerSliceErrors, Summary, TileGenResult, TileOrder};
 /// The stage types of phase 1, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]
 pub(crate) mod internals {
-    pub use super::render::{Renderer, SliceError, SliceErrors};
+    pub use crate::phase1::render::{Renderer, SliceError, SliceErrors};
 }
 
 /// Renders feature batches into its own buffer of the sorter, for one thread.
@@ -37,12 +35,7 @@ pub(crate) struct RenderWorker<'a> {
 impl<'a> RenderWorker<'a> {
     /// A worker that renders `plan`'s layers into `sorter`, keyed for tiles in `order`, only those
     /// of `window` when given.
-    pub(crate) fn new(
-        plan: &'a Plan,
-        sorter: &'a Sorter,
-        order: TileOrder,
-        window: Option<TileRect>,
-    ) -> Self {
+    pub(crate) fn new(plan: &'a Plan, sorter: &'a Sorter, order: TileOrder, window: Option<TileRect>) -> Self {
         let windowed = window.map(|window| {
             plan.layers
                 .iter()
@@ -200,11 +193,7 @@ fn project_geometry(crs: Crs, geometry: &mut Geometry) {
 /// Projects coordinates from `crs` into the renderer's unit square.
 fn project_coords(crs: Crs, coords: &mut [Coord<f64>]) {
     match crs {
-        Crs::Wgs84 => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_lonlat(*c)),
-        Crs::WebMercator => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_mercator(*c)),
+        Crs::Wgs84 => coords.iter_mut().for_each(|c| *c = project::from_lonlat(*c)),
+        Crs::WebMercator => coords.iter_mut().for_each(|c| *c = project::from_mercator(*c)),
     }
 }

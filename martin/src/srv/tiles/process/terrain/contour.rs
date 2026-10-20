@@ -7,16 +7,14 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
 use martin_core::tiles::contour::{ContourError, trace_contours};
-use martin_core::tiles::neighbourhood::{
-    InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
-};
+use martin_core::tiles::neighbourhood::{InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-use super::neighbourhood::{GATHER_PERMITS, gather};
 use crate::config::file::{ContourRangeError, ResolvedContour};
+use crate::srv::tiles::process::terrain::neighbourhood::{GATHER_PERMITS, gather};
 
 /// Errors that can occur while tracing a contour tile.
 #[derive(thiserror::Error, Debug)]
@@ -45,18 +43,12 @@ pub enum ContourTraceError {
 impl From<ContourTraceError> for actix_web::Error {
     fn from(e: ContourTraceError) -> Self {
         match e {
-            ContourTraceError::Parameter(ref inner) => {
-                actix_web::error::ErrorBadRequest(inner.to_string())
-            }
-            ContourTraceError::ShuttingDown => {
-                actix_web::error::ErrorServiceUnavailable(e.to_string())
-            }
+            ContourTraceError::Parameter(ref inner) => actix_web::error::ErrorBadRequest(inner.to_string()),
+            ContourTraceError::ShuttingDown => actix_web::error::ErrorServiceUnavailable(e.to_string()),
             ContourTraceError::Core(_)
             | ContourTraceError::Source(_)
             | ContourTraceError::SourceNeedsReload
-            | ContourTraceError::TraceFailed(_) => {
-                actix_web::error::ErrorInternalServerError(e.to_string())
-            }
+            | ContourTraceError::TraceFailed(_) => actix_web::error::ErrorInternalServerError(e.to_string()),
         }
     }
 }

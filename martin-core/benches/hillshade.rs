@@ -17,9 +17,7 @@ const TILE_SIZE: u32 = 256;
 /// Synthesizes a plausible Mapzen-style *normal* tile, PNG-encoded.
 fn synthetic_normal_tile(width: u32, height: u32, seed: u32) -> TileData {
     fn hash(x: u32, y: u32, seed: u32) -> u32 {
-        let mut h = x.wrapping_mul(0x9E37_79B1)
-            ^ y.wrapping_mul(0x85EB_CA77)
-            ^ seed.wrapping_mul(0xC2B2_AE3D);
+        let mut h = x.wrapping_mul(0x9E37_79B1) ^ y.wrapping_mul(0x85EB_CA77) ^ seed.wrapping_mul(0xC2B2_AE3D);
         h ^= h >> 15;
         h = h.wrapping_mul(0x2C1B_3C6D);
         h ^= h >> 12;
@@ -56,9 +54,7 @@ fn bench_decode(c: &mut Criterion) {
     let bytes = synthetic_normal_tile(TILE_SIZE, TILE_SIZE, 1);
     c.bench_function("decode_one_normal_tile", |b| {
         b.iter(|| {
-            let img = image::load_from_memory(black_box(&bytes))
-                .expect("decode")
-                .into_rgba8();
+            let img = image::load_from_memory(black_box(&bytes)).expect("decode").into_rgba8();
             black_box(img);
         });
     });
@@ -141,8 +137,7 @@ fn bench_end_to_end(c: &mut Criterion) {
                     || neighbourhood.clone(),
                     |neighbourhood| {
                         let canvas = Canvas::from_neighbourhood(&neighbourhood).expect("assemble");
-                        let baked =
-                            bake_with_light(&canvas, core_side, &BakeParams::default(), light);
+                        let baked = bake_with_light(&canvas, core_side, &BakeParams::default(), light);
                         let bytes = baked.encode(format).expect("encode");
                         black_box(bytes);
                     },

@@ -74,7 +74,6 @@ rustix = { workspace = true, features = ["process", "std"] }
 approx.workspace = true
 criterion.workspace = true
 insta.workspace = true
-martin-core = { workspace = true, features = ["_testing", "processing"] }
 martin-tilegen = { path = ".", features = ["internals"] }
 rstest.workspace = true
 

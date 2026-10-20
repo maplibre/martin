@@ -15,10 +15,7 @@ pub struct DuckDbCfgPublish {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Here we enable both tables and macros auto discovery.
     /// You can also enable just one of them by not mentioning the other, or
@@ -40,10 +37,7 @@ pub struct DuckDbCfgPublishMacros {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the macro's
     /// name and schema
@@ -65,10 +59,7 @@ pub struct DuckDbCfgPublishTables {
     /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
@@ -85,10 +76,7 @@ pub struct DuckDbCfgPublishTables {
     /// feature ID.
     #[serde(alias = "id_column")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     pub clip_geom: Option<bool>,

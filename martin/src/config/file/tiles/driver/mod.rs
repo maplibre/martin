@@ -4,6 +4,6 @@ mod reconcile;
 mod sink;
 mod trigger;
 
-pub use reconcile::{Baseline, ReloadDriver};
-pub use sink::{ApplyOutcome, Sink};
-pub use trigger::{NotifyTrigger, PollTrigger, Trigger};
+pub use crate::config::file::tiles::driver::reconcile::{Baseline, ReloadDriver};
+pub use crate::config::file::tiles::driver::sink::{ApplyOutcome, Sink};
+pub use crate::config::file::tiles::driver::trigger::{NotifyTrigger, PollTrigger, Trigger};

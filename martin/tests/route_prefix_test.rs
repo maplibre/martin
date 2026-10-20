@@ -8,7 +8,7 @@ use mbtiles::temp_named_mbtiles;
 use tilejson::TileJSON;
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app_with_prefix {
     ($sources:expr, $srv_config:expr) => {{
@@ -44,11 +44,9 @@ async fn config(
     ),
 ) {
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
-    let (json_mbt, json_conn, json_file) =
-        temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
+    let (json_mbt, json_conn, json_file) = temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (mvt_mbt, mvt_conn, mvt_file) =
-        temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
+    let (mvt_mbt, mvt_conn, mvt_file) = temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
 
     (
         formatdoc! {"

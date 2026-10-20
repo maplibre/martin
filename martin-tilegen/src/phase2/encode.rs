@@ -4,7 +4,6 @@ use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::PoisonError;
 
-use crate::props::KeyNames;
 use hotpath::wrap::std::sync::Mutex as ProfiledMutex;
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use mlt_core::PropKind;
@@ -12,7 +11,8 @@ use mlt_core::encoder::EncoderConfig;
 use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
-use super::assemble::{AssembledLayer, LayerAssembler};
+use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
+use crate::props::KeyNames;
 use crate::sort::{LayerRecordRef, Seq, TileRecords};
 use crate::{EncodedTile, LayerGrid, TileGenResult, TileId, TileOrder};
 
@@ -54,10 +54,7 @@ pub struct DedupIndex {
     tiles: ProfiledMutex<HashMap<u64, Vec<u8>>>,
 }
 
-#[allow(
-    clippy::derivable_impls,
-    reason = "the instrumented mutex has no Default"
-)]
+#[allow(clippy::derivable_impls, reason = "the instrumented mutex has no Default")]
 impl Default for DedupIndex {
     fn default() -> Self {
         Self {
@@ -69,12 +66,7 @@ impl Default for DedupIndex {
 impl DedupIndex {
     fn key(&self, data: &[u8]) -> Option<u64> {
         let hash = xxh3_64(data);
-        match self
-            .tiles
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .entry(hash)
-        {
+        match self.tiles.lock().unwrap_or_else(PoisonError::into_inner).entry(hash) {
             Entry::Vacant(slot) => {
                 slot.insert(data.to_vec());
                 Some(hash)
@@ -154,8 +146,7 @@ impl TileEncoder {
         batch: Vec<TileRecords>,
     ) -> TileGenResult<Vec<EncodedTile>> {
         if self.stats.len() < settings.layers.len() {
-            self.stats
-                .resize_with(settings.layers.len(), LayerStats::default);
+            self.stats.resize_with(settings.layers.len(), LayerStats::default);
         }
         let mut out = Vec::with_capacity(batch.len());
         for records in batch {
@@ -187,10 +178,7 @@ impl TileEncoder {
         }
         Previous {
             records,
-            tile: EncodedTile {
-                coord,
-                ..previous.tile
-            },
+            tile: EncodedTile { coord, ..previous.tile },
             features: previous.features,
         }
     }
@@ -204,11 +192,7 @@ impl TileEncoder {
     ) -> TileGenResult<Previous> {
         let mut features = Vec::new();
         let data = self.encode_tile(settings, &records, coord.z(), &mut features)?;
-        let key = if records.is_fill_only() {
-            dedup.key(&data)
-        } else {
-            None
-        };
+        let key = if records.is_fill_only() { dedup.key(&data) } else { None };
         Ok(Previous {
             records,
             tile: EncodedTile {
@@ -238,9 +222,7 @@ impl TileEncoder {
             }
             let info = &settings.layers[usize::from(layer)];
             let names = &settings.keys[usize::from(layer)];
-            let assembled = self
-                .assembler
-                .assemble(&info.name, info.grid, names, &records)?;
+            let assembled = self.assembler.assemble(&info.name, info.grid, names, &records)?;
             let count = self.stats[usize::from(layer)].record(zoom, &assembled, names);
             features.push((layer, count));
             match settings.format {
@@ -258,13 +240,13 @@ impl TileEncoder {
 
 #[cfg(test)]
 mod tests {
-    use crate::props::KeyInterner;
     use martin_tile_utils::decode_gzip;
     use mlt_core::fast_mvt::MvtReaderRef;
     use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
 
     use super::*;
     use crate::TileGenError;
+    use crate::props::KeyInterner;
     use crate::sort::record::{EncodedProps, Geom, encode};
 
     fn layer(name: &str) -> LayerInfo {
@@ -293,13 +275,7 @@ mod tests {
             encoded.push(interner.intern(key), value);
         }
         let mut bytes = Vec::new();
-        encode(
-            &mut bytes,
-            Some(row),
-            None,
-            &encoded,
-            Geom::Points(&[[0, 0]]),
-        );
+        encode(&mut bytes, Some(row), None, &encoded, Geom::Points(&[[0, 0]]));
         bytes
     }
 
@@ -391,11 +367,7 @@ mod tests {
         };
 
         let err = TileEncoder::default()
-            .encode_batch(
-                &settings,
-                &DedupIndex::default(),
-                vec![TileRecords::new(u64::MAX)],
-            )
+            .encode_batch(&settings, &DedupIndex::default(), vec![TileRecords::new(u64::MAX)])
             .unwrap_err();
 
         assert!(matches!(err, TileGenError::InvalidTileId(u64::MAX)));
@@ -568,11 +540,7 @@ mod tests {
             ],
         ];
         for (row, props) in (1..).zip(rows) {
-            tile.push_record(
-                0,
-                Seq::new(0, row).unwrap(),
-                &feature(row, props, &interner),
-            );
+            tile.push_record(0, Seq::new(0, row).unwrap(), &feature(row, props, &interner));
         }
         let keys = [interner.freeze()];
         let layers = [layer("parks")];
@@ -638,11 +606,7 @@ mod tests {
         };
 
         let tiles = TileEncoder::default()
-            .encode_batch(
-                &settings,
-                &DedupIndex::default(),
-                vec![first, second, third],
-            )
+            .encode_batch(&settings, &DedupIndex::default(), vec![first, second, third])
             .unwrap();
 
         let columns: Vec<_> = tiles
@@ -693,10 +657,7 @@ mod tests {
                 LayerStats {
                     zooms: Some((0, 2)),
                     features: 3,
-                    fields: BTreeMap::from([
-                        ("kind".to_owned(), PropKind::Str),
-                        ("area".to_owned(), PropKind::F64),
-                    ]),
+                    fields: BTreeMap::from([("kind".to_owned(), PropKind::Str), ("area".to_owned(), PropKind::F64),]),
                 },
                 LayerStats::default(),
             ]
@@ -739,10 +700,7 @@ mod tests {
         let right = LayerStats {
             zooms: Some((1, 4)),
             features: 5,
-            fields: BTreeMap::from([
-                ("n".to_owned(), PropKind::F64),
-                ("s".to_owned(), PropKind::Str),
-            ]),
+            fields: BTreeMap::from([("n".to_owned(), PropKind::F64), ("s".to_owned(), PropKind::Str)]),
         };
 
         left.merge(&right);
@@ -752,10 +710,7 @@ mod tests {
             LayerStats {
                 zooms: Some((1, 5)),
                 features: 7,
-                fields: BTreeMap::from([
-                    ("n".to_owned(), PropKind::F64),
-                    ("s".to_owned(), PropKind::Str),
-                ]),
+                fields: BTreeMap::from([("n".to_owned(), PropKind::F64), ("s".to_owned(), PropKind::Str),]),
             }
         );
     }

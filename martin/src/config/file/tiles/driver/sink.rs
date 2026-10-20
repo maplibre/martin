@@ -16,10 +16,7 @@ pub struct ApplyOutcome {
 /// tests use a recording spy.
 pub trait Sink: Send + 'static {
     /// Applies an advisory and reports source builds skipped under a warn policy.
-    fn apply_changes(
-        &self,
-        advisory: ReloadAdvisory,
-    ) -> impl Future<Output = SourceBuildResult<ApplyOutcome>> + Send;
+    fn apply_changes(&self, advisory: ReloadAdvisory) -> impl Future<Output = SourceBuildResult<ApplyOutcome>> + Send;
 
     /// Whether `id` is currently installed.
     fn contains(&self, id: &str) -> bool;

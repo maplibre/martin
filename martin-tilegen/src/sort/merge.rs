@@ -2,9 +2,9 @@ use std::{mem, thread};
 
 use tracing::warn;
 
-use super::SortKey;
 use super::run::{Run, RunReader};
 use crate::TileGenResult;
+use crate::sort::SortKey;
 
 /// Streams the records of several runs in key order. Equal keys come out in run order,
 /// because the readers are kept in run-index order and ties are broken by reader position.
@@ -120,13 +120,9 @@ mod tests {
     #[test]
     fn loser_tree_yields_sorted_order_for_any_width() {
         for k in 1..=9 {
-            let mut heads: Vec<Vec<u32>> = (0..k)
-                .map(|i| (0..5).map(|j| j * 3 + i % 3).rev().collect())
-                .collect();
+            let mut heads: Vec<Vec<u32>> = (0..k).map(|i| (0..5).map(|j| j * 3 + i % 3).rev().collect()).collect();
             let head = |heads: &[Vec<u32>], i: usize| heads[i].last().copied();
-            let precedes = |heads: &[Vec<u32>], a: usize, b: usize| {
-                head_precedes(head(heads, a), a, head(heads, b), b)
-            };
+            let precedes = |heads: &[Vec<u32>], a: usize, b: usize| head_precedes(head(heads, a), a, head(heads, b), b);
             let mut tree = LoserTree::new(k as usize, |a, b| precedes(&heads, a, b));
             let mut out = Vec::new();
             while let Some(w) = tree.winner().filter(|&w| head(&heads, w).is_some()) {

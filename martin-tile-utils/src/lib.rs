@@ -24,15 +24,15 @@ pub const MAX_ZOOM: u8 = 30;
 mod decoders;
 pub use decoders::*;
 mod grid;
-pub use grid::{
+pub use crate::grid::{
     BUILT_IN_GRIDS, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
-    UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID,
-    WGS1984_QUAD_ID, WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
+    UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WGS1984_QUAD_ID,
+    WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
 };
 mod rectangle;
-pub use rectangle::{TileRect, append_rect};
+pub use crate::rectangle::{TileRect, append_rect};
 mod coordinate;
-pub use coordinate::TileCoord;
+pub use crate::coordinate::TileCoord;
 
 pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);
@@ -52,14 +52,7 @@ pub enum Format {
 
 impl Format {
     /// All image formats.
-    pub const IMAGE_FORMATS: &[Self] = &[
-        Self::Gif,
-        Self::Jpeg,
-        Self::Png,
-        Self::Webp,
-        Self::Avif,
-        Self::Jxl,
-    ];
+    pub const IMAGE_FORMATS: &[Self] = &[Self::Gif, Self::Jpeg, Self::Png, Self::Webp, Self::Avif, Self::Jxl];
 
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
@@ -129,14 +122,7 @@ impl Format {
     #[must_use]
     pub const fn is_detectable(self) -> bool {
         match self {
-            Self::Png
-            | Self::Jpeg
-            | Self::Gif
-            | Self::Webp
-            | Self::Avif
-            | Self::Jxl
-            | Self::Json
-            | Self::Mlt => true,
+            Self::Png | Self::Jpeg | Self::Gif | Self::Webp | Self::Avif | Self::Jxl | Self::Json | Self::Mlt => true,
             Self::Mvt => false,
         }
     }
@@ -241,12 +227,8 @@ impl TileInfo {
     #[must_use]
     pub fn detect(value: &[u8]) -> Self {
         match Encoding::detect(value) {
-            Some(encoding @ Encoding::Gzip) => {
-                Self::detect_inner(&mut MultiGzDecoder::new(value), encoding)
-            }
-            Some(encoding @ Encoding::Zlib) => {
-                Self::detect_inner(&mut ZlibDecoder::new(value), encoding)
-            }
+            Some(encoding @ Encoding::Gzip) => Self::detect_inner(&mut MultiGzDecoder::new(value), encoding),
+            Some(encoding @ Encoding::Zlib) => Self::detect_inner(&mut ZlibDecoder::new(value), encoding),
             _ => match Self::detect_raster_formats(value) {
                 Some(raster_format) => Self::new(raster_format, Encoding::Internal),
                 None => Self::detect_vectorish_format(value).into(),
@@ -280,15 +262,9 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
             v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
-            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, &[0x1]).is_err() => {
-                Some(Format::Jxl)
-            }
-            v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => {
-                Some(Format::Jxl)
-            }
-            v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
-                Some(Format::Webp)
-            }
+            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, &[0x1]).is_err() => Some(Format::Jxl),
+            v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => Some(Format::Jxl),
+            v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => Some(Format::Webp),
             _ => None,
         }
     }
@@ -318,13 +294,9 @@ impl From<Format> for TileInfo {
         Self::new(
             format,
             match format {
-                Format::Mlt
-                | Format::Png
-                | Format::Jpeg
-                | Format::Webp
-                | Format::Gif
-                | Format::Avif
-                | Format::Jxl => Encoding::Internal,
+                Format::Mlt | Format::Png | Format::Jpeg | Format::Webp | Format::Gif | Format::Avif | Format::Jxl => {
+                    Encoding::Internal
+                }
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
@@ -358,9 +330,7 @@ enum SevenBitDecodingError {
     #[error("Expected a size, but got nothing")]
     TruncatedSize,
     /// Expected data according to the size, but got nothing
-    #[error(
-        "Expected {expected} bytes of data in layer according to the size, but got only {actual}"
-    )]
+    #[error("Expected {expected} bytes of data in layer according to the size, but got only {actual}")]
     TruncatedData { expected: u64, actual: u64 },
     /// Got unexpected tag
     #[error("Got tag {0} instead of the expected")]
@@ -398,9 +368,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                     return Err(SevenBitDecodingError::UnexpectedTag(*tag));
                 }
                 // need to check data-length
-                let payload_len = size
-                    .checked_sub(1)
-                    .ok_or(SevenBitDecodingError::SizeUnderflow)?;
+                let payload_len = size.checked_sub(1).ok_or(SevenBitDecodingError::SizeUnderflow)?;
                 for i in 0..payload_len {
                     if tile_iter.next().is_none() {
                         return Err(SevenBitDecodingError::TruncatedData {
@@ -420,9 +388,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
 ///
 /// The check for a dictionary is used to speed up the validation process.
 fn is_valid_json(tile: &[u8]) -> bool {
-    tile.starts_with(b"{")
-        && tile.ends_with(b"}")
-        && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
+    tile.starts_with(b"{") && tile.ends_with(b"}") && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
 }
 
 /// How many decompressed bytes detection reads before it decides whether it needs the rest
@@ -447,8 +413,7 @@ pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
     let col = ((EARTH_CIRCUMFERENCE.mul_add(0.5, x).abs() / tile_size) as u32).min((1 << zoom) - 1);
-    let row =
-        ((EARTH_CIRCUMFERENCE.mul_add(0.5, -y).abs() / tile_size) as u32).min((1 << zoom) - 1);
+    let row = ((EARTH_CIRCUMFERENCE.mul_add(0.5, -y).abs() / tile_size) as u32).min((1 << zoom) - 1);
     (col, row)
 }
 
@@ -538,10 +503,7 @@ mod tests {
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
     #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 2, actual: 0 }))]
-    fn test_decode_7bit_length_and_tag(
-        #[case] tile: &[u8],
-        #[case] expected: Result<(), SevenBitDecodingError>,
-    ) {
+    fn test_decode_7bit_length_and_tag(#[case] tile: &[u8], #[case] expected: Result<(), SevenBitDecodingError>) {
         let allowed_versions = &[0x01_u8];
         let decoded = decode_7bit_length_and_tag(tile, allowed_versions);
         assert_eq!(decoded, expected, "can decode one layer correctly");

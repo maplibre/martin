@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use martin_tile_utils::{Encoding, Format, TileInfo};
@@ -6,13 +6,11 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
-use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+use crate::config::file::tiles::postgres::PostgresInfo;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
-use crate::config::file::{
-    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
@@ -207,6 +205,9 @@ pub struct DiscoveredTable {
     /// The type a query returns each table column as, by column name
     pub column_types: HashMap<String, String>,
 
+    /// The table columns whose collation may treat different strings as equal
+    pub nondeterministic_columns: HashSet<String>,
+
     /// `TileJSON` provider by the SQL comment
     pub tilejson: Option<serde_json::Value>,
 }
@@ -261,25 +262,46 @@ impl PostgresInfo for TableInfo {
 }
 
 impl TableInfo {
+    /// The table column a property is read from.
+    #[must_use]
+    pub fn table_column<'a>(&'a self, column: &'a str) -> &'a str {
+        self.discovered.prop_mapping.get(column).map_or(column, String::as_str)
+    }
+
     /// The type a query returns `column` as, after mapping a property to its table column.
     #[must_use]
     pub fn column_type(&self, column: &str) -> Option<&str> {
+        self.discovered
+            .column_types
+            .get(self.table_column(column))
+            .map(String::as_str)
+    }
+
+    /// The type a query returns `property` as: its table column's discovered type, else its configured one.
+    #[must_use]
+    pub fn property_type(&self, property: &str) -> Option<&str> {
         let column = self
             .discovered
             .prop_mapping
+            .get(property)
+            .map_or(property, String::as_str);
+        self.discovered
+            .column_types
             .get(column)
-            .map_or(column, String::as_str);
-        self.discovered.column_types.get(column).map(String::as_str)
+            .or_else(|| self.properties.as_ref()?.get(property))
+            .map(String::as_str)
+    }
+
+    /// Whether `column` compares by a collation that may treat different strings as equal.
+    #[must_use]
+    pub fn has_nondeterministic_collation(&self, column: &str) -> bool {
+        let column = self.discovered.prop_mapping.get(column).map_or(column, String::as_str);
+        self.discovered.nondeterministic_columns.contains(column)
     }
 
     /// For a given table info discovered from the database, append the configuration info provided by the user
     #[must_use]
-    pub fn append_cfg_info(
-        &self,
-        cfg_inf: &Self,
-        new_id: &String,
-        default_srid: Option<i32>,
-    ) -> Option<Self> {
+    pub fn append_cfg_info(&self, cfg_inf: &Self, new_id: &String, default_srid: Option<i32>) -> Option<Self> {
         // Assume cfg_inf and self have the same schema/table/geometry_column
         let mut inf = Self {
             // These values must match the database exactly
@@ -293,6 +315,8 @@ impl TableInfo {
             },
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
+            // Without one in the config, the column's type decides whether arcs are linearized
+            geometry_type: cfg_inf.geometry_type.clone().or_else(|| self.geometry_type.clone()),
             ..cfg_inf.clone()
         };
 

@@ -47,7 +47,7 @@ pub enum ExprError {
 
 #[derive(Debug)]
 pub struct CompiledExpr {
-    expr: IdedExpr,
+    pub(super) expr: IdedExpr,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
 }
@@ -55,20 +55,12 @@ pub struct CompiledExpr {
 impl CompiledExpr {
     /// `columns` are the known property names. With `dynamic_props`, any other identifier is a property
     /// too, else it is an error.
-    pub fn compile<S: AsRef<str>>(
-        source: &str,
-        columns: &[S],
-        dynamic_props: bool,
-    ) -> Result<Self, ExprError> {
+    pub fn compile<S: AsRef<str>>(source: &str, columns: &[S], dynamic_props: bool) -> Result<Self, ExprError> {
         let shared = &*SHARED;
-        let mut expr = shared
-            .env
-            .parser()
-            .parse(source)
-            .map_err(|e| ExprError::Parse {
-                expr: source.to_owned(),
-                message: e.to_string(),
-            })?;
+        let mut expr = shared.env.parser().parse(source).map_err(|e| ExprError::Parse {
+            expr: source.to_owned(),
+            message: e.to_string(),
+        })?;
         let mut analyzer = Analyzer {
             shared,
             known: columns.iter().map(AsRef::as_ref).collect(),
@@ -227,9 +219,7 @@ impl Analyzer<'_> {
                 }
                 if !select.test
                     && let Some(name) = self.qualified_name(&select.operand)
-                    && self
-                        .known
-                        .contains(format!("{name}.{}", select.field).as_str())
+                    && self.known.contains(format!("{name}.{}", select.field).as_str())
                 {
                     self.columns.insert(format!("{name}.{}", select.field));
                     return Ok(());
@@ -294,8 +284,8 @@ impl Analyzer<'_> {
         }
         let is_operator = OPERATORS.contains(&name);
         let namespaced = call.target.as_deref().and_then(|t| self.qualified_name(t));
-        let target_is_namespace = namespaced
-            .is_some_and(|ns| self.shared.is_function(&format!("{ns}.{}", call.func_name)));
+        let target_is_namespace =
+            namespaced.is_some_and(|ns| self.shared.is_function(&format!("{ns}.{}", call.func_name)));
         if !is_operator && !target_is_namespace && !self.shared.is_function(&call.func_name) {
             return Err(WalkError::Function(call.func_name.clone()));
         }
@@ -322,10 +312,7 @@ mod tests {
     #[case::conversion("int(population / 1000)", Value::Int(3645))]
     #[case::comprehension("[1, 2].exists(x, x == rank)", Value::Bool(true))]
     #[case::ternary("population > 1000000 ? 'city' : 'town'", Value::from("city"))]
-    #[case::operators(
-        "!(rank > 5) && -rank < 0 && rank % 2 == 0 || area / 2.0 < 0.0",
-        Value::Bool(true)
-    )]
+    #[case::operators("!(rank > 5) && -rank < 0 && rank % 2 == 0 || area / 2.0 < 0.0", Value::Bool(true))]
     fn expressions_evaluate_over_the_view(#[case] source: &str, #[case] expected: Value) {
         let columns = ["name", "population", "area", "rank"];
         let expr = CompiledExpr::compile(source, &columns, false).unwrap();
@@ -371,14 +358,8 @@ mod tests {
         "feature['name:fr']",
         ExprError::UnknownProperty { expr: "feature['name:fr']".to_owned(), name: "name:fr".to_owned() }
     )]
-    fn unknown_names_are_rejected_at_compile_time(
-        #[case] source: &str,
-        #[case] expected: ExprError,
-    ) {
-        assert_eq!(
-            CompiledExpr::compile(source, &["name"], false).unwrap_err(),
-            expected
-        );
+    fn unknown_names_are_rejected_at_compile_time(#[case] source: &str, #[case] expected: ExprError) {
+        assert_eq!(CompiledExpr::compile(source, &["name"], false).unwrap_err(), expected);
     }
 
     #[test]
@@ -405,9 +386,7 @@ mod tests {
         #[case] columns: &[&str],
         #[case] needs_all_keys: bool,
     ) {
-        let expr =
-            CompiledExpr::compile(source, &["name", "name:en", "ref", "rank"], dynamic_props)
-                .unwrap();
+        let expr = CompiledExpr::compile(source, &["name", "name:en", "ref", "rank"], dynamic_props).unwrap();
         assert_eq!(expr.columns().collect::<Vec<_>>(), columns);
         assert_eq!(expr.needs_all_keys(), needs_all_keys);
     }

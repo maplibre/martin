@@ -9,6 +9,7 @@ autoupdates
 basemap
 bindiff
 binstall
+bpchar
 bsdiff
 bsdiffraw
 bsdiffrawgz

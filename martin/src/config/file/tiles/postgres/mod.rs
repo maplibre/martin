@@ -10,12 +10,20 @@ pub use config_table::*;
 pub(crate) mod utils;
 
 mod builder;
-pub use builder::PostgresAutoDiscoveryBuilder;
+pub use crate::config::file::tiles::postgres::builder::PostgresAutoDiscoveryBuilder;
+
+mod id_format;
+pub use crate::config::file::tiles::postgres::id_format::{
+    FunctionIdFormat, FunctionIds, IdFormat, IdPlaceholders, TableIdFormat, TableIds, UnknownIdPlaceholder,
+};
 
 mod spec;
-pub use spec::SourceSpec;
+pub use crate::config::file::tiles::postgres::spec::SourceSpec;
+
+mod srid;
+pub use crate::config::file::tiles::postgres::srid::{Srid, SridOutOfRange};
 
 mod tile_grid;
-pub use tile_grid::PgTileGrid;
+pub use crate::config::file::tiles::postgres::tile_grid::PgTileGrid;
 
 pub mod resolver;

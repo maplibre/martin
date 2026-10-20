@@ -3,10 +3,10 @@ mod to_mvt;
 
 use martin_core::tiles::Tile;
 use martin_tile_utils::Format;
-use to_mlt::convert_mvt_to_mlt;
-use to_mvt::convert_mlt_to_mvt;
 
 use crate::config::file::{MltConversion, MvtConversion, ResolvedProcess};
+use crate::srv::tiles::process::transcode::to_mlt::convert_mvt_to_mlt;
+use crate::srv::tiles::process::transcode::to_mvt::convert_mlt_to_mvt;
 
 /// Errors that can occur while converting a tile between MVT and MLT.
 #[derive(thiserror::Error, Debug)]
@@ -53,10 +53,7 @@ pub fn apply_pre_cache_processors(
             MltConversion::Encode(cfg) => convert_mvt_to_mlt(tile, cfg)?,
             MltConversion::Disabled => tile,
         }
-    } else if accepted == Some(Format::Mvt)
-        && tile.info.format == Format::Mlt
-        && config.mvt == MvtConversion::Encode
-    {
+    } else if accepted == Some(Format::Mvt) && tile.info.format == Format::Mlt && config.mvt == MvtConversion::Encode {
         convert_mlt_to_mvt(tile)?
     } else {
         tile
@@ -82,14 +79,9 @@ mod tests {
     #[rstest]
     #[case::mvt_unc_mlt(Format::Mvt, Encoding::Uncompressed, Format::Mlt)]
     #[case::mlt_unc_mvt(Format::Mlt, Encoding::Uncompressed, Format::Mvt)]
-    fn empty_tile_is_noop(
-        #[case] format: Format,
-        #[case] encoding: Encoding,
-        #[case] target: Format,
-    ) {
+    fn empty_tile_is_noop(#[case] format: Format, #[case] encoding: Encoding, #[case] target: Format) {
         let tile = make_tile(Vec::new(), format, encoding);
-        let result =
-            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(target)).unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(target)).unwrap();
         assert!(result.data.is_empty());
     }
 
@@ -113,18 +105,14 @@ mod tests {
     #[test]
     fn non_mvt_source_with_mlt_accept_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Png, Encoding::Internal);
-        let result =
-            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
-                .unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Png);
     }
 
     #[test]
     fn mlt_accept_converts_mvt_with_default_encoder() {
         let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
-        let result =
-            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
-                .unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
         assert_eq!(result.info.encoding, Encoding::Internal);
     }
@@ -152,11 +140,7 @@ mod tests {
         #[case] mvt: MvtConversion,
         #[case] source_format: Format,
     ) {
-        let tile = make_tile(
-            empty_layer_mvt_bytes(),
-            source_format,
-            Encoding::Uncompressed,
-        );
+        let tile = make_tile(empty_layer_mvt_bytes(), source_format, Encoding::Uncompressed);
         let config = ResolvedProcess {
             mlt,
             mvt,
@@ -168,12 +152,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::mlt_disabled(
-        MltConversion::Disabled,
-        MvtConversion::Encode,
-        Format::Mvt,
-        Format::Mlt
-    )]
+    #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt, Format::Mlt)]
     #[case::mvt_disabled(
         MltConversion::Encode(EncoderConfig::default()),
         MvtConversion::Disabled,
@@ -186,11 +165,7 @@ mod tests {
         #[case] source_format: Format,
         #[case] accepted: Format,
     ) {
-        let tile = make_tile(
-            empty_layer_mvt_bytes(),
-            source_format,
-            Encoding::Uncompressed,
-        );
+        let tile = make_tile(empty_layer_mvt_bytes(), source_format, Encoding::Uncompressed);
         let config = ResolvedProcess {
             mlt,
             mvt,
@@ -207,9 +182,7 @@ mod tests {
 
         let gzipped = encode_gzip(&empty_layer_mvt_bytes()).unwrap();
         let tile = make_tile(gzipped, Format::Mvt, Encoding::Gzip);
-        let result =
-            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
-                .unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
         assert_eq!(result.info.encoding, Encoding::Internal);
     }
@@ -225,16 +198,12 @@ mod tests {
     fn mlt_to_mvt_round_trip() {
         // First convert MVT->MLT
         let original = make_tile(mvt_with_feature(), Format::Mvt, Encoding::Uncompressed);
-        let encoded =
-            apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt))
-                .unwrap();
+        let encoded = apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(encoded.info.format, Format::Mlt);
         assert!(!encoded.data.is_empty(), "MLT tile should have data");
 
         // Now convert MLT->MVT via the pipeline
-        let decoded =
-            apply_pre_cache_processors(encoded, &ResolvedProcess::default(), Some(Format::Mvt))
-                .unwrap();
+        let decoded = apply_pre_cache_processors(encoded, &ResolvedProcess::default(), Some(Format::Mvt)).unwrap();
         assert_eq!(decoded.info.format, Format::Mvt);
         assert_eq!(decoded.info.encoding, Encoding::Uncompressed);
         assert!(!decoded.data.is_empty());
@@ -250,13 +219,11 @@ mod tests {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed),
             "upstream-etag".into(),
         );
-        let mlt = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt))
-            .unwrap();
+        let mlt = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(mlt.info.format, Format::Mlt);
         assert_eq!(mlt.etag, "upstream-etag+mlt");
 
-        let mvt = apply_pre_cache_processors(mlt, &ResolvedProcess::default(), Some(Format::Mvt))
-            .unwrap();
+        let mvt = apply_pre_cache_processors(mlt, &ResolvedProcess::default(), Some(Format::Mvt)).unwrap();
         assert_eq!(mvt.info.format, Format::Mvt);
         assert_eq!(mvt.etag, "upstream-etag+mlt+mvt");
     }
@@ -266,16 +233,12 @@ mod tests {
     fn mlt_source_with_mvt_accept_converts() {
         // First produce an MLT tile from MVT
         let original = make_tile(mvt_with_feature(), Format::Mvt, Encoding::Uncompressed);
-        let encoded =
-            apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt))
-                .unwrap();
+        let encoded = apply_pre_cache_processors(original, &ResolvedProcess::default(), Some(Format::Mlt)).unwrap();
         assert!(!encoded.data.is_empty());
 
         // Simulate an MLT source receiving Accept: MVT
         let tile = make_tile(encoded.data, Format::Mlt, Encoding::Uncompressed);
-        let result =
-            apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mvt))
-                .unwrap();
+        let result = apply_pre_cache_processors(tile, &ResolvedProcess::default(), Some(Format::Mvt)).unwrap();
         assert_eq!(result.info.format, Format::Mvt);
     }
 }

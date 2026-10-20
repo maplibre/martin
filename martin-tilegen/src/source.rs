@@ -214,12 +214,7 @@ mod tests {
 
     #[test]
     fn wkb_decodes_points_and_lines_and_skips_collections() {
-        let point = [
-            &[1, 1, 0, 0, 0][..],
-            &1.5f64.to_le_bytes(),
-            &(-2.0f64).to_le_bytes(),
-        ]
-        .concat();
+        let point = [&[1, 1, 0, 0, 0][..], &1.5f64.to_le_bytes(), &(-2.0f64).to_le_bytes()].concat();
         let mut geometry = Geometry::Wkb(Bytes::from(point));
         assert!(geometry.decode_wkb());
         assert_eq!(geometry, Geometry::Point(Coord { x: 1.5, y: -2.0 }));

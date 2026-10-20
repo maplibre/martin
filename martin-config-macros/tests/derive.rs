@@ -1,6 +1,7 @@
-use config::file::{Bag, CollectUnrecognizedKeys, ConfigurationLivecycleHooks as _};
 use martin_config_macros::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks};
 use serde::Deserialize;
+
+use crate::config::file::{Bag, CollectUnrecognizedKeys, ConfigurationLivecycleHooks as _};
 
 mod config {
     pub mod file {
@@ -242,9 +243,7 @@ where
 
 #[test]
 fn where_clauses_are_preserved() {
-    let value = WithWhereClause {
-        inner: bag(&["typo"]),
-    };
+    let value = WithWhereClause { inner: bag(&["typo"]) };
     assert_eq!(keys(&value), ["inner.typo"]);
 }
 

@@ -184,9 +184,7 @@ fn key(ids: &str, start: u32, end: u32) -> FontCacheKey {
 async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Bytes {
     let data = Bytes::copy_from_slice(data);
     cache
-        .get_or_insert(key(ids, start, end), async || {
-            Ok::<_, Infallible>(data.clone())
-        })
+        .get_or_insert(key(ids, start, end), async || Ok::<_, Infallible>(data.clone()))
         .await
         .unwrap()
 }

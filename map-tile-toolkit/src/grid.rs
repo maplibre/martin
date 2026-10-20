@@ -14,10 +14,7 @@ use crate::vertex::Vertex;
 /// already proved the result stays in `i32` (so no checked arithmetic).
 #[inline]
 const fn shift(c: Coord<i32>, d: i32) -> Coord<i32> {
-    Coord {
-        x: c.x + d,
-        y: c.y + d,
-    }
+    Coord { x: c.x + d, y: c.y + d }
 }
 
 /// `⌊n·m / d⌋` for `d > 0`, exactly. The product of two coordinate spans can exceed `i64`, so it
@@ -55,18 +52,12 @@ pub(crate) struct Located {
 impl Located {
     /// Does `c`'s owner tile equal this one (is `c` in the core cell)?
     pub(crate) fn contains_core(&self, c: Coord<i32>) -> bool {
-        c.x >= self.core_lo.x
-            && c.x <= self.core_hi.x
-            && c.y >= self.core_lo.y
-            && c.y <= self.core_hi.y
+        c.x >= self.core_lo.x && c.x <= self.core_hi.x && c.y >= self.core_lo.y && c.y <= self.core_hi.y
     }
 
     /// Is `c` in the inner box (≥ `buffer` from every cell edge)?
     pub(crate) fn contains_inner(&self, c: Coord<i32>) -> bool {
-        c.x >= self.inner_lo.x
-            && c.x <= self.inner_hi.x
-            && c.y >= self.inner_lo.y
-            && c.y <= self.inner_hi.y
+        c.x >= self.inner_lo.x && c.x <= self.inner_hi.x && c.y >= self.inner_lo.y && c.y <= self.inner_hi.y
     }
 }
 
@@ -127,10 +118,7 @@ impl Seg {
     #[inline]
     pub(crate) fn row_span(self, ty: i64, extent: i64, buffer: i64) -> (i64, i64) {
         let (x_min, x_max) = self.row_x(ty, extent, buffer);
-        (
-            (x_min - buffer).div_euclid(extent),
-            (x_max + buffer).div_euclid(extent),
-        )
+        ((x_min - buffer).div_euclid(extent), (x_max + buffer).div_euclid(extent))
     }
 
     /// For a row `ty` the segment crosses without touching any tile (possible only with `buffer ==
@@ -297,10 +285,7 @@ impl Grid {
     /// The buffered box `(min, max)` of a located tile, as [`Self::tile_buffered_bounds`] returns it
     /// (already proved to fit `i32` when the tile was located).
     pub(crate) const fn box_of(self, loc: &Located) -> (Coord<i32>, Coord<i32>) {
-        (
-            shift(loc.core_lo, -self.buffer),
-            shift(loc.core_hi, self.buffer),
-        )
+        (shift(loc.core_lo, -self.buffer), shift(loc.core_hi, self.buffer))
     }
 
     /// The origin (`tile · extent`) of the tile whose buffered box starts at `min`, as returned by
@@ -312,16 +297,11 @@ impl Grid {
     /// The closed integer bounds `(min, max)` of `tile`'s clip box (in output space), grown by
     /// `buffer` on each side. All arithmetic is checked; [`TileError::Overflow`] means the tile lies
     /// outside the representable range for this `extent`.
-    pub(crate) fn tile_buffered_bounds(
-        self,
-        tile: TileId,
-    ) -> Result<(Coord<i32>, Coord<i32>), TileError> {
+    pub(crate) fn tile_buffered_bounds(self, tile: TileId) -> Result<(Coord<i32>, Coord<i32>), TileError> {
         let base_x = tile.x.checked_mul(self.extent).ok_or(TileError::Overflow)?;
         let base_y = tile.y.checked_mul(self.extent).ok_or(TileError::Overflow)?;
         // Distance from the base corner to the far corner of the buffered box: extent - 1 + buffer.
-        let reach = (self.extent - 1)
-            .checked_add(self.buffer)
-            .ok_or(TileError::Overflow)?;
+        let reach = (self.extent - 1).checked_add(self.buffer).ok_or(TileError::Overflow)?;
         Ok((
             Coord {
                 x: base_x.checked_sub(self.buffer).ok_or(TileError::Overflow)?,
@@ -350,10 +330,7 @@ impl Grid {
             x: tile.x * self.extent,
             y: tile.y * self.extent,
         };
-        (
-            shift(base, -self.buffer),
-            shift(base, self.extent - 1 + self.buffer),
-        )
+        (shift(base, -self.buffer), shift(base, self.extent - 1 + self.buffer))
     }
 
     /// Prove that every tile whose buffered box can meet the bounding box `[lo, hi]` has a box that
@@ -389,20 +366,13 @@ impl Grid {
     }
 
     /// [`Self::check_tiles`] without the shortcut, with every box grown `margin` more units.
-    fn check_tiles_exact(
-        self,
-        lo: Coord<i32>,
-        hi: Coord<i32>,
-        margin: i64,
-    ) -> Result<(), TileError> {
+    fn check_tiles_exact(self, lo: Coord<i32>, hi: Coord<i32>, margin: i64) -> Result<(), TileError> {
         let (extent, buffer) = (i64::from(self.extent), i64::from(self.buffer));
         let (min, max) = (i64::from(i32::MIN), i64::from(i32::MAX));
         for (lo, hi) in [(lo.x, hi.x), (lo.y, hi.y)] {
             let first = (i64::from(lo) - buffer).div_euclid(extent);
             let last = (i64::from(hi) + buffer).div_euclid(extent);
-            if first * extent - buffer - margin < min
-                || last * extent + extent - 1 + buffer + margin > max
-            {
+            if first * extent - buffer - margin < min || last * extent + extent - 1 + buffer + margin > max {
                 return Err(TileError::Overflow);
             }
         }
@@ -440,11 +410,7 @@ impl Grid {
     /// # Errors
     ///
     /// [`TileError::Overflow`] if any check fails.
-    pub(crate) fn check_polygon_bounds(
-        self,
-        lo: Coord<i32>,
-        hi: Coord<i32>,
-    ) -> Result<(), TileError> {
+    pub(crate) fn check_polygon_bounds(self, lo: Coord<i32>, hi: Coord<i32>) -> Result<(), TileError> {
         if self.near_origin_and_small(lo, hi) {
             return Ok(());
         }
@@ -500,14 +466,8 @@ impl Grid {
     /// The tile comes from the first vertex by a shift, and each vertex then costs one unsigned
     /// comparison per axis of its offset from the inner box's corner.
     #[inline]
-    #[expect(
-        clippy::cast_sign_loss,
-        reason = "a span of the inner box, which is not empty"
-    )]
-    pub(crate) fn inner_tile_of_ring<V: Vertex>(
-        self,
-        ring: &[V],
-    ) -> Option<(TileId, Coord<i32>, usize)> {
+    #[expect(clippy::cast_sign_loss, reason = "a span of the inner box, which is not empty")]
+    pub(crate) fn inner_tile_of_ring<V: Vertex>(self, ring: &[V]) -> Option<(TileId, Coord<i32>, usize)> {
         let first = ring.first()?.position();
         let (shift, lo, hi) = self.fast()?;
         if first.x < lo || first.x > hi || first.y < lo || first.y > hi {
@@ -554,8 +514,7 @@ impl Grid {
             let (lo, hi) = (i64::from(lo), i64::from(hi));
             let base = lo.div_euclid(extent) * extent;
             let inside = lo >= base + buffer && hi <= base + extent - 1 - buffer;
-            let fits = base - buffer >= i64::from(i32::MIN)
-                && base + extent - 1 + buffer <= i64::from(i32::MAX);
+            let fits = base - buffer >= i64::from(i32::MIN) && base + extent - 1 + buffer <= i64::from(i32::MAX);
             // `base` fits `i32` (its buffered box does), and so does `base / extent`.
             #[expect(clippy::cast_possible_truncation, reason = "checked to fit just above")]
             (inside && fits).then_some(((base / extent) as i32, base as i32))
@@ -614,14 +573,7 @@ mod tests {
         };
         let mut found = 0;
         for case in 0..20_000 {
-            let (extent, buffer) = [
-                (16u32, 0u16),
-                (16, 3),
-                (64, 5),
-                (4096, 64),
-                (8, 3),
-                (4096, 0),
-            ][case % 6];
+            let (extent, buffer) = [(16u32, 0u16), (16, 3), (64, 5), (4096, 64), (8, 3), (4096, 0)][case % 6];
             let grid = Grid::new(extent, buffer).unwrap();
             // Rings of a few vertices near one tile's inner box, often straddling it.
             let e = i64::from(extent);
@@ -697,27 +649,17 @@ mod tests {
             Some(3)
         );
         assert!(
-            grid.inner_tile_of_ring(&[
-                c(i32::MAX - 5, 100),
-                c(i32::MAX - 6, 100),
-                c(i32::MAX - 6, 120)
-            ])
-            .is_none()
-        );
-        assert!(
-            Grid::new(100, 5)
-                .unwrap()
-                .inner_tile_of_ring(&inside)
+            grid.inner_tile_of_ring(&[c(i32::MAX - 5, 100), c(i32::MAX - 6, 100), c(i32::MAX - 6, 120)])
                 .is_none()
         );
+        assert!(Grid::new(100, 5).unwrap().inner_tile_of_ring(&inside).is_none());
     }
 
     #[test]
     fn mul_div_floor_is_exact_past_i64() {
         // Spans of ~4·10⁹ (two far-apart full-i32 coordinates) overflow the i64 product.
-        let reference = |n: i64, m: i64, d: i64| {
-            i64::try_from((i128::from(n) * i128::from(m)).div_euclid(i128::from(d))).unwrap()
-        };
+        let reference =
+            |n: i64, m: i64, d: i64| i64::try_from((i128::from(n) * i128::from(m)).div_euclid(i128::from(d))).unwrap();
         for (n, m, d) in [
             (4_000_000_000, 4_294_967_295, 4_294_967_296),
             (-3_999_999_999, 4_294_967_295, 4_000_000_000),
@@ -794,11 +736,7 @@ mod tests {
             // Rejected bounds are exactly those with a tile box (or tile id) beyond `i32`.
             let reference = scanned(grid, a, c);
             let rejected = grid.check_tiles(lo, hi).is_err();
-            assert_eq!(
-                rejected,
-                reference.is_err(),
-                "{extent}/{buffer} {a:?}-{c:?}"
-            );
+            assert_eq!(rejected, reference.is_err(), "{extent}/{buffer} {a:?}-{c:?}");
             if rejected {
                 overflows += 1;
                 continue;
@@ -807,15 +745,9 @@ mod tests {
             let walk: Vec<TileId> = SegmentTiles::new(grid, a, c).collect();
             assert_eq!(walk, reference, "{extent}/{buffer} {a:?}-{c:?}");
             for &tile in &walk {
-                assert_eq!(
-                    grid.tile_box(tile),
-                    grid.tile_buffered_bounds(tile).unwrap()
-                );
+                assert_eq!(grid.tile_box(tile), grid.tile_buffered_bounds(tile).unwrap());
             }
         }
-        assert!(
-            overflows > 100,
-            "the i32 limits are exercised ({overflows})"
-        );
+        assert!(overflows > 100, "the i32 limits are exercised ({overflows})");
     }
 }

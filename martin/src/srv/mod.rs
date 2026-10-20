@@ -15,13 +15,13 @@ mod server;
 #[cfg(feature = "unstable-schemas")]
 pub use server::{__path_get_health, get_health};
 mod error;
-pub use error::ServerStartError;
+pub use crate::srv::error::ServerStartError;
 #[cfg(feature = "_tiles")]
-pub use error::TileError;
-pub use server::{RESERVED_KEYWORDS, new_server, router};
+pub use crate::srv::error::TileError;
+pub use crate::srv::server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
-pub use admin::Catalog;
+pub use crate::srv::admin::Catalog;
 
 #[cfg(feature = "_tiles")]
 mod cache;
@@ -34,20 +34,20 @@ pub use cache::{__path_purge_source, purge_source};
 pub(crate) mod tiles;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::content::{__path_get_tile, get_tile};
-#[cfg(feature = "_tiles")]
-pub use tiles::content::{AcceptedFormats, DynTileSource, TileRequestHeaders};
-#[cfg(feature = "_tiles")]
-pub use tiles::metadata::merge_tilejson;
 #[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
 pub use tiles::metadata::{__path_get_source_info, get_source_info};
+
+#[cfg(feature = "_tiles")]
+pub use crate::srv::tiles::content::{AcceptedFormats, DynTileSource, TileRequestHeaders};
+#[cfg(feature = "_tiles")]
+pub use crate::srv::tiles::metadata::merge_tilejson;
 
 #[cfg(feature = "resources")]
 mod sprites;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use sprites::{
-    __path_get_sprite_json, __path_get_sprite_png, __path_get_sprite_sdf_json,
-    __path_get_sprite_sdf_png, get_sprite_json, get_sprite_png, get_sprite_sdf_json,
-    get_sprite_sdf_png,
+    __path_get_sprite_json, __path_get_sprite_png, __path_get_sprite_sdf_json, __path_get_sprite_sdf_png,
+    get_sprite_json, get_sprite_png, get_sprite_sdf_json, get_sprite_sdf_png,
 };
 
 #[cfg(feature = "resources")]

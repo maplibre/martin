@@ -5,10 +5,10 @@ use geo::MapCoords as _;
 use geo::algorithm::simplify::Simplify as _;
 use geo_types::{Coord, Line, LineString};
 
-use super::elevation::HeightGrid;
-use super::error::ContourError;
-use super::features::{ContourFeature, GeometryFeatures, GeometryTransform};
-use super::mvt::MvtEncodingOptions;
+use crate::tiles::contour::elevation::HeightGrid;
+use crate::tiles::contour::error::ContourError;
+use crate::tiles::contour::features::{ContourFeature, GeometryFeatures, GeometryTransform};
+use crate::tiles::contour::mvt::MvtEncodingOptions;
 
 /// Default MVT tile extent for the contour tiles we encode.
 pub const DEFAULT_MVT_EXTENT: u32 = 4096;
@@ -76,25 +76,11 @@ impl ZoomIntervalMap {
     pub fn default_for_units(units: ElevationUnits) -> Self {
         match units {
             ElevationUnits::Meters => Self::new(
-                &[
-                    (0, 0.0),
-                    (4, 400.0),
-                    (6, 200.0),
-                    (8, 150.0),
-                    (10, 100.0),
-                    (12, 50.0),
-                ],
+                &[(0, 0.0), (4, 400.0), (6, 200.0), (8, 150.0), (10, 100.0), (12, 50.0)],
                 units,
             ),
             ElevationUnits::Feet => Self::new(
-                &[
-                    (0, 0.0),
-                    (5, 1000.0),
-                    (7, 500.0),
-                    (9, 400.0),
-                    (11, 250.0),
-                    (13, 100.0),
-                ],
+                &[(0, 0.0), (5, 1000.0), (7, 500.0), (9, 400.0), (11, 250.0), (13, 100.0)],
                 units,
             ),
         }
@@ -220,10 +206,7 @@ impl ContourOptions {
     /// in the contour's resolution-scaled units (`fetch_margin` source pixels
     /// times `resolution`).
     #[must_use]
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a tile side is a small power of two"
-    )]
+    #[expect(clippy::cast_precision_loss, reason = "a tile side is a small power of two")]
     pub fn geometry_transform(&self, tile_size: usize) -> GeometryTransform {
         GeometryTransform {
             scaling: f64::from(self.extent) / (tile_size as f64 * f64::from(self.resolution)),
@@ -249,11 +232,7 @@ impl ContourOptions {
 /// # Errors
 ///
 /// Returns [`ContourError::Isolines`] when marching squares rejects the grid.
-pub fn generate_contours(
-    grid: &HeightGrid,
-    zoom: u8,
-    opts: &IsolineOptions,
-) -> Result<GeometryFeatures, ContourError> {
+pub fn generate_contours(grid: &HeightGrid, zoom: u8, opts: &IsolineOptions) -> Result<GeometryFeatures, ContourError> {
     let (cols, rows) = grid.dimensions();
 
     let base_interval_meters = opts.threshold_intervals.interval_meters(zoom);
@@ -265,11 +244,9 @@ pub fn generate_contours(
         clippy::cast_precision_loss,
         reason = "a major interval is a small count; precision at this magnitude is irrelevant"
     )]
-    let major_interval_meters =
-        (opts.major_interval > 0).then_some(base_interval_meters * opts.major_interval as f32);
+    let major_interval_meters = (opts.major_interval > 0).then_some(base_interval_meters * opts.major_interval as f32);
 
-    let thresholds =
-        calculate_contour_thresholds(grid, base_interval_meters, opts.filtered_threshold);
+    let thresholds = calculate_contour_thresholds(grid, base_interval_meters, opts.filtered_threshold);
     if thresholds.is_empty() {
         return Ok(GeometryFeatures::new(Vec::new()));
     }
@@ -286,8 +263,7 @@ pub fn generate_contours(
     let mut features = Vec::new();
     for traced_line in &traced {
         let threshold = traced_line.threshold();
-        let is_major =
-            major_interval_meters.is_some_and(|interval| (threshold % interval).abs() < 1e-5);
+        let is_major = major_interval_meters.is_some_and(|interval| (threshold % interval).abs() < 1e-5);
         let elevation = opts.elevation_units.report(threshold);
         for ring in traced_line.geometry() {
             let ring = ring.map_coords(|coord| Coord {
@@ -335,8 +311,7 @@ impl FieldEdge {
             (a.abs() < EDGE_EPSILON && b.abs() < EDGE_EPSILON)
                 || ((a - far).abs() < EDGE_EPSILON && (b - far).abs() < EDGE_EPSILON)
         };
-        shared(segment.start.x, segment.end.x, self.max_x)
-            || shared(segment.start.y, segment.end.y, self.max_y)
+        shared(segment.start.x, segment.end.x, self.max_x) || shared(segment.start.y, segment.end.y, self.max_y)
     }
 }
 
@@ -351,11 +326,7 @@ fn interior_runs(ring: &LineString, edge: FieldEdge) -> Vec<LineString> {
         .split(|s| edge.runs_along(*s))
         .filter_map(|run| {
             let head = run.first()?;
-            Some(
-                std::iter::once(head.start)
-                    .chain(run.iter().map(|s| s.end))
-                    .collect(),
-            )
+            Some(std::iter::once(head.start).chain(run.iter().map(|s| s.end)).collect())
         })
         .collect()
 }
@@ -474,8 +445,8 @@ mod tests {
     #[test]
     fn a_zoom_with_a_zero_interval_traces_nothing() {
         let grid = HeightGrid::from_values(vec![0.0, 100.0, 200.0, 300.0], 2, 2);
-        let features = generate_contours(&grid, 0, &IsolineOptions::default())
-            .expect("a zero interval is not an error");
+        let features =
+            generate_contours(&grid, 0, &IsolineOptions::default()).expect("a zero interval is not an error");
         assert!(features.is_empty());
     }
 
@@ -500,11 +471,7 @@ mod tests {
         let grid = HeightGrid::from_values(values, side, side);
 
         let features = generate_contours(&grid, 0, &opts).expect("a ramp traces");
-        let major_elevations: Vec<i16> = features
-            .iter()
-            .filter(|f| f.is_major)
-            .map(|f| f.elevation)
-            .collect();
+        let major_elevations: Vec<i16> = features.iter().filter(|f| f.is_major).map(|f| f.elevation).collect();
 
         assert!(!major_elevations.is_empty(), "the ramp crosses 0 and 500");
         for elevation in major_elevations {

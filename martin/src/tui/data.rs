@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use actix_web::http::StatusCode;
 use martin_tile_utils::{MAX_ZOOM, xyz_to_bbox};
 
-use super::log::{LogBuffer, LogLine};
 use crate::logging::LogFormat;
+use crate::tui::log::{LogBuffer, LogLine};
 
 /// How many of the latest tile requests the map keeps.
 const RECENT_TILES: usize = 2_000;
@@ -144,13 +144,7 @@ impl Dashboard {
         self.record_at(tile, status, elapsed, Instant::now());
     }
 
-    pub(super) fn record_at(
-        &self,
-        tile: Option<TileRequest>,
-        status: StatusCode,
-        elapsed: Duration,
-        at: Instant,
-    ) {
+    pub(super) fn record_at(&self, tile: Option<TileRequest>, status: StatusCode, elapsed: Duration, at: Instant) {
         let ok = !status.is_client_error() && !status.is_server_error();
         let mut counters = self.lock();
         counters.requests += 1;
@@ -219,13 +213,8 @@ impl Dashboard {
                 rate_history[index] = count;
             }
         }
-        let recent: u64 = rate_history
-            .iter()
-            .rev()
-            .take(usize::from(RATE_AVERAGE_SECONDS))
-            .sum();
-        let per_second =
-            f64::from(u32::try_from(recent).unwrap_or(u32::MAX)) / f64::from(RATE_AVERAGE_SECONDS);
+        let recent: u64 = rate_history.iter().rev().take(usize::from(RATE_AVERAGE_SECONDS)).sum();
+        let per_second = f64::from(u32::try_from(recent).unwrap_or(u32::MAX)) / f64::from(RATE_AVERAGE_SECONDS);
 
         let mut sources: Vec<SourceRow> = stats
             .sources

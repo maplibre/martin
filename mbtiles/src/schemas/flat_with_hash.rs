@@ -55,15 +55,8 @@ pub async fn create_flat_with_hash_tables<T>(conn: &mut T, strict: bool) -> MbtR
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    debug!(
-        "Creating if needed flat-with-hash table and tiles view: tiles_with_hash(z,x,y,data,hash)"
-    );
-    create_schema(
-        conn,
-        include_str!("../../sql/init-flat-with-hash.sql"),
-        strict,
-    )
-    .await
+    debug!("Creating if needed flat-with-hash table and tiles view: tiles_with_hash(z,x,y,data,hash)");
+    create_schema(conn, include_str!("../../sql/init-flat-with-hash.sql"), strict).await
 }
 
 #[cfg(test)]
@@ -75,9 +68,7 @@ mod tests {
     #[actix_rt::test]
     async fn create_and_detect_flat_with_hash() {
         let (_mbt, mut conn) = anonymous_mbtiles("").await;
-        create_flat_with_hash_tables(&mut conn, false)
-            .await
-            .unwrap();
+        create_flat_with_hash_tables(&mut conn, false).await.unwrap();
 
         assert!(is_flat_with_hash_tables_type(&mut conn).await.unwrap());
         assert!(has_tiles_with_hash(&mut conn).await.unwrap());

@@ -3,10 +3,7 @@
     clippy::cast_possible_wrap,
     reason = "small synthetic values"
 )]
-#![cfg_attr(
-    not(target_os = "linux"),
-    allow(unused, reason = "the cycle counter is linux-only")
-)]
+#![cfg_attr(not(target_os = "linux"), allow(unused, reason = "the cycle counter is linux-only"))]
 
 #[cfg(target_os = "linux")]
 #[path = "support/cycles.rs"]
@@ -17,9 +14,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::Encoding;
 use martin_tilegen::internals::record::{EncodedProps, Geom, encode};
-use martin_tilegen::internals::{
-    DedupIndex, EncodeSettings, LayerInfo, Seq, TileEncoder, TileRecords,
-};
+use martin_tilegen::internals::{DedupIndex, EncodeSettings, LayerInfo, Seq, TileEncoder, TileRecords};
 use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::{LayerGrid, TileFormat, TileOrder};
 use mlt_core::PropValueRef;
@@ -37,26 +32,14 @@ fn tiles() -> (Vec<TileRecords>, KeyNames) {
         .map(|tile_id| {
             let mut tile = TileRecords::new(tile_id);
             for f in 0..FEATURES {
-                let (x, y) = (
-                    (f % 20 * 200) as i32,
-                    (f / 20 * 400) as i32 + tile_id as i32,
-                );
-                let vertices = [
-                    [x, y],
-                    [x + 150, y],
-                    [x + 150, y + 90],
-                    [x + 70, y + 130],
-                    [x, y + 90],
-                ];
+                let (x, y) = ((f % 20 * 200) as i32, (f / 20 * 400) as i32 + tile_id as i32);
+                let vertices = [[x, y], [x + 150, y], [x + 150, y + 90], [x + 70, y + 130], [x, y + 90]];
                 props.clear();
                 props.push(
                     interner.intern("name"),
                     PropValueRef::Str(["Main St", "Oak Ave", "Elm Rd"][f as usize % 3]),
                 );
-                props.push(
-                    interner.intern("height"),
-                    PropValueRef::I64((f % 40) as i64),
-                );
+                props.push(interner.intern("height"), PropValueRef::I64((f % 40) as i64));
                 props.push(interner.intern("kind"), PropValueRef::Str("building"));
                 bytes.clear();
                 encode(
@@ -84,9 +67,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
     let keys = [names];
     let mlt = TileFormat::Mlt;
     let mut group = c.benchmark_group("encode");
-    group
-        .throughput(Throughput::Elements(TILES))
-        .sample_size(10);
+    group.throughput(Throughput::Elements(TILES)).sample_size(10);
     for (name, format, encoding) in [
         ("mlt", mlt, Encoding::Uncompressed),
         ("mvt", TileFormat::Mvt, Encoding::Uncompressed),

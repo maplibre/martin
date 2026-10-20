@@ -5,10 +5,10 @@ use serde::de::value::SeqAccessDeserializer;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, NonEmpty};
-use super::setting::{Pixels, ZoomSetting, fixed_zoom_range};
-use super::value::ValueSpec;
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, NonEmpty};
+use crate::config::file::tiling::setting::{Pixels, ZoomSetting, fixed_zoom_range};
+use crate::config::file::tiling::value::ValueSpec;
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -111,10 +111,7 @@ impl<'de> Deserialize<'de> for Rules {
 
 impl Serialize for Rules {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let cases = self
-            .cases
-            .iter()
-            .map(|r| RawRule::join(Some(&r.when), &r.settings));
+        let cases = self.cases.iter().map(|r| RawRule::join(Some(&r.when), &r.settings));
         let fallback = self.fallback.iter().map(|s| RawRule::join(None, s));
         serializer.collect_seq(cases.chain(fallback))
     }
@@ -170,18 +167,8 @@ mod tests {
             .get("poi")
             .and_then(|layer| layer.rules.clone())
             .expect("poi has rules");
-        let class = rules
-            .cases
-            .iter()
-            .nth(1)
-            .expect("two rules")
-            .settings
-            .attributes["class"]
-            .clone();
-        assert_eq!(
-            class.value,
-            Value::Literal(Literal::String("railway".to_owned()))
-        );
+        let class = rules.cases.iter().nth(1).expect("two rules").settings.attributes["class"].clone();
+        assert_eq!(class.value, Value::Literal(Literal::String("railway".to_owned())));
         rules.cases = NonEmpty::try_from_vec(
             rules
                 .cases

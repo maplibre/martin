@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(feature = "postgres")]
+use crate::config::file::postgres::{FunctionIdFormat, Srid, TableIdFormat};
+#[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::RetryTimeout;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -36,11 +38,7 @@ impl UnrecognizedValues {
     }
 
     /// Inserts an unrecognized key/value, returning the previous value if the key was present.
-    pub fn insert(
-        &mut self,
-        key: impl Into<String>,
-        value: serde_json::Value,
-    ) -> Option<serde_json::Value> {
+    pub fn insert(&mut self, key: impl Into<String>, value: serde_json::Value) -> Option<serde_json::Value> {
         self.0.insert(key.into(), value)
     }
 
@@ -179,7 +177,7 @@ impl_empty_collect_unrecognized!(BoundsCalcType);
 impl_empty_collect_unrecognized!(OrderByType);
 
 #[cfg(feature = "postgres")]
-impl_empty_collect_unrecognized!(RetryTimeout);
+impl_empty_collect_unrecognized!(RetryTimeout, Srid, TableIdFormat, FunctionIdFormat);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);

@@ -286,10 +286,7 @@ async fn relative_urls_expand_against_a_forwarded_host() {
         .expect("failed to start martin");
 
     let response = martin
-        .get_with_headers(
-            "/style/relative_urls",
-            &[("X-Forwarded-Host", "tiles.example.com")],
-        )
+        .get_with_headers("/style/relative_urls", &[("X-Forwarded-Host", "tiles.example.com")])
         .await;
     assert_eq!(response.status(), 200);
     insta::assert_json_snapshot!(martin.redacted_json(&response), @r##"

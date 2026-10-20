@@ -114,8 +114,7 @@ fn bench_error_source(c: &mut Criterion) {
         )]],
     );
     c.bench_function("get_table_source_error", |b| {
-        b.to_async(FuturesExecutor)
-            .iter(|| process_error_tile(&mgr));
+        b.to_async(FuturesExecutor).iter(|| process_error_tile(&mgr));
     });
 }
 

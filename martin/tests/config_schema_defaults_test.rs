@@ -67,9 +67,7 @@ impl Node {
         let Some(description) = self.description.as_deref().map(str::to_lowercase) else {
             return false;
         };
-        DEFAULT_PHRASES
-            .iter()
-            .any(|phrase| description.contains(phrase))
+        DEFAULT_PHRASES.iter().any(|phrase| description.contains(phrase))
     }
 }
 

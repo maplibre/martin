@@ -41,10 +41,7 @@ fn invalid_extent() {
     all(1, 0).unwrap();
     // `extent + buffer` must fit `i32`, or no tile's box could.
     all(i32::MAX as u32, 0).unwrap();
-    assert_eq!(
-        all(i32::MAX as u32, u16::MAX).err(),
-        Some(TileError::InvalidExtent)
-    );
+    assert_eq!(all(i32::MAX as u32, u16::MAX).err(), Some(TileError::InvalidExtent));
     all(i32::MAX as u32 - u32::from(u16::MAX), u16::MAX).unwrap();
 }
 
@@ -125,11 +122,7 @@ fn spanning_many_tiles_is_lazy() {
         .into_iter()
         .map(|(t, _)| t)
         .collect();
-    assert!(
-        tiles.len() > 100_000 && tiles.len() < 200_000,
-        "{}",
-        tiles.len()
-    );
+    assert!(tiles.len() > 100_000 && tiles.len() < 200_000, "{}", tiles.len());
 }
 
 #[test]
@@ -213,10 +206,7 @@ enum Item {
 }
 
 /// Every slice of a polygon, in yield order, until the first error (returned last).
-fn poly_items(
-    s: &mut Slicer<Coord<i32>>,
-    rings: &[Vec<Coord<i32>>],
-) -> (Vec<Item>, Option<TileError>) {
+fn poly_items(s: &mut Slicer<Coord<i32>>, rings: &[Vec<Coord<i32>>]) -> (Vec<Item>, Option<TileError>) {
     let mut slices = s.polygon(rings).expect("starts");
     let mut items = Vec::new();
     while let Some(slice) = slices.next() {
@@ -259,10 +249,7 @@ fn polygons_spanning_many_tiles_are_lazy() {
     assert!(filled > 170_000, "{filled}");
     let (items, err) = poly_items(&mut s, &large);
     assert_eq!(err, None);
-    let pieces = items
-        .iter()
-        .filter(|i| matches!(i, Item::Piece(..)))
-        .count();
+    let pieces = items.iter().filter(|i| matches!(i, Item::Piece(..))).count();
     assert!(pieces < 40_000, "{pieces}");
 }
 
@@ -285,11 +272,7 @@ fn a_polygon_overflow_is_reported_by_the_call() {
     let bad = poly(vec![(x0, 0), (x1, 0), (x1, 10_000), (x0, 10_000)]);
     let mut s = all(4096, 0).expect("valid config");
     let piece = s.tile_polygon(TileId::new(-524_288, 1), &bad);
-    assert_eq!(
-        piece.err(),
-        Some(TileError::Overflow),
-        "the single-tile clip agrees"
-    );
+    assert_eq!(piece.err(), Some(TileError::Overflow), "the single-tile clip agrees");
     assert_eq!(
         s.polygon(&bad).err(),
         Some(TileError::Overflow),
@@ -315,32 +298,18 @@ fn polygon_degenerate_inputs() {
     // No rings, and a degenerate exterior (whose holes are then ignored): nothing is yielded.
     assert_eq!(poly_items(&mut s, &[]), (vec![], None));
     let no_rings: Vec<Vec<Coord<i32>>> = vec![];
-    let degenerate = vec![
-        line(vec![(1, 1), (9, 9), (1, 1)]),
-        line(vec![(2, 2), (8, 2), (8, 8)]),
-    ];
+    let degenerate = vec![line(vec![(1, 1), (9, 9), (1, 1)]), line(vec![(2, 2), (8, 2), (8, 8)])];
     assert_eq!(poly_items(&mut s, &degenerate), (vec![], None));
-    assert!(
-        s.tile_polygon(TileId::new(0, 0), &degenerate)
-            .expect("ok")
-            .is_none()
-    );
+    assert!(s.tile_polygon(TileId::new(0, 0), &degenerate).expect("ok").is_none());
     // Neither an empty polygon nor a ring that is degenerate once its repeated vertices are dropped
     // leaves anything in a tile.
-    assert!(
-        s.tile_polygon(TileId::new(0, 0), &no_rings)
-            .expect("ok")
-            .is_none()
-    );
+    assert!(s.tile_polygon(TileId::new(0, 0), &no_rings).expect("ok").is_none());
     let repeated = vec![
         line(vec![(2, 2), (60, 2), (60, 60), (2, 60)]),
         line(vec![(30, 30), (30, 30), (31, 31), (31, 31)]),
     ];
     let plain_square = vec![line(vec![(2, 2), (60, 2), (60, 60), (2, 60)])];
-    assert_eq!(
-        poly_items(&mut s, &repeated),
-        poly_items(&mut s, &plain_square)
-    );
+    assert_eq!(poly_items(&mut s, &repeated), poly_items(&mut s, &plain_square));
     // A degenerate hole is ignored.
     let square = line(vec![(2, 2), (60, 2), (60, 60), (2, 60)]);
     let with_hole = poly_items(&mut s, &[square.clone(), line(vec![(30, 30), (31, 31)])]);

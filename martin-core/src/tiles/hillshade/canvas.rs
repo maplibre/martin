@@ -1,7 +1,7 @@
 //! Builds the hillshade sampling canvas from a stitched tile neighbourhood.
 
-use super::error::HillshadeError;
-use super::shade::Canvas;
+use crate::tiles::hillshade::error::HillshadeError;
+use crate::tiles::hillshade::shade::Canvas;
 use crate::tiles::neighbourhood::Neighbourhood;
 
 impl Canvas {
@@ -40,20 +40,14 @@ mod tests {
         let mut buf = Vec::new();
         #[expect(clippy::cast_possible_truncation)]
         PngEncoder::new(&mut buf)
-            .write_image(
-                &pixels,
-                width as u32,
-                height as u32,
-                ExtendedColorType::Rgba8,
-            )
+            .write_image(&pixels, width as u32, height as u32, ExtendedColorType::Rgba8)
             .expect("encode test tile");
         buf.into()
     }
 
     #[test]
     fn the_canvas_carries_the_assembled_field_through() {
-        let tiles =
-            Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
+        let tiles = Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let canvas = Canvas::from_neighbourhood(&tiles).expect("centre decodes");
         assert_eq!(
             canvas.raw_texel(DEFAULT_TILE_SIZE + 40, DEFAULT_TILE_SIZE + 90),
@@ -72,8 +66,8 @@ mod tests {
 
     #[test]
     fn an_entirely_absent_neighbourhood_bakes_from_a_blank_canvas() {
-        let canvas = Canvas::from_neighbourhood(&Neighbourhood::default())
-            .expect("an absent neighbourhood is not corrupt");
+        let canvas =
+            Canvas::from_neighbourhood(&Neighbourhood::default()).expect("an absent neighbourhood is not corrupt");
         assert!(canvas.is_blank());
     }
 
@@ -84,9 +78,6 @@ mod tests {
         slots[1] = Some(TileData::from_static(b"garbage"));
         let canvas = Canvas::from_neighbourhood(&Neighbourhood::from_row_major(slots))
             .expect("a corrupt neighbour is survivable");
-        assert_eq!(
-            canvas.raw_texel(DEFAULT_TILE_SIZE + 40, 90),
-            [40, 0, 0, 255]
-        );
+        assert_eq!(canvas.raw_texel(DEFAULT_TILE_SIZE + 40, 90), [40, 0, 0, 255]);
     }
 }

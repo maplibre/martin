@@ -25,7 +25,7 @@ use map_tile_toolkit::{LineSlice, TileId};
 #[path = "../tests/support/mod.rs"]
 mod support;
 
-use support::Cfg;
+use crate::support::Cfg;
 
 /// Which operation to profile.
 enum Op {
@@ -58,9 +58,7 @@ fn consume<'a>(slices: impl Iterator<Item = LineSlice<'a, Coord<i32>>>) {
 // `#[hotpath::measure]`-annotated slicing functions); without it this is an ordinary `main`.
 #[cfg_attr(feature = "hotpath", hotpath::main)]
 fn main() {
-    let name = std::env::args()
-        .nth(1)
-        .expect("usage: profile <name> [iterations]");
+    let name = std::env::args().nth(1).expect("usage: profile <name> [iterations]");
     let iterations: Option<u64> = std::env::args().nth(2).and_then(|s| s.parse().ok());
     if let Some(cfg) = name.strip_prefix("poly-all-") {
         profile_polygon(cfg, iterations);
@@ -130,10 +128,7 @@ fn profile_polygon(cfg: &str, iterations: Option<u64>) {
 
 /// The component polylines of a geometry, owned.
 fn polylines_of(geom: &geo_types::Geometry<i32>) -> Vec<Vec<Coord<i32>>> {
-    support::lines_of(geom)
-        .into_iter()
-        .map(<[_]>::to_vec)
-        .collect()
+    support::lines_of(geom).into_iter().map(<[_]>::to_vec).collect()
 }
 
 /// Resolve a case name into `(polylines, config, operation, default iterations)`.

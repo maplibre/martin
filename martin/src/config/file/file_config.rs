@@ -33,8 +33,7 @@ use crate::config::file::TileGrids;
 #[cfg(feature = "_tiles")]
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
-    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    UnrecognizedValues,
+    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -51,9 +50,7 @@ use crate::config::primitives::one_or_many;
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
 /// 2. [`CollectUnrecognizedKeys::get_unrecognized_keys`]
-pub trait ConfigurationLivecycleHooks:
-    CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send
-{
+pub trait ConfigurationLivecycleHooks: CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send {
     /// Finalize configuration discovery and patch old values
     ///
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
@@ -109,7 +106,7 @@ pub mod path_or_config {
     use serde::de::{self, MapAccess, SeqAccess, Visitor};
     use serde::{Deserialize, Deserializer};
 
-    use super::FileConfig;
+    use crate::config::file::file_config::FileConfig;
 
     /// A path, a list of paths, or a configuration map.
     #[cfg(feature = "unstable-schemas")]
@@ -177,17 +174,11 @@ pub mod path_or_config {
 pub struct FileConfig<T> {
     /// A list of file paths
     #[serde(default, deserialize_with = "one_or_many::deserialize")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<PathBuf>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub paths: Vec<PathBuf>,
     /// A list of directories whose subdirectories are each published under the subdirectory's name
     #[serde(default, deserialize_with = "one_or_many::deserialize")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<PathBuf>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub collections: Vec<PathBuf>,
     /// A map of source IDs to file paths or config objects
     #[serde(default)]
@@ -213,9 +204,9 @@ impl<T: Serialize> Serialize for FileConfig<T> {
             map.serialize_entry("sources", &self.sources)?;
         }
         let custom = serde_json::to_value(&self.custom).map_err(S::Error::custom)?;
-        let custom = custom.as_object().ok_or_else(|| {
-            S::Error::custom("a flattened file-source configuration must serialize as an object")
-        })?;
+        let custom = custom
+            .as_object()
+            .ok_or_else(|| S::Error::custom("a flattened file-source configuration must serialize as an object"))?;
         for (key, value) in custom {
             map.serialize_entry(key, value)?;
         }
@@ -582,10 +573,7 @@ struct Planned {
 
 #[cfg(feature = "_tiles")]
 impl Planned {
-    async fn open<T: TileSourceConfiguration>(
-        &self,
-        custom: &T,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> SourceBuildResult<BackendSource> {
         match &self.target {
             Target::Url { url, .. } => {
                 custom
@@ -667,10 +655,7 @@ fn plan_one_source(
         configs.insert(id.clone(), source);
         return Ok(Planned {
             id,
-            target: Target::Url {
-                url,
-                configured: key,
-            },
+            target: Target::Url { url, configured: key },
             cache,
             grid,
             from_sources: true,
@@ -715,13 +700,11 @@ pub(crate) fn declared_tile_grid(
             what: format!("Source {id}"),
         });
     };
-    let grid = grids
-        .get(name)
-        .ok_or_else(|| ConfigFileError::UnknownTileGrid {
-            what: format!("Source {id}"),
-            grid: name.to_owned(),
-            known: grids.names().join(", "),
-        })?;
+    let grid = grids.get(name).ok_or_else(|| ConfigFileError::UnknownTileGrid {
+        what: format!("Source {id}"),
+        grid: name.to_owned(),
+        known: grids.names().join(", "),
+    })?;
     Ok((!grid.is_web_mercator()).then(|| grid.clone()))
 }
 
@@ -740,9 +723,7 @@ fn plan_one_path(
     default_cache: CachePolicy,
 ) -> SourceBuildResult<Vec<Planned>> {
     if let Some(url) = parse_url(parse_urls, &path)? {
-        let target_ext = extension
-            .iter()
-            .find(|&&e| url.path().rsplit('.').next() == Some(e));
+        let target_ext = extension.iter().find(|&&e| url.path().rsplit('.').next() == Some(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
             // a prefix to be discovered by the format-specific reloader (e.g. PmtilesReloader
@@ -760,9 +741,7 @@ fn plan_one_path(
             .and_then(Iterator::last)
             .and_then(|s| {
                 // Strip extension and trailing dot, or keep the original string
-                s.strip_suffix(ext)
-                    .and_then(|s| s.strip_suffix('.'))
-                    .or(Some(s))
+                s.strip_suffix(ext).and_then(|s| s.strip_suffix('.')).or(Some(s))
             })
             .unwrap_or("web_source");
 
@@ -770,10 +749,7 @@ fn plan_one_path(
         configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
         return Ok(vec![Planned {
             id,
-            target: Target::Url {
-                url,
-                configured: path,
-            },
+            target: Target::Url { url, configured: path },
             cache: default_cache,
             grid: None,
             from_sources: false,
@@ -803,17 +779,13 @@ fn plan_one_path(
         return Ok(Vec::new());
     }
     files.insert(can.clone(), path.clone());
-    let id = path.file_stem().map_or_else(
-        || "_unknown".to_owned(),
-        |s| s.to_string_lossy().to_string(),
-    );
+    let id = path
+        .file_stem()
+        .map_or_else(|| "_unknown".to_owned(), |s| s.to_string_lossy().to_string());
     let id = idr.resolve(&id, can.to_string_lossy().to_string());
     Ok(vec![Planned {
         id,
-        target: Target::File {
-            path,
-            canonical: can,
-        },
+        target: Target::File { path, canonical: can },
         cache: default_cache,
         grid: None,
         from_sources: false,
@@ -959,9 +931,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
             type Value = CachePolicy;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(
-                    "either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)",
-                )
+                f.write_str("either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)")
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<CachePolicy, E> {
@@ -1333,14 +1303,7 @@ mod deserialize_tests {
     /// Inner config used to instantiate `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
     #[derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        PartialEq,
-        Serialize,
-        CollectUnrecognizedKeys,
-        ConfigurationLivecycleHooks,
+        Clone, Debug, Default, Deserialize, PartialEq, Serialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
     )]
     struct TestCustom {
         #[serde(default)]
@@ -1355,9 +1318,7 @@ mod deserialize_tests {
     // ----- FileConfig<T> -----
 
     #[derive(Debug, PartialEq, Deserialize)]
-    struct Section(
-        #[serde(deserialize_with = "path_or_config::deserialize")] FileConfig<TestCustom>,
-    );
+    struct Section(#[serde(deserialize_with = "path_or_config::deserialize")] FileConfig<TestCustom>);
 
     fn parse_section(yaml: &str) -> FileConfig<TestCustom> {
         parse_yaml::<Section>(yaml).0
@@ -1482,10 +1443,7 @@ mod deserialize_tests {
             path: PathBuf::from("s3://user:password@bucket/image.tif?token=secret#fragment"),
             ..FileConfigSource::default()
         }));
-        assert_eq!(
-            serde_json::to_value(source).unwrap()["path"],
-            "s3://bucket/image.tif"
-        );
+        assert_eq!(serde_json::to_value(source).unwrap()["path"], "s3://bucket/image.tif");
     }
 
     #[test]
@@ -1701,10 +1659,7 @@ mod deserialize_tests {
             },
             ..FileConfig::default()
         };
-        assert_eq!(
-            kind.cache_or(&global).zoom(),
-            CacheZoomRange::new(Some(1), Some(5))
-        );
+        assert_eq!(kind.cache_or(&global).zoom(), CacheZoomRange::new(Some(1), Some(5)));
         assert_eq!(
             FileConfig::<MbtConfig>::default().cache_or(&global).zoom(),
             global.zoom()
@@ -1738,10 +1693,7 @@ mod mbtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfig {
             paths: vec![invalid_path.clone()],
             collections: Vec::new(),
@@ -1750,14 +1702,7 @@ mod mbtiles_tests {
         };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(
-            &mut config,
-            &idr,
-            &["mbtiles"],
-            CachePolicy::default(),
-            None,
-        )
-        .await;
+        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default(), None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -1798,10 +1743,7 @@ mod plan_one_path_tests {
             planned.is_empty(),
             "'motif' must not be misdetected as ending in the 'tif' extension"
         );
-        assert_eq!(
-            directories,
-            vec![PathBuf::from("https://example.com/some/motif")]
-        );
+        assert_eq!(directories, vec![PathBuf::from("https://example.com/some/motif")]);
     }
 
     #[test]
@@ -1824,10 +1766,7 @@ mod pmtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfig {
             paths: vec![invalid_path.clone()],
             collections: Vec::new(),
@@ -1836,14 +1775,7 @@ mod pmtiles_tests {
         };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(
-            &mut config,
-            &idr,
-            &["pmtiles"],
-            CachePolicy::default(),
-            None,
-        )
-        .await;
+        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default(), None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

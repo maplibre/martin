@@ -3,9 +3,7 @@
 //! End-to-end tests for the `passthrough` tile source driven through martin's HTTP API
 //! against a mock upstream tile server ([`wiremock`]).
 
-use actix_web::http::header::{
-    ACCEPT, ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH,
-};
+use actix_web::http::header::{ACCEPT, ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH};
 use actix_web::test::{TestRequest, call_service, read_body};
 use indoc::formatdoc;
 use martin::srv::Catalog;
@@ -14,7 +12,7 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 /// Builds a martin test app from a config YAML string, resolving sources first.
 macro_rules! create_app {
@@ -34,9 +32,7 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::config::file::srv::SrvConfig::default(),
                 ))
-                .configure(|c| {
-                    ::martin::srv::router(c, &::martin::config::file::srv::SrvConfig::default())
-                }),
+                .configure(|c| ::martin::srv::router(c, &::martin::config::file::srv::SrvConfig::default())),
         )
         .await
     }};
@@ -49,9 +45,7 @@ fn mvt_tile() -> Vec<u8> {
     use mlt_core::{PropKind, PropValue, TileLayer};
 
     let mut builder = TileLayer::builder("test", 4096).expect("layer builder");
-    let name_key = builder
-        .add_property("name", PropKind::Str)
-        .expect("add property");
+    let name_key = builder.add_property("name", PropKind::Str).expect("add property");
     {
         let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
         feature.id(Some(1));
@@ -98,10 +92,7 @@ async fn mvt_passes_through_unchanged() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(ETAG).unwrap(), "\"up-etag\"");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
@@ -203,11 +194,7 @@ async fn gzip_upstream_served_verbatim() {
         "upstream encoding must be preserved"
     );
     let body = read_body(response).await;
-    assert_eq!(
-        body,
-        gzipped.as_slice(),
-        "gzip bytes must be served verbatim"
-    );
+    assert_eq!(body, gzipped.as_slice(), "gzip bytes must be served verbatim");
 }
 
 #[actix_rt::test]
@@ -222,14 +209,8 @@ async fn cache_hit_avoids_second_upstream_fetch() {
         assert_response(response).await;
     }
 
-    let requests = server
-        .received_requests()
-        .await
-        .expect("recording is enabled");
-    let tile_requests = requests
-        .iter()
-        .filter(|r| r.url.path() == "/0/0/0.pbf")
-        .count();
+    let requests = server.received_requests().await.expect("recording is enabled");
+    let tile_requests = requests.iter().filter(|r| r.url.path() == "/0/0/0.pbf").count();
     assert_eq!(
         tile_requests, 1,
         "the second request must be served from cache, not refetched"

@@ -6,18 +6,13 @@ use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 
-use super::connections::Arguments;
-use super::srv::SrvArgs;
 use crate::config::args::ArgsError::ConfigAndConnections;
 use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
-#[cfg(any(
-    feature = "cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "processing"
-))]
+use crate::config::args::connections::Arguments;
+use crate::config::args::srv::SrvArgs;
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles", feature = "processing"))]
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "cog",
@@ -146,10 +141,7 @@ impl Args {
                 feature = "cog",
                 feature = "unstable-duckdb"
             )),
-            expect(
-                unused_mut,
-                reason = "postgres may modify the cli strings to process input params"
-            )
+            expect(unused_mut, reason = "postgres may modify the cli strings to process input params")
         )]
         let mut cli_strings = Arguments::new(self.meta.connection);
 
@@ -186,15 +178,14 @@ impl Args {
 
         #[cfg(feature = "unstable-duckdb")]
         if !cli_strings.is_empty() {
-            let geoparquet =
-                parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
-                    .into_iter()
-                    .map(|path| {
-                        DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
-                            geoparquet: path.to_string_lossy().into_owned(),
-                            ..GeoParquetEntry::default()
-                        }))
-                    });
+            let geoparquet = parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
+                .into_iter()
+                .map(|path| {
+                    DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
+                        geoparquet: path.to_string_lossy().into_owned(),
+                        ..GeoParquetEntry::default()
+                    }))
+                });
             let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
                 .into_iter()
                 .map(|database| {
@@ -238,14 +229,10 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
         return false;
     };
     match url.scheme() {
-        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => {
-            url.path().split('/').any(|segment| {
-                segment
-                    .rsplit('.')
-                    .next()
-                    .is_some_and(|ext| extension.contains(&ext))
-            })
-        }
+        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => url
+            .path()
+            .split('/')
+            .any(|segment| segment.rsplit('.').next().is_some_and(|ext| extension.contains(&ext))),
         "http" | "https" | "file" => url
             .path()
             .rsplit('.')
@@ -278,12 +265,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
         .is_some_and(|ext| extensions.contains(&ext))
 }
 
-#[cfg(any(
-    feature = "cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "processing"
-))]
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles", feature = "processing"))]
 pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
@@ -308,7 +290,7 @@ fn parse_file_paths(
     allow_url: bool,
     share_dirs: bool,
 ) -> Vec<PathBuf> {
-    use super::State::{Ignore, Share, Take};
+    use crate::config::args::State::{Ignore, Share, Take};
 
     cli_strings.process(|s| {
         let path = PathBuf::from(s);
@@ -320,10 +302,9 @@ fn parse_file_paths(
         } else if path.is_dir() {
             if share_dirs { Share(path) } else { Ignore }
         } else if path.is_file()
-            && extensions.iter().any(|&expected_ext| {
-                path.extension()
-                    .is_some_and(|actual_ext| actual_ext == expected_ext)
-            })
+            && extensions
+                .iter()
+                .any(|&expected_ext| path.extension().is_some_and(|actual_ext| actual_ext == expected_ext))
         {
             Take(path)
         } else {
@@ -405,10 +386,7 @@ mod tests {
             config2.unwrap().0.srv.preferred_encoding,
             Some(PreferredEncoding::Brotli)
         );
-        assert_eq!(
-            config3.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Gzip)
-        );
+        assert_eq!(config3.unwrap().0.srv.preferred_encoding, Some(PreferredEncoding::Gzip));
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
@@ -421,6 +399,17 @@ mod tests {
     fn cli_cache_size(#[case] arg: &str, #[case] size_mb: u64) {
         let (config, _) = parse(&["martin", "--cache-size", arg]).unwrap();
         assert_eq!(config.cache.size_mb, Some(size_mb));
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn cli_default_srid_rejects_srid_zero() {
+        let err = Args::try_parse_from(["martin", "--default-srid", "0"]).unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"
+        error: invalid value '0' for '--default-srid <DEFAULT_SRID>': SRID 0 is out of range, it must be from 1 to 999999
+
+        For more information, try '--help'.
+        ");
     }
 
     #[test]
@@ -438,18 +427,12 @@ mod tests {
             "file:test.mbtiles?mode=memory&cache=shared",
             &["mbtiles"]
         ));
-        assert!(is_file_scheme_uri(
-            "file:/path/to/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(is_file_scheme_uri("file:/path/to/test.mbtiles", &["mbtiles"]));
         assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
         assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
 
         // Invalid cases
-        assert!(!is_file_scheme_uri(
-            "http://example.com/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(!is_file_scheme_uri("http://example.com/test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
@@ -595,10 +578,7 @@ mod tests {
     #[cfg(feature = "processing")]
     #[test]
     fn cli_geojson_file() {
-        let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/geojson/feature_collection_1.geojson",
-        ]);
+        let args = Args::parse_from(["martin", "../tests/fixtures/geojson/feature_collection_1.geojson"]);
 
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();

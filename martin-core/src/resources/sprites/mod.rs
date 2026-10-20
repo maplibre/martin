@@ -32,7 +32,7 @@ use spreet::{Sprite, SpritesheetBuilder, sprite_name as spreet_sprite_name};
 use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
-use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use crate::resources::sprites::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
 use crate::walk_files;
 
 const SVG_EXTENSIONS: &[&str] = &["svg"];
@@ -89,26 +89,19 @@ pub fn normalize_sprite_ids(ids: &str) -> String {
 /// Joins sprite ids back into request-path form, with the `@2x` suffix for the high-DPI ratio.
 fn join_ids<S: AsRef<str>>(ids: &[S], dpi: u8) -> String {
     let joined = ids.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(",");
-    if dpi == 2 {
-        format!("{joined}@2x")
-    } else {
-        joined
-    }
+    if dpi == 2 { format!("{joined}@2x") } else { joined }
 }
 
 mod error;
-pub use error::SpriteError;
+pub use crate::resources::sprites::error::SpriteError;
 
 mod cache;
-pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey};
+pub use crate::resources::sprites::cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey};
 
 /// Sprite source metadata.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,
@@ -145,10 +138,8 @@ impl SpriteSources {
             let paths = discover_svgs(&source.path)?;
             let mut images = Vec::with_capacity(paths.len());
             for path in paths {
-                images.push(
-                    sprite_name(&path, &source.path)
-                        .map_err(|e| SpriteProcessingError(e, source.path.clone()))?,
-                );
+                images
+                    .push(sprite_name(&path, &source.path).map_err(|e| SpriteProcessingError(e, source.path.clone()))?);
             }
             images.sort();
             entries.insert(
@@ -366,8 +357,7 @@ async fn parse_sprite(
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).await.map_err(on_err)?;
 
-    let tree = Tree::from_data(&buffer, &Options::default())
-        .map_err(|e| SpriteParsingError(e, path.clone()))?;
+    let tree = Tree::from_data(&buffer, &Options::default()).map_err(|e| SpriteParsingError(e, path.clone()))?;
 
     let sprite = if as_sdf {
         Sprite::new_sdf(tree, pixel_ratio)
@@ -400,8 +390,7 @@ pub async fn get_spritesheet(
             return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
         }
         for path in paths {
-            let name = sprite_name(&path, &source.path)
-                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            let name = sprite_name(&path, &source.path).map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
             futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
         }
     }
@@ -418,9 +407,7 @@ pub async fn get_spritesheet(
     // TODO: decide if this is needed and/or configurable
     // builder.make_unique();
 
-    builder
-        .generate()
-        .ok_or(SpriteError::UnableToGenerateSpritesheet)
+    builder.generate().ok_or(SpriteError::UnableToGenerateSpritesheet)
 }
 
 #[cfg(test)]
@@ -439,10 +426,7 @@ mod tests {
     #[tokio::test]
     async fn duplicate_ids_are_deduplicated_before_rendering() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
 
         let single = sprites.get_sprites("src1", false).await.unwrap();
         let repeated_ids = vec!["src1"; 50].join(",");
@@ -457,14 +441,8 @@ mod tests {
 
     fn two_sources() -> SpriteSources {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
-        sprites.add_source(
-            "src2".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src2"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
+        sprites.add_source("src2".to_owned(), PathBuf::from("../tests/fixtures/sprites/src2"));
         sprites
     }
 
@@ -472,10 +450,7 @@ mod tests {
     async fn an_alias_serves_the_same_sheet_as_the_explicit_composite() {
         let sprites = two_sources();
         sprites
-            .add_alias(
-                "icons".to_owned(),
-                vec!["src1".to_owned(), "src2".to_owned()],
-            )
+            .add_alias("icons".to_owned(), vec!["src1".to_owned(), "src2".to_owned()])
             .unwrap();
 
         assert_eq!(sprites.expand_sprite_ids("icons"), "src1,src2");
@@ -491,10 +466,7 @@ mod tests {
             serde_json::to_value(aliased.get_index()).unwrap(),
             serde_json::to_value(explicit.get_index()).unwrap()
         );
-        assert_eq!(
-            aliased.encode_png().unwrap(),
-            explicit.encode_png().unwrap()
-        );
+        assert_eq!(aliased.encode_png().unwrap(), explicit.encode_png().unwrap());
     }
 
     #[test]
@@ -502,9 +474,7 @@ mod tests {
         let sprites = two_sources();
 
         for name in ["", "has,comma", "icons@2x"] {
-            let err = sprites
-                .add_alias(name.to_owned(), vec!["src1".to_owned()])
-                .unwrap_err();
+            let err = sprites.add_alias(name.to_owned(), vec!["src1".to_owned()]).unwrap_err();
             assert_matches!(err, SpriteError::InvalidAliasName(_), "{name:?}");
         }
 
@@ -516,9 +486,7 @@ mod tests {
             .unwrap_err();
         assert_matches!(err, SpriteError::AliasSpriteNotFound { .. });
 
-        sprites
-            .add_alias("icons".to_owned(), vec!["src1".to_owned()])
-            .unwrap();
+        sprites.add_alias("icons".to_owned(), vec!["src1".to_owned()]).unwrap();
         let err = sprites
             .add_alias("nested".to_owned(), vec!["icons".to_owned()])
             .unwrap_err();
@@ -533,27 +501,18 @@ mod tests {
     fn the_catalog_lists_aliases_with_merged_images() {
         let sprites = two_sources();
         sprites
-            .add_alias(
-                "icons".to_owned(),
-                vec!["src1".to_owned(), "src2".to_owned()],
-            )
+            .add_alias("icons".to_owned(), vec!["src1".to_owned(), "src2".to_owned()])
             .unwrap();
 
         let catalog = sprites.get_catalog().unwrap();
         let entry = catalog.get("icons").expect("alias is cataloged");
-        assert_eq!(
-            entry.images,
-            ["another_bicycle", "bear", "bicycle", "sub/circle"]
-        );
+        assert_eq!(entry.images, ["another_bicycle", "bear", "bicycle", "sub/circle"]);
     }
 
     #[tokio::test]
     async fn too_many_ids_are_rejected_before_any_work() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
 
         let ids = (0..=MAX_SPRITE_IDS_PER_REQUEST)
             .map(|i| format!("nonexistent{i}"))
@@ -584,23 +543,13 @@ mod tests {
     #[tokio::test]
     async fn sprites() {
         let sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
-        sprites.add_source(
-            "src2".to_owned(),
-            PathBuf::from("../tests/fixtures/sprites/src2"),
-        );
+        sprites.add_source("src1".to_owned(), PathBuf::from("../tests/fixtures/sprites/src1"));
+        sprites.add_source("src2".to_owned(), PathBuf::from("../tests/fixtures/sprites/src2"));
 
         assert_eq!(sprites.sources.len(), 2);
 
         for generate_sdf in [true, false] {
-            let paths = sprites
-                .sources
-                .iter()
-                .map(|v| v.value().clone())
-                .collect::<Vec<_>>();
+            let paths = sprites.sources.iter().map(|v| v.value().clone()).collect::<Vec<_>>();
             test_src(paths.iter(), 1, "all_1", generate_sdf).await;
             test_src(paths.iter(), 2, "all_2", generate_sdf).await;
 
@@ -686,9 +635,7 @@ mod tests {
         filename: &str,
         generate_sdf: bool,
     ) {
-        let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf)
-            .await
-            .unwrap();
+        let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf).await.unwrap();
         let filename = if generate_sdf {
             format!("{filename}_sdf")
         } else {

@@ -18,11 +18,10 @@ mod memory;
 mod object_store;
 
 #[cfg(feature = "fs")]
-pub use file::FileBackend;
-pub use memory::MemoryBackend;
-
+pub use crate::backend::file::FileBackend;
+pub use crate::backend::memory::MemoryBackend;
 #[cfg(feature = "object-store")]
-pub use self::object_store::ObjectStoreBackend;
+pub use crate::backend::object_store::ObjectStoreBackend;
 
 /// A source of bytes that a COG is read from, such as a local file or an object in S3.
 ///
@@ -38,10 +37,7 @@ pub trait AsyncBackend: Debug + Send + Sync + 'static {
     fn read(&self, range: Range<u64>) -> impl Future<Output = CogResult<Bytes>> + Send;
 
     /// Reads several byte ranges. Implementations may merge nearby ranges into fewer requests.
-    fn read_ranges(
-        &self,
-        ranges: Vec<Range<u64>>,
-    ) -> impl Future<Output = CogResult<Vec<Bytes>>> + Send {
+    fn read_ranges(&self, ranges: Vec<Range<u64>>) -> impl Future<Output = CogResult<Vec<Bytes>>> + Send {
         async move {
             let mut result = Vec::with_capacity(ranges.len());
             for range in ranges {

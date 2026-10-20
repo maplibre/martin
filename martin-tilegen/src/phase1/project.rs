@@ -43,12 +43,7 @@ mod tests {
             Coord { x: 180.0, y: -90.0 },
             Coord { x: 190.0, y: 0.0 },
         ];
-        let expected = [
-            (0.0, 0.0),
-            (0.5, 0.5),
-            (1.0, 1.0),
-            (190.0 / 360.0 + 0.5, 0.5),
-        ];
+        let expected = [(0.0, 0.0), (0.5, 0.5), (1.0, 1.0), (190.0 / 360.0 + 0.5, 0.5)];
         for (c, (x, y)) in lonlat.into_iter().map(from_lonlat).zip(expected) {
             assert_abs_diff_eq!(c.x, x, epsilon = 1e-12);
             assert_abs_diff_eq!(c.y, y, epsilon = 1e-12);
@@ -68,10 +63,7 @@ mod tests {
     #[test]
     fn matches_mercator_meters() {
         // Berlin: 13.405 E, 52.52 N is (1_492_237, 6_894_699) in EPSG:3857.
-        let a = from_lonlat(Coord {
-            x: 13.405,
-            y: 52.52,
-        });
+        let a = from_lonlat(Coord { x: 13.405, y: 52.52 });
         let b = from_mercator(Coord {
             x: 1_492_237.4,
             y: 6_894_699.8,

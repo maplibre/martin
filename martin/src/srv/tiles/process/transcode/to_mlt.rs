@@ -21,11 +21,10 @@ pub fn convert_mvt_to_mlt(mut tile: Tile, cfg: EncoderConfig) -> Result<Tile, Tr
 
     let mut etag = std::mem::take(&mut tile.etag);
     etag.write_str("+mlt").expect("cannot write");
-    let decoded =
-        content::decode(tile).map_err(|e| TranscodeError::DecompressionFailed(e.to_string()))?;
+    let decoded = content::decode(tile).map_err(|e| TranscodeError::DecompressionFailed(e.to_string()))?;
 
-    let tile_layers = mlt_core::mvt::mvt_to_tile_layers(decoded.data)
-        .map_err(|e| TranscodeError::MltConversion(e.to_string()))?;
+    let tile_layers =
+        mlt_core::mvt::mvt_to_tile_layers(decoded.data).map_err(|e| TranscodeError::MltConversion(e.to_string()))?;
 
     let mut mlt_bytes = Vec::new();
     for layer in tile_layers {

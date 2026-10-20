@@ -12,12 +12,10 @@ use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::Encoding;
 use martin_tilegen::plan::{ColumnDef, LayerDef, Plan, TableDef};
 use martin_tilegen::props::{KeyId, Prop};
-use martin_tilegen::source::{
-    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature,
-};
+use martin_tilegen::source::{Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature};
 use martin_tilegen::{
-    EncodedTile, GenerateConfig, LayerGrid, Progress, SortConfig, TileFormat, TileGenResult,
-    TileOrder, TileSink, generate,
+    EncodedTile, GenerateConfig, LayerGrid, Progress, SortConfig, TileFormat, TileGenResult, TileOrder, TileSink,
+    generate,
 };
 use tilejson::TileJSON;
 
@@ -62,10 +60,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
     let mut layers: Vec<(TableDef, Vec<SourceFeature>)> = Vec::new();
     let mut layer = |name: &str, keys: &[&str], features: Vec<SourceFeature>| {
         let table = TableDef {
-            columns: keys
-                .iter()
-                .map(|&k| ColumnDef::Value(k.to_owned()))
-                .collect(),
+            columns: keys.iter().map(|&k| ColumnDef::Value(k.to_owned(), None)).collect(),
             layers: vec![LayerDef::new(
                 name,
                 0..=14,
@@ -88,15 +83,8 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
     let buildings = (0..60_000)
         .map(|i| {
             let outline = ring(rng.near(CENTER, 0.15), 0.0002, 5, &mut rng);
-            let props = vec![
-                (k0, Prop::I64(i64::from(i % 30))),
-                (k1, Prop::Str("house".into())),
-            ];
-            feature(
-                i,
-                Geometry::Polygons(vec![Polygon::new(outline, vec![])]),
-                props,
-            )
+            let props = vec![(k0, Prop::I64(i64::from(i % 30))), (k1, Prop::Str("house".into()))];
+            feature(i, Geometry::Polygons(vec![Polygon::new(outline, vec![])]), props)
         })
         .collect();
     layer("buildings", &["height", "kind"], buildings);
@@ -121,10 +109,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
 
     let pois = (0..20_000)
         .map(|i| {
-            let props = vec![
-                (k0, Prop::Str(format!("poi {i}"))),
-                (k1, Prop::I64(i64::from(i % 5))),
-            ];
+            let props = vec![(k0, Prop::Str(format!("poi {i}"))), (k1, Prop::I64(i64::from(i % 5)))];
             feature(i, Geometry::Points(vec![rng.near(CENTER, 0.15)]), props)
         })
         .collect();
@@ -185,10 +170,7 @@ impl TileSink for NullSink {
         TileOrder::Hilbert
     }
 
-    fn write_all(
-        &mut self,
-        batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
-    ) -> TileGenResult<()> {
+    fn write_all(&mut self, batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>) -> TileGenResult<()> {
         for batch in batches {
             black_box(batch?);
         }
@@ -201,12 +183,7 @@ impl TileSink for NullSink {
     }
 }
 
-fn run(
-    source: &impl FeatureSource,
-    plan: &Plan,
-    format: TileFormat,
-    temp: &std::path::Path,
-) -> u64 {
+fn run(source: &impl FeatureSource, plan: &Plan, format: TileFormat, temp: &std::path::Path) -> u64 {
     let config = GenerateConfig {
         threads: 4,
         sort: SortConfig {
@@ -220,25 +197,16 @@ fn run(
         window: 16,
     };
     let metadata = tilejson::tilejson! { tiles: vec![] };
-    generate(
-        source,
-        plan,
-        NullSink,
-        &config,
-        metadata,
-        &Progress::default(),
-    )
-    .expect("generate")
-    .tiles
+    generate(source, plan, NullSink, &config, metadata, &Progress::default())
+        .expect("generate")
+        .tiles
 }
 
 fn bench(c: &mut Criterion<cycles::Cycles>) {
     let (source, plan, features) = partitioned(city());
     let temp = tempfile::tempdir().expect("temp dir");
     let mut group = c.benchmark_group("generate");
-    group
-        .sample_size(10)
-        .throughput(Throughput::Elements(features));
+    group.sample_size(10).throughput(Throughput::Elements(features));
     for (name, format) in [("mlt", TileFormat::Mlt), ("mvt", TileFormat::Mvt)] {
         group.bench_function(name, |b| {
             b.iter(|| run(&source, &plan, format, temp.path()));

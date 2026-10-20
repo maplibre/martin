@@ -38,9 +38,7 @@ pub async fn vector_pmtiles(mbtiles: impl AsRef<Path>, dest: impl AsRef<Path>) -
         .expect("failed to write the pmtiles header");
     for (z, x, row, data) in tiles(mbtiles).await {
         let coord = coord(z, x, row);
-        writer
-            .add_tile(coord, &data)
-            .expect("failed to write a tile");
+        writer.add_tile(coord, &data).expect("failed to write a tile");
     }
     writer.finalize().expect("failed to finalize the archive");
     dest
@@ -60,17 +58,10 @@ pub async fn assert_pmtiles_matches_mbtiles(pmtiles: impl AsRef<Path>, mbtiles: 
             .get_tile(coord(*z, *x, *row))
             .await
             .expect("failed to read a tile");
-        assert_eq!(
-            tile.as_deref(),
-            Some(data.as_slice()),
-            "tile {z}/{x}/{row} (TMS)"
-        );
+        assert_eq!(tile.as_deref(), Some(data.as_slice()), "tile {z}/{x}/{row} (TMS)");
     }
     let header = reader.get_header();
-    assert_eq!(
-        header.n_addressed_tiles().map(u64::from),
-        Some(expected.len() as u64)
-    );
+    assert_eq!(header.n_addressed_tiles().map(u64::from), Some(expected.len() as u64));
     assert!(header.clustered());
 }
 
@@ -95,9 +86,7 @@ pub fn leafy_pmtiles(version: u64, dest: impl AsRef<Path>) -> PathBuf {
             let padding = usize::try_from(state >> 59).expect("five bits fit a usize");
             let coord = TileCoord::new(LEAFY_ZOOM, x, y).expect("tile is on the pyramid");
             let data = format!("{} {}", leafy_tile(version, x, y), ".".repeat(padding));
-            writer
-                .add_tile(coord, data.as_bytes())
-                .expect("failed to write a tile");
+            writer.add_tile(coord, data.as_bytes()).expect("failed to write a tile");
         }
     }
     writer.finalize().expect("failed to finalize the archive");

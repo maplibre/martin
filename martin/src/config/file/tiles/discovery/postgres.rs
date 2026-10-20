@@ -7,8 +7,7 @@ use tokio::sync::OnceCell;
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig, SourceSpec};
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError,
-    SourceBuildResult, TileGrids,
+    CachePolicy, ProcessConfig, ProcessResolveError, ResolvedProcess, SourceBuildError, SourceBuildResult, TileGrids,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::SourceProvenance;
@@ -109,10 +108,7 @@ impl Discovery for PostgresDiscovery {
         log_published(id, &spec);
         Ok(BuiltSource {
             source,
-            process: Some(
-                per_source_process(&self.process, &spec)
-                    .map_err(|e| e.for_source(id.to_owned()))?,
-            ),
+            process: Some(per_source_process(&self.process, &spec).map_err(|e| e.for_source(id.to_owned()))?),
             provenance: Some(SourceProvenance::Postgres {
                 connection_string: self
                     .config
@@ -130,10 +126,7 @@ impl Discovery for PostgresDiscovery {
 }
 
 /// Per-source `convert_to_*` and `cache_control` settings layered over the connection level.
-fn per_source_process(
-    connection: &ProcessConfig,
-    spec: &SourceSpec,
-) -> Result<ResolvedProcess, ProcessResolveError> {
+fn per_source_process(connection: &ProcessConfig, spec: &SourceSpec) -> Result<ResolvedProcess, ProcessResolveError> {
     let per_source = match spec {
         SourceSpec::Table(info) => ProcessConfig {
             #[cfg(feature = "_tiles")]
@@ -244,10 +237,7 @@ mod tests {
 
         let snapshot_ids: Vec<&String> = snapshot.keys().collect();
         let spec_ids: Vec<&String> = specs.keys().collect();
-        assert_eq!(
-            snapshot_ids, spec_ids,
-            "discovery ids must match the builder"
-        );
+        assert_eq!(snapshot_ids, spec_ids, "discovery ids must match the builder");
 
         for (id, (version, _args)) in &snapshot {
             assert_eq!(
@@ -259,10 +249,7 @@ mod tests {
     }
 
     fn versions(snapshot: &BTreeMap<String, (Version, SourceSpec)>) -> BTreeMap<String, Version> {
-        snapshot
-            .iter()
-            .map(|(id, (v, _))| (id.clone(), *v))
-            .collect()
+        snapshot.iter().map(|(id, (v, _))| (id.clone(), *v)).collect()
     }
 
     const ROADS_TABLE_SQL: &str =
@@ -289,18 +276,10 @@ mod tests {
         seed(&connstr, ROADS_TABLE_SQL).await;
 
         let discovery = discovery_for(&connstr);
-        let before = discovery
-            .discover()
-            .await
-            .expect("discover before ALTER")
-            .sources;
+        let before = discovery.discover().await.expect("discover before ALTER").sources;
 
         seed(&connstr, "ALTER TABLE public.roads ADD COLUMN name text;").await;
-        let after = discovery
-            .discover()
-            .await
-            .expect("discover after ALTER")
-            .sources;
+        let after = discovery.discover().await.expect("discover after ALTER").sources;
 
         assert_ne!(
             before["roads"].0, after["roads"].0,
@@ -331,9 +310,7 @@ mod tests {
     async fn discover_with_bad_connection_string_errors() {
         // No container: a refused connection must surface as Err on the driver's error path,
         // never a panic.
-        let discovery = discovery_for(
-            "postgres://nope:nope@127.0.0.1:1/none?connect_timeout=1&sslmode=disable",
-        );
+        let discovery = discovery_for("postgres://nope:nope@127.0.0.1:1/none?connect_timeout=1&sslmode=disable");
         assert!(
             discovery.discover().await.is_err(),
             "a bad connection string must surface as Err, not panic"

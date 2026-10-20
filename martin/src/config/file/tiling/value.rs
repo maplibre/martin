@@ -6,9 +6,9 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, Literal, NonEmpty, forward_scalars};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, Literal, NonEmpty, forward_scalars};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -81,9 +81,7 @@ impl<'de> Deserialize<'de> for ValueSpec {
             type Value = ValueSpec;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(
-                    "an expression, a number, a boolean or a map such as `{ value: literal }`",
-                )
+                f.write_str("an expression, a number, a boolean or a map such as `{ value: literal }`")
             }
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<ValueSpec, E> {
@@ -214,10 +212,8 @@ impl<'de> Deserialize<'de> for Attributes {
             }
 
             fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Attributes, A::Error> {
-                let selectors =
-                    Vec::<PropertySelector>::deserialize(SeqAccessDeserializer::new(seq))?;
-                Ok(NonEmpty::try_from_vec(selectors)
-                    .map_or(Attributes::None, Attributes::Properties))
+                let selectors = Vec::<PropertySelector>::deserialize(SeqAccessDeserializer::new(seq))?;
+                Ok(NonEmpty::try_from_vec(selectors).map_or(Attributes::None, Attributes::Properties))
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Attributes, A::Error> {
@@ -227,9 +223,7 @@ impl<'de> Deserialize<'de> for Attributes {
                     if let Some(prefix) = column.strip_suffix('*') {
                         let source: String = map.next_value()?;
                         if source != column || prefix.is_empty() {
-                            return Err(de::Error::custom(TilingConfigError::RenamedWildcard(
-                                column,
-                            )));
+                            return Err(de::Error::custom(TilingConfigError::RenamedWildcard(column)));
                         }
                         copied_prefixes.push(prefix.to_owned());
                     } else {
@@ -390,14 +384,8 @@ mod tests {
             listed: { attributes: [] }
             mapped: { attributes: {} }
         "});
-        assert_eq!(
-            layers.get("listed").expect("layer exists").attributes,
-            Attributes::None
-        );
-        assert_eq!(
-            layers.get("mapped").expect("layer exists").attributes,
-            Attributes::None
-        );
+        assert_eq!(layers.get("listed").expect("layer exists").attributes, Attributes::None);
+        assert_eq!(layers.get("mapped").expect("layer exists").attributes, Attributes::None);
     }
 
     #[test]
@@ -433,9 +421,7 @@ mod tests {
                 ("name".to_owned(), ValueSpec::plain(expr("name"))),
                 (
                     "name_en".to_owned(),
-                    ValueSpec::plain(expr(
-                        "feature['name:en'] != null ? feature['name:en'] : name",
-                    )),
+                    ValueSpec::plain(expr("feature['name:en'] != null ? feature['name:en'] : name")),
                 ),
                 (
                     "rank".to_owned(),
@@ -445,10 +431,7 @@ mod tests {
                     "kind".to_owned(),
                     ValueSpec::plain(Value::Literal(Literal::String("road".to_owned()))),
                 ),
-                (
-                    "layer".to_owned(),
-                    ValueSpec::plain(Value::Literal(Literal::Int(0))),
-                ),
+                ("layer".to_owned(), ValueSpec::plain(Value::Literal(Literal::Int(0)))),
                 (
                     "oneway".to_owned(),
                     ValueSpec::plain(Value::Literal(Literal::Bool(true))),
@@ -456,10 +439,7 @@ mod tests {
             ]),
             copied_prefixes: vec!["name:".to_owned()],
         });
-        assert_eq!(
-            layers.get("poi").expect("layer exists").attributes,
-            expected
-        );
+        assert_eq!(layers.get("poi").expect("layer exists").attributes, expected);
     }
 
     #[test]
@@ -489,13 +469,7 @@ mod tests {
             ]),
             copied_prefixes: vec![],
         });
-        assert_eq!(
-            layers
-                .get("transportation")
-                .expect("layer exists")
-                .attributes,
-            expected
-        );
+        assert_eq!(layers.get("transportation").expect("layer exists").attributes, expected);
     }
 
     #[test]

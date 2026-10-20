@@ -17,12 +17,7 @@ async fn get_root(mode: Option<WebUiMode>, peer: Option<&str>) -> ServiceRespons
     get(mode, None, "/", peer).await
 }
 
-async fn get(
-    mode: Option<WebUiMode>,
-    route_prefix: Option<&str>,
-    uri: &str,
-    peer: Option<&str>,
-) -> ServiceResponse {
+async fn get(mode: Option<WebUiMode>, route_prefix: Option<&str>, uri: &str, peer: Option<&str>) -> ServiceResponse {
     let srv_config = SrvConfig {
         web_ui: mode,
         route_prefix: route_prefix.map(str::to_owned),
@@ -40,10 +35,7 @@ async fn assert_ui_served(response: ServiceResponse) {
     assert_eq!(response.status(), StatusCode::OK);
     let body = read_body(response).await;
     let body = String::from_utf8_lossy(&body);
-    assert!(
-        body.contains("<html"),
-        "expected the web UI html, got: {body}"
-    );
+    assert!(body.contains("<html"), "expected the web UI html, got: {body}");
 }
 
 async fn assert_ui_disabled(response: ServiceResponse) {

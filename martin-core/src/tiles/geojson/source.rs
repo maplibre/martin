@@ -17,9 +17,7 @@ use tracing::trace;
 
 use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::geojson::process::{
-    PreparedFeature, Preprocessed, add_properties, preprocess_geojson,
-};
+use crate::tiles::geojson::process::{PreparedFeature, Preprocessed, add_properties, preprocess_geojson};
 use crate::tiles::geojson::rect::Rect;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
@@ -122,9 +120,7 @@ impl GeoJsonSource {
 #[expect(clippy::missing_fields_in_debug)]
 impl Debug for GeoJsonSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GeoJsonSource")
-            .field("id", &self.id)
-            .finish()
+        f.debug_struct("GeoJsonSource").field("id", &self.id).finish()
     }
 }
 
@@ -166,9 +162,7 @@ impl GeoJsonSource {
         let mut rect = Rect::from_xyz(xyz.x(), xyz.y(), xyz.z(), self.extent, self.buffer);
         rect.add_buffer();
 
-        let indices = self
-            .rtree
-            .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
+        let indices = self.rtree.search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
 
         if indices.is_empty() {
             trace!(source.id = %self.id, tile.coord = %xyz, "Couldn't find tile data");
@@ -198,8 +192,7 @@ impl GeoJsonSource {
 
         // Coordinates are already in the tile coordinate system, so the extent is only advertised
         // on the layer; no additional scaling happens during encoding.
-        let tile = encode_features(&self.id, self.extent, flattened_fs)
-            .map_err(MartinCoreError::GeoJsonError)?;
+        let tile = encode_features(&self.id, self.extent, flattened_fs).map_err(MartinCoreError::GeoJsonError)?;
         Ok(tile)
     }
 }
@@ -253,10 +246,7 @@ fn to_tile_geometry(geom: &Geometry<f64>) -> MvtGeometry {
 /// contained geometry (recursively), since an MVT feature holds a single geometry.
 /// All resulting features share the original properties.
 /// Features with any other geometry are pushed unchanged.
-fn flatten_geometry_collections<T: geo_types::CoordNum>(
-    f: PreparedFeature<T>,
-    out: &mut Vec<PreparedFeature<T>>,
-) {
+fn flatten_geometry_collections<T: geo_types::CoordNum>(f: PreparedFeature<T>, out: &mut Vec<PreparedFeature<T>>) {
     match f.geom {
         Geometry::GeometryCollection(geometries) => {
             for geom in geometries {
@@ -306,15 +296,10 @@ mod tests {
     async fn get_tile() {
         let path = fixtures_dir().join("feature_collection_1.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let geojson_source = GeoJsonSource::new(
-            "test-source-1".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let geojson_source =
+            GeoJsonSource::new("test-source-1".to_owned(), path, CacheZoomRange::default(), extent, 64)
+                .await
+                .unwrap();
 
         // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
         // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
@@ -327,16 +312,9 @@ mod tests {
             .expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
         let layer = &decoded.layers[0];
-        assert_eq!(
-            layer.name, "test-source-1",
-            "layer is named after the source"
-        );
+        assert_eq!(layer.name, "test-source-1", "layer is named after the source");
         assert_eq!(layer.extent.get(), extent.get());
-        assert_eq!(
-            layer.features.len(),
-            2,
-            "id 0 and the clipped id 3 are visible"
-        );
+        assert_eq!(layer.features.len(), 2, "id 0 and the clipped id 3 are visible");
     }
 
     #[tokio::test]
@@ -347,15 +325,9 @@ mod tests {
         // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
         let path = fixtures_dir().join("bare_geometry.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "bare".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source = GeoJsonSource::new("bare".to_owned(), path, CacheZoomRange::default(), extent, 64)
+            .await
+            .unwrap();
 
         let bounds = source.get_tilejson().bounds.expect("bounds should be set");
         assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);
@@ -373,15 +345,9 @@ mod tests {
     async fn tilejson_advertises_the_layer_named_after_the_source() {
         let path = fixtures_dir().join("feature_collection_1.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "test-source-1".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source = GeoJsonSource::new("test-source-1".to_owned(), path, CacheZoomRange::default(), extent, 64)
+            .await
+            .unwrap();
 
         let layers = source
             .get_tilejson()
@@ -400,15 +366,9 @@ mod tests {
     async fn tilejson_fields_name_every_property_type() {
         let path = fixtures_dir().join("properties.geojson");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "props".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source = GeoJsonSource::new("props".to_owned(), path, CacheZoomRange::default(), extent, 64)
+            .await
+            .unwrap();
 
         let layers = source
             .get_tilejson()
@@ -434,18 +394,11 @@ mod tests {
     async fn tilejson_advertises_a_layer_even_without_features() {
         let dir = tempfile::tempdir().expect("a temp dir");
         let path = dir.path().join("empty.geojson");
-        std::fs::write(&path, r#"{"type":"FeatureCollection","features":[]}"#)
-            .expect("the fixture is written");
+        std::fs::write(&path, r#"{"type":"FeatureCollection","features":[]}"#).expect("the fixture is written");
         let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
-        let source = GeoJsonSource::new(
-            "empty".to_owned(),
-            path,
-            CacheZoomRange::default(),
-            extent,
-            64,
-        )
-        .await
-        .unwrap();
+        let source = GeoJsonSource::new("empty".to_owned(), path, CacheZoomRange::default(), extent, 64)
+            .await
+            .unwrap();
 
         let layers = source
             .get_tilejson()

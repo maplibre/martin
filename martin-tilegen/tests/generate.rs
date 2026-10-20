@@ -10,12 +10,10 @@ use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{AttributesDef, ColumnDef, IdDef, LayerDef, Plan, SortDef, TableDef};
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{
-    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult,
-};
+use martin_tilegen::source::{Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult};
 use martin_tilegen::{
-    ClipMode, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold,
-    Progress, SortConfig, Summary, TileFormat, generate,
+    ClipMode, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress,
+    SortConfig, Summary, TileFormat, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::EncoderConfig;
@@ -28,10 +26,7 @@ const GRID: LayerGrid = LayerGrid {
 
 fn table(name: &str, keys: &[&str]) -> TableDef {
     TableDef {
-        columns: keys
-            .iter()
-            .map(|&k| ColumnDef::Value(k.to_owned()))
-            .collect(),
+        columns: keys.iter().map(|&k| ColumnDef::Value(k.to_owned(), None)).collect(),
         layers: vec![LayerDef::new(name, 0..=4, GRID)],
     }
 }
@@ -48,11 +43,7 @@ fn source() -> MemorySource {
                     let geometry = if p % 2 == 0 {
                         Geometry::Points(vec![Coord { x, y }])
                     } else {
-                        Geometry::Lines(vec![LineString::from(vec![
-                            (x, y),
-                            (x + 5.0, y + 4.0),
-                            (x + 9.0, y),
-                        ])])
+                        Geometry::Lines(vec![LineString::from(vec![(x, y), (x + 5.0, y + 4.0), (x + 9.0, y)])])
                     };
                     SourceFeature {
                         id: Some(u64::from(p * 100 + i)),
@@ -73,14 +64,9 @@ fn source() -> MemorySource {
             }
         })
         .collect();
-    let rect = |w: f64, s: f64, e: f64, n: f64| {
-        LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)])
-    };
+    let rect = |w: f64, s: f64, e: f64, n: f64| LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)]);
     let parks = [
-        Polygon::new(
-            rect(-100.0, -40.0, 60.0, 50.0),
-            vec![rect(-30.0, -10.0, 10.0, 20.0)],
-        ),
+        Polygon::new(rect(-100.0, -40.0, 60.0, 50.0), vec![rect(-30.0, -10.0, 10.0, 20.0)]),
         Polygon::new(rect(100.0, 10.0, 104.0, 13.0), vec![]),
     ];
     batches.push(FeatureBatch {
@@ -113,12 +99,7 @@ fn plan() -> Plan {
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
 
-fn run(
-    source: &impl FeatureSource,
-    plan: &Plan,
-    dir: &Path,
-    threads: usize,
-) -> (Summary, Vec<Row>, Mbtiles) {
+fn run(source: &impl FeatureSource, plan: &Plan, dir: &Path, threads: usize) -> (Summary, Vec<Row>, Mbtiles) {
     let path = dir.join(format!("out-{threads}.mbtiles"));
     let config = GenerateConfig {
         threads,
@@ -157,12 +138,10 @@ fn run(
     let mbt = Mbtiles::new(&path).unwrap();
     let rows = runtime.block_on(async {
         let mut conn = mbt.open_readonly().await.unwrap();
-        mbtiles::sqlx::query_as(
-            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
-        )
-        .fetch_all(&mut conn)
-        .await
-        .unwrap()
+        mbtiles::sqlx::query_as("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3")
+            .fetch_all(&mut conn)
+            .await
+            .unwrap()
     });
     (summary, rows, mbt)
 }
@@ -228,8 +207,7 @@ fn generates_a_deterministic_tileset() {
         })
         .count();
     assert!(fills > 10, "{fills} fill tiles at z4");
-    let fill_bytes: std::collections::HashSet<_> =
-        rows.iter().filter(|r| r.0 == 4).map(|r| &r.3).collect();
+    let fill_bytes: std::collections::HashSet<_> = rows.iter().filter(|r| r.0 == 4).map(|r| &r.3).collect();
     assert!(
         fill_bytes.len() < rows.iter().filter(|r| r.0 == 4).count(),
         "identical tiles repeat"
@@ -237,10 +215,7 @@ fn generates_a_deterministic_tileset() {
 
     let (parallel, parallel_rows, _) = run(&source, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
-    assert!(
-        parallel_rows == rows,
-        "output must not depend on the thread count"
-    );
+    assert!(parallel_rows == rows, "output must not depend on the thread count");
 }
 
 /// Per `(zoom, layer, feature id)`, the tiles holding the feature and each distinct geometry they
@@ -294,23 +269,14 @@ fn unclipped_layers_hold_whole_features_in_every_tile_they_reach() {
         .unwrap()
     };
     let (clipped_dir, dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    let (_, clipped_rows, _) = run(
-        &source,
-        &plan_with(ClipMode::Clipped),
-        clipped_dir.path(),
-        1,
-    );
+    let (_, clipped_rows, _) = run(&source, &plan_with(ClipMode::Clipped), clipped_dir.path(), 1);
     let (summary, rows, _) = run(&source, &plan_with(ClipMode::Unclipped), dir.path(), 1);
     assert_eq!(summary.features, 122);
     assert_eq!(summary.slice_errors, []);
 
     let clipped = placements(&clipped_rows);
     let unclipped = placements(&rows);
-    let tiles = |p: &Placements| -> Vec<_> {
-        p.iter()
-            .map(|(key, (tiles, _))| (key.clone(), tiles.clone()))
-            .collect()
-    };
+    let tiles = |p: &Placements| -> Vec<_> { p.iter().map(|(key, (tiles, _))| (key.clone(), tiles.clone())).collect() };
     assert!(
         tiles(&unclipped) == tiles(&clipped),
         "features reach the same tiles in both modes"
@@ -344,14 +310,8 @@ fn unclipped_layers_hold_whole_features_in_every_tile_they_reach() {
 #[test]
 fn reports_the_first_unrenderable_feature_regardless_of_threads() {
     let mut source = source();
-    source.batches[4].features[5].geometry = Geometry::Points(vec![Coord {
-        x: f64::NAN,
-        y: 0.0,
-    }]);
-    source.batches[2].features[3].geometry = Geometry::Points(vec![Coord {
-        x: 0.0,
-        y: f64::NAN,
-    }]);
+    source.batches[4].features[5].geometry = Geometry::Points(vec![Coord { x: f64::NAN, y: 0.0 }]);
+    source.batches[2].features[3].geometry = Geometry::Points(vec![Coord { x: 0.0, y: f64::NAN }]);
     let dir = tempfile::tempdir().unwrap();
     let expected = [LayerSliceErrors {
         layer: "places".to_owned(),
@@ -398,10 +358,7 @@ fn one_table_feeds_layers_with_their_own_settings() {
                 },
                 SourceFeature {
                     id: Some(11),
-                    geometry: Geometry::Lines(vec![LineString::from(vec![
-                        (40.0, 10.0),
-                        (40.1, 10.0),
-                    ])]),
+                    geometry: Geometry::Lines(vec![LineString::from(vec![(40.0, 10.0), (40.1, 10.0)])]),
                     props: vec![
                         (KeyId::new(0), Prop::Str("Side St".to_owned())),
                         (KeyId::new(1), Prop::Str("service".to_owned())),
@@ -413,9 +370,9 @@ fn one_table_feeds_layers_with_their_own_settings() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("name".to_owned()),
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("lanes".to_owned()),
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("lanes".to_owned(), None),
         ],
         layers: vec![
             LayerDef {
@@ -456,12 +413,7 @@ fn one_table_feeds_layers_with_their_own_settings() {
                         (f.id(), line.0.len())
                     })
                     .collect();
-                format!(
-                    "z{} {} {:?} {features:?}",
-                    row.0,
-                    layer.name(),
-                    layer.property_names()
-                )
+                format!("z{} {} {:?} {features:?}", row.0, layer.name(), layer.property_names())
             })
         })
         .collect();
@@ -524,8 +476,8 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
     let plan = || {
         Plan::new(vec![TableDef {
             columns: vec![
-                ColumnDef::Value("name".to_owned()),
-                ColumnDef::Value("rank".to_owned()),
+                ColumnDef::Value("name".to_owned(), None),
+                ColumnDef::Value("rank".to_owned(), None),
                 ColumnDef::Keys("tags".to_owned()),
             ],
             layers: vec![
@@ -545,27 +497,18 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
     assert_eq!(summary.features, 240);
 
     let z1 = decode(&rows.iter().find(|r| r.0 == 1).unwrap().3);
-    let columns: Vec<_> = z1
-        .iter()
-        .map(|layer| (layer.name(), layer.property_names()))
-        .collect();
+    let columns: Vec<_> = z1.iter().map(|layer| (layer.name(), layer.property_names())).collect();
     assert_eq!(
         columns,
         [
-            (
-                "all",
-                &["name", "rank", "tag0", "tag1", "tag2"].map(String::from)[..]
-            ),
+            ("all", &["name", "rank", "tag0", "tag1", "tag2"].map(String::from)[..]),
             ("subset", &["tag1", "rank"].map(String::from)[..]),
         ]
     );
 
     let (parallel, parallel_rows, _) = run(&Tagged, &plan(), dir.path(), 4);
     assert_eq!(parallel.tiles, summary.tiles);
-    assert!(
-        parallel_rows == rows,
-        "output must not depend on the thread count"
-    );
+    assert!(parallel_rows == rows, "output must not depend on the thread count");
 }
 
 #[test]
@@ -581,17 +524,11 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
             partition: 0,
             first_row: 0,
             crs: Crs::Wgs84,
-            features: vec![
-                point(1, 5),
-                point(2, -3),
-                point(3, 5),
-                point(4, 12),
-                point(5, 0),
-            ],
+            features: vec![point(1, 5), point(2, -3), point(3, 5), point(4, 12), point(5, 0)],
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![
             LayerDef {
                 sort_by: vec![SortDef {
@@ -617,11 +554,7 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
     let layers: Vec<_> = decode(&rows[0].3)
         .iter()
         .map(|layer| {
-            let ids: Vec<_> = layer
-                .features()
-                .iter()
-                .map(mlt_core::TileFeature::id)
-                .collect();
+            let ids: Vec<_> = layer.features().iter().map(mlt_core::TileFeature::id).collect();
             format!("{} {ids:?}", layer.name())
         })
         .collect();
@@ -662,8 +595,8 @@ fn sort_by_compares_its_keys_in_order() {
     };
     let plan = Plan::new(vec![TableDef {
         columns: vec![
-            ColumnDef::Value("class".to_owned()),
-            ColumnDef::Value("rank".to_owned()),
+            ColumnDef::Value("class".to_owned(), None),
+            ColumnDef::Value("rank".to_owned(), None),
         ],
         layers: vec![LayerDef {
             sort_by: vec![
@@ -713,7 +646,7 @@ fn null_and_failing_sort_keys_sort_first() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("lanes".to_owned())],
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "lanes < 0 ? null : 8 / lanes".to_owned(),
@@ -743,9 +676,7 @@ fn null_and_failing_sort_keys_sort_first() {
 
 #[test]
 fn sorted_features_stay_whole_in_the_tiles_they_span() {
-    let rect = |w: f64, s: f64, e: f64, n: f64| {
-        LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)])
-    };
+    let rect = |w: f64, s: f64, e: f64, n: f64| LineString::from(vec![(w, s), (e, s), (e, n), (w, n), (w, s)]);
     let feature = |id, geometry, rank| SourceFeature {
         id: Some(id),
         geometry,
@@ -760,10 +691,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
             features: vec![
                 feature(
                     1,
-                    Geometry::Polygons(vec![Polygon::new(
-                        rect(-170.0, -80.0, 170.0, 80.0),
-                        vec![],
-                    )]),
+                    Geometry::Polygons(vec![Polygon::new(rect(-170.0, -80.0, 170.0, 80.0), vec![])]),
                     3,
                 ),
                 feature(
@@ -777,7 +705,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             sort_by: vec![SortDef {
                 expr: "rank".to_owned(),
@@ -839,17 +767,11 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
             partition: 0,
             first_row: 0,
             crs: Crs::Wgs84,
-            features: vec![
-                point(1, 5),
-                point(2, -3),
-                point(3, 5),
-                point(4, 12),
-                point(5, 0),
-            ],
+            features: vec![point(1, 5), point(2, -3), point(3, 5), point(4, 12), point(5, 0)],
         }],
     };
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("rank".to_owned())],
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
             encoder: EncoderConfig::default()
                 .with_id_sort(true)

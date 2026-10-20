@@ -5,10 +5,7 @@ use std::ops::Range;
 
 use crate::props::{KeyId, KeyNames};
 use mlt_core::geo_types::Coord;
-use mlt_core::{
-    FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef,
-    PropertyKey,
-};
+use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
 use crate::sort::Seq;
@@ -146,10 +143,7 @@ impl LayerAssembler {
             }
             feature.finish()?;
         }
-        Ok(AssembledLayer {
-            layer,
-            columns: schema,
-        })
+        Ok(AssembledLayer { layer, columns: schema })
     }
 }
 
@@ -186,15 +180,11 @@ fn scalar<'a>(value: &PropValue) -> Option<PropValueRef<'a>> {
 }
 
 fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
-    #[expect(
-        clippy::cast_possible_wrap,
-        reason = "extent + buffer are far below i32::MAX"
-    )]
+    #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
     let (lo, hi) = (-(grid.buffer as i32), (grid.extent + grid.buffer) as i32);
     geom.polygons.push(1);
     geom.parts.push(4);
-    geom.vertices
-        .extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
+    geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
 }
 
 /// A single geometry unless the feature's pieces made several of them.
@@ -204,14 +194,10 @@ fn geometry_type(kind: GeomKind, geom: &GeomBuf) -> GeometryType {
         GeomKind::Point => GeometryType::MultiPoint,
         GeomKind::Line if geom.parts.len() == 1 => GeometryType::LineString,
         GeomKind::Line => GeometryType::MultiLineString,
-        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. }
-            if geom.polygons.len() == 1 =>
-        {
+        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } if geom.polygons.len() == 1 => {
             GeometryType::Polygon
         }
-        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => {
-            GeometryType::MultiPolygon
-        }
+        GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => GeometryType::MultiPolygon,
     }
 }
 
@@ -219,11 +205,7 @@ fn coords(part: &[Vertex]) -> impl Iterator<Item = Coord<i32>> + '_ {
     part.iter().map(|&[x, y]| Coord { x, y })
 }
 
-fn write_geometry(
-    feature: &mut FeatureWriter<'_, '_>,
-    kind: GeomKind,
-    geom: &GeomBuf,
-) -> MltResult<()> {
+fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &GeomBuf) -> MltResult<()> {
     let mut vertices = geom.vertices.as_slice();
     let mut parts = geom.parts.iter().map(|&len| {
         let (part, rest) = vertices.split_at(len as usize);
@@ -269,12 +251,7 @@ mod tests {
         buffer: 64,
     };
 
-    fn record(
-        id: Option<u64>,
-        props: &[(&str, PropValueRef<'_>)],
-        interner: &KeyInterner,
-        geom: Geom<'_>,
-    ) -> Vec<u8> {
+    fn record(id: Option<u64>, props: &[(&str, PropValueRef<'_>)], interner: &KeyInterner, geom: Geom<'_>) -> Vec<u8> {
         let mut encoded = EncodedProps::default();
         for &(name, value) in props {
             encoded.push(interner.intern(name), value);
@@ -304,10 +281,7 @@ mod tests {
                 seq(1),
                 record(
                     Some(10),
-                    &[
-                        ("name", PropValueRef::Str("a")),
-                        ("height", PropValueRef::I64(3)),
-                    ],
+                    &[("name", PropValueRef::Str("a")), ("height", PropValueRef::I64(3))],
                     &interner,
                     Geom::Points(&[[5, 6]]),
                 ),
@@ -316,10 +290,7 @@ mod tests {
                 seq(2),
                 record(
                     Some(11),
-                    &[
-                        ("name", PropValueRef::Str("b")),
-                        ("extra", PropValueRef::Bool(true)),
-                    ],
+                    &[("name", PropValueRef::Str("b")), ("extra", PropValueRef::Bool(true))],
                     &interner,
                     Geom::Lines {
                         parts: &[2],
@@ -331,10 +302,7 @@ mod tests {
                 seq(2),
                 record(
                     Some(11),
-                    &[
-                        ("name", PropValueRef::Str("b")),
-                        ("extra", PropValueRef::Bool(true)),
-                    ],
+                    &[("name", PropValueRef::Str("b")), ("extra", PropValueRef::Bool(true))],
                     &interner,
                     Geom::Lines {
                         parts: &[2],
@@ -344,12 +312,7 @@ mod tests {
             ),
             (
                 seq(3),
-                record(
-                    None,
-                    &[("height", PropValueRef::I64(-1))],
-                    &interner,
-                    Geom::Fill,
-                ),
+                record(None, &[("height", PropValueRef::I64(-1))], &interner, Geom::Fill),
             ),
         ];
         let names = interner.freeze();
@@ -467,10 +430,7 @@ mod tests {
                 seq(1),
                 record(
                     None,
-                    &[
-                        ("kind", PropValueRef::Str("a")),
-                        ("rank", PropValueRef::I64(1)),
-                    ],
+                    &[("kind", PropValueRef::Str("a")), ("rank", PropValueRef::I64(1))],
                     &interner,
                     Geom::Points(&[[1, 1]]),
                 ),
@@ -479,10 +439,7 @@ mod tests {
                 seq(2),
                 record(
                     None,
-                    &[
-                        ("kind", PropValueRef::I64(7)),
-                        ("rank", PropValueRef::F64(2.5)),
-                    ],
+                    &[("kind", PropValueRef::I64(7)), ("rank", PropValueRef::F64(2.5))],
                     &interner,
                     Geom::Points(&[[2, 2]]),
                 ),
@@ -503,26 +460,13 @@ mod tests {
         let assembled = scratch.assemble("pois", GRID, &names, &records).unwrap();
         let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
 
-        let values: Vec<_> = decoded
-            .features()
-            .iter()
-            .map(|f| f.properties().to_vec())
-            .collect();
+        let values: Vec<_> = decoded.features().iter().map(|f| f.properties().to_vec()).collect();
         assert_eq!(
             values,
             [
-                [
-                    PropValue::Str(Some("a".to_owned())),
-                    PropValue::F64(Some(1.0))
-                ],
-                [
-                    PropValue::Str(Some("7".to_owned())),
-                    PropValue::F64(Some(2.5))
-                ],
-                [
-                    PropValue::Str(Some("true".to_owned())),
-                    PropValue::F64(None)
-                ],
+                [PropValue::Str(Some("a".to_owned())), PropValue::F64(Some(1.0))],
+                [PropValue::Str(Some("7".to_owned())), PropValue::F64(Some(2.5))],
+                [PropValue::Str(Some("true".to_owned())), PropValue::F64(None)],
             ]
         );
     }

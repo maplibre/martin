@@ -5,7 +5,7 @@ use std::hash::Hash;
 use compact_str::CompactString;
 use xxhash_rust::xxh3::Xxh3;
 
-use super::NEIGHBOURHOOD_LEN;
+use crate::tiles::neighbourhood::NEIGHBOURHOOD_LEN;
 
 /// What one of the nine neighbourhood slots contributes to the etag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,10 +37,7 @@ impl<'a> InputEtag<'a> {
 /// `inputs` is the nine slots in row-major order.
 /// Returns `None` if any slot is untagged, since the bake can't be reliably tagged.
 #[must_use]
-pub fn neighbourhood_etag(
-    inputs: &[InputEtag<'_>; NEIGHBOURHOOD_LEN],
-    fingerprint: &str,
-) -> Option<u128> {
+pub fn neighbourhood_etag(inputs: &[InputEtag<'_>; NEIGHBOURHOOD_LEN], fingerprint: &str) -> Option<u128> {
     if inputs.contains(&InputEtag::Untagged) {
         return None;
     }
@@ -118,10 +115,7 @@ mod tests {
     fn a_clamped_slot_is_not_the_same_as_a_present_one() {
         let mut clamped = full();
         clamped[0] = InputEtag::Clamped;
-        assert_ne!(
-            neighbourhood_etag(&clamped, "p"),
-            neighbourhood_etag(&full(), "p")
-        );
+        assert_ne!(neighbourhood_etag(&clamped, "p"), neighbourhood_etag(&full(), "p"));
     }
 
     #[test]
@@ -161,9 +155,6 @@ mod tests {
         let bc = CompactString::const_new("bc");
         right[1] = InputEtag::Tagged(&bc);
 
-        assert_ne!(
-            neighbourhood_etag(&left, "p"),
-            neighbourhood_etag(&right, "p")
-        );
+        assert_ne!(neighbourhood_etag(&left, "p"), neighbourhood_etag(&right, "p"));
     }
 }

@@ -105,9 +105,7 @@ impl RingPlan<'_> {
     /// it, for the piece's bridge number `bridge`.
     fn depth(&self, bridge: usize, gap: usize) -> (usize, usize) {
         let (head, tail) = match self.depths {
-            Some(d) => d
-                .get(bridge)
-                .map_or((0, 0), |&(h, t)| (h as usize, t as usize)),
+            Some(d) => d.get(bridge).map_or((0, 0), |&(h, t)| (h as usize, t as usize)),
             None => (self.deepen, self.deepen),
         };
         let head = head.min(gap);
@@ -116,11 +114,7 @@ impl RingPlan<'_> {
 }
 
 /// `[min, max]` grown by `lane` units per side - the box detour corners are placed around.
-pub(crate) fn lane_bounds(
-    min: Coord<i32>,
-    max: Coord<i32>,
-    lane: i32,
-) -> Result<(Coord<i32>, Coord<i32>), TileError> {
+pub(crate) fn lane_bounds(min: Coord<i32>, max: Coord<i32>, lane: i32) -> Result<(Coord<i32>, Coord<i32>), TileError> {
     let g = |v: i32, d: i32| v.checked_add(d).ok_or(TileError::Overflow);
     Ok((
         Coord {
@@ -218,11 +212,7 @@ fn corner_slots(start: u8, advance: i64) -> impl Iterator<Item = u8> {
 /// every other one is a corner, starting with the first when `start` is odd.
 fn corner_count(start: u8, advance: i64) -> u64 {
     let n = advance.unsigned_abs().saturating_sub(1);
-    if start.is_multiple_of(2) {
-        n / 2
-    } else {
-        n.div_ceil(2)
-    }
+    if start.is_multiple_of(2) { n / 2 } else { n.div_ceil(2) }
 }
 
 /// The box's center `y` (overflow-safe midpoint) - the height of the winding ray.
@@ -327,8 +317,7 @@ pub(crate) fn push_distinct<V: Vertex>(ring: &[V], out: &mut Vec<V>) -> usize {
             out.push(v);
         }
     }
-    while out.len() - start >= 2 && out.last().map(Vertex::position) == Some(out[start].position())
-    {
+    while out.len() - start >= 2 && out.last().map(Vertex::position) == Some(out[start].position()) {
         out.pop();
     }
     out.len() - start
@@ -630,19 +619,14 @@ impl<V: PolyVertex> PieceBuf<V> {
     ) -> Result<(), TileError> {
         let ring = fill_box(orient, corner(0, min, max)?, corner(4, min, max)?);
         self.mark(self.verts.len(), 4);
-        self.verts
-            .extend(ring[..4].iter().copied().map(V::synthetic_at));
+        self.verts.extend(ring[..4].iter().copied().map(V::synthetic_at));
         self.end_ring()
     }
 
     /// The tile is covered by the exterior: grow its fill box (the piece's first ring) to enclose
     /// the vertices of the rings after it too, one unit clear of them, so no hole reaches outside
     /// its exterior. The ring keeps its length, so its marks still fit it.
-    pub(crate) fn grow_fill_box(
-        &mut self,
-        min: Coord<i32>,
-        max: Coord<i32>,
-    ) -> Result<(), TileError> {
+    pub(crate) fn grow_fill_box(&mut self, min: Coord<i32>, max: Coord<i32>) -> Result<(), TileError> {
         let first_hole = self.ring_ends[0] as usize;
         let (mut lo, mut hi) = (min, max);
         for v in &self.verts[first_hole..] {
@@ -659,11 +643,7 @@ impl<V: PolyVertex> PieceBuf<V> {
         let (lo, hi) = lane_bounds(lo, hi, 1)?;
         // The grown box is wound like the fill box it replaces (like the exterior).
         let ring = fill_box(ring_orientation(&self.verts[..first_hole]), lo, hi);
-        debug_assert_eq!(
-            ring.len(),
-            first_hole,
-            "the fill box is the piece's first ring"
-        );
+        debug_assert_eq!(ring.len(), first_hole, "the fill box is the piece's first ring");
         for (slot, c) in self.verts.iter_mut().zip(ring) {
             *slot = V::synthetic_at(c);
         }
@@ -675,8 +655,7 @@ impl<V: PolyVertex> PieceBuf<V> {
     fn end_ring(&mut self) -> Result<(), TileError> {
         let start = self.ring_ends.last().map_or(0, |&e| e as usize);
         self.verts.push(self.verts[start]);
-        let end =
-            u32::try_from(self.verts.len()).map_err(|_too_large| TileError::GeometryTooLarge)?;
+        let end = u32::try_from(self.verts.len()).map_err(|_too_large| TileError::GeometryTooLarge)?;
         self.ring_ends.push(end);
         Ok(())
     }
@@ -692,8 +671,7 @@ impl<V: PolyVertex> PieceBuf<V> {
             self.synthetic.last().is_none_or(|&l| (l as usize) < first),
             "marks are written in increasing order"
         );
-        self.synthetic
-            .extend((first..first + count).map(|i| i as u32));
+        self.synthetic.extend((first..first + count).map(|i| i as u32));
     }
 }
 
@@ -715,9 +693,7 @@ pub(crate) fn convex_hull(pts: &mut Vec<Coord<i32>>, hull: &mut Vec<Coord<i32>>)
             &mut pts.iter().rev()
         };
         for &p in walk {
-            while hull.len() >= from + 2
-                && orient(hull[hull.len() - 2], hull[hull.len() - 1], p) != Ordering::Greater
-            {
+            while hull.len() >= from + 2 && orient(hull[hull.len() - 2], hull[hull.len() - 1], p) != Ordering::Greater {
                 hull.pop();
             }
             hull.push(p);
@@ -767,9 +743,9 @@ fn frame_bridge<V: PolyVertex>(
     let result = (|| {
         // The grown vertex a tip generates: the tip plus a corner of the lane square.
         let generated = |t: Coord<i32>| {
-            grown.iter().position(|e| {
-                e.x.abs_diff(t.x) == lane.unsigned_abs() && e.y.abs_diff(t.y) == lane.unsigned_abs()
-            })
+            grown
+                .iter()
+                .position(|e| e.x.abs_diff(t.x) == lane.unsigned_abs() && e.y.abs_diff(t.y) == lane.unsigned_abs())
         };
         let (Some(i), Some(j)) = (generated(u), generated(v)) else {
             return Ok(false);
@@ -789,8 +765,7 @@ fn frame_bridge<V: PolyVertex>(
         } else {
             return Ok(false);
         };
-        let way: &mut dyn Iterator<Item = Coord<i32>> =
-            if forward { &mut { ccw } } else { &mut { cw } };
+        let way: &mut dyn Iterator<Item = Coord<i32>> = if forward { &mut { ccw } } else { &mut { cw } };
         piece.push_connector(way.map(Ok))?;
         Ok::<_, TileError>(true)
     })();
@@ -900,8 +875,7 @@ fn close_ring<const PLAIN: bool, V: PolyVertex>(
             Bridge::Keep => piece.extend_input((ui + 1..vi).map(|i| ring[i % m])),
             Bridge::Detour { start, advance } => {
                 let before = piece.len();
-                piece
-                    .push_connector(corner_slots(start, advance).map(|s| corner(s, cmin, cmax)))?;
+                piece.push_connector(corner_slots(start, advance).map(|s| corner(s, cmin, cmax)))?;
                 debug_assert_eq!(
                     ray_crossings(
                         iter::once(u)
@@ -1082,11 +1056,7 @@ fn clip_ring_by<const PLAIN: bool, V: PolyVertex>(
         };
         debug_assert_eq!(
             w,
-            ray_crossings(
-                (first..=first + count).map(|i| pts[i % m].position()),
-                cy,
-                max.x
-            ),
+            ray_crossings((first..=first + count).map(|i| pts[i % m].position()), cy, max.x),
             "indexed winding must match walking the excursion"
         );
         w
@@ -1096,9 +1066,7 @@ fn clip_ring_by<const PLAIN: bool, V: PolyVertex>(
         close_ring::<true, V>(pts, arcs, min, max, winding, &RingPlan::PLAIN, tmp, piece)?;
     } else if let Some(acc) = probe {
         arcs_points(pts, arcs, *plan, (min, max), acc);
-    } else if close_ring::<false, V>(pts, arcs, min, max, winding, plan, tmp, piece)?
-        == Closed::FrameMissed
-    {
+    } else if close_ring::<false, V>(pts, arcs, min, max, winding, plan, tmp, piece)? == Closed::FrameMissed {
         return Ok(None);
     }
     Ok(Some(RingClip::Clipped))
@@ -1119,11 +1087,7 @@ pub(crate) fn ring_meets_box<V: Vertex>(ring: &[V], min: Coord<i32>, max: Coord<
         inside ^= ray_crossing(a, b, cy, max.x) != 0;
         a = b;
     }
-    if inside {
-        RingClip::Covers
-    } else {
-        RingClip::Outside
-    }
+    if inside { RingClip::Covers } else { RingClip::Outside }
 }
 
 /// The length of `ring` without its repeated closing vertices, if that prefix has no consecutive
@@ -1204,15 +1168,7 @@ mod tests {
 
     #[test]
     fn hull_is_strict_and_counter_clockwise() {
-        let mut pts = vec![
-            c(0, 0),
-            c(4, 0),
-            c(4, 4),
-            c(0, 4),
-            c(2, 2),
-            c(2, 0),
-            c(4, 4),
-        ];
+        let mut pts = vec![c(0, 0), c(4, 0), c(4, 4), c(0, 4), c(2, 2), c(2, 0), c(4, 4)];
         let mut hull = Vec::new();
         convex_hull(&mut pts, &mut hull);
         // The interior point and the collinear one on the bottom edge are dropped.
@@ -1231,9 +1187,7 @@ mod tests {
         piece.push_fill_box(Ordering::Less, MIN, MAX).unwrap();
         // A hole: a detour through two corners, then the plain chord back to its first vertex.
         piece.extend_input([input(3, 3), input(3, 12)]);
-        piece
-            .push_connector([Ok(c(10, 12)), Ok(c(10, 10))])
-            .unwrap();
+        piece.push_connector([Ok(c(10, 12)), Ok(c(10, 10))]).unwrap();
         piece.extend_input([input(6, 6), input(12, 3)]);
         piece.push_connector([]).unwrap();
         piece.end_ring().unwrap();
@@ -1267,10 +1221,6 @@ mod tests {
             0,
             "an inside point never ends a detour; it maps to a valid slot"
         );
-        assert_eq!(
-            ray_crossings(iter::empty(), 0, 0),
-            0,
-            "an empty path crosses nothing"
-        );
+        assert_eq!(ray_crossings(iter::empty(), 0, 0), 0, "an empty path crosses nothing");
     }
 }
