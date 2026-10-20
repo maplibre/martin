@@ -1,5 +1,5 @@
 mod error;
-pub use error::{SourceBuildError, SourceBuildResult};
+pub use crate::config::file::tiles::error::{SourceBuildError, SourceBuildResult};
 
 #[cfg(feature = "cog")]
 pub mod cog;

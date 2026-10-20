@@ -4,6 +4,6 @@ mod errors;
 mod mosaic;
 mod source;
 
-pub use errors::{CogError, MosaicFileError, MosaicTemplateError};
-pub use mosaic::CogMosaicOptions;
-pub use source::CogSource;
+pub use crate::tiles::cog::errors::{CogError, MosaicFileError, MosaicTemplateError};
+pub use crate::tiles::cog::mosaic::CogMosaicOptions;
+pub use crate::tiles::cog::source::CogSource;

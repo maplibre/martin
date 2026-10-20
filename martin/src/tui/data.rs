@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use actix_web::http::StatusCode;
 use martin_tile_utils::{MAX_ZOOM, xyz_to_bbox};
 
-use super::log::{LogBuffer, LogLine};
 use crate::logging::LogFormat;
+use crate::tui::log::{LogBuffer, LogLine};
 
 /// How many of the latest tile requests the map keeps.
 const RECENT_TILES: usize = 2_000;

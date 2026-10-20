@@ -8,7 +8,7 @@ use mbtiles::temp_named_mbtiles;
 use tilejson::TileJSON;
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app_with_prefix {
     ($sources:expr, $srv_config:expr) => {{

@@ -175,8 +175,7 @@ impl Source for PostgresSource {
             .query_row(info, xyz, url_query)
             .await?
             .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
-            .map(TileData::from)
-            .unwrap_or_default())
+            .map_or_default(TileData::from))
     }
 
     async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
@@ -189,8 +188,7 @@ impl Source for PostgresSource {
         let data: TileData = row
             .as_ref()
             .and_then(|row| row.get::<_, Option<Vec<u8>>>(0))
-            .map(TileData::from)
-            .unwrap_or_default();
+            .map_or_default(TileData::from);
         let etag = row
             .and_then(|row| row.get::<_, Option<String>>(1))
             .map(CompactString::from);

@@ -13,13 +13,13 @@ use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
 use tilejson::Bounds;
 use tracing::warn;
 
-use super::postgres::ScanTable;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
     Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels, PropertySelector,
     RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
 };
+use crate::generate::postgres::ScanTable;
 
 const DEFAULT_EXTENT: u32 = 4096;
 const DEFAULT_BUFFER: u32 = 64;

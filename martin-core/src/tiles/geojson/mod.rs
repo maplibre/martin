@@ -4,7 +4,7 @@ mod convert;
 pub mod source;
 
 mod error;
-pub use error::GeoJsonError;
+pub use crate::tiles::geojson::error::GeoJsonError;
 
 mod process;
 mod rect;

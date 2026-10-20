@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
-use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+use crate::config::file::tiles::postgres::PostgresInfo;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};

@@ -1,6 +1,7 @@
-use config::file::{Bag, CollectUnrecognizedKeys, ConfigurationLivecycleHooks as _};
 use martin_config_macros::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks};
 use serde::Deserialize;
+
+use crate::config::file::{Bag, CollectUnrecognizedKeys, ConfigurationLivecycleHooks as _};
 
 mod config {
     pub mod file {
