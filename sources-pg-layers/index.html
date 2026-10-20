@@ -2656,8 +2656,8 @@ without <code>where</code> takes every other feature. A feature that matches no 
 <div class="tabbed-block">
 <ul>
 <li>A table is read in its physical order.</li>
-<li>A view or foreign table with an integer <code>id_column</code> is read by that id, which overrides the view's
-  <code>ORDER BY</code>.</li>
+<li>A view or foreign table with an integer <code>id_column</code> is read in 32 partitions by id remainder
+  (<code>abs(id % 32)</code>), which interleaves the ids and overrides the view's <code>ORDER BY</code>.</li>
 <li>Any other view is read in its own order.</li>
 </ul>
 <p>The tile server reads each tile's features in the order PostgreSQL finds them, which can
