@@ -315,6 +315,8 @@ impl TableInfo {
             },
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
+            // Without one in the config, the column's type decides whether arcs are linearized
+            geometry_type: cfg_inf.geometry_type.clone().or_else(|| self.geometry_type.clone()),
             ..cfg_inf.clone()
         };
 
