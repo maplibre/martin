@@ -37,6 +37,29 @@ enum RowValue {
     Function(Term, ValueKind),
 }
 
+/// A function of a string that a filter can push down.
+enum StringFn {
+    /// Matches the string against a pattern built from its literal argument.
+    Match(fn(String) -> Pattern),
+    /// Maps the string to a value of this kind.
+    Map(fn(Box<Term>) -> Term, ValueKind),
+}
+
+impl StringFn {
+    /// The function CEL calls `name`, if it is one.
+    fn named(name: &str) -> Option<Self> {
+        Some(match name {
+            "startsWith" => Self::Match(Pattern::Prefix),
+            "endsWith" => Self::Match(Pattern::Suffix),
+            "contains" => Self::Match(Pattern::Contains),
+            "size" => Self::Map(Term::Length, ValueKind::Int),
+            "lowerAscii" => Self::Map(Term::LowerAscii, ValueKind::String),
+            "upperAscii" => Self::Map(Term::UpperAscii, ValueKind::String),
+            _ => return None,
+        })
+    }
+}
+
 impl Translator<'_> {
     /// `expr` as a condition of `polarity`.
     fn condition(&self, expr: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
@@ -92,26 +115,11 @@ impl Translator<'_> {
                 })
             }
             (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
-            ("startsWith" | "endsWith" | "contains", Some(target), [arg]) => {
-                let operand = self.operand(target)?;
+            (name, Some(target), [arg]) if let Some(StringFn::Match(pattern)) = StringFn::named(name) => {
                 let text = string_literal(arg).ok_or_else(|| TranslateError::NotALiteral(name.to_owned()))?;
-                let (term, kind) = match operand {
-                    Operand::Row(row) => row.typed()?,
-                    Operand::Literal(literal, kind) => (Term::Literal(literal), kind),
-                    Operand::Null => return Ok(Condition::Const(false)),
-                };
-                if kind != ValueKind::String {
-                    return Ok(Condition::Const(false));
-                }
-                let text = text.to_owned();
-                let pattern = match name {
-                    "startsWith" => Pattern::Prefix(text),
-                    "endsWith" => Pattern::Suffix(text),
-                    _ => Pattern::Contains(text),
-                };
                 Ok(Condition::Like {
-                    term,
-                    pattern,
+                    term: self.string_operand(name, target)?,
+                    pattern: pattern(text.to_owned()),
                     polarity,
                 })
             }
@@ -214,19 +222,22 @@ impl Translator<'_> {
         {
             return Operand::negative(literal);
         }
-        let (wrap, kind): (fn(Box<Term>) -> Term, _) = match name {
-            "size" => (Term::Length, ValueKind::Int),
-            "lowerAscii" => (Term::LowerAscii, ValueKind::String),
-            "upperAscii" => (Term::UpperAscii, ValueKind::String),
-            _ => return Err(unsupported()),
+        let Some(StringFn::Map(wrap, kind)) = StringFn::named(name) else {
+            return Err(unsupported());
         };
-        let Operand::Row(row) = self.operand(arg)? else {
-            return Err(TranslateError::NotAStringColumn(name.to_owned()));
-        };
-        let Ok((term, ValueKind::String)) = row.typed() else {
-            return Err(TranslateError::NotAStringColumn(name.to_owned()));
-        };
+        let term = self.string_operand(name, arg)?;
         Ok(Operand::Row(RowValue::Function(wrap(Box::new(term)), kind)))
+    }
+
+    /// The string column that `target` reads, for a call of `name`.
+    fn string_operand(&self, name: &str, target: &IdedExpr) -> Result<Term, TranslateError> {
+        let Operand::Row(row) = self.operand(target)? else {
+            return Err(TranslateError::Constants);
+        };
+        match row.typed()? {
+            (term, ValueKind::String) => Ok(term),
+            _ => Err(TranslateError::NotAStringColumn(name.to_owned())),
+        }
     }
 
     /// The column named `name`, with the kind of its values if it is known.
