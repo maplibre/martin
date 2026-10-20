@@ -1117,6 +1117,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn configured_table_without_geometry_type_takes_the_column_type() {
+        let (builder, _container, connstr) = builder_for(indoc! {r"
+            tables:
+              my_roads:
+                schema: public
+                table: roads
+                geometry_column: geom
+                srid: 4326
+        "})
+        .await;
+        seed(
+            &connstr,
+            "CREATE TABLE public.roads (gid serial PRIMARY KEY, geom geometry(LineString, 4326));",
+        )
+        .await;
+
+        let (specs, warnings) = builder.discover().await.expect("discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        let SourceSpec::Table(info) = specs.get("my_roads").expect("spec for my_roads") else {
+            panic!("expected a Table spec");
+        };
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        table: roads
+        srid: 4326
+        geometry_column: geom
+        geometry_type: LINESTRING
+        ");
+    }
+
+    #[tokio::test]
     async fn discover_auto_publishes_from_catalog_and_is_rerunnable() {
         let (builder, _container, connstr) = builder_for("{}").await;
         seed(
