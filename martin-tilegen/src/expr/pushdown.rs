@@ -74,8 +74,7 @@ impl Translator<'_> {
                     op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => left.order(op, right),
                 }
             }
-            (operators::IN, None, [key, feature]) if matches!(&feature.expr, Expr::Ident(name) if name == FEATURE) =>
-            {
+            (operators::IN, None, [key, feature]) if matches!(&feature.expr, Expr::Ident(name) if name == FEATURE) => {
                 let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
                 self.column_kind(name)?;
                 Ok(Condition::IsNull {
@@ -337,11 +336,7 @@ fn known_kind(name: &str, kind: Option<ValueKind>) -> Result<ValueKind, Translat
 fn qualified_name(expr: &IdedExpr) -> Option<String> {
     match &expr.expr {
         Expr::Ident(name) => Some(name.clone()),
-        Expr::Select(select) if !select.test => Some(format!(
-            "{}.{}",
-            qualified_name(&select.operand)?,
-            select.field
-        )),
+        Expr::Select(select) if !select.test => Some(format!("{}.{}", qualified_name(&select.operand)?, select.field)),
         Expr::Unspecified
         | Expr::Call(_)
         | Expr::Comprehension(_)
