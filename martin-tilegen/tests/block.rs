@@ -25,7 +25,7 @@ fn feature(id: u64, geometry: Geometry, rank: i64) -> SourceFeature {
         id: Some(id),
         geometry,
         props: vec![
-            (KeyId::new(0), Prop::Str(format!("f{id}"))),
+            (KeyId::new(0), Prop::Str(format!("f{id}").into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
     }

@@ -576,7 +576,7 @@ fn a_where_filter_picks_the_features_of_each_layer() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::new(0), Prop::Str(class.to_owned())),
+            (KeyId::new(0), Prop::Str(class.into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
     };
@@ -647,7 +647,7 @@ fn computed_attributes_appear_at_their_own_zooms() {
                     },
                     ComputedAttr {
                         name: "source".to_owned(),
-                        value: ValueDef::Literal(Prop::Str("osm".to_owned())),
+                        value: ValueDef::Literal(Prop::Str("osm".into())),
                         zooms: 0..=30,
                     },
                     ComputedAttr {
@@ -666,9 +666,9 @@ fn computed_attributes_appear_at_their_own_zooms() {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::new(0), Prop::Str("Rhein".to_owned())),
-            (KeyId::new(1), Prop::Str("Rhine".to_owned())),
-            (KeyId::new(2), Prop::Str("river".to_owned())),
+            (KeyId::new(0), Prop::Str("Rhein".into())),
+            (KeyId::new(1), Prop::Str("Rhine".into())),
+            (KeyId::new(2), Prop::Str("river".into())),
             (KeyId::new(3), Prop::I64(7)),
         ],
     }];
@@ -726,7 +726,7 @@ fn failing_expressions_count_as_null_and_are_counted() {
     let features = [
         point(1, vec![(KeyId::new(0), Prop::I64(4))]),
         point(2, vec![(KeyId::new(0), Prop::I64(0))]),
-        point(3, vec![(KeyId::new(0), Prop::Str("x".to_owned()))]),
+        point(3, vec![(KeyId::new(0), Prop::Str("x".into()))]),
         point(4, vec![]),
     ];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -794,7 +794,7 @@ fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
     let features = [SourceFeature {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
-        props: vec![(KeyId::new(0), Prop::Str("Rhein".to_owned()))],
+        props: vec![(KeyId::new(0), Prop::Str("Rhein".into()))],
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "water", id: Some(1), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [(1, {"label": Str("Rhein")})], sort: None }"#);
 }
@@ -814,8 +814,8 @@ fn a_json_key_named_like_its_column_is_kept() {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::new(0), Prop::Str("Bonn".to_owned())),
-            (KeyId::new(1), Prop::Str("city".to_owned())),
+            (KeyId::new(0), Prop::Str("Bonn".into())),
+            (KeyId::new(1), Prop::Str("city".into())),
         ],
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "places", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"name": Str("Bonn"), "tags": Str("city")}, bands: [], sort: None }"#);
@@ -876,7 +876,7 @@ fn a_feature_matching_no_rule_keeps_the_layer_settings() {
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
-                    value: ValueDef::Literal(Prop::Str("layer".to_owned())),
+                    value: ValueDef::Literal(Prop::Str("layer".into())),
                     zooms: 0..=30,
                 }],
                 prefixes: vec![],
@@ -886,7 +886,7 @@ fn a_feature_matching_no_rule_keeps_the_layer_settings() {
                 minzoom: Some(ZoomDef::Fixed(0)),
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
-                    value: ValueDef::Literal(Prop::Str("rule".to_owned())),
+                    value: ValueDef::Literal(Prop::Str("rule".into())),
                     zooms: 0..=30,
                 }],
                 ..RuleDef::default()
@@ -969,7 +969,7 @@ fn a_rule_sets_its_own_simplify() {
     let line = |id, class: &str| SourceFeature {
         id: Some(id),
         geometry: Geometry::Lines(vec![LineString::from(vec![(10.0, 10.0), (30.0, 10.5)])]),
-        props: vec![(KeyId::new(0), Prop::Str(class.to_owned()))],
+        props: vec![(KeyId::new(0), Prop::Str(class.into()))],
     };
     let features = [line(1, "detailed"), line(2, "smooth")];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1007,7 +1007,7 @@ fn rule_attributes_replace_and_add_to_the_layers() {
                 attributes: vec![
                     ComputedAttr {
                         name: "kind".to_owned(),
-                        value: ValueDef::Literal(Prop::Str("waterway".to_owned())),
+                        value: ValueDef::Literal(Prop::Str("waterway".into())),
                         zooms: 0..=30,
                     },
                     ComputedAttr {
@@ -1026,8 +1026,8 @@ fn rule_attributes_replace_and_add_to_the_layers() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::new(0), Prop::Str(name.to_owned())),
-            (KeyId::new(1), Prop::Str(class.to_owned())),
+            (KeyId::new(0), Prop::Str(name.into())),
+            (KeyId::new(1), Prop::Str(class.into())),
             (KeyId::new(2), Prop::I64(rank)),
         ],
     };
@@ -1129,7 +1129,7 @@ fn a_rule_attribute_reads_its_column_after_unused_columns_are_dropped() {
     let features = [SourceFeature {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
-        props: vec![(KeyId::new(0), Prop::Str("Rhein".to_owned()))],
+        props: vec![(KeyId::new(0), Prop::Str("Rhein".into()))],
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "water", id: Some(1), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [(1, {"label": Str("Rhein")})], sort: None }"#);
 }
@@ -1145,7 +1145,7 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
                     when: Some("rank > 5".to_owned()),
                     attributes: vec![ComputedAttr {
                         name: "kind".to_owned(),
-                        value: ValueDef::Literal(Prop::Str("major".to_owned())),
+                        value: ValueDef::Literal(Prop::Str("major".into())),
                         zooms: 0..=30,
                     }],
                     ..RuleDef::default()
