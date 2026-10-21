@@ -1,5 +1,7 @@
 //! Tile features read one row per feature
 
+use std::ops::Range;
+
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
 #[cfg(feature = "unstable-generate")]
@@ -78,6 +80,35 @@ impl PropType {
             _ => return None,
         })
     }
+
+    /// The type the row's column `idx` reaches a tile as.
+    pub(super) fn of_column(row: &Row, idx: usize) -> PostgresResult<Self> {
+        let column = &row.columns()[idx];
+        Self::of(column.type_().name()).ok_or_else(|| UnsupportedPropertyType {
+            column: column.name().to_owned(),
+            pg_type: column.type_().name().to_owned(),
+        })
+    }
+
+    /// The types of the row's `columns`, the same for every row of one query.
+    pub(super) fn of_columns(row: &Row, columns: Range<usize>) -> PostgresResult<Vec<Self>> {
+        columns.map(|idx| Self::of_column(row, idx)).collect()
+    }
+
+    /// The row's value in column `idx`, read as this type.
+    pub(super) fn read(self, row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
+        let read = |e| PgError(e, context);
+        Ok(PostgresProperty::Value(match self {
+            Self::Json => return Ok(PostgresProperty::Json(row.try_get(idx).map_err(read)?)),
+            Self::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
+            Self::Int16 => PropValue::I64(row.try_get::<_, Option<i16>>(idx).map_err(read)?.map(i64::from)),
+            Self::Int32 => PropValue::I64(row.try_get::<_, Option<i32>>(idx).map_err(read)?.map(i64::from)),
+            Self::Int64 => PropValue::I64(row.try_get(idx).map_err(read)?),
+            Self::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
+            Self::Double => PropValue::F64(row.try_get(idx).map_err(read)?),
+            Self::Text => PropValue::Str(row.try_get(idx).map_err(read)?),
+        }))
+    }
 }
 
 /// A scanned column of this `PostgreSQL` type, as a plan sees it.
@@ -104,6 +135,10 @@ pub fn is_typed_property(pg_type: &str) -> bool {
 /// Decodes the rows of one tile query into features.
 pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresResult<Vec<PostgresFeature>> {
     let first_property = 1 + usize::from(has_id_column);
+    let types = match rows.first() {
+        Some(row) => PropType::of_columns(row, first_property..row.columns().len())?,
+        None => Vec::new(),
+    };
     let mut features = Vec::with_capacity(rows.len());
     for row in rows {
         let wkb: Option<&[u8]> = row
@@ -114,12 +149,11 @@ pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresR
         };
         let (geometry, m_values) = parse_tile_wkb(wkb)?;
         let id = if has_id_column { feature_id(row)? } else { None };
-        let mut properties = Vec::with_capacity(row.columns().len().saturating_sub(first_property));
-        for idx in first_property..row.columns().len() {
-            let column = &row.columns()[idx];
+        let mut properties = Vec::with_capacity(types.len());
+        for (idx, prop_type) in (first_property..).zip(&types) {
             properties.push((
-                CompactString::new(column.name()),
-                property(row, idx, "reading a tile property")?,
+                CompactString::new(row.columns()[idx].name()),
+                prop_type.read(row, idx, "reading a tile property")?,
             ));
         }
         features.push(PostgresFeature {
@@ -135,7 +169,7 @@ pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresR
 /// The feature id in the row's second column, following `ST_AsMVT`.
 pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     let column = &row.columns()[1];
-    let value = property(row, 1, "reading a tile feature's id")?;
+    let value = PropType::of_column(row, 1)?.read(row, 1, "reading a tile feature's id")?;
     let PostgresProperty::Value(PropValue::I64(value)) = value else {
         return Err(UnsupportedPropertyType {
             column: column.name().to_owned(),
@@ -143,38 +177,4 @@ pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
         });
     };
     Ok(value.and_then(|v| u64::try_from(v).ok()))
-}
-
-/// The type the row's column `idx` reaches a tile as.
-pub(super) fn prop_type(row: &Row, idx: usize) -> PostgresResult<PropType> {
-    let column = &row.columns()[idx];
-    PropType::of(column.type_().name()).ok_or_else(|| UnsupportedPropertyType {
-        column: column.name().to_owned(),
-        pg_type: column.type_().name().to_owned(),
-    })
-}
-
-/// One column's value, typed by what the column's runtime type says it holds.
-pub(super) fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
-    read_property(row, idx, prop_type(row, idx)?, context)
-}
-
-/// One column's value, read as `prop_type`.
-pub(super) fn read_property(
-    row: &Row,
-    idx: usize,
-    prop_type: PropType,
-    context: &'static str,
-) -> PostgresResult<PostgresProperty> {
-    let read = |e| PgError(e, context);
-    Ok(PostgresProperty::Value(match prop_type {
-        PropType::Json => return Ok(PostgresProperty::Json(row.try_get(idx).map_err(read)?)),
-        PropType::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
-        PropType::Int16 => PropValue::I64(row.try_get::<_, Option<i16>>(idx).map_err(read)?.map(i64::from)),
-        PropType::Int32 => PropValue::I64(row.try_get::<_, Option<i32>>(idx).map_err(read)?.map(i64::from)),
-        PropType::Int64 => PropValue::I64(row.try_get(idx).map_err(read)?),
-        PropType::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
-        PropType::Double => PropValue::F64(row.try_get(idx).map_err(read)?),
-        PropType::Text => PropValue::Str(row.try_get(idx).map_err(read)?),
-    }))
 }

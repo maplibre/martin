@@ -9,7 +9,7 @@ use martin_tilegen::props::{KeyId, KeyInterner, Prop, SourceStr};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult};
 use mlt_core::PropValue;
 
-use super::features::{PropType, feature_id, prop_type, read_property};
+use super::features::{PropType, feature_id};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
 
@@ -143,7 +143,8 @@ pub async fn scan_features<T: ?Sized + ToStatement>(
         .map_err(|e| PostgresError::PostgresError(e, "reading a scan"))?
     {
         if next_row == 0 {
-            types = property_types(&row, layout)?;
+            let first = layout.first_property();
+            types = PropType::of_columns(&row, first..first + layout.properties)?;
         }
         next_row += 1;
         batch.features.push(feature(&row, layout, &types, keys, &mut arena)?);
@@ -165,14 +166,6 @@ fn new_batch(layout: &ScanLayout, partition: u32, first_row: u64) -> FeatureBatc
         crs: layout.crs,
         features: Vec::with_capacity(BATCH_FEATURES),
     }
-}
-
-/// The types of the row's property columns, the same for every row of a scan.
-fn property_types(row: &Row, layout: &ScanLayout) -> SourceResult<Vec<PropType>> {
-    let first = layout.first_property();
-    Ok((first..first + layout.properties)
-        .map(|idx| prop_type(row, idx))
-        .collect::<Result<_, _>>()?)
 }
 
 fn feature(
@@ -199,7 +192,7 @@ fn feature(
             }
             continue;
         }
-        match read_property(row, idx, prop_type, "reading a scanned property")? {
+        match prop_type.read(row, idx, "reading a scanned property")? {
             PostgresProperty::Value(value) => {
                 if let Some(value) = prop(value) {
                     props.push((KeyId::new(pos), value));
