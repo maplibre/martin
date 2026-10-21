@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::config::args::BoundsCalcType;
 #[cfg(feature = "_tiles")]
@@ -119,11 +119,27 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
     Database(Box<DuckDbDatabaseEntry>),
     GeoParquet(Box<GeoParquetEntry>),
+}
+
+impl<'de> Deserialize<'de> for DuckDbSourceEntry {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let entry = if value.get("database").is_some() {
+            DuckDbDatabaseEntry::deserialize(value).map(|entry| Self::Database(Box::new(entry)))
+        } else if value.get("geoparquet").is_some() {
+            GeoParquetEntry::deserialize(value).map(|entry| Self::GeoParquet(Box::new(entry)))
+        } else {
+            return Err(de::Error::custom(
+                "a DuckDB source needs either a `database` or a `geoparquet` key",
+            ));
+        };
+        entry.map_err(de::Error::custom)
+    }
 }
 
 impl DuckDbSourceEntry {
@@ -173,8 +189,11 @@ impl schemars::JsonSchema for DuckDbSourceEntry {
 mod tests {
     use std::assert_matches;
 
+    use indoc::indoc;
+
     use super::*;
     use crate::config::file::tiles::duckdb::GeoParquetLocation;
+    use crate::config::test_helpers::render_failure;
 
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
@@ -415,10 +434,17 @@ sources:
     srid: 4326
 ";
         let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("missing entry keys");
-        assert!(
-            err.to_string()
-                .contains("data did not match any variant of untagged enum DuckDbSourceEntry")
-        );
+        insta::assert_snapshot!(err, @"
+        error: line 3 column 5: a DuckDB source needs either a `database` or a `geoparquet` key
+         --> <input>:3:5
+          |
+        1 |
+        2 | sources:
+        3 |   - layer_id: buildings
+          |     ^ a DuckDB source needs either a `database` or a `geoparquet` key
+        4 |     srid: 4326
+          |
+        ");
     }
 
     #[tokio::test]
@@ -465,5 +491,80 @@ sources:
             auto_bounds: skip
         "
         );
+    }
+
+    #[test]
+    fn table_id_format_with_an_unknown_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            duckdb:
+              sources:
+                - database: /data/tiles.duckdb
+                  auto_publish:
+                    tables:
+                      source_id_format: '{schema}.{tabel}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{tabel}" uses the unknown placeholder {tabel},
+          │ it may use {schema}, {table}, {column}
+           ╭─[config.yaml:3:7]
+         2 │   sources:
+         3 │     - database: /data/tiles.duckdb
+           ·       ┬
+           ·       ╰── source id format "{schema}.{tabel}" uses the unknown placeholder {tabel}, it may use {schema}, {table}, {column}
+         4 │       auto_publish:
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn macro_id_format_with_a_table_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            duckdb:
+              sources:
+                - database: /data/tiles.duckdb
+                  auto_publish:
+                    macros:
+                      source_id_format: '{schema}.{table}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{table}" uses the unknown placeholder {table},
+          │ it may use {schema}, {macro}
+           ╭─[config.yaml:3:7]
+         2 │   sources:
+         3 │     - database: /data/tiles.duckdb
+           ·       ┬
+           ·       ╰── source id format "{schema}.{table}" uses the unknown placeholder {table}, it may use {schema}, {macro}
+         4 │       auto_publish:
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn id_formats_with_known_placeholders_are_accepted() {
+        let yaml = r"
+sources:
+  - database: /data/tiles.duckdb
+    auto_publish:
+      tables:
+        source_id_format: 'tiles_{schema}_{table}_{column}'
+      macros:
+        source_id_format: '{schema}.{macro}'
+";
+        let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+        insta::assert_yaml_snapshot!(cfg, @r#"
+        sources:
+          - database: /data/tiles.duckdb
+            auto_publish:
+              tables:
+                source_id_format: "tiles_{schema}_{table}_{column}"
+              macros:
+                source_id_format: "{schema}.{macro}"
+        "#);
     }
 }

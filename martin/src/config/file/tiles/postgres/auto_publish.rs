@@ -8,9 +8,8 @@ use martin_core::tiles::postgres::PostgresSqlInfo;
 
 use crate::config::file::postgres::resolver::{SqlFuncInfoMapMap, SqlTableInfoMapMapMap, function_name};
 use crate::config::file::postgres::utils::find_kv_ignore_case;
-use crate::config::file::postgres::{
-    FunctionInfo, IdFormat, PgTileGrid, PostgresCfgPublish, PostgresConfig, TableInfo,
-};
+use crate::config::file::postgres::{FunctionInfo, PgTileGrid, PostgresCfgPublish, PostgresConfig, TableInfo};
+use crate::config::primitives::IdFormat;
 use crate::config::primitives::OptBoolObj::{self, Bool, NoValue, Object};
 
 /// What one `PostgreSQL` connection auto-publishes, decoded from its config.

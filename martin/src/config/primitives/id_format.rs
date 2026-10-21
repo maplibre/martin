@@ -28,6 +28,14 @@ impl IdPlaceholders for FunctionIds {
     const NAMES: &'static [&'static str] = &["schema", "function"];
 }
 
+/// The placeholders of a `DuckDB` table macro source id.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MacroIds {}
+
+impl IdPlaceholders for MacroIds {
+    const NAMES: &'static [&'static str] = &["schema", "macro"];
+}
+
 /// A source id template whose every `{name}` is a placeholder of `P`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String", bound = "")]
@@ -41,6 +49,9 @@ pub type TableIdFormat = IdFormat<TableIds>;
 
 /// The id template of an auto-published function.
 pub type FunctionIdFormat = IdFormat<FunctionIds>;
+
+/// The id template of an auto-published `DuckDB` table macro.
+pub type MacroIdFormat = IdFormat<MacroIds>;
 
 /// A `{name}` in an id template that is not a known placeholder.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

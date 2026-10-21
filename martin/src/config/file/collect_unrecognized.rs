@@ -5,7 +5,13 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(feature = "postgres")]
-use crate::config::file::postgres::{FunctionIdFormat, Srid, TableIdFormat};
+use crate::config::file::postgres::Srid;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::FunctionIdFormat;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::primitives::MacroIdFormat;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::primitives::TableIdFormat;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::RetryTimeout;
 use serde::{Deserialize, Serialize};
@@ -176,8 +182,14 @@ impl_empty_collect_unrecognized!(BoundsCalcType);
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 impl_empty_collect_unrecognized!(OrderByType);
 
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+impl_empty_collect_unrecognized!(TableIdFormat);
+
 #[cfg(feature = "postgres")]
-impl_empty_collect_unrecognized!(RetryTimeout, Srid, TableIdFormat, FunctionIdFormat);
+impl_empty_collect_unrecognized!(RetryTimeout, Srid, FunctionIdFormat);
+
+#[cfg(feature = "unstable-duckdb")]
+impl_empty_collect_unrecognized!(MacroIdFormat);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
