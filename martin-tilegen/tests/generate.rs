@@ -49,7 +49,7 @@ fn source() -> MemorySource {
                         id: Some(u64::from(p * 100 + i)),
                         geometry,
                         props: vec![
-                            (KeyId::new(0), Prop::Str(format!("f{p}-{i}"))),
+                            (KeyId::new(0), Prop::Str(format!("f{p}-{i}").into())),
                             (KeyId::new(1), Prop::I64(i64::from(i))),
                         ],
                     }
@@ -80,7 +80,7 @@ fn source() -> MemorySource {
             .map(|(polygon, id)| SourceFeature {
                 id: Some(id),
                 geometry: Geometry::Polygons(vec![polygon]),
-                props: vec![(KeyId::new(0), Prop::Str(format!("park {id}")))],
+                props: vec![(KeyId::new(0), Prop::Str(format!("park {id}").into()))],
             })
             .collect(),
     });
@@ -351,8 +351,8 @@ fn one_table_feeds_layers_with_their_own_settings() {
                     id: Some(10),
                     geometry: Geometry::Lines(vec![LineString::from(zigzag)]),
                     props: vec![
-                        (KeyId::new(0), Prop::Str("Main St".to_owned())),
-                        (KeyId::new(1), Prop::Str("primary".to_owned())),
+                        (KeyId::new(0), Prop::Str("Main St".into())),
+                        (KeyId::new(1), Prop::Str("primary".into())),
                         (KeyId::new(2), Prop::I64(4)),
                     ],
                 },
@@ -360,8 +360,8 @@ fn one_table_feeds_layers_with_their_own_settings() {
                     id: Some(11),
                     geometry: Geometry::Lines(vec![LineString::from(vec![(40.0, 10.0), (40.1, 10.0)])]),
                     props: vec![
-                        (KeyId::new(0), Prop::Str("Side St".to_owned())),
-                        (KeyId::new(1), Prop::Str("service".to_owned())),
+                        (KeyId::new(0), Prop::Str("Side St".into())),
+                        (KeyId::new(1), Prop::Str("service".into())),
                         (KeyId::new(2), Prop::I64(1)),
                     ],
                 },
@@ -456,7 +456,7 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
                         id: Some(u64::from(partition * 100 + i)),
                         geometry,
                         props: vec![
-                            (KeyId::new(0), Prop::Str(format!("f{partition}-{i}"))),
+                            (KeyId::new(0), Prop::Str(format!("f{partition}-{i}").into())),
                             (KeyId::new(1), Prop::I64(i64::from(i))),
                             (keys[0].intern(&format!("tag{}", i % 3)), Prop::Bool(true)),
                         ],
@@ -574,7 +574,7 @@ fn sort_by_compares_its_keys_in_order() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![
-            (KeyId::new(0), Prop::Str(class.to_owned())),
+            (KeyId::new(0), Prop::Str(class.into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
     };

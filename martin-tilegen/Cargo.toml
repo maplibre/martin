@@ -42,6 +42,7 @@ internals = []
 
 [dependencies]
 bytes.workspace = true
+bytestring.workspace = true
 cel.workspace = true
 flume.workspace = true
 geo.workspace = true
