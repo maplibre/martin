@@ -2164,6 +2164,32 @@ async fn a_simple_grid_set_on_the_connection_auto_publishes_only_tables_without_
 }
 
 #[tokio::test]
+async fn a_grid_whose_epsg_code_is_not_a_srid_stops_martin_at_startup() {
+    let error = Martin::builder()
+        .with_postgres()
+        .env("RUST_LOG", "martin=error")
+        .config(indoc! {"
+            tile_grids:
+              NoCrs:
+                crs: EPSG:0
+                origin: [0, 1000]
+                extent_at_zoom0: 1000
+            postgres:
+              connection_string: ${DATABASE_URL}
+              tile_grid: NoCrs
+              auto_publish: false
+        "})
+        .start()
+        .await
+        .expect_err("martin must not start with a grid PostGIS has no SRID for");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::assert_snapshot!(log, @"ERROR Tile grid NoCrs uses EPSG:0, whose code is not a PostGIS SRID");
+}
+
+#[tokio::test]
 async fn a_table_with_a_srid_on_a_simple_grid_stops_martin_at_startup() {
     let error = Martin::builder()
         .with_postgres()

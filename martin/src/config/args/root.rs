@@ -401,6 +401,17 @@ mod tests {
         assert_eq!(config.cache.size_mb, Some(size_mb));
     }
 
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn cli_default_srid_rejects_srid_zero() {
+        let err = Args::try_parse_from(["martin", "--default-srid", "0"]).unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"
+        error: invalid value '0' for '--default-srid <DEFAULT_SRID>': SRID 0 is out of range, it must be from 1 to 999999
+
+        For more information, try '--help'.
+        ");
+    }
+
     #[test]
     fn cli_cache_size_rejects_unknown_unit() {
         let err = Args::try_parse_from(["martin", "--cache-size", "1 parsec"]).unwrap_err();

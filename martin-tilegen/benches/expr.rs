@@ -26,9 +26,9 @@ fn plan(layer: LayerDef) -> Plan {
 fn feature(plan: &Plan) -> SourceFeature {
     let columns = plan.columns(0);
     let props = [
-        ("highway", Prop::Str("primary".to_owned())),
+        ("highway", Prop::Str("primary".into())),
         ("population", Prop::I64(120_000)),
-        ("name", Prop::Str("Hauptstraße".to_owned())),
+        ("name", Prop::Str("Hauptstraße".into())),
     ]
     .into_iter()
     .filter_map(|(name, value)| {

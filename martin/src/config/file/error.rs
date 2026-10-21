@@ -137,6 +137,10 @@ pub enum ConfigFileError {
     TileGridCrsCodeNotNumeric { grid: String, crs: String },
 
     #[cfg(feature = "postgres")]
+    #[error("Tile grid {grid} uses {crs}, whose code is not a PostGIS SRID")]
+    TileGridCrsCodeNotSrid { grid: String, crs: String },
+
+    #[cfg(feature = "postgres")]
     #[error("Tile grid {grid} uses {crs}, which has no spatial_ref_sys row in the database")]
     TileGridCrsNotInDatabase { grid: String, crs: String },
 
@@ -341,6 +345,8 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "postgres")]
             Self::TileGridCrsCodeNotNumeric { .. } => "martin::config::tile_grids::crs_code",
             #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotSrid { .. } => "martin::config::tile_grids::crs_code_not_srid",
+            #[cfg(feature = "postgres")]
             Self::TileGridCrsNotInDatabase { .. } => "martin::config::tile_grids::crs_not_in_database",
             #[cfg(feature = "postgres")]
             Self::TileGridResolution(..) => "martin::config::tile_grids::resolution",
@@ -421,6 +427,10 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "postgres")]
             Self::TileGridCrsCodeNotNumeric { .. } => {
                 "Write the CRS as `AUTHORITY:CODE` with an integer code, for example `EPSG:2193` or `IAU_2015:49900`."
+            }
+            #[cfg(feature = "postgres")]
+            Self::TileGridCrsCodeNotSrid { .. } => {
+                "An EPSG code is used as the PostGIS SRID, which must be from 1 to 999999."
             }
             #[cfg(feature = "postgres")]
             Self::TileGridCrsNotInDatabase { .. } => {

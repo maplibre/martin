@@ -18,8 +18,8 @@ pub struct LayerAssembler {
     columns: TileColumns,
     schema: Vec<(KeyId, PropKind)>,
     geom: GeomBuf,
-    /// Each feature's records, as a range of the decoded records.
-    features: Vec<Range<usize>>,
+    /// Each feature's records and properties, as ranges of the decoded records and properties.
+    features: Vec<(Range<usize>, Range<usize>)>,
     keys: Vec<PropertyKey>,
     text: String,
     texts: Vec<Range<usize>>,
@@ -58,15 +58,7 @@ impl LayerAssembler {
             .map(|&(seq, bytes)| Ok((seq, Record::decode(bytes)?)))
             .collect::<TileGenResult<Vec<_>>>()?;
 
-        columns.clear();
-        for (_, record) in &decoded {
-            for prop in record.props() {
-                let (key, value) = prop?;
-                columns.add(key, value);
-            }
-        }
-        columns.finish(names, schema);
-
+        let mut props = Vec::new();
         features.clear();
         let (mut start, mut sorted) = (0, false);
         while let Some((seq, first)) = decoded.get(start) {
@@ -74,19 +66,29 @@ impl LayerAssembler {
                 .iter()
                 .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
                 .count();
-            features.push(start..start + len);
+            let from = props.len();
+            for prop in first.props() {
+                props.push(prop?);
+            }
+            features.push((start..start + len, from..props.len()));
             start += len;
             sorted |= first.sort.is_some();
         }
+
+        columns.clear();
+        for &(key, value) in &props {
+            columns.add(key, value);
+        }
+        columns.finish(names, schema);
+
         if sorted {
-            features.sort_by(|a, b| decoded[a.start].1.sort.cmp(&decoded[b.start].1.sort));
+            features.sort_by(|a, b| decoded[a.0.start].1.sort.cmp(&decoded[b.0.start].1.sort));
         }
 
         text.clear();
         texts.clear();
-        for range in features.iter() {
-            for prop in decoded[range.start].1.props() {
-                let (key, value) = prop?;
+        for (_, span) in features.iter() {
+            for &(key, value) in &props[span.clone()] {
                 if let Some(pos) = columns.position(key)
                     && schema[pos].1 == PropKind::Str
                     && !matches!(value, PropValueRef::Str(_))
@@ -106,7 +108,7 @@ impl LayerAssembler {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
 
-        for range in features.iter() {
+        for (range, span) in features.iter() {
             let pieces = &decoded[range.clone()];
             let first = &pieces[0].1;
             geom.clear();
@@ -121,8 +123,7 @@ impl LayerAssembler {
             let mut feature = layer.feature(geometry_type(first.kind, geom));
             feature.id(first.id);
             write_geometry(&mut feature, first.kind, geom)?;
-            for prop in first.props() {
-                let (key, value) = prop?;
+            for &(key, value) in &props[span.clone()] {
                 let Some(pos) = columns.position(key) else {
                     continue;
                 };

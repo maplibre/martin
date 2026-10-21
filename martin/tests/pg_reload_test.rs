@@ -12,42 +12,12 @@ use martin::config::file::reload::postgres::PostgresReloader;
 use martin::config::file::srv::SrvConfig;
 use martin::config::file::{ProcessConfig, TileGrids};
 use martin::config::primitives::IdResolver;
-use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 use serde_json::Value;
-use testcontainers_modules::postgres::Postgres;
-use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
-use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 
 pub mod utils;
 
 const RELOAD_INTERVAL: Duration = Duration::from_millis(100);
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
-
-/// Launches a throwaway `PostGIS` container so the run never touches the shared `just start` DB.
-async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
-    let container = Postgres::default()
-        .with_name("postgis/postgis")
-        .with_tag("15-3.5") // purposely very old and stable
-        .start()
-        .await
-        .expect("PostGIS container failed to start (is Docker running?)");
-    let host = container.get_host().await.expect("container host");
-    let port = container.get_host_port_ipv4(5432).await.expect("container port");
-    let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
-    (container, connstr)
-}
-
-async fn seed(connstr: &str, sql: &str) {
-    let pool = PostgresPool::new(connstr, None, None, None, 2, RetryTimeout::default())
-        .await
-        .expect("open seed pool");
-    pool.get()
-        .await
-        .expect("acquire seed connection")
-        .batch_execute(sql)
-        .await
-        .expect("execute seed SQL");
-}
 
 trait App: actix_web::dev::Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error> {}
 impl<T> App for T where
@@ -103,9 +73,9 @@ async fn tile_status(app: &impl App, id: &str) -> u16 {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn catalog_follows_create_and_drop_through_the_reloader() {
-    let (_container, connstr) = start_postgis().await;
+    let (_container, connstr) = utils::start_postgis().await;
 
-    seed(
+    utils::seed(
         &connstr,
         "CREATE TABLE public.reload_alpha (id serial PRIMARY KEY, geom geometry(Point, 4326));
          INSERT INTO public.reload_alpha (geom) VALUES (ST_SetSRID(ST_MakePoint(0, 0), 4326));
@@ -137,7 +107,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     let warnings = reloader.init().await.expect("init postgres sources");
     assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
 
-    seed(&connstr, "DROP TABLE public.reload_boundary;").await;
+    utils::seed(&connstr, "DROP TABLE public.reload_boundary;").await;
     let _driver = reloader.start().expect("reload_interval > 0 spawns the driver");
 
     let app = init_service(
@@ -163,7 +133,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     ");
     assert_eq!(tile_status(&app, "reload_boundary").await, 404);
 
-    seed(
+    utils::seed(
         &connstr,
         "CREATE TABLE public.reload_beta (id serial PRIMARY KEY, geom geometry(Point, 4326));
          INSERT INTO public.reload_beta (geom) VALUES (ST_SetSRID(ST_MakePoint(0, 0), 4326));",
@@ -180,7 +150,7 @@ async fn catalog_follows_create_and_drop_through_the_reloader() {
     ");
     assert_eq!(tile_status(&app, "reload_beta").await, 200);
 
-    seed(&connstr, "DROP TABLE public.reload_beta;").await;
+    utils::seed(&connstr, "DROP TABLE public.reload_beta;").await;
     wait_for_catalog(&app, "reload_beta", false).await;
     assert_yaml_snapshot!(managed_tiles(&app).await, @"
     reload_alpha:

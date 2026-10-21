@@ -130,7 +130,9 @@ layer takes are never read. This needs a SQL equivalent for each `where` of the 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
 - `in` with a list of literals, `has(feature.x)` and `'x' in feature`,
-- `&&`, `||`, `!` and `? :`.
+- `&&`, `||`, `!` and `? :`,
+- `size`, `startsWith`, `endsWith`, `contains`, `lowerAscii` and `upperAscii` on a string column,
+  compared with a literal.
 
 Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.
 When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
@@ -199,8 +201,8 @@ Without `sort_by`, the features of a layer keep the order the source reads them 
 === "PostgreSQL"
 
     - A table is read in its physical order.
-    - A view or foreign table with an integer `id_column` is read by that id, which overrides the view's
-      `ORDER BY`.
+    - A view or foreign table with an integer `id_column` is read in 32 partitions by id remainder
+      (`abs(id % 32)`), which interleaves the ids and overrides the view's `ORDER BY`.
     - Any other view is read in its own order.
 
     The tile server reads each tile's features in the order PostgreSQL finds them, which can

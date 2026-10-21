@@ -8,7 +8,7 @@ use tilejson::TileJSON;
 
 #[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
-use super::{FuncInfoSources, TableInfoSources};
+use super::{FuncInfoSources, FunctionIdFormat, Srid, TableIdFormat, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::args::OrderByType;
 #[cfg(feature = "unstable-generate")]
@@ -76,8 +76,8 @@ pub struct PostgresConfig {
     #[serde(flatten)]
     pub ssl_certificates: PostgresSslCerts,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
-    pub default_srid: Option<i32>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<i32>", example = &4326i32))]
+    pub default_srid: Option<Srid>,
     /// Tile grid the sources of this connection are served in, unless a source names its own \[default: `WebMercatorQuad`\]
     ///
     /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
@@ -267,9 +267,9 @@ pub struct PostgresCfgPublishTables {
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"table.{schema}.{table}.{column}")
+        schemars(with = "Option<String>", example = &"table.{schema}.{table}.{column}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<TableIdFormat>,
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for
     /// that table.
@@ -311,9 +311,9 @@ pub struct PostgresCfgPublishFuncs {
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"{schema}.{function}")
+        schemars(with = "Option<String>", example = &"{schema}.{function}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<FunctionIdFormat>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -377,7 +377,120 @@ mod tests {
     use super::*;
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
-    use crate::config::test_helpers::render_finalize_failure;
+    use crate::config::test_helpers::{render_failure, render_finalize_failure};
+
+    #[test]
+    fn default_srid_zero_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 0
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × SRID 0 is out of range, it must be from 1 to 999999
+           ╭─[config.yaml:3:17]
+         2 │   connection_string: postgres://localhost/db
+         3 │   default_srid: 0
+           ·                 ┬
+           ·                 ╰── SRID 0 is out of range, it must be from 1 to 999999
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn default_srid_above_the_postgis_maximum_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 1000000
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × SRID 1000000 is out of range, it must be from 1 to 999999
+           ╭─[config.yaml:3:17]
+         2 │   connection_string: postgres://localhost/db
+         3 │   default_srid: 1000000
+           ·                 ───┬───
+           ·                    ╰── SRID 1000000 is out of range, it must be from 1 to 999999
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn table_id_format_with_an_unknown_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              auto_publish:
+                tables:
+                  source_id_format: '{schema}.{tabel}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{tabel}" uses the unknown placeholder {tabel},
+          │ it may use {schema}, {table}, {column}
+           ╭─[config.yaml:5:25]
+         4 │     tables:
+         5 │       source_id_format: '{schema}.{tabel}'
+           ·                         ─────────┬────────
+           ·                                  ╰── source id format "{schema}.{tabel}" uses the unknown placeholder {tabel}, it may use {schema}, {table}, {column}
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn function_id_format_with_a_table_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              auto_publish:
+                functions:
+                  source_id_format: '{schema}.{table}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{table}" uses the unknown placeholder {table},
+          │ it may use {schema}, {function}
+           ╭─[config.yaml:5:25]
+         4 │     functions:
+         5 │       source_id_format: '{schema}.{table}'
+           ·                         ─────────┬────────
+           ·                                  ╰── source id format "{schema}.{table}" uses the unknown placeholder {table}, it may use {schema}, {function}
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn id_formats_with_known_placeholders_or_none_are_accepted() {
+        let config = parse_cfg(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 999999
+              auto_publish:
+                tables:
+                  source_id_format: 'tiles_{schema}_{table}_{column}'
+                functions:
+                  source_id_format: fixed
+        "});
+        insta::assert_yaml_snapshot!(config.postgres, @r#"
+        - connection_string: "postgres://localhost/db"
+          default_srid: 999999
+          auto_publish:
+            tables:
+              source_id_format: "tiles_{schema}_{table}_{column}"
+            functions:
+              source_id_format: fixed
+        "#);
+    }
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
@@ -652,7 +765,7 @@ mod tests {
             &Config {
                 postgres: vec![PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
-                    default_srid: Some(4326),
+                    default_srid: Some(Srid::try_from(4326).unwrap()),
                     pool_size: NonZeroUsize::new(20),
                     max_feature_count: Some(100),
                     order_by: Some(OrderByType::IdAsc),

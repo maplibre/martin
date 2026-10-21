@@ -16,7 +16,7 @@ use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, Sort
 use crate::phase2::LayerInfo;
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
-    CompareOp, Condition, Literal, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
+    CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
 };
 use crate::props::{KeyId, Prop};
 use crate::{FeatureGeom, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};

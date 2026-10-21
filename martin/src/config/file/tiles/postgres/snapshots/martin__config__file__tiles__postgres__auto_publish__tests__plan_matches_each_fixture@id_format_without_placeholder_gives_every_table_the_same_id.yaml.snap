@@ -10,12 +10,12 @@ reads:
   functions: false
 transforms: []
 tables:
-  - id: "{tabel}"
+  - id: fixed
     schema: public
     table: rivers
     srid: 3857
     geometry_column: geom
-  - id: "{tabel}"
+  - id: fixed
     schema: public
     table: roads
     srid: 3857
@@ -25,4 +25,4 @@ decisions:
   - ScannedTables:
       schemas:
         - public
-      id_format: "{tabel}"
+      id_format: fixed

@@ -8,7 +8,9 @@ use martin_core::tiles::postgres::PostgresSqlInfo;
 
 use crate::config::file::postgres::resolver::{SqlFuncInfoMapMap, SqlTableInfoMapMapMap, function_name};
 use crate::config::file::postgres::utils::find_kv_ignore_case;
-use crate::config::file::postgres::{FunctionInfo, PgTileGrid, PostgresCfgPublish, PostgresConfig, TableInfo};
+use crate::config::file::postgres::{
+    FunctionInfo, IdFormat, PgTileGrid, PostgresCfgPublish, PostgresConfig, TableInfo,
+};
 use crate::config::primitives::OptBoolObj::{self, Bool, NoValue, Object};
 
 /// What one `PostgreSQL` connection auto-publishes, decoded from its config.
@@ -184,8 +186,9 @@ impl AutoPublish {
         let tables = tables_on.then(|| TableRules {
             schemas: schemas(publish, table_cfg.map_or(&[], |cfg| cfg.from_schemas.as_slice())),
             id_format: table_cfg
-                .and_then(|cfg| cfg.source_id_format.clone())
-                .unwrap_or_else(|| "{table}".to_owned()),
+                .and_then(|cfg| cfg.source_id_format.as_ref())
+                .map_or("{table}", IdFormat::as_str)
+                .to_owned(),
             id_columns: table_cfg.map(|cfg| cfg.id_columns.clone()).unwrap_or_default(),
             clip_geom: table_cfg.and_then(|cfg| cfg.clip_geom),
             buffer: table_cfg.and_then(|cfg| cfg.buffer),
@@ -199,8 +202,9 @@ impl AutoPublish {
         let functions = functions_on.then(|| FunctionRules {
             schemas: schemas(publish, function_cfg.map_or(&[], |cfg| cfg.from_schemas.as_slice())),
             id_format: function_cfg
-                .and_then(|cfg| cfg.source_id_format.clone())
-                .unwrap_or_else(|| "{function}".to_owned()),
+                .and_then(|cfg| cfg.source_id_format.as_ref())
+                .map_or("{function}", IdFormat::as_str)
+                .to_owned(),
         });
 
         Self {
@@ -557,6 +561,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
+    use crate::config::file::postgres::Srid;
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -625,7 +630,7 @@ mod tests {
                     let tile_grid = TileGrid::new("FixtureGrid", grid.crs, [0.0, 1000.0], 1000.0).expect("valid grid");
                     PgTileGrid::new(tile_grid, grid.srid)
                 });
-                let default_srid = fixture.config.default_srid;
+                let default_srid = fixture.config.default_srid.map(Srid::get);
 
                 let mut catalog = Catalog::default();
                 for info in fixture.catalog.tables {

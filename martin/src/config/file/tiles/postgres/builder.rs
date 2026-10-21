@@ -17,8 +17,8 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_schema_info};
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresConfig, PostgresInfo, SourceSpec, TableInfo,
-    TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresConfig, PostgresInfo, SourceSpec, Srid,
+    TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -75,7 +75,12 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
         })?;
     let is_epsg = grid.crs_authority().eq_ignore_ascii_case("EPSG");
     let srid = if is_epsg {
-        code
+        Srid::try_from(code)
+            .map_err(|_out_of_range| ConfigFileError::TileGridCrsCodeNotSrid {
+                grid: grid.id().to_owned(),
+                crs: grid.crs().to_owned(),
+            })?
+            .get()
     } else {
         let conn = pool
             .get()
@@ -195,7 +200,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         Ok(Self {
             pool,
-            default_srid: config.default_srid,
+            default_srid: config.default_srid.map(Srid::get),
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
@@ -683,6 +688,37 @@ mod tests {
             info.bounds.is_some(),
             "instantiate must run the deferred bounds calculation"
         );
+    }
+
+    #[tokio::test]
+    async fn configured_table_without_geometry_type_takes_the_column_type() {
+        let (builder, _container, connstr) = builder_for(indoc! {r"
+            tables:
+              my_roads:
+                schema: public
+                table: roads
+                geometry_column: geom
+                srid: 4326
+        "})
+        .await;
+        seed(
+            &connstr,
+            "CREATE TABLE public.roads (gid serial PRIMARY KEY, geom geometry(LineString, 4326));",
+        )
+        .await;
+
+        let (specs, warnings) = builder.discover().await.expect("discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        let SourceSpec::Table(info) = specs.get("my_roads").expect("spec for my_roads") else {
+            panic!("expected a Table spec");
+        };
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        table: roads
+        srid: 4326
+        geometry_column: geom
+        geometry_type: LINESTRING
+        ");
     }
 
     #[tokio::test]
