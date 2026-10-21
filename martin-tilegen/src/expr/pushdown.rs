@@ -46,15 +46,15 @@ enum StringFn {
 }
 
 impl StringFn {
-    /// The function CEL calls `name`, if it is one.
-    fn named(name: &str) -> Option<Self> {
-        Some(match name {
-            "startsWith" => Self::Match(Pattern::Prefix),
-            "endsWith" => Self::Match(Pattern::Suffix),
-            "contains" => Self::Match(Pattern::Contains),
-            "size" => Self::Map(Term::Length, ValueKind::Int),
-            "lowerAscii" => Self::Map(Term::LowerAscii, ValueKind::String),
-            "upperAscii" => Self::Map(Term::UpperAscii, ValueKind::String),
+    /// The function CEL calls `name`, if it is one, called on a target if `member`.
+    fn named(name: &str, member: bool) -> Option<Self> {
+        Some(match (name, member) {
+            ("startsWith", true) => Self::Match(Pattern::Prefix),
+            ("endsWith", true) => Self::Match(Pattern::Suffix),
+            ("contains", true) => Self::Match(Pattern::Contains),
+            ("size", _) => Self::Map(Term::Length, ValueKind::Int),
+            ("lowerAscii", true) => Self::Map(Term::LowerAscii, ValueKind::String),
+            ("upperAscii", true) => Self::Map(Term::UpperAscii, ValueKind::String),
             _ => return None,
         })
     }
@@ -115,7 +115,7 @@ impl Translator<'_> {
                 })
             }
             (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
-            (name, Some(target), [arg]) if let Some(StringFn::Match(pattern)) = StringFn::named(name) => {
+            (name, Some(target), [arg]) if let Some(StringFn::Match(pattern)) = StringFn::named(name, true) => {
                 let text = string_literal(arg).ok_or_else(|| TranslateError::NotALiteral(name.to_owned()))?;
                 Ok(Condition::Like {
                     term: self.string_operand(name, target)?,
@@ -222,7 +222,7 @@ impl Translator<'_> {
         {
             return Operand::negative(literal);
         }
-        let Some(StringFn::Map(wrap, kind)) = StringFn::named(name) else {
+        let Some(StringFn::Map(wrap, kind)) = StringFn::named(name, call.target.is_some()) else {
             return Err(unsupported());
         };
         let term = self.string_operand(name, arg)?;

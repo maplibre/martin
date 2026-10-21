@@ -77,8 +77,13 @@ impl Display for Sql<'_, Condition> {
                 });
                 write!(
                     f,
-                    "{term} {not}IN ({values})",
+                    "{term}{collate} {not}IN ({values})",
                     term = AsKind(Sql(info, term), *kind),
+                    collate = if *kind == ValueKind::String {
+                        code_point_sql(info, term)
+                    } else {
+                        ""
+                    },
                     not = polarity.sql()
                 )
             }
@@ -95,8 +100,9 @@ impl Display for Sql<'_, Condition> {
                 };
                 write!(
                     f,
-                    "{term} {not}LIKE {pattern}",
+                    "{term}{collate} {not}LIKE {pattern}",
                     term = Sql(info, term),
+                    collate = code_point_sql(info, term),
                     not = polarity.sql(),
                     pattern = escape_literal(&pattern)
                 )
@@ -182,11 +188,24 @@ fn join(f: &mut Formatter<'_>, info: &TableInfo, parts: &[Condition], separator:
 
 /// ` COLLATE "C"` where comparing `left` with `right` as `kind` would not compare strings by code point.
 fn collate_sql(info: &TableInfo, left: &Term, right: &Term, kind: ValueKind, ordered: bool) -> &'static str {
-    let loose = |term: &Term| matches!(term, Term::Column(name) if info.has_nondeterministic_collation(name));
     let columns = matches!((left, right), (Term::Column(_), Term::Column(_)));
-    if kind == ValueKind::String && (ordered || columns || loose(left) || loose(right)) {
+    if kind == ValueKind::String && (ordered || columns || loose(info, left) || loose(info, right)) {
         " COLLATE \"C\""
     } else {
         ""
+    }
+}
+
+/// ` COLLATE "C"` where `term` would not compare by code point.
+fn code_point_sql(info: &TableInfo, term: &Term) -> &'static str {
+    if loose(info, term) { " COLLATE \"C\"" } else { "" }
+}
+
+/// Whether `term` is a string under a nondeterministic collation, which compares strings loosely.
+fn loose(info: &TableInfo, term: &Term) -> bool {
+    match term {
+        Term::Column(name) => info.has_nondeterministic_collation(name),
+        Term::LowerAscii(inner) | Term::UpperAscii(inner) => loose(info, inner),
+        Term::Literal(_) | Term::Length(_) => false,
     }
 }
