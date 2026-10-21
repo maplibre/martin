@@ -2192,7 +2192,7 @@ serving, such as caching, are ignored.</p>
 <tr>
 <td><code>--bbox</code></td>
 <td>whole world</td>
-<td>Only features and tiles inside <code>min_lon,min_lat,max_lon,max_lat</code>, at most once</td>
+<td>Only tiles touching <code>min_lon,min_lat,max_lon,max_lat</code>, at most once</td>
 </tr>
 <tr>
 <td><code>--memory</code></td>
@@ -2216,8 +2216,8 @@ serving, such as caching, are ignored.</p>
 <p>Bulk mode refuses the <code>martin cp</code> options it does not read: <code>--url-query</code>, <code>--mbtiles-type</code>,
 <code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--save-config</code> and
 <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
-<p><code>--bbox</code> filters features, which tile mode does not. A low-zoom tile at the edge of the box only holds
-the features near the box, not everything the tile covers.</p>
+<p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
+The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.</p>
 <p>The highest zoom is 27. The tile grid can lower it further, since <code>extent × 2^zoom</code> must not exceed
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
