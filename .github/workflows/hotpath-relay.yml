@@ -25,7 +25,7 @@ jobs:
           - cache-hit
           - composite-hit
           - toolkit-slice
-    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
+    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
     permissions:
       actions: read
       id-token: write
