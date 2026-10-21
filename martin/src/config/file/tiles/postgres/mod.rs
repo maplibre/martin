@@ -14,11 +14,6 @@ mod auto_publish;
 mod builder;
 pub use crate::config::file::tiles::postgres::builder::PostgresAutoDiscoveryBuilder;
 
-mod id_format;
-pub use crate::config::file::tiles::postgres::id_format::{
-    FunctionIdFormat, FunctionIds, IdFormat, IdPlaceholders, TableIdFormat, TableIds, UnknownIdPlaceholder,
-};
-
 mod spec;
 pub use crate::config::file::tiles::postgres::spec::SourceSpec;
 

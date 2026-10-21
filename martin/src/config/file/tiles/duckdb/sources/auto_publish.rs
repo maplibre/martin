@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedValues};
 use crate::config::primitives::OptBoolObj::{self, Bool, NoValue, Object};
-use crate::config::primitives::one_or_many;
+use crate::config::primitives::{IdFormat, MacroIdFormat, TableIdFormat, one_or_many};
 
 /// Automatic discovery of the tables and table macros of a `DuckDB` database file.
 #[serde_with::skip_serializing_none]
@@ -44,9 +44,9 @@ pub struct DuckDbCfgPublishMacros {
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"{schema}.{macro}")
+        schemars(with = "Option<String>", example = &"{schema}.{macro}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<MacroIdFormat>,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -66,9 +66,9 @@ pub struct DuckDbCfgPublishTables {
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"{schema}.{table}.{column}")
+        schemars(with = "Option<String>", example = &"{schema}.{table}.{column}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<TableIdFormat>,
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for
     /// that table.
@@ -132,8 +132,9 @@ impl DuckDbCfgPublish {
                     schemas: merge_schemas(&publish.from_schemas, &tables.from_schemas),
                     source_id_format: tables
                         .source_id_format
-                        .clone()
-                        .unwrap_or_else(|| DEFAULT_TABLE_ID_FORMAT.to_owned()),
+                        .as_ref()
+                        .map_or(DEFAULT_TABLE_ID_FORMAT, IdFormat::as_str)
+                        .to_owned(),
                     id_columns: (!tables.id_columns.is_empty()).then(|| tables.id_columns.clone()),
                     clip_geom: tables.clip_geom,
                     buffer: tables.buffer,
@@ -159,8 +160,9 @@ impl DuckDbCfgPublish {
                     schemas: merge_schemas(&publish.from_schemas, &macros.from_schemas),
                     source_id_format: macros
                         .source_id_format
-                        .clone()
-                        .unwrap_or_else(|| DEFAULT_MACRO_ID_FORMAT.to_owned()),
+                        .as_ref()
+                        .map_or(DEFAULT_MACRO_ID_FORMAT, IdFormat::as_str)
+                        .to_owned(),
                 }),
             },
         }

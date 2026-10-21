@@ -8,7 +8,7 @@ use tilejson::TileJSON;
 
 #[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
-use super::{FuncInfoSources, FunctionIdFormat, Srid, TableIdFormat, TableInfoSources};
+use super::{FuncInfoSources, Srid, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::args::OrderByType;
 #[cfg(feature = "unstable-generate")]
@@ -19,7 +19,7 @@ use crate::config::file::{
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{OptBoolObj, one_or_many};
+use crate::config::primitives::{FunctionIdFormat, OptBoolObj, TableIdFormat, one_or_many};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
 /// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
