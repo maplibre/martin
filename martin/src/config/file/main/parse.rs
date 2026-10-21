@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::config::file::main::Config;
+use crate::config::file::main::{Config, StreamedConfig};
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::config::primitives::env::Env;
 
@@ -26,7 +26,8 @@ pub fn parse_config(
     }
     .with_properties(properties.clone());
 
-    serde_saphyr::from_str_with_options::<Config>(contents, options)
+    serde_saphyr::from_str_with_options::<StreamedConfig>(contents, options)
+        .map(|StreamedConfig(config)| config)
         .map_err(|e| ConfigFileError::yaml_parse(e, contents.to_owned(), file_name))
 }
 
@@ -36,10 +37,12 @@ mod tests {
     use std::path::Path;
     use std::time::Duration;
 
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
-    use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
+    use crate::config::file::srv::SrvConfig;
+    use crate::config::file::{CachePolicy, Config, GlobalCacheConfig, OnInvalid};
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -93,6 +96,159 @@ mod tests {
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
         ");
+    }
+
+    #[test]
+    fn server_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure("keep_alive: abc\n"), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid u64
+           ╭─[config.yaml:1:13]
+         1 │ keep_alive: abc
+           ·             ─┬─
+           ·              ╰── invalid u64
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[cfg(feature = "metrics")]
+    #[test]
+    fn nested_server_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            observability:
+              metrics:
+                add_labels: 5
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × expected mapping start
+           ╭─[config.yaml:3:17]
+         2 │   metrics:
+         3 │     add_labels: 5
+           ·                 ┬
+           ·                 ╰── expected mapping start
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn cors_origin_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            cors:
+              origin: 5
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × expected sequence start
+           ╭─[config.yaml:2:11]
+         1 │ cors:
+         2 │   origin: 5
+           ·           ┬
+           ·           ╰── expected sequence start
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn server_setting_after_other_keys_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            on_invalid: warn
+            not_a_key: 1
+            keep_alive: 75
+            worker_processes: abc
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid u64
+           ╭─[config.yaml:4:19]
+         3 │ keep_alive: 75
+         4 │ worker_processes: abc
+           ·                   ─┬─
+           ·                    ╰── invalid u64
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn config_setting_after_server_settings_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            keep_alive: 75
+            not_a_key: 1
+            on_invalid: maybe
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+          │ warnings, abort
+           ╭─[config.yaml:3:13]
+         2 │ not_a_key: 1
+         3 │ on_invalid: maybe
+           ·             ──┬──
+           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn duplicate_server_setting_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            keep_alive: 75
+            keep_alive: 80
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × duplicate mapping key: keep_alive, set DuplicateKeyPolicy in Options if
+          │ acceptable
+           ╭─[config.yaml:2:1]
+         1 │ keep_alive: 75
+         2 │ keep_alive: 80
+           · ─────┬────
+           ·      ╰── duplicate mapping key: keep_alive, set DuplicateKeyPolicy in Options if acceptable
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn server_config_and_unknown_keys_in_any_order_are_sorted_out() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        assert_eq!(config.on_invalid, Some(OnInvalid::Warn));
+        assert_eq!(
+            config.srv,
+            SrvConfig {
+                keep_alive: Some(75),
+                worker_processes: Some(4),
+                ..Default::default()
+            }
+        );
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "also_not_a_key",
+            "not_a_key",
+        }
+        "#);
     }
 
     #[test]

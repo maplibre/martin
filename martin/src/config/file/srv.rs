@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use actix_web::http::header::{CacheDirective, HeaderValue, from_comma_delimited};
+use serde::de::MapAccess;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 
 use crate::config::args::PreferredEncoding;
@@ -175,6 +176,35 @@ impl SrvConfig {
     pub fn public_path_prefix(&self) -> Option<&str> {
         self.base_path.as_deref().or(self.route_prefix.as_deref())
     }
+
+    /// Reads the value of `key` from `map` if `key` names a field, and returns whether it did.
+    pub(crate) fn deserialize_field<'de, M: MapAccess<'de>>(
+        &mut self,
+        key: &str,
+        map: &mut M,
+    ) -> Result<bool, M::Error> {
+        match key {
+            "keep_alive" => self.keep_alive = map.next_value()?,
+            "shutdown_timeout" => self.shutdown_timeout = map.next_value()?,
+            "listen_addresses" => self.listen_addresses = map.next_value()?,
+            "route_prefix" => self.route_prefix = map.next_value()?,
+            "base_path" => self.base_path = map.next_value()?,
+            "worker_processes" => self.worker_processes = map.next_value()?,
+            "preferred_encoding" => self.preferred_encoding = map.next_value()?,
+            "cache_control" => self.cache_control = map.next_value()?,
+            #[cfg(all(feature = "webui", not(docsrs)))]
+            "web_ui" => self.web_ui = map.next_value()?,
+            #[cfg(feature = "_tiles")]
+            "endpoints" => self.endpoints = map.next_value()?,
+            "cors" => self.cors = map.next_value()?,
+            #[cfg(feature = "metrics")]
+            "observability" => self.observability = map.next_value()?,
+            #[cfg(feature = "_tiles")]
+            "tilejson_url_version_param" => self.tilejson_url_version_param = map.next_value()?,
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
 }
 
 /// More advanced monitoring options
@@ -230,11 +260,14 @@ pub struct EndpointsConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::path::Path;
+
     use indoc::indoc;
 
     use super::*;
-    use crate::config::file::UnrecognizedValues;
     use crate::config::file::cors::CorsProperties;
+    use crate::config::file::{self, Config, UnrecognizedValues};
     use crate::config::test_helpers::render_failure;
 
     #[test]
@@ -290,6 +323,74 @@ mod tests {
     }
 
     #[test]
+    fn every_server_setting_parses_at_the_top_level() {
+        let config = file::parse_config(
+            indoc! {"
+                keep_alive: 75
+                shutdown_timeout: 10
+                listen_addresses: '0.0.0.0:3000'
+                route_prefix: /tiles
+                base_path: /base
+                worker_processes: 8
+                preferred_encoding: gzip
+                cache_control: public, max-age=3600
+                web_ui: disable
+                endpoints:
+                  purge_cache: true
+                cors:
+                  origin: [https://example.org]
+                  max_age: 3600
+                observability:
+                  metrics:
+                    add_labels:
+                      env: prod
+                tilejson_url_version_param: version
+            "},
+            &HashMap::new(),
+            Path::new("config.yaml"),
+        )
+        .unwrap();
+        assert_eq!(
+            config,
+            Config {
+                srv: SrvConfig {
+                    keep_alive: Some(75),
+                    shutdown_timeout: Some(10),
+                    listen_addresses: Some("0.0.0.0:3000".to_owned()),
+                    route_prefix: Some("/tiles".to_owned()),
+                    base_path: Some("/base".to_owned()),
+                    worker_processes: Some(8),
+                    preferred_encoding: Some(PreferredEncoding::Gzip),
+                    cache_control: Some(CacheControlHeader(HeaderValue::from_static("public, max-age=3600"))),
+                    #[cfg(all(feature = "webui", not(docsrs)))]
+                    web_ui: Some(WebUiMode::Disable),
+                    #[cfg(feature = "_tiles")]
+                    endpoints: Some(EndpointsConfig {
+                        purge_cache: Some(true),
+                        unrecognized: UnrecognizedValues::default(),
+                    }),
+                    cors: Some(CorsConfig::Properties(CorsProperties {
+                        origin: vec!["https://example.org".to_owned()],
+                        max_age: Some(3600),
+                        unrecognized: UnrecognizedValues::default(),
+                    })),
+                    #[cfg(feature = "metrics")]
+                    observability: Some(ObservabilityConfig {
+                        metrics: Some(MetricsConfig {
+                            add_labels: HashMap::from([("env".to_owned(), "prod".to_owned())]),
+                            unrecognized: UnrecognizedValues::default(),
+                        }),
+                        unrecognized: UnrecognizedValues::default(),
+                    }),
+                    #[cfg(feature = "_tiles")]
+                    tilejson_url_version_param: Some("version".to_owned()),
+                },
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
     fn parse_cache_control() {
         let config = serde_saphyr::from_str::<SrvConfig>(indoc! {"
             cache_control: public, max-age=3600, stale-while-revalidate=60
@@ -316,6 +417,11 @@ mod tests {
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
           × invalid Cache-Control header value 'max-age=invalid': no valid directives
+           ╭─[config.yaml:1:16]
+         1 │ cache_control: max-age=invalid
+           ·                ───────┬───────
+           ·                       ╰── invalid Cache-Control header value 'max-age=invalid': no valid directives
+           ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
         ");
@@ -331,6 +437,11 @@ mod tests {
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
           × invalid Cache-Control header value '': no valid directives
+           ╭─[config.yaml:1:16]
+         1 │ cache_control: ''
+           ·                ─┬
+           ·                 ╰── invalid Cache-Control header value '': no valid directives
+           ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
         ");
