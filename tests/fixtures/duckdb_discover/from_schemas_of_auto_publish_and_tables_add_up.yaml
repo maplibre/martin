@@ -1,0 +1,20 @@
+sql: |
+  CREATE SCHEMA a;
+  CREATE SCHEMA b;
+  CREATE SCHEMA c;
+  CREATE TABLE a.roads (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO a.roads VALUES (1, ST_Point(0, 0));
+  CREATE TABLE b.rivers (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO b.rivers VALUES (1, ST_Point(0, 0));
+  CREATE TABLE c.lakes (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO c.lakes VALUES (1, ST_Point(0, 0));
+  CREATE MACRO a.a_tiles(z, x, y) AS TABLE SELECT NULL::BLOB AS mvt;
+  CREATE MACRO b.b_tiles(z, x, y) AS TABLE SELECT NULL::BLOB AS mvt;
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish:
+        from_schemas: a
+        tables:
+          from_schemas: b
+        macros: true

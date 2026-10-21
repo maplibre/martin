@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/table_source_id_format.yaml
+---
+sources:
+  places__points__geom: "DuckDB table places.points (fixture.duckdb) fields [gid]"
+warnings: []

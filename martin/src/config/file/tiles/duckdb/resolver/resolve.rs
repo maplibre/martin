@@ -130,11 +130,14 @@ impl DuckDbConfig {
 mod tests {
     use std::collections::BTreeMap;
 
+    use insta::assert_yaml_snapshot;
+
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
     use crate::config::file::tiles::duckdb::sources::{
         DuckDbDatabaseEntry, DuckDbTableEntry, GeoParquetEntry, MvtLayerOptions,
     };
+    use crate::test_support::duckdb::TestDatabase;
 
     const DATABASE_FIXTURE: &str = "../tests/fixtures/duckdb/database.duckdb";
 
@@ -211,6 +214,74 @@ mod tests {
         };
         assert_eq!(source_id, "missing");
         assert!(error.contains("no_such_table"), "{error}");
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct DiscoverFixture {
+        sql: String,
+        config: String,
+    }
+
+    #[derive(serde::Serialize)]
+    struct Discovered {
+        sources: BTreeMap<String, String>,
+        warnings: Vec<String>,
+    }
+
+    #[test]
+    fn resolve_matches_each_fixture() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("build runtime");
+        insta::glob!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/duckdb_discover"),
+            "*.yaml",
+            |path| {
+                let text = std::fs::read_to_string(path).expect("read fixture");
+                let fixture: DiscoverFixture = serde_saphyr::from_str(&text).expect("parse fixture");
+                let db = TestDatabase::from_sql("fixture.duckdb", &fixture.sql);
+                let mut cfg: DuckDbConfig = serde_saphyr::from_str(&fixture.config).expect("parse config");
+                for source in &mut cfg.sources {
+                    if let DuckDbSourceEntry::Database(entry) = source {
+                        entry.database = db.path().to_owned();
+                    }
+                }
+                let (sources, warnings, _) = runtime.block_on(async {
+                    cfg.finalize().await.expect("finalize");
+                    cfg.resolve(IdResolver::default(), CachePolicy::default())
+                        .await
+                        .expect("resolution succeeds")
+                });
+                let db_path = db.path().to_string_lossy().into_owned();
+                let discovered = Discovered {
+                    sources: sources
+                        .iter()
+                        .map(|source| {
+                            let tilejson = source.get_tilejson();
+                            let description = tilejson.description.clone().unwrap_or_default();
+                            let fields = tilejson
+                                .vector_layers
+                                .iter()
+                                .flatten()
+                                .flat_map(|layer| layer.fields.keys().cloned())
+                                .collect::<Vec<_>>();
+                            let description = format!("{description} fields [{}]", fields.join(", "));
+                            (
+                                source.get_id().to_owned(),
+                                description.replace(&db_path, "fixture.duckdb"),
+                            )
+                        })
+                        .collect(),
+                    warnings: warnings
+                        .iter()
+                        .map(|warning| warning.to_string().replace(&db_path, "fixture.duckdb"))
+                        .collect(),
+                };
+                assert_yaml_snapshot!(discovered);
+            }
+        );
     }
 
     #[tokio::test]

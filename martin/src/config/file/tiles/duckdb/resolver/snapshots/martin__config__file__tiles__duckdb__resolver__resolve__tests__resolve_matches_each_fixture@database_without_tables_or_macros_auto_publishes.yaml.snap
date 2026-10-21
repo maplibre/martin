@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/database_without_tables_or_macros_auto_publishes.yaml
+---
+sources:
+  roads: "DuckDB table main.roads (fixture.duckdb) fields [id]"
+  tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
+warnings: []

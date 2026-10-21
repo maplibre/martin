@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/tables_only_skips_macros.yaml
+---
+sources:
+  roads: "DuckDB table main.roads (fixture.duckdb) fields [id]"
+  roads_view: "DuckDB table main.roads_view (fixture.duckdb) fields [id]"
+warnings: []

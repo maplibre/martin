@@ -108,15 +108,27 @@ pub(crate) mod duckdb {
     impl TestDatabase {
         /// Creates a database file at `filename` inside a temp dir and runs `sql` after
         /// loading the spatial extension.
+        ///
+        /// The file uses storage version v1.5.0, the first that keeps the CRS of a `GEOMETRY` column.
         pub(crate) fn from_sql(filename: &str, sql: &str) -> Self {
             let dir = TempDir::new().expect("temporary DuckDB directory");
             let path = dir.path().join(filename);
-            let conn = Connection::open(&path).expect("writable DuckDB database");
+            let conn = Connection::open_in_memory().expect("in-memory DuckDB connection");
             conn.execute_batch("INSTALL spatial;")
                 .expect("spatial extension installed");
             conn.execute_batch("LOAD spatial;").expect("spatial extension loaded");
+            let attach = format!(
+                "ATTACH '{}' AS fixture (STORAGE_VERSION 'v1.5.0'); USE fixture;",
+                path.to_string_lossy().replace('\'', "''")
+            );
+            conn.execute_batch(&attach).expect("writable DuckDB database");
             conn.execute_batch(sql).expect("fixture SQL executed");
             Self { _dir: dir, path }
+        }
+
+        /// Path of the prepared database file.
+        pub(crate) fn path(&self) -> &std::path::Path {
+            &self.path
         }
 
         /// Opens a read-only pool against the prepared database file.

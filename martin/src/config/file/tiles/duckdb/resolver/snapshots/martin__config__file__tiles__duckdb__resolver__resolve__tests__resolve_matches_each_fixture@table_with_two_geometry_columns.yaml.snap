@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/table_with_two_geometry_columns.yaml
+---
+sources:
+  parcels.centroid: "DuckDB table main.parcels (fixture.duckdb) fields [id]"
+  parcels.outline: "DuckDB table main.parcels (fixture.duckdb) fields [id]"
+warnings: []

@@ -1,0 +1,10 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/configured_table_id_taken_by_auto_published_table.yaml
+---
+sources:
+  rivers: "DuckDB table main.roads (fixture.duckdb) fields [id]"
+  rivers.1: "DuckDB table main.rivers (fixture.duckdb) fields [id]"
+  roads: "DuckDB table main.roads (fixture.duckdb) fields [id]"
+warnings: []
