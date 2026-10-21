@@ -65,14 +65,14 @@ A `FeatureSource` declares how many partitions it has, and streams one partition
 read different partitions at the same time, at most one reader per thread. In return, a source promises
 two things:
 
-- **Stable order**: reading the partitions in order, each in its own row order, is the same as one scan
-  of every feature. That is what makes the output independent of the thread timing, see
-  [the sort key](#sort-key).
+- **Stable order**: every partition is read in the same row order on every run. With the partition
+  numbers, that fixes the order of the features whatever the thread timing, see [the sort key](#sort-key).
+  It need not be the order of one scan, so a source can split its data however it reads fastest.
 - **Consistent data**: every partition is read from the same state of the data, even if it changes during
   the run.
 
 How a source splits its data is up to the source. A file can split by byte range or row group, a
-database by key range.
+database by page range or by id.
 
 === "PostgreSQL"
 
@@ -81,7 +81,7 @@ database by key range.
     | Relation                                  | Partitions                                                                                                                                    |
     |-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
     | Tables and materialized views             | Page ranges (`ctid >= '(start,0)' AND ctid < '(end,0)'`), 16384 pages each. The last range is open, so rows added since are still read        |
-    | Anything else with an integer `id_column` | Id ranges, each read `ORDER BY` the id. The last range also takes `NULL` ids                                                                  |
+    | Anything else with an integer `id_column` | 32 partitions by id remainder (`abs(id % 32) = k`). The first also takes `NULL` ids                                                           |
     | Anything else                             | One scan                                                                                                                                      |
 
     Partitions are numbered table by table in physical order. For consistent data, one connection exports a
@@ -141,6 +141,13 @@ threads and their timing.
 
 A layer's `sort_by` value is not part of the key. It travels in the record, and the encoder orders each
 layer's features by it, keeping the `Seq` order of equal values.
+
+Without `sort_by`, a layer keeps source order, which depends on how the source splits its data. The
+PostgreSQL source splits a view by id remainder, for example, which interleaves its ids:
+
+--8<-- "images/generate/id-split.svg"
+
+Only `sort_by` gives a layer an order that does not depend on the partitions.
 
 ### External sort
 

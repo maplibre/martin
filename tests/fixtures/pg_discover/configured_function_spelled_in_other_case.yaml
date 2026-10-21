@@ -1,0 +1,9 @@
+sql: |
+  CREATE SCHEMA a;
+  CREATE FUNCTION a.tiles(z integer, x integer, y integer) RETURNS bytea AS $$ SELECT NULL::bytea $$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+config: |
+  auto_publish:
+    from_schemas: a
+    functions: true
+  functions:
+    my_tiles: { schema: A, function: Tiles }

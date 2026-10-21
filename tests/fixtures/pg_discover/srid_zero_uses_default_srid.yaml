@@ -1,0 +1,8 @@
+sql: |
+  CREATE SCHEMA a;
+  CREATE TABLE a.roads (gid serial PRIMARY KEY, geom geometry(LineString));
+config: |
+  default_srid: 4326
+  auto_publish:
+    from_schemas: a
+    tables: true

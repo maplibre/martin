@@ -201,8 +201,8 @@ Without `sort_by`, the features of a layer keep the order the source reads them 
 === "PostgreSQL"
 
     - A table is read in its physical order.
-    - A view or foreign table with an integer `id_column` is read by that id, which overrides the view's
-      `ORDER BY`.
+    - A view or foreign table with an integer `id_column` is read in 32 partitions by id remainder
+      (`abs(id % 32)`), which interleaves the ids and overrides the view's `ORDER BY`.
     - Any other view is read in its own order.
 
     The tile server reads each tile's features in the order PostgreSQL finds them, which can

@@ -17,8 +17,8 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, find_schema_info, normalize_key};
 use crate::config::file::postgres::{
-    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PgTileGrid, PostgresCfgPublish, PostgresCfgPublishFuncs,
-    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, IdFormat, PgTileGrid, PostgresCfgPublish,
+    PostgresCfgPublishFuncs, PostgresConfig, PostgresInfo, SourceSpec, Srid, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -97,7 +97,12 @@ async fn resolve_tile_grid(pool: &PostgresPool, grid: &TileGrid) -> ConfigFileRe
         })?;
     let is_epsg = grid.crs_authority().eq_ignore_ascii_case("EPSG");
     let srid = if is_epsg {
-        code
+        Srid::try_from(code)
+            .map_err(|_out_of_range| ConfigFileError::TileGridCrsCodeNotSrid {
+                grid: grid.id().to_owned(),
+                crs: grid.crs().to_owned(),
+            })?
+            .get()
     } else {
         let conn = pool
             .get()
@@ -235,7 +240,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         Ok(Self {
             pool,
-            default_srid: config.default_srid,
+            default_srid: config.default_srid.map(Srid::get),
             default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
@@ -781,7 +786,11 @@ fn calc_auto(
         if let Object(PostgresCfgPublish { tables: Object(v), .. }) = &config.auto_publish {
             PostgresAutoDiscoveryBuilderTables {
                 schemas,
-                source_id_format: v.source_id_format.as_deref().unwrap_or("{table}").to_owned(),
+                source_id_format: v
+                    .source_id_format
+                    .as_ref()
+                    .map_or("{table}", IdFormat::as_str)
+                    .to_owned(),
                 id_columns: (!v.id_columns.is_empty()).then(|| v.id_columns.clone()),
                 clip_geom: v.clip_geom,
                 buffer: v.buffer,
@@ -807,7 +816,7 @@ fn calc_auto(
             ..
         }) = &config.auto_publish
         {
-            v.clone()
+            v.to_string()
         } else {
             "{function}".to_owned()
         },
@@ -1067,6 +1076,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn configured_table_without_geometry_type_takes_the_column_type() {
+        let (builder, _container, connstr) = builder_for(indoc! {r"
+            tables:
+              my_roads:
+                schema: public
+                table: roads
+                geometry_column: geom
+                srid: 4326
+        "})
+        .await;
+        seed(
+            &connstr,
+            "CREATE TABLE public.roads (gid serial PRIMARY KEY, geom geometry(LineString, 4326));",
+        )
+        .await;
+
+        let (specs, warnings) = builder.discover().await.expect("discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        let SourceSpec::Table(info) = specs.get("my_roads").expect("spec for my_roads") else {
+            panic!("expected a Table spec");
+        };
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        table: roads
+        srid: 4326
+        geometry_column: geom
+        geometry_type: LINESTRING
+        ");
+    }
+
+    #[tokio::test]
     async fn discover_auto_publishes_from_catalog_and_is_rerunnable() {
         let (builder, _container, connstr) = builder_for("{}").await;
         seed(
@@ -1281,5 +1321,53 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct DiscoverFixture {
+        sql: String,
+        config: String,
+    }
+
+    #[derive(serde::Serialize)]
+    struct Discovered {
+        sources: BTreeMap<String, String>,
+        warnings: Vec<String>,
+    }
+
+    #[test]
+    fn discover_matches_each_fixture() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build runtime");
+        insta::glob!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/pg_discover"),
+            "*.yaml",
+            |path| {
+                let text = std::fs::read_to_string(path).expect("read fixture");
+                let fixture: DiscoverFixture = serde_saphyr::from_str(&text).expect("parse fixture");
+                let (specs, warnings) = runtime.block_on(async {
+                    let (builder, _container, connstr) = builder_for(&fixture.config).await;
+                    seed(&connstr, &fixture.sql).await;
+                    builder.discover().await.expect("discover failed")
+                });
+                let discovered = Discovered {
+                    sources: specs
+                        .into_iter()
+                        .map(|(id, spec)| {
+                            let source = match spec {
+                                SourceSpec::Table(info) => format!("table {} SRID {}", info.format_id(), info.srid),
+                                SourceSpec::Function(info, _) => format!("function {}", info.format_id()),
+                            };
+                            (id, source)
+                        })
+                        .collect(),
+                    warnings: warnings.iter().map(ToString::to_string).collect(),
+                };
+                assert_yaml_snapshot!(discovered);
+            }
+        );
     }
 }

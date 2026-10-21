@@ -18,14 +18,20 @@ use mbtiles::Mbtiles;
 use mlt_core::{Decoder, Parser};
 use tilejson::Bounds;
 
+pub mod utils;
+
 /// `(zoom_level, tile_column, tile_row, tile_data)`
 type Row = (i64, i64, i64, Vec<u8>);
 
 const TABLES: [&str; 5] = ["points1", "points3857", "linestring_bounds", "points1_vw", "MixPoints"];
 
 async fn discover() -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
+    discover_at(&std::env::var("DATABASE_URL").expect("DATABASE_URL")).await
+}
+
+async fn discover_at(connection_string: &str) -> (PostgresAutoDiscoveryBuilder, BTreeMap<String, SourceSpec>) {
     let mut config = PostgresConfig {
-        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        connection_string: Some(connection_string.to_owned()),
         ..PostgresConfig::default()
     };
     config.finalize().await.unwrap();
@@ -145,6 +151,141 @@ async fn block_range_partitions_do_not_change_the_output() {
     assert_eq!((partitions, split_partitions), (5, 7));
     assert_eq!(split_features, features);
     assert!(split_rows == rows, "block range partitions must not change the output");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_view_split_by_its_integer_id_renders_like_its_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let mut table = table_info(&specs, "points1");
+    table.id_column = Some("gid".to_owned());
+    table.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            points:
+              maxzoom: 2
+              sort_by: [gid]
+        "})
+        .unwrap(),
+    ));
+    let mut view = table_info(&specs, "points1_vw");
+    view.id_column = Some("gid".to_owned());
+    view.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            points:
+              maxzoom: 2
+              sort_by: [gid]
+        "})
+        .unwrap(),
+    ));
+    let (table_partitions, table_features, table_rows) = run(
+        &builder,
+        vec![lower("points", table)],
+        dir.path(),
+        1,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    let (view_partitions, view_features, view_rows) = run(
+        &builder,
+        vec![lower("points", view)],
+        dir.path(),
+        4,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    assert_eq!((table_partitions, view_partitions), (1, PgScanSource::KEY_PARTITIONS));
+    assert_eq!(view_features, table_features);
+    assert!(view_rows == table_rows, "key partitions must not change the output");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_view_split_by_its_integer_id_keeps_negative_and_null_ids() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_container, connstr) = utils::start_postgis().await;
+    utils::seed(
+        &connstr,
+        indoc! {"
+            CREATE TABLE signed_points (gid int, geom geometry(Point, 4326));
+            INSERT INTO signed_points
+            SELECT nullif(i, 15), ST_SetSRID(ST_MakePoint(i, i), 4326)
+            FROM generate_series(-14, 15) AS i;
+            CREATE VIEW signed_points_vw AS SELECT gid, geom FROM signed_points;
+        "},
+    )
+    .await;
+    let (builder, specs) = discover_at(&connstr).await;
+    let mut info = table_info(&specs, "signed_points_vw");
+    info.id_column = Some("gid".to_owned());
+    info.layers = Some(Box::new(
+        serde_saphyr::from_str(indoc! {"
+            signed:
+              maxzoom: 0
+              id: false
+              sort_by: [gid]
+        "})
+        .unwrap(),
+    ));
+    let (partitions, _, rows) = run(
+        &builder,
+        vec![lower("signed", info)],
+        dir.path(),
+        4,
+        PgScanSource::PARTITION_BLOCKS,
+    )
+    .await;
+    assert_eq!(partitions, PgScanSource::KEY_PARTITIONS);
+    let [row] = rows.as_slice() else {
+        panic!("expected one tile, got {}", rows.len());
+    };
+    let raw = decode_gzip(&row.3).unwrap();
+    let mut decoder = Decoder::default();
+    let layers: Vec<_> = Parser::default()
+        .parse_layers(&raw)
+        .unwrap()
+        .into_iter()
+        .map(|layer| {
+            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+            let features: Vec<_> = layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?}", f.properties()))
+                .collect();
+            format!("{}\n{}", layer.name(), features.join("\n"))
+        })
+        .collect();
+    insta::assert_snapshot!(layers.join("\n"), @"
+    signed
+    [I32(None)]
+    [I32(Some(-14))]
+    [I32(Some(-13))]
+    [I32(Some(-12))]
+    [I32(Some(-11))]
+    [I32(Some(-10))]
+    [I32(Some(-9))]
+    [I32(Some(-8))]
+    [I32(Some(-7))]
+    [I32(Some(-6))]
+    [I32(Some(-5))]
+    [I32(Some(-4))]
+    [I32(Some(-3))]
+    [I32(Some(-2))]
+    [I32(Some(-1))]
+    [I32(Some(0))]
+    [I32(Some(1))]
+    [I32(Some(2))]
+    [I32(Some(3))]
+    [I32(Some(4))]
+    [I32(Some(5))]
+    [I32(Some(6))]
+    [I32(Some(7))]
+    [I32(Some(8))]
+    [I32(Some(9))]
+    [I32(Some(10))]
+    [I32(Some(11))]
+    [I32(Some(12))]
+    [I32(Some(13))]
+    [I32(Some(14))]
+    ");
 }
 
 #[tokio::test(flavor = "multi_thread")]
