@@ -30,6 +30,13 @@ pub struct ScanLayout {
     pub properties: usize,
 }
 
+impl ScanLayout {
+    /// The index of the first property column, after the geometry and the optional id.
+    fn first_property(&self) -> usize {
+        1 + usize::from(self.has_id)
+    }
+}
+
 impl From<PostgresError> for SourceError {
     fn from(err: PostgresError) -> Self {
         Self::Other(Box::new(err))
@@ -162,14 +169,10 @@ fn new_batch(layout: &ScanLayout, partition: u32, first_row: u64) -> FeatureBatc
 
 /// The types of the row's property columns, the same for every row of a scan.
 fn property_types(row: &Row, layout: &ScanLayout) -> SourceResult<Vec<PropType>> {
-    let first = first_property(layout);
+    let first = layout.first_property();
     Ok((first..first + layout.properties)
         .map(|idx| prop_type(row, idx))
         .collect::<Result<_, _>>()?)
-}
-
-fn first_property(layout: &ScanLayout) -> usize {
-    if layout.has_id { 2 } else { 1 }
 }
 
 fn feature(
@@ -186,7 +189,7 @@ fn feature(
 
     let id = if layout.has_id { feature_id(row)? } else { None };
     let mut props = Vec::with_capacity(layout.properties);
-    for ((pos, idx), &prop_type) in (0u32..).zip(first_property(layout)..).zip(types) {
+    for ((pos, idx), &prop_type) in (0u32..).zip(layout.first_property()..).zip(types) {
         if prop_type == PropType::Text {
             let text: Option<&str> = row
                 .try_get(idx)
