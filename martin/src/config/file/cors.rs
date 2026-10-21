@@ -216,8 +216,7 @@ mod tests {
           │ `cors: false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]
          1 │ cors: 42
-           · ──┬─
-           ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           · ────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -233,8 +232,7 @@ mod tests {
           │ true` / `cors: false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]
          1 │ cors: "yes please"
-           · ──┬─
-           ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           · ────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -250,8 +248,7 @@ mod tests {
           │ false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]
          1 │ cors: [https://example.org]
-           · ──┬─
-           ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           · ────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

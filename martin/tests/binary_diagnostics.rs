@@ -46,7 +46,7 @@ fn run_with_bad_config(yaml: &str, extra_env: &[(&str, &str)]) -> String {
 #[test]
 fn json_format_emits_structured_diagnostic_on_stderr() {
     let stderr = run_with_bad_config("cors: 42\n", &[("RUST_LOG_FORMAT", "json")]);
-    insta::assert_snapshot!(stderr.trim(), @r#"{"message": "invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list","code": "martin::config::yaml","severity": "error","causes": [],"url": "https://maplibre.org/martin/config-file/","help": "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape.","filename": "<config>","labels": [{"label": "invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list","span": {"offset": 0,"length": 4}}],"related": []}"#);
+    insta::assert_snapshot!(stderr.trim(), @r#"{"message": "invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list","code": "martin::config::yaml","severity": "error","causes": [],"url": "https://maplibre.org/martin/config-file/","help": "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape.","filename": "<config>","labels": [{"span": {"offset": 0,"length": 4}}],"related": []}"#);
 }
 
 #[test]
@@ -61,8 +61,7 @@ fn graphical_format_emits_human_diagnostic_on_stderr() {
       │ `cors: false`) or a properties map with at least an `origin` list
        ╭─[<config>:1:1]
      1 │ cors: 42
-       · ──┬─
-       ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+       · ────
        ╰────
       help: Check the highlighted token in your YAML. The error usually indicates
             a mismatched type or an unexpected shape.

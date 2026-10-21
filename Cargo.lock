@@ -5793,6 +5793,7 @@ dependencies = [
 name = "martin-config-macros"
 version = "0.1.3"
 dependencies = [
+ "insta",
  "proc-macro2",
  "quote",
  "rstest",

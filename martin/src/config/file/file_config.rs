@@ -1362,8 +1362,7 @@ mod deserialize_tests {
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
          1 │ pmtiles: 42
-           · ───┬───
-           ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           · ───────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1380,8 +1379,7 @@ mod deserialize_tests {
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
          1 │ pmtiles: true
-           · ───┬───
-           ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           · ───────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1404,8 +1402,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:7]
          2 │   paths:
          3 │     - { not_a_path: true }
-           ·       ┬
-           ·       ╰── expected string scalar
+           ·       ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1463,8 +1460,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: 5
-           ·     ─┬─
-           ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1489,8 +1485,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: true
-           ·     ─┬─
-           ·      ╰── invalid type: boolean `true`, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1515,8 +1510,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: [a, b]
-           ·     ─┬─
-           ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1548,8 +1542,7 @@ mod deserialize_tests {
           │ `disable`
            ╭─[config.yaml:1:8]
          1 │ cache: enable
-           ·        ───┬──
-           ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
+           ·        ──────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1565,8 +1558,7 @@ mod deserialize_tests {
           │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
            ╭─[config.yaml:1:1]
          1 │ cache: 42
-           · ──┬──
-           ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           · ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1605,8 +1597,7 @@ mod deserialize_tests {
            ╭─[config.yaml:2:3]
          1 │ sprites:
          2 │   cache: yes
-           ·   ──┬──
-           ·     ╰── invalid type: boolean `true`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ·   ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1630,8 +1621,7 @@ mod deserialize_tests {
            ╭─[config.yaml:2:3]
          1 │ sprites:
          2 │   cache: 42
-           ·   ──┬──
-           ·     ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ·   ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
