@@ -624,6 +624,72 @@ async fn a_bbox_over_a_projected_table_keeps_every_feature_of_its_tiles() {
     ");
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bbox_over_a_web_mercator_table_keeps_every_feature_of_its_tile_at_the_last_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let options = LowerOptions {
+        zooms: 1..=1,
+        bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
+    };
+    let table = lower_table("points3857", table_info(&specs, "points3857"), &options)
+        .unwrap()
+        .unwrap();
+    let (_, _, rows) = run(&builder, vec![table], dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
+    let mut decoder = Decoder::default();
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|(z, x, y, data)| {
+            let raw = decode_gzip(data).unwrap();
+            let layers: Vec<_> = Parser::default()
+                .parse_layers(&raw)
+                .unwrap()
+                .into_iter()
+                .map(|layer| {
+                    let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+                    format!("{} {}", layer.name(), layer.features().len())
+                })
+                .collect();
+            format!("{z}/{x}/{y} {}", layers.join(", "))
+        })
+        .collect();
+    insta::assert_snapshot!(tiles.join("\n"), @"1/1/1 points3857 12");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bbox_over_a_web_mercator_table_keeps_the_features_near_the_antimeridian_at_zoom_0() {
+    let dir = tempfile::tempdir().unwrap();
+    let (builder, specs) = discover().await;
+    let options = LowerOptions {
+        zooms: 0..=0,
+        bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
+    };
+    let info = TableInfo {
+        buffer: Some(512),
+        ..table_info(&specs, "points3857")
+    };
+    let table = lower_table("points3857", info, &options).unwrap().unwrap();
+    let (_, _, rows) = run(&builder, vec![table], dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
+    let mut decoder = Decoder::default();
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|(z, x, y, data)| {
+            let raw = decode_gzip(data).unwrap();
+            let layers: Vec<_> = Parser::default()
+                .parse_layers(&raw)
+                .unwrap()
+                .into_iter()
+                .map(|layer| {
+                    let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+                    format!("{} {}", layer.name(), layer.features().len())
+                })
+                .collect();
+            format!("{z}/{x}/{y} {}", layers.join(", "))
+        })
+        .collect();
+    insta::assert_snapshot!(tiles.join("\n"), @"0/0/0 points3857 30");
+}
+
 #[tokio::test]
 async fn the_scan_transaction_turns_off_the_session_timeouts() {
     let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");

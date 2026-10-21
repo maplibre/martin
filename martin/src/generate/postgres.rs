@@ -231,16 +231,17 @@ fn scan_bbox(layers: &[LayerDef]) -> Option<Bounds> {
         .flatten()
 }
 
-/// The tiles of `zoom` that `bbox` touches, grown by their buffer.
+/// The tiles of `zoom` that `bbox` touches, grown by their buffer up to the edge of the world.
 /// They hold the tiles of every higher zoom that `bbox` touches, so none of those is cut short.
+/// `PostGIS` wraps a longitude past 180 when it projects the box to Web Mercator, so it stays inside.
 fn covered_tiles(bbox: Bounds, grid: LayerGrid, zoom: u8) -> Bounds {
     let (min_x, min_y, max_x, max_y) = bbox_to_xyz(bbox.left, bbox.bottom, bbox.right, bbox.top, zoom);
     let [left, bottom, right, top] = xyz_to_bbox(zoom, min_x, min_y, max_x, max_y);
     let margin = 360.0 / f64::from(1u32 << zoom) * f64::from(grid.buffer) / f64::from(grid.extent);
     Bounds::new(
-        left - margin,
+        (left - margin).max(-180.0),
         (bottom - margin).max(-90.0),
-        right + margin,
+        (right + margin).min(180.0),
         (top + margin).min(90.0),
     )
 }
