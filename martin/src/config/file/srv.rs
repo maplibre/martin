@@ -304,7 +304,7 @@ mod tests {
         use std::collections::HashMap;
         use std::path::Path;
 
-        use crate::config::file::{self, Config};
+        use crate::config::file;
 
         let config = file::parse_config(
             indoc! {"
@@ -333,37 +333,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            config,
-            Config {
-                srv: SrvConfig {
-                    keep_alive: Some(75),
-                    shutdown_timeout: Some(10),
-                    listen_addresses: Some("0.0.0.0:3000".to_owned()),
-                    route_prefix: Some("/tiles".to_owned()),
-                    base_path: Some("/base".to_owned()),
-                    worker_processes: Some(8),
-                    preferred_encoding: Some(PreferredEncoding::Gzip),
-                    cache_control: Some(CacheControlHeader(HeaderValue::from_static("public, max-age=3600"))),
-                    web_ui: Some(WebUiMode::Disable),
-                    endpoints: Some(EndpointsConfig {
-                        purge_cache: Some(true),
+            config.srv,
+            SrvConfig {
+                keep_alive: Some(75),
+                shutdown_timeout: Some(10),
+                listen_addresses: Some("0.0.0.0:3000".to_owned()),
+                route_prefix: Some("/tiles".to_owned()),
+                base_path: Some("/base".to_owned()),
+                worker_processes: Some(8),
+                preferred_encoding: Some(PreferredEncoding::Gzip),
+                cache_control: Some(CacheControlHeader(HeaderValue::from_static("public, max-age=3600"))),
+                web_ui: Some(WebUiMode::Disable),
+                endpoints: Some(EndpointsConfig {
+                    purge_cache: Some(true),
+                    unrecognized: UnrecognizedValues::default(),
+                }),
+                cors: Some(CorsConfig::Properties(CorsProperties {
+                    origin: vec!["https://example.org".to_owned()],
+                    max_age: Some(3600),
+                    unrecognized: UnrecognizedValues::default(),
+                })),
+                observability: Some(ObservabilityConfig {
+                    metrics: Some(MetricsConfig {
+                        add_labels: HashMap::from([("env".to_owned(), "prod".to_owned())]),
                         unrecognized: UnrecognizedValues::default(),
                     }),
-                    cors: Some(CorsConfig::Properties(CorsProperties {
-                        origin: vec!["https://example.org".to_owned()],
-                        max_age: Some(3600),
-                        unrecognized: UnrecognizedValues::default(),
-                    })),
-                    observability: Some(ObservabilityConfig {
-                        metrics: Some(MetricsConfig {
-                            add_labels: HashMap::from([("env".to_owned(), "prod".to_owned())]),
-                            unrecognized: UnrecognizedValues::default(),
-                        }),
-                        unrecognized: UnrecognizedValues::default(),
-                    }),
-                    tilejson_url_version_param: Some("version".to_owned()),
-                },
-                ..Default::default()
+                    unrecognized: UnrecognizedValues::default(),
+                }),
+                tilejson_url_version_param: Some("version".to_owned()),
             }
         );
     }

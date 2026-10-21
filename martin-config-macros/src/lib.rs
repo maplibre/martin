@@ -71,10 +71,6 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
 }
 
 /// Derives `DeserializeFields`, which reads one field's value from a map that also holds other keys.
-///
-/// Each field becomes one key, named by `#[serde(rename)]` if set, and keeps its `#[cfg]`.
-/// Every field must be an `Option`, so a missing key means `None` exactly like the serde derive.
-/// Serde options that change how a field deserializes are rejected.
 #[proc_macro_derive(DeserializeFields)]
 pub fn derive_deserialize_fields(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -86,6 +82,7 @@ pub fn derive_deserialize_fields(input: TokenStream) -> TokenStream {
 /// Serde field options that only affect serialization.
 const SERIALIZE_ONLY_OPTIONS: &[&str] = &["skip_serializing", "skip_serializing_if", "serialize_with"];
 
+/// Builds the `DeserializeFields` impl, one match arm per field key.
 fn expand_deserialize_fields(input: &DeriveInput) -> syn::Result<TokenStream2> {
     if let Some(attr) = container_rename_all(&input.attrs) {
         return Err(syn::Error::new_spanned(
@@ -388,53 +385,125 @@ mod tests {
         expand(&input).expect("input is accepted");
     }
 
-    #[rstest]
-    #[case::rename_all(
-        r#"#[serde(rename_all = "kebab-case")] struct S { a: Option<bool> }"#,
-        "does not support `#[serde(rename_all)]`"
-    )]
-    #[case::enum_("enum E { A }", "can only be derived for structs")]
-    #[case::tuple_struct("struct S(Option<bool>);", "structs with named fields")]
-    #[case::non_option_field("struct S { a: bool }", "every field to be an `Option`")]
-    #[case::alias(
-        r#"struct S { #[serde(alias = "b")] a: Option<bool> }"#,
-        "does not support this serde option"
-    )]
-    #[case::deserialize_with(
-        r#"struct S { #[serde(deserialize_with = "f")] a: Option<bool> }"#,
-        "does not support this serde option"
-    )]
-    #[case::with(
-        r#"struct S { #[serde(with = "m")] a: Option<bool> }"#,
-        "does not support this serde option"
-    )]
-    #[case::flatten(
-        "struct S { #[serde(flatten)] a: Option<bool> }",
-        "does not support this serde option"
-    )]
-    #[case::skip("struct S { #[serde(skip)] a: Option<bool> }", "does not support this serde option")]
-    #[case::rename_per_direction(
-        r#"struct S { #[serde(rename(deserialize = "b"))] a: Option<bool> }"#,
-        "does not support this serde option"
-    )]
-    fn expand_deserialize_fields_rejects(#[case] src: &str, #[case] expected: &str) {
+    fn deserialize_fields_error(src: &str) -> String {
         let input: DeriveInput = syn::parse_str(src).expect("input parses");
-        let err = expand_deserialize_fields(&input)
+        expand_deserialize_fields(&input)
             .expect_err("input is rejected")
-            .to_string();
-        assert!(err.contains(expected), "unexpected error: {err}");
+            .to_string()
     }
 
-    #[rstest]
-    #[case::empty_struct("struct S {}")]
-    #[case::rename(r#"struct S { #[serde(rename = "b")] a: Option<bool> }"#)]
-    #[case::serialize_only_options(
-        r#"struct S { #[serde(skip_serializing_if = "Option::is_none", serialize_with = "f")] a: Option<bool> }"#
-    )]
-    #[case::qualified_option("struct S { a: std::option::Option<bool> }")]
-    #[case::cfg_field(r#"struct S { #[cfg(feature = "x")] a: Option<bool> }"#)]
-    fn expand_deserialize_fields_accepts(#[case] src: &str) {
-        let input: DeriveInput = syn::parse_str(src).expect("input parses");
+    #[test]
+    fn deserialize_fields_rejects_rename_all() {
+        insta::assert_snapshot!(
+            deserialize_fields_error(r#"#[serde(rename_all = "kebab-case")] struct S { a: Option<bool> }"#),
+            @"DeserializeFields does not support `#[serde(rename_all)]`; rename individual fields instead"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_an_enum() {
+        insta::assert_snapshot!(
+            deserialize_fields_error("enum E { A }"),
+            @"DeserializeFields can only be derived for structs"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_a_tuple_struct() {
+        insta::assert_snapshot!(
+            deserialize_fields_error("struct S(Option<bool>);"),
+            @"DeserializeFields can only be derived for structs with named fields"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_a_non_option_field() {
+        insta::assert_snapshot!(
+            deserialize_fields_error("struct S { a: bool }"),
+            @"DeserializeFields requires every field to be an `Option`"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_alias() {
+        insta::assert_snapshot!(
+            deserialize_fields_error(r#"struct S { #[serde(alias = "b")] a: Option<bool> }"#),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_deserialize_with() {
+        insta::assert_snapshot!(
+            deserialize_fields_error(r#"struct S { #[serde(deserialize_with = "f")] a: Option<bool> }"#),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_with() {
+        insta::assert_snapshot!(
+            deserialize_fields_error(r#"struct S { #[serde(with = "m")] a: Option<bool> }"#),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_flatten() {
+        insta::assert_snapshot!(
+            deserialize_fields_error("struct S { #[serde(flatten)] a: Option<bool> }"),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_skip() {
+        insta::assert_snapshot!(
+            deserialize_fields_error("struct S { #[serde(skip)] a: Option<bool> }"),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_rejects_a_per_direction_rename() {
+        insta::assert_snapshot!(
+            deserialize_fields_error(r#"struct S { #[serde(rename(deserialize = "b"))] a: Option<bool> }"#),
+            @"DeserializeFields does not support this serde option"
+        );
+    }
+
+    #[test]
+    fn deserialize_fields_accepts_an_empty_struct() {
+        let input: DeriveInput = syn::parse_str("struct S {}").expect("input parses");
+        expand_deserialize_fields(&input).expect("input is accepted");
+    }
+
+    #[test]
+    fn deserialize_fields_accepts_rename() {
+        let input: DeriveInput =
+            syn::parse_str(r#"struct S { #[serde(rename = "b")] a: Option<bool> }"#).expect("input parses");
+        expand_deserialize_fields(&input).expect("input is accepted");
+    }
+
+    #[test]
+    fn deserialize_fields_accepts_serialize_only_options() {
+        let input: DeriveInput = syn::parse_str(
+            r#"struct S { #[serde(skip_serializing_if = "Option::is_none", serialize_with = "f")] a: Option<bool> }"#,
+        )
+        .expect("input parses");
+        expand_deserialize_fields(&input).expect("input is accepted");
+    }
+
+    #[test]
+    fn deserialize_fields_accepts_a_qualified_option() {
+        let input: DeriveInput = syn::parse_str("struct S { a: std::option::Option<bool> }").expect("input parses");
+        expand_deserialize_fields(&input).expect("input is accepted");
+    }
+
+    #[test]
+    fn deserialize_fields_accepts_a_cfg_field() {
+        let input: DeriveInput =
+            syn::parse_str(r#"struct S { #[cfg(feature = "x")] a: Option<bool> }"#).expect("input parses");
         expand_deserialize_fields(&input).expect("input is accepted");
     }
 

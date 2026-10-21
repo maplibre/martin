@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::config::file::main::{Config, StreamedConfig};
+use serde::Deserializer as _;
+
+use crate::config::file::main::{Config, ConfigVisitor};
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::config::primitives::env::Env;
 
@@ -26,8 +28,7 @@ pub fn parse_config(
     }
     .with_properties(properties.clone());
 
-    serde_saphyr::from_str_with_options::<StreamedConfig>(contents, options)
-        .map(|StreamedConfig(config)| config)
+    serde_saphyr::with_deserializer_from_str_with_options(contents, options, |de| de.deserialize_map(ConfigVisitor))
         .map_err(|e| ConfigFileError::yaml_parse(e, contents.to_owned(), file_name))
 }
 
@@ -214,7 +215,38 @@ mod tests {
     }
 
     #[test]
-    fn server_config_and_unknown_keys_in_any_order_are_sorted_out() {
+    fn server_keys_between_other_keys_are_read_into_srv() {
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        assert_eq!(
+            config.srv,
+            SrvConfig {
+                keep_alive: Some(75),
+                worker_processes: Some(4),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn config_key_between_server_keys_is_read() {
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        assert_eq!(config.on_invalid, Some(OnInvalid::Warn));
+    }
+
+    #[test]
+    fn unknown_keys_between_server_keys_are_collected() {
         use crate::config::file::CollectUnrecognizedKeys as _;
 
         let config = parse_yaml(indoc! {"
@@ -224,15 +256,6 @@ mod tests {
             keep_alive: 75
             also_not_a_key: 2
         "});
-        assert_eq!(config.on_invalid, Some(OnInvalid::Warn));
-        assert_eq!(
-            config.srv,
-            SrvConfig {
-                keep_alive: Some(75),
-                worker_processes: Some(4),
-                ..Default::default()
-            }
-        );
         let unrecognized = config.get_unrecognized_keys();
         let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
         insta::assert_debug_snapshot!(unrecognized, @r#"

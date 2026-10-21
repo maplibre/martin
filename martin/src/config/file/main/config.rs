@@ -9,7 +9,7 @@ use clap::ValueEnum;
 use martin_core::tiles::BoxedSource;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
 #[cfg(feature = "_tiles")]
@@ -290,29 +290,21 @@ pub struct Config {
     pub unrecognized: UnrecognizedValues,
 }
 
-/// A [`Config`] whose server keys are read straight into `srv`, so their errors keep their YAML location.
-pub(crate) struct StreamedConfig(pub Config);
-
-impl<'de> Deserialize<'de> for StreamedConfig {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_map(ConfigVisitor)
-    }
-}
-
-struct ConfigVisitor;
+/// Reads a [`Config`] with the server keys read straight into `srv`, so their errors keep their YAML location.
+pub(crate) struct ConfigVisitor;
 
 impl<'de> Visitor<'de> for ConfigVisitor {
-    type Value = StreamedConfig;
+    type Value = Config;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("struct Config")
     }
 
-    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<StreamedConfig, M::Error> {
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Config, M::Error> {
         let mut srv = SrvConfig::default();
         let mut config = Config::deserialize(MapAccessDeserializer::new(WithoutSrvKeys { map, srv: &mut srv }))?;
         config.srv = srv;
-        Ok(StreamedConfig(config))
+        Ok(config)
     }
 }
 
