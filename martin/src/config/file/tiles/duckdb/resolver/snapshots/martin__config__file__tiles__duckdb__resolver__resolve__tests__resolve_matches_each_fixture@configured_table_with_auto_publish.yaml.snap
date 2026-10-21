@@ -5,5 +5,4 @@ input_file: tests/fixtures/duckdb_discover/configured_table_with_auto_publish.ya
 ---
 sources:
   my_points: "DuckDB table places.points (fixture.duckdb) fields [gid]"
-  points: "DuckDB table places.points (fixture.duckdb) fields [gid]"
 warnings: []

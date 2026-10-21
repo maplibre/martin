@@ -1,0 +1,12 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    tables:
+      id_columns: [uuid, gid]
+catalog:
+  columns:
+    - { schema: main, table: text_ids, column: uuid, data_type: VARCHAR }
+    - { schema: main, table: text_ids, column: gid, data_type: BIGINT }
+    - { schema: main, table: text_ids, column: geom, data_type: GEOMETRY }
+    - { schema: main, table: no_ids, column: name, data_type: VARCHAR }
+    - { schema: main, table: no_ids, column: geom, data_type: GEOMETRY }

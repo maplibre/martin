@@ -1,0 +1,8 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    tables:
+      source_id_format: "{schema}__{table}__{column}"
+catalog:
+  columns:
+    - { schema: places, table: points, column: geom, data_type: GEOMETRY }
