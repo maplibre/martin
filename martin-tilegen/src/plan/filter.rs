@@ -57,12 +57,18 @@ pub enum TranslateError {
     Expression(&'static str),
     #[error("uses `{0}`, which has no SQL equivalent")]
     Function(String),
+    #[error("calls `{0}` on something other than a string column")]
+    NotAStringColumn(String),
+    #[error("calls `{0}` without a literal")]
+    NotALiteral(String),
     #[error("compares `{0}`, whose type the source cannot compare")]
     UnknownColumnType(String),
     #[error("compares two constants")]
     Constants,
     #[error("compares two float columns, which may hold NaN")]
     FloatColumns,
+    #[error("compares a function of a column to a column")]
+    FunctionToColumn,
     #[error("orders something other than a column against a literal")]
     Order,
     #[error("looks up a constant in a list")]
@@ -111,6 +117,12 @@ pub enum Condition {
         kind: ValueKind,
         polarity: Polarity,
     },
+    /// A string matching the pattern, or not matching it once negated.
+    Like {
+        term: Term,
+        pattern: Pattern,
+        polarity: Polarity,
+    },
     /// The geometry is of this type, single or multi.
     Geometry(GeometryType),
 }
@@ -152,7 +164,7 @@ impl Polarity {
         }
     }
 
-    /// `NOT ` once negated, as SQL writes it before `DISTINCT`, `NULL` or `IN`.
+    /// `NOT ` once negated, as SQL writes it before `DISTINCT`, `NULL`, `IN` or `LIKE`.
     #[must_use]
     pub fn sql(self) -> &'static str {
         match self {
@@ -222,6 +234,12 @@ pub enum Term {
     /// A column, by its [`ColumnDef`](super::ColumnDef) name.
     Column(String),
     Literal(Literal),
+    /// The number of characters of a string.
+    Length(Box<Self>),
+    /// A string with its ASCII letters lowercased.
+    LowerAscii(Box<Self>),
+    /// A string with its ASCII letters uppercased.
+    UpperAscii(Box<Self>),
 }
 
 /// A constant value.
@@ -232,6 +250,14 @@ pub enum Literal {
     UInt(u64),
     Float(f64),
     String(String),
+}
+
+/// A string pattern, matched character by character.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Pattern {
+    Prefix(String),
+    Suffix(String),
+    Contains(String),
 }
 
 impl Condition {

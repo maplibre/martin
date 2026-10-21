@@ -1408,6 +1408,76 @@ fn a_column_of_unknown_type_is_not_compared() {
 }
 
 #[test]
+fn lower_ascii_as_a_global_function_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            filter: Some("lowerAscii(name) == 'a'".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `named`: `lowerAscii(name) == 'a'` uses `lowerAscii`, which has no SQL equivalent");
+}
+
+#[test]
+fn starts_with_a_column_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), Some(ValueKind::String)),
+            ColumnDef::Value("other".to_owned(), Some(ValueKind::String)),
+        ],
+        layers: vec![LayerDef {
+            filter: Some("name.startsWith(other)".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `named`: `name.startsWith(other)` calls `startsWith` without a literal");
+}
+
+#[test]
+fn size_of_an_int_column_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), Some(ValueKind::Int))],
+        layers: vec![LayerDef {
+            filter: Some("size(rank) == 1".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `named`: `size(rank) == 1` calls `size` on something other than a string column");
+}
+
+#[test]
+fn a_string_function_compared_with_a_column_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), Some(ValueKind::String)),
+            ColumnDef::Value("other".to_owned(), Some(ValueKind::String)),
+        ],
+        layers: vec![LayerDef {
+            filter: Some("name.lowerAscii() == other".to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    insta::assert_snapshot!(err, @"layer `named`: `name.lowerAscii() == other` compares a function of a column to a column");
+}
+
+#[test]
 fn a_where_is_not_translated_while_a_keys_column_is_scanned() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![

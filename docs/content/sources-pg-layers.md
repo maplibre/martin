@@ -130,7 +130,9 @@ layer takes are never read. This needs a SQL equivalent for each `where` of the 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
 - `in` with a list of literals, `has(feature.x)` and `'x' in feature`,
-- `&&`, `||`, `!` and `? :`.
+- `&&`, `||`, `!` and `? :`,
+- `size`, `startsWith`, `endsWith`, `contains`, `lowerAscii` and `upperAscii` on a string column,
+  compared with a literal.
 
 Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.
 When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.

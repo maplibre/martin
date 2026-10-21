@@ -3,7 +3,7 @@
 use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
 
 use super::{CompiledExpr, FEATURE};
-use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Polarity, Term, TranslateError, ValueKind};
+use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Pattern, Polarity, Term, TranslateError, ValueKind};
 
 impl CompiledExpr {
     /// The rows this filter keeps, reading only `columns`.
@@ -23,9 +23,41 @@ enum Operand {
     Null,
     /// A literal other than `null`, of `kind`.
     Literal(Literal, ValueKind),
+    /// A value read from the row.
+    Row(RowValue),
+}
+
+/// A value read from the row.
+enum RowValue {
     /// A column, with the kind of its values if it is known.
     /// It is `null` where the row has no value.
     Column(String, Option<ValueKind>),
+    /// A function of a column, of `kind`.
+    /// It is an error where the column is `null`.
+    Function(Term, ValueKind),
+}
+
+/// A function of a string that a filter can push down.
+enum StringFn {
+    /// Matches the string against a pattern built from its literal argument.
+    Match(fn(String) -> Pattern),
+    /// Maps the string to a value of this kind.
+    Map(fn(Box<Term>) -> Term, ValueKind),
+}
+
+impl StringFn {
+    /// The function CEL calls `name`, if it is one, called on a target if `member`.
+    fn named(name: &str, member: bool) -> Option<Self> {
+        Some(match (name, member) {
+            ("startsWith", true) => Self::Match(Pattern::Prefix),
+            ("endsWith", true) => Self::Match(Pattern::Suffix),
+            ("contains", true) => Self::Match(Pattern::Contains),
+            ("size", _) => Self::Map(Term::Length, ValueKind::Int),
+            ("lowerAscii", true) => Self::Map(Term::LowerAscii, ValueKind::String),
+            ("upperAscii", true) => Self::Map(Term::UpperAscii, ValueKind::String),
+            _ => return None,
+        })
+    }
 }
 
 impl Translator<'_> {
@@ -83,16 +115,25 @@ impl Translator<'_> {
                 })
             }
             (operators::IN, None, [value, list]) => self.in_list(value, list, polarity),
-            _ => Operand::call(call)?.into_condition(polarity),
+            (name, Some(target), [arg]) if let Some(StringFn::Match(pattern)) = StringFn::named(name, true) => {
+                let text = string_literal(arg).ok_or_else(|| TranslateError::NotALiteral(name.to_owned()))?;
+                Ok(Condition::Like {
+                    term: self.string_operand(name, target)?,
+                    pattern: pattern(text.to_owned()),
+                    polarity,
+                })
+            }
+            _ => self.call_operand(call)?.into_condition(polarity),
         }
     }
 
     /// `value in list` of `polarity`, each element compared as it compares with `value`.
     fn in_list(&self, value: &IdedExpr, list: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
-        let Operand::Column(name, kind) = self.operand(value)? else {
+        let Operand::Row(row) = self.operand(value)? else {
             return Err(TranslateError::ConstantInList);
         };
-        let kind = known_kind(&name, kind)?;
+        let nullable = row.nullable();
+        let (term, kind) = row.typed()?;
         let Expr::List(list) = &list.expr else {
             return Err(TranslateError::NotALiteralList);
         };
@@ -110,19 +151,18 @@ impl Translator<'_> {
                         None => lists.push((kind, vec![literal])),
                     }
                 }
-                Operand::Column(..) => return Err(TranslateError::NotALiteralList),
+                Operand::Row(_) => return Err(TranslateError::NotALiteralList),
             }
         }
         let negated = polarity.negated();
-        let column = Term::Column(name);
-        let null_part = (has_null != negated).then(|| Condition::IsNull {
-            term: column.clone(),
+        let null_part = (nullable && has_null != negated).then(|| Condition::IsNull {
+            term: term.clone(),
             polarity: Polarity::AsWritten,
         });
         let present = if lists.is_empty() {
             if negated {
                 Condition::IsNull {
-                    term: column,
+                    term,
                     polarity: Polarity::Negated,
                 }
             } else {
@@ -130,7 +170,7 @@ impl Translator<'_> {
             }
         } else {
             polarity.any(lists.into_iter().map(|(kind, values)| Condition::In {
-                term: column.clone(),
+                term: term.clone(),
                 values,
                 kind,
                 polarity,
@@ -156,7 +196,7 @@ impl Translator<'_> {
                     let name = string_literal(key).ok_or(TranslateError::ComputedKey)?;
                     return self.column(name);
                 }
-                Operand::call(call)
+                self.call_operand(call)
             }
             Expr::Ident(_) => Err(TranslateError::Expression("`feature` as a value")),
             Expr::Comprehension(_) => Err(TranslateError::Expression("a comprehension")),
@@ -167,10 +207,43 @@ impl Translator<'_> {
         }
     }
 
+    /// A call as one side of a comparison: a negative literal, or a string function of a column.
+    fn call_operand(&self, call: &CallExpr) -> Result<Operand, TranslateError> {
+        let name = call.func_name.as_str();
+        let unsupported = || {
+            let shown = name.trim_matches('_').trim_start_matches('@');
+            TranslateError::Function(shown.to_owned())
+        };
+        let ((Some(arg), []) | (None, [arg])) = (call.target.as_deref(), call.args.as_slice()) else {
+            return Err(unsupported());
+        };
+        if name == operators::NEGATE
+            && let Expr::Literal(literal) = &arg.expr
+        {
+            return Operand::negative(literal);
+        }
+        let Some(StringFn::Map(wrap, kind)) = StringFn::named(name, call.target.is_some()) else {
+            return Err(unsupported());
+        };
+        let term = self.string_operand(name, arg)?;
+        Ok(Operand::Row(RowValue::Function(wrap(Box::new(term)), kind)))
+    }
+
+    /// The string column that `target` reads, for a call of `name`.
+    fn string_operand(&self, name: &str, target: &IdedExpr) -> Result<Term, TranslateError> {
+        let Operand::Row(row) = self.operand(target)? else {
+            return Err(TranslateError::Constants);
+        };
+        match row.typed()? {
+            (term, ValueKind::String) => Ok(term),
+            _ => Err(TranslateError::NotAStringColumn(name.to_owned())),
+        }
+    }
+
     /// The column named `name`, with the kind of its values if it is known.
     fn column(&self, name: &str) -> Result<Operand, TranslateError> {
         let kind = self.column_kind(name)?;
-        Ok(Operand::Column(name.to_owned(), kind))
+        Ok(Operand::Row(RowValue::Column(name.to_owned(), kind)))
     }
 
     /// The kind of the values of column `name` if it is known, an error if there is no such column.
@@ -189,109 +262,51 @@ impl Operand {
     /// A value as a filter: only `true` passes, or only `false` once negated.
     fn into_condition(self, polarity: Polarity) -> Result<Condition, TranslateError> {
         match self {
-            Self::Column(name, Some(ValueKind::Bool)) => Ok(Condition::Compare {
-                left: Term::Column(name),
-                op: CompareOp::Eq,
-                right: Term::Literal(Literal::Bool(!polarity.negated())),
-                kind: ValueKind::Bool,
-            }),
-            Self::Column(name, None) => Err(TranslateError::UnknownColumnType(name)),
-            Self::Column(_, Some(_)) | Self::Literal(..) | Self::Null => Ok(Condition::Const(false)),
+            Self::Row(row) => match row.typed()? {
+                (term, ValueKind::Bool) => Ok(Condition::Compare {
+                    left: term,
+                    op: CompareOp::Eq,
+                    right: Term::Literal(Literal::Bool(!polarity.negated())),
+                    kind: ValueKind::Bool,
+                }),
+                (_, ValueKind::Int | ValueKind::Float | ValueKind::String) => Ok(Condition::Const(false)),
+            },
+            Self::Literal(..) | Self::Null => Ok(Condition::Const(false)),
         }
     }
 
     /// `self == right`, or `self != right` once negated.
     fn equals(self, right: Self, polarity: Polarity) -> Result<Condition, TranslateError> {
-        let ((name, kind), other) = match (self, right) {
-            (Self::Column(name, kind), other) | (other, Self::Column(name, kind)) => ((name, kind), other),
-            _ => return Err(TranslateError::Constants),
-        };
-        match other {
-            Self::Null => Ok(Condition::IsNull {
-                term: Term::Column(name),
-                polarity,
-            }),
-            Self::Literal(literal, literal_kind) => {
-                let kind = known_kind(&name, kind)?;
-                let (column, literal) = (Term::Column(name), Term::Literal(literal));
-                Ok(match kind.common(literal_kind) {
-                    None => Condition::Const(polarity.negated()),
-                    Some(kind) if polarity.negated() => Condition::Distinct {
-                        left: column,
-                        right: literal,
-                        kind,
-                        polarity: Polarity::AsWritten,
-                    },
-                    Some(kind) => Condition::Compare {
-                        left: column,
-                        op: CompareOp::Eq,
-                        right: literal,
-                        kind,
-                    },
-                })
-            }
-            Self::Column(other, other_kind) => {
-                let kind = known_kind(&name, kind)?;
-                let other_kind = known_kind(&other, other_kind)?;
-                let (left, right) = (Term::Column(name), Term::Column(other));
-                match kind.common(other_kind) {
-                    Some(ValueKind::Float) if kind == other_kind => Err(TranslateError::FloatColumns),
-                    // CEL holds `null == null`, so two columns compare like `IS NOT DISTINCT FROM`.
-                    Some(kind) => Ok(Condition::Distinct {
-                        left,
-                        right,
-                        kind,
-                        polarity: polarity.flip(),
-                    }),
-                    None => Ok(polarity.all([left, right].map(|term| Condition::IsNull { term, polarity }))),
-                }
-            }
+        match (self, right) {
+            (Self::Row(row), other) | (other, Self::Row(row)) => row.equals(other, polarity),
+            _ => Err(TranslateError::Constants),
         }
     }
 
     /// `self op right` for an ordering `op`.
     fn order(self, op: CompareOp, right: Self) -> Result<Condition, TranslateError> {
-        let ((name, column_kind), op, (literal, literal_kind)) = match (self, right) {
-            (Self::Column(name, kind), Self::Literal(literal, literal_kind)) => {
-                ((name, kind), op, (literal, literal_kind))
-            }
-            (Self::Literal(literal, literal_kind), Self::Column(name, kind)) => {
-                ((name, kind), op.mirror(), (literal, literal_kind))
-            }
+        let (row, op, literal, literal_kind) = match (self, right) {
+            (Self::Row(row), Self::Literal(literal, kind)) => (row, op, literal, kind),
+            (Self::Literal(literal, kind), Self::Row(row)) => (row, op.mirror(), literal, kind),
             _ => return Err(TranslateError::Order),
         };
-        let column_kind = known_kind(&name, column_kind)?;
-        let Some(kind) = column_kind.common(literal_kind) else {
+        let (term, row_kind) = row.typed()?;
+        let Some(kind) = row_kind.common(literal_kind) else {
             return Ok(Condition::Const(false));
         };
-        let column = Term::Column(name);
-        let not_nan = (column_kind == ValueKind::Float).then(|| Condition::Compare {
-            left: column.clone(),
+        let not_nan = (row_kind == ValueKind::Float).then(|| Condition::Compare {
+            left: term.clone(),
             op: CompareOp::Ne,
             right: Term::Literal(Literal::Float(f64::NAN)),
             kind: ValueKind::Float,
         });
         let compare = Condition::Compare {
-            left: column,
+            left: term,
             op,
             right: Term::Literal(literal),
             kind,
         };
         Ok(Condition::and(std::iter::once(compare).chain(not_nan)))
-    }
-
-    /// A call as one side of a comparison: a negative literal.
-    fn call(call: &CallExpr) -> Result<Self, TranslateError> {
-        let name = call.func_name.as_str();
-        if name == operators::NEGATE
-            && call.target.is_none()
-            && let [arg] = call.args.as_slice()
-            && let Expr::Literal(literal) = &arg.expr
-        {
-            return Self::negative(literal);
-        }
-        let shown = name.trim_matches('_').trim_start_matches('@');
-        Err(TranslateError::Function(shown.to_owned()))
     }
 
     /// A literal as an operand.
@@ -323,6 +338,91 @@ impl Operand {
             | LiteralValue::Null
             | LiteralValue::String(_)
             | LiteralValue::UInt(_) => Err(TranslateError::NegatedNonNumber),
+        }
+    }
+}
+
+impl RowValue {
+    /// The term for this value, with the kind of its values.
+    fn typed(self) -> Result<(Term, ValueKind), TranslateError> {
+        match self {
+            Self::Column(name, kind) => {
+                let kind = known_kind(&name, kind)?;
+                Ok((Term::Column(name), kind))
+            }
+            Self::Function(term, kind) => Ok((term, kind)),
+        }
+    }
+
+    /// Whether this is `null`, not an error, where the row has no value.
+    fn nullable(&self) -> bool {
+        matches!(self, Self::Column(..))
+    }
+
+    /// `self == other`, or `self != other` once negated.
+    fn equals(self, other: Operand, polarity: Polarity) -> Result<Condition, TranslateError> {
+        match (self, other) {
+            (Self::Column(name, _), Operand::Null) => Ok(Condition::IsNull {
+                term: Term::Column(name),
+                polarity,
+            }),
+            (Self::Column(name, kind), Operand::Literal(literal, literal_kind)) => {
+                let kind = known_kind(&name, kind)?;
+                let (column, literal) = (Term::Column(name), Term::Literal(literal));
+                Ok(match kind.common(literal_kind) {
+                    None => Condition::Const(polarity.negated()),
+                    Some(kind) if polarity.negated() => Condition::Distinct {
+                        left: column,
+                        right: literal,
+                        kind,
+                        polarity: Polarity::AsWritten,
+                    },
+                    Some(kind) => Condition::Compare {
+                        left: column,
+                        op: CompareOp::Eq,
+                        right: literal,
+                        kind,
+                    },
+                })
+            }
+            (Self::Column(name, kind), Operand::Row(Self::Column(other, other_kind))) => {
+                let kind = known_kind(&name, kind)?;
+                let other_kind = known_kind(&other, other_kind)?;
+                let (left, right) = (Term::Column(name), Term::Column(other));
+                match kind.common(other_kind) {
+                    Some(ValueKind::Float) if kind == other_kind => Err(TranslateError::FloatColumns),
+                    // CEL holds `null == null`, so two columns compare like `IS NOT DISTINCT FROM`.
+                    Some(kind) => Ok(Condition::Distinct {
+                        left,
+                        right,
+                        kind,
+                        polarity: polarity.flip(),
+                    }),
+                    None => Ok(polarity.all([left, right].map(|term| Condition::IsNull { term, polarity }))),
+                }
+            }
+            (Self::Function(term, kind), Operand::Literal(literal, literal_kind))
+                if let Some(kind) = kind.common(literal_kind) =>
+            {
+                Ok(Condition::Compare {
+                    left: term,
+                    op: polarity.op(CompareOp::Eq),
+                    right: Term::Literal(literal),
+                    kind,
+                })
+            }
+            // A function never equals `null` or a value of another kind, and errs where its column is `null`.
+            (Self::Function(term, _), Operand::Null | Operand::Literal(..)) => Ok(if polarity.negated() {
+                Condition::IsNull {
+                    term,
+                    polarity: Polarity::Negated,
+                }
+            } else {
+                Condition::Const(false)
+            }),
+            (Self::Column(..), Operand::Row(Self::Function(..))) | (Self::Function(..), Operand::Row(_)) => {
+                Err(TranslateError::FunctionToColumn)
+            }
         }
     }
 }
