@@ -1,0 +1,6 @@
+config:
+  auto_publish:
+    tables: { id_columns: fid }
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857, properties: { gid: int4 } }

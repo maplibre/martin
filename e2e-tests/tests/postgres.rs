@@ -2160,7 +2160,7 @@ async fn a_simple_grid_set_on_the_connection_auto_publishes_only_tables_without_
     WARN Skipping table error=Table public.table_source_multiple_geom.geom2 has SRID=4326, but only SRID 0 can be served on the simple tile grid FloorPlan
     ");
     assert_unindexed_table_warnings(&mut martin);
-    martin.assert_log_contains("source.id.new=table_source_multiple_geom.1");
+    insta::assert_snapshot!(martin.take_log_lines("renamed").join("\n"), @"");
 }
 
 #[tokio::test]

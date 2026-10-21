@@ -1,0 +1,32 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/tables_and_functions_true_publishes_both.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: true
+transforms: []
+tables:
+  - id: roads
+    schema: public
+    table: roads
+    srid: 3857
+    geometry_column: geom
+    properties:
+      gid: int4
+functions:
+  - id: tiles
+    schema: public
+    function: tiles
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{table}"
+  - ScannedFunctions:
+      schemas:
+        - public
+      id_format: "{function}"

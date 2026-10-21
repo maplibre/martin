@@ -1,0 +1,8 @@
+config:
+  auto_publish: { from_schemas: OSM, tables: true }
+  tables:
+    roads: { schema: Public, table: roads, geometry_column: geom, srid: 3857 }
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857 }
+    - { schema: osm, table: water, geometry_column: geom, srid: 3857 }

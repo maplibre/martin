@@ -1,0 +1,7 @@
+config:
+  auto_publish: { tables: true }
+  tables:
+    roads: { schema: Public, table: Roads, geometry_column: GEOM, srid: 3857 }
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857, properties: { gid: int4 } }

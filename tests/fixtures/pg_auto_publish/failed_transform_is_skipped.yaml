@@ -1,0 +1,10 @@
+config:
+  auto_publish: { tables: true }
+catalog:
+  tables:
+    - { schema: public, table: nz, geometry_column: geom, srid: 2193 }
+    - { schema: public, table: roads, geometry_column: geom, srid: 4326 }
+    - { schema: public, table: rivers, geometry_column: geom, srid: 3857 }
+  transforms:
+    - { table: 2193, grid: 3857, ok: false }
+    - { table: 4326, grid: 3857, ok: true }

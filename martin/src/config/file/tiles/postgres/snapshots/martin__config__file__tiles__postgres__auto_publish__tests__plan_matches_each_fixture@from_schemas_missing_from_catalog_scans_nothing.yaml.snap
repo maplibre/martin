@@ -1,0 +1,18 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/from_schemas_missing_from_catalog_scans_nothing.yaml
+---
+reads:
+  tables:
+    schemas:
+      - ghost
+    only: ~
+  functions: false
+transforms: []
+tables: []
+functions: []
+decisions:
+  - ScannedTables:
+      schemas: []
+      id_format: "{table}"

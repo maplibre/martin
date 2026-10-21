@@ -1,0 +1,19 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/function_from_schemas_filter.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions:
+  - id: tiles
+    schema: osm
+    function: tiles
+decisions:
+  - ScannedFunctions:
+      schemas:
+        - osm
+      id_format: "{function}"
