@@ -7,6 +7,8 @@
   schedule: ['* * 1,15 * *'],
   minimumReleaseAge: '7 days',
   automerge: true,
+  // replaces pre-commit.ci autoupdate for .pre-commit-config.yaml revs
+  'pre-commit': { enabled: true },
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
   packageRules: [
@@ -59,9 +61,9 @@
       groupName: 'npm dependencies',
     },
     {
-      // Biome is updated via .pre-commit-config.yaml, not renovate: pre-commit.ci
-      // bumps the biome hook rev and sync-biome-version propagates it to the
-      // biome.json schemas and package.json dependencies.
+      // Biome is updated via .pre-commit-config.yaml: renovate bumps the biome
+      // hook rev and sync-biome-version propagates it to the biome.json schemas
+      // and package.json dependencies.
       matchManagers: ['npm'],
       matchPackageNames: ['@biomejs/biome'],
       enabled: false,
