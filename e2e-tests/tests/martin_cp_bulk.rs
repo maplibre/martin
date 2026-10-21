@@ -817,7 +817,8 @@ async fn bbox_tiles_keep_every_feature_they_cover() {
         "},
     )
     .expect("failed to write the config");
-    let (bounded, world) = (dir.path().join("bounded.mbtiles"), dir.path().join("world.mbtiles"));
+    let bounded = dir.path().join("bounded.mbtiles");
+    let world = dir.path().join("world.mbtiles");
     MartinCp::bulk()
         .with_postgres()
         .arg("--config")
