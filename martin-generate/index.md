@@ -109,7 +109,7 @@ The tile server's [configuration and PostgreSQL arguments](<https://maplibre.org
 
 Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
 
-`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
+`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world. Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count. For a small box, raise `--min-zoom` to keep the scan close to it.
 
 The highest zoom is 27. The tile grid can lower it further, since `extent × 2^zoom` must not exceed `2^30`. With the default extent of 4096, that is zoom 18.
 

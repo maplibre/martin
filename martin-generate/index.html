@@ -2217,7 +2217,9 @@ serving, such as caching, are ignored.</p>
 <code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--save-config</code> and
 <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
 <p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
-The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.</p>
+The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.
+Each zoom lower reads up to four times the area, and zooms below <code>--min-zoom</code> do not count.
+For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <p>The highest zoom is 27. The tile grid can lower it further, since <code>extent × 2^zoom</code> must not exceed
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
