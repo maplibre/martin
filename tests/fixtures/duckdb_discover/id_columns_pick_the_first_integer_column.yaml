@@ -1,0 +1,11 @@
+sql: |
+  CREATE TABLE text_ids (uuid VARCHAR, gid INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO text_ids VALUES ('a', 1, ST_Point(0, 0));
+  CREATE TABLE no_ids (name VARCHAR, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO no_ids VALUES ('a', ST_Point(0, 0));
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish:
+        tables:
+          id_columns: [uuid, gid]

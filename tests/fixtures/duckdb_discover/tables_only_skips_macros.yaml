@@ -1,0 +1,12 @@
+sql: |
+  CREATE TABLE roads (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO roads VALUES (1, ST_Point(0, 0));
+  CREATE TABLE plain (id INTEGER, name VARCHAR);
+  INSERT INTO plain VALUES (1, 'a');
+  CREATE VIEW roads_view AS SELECT * FROM roads;
+  CREATE MACRO tiles(z, x, y) AS TABLE SELECT NULL::BLOB AS mvt;
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish:
+        tables: true

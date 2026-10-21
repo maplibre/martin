@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/configured_table_spelled_in_other_case_with_auto_publish.yaml
+---
+sources:
+  my_points: "DuckDB table PLACES.Points (fixture.duckdb) fields [gid]"
+  points: "DuckDB table places.points (fixture.duckdb) fields [gid]"
+warnings: []

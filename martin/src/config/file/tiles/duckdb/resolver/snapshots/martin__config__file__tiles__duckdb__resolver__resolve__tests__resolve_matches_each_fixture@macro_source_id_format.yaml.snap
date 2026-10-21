@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/macro_source_id_format.yaml
+---
+sources:
+  tiles__roads: "DuckDB macro tiles.roads (fixture.duckdb) fields []"
+warnings: []

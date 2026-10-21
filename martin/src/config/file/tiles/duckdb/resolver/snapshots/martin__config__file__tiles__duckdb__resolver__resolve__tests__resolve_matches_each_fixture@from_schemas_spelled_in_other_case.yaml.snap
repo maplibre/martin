@@ -1,0 +1,7 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/from_schemas_spelled_in_other_case.yaml
+---
+sources: {}
+warnings: []
