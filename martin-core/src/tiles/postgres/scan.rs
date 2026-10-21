@@ -9,7 +9,7 @@ use martin_tilegen::props::{KeyId, KeyInterner, Prop, SourceStr};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceError, SourceFeature, SourceResult};
 use mlt_core::PropValue;
 
-use super::features::{feature_id, is_text, property};
+use super::features::{PropType, feature_id, prop_type, read_property};
 use super::mlt_encoder::st_asmvt_properties;
 use super::{PostgresError, PostgresPool, PostgresProperty};
 
@@ -128,14 +128,18 @@ pub async fn scan_features<T: ?Sized + ToStatement>(
     let mut rows = std::pin::pin!(rows);
     let mut batch = new_batch(layout, partition, 0);
     let mut next_row = 0u64;
-    let mut arena = BytesMut::new();
+    let mut arena = BatchBufferArena::default();
+    let mut types = Vec::new();
     while let Some(row) = rows
         .try_next()
         .await
         .map_err(|e| PostgresError::PostgresError(e, "reading a scan"))?
     {
+        if next_row == 0 {
+            types = property_types(&row, layout)?;
+        }
         next_row += 1;
-        batch.features.push(feature(&row, layout, keys, &mut arena)?);
+        batch.features.push(feature(&row, layout, &types, keys, &mut arena)?);
         if batch.features.len() == BATCH_FEATURES {
             emit(std::mem::replace(&mut batch, new_batch(layout, partition, next_row)))?;
         }
@@ -156,30 +160,43 @@ fn new_batch(layout: &ScanLayout, partition: u32, first_row: u64) -> FeatureBatc
     }
 }
 
-fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut BytesMut) -> SourceResult<SourceFeature> {
+/// The types of the row's property columns, the same for every row of a scan.
+fn property_types(row: &Row, layout: &ScanLayout) -> SourceResult<Vec<PropType>> {
+    let first = first_property(layout);
+    Ok((first..first + layout.properties)
+        .map(|idx| prop_type(row, idx))
+        .collect::<Result<_, _>>()?)
+}
+
+fn first_property(layout: &ScanLayout) -> usize {
+    if layout.has_id { 2 } else { 1 }
+}
+
+fn feature(
+    row: &Row,
+    layout: &ScanLayout,
+    types: &[PropType],
+    keys: &KeyInterner,
+    arena: &mut BatchBufferArena,
+) -> SourceResult<SourceFeature> {
     let wkb: Option<&[u8]> = row
         .try_get(0)
         .map_err(|e| PostgresError::PostgresError(e, "reading a scanned geometry"))?;
-    let geometry = Geometry::Wkb(copy_into(arena, wkb.unwrap_or_default()));
+    let geometry = Geometry::Wkb(arena.bytes(wkb.unwrap_or_default()));
 
-    let (id, column) = if layout.has_id {
-        (feature_id(row)?, 2)
-    } else {
-        (None, 1)
-    };
+    let id = if layout.has_id { feature_id(row)? } else { None };
     let mut props = Vec::with_capacity(layout.properties);
-    for (pos, idx) in (0u32..).zip(column..column + layout.properties) {
-        if is_text(row, idx) {
+    for ((pos, idx), &prop_type) in (0u32..).zip(first_property(layout)..).zip(types) {
+        if prop_type == PropType::Text {
             let text: Option<&str> = row
                 .try_get(idx)
                 .map_err(|e| PostgresError::PostgresError(e, "reading a scanned property"))?;
             if let Some(text) = text {
-                let text = SourceStr::try_from(copy_into(arena, text.as_bytes())).expect("a str is valid UTF-8");
-                props.push((KeyId::new(pos), Prop::Str(text)));
+                props.push((KeyId::new(pos), Prop::Str(arena.str(text))));
             }
             continue;
         }
-        match property(row, idx, "reading a scanned property")? {
+        match read_property(row, idx, prop_type, "reading a scanned property")? {
             PostgresProperty::Value(value) => {
                 if let Some(value) = prop(value) {
                     props.push((KeyId::new(pos), value));
@@ -197,13 +214,24 @@ fn feature(row: &Row, layout: &ScanLayout, keys: &KeyInterner, arena: &mut Bytes
     Ok(SourceFeature { id, geometry, props })
 }
 
-/// Copies `bytes` to the end of `arena` and returns them, sharing the arena's buffer.
-fn copy_into(arena: &mut BytesMut, bytes: &[u8]) -> Bytes {
-    if arena.capacity() < bytes.len() {
-        arena.reserve(bytes.len().max(ARENA_BYTES));
+/// The batch's shared buffer that scanned geometries and text are copied into.
+#[derive(Default)]
+struct BatchBufferArena(BytesMut);
+
+impl BatchBufferArena {
+    /// Copies `bytes` in and returns them as a slice of the shared buffer.
+    fn bytes(&mut self, bytes: &[u8]) -> Bytes {
+        if self.0.capacity() < bytes.len() {
+            self.0.reserve(bytes.len().max(ARENA_BYTES));
+        }
+        self.0.extend_from_slice(bytes);
+        self.0.split().freeze()
     }
-    arena.extend_from_slice(bytes);
-    arena.split().freeze()
+
+    /// Copies `text` in and returns it as a slice of the shared buffer.
+    fn str(&mut self, text: &str) -> SourceStr {
+        SourceStr::try_from(self.bytes(text.as_bytes())).expect("copied from a str")
+    }
 }
 
 fn prop(value: PropValue) -> Option<Prop<SourceStr>> {

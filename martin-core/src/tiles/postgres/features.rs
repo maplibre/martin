@@ -52,7 +52,7 @@ pub struct PostgresTileFeatures {
 
 /// A `PostgreSQL` column type that reaches a tile as a typed property.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PropType {
+pub(super) enum PropType {
     Bool,
     Int16,
     Int32,
@@ -145,21 +145,28 @@ pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
     Ok(value.and_then(|v| u64::try_from(v).ok()))
 }
 
-/// Whether [`property`] reads the column as text.
-pub(super) fn is_text(row: &Row, idx: usize) -> bool {
-    PropType::of(row.columns()[idx].type_().name()) == Some(PropType::Text)
+/// The type the row's column `idx` reaches a tile as.
+pub(super) fn prop_type(row: &Row, idx: usize) -> PostgresResult<PropType> {
+    let column = &row.columns()[idx];
+    PropType::of(column.type_().name()).ok_or_else(|| UnsupportedPropertyType {
+        column: column.name().to_owned(),
+        pg_type: column.type_().name().to_owned(),
+    })
 }
 
 /// One column's value, typed by what the column's runtime type says it holds.
 pub(super) fn property(row: &Row, idx: usize, context: &'static str) -> PostgresResult<PostgresProperty> {
-    let column = &row.columns()[idx];
+    read_property(row, idx, prop_type(row, idx)?, context)
+}
+
+/// One column's value, read as `prop_type`.
+pub(super) fn read_property(
+    row: &Row,
+    idx: usize,
+    prop_type: PropType,
+    context: &'static str,
+) -> PostgresResult<PostgresProperty> {
     let read = |e| PgError(e, context);
-    let Some(prop_type) = PropType::of(column.type_().name()) else {
-        return Err(UnsupportedPropertyType {
-            column: column.name().to_owned(),
-            pg_type: column.type_().name().to_owned(),
-        });
-    };
     Ok(PostgresProperty::Value(match prop_type {
         PropType::Json => return Ok(PostgresProperty::Json(row.try_get(idx).map_err(read)?)),
         PropType::Bool => PropValue::Bool(row.try_get(idx).map_err(read)?),
