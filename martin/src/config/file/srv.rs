@@ -239,14 +239,11 @@ pub struct EndpointsConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::path::Path;
-
     use indoc::indoc;
 
     use super::*;
+    use crate::config::file::UnrecognizedValues;
     use crate::config::file::cors::CorsProperties;
-    use crate::config::file::{self, Config, UnrecognizedValues};
     use crate::config::test_helpers::render_failure;
 
     #[test]
@@ -302,7 +299,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(feature = "webui", feature = "metrics", feature = "_tiles"))]
     fn every_server_setting_parses_at_the_top_level() {
+        use std::collections::HashMap;
+        use std::path::Path;
+
+        use crate::config::file::{self, Config};
+
         let config = file::parse_config(
             indoc! {"
                 keep_alive: 75
@@ -341,9 +344,7 @@ mod tests {
                     worker_processes: Some(8),
                     preferred_encoding: Some(PreferredEncoding::Gzip),
                     cache_control: Some(CacheControlHeader(HeaderValue::from_static("public, max-age=3600"))),
-                    #[cfg(all(feature = "webui", not(docsrs)))]
                     web_ui: Some(WebUiMode::Disable),
-                    #[cfg(feature = "_tiles")]
                     endpoints: Some(EndpointsConfig {
                         purge_cache: Some(true),
                         unrecognized: UnrecognizedValues::default(),
@@ -353,7 +354,6 @@ mod tests {
                         max_age: Some(3600),
                         unrecognized: UnrecognizedValues::default(),
                     })),
-                    #[cfg(feature = "metrics")]
                     observability: Some(ObservabilityConfig {
                         metrics: Some(MetricsConfig {
                             add_labels: HashMap::from([("env".to_owned(), "prod".to_owned())]),
@@ -361,7 +361,6 @@ mod tests {
                         }),
                         unrecognized: UnrecognizedValues::default(),
                     }),
-                    #[cfg(feature = "_tiles")]
                     tilejson_url_version_param: Some("version".to_owned()),
                 },
                 ..Default::default()
