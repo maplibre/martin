@@ -1,0 +1,33 @@
+[package]
+name = "martin-py"
+version = "0.1.0"
+description = "Python bindings (PyO3) for Martin's tile-serving endpoints"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[lib]
+# `martin_py` is the name Python imports (`import martin_py`); it must match
+# the `#[pymodule]` function name in src/lib.rs.
+name = "martin_py"
+# cdylib for the Python extension module; rlib so `cargo test`/`cargo doc`
+# still work without going through the Python interpreter.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `pmtiles` and `processing` (incl. GeoJSON) pull in `_tiles` without requiring a system
+# libpq install. `unstable-duckdb` additionally builds DuckDB from source
+# (the `bundled` feature on the `duckdb` crate) - no system install needed,
+# but it's a slow first build. Add `postgres`/`mbtiles`/etc. here if bindings
+# for those source kinds are needed too.
+martin = { workspace = true, features = ["pmtiles", "processing", "unstable-duckdb"] }
+martin-tile-utils.workspace = true
+pyo3.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true
