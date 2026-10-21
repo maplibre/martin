@@ -589,32 +589,39 @@ async fn a_world_bbox_keeps_every_feature_of_a_projected_table() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_bbox_drops_the_features_of_a_projected_table_outside_it() {
+async fn a_bbox_over_a_projected_table_keeps_every_feature_of_its_tiles() {
     let dir = tempfile::tempdir().unwrap();
     let (builder, specs) = discover().await;
     let options = LowerOptions {
-        zooms: 0..=6,
+        zooms: 6..=6,
         bounds: Some(Bounds::new(174.0, -42.0, 175.5, -36.0)),
     };
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
         .unwrap();
     let (_, _, rows) = run(&builder, vec![table], dir.path(), 1, PgScanSource::PARTITION_BLOCKS).await;
-    let Some(row) = rows.iter().find(|row| row.0 == 0) else {
-        panic!("expected a zoom 0 tile");
-    };
-    let raw = decode_gzip(&row.3).unwrap();
     let mut decoder = Decoder::default();
-    let layers: Vec<_> = Parser::default()
-        .parse_layers(&raw)
-        .unwrap()
-        .into_iter()
-        .map(|layer| {
-            let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
-            format!("{} {}", layer.name(), layer.features().len())
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|(z, x, y, data)| {
+            let raw = decode_gzip(data).unwrap();
+            let layers: Vec<_> = Parser::default()
+                .parse_layers(&raw)
+                .unwrap()
+                .into_iter()
+                .map(|layer| {
+                    let layer = layer.into_tile(&mut decoder).unwrap().unwrap();
+                    format!("{} {}", layer.name(), layer.features().len())
+                })
+                .collect();
+            format!("{z}/{x}/{y} {}", layers.join(", "))
         })
         .collect();
-    insta::assert_snapshot!(layers.join("\n"), @"nz_points 2");
+    insta::assert_snapshot!(tiles.join("\n"), @"
+    6/62/23 nz_points 1
+    6/63/23 nz_points 1
+    6/63/24 nz_points 1
+    ");
 }
 
 #[tokio::test]

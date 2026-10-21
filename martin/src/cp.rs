@@ -137,7 +137,7 @@ pub struct CopyArgs {
     #[cfg_attr(feature = "unstable-generate", doc = "")]
     #[cfg_attr(
         feature = "unstable-generate",
-        doc = "In bulk mode, at most one box. Only features intersecting it are rendered, so low-zoom tiles are not filled with data from outside the box. The whole world if omitted."
+        doc = "In bulk mode, at most one box. Each tile it touches holds every feature the tile covers, so at zoom 0 the whole world is read. The whole world if omitted."
     )]
     #[arg(long)]
     pub bbox: Vec<Bounds>,
