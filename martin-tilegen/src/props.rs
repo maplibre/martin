@@ -1,6 +1,8 @@
 //! Feature properties as they travel through the engine: interned keys and typed values.
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
+use std::borrow::Cow;
+
 pub use bytestring::ByteString;
 use lasso::{Capacity, Key as _, Rodeo, RodeoResolver, Spur, ThreadedRodeo};
 use mlt_core::PropValueRef;
@@ -61,6 +63,18 @@ impl<S: AsRef<str>> Prop<S> {
             Self::F32(v) => PropValueRef::F32(*v),
             Self::F64(v) => PropValueRef::F64(*v),
             Self::Str(v) => PropValueRef::Str(v.as_ref()),
+        }
+    }
+
+    /// Borrows the value, keeping its text as a `Cow` that expressions can replace with an owned result.
+    #[must_use]
+    pub fn as_cow(&self) -> Prop<Cow<'_, str>> {
+        match self {
+            Self::Bool(v) => Prop::Bool(*v),
+            Self::I64(v) => Prop::I64(*v),
+            Self::F32(v) => Prop::F32(*v),
+            Self::F64(v) => Prop::F64(*v),
+            Self::Str(v) => Prop::Str(Cow::Borrowed(v.as_ref())),
         }
     }
 }

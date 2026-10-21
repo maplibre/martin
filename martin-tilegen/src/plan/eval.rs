@@ -222,8 +222,8 @@ impl Plan {
         errors: &mut [u64],
     ) -> Option<Prop<Cow<'v, str>>> {
         match &attr.value {
-            PlannedValue::Literal(value) => Some(borrowed(value)),
-            PlannedValue::Column(key) => feature.iter().find(|(k, _)| k == key).map(|(_, value)| borrowed(value)),
+            PlannedValue::Literal(value) => Some(value.as_cow()),
+            PlannedValue::Column(key) => feature.iter().find(|(k, _)| k == key).map(|(_, value)| value.as_cow()),
             PlannedValue::Expr(expr) => self.eval(expr, view?, errors),
         }
     }
@@ -458,17 +458,6 @@ fn learn_all(names: &mut (ExprKeys, u32), table: &KeyInterner) {
     while let Some(name) = table.name(KeyId::new(*known)) {
         names.insert(&name, KeyId::new(*known));
         *known += 1;
-    }
-}
-
-/// Borrows `value`, whether it is a plan literal or a source's property.
-fn borrowed<S: AsRef<str>>(value: &Prop<S>) -> Prop<Cow<'_, str>> {
-    match value {
-        Prop::Bool(v) => Prop::Bool(*v),
-        Prop::I64(v) => Prop::I64(*v),
-        Prop::F32(v) => Prop::F32(*v),
-        Prop::F64(v) => Prop::F64(*v),
-        Prop::Str(v) => Prop::Str(Cow::Borrowed(v.as_ref())),
     }
 }
 
