@@ -2,7 +2,7 @@
 
 use martin_core::tiles::postgres::{PostgresFeature, PostgresProperty, PostgresTileFeatures, encode_features_as_mlt};
 use martin_tile_utils::{Encoding, Format, TileInfo};
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use mlt_core::geo_types::{Coord, Geometry, Point};
 use mlt_core::{Decoder, Parser, PropValue, TileLayer};
 use rstest::rstest;
@@ -80,7 +80,7 @@ fn doc(document: Value) -> PostgresProperty {
 }
 
 fn str(s: &str) -> PropValue {
-    PropValue::Str(Some(s.to_owned()))
+    PropValue::Str(Some(s.into()))
 }
 
 #[rstest]
@@ -91,7 +91,10 @@ fn str(s: &str) -> PropValue {
 #[case::non_negative_integer(PropValue::I64(Some(7)), PropValue::U32(Some(7)))]
 #[case::negative_integer(PropValue::I64(Some(-7)), PropValue::I32(Some(-7)))]
 fn a_column_takes_the_type_of_the_values_in_it(#[case] v: PropValue, #[case] expected: PropValue) {
-    let layer = encode(vec![feature(vec![("p", value(v))])], EncoderConfig::default());
+    let layer = encode(
+        vec![feature(vec![("p", value(v))])],
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+    );
     assert_eq!(layer.property_names(), ["p"]);
     assert_eq!(layer.features()[0].properties(), [expected]);
 }
@@ -102,7 +105,7 @@ fn one_negative_value_makes_the_whole_integer_column_signed() {
         .into_iter()
         .map(|v| feature(vec![("p", value(PropValue::I64(v)))]))
         .collect();
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(
         layer
             .features()
@@ -125,7 +128,7 @@ fn a_column_that_is_null_everywhere_is_left_out() {
             ("filled", value(PropValue::Str(None))),
         ]),
     ];
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(layer.property_names(), ["filled"]);
     assert_eq!(
         layer.features()[1].properties(),
@@ -140,14 +143,17 @@ fn columns_come_in_the_order_their_first_value_does() {
         feature(vec![("a", value(PropValue::I64(None))), ("b", value(str("x")))]),
         feature(vec![("a", value(str("y"))), ("b", value(str("z")))]),
     ];
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(layer.property_names(), ["b", "a"]);
 }
 
 #[test]
 fn an_empty_result_set_encodes_to_an_empty_tile() {
-    let encoded =
-        encode_features_as_mlt(tile(Vec::new()), EncoderConfig::default()).expect("encoding a tile without features");
+    let encoded = encode_features_as_mlt(
+        tile(Vec::new()),
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+    )
+    .expect("encoding a tile without features");
     assert!(encoded.data.is_empty());
     assert_eq!(encoded.info, TileInfo::new(Format::Mlt, Encoding::Internal));
 }
@@ -163,7 +169,7 @@ fn a_feature_id_and_its_properties_survive_the_encoding() {
             ("s".into(), value(str("hi"))),
         ],
     }];
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(layer.name(), "layer");
     assert_eq!(layer.extent().get(), 4096);
     assert_eq!(layer.property_names(), ["n", "s"]);
@@ -185,7 +191,10 @@ fn a_v1_document_spreads_its_top_level_scalars_over_columns() {
         "o": {"k": 1},
         "arr": [1, 2],
     });
-    let layer = encode(vec![feature(vec![("doc", doc(document))])], EncoderConfig::default());
+    let layer = encode(
+        vec![feature(vec![("doc", doc(document))])],
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+    );
     assert_eq!(
         properties(&layer),
         [vec![
@@ -207,7 +216,7 @@ fn a_v1_document_spreads_its_top_level_scalars_over_columns() {
 fn a_v1_document_number_is_typed_as_st_asmvt_types_it(#[case] number: Value, #[case] expected: PropValue) {
     let layer = encode(
         vec![feature(vec![("doc", doc(json!({ "v": number })))])],
-        EncoderConfig::default(),
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)),
     );
     assert_eq!(properties(&layer), [vec![("v".to_owned(), expected)]]);
 }
@@ -217,7 +226,10 @@ fn a_v1_document_number_is_typed_as_st_asmvt_types_it(#[case] number: Value, #[c
 #[case::scalar(json!("scalar"))]
 #[case::null(Value::Null)]
 fn a_v1_document_that_is_no_object_has_no_properties(#[case] document: Value) {
-    let layer = encode(vec![feature(vec![("doc", doc(document))])], EncoderConfig::default());
+    let layer = encode(
+        vec![feature(vec![("doc", doc(document))])],
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+    );
     assert_eq!(layer.property_names(), [] as [String; 0]);
     assert_eq!(layer.features().len(), 1);
 }
@@ -231,7 +243,7 @@ fn a_v1_document_key_shares_the_column_of_the_same_name() {
         ]),
         feature(vec![("a", value(PropValue::I64(Some(6)))), ("doc", doc(json!({})))]),
     ];
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(
         properties(&layer),
         [vec![("a".to_owned(), str("dup"))], vec![("a".to_owned(), str("6"))],],
@@ -245,7 +257,7 @@ fn a_v1_key_holding_integers_and_doubles_holds_doubles_like_the_mvt_round_trip()
         feature(vec![("doc", doc(json!({"f": 1.5})))]),
         feature(vec![("doc", doc(json!({"f": 2})))]),
     ];
-    let layer = encode(features, EncoderConfig::default());
+    let layer = encode(features, EncoderConfig::from_profile(Profile::Web(Network::Offline)));
     assert_eq!(
         properties(&layer),
         [
@@ -263,7 +275,7 @@ mod documents {
     use super::*;
 
     fn v2() -> EncoderConfig {
-        EncoderConfig::default().with_wire_version(WireVersion::V02)
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02)
     }
 
     fn leaf(value: PropValue) -> NestedValue {
@@ -391,7 +403,7 @@ mod m_values {
     use super::*;
 
     fn v2() -> EncoderConfig {
-        EncoderConfig::default().with_wire_version(WireVersion::V02)
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02)
     }
 
     fn coords(coords: &[(i32, i32)]) -> LineString<i32> {
@@ -484,8 +496,11 @@ mod m_values {
     fn v1_has_nowhere_to_put_them_so_it_drops_them() {
         let line = Geometry::LineString(coords(&[(0, 0), (10, 10)]));
         let features = vec![measured(line, Some(vec![1.0, 2.0]))];
-        let encoded = encode_features_as_mlt(tile(features), EncoderConfig::default())
-            .expect("a measured tile still encodes as v1");
+        let encoded = encode_features_as_mlt(
+            tile(features),
+            EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+        )
+        .expect("a measured tile still encodes as v1");
         let [layer] = decode(&encoded.data).try_into().expect("one layer");
         assert_eq!(layer.m_value_names(), [] as [String; 0]);
     }

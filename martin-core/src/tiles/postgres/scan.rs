@@ -244,6 +244,6 @@ fn prop(value: PropValue) -> Option<Prop<SourceStr>> {
         }
         PropValue::F32(v) => Prop::F32(v?),
         PropValue::F64(v) => Prop::F64(v?),
-        PropValue::Str(v) => Prop::Str(v?.into()),
+        PropValue::Str(v) => Prop::Str(v?.into_string().into()),
     })
 }
