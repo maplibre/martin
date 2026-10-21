@@ -280,8 +280,16 @@ impl Diagnostic for YamlParseReport {
         self.inner_diag().source_code()
     }
 
+    /// Drops label text that only repeats the headline, keeping the underline.
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
-        self.inner_diag().labels()
+        let headline = self.inner_diag().to_string();
+        let labels = self.inner_diag().labels()?;
+        Some(Box::new(labels.map(move |mut label| {
+            if label.label() == Some(headline.as_str()) {
+                label.set_label(None);
+            }
+            label
+        })))
     }
 
     fn related(&self) -> Option<Box<dyn Iterator<Item = &dyn Diagnostic> + '_>> {

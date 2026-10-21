@@ -398,8 +398,7 @@ mod tests {
           × invalid Cache-Control header value 'max-age=invalid': no valid directives
            ╭─[config.yaml:1:16]
          1 │ cache_control: max-age=invalid
-           ·                ───────┬───────
-           ·                       ╰── invalid Cache-Control header value 'max-age=invalid': no valid directives
+           ·                ───────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -418,8 +417,7 @@ mod tests {
           × invalid Cache-Control header value '': no valid directives
            ╭─[config.yaml:1:16]
          1 │ cache_control: ''
-           ·                ─┬
-           ·                 ╰── invalid Cache-Control header value '': no valid directives
+           ·                ──
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

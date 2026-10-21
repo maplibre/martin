@@ -143,8 +143,7 @@ mod tests {
            ╭─[config.yaml:3:3]
          2 │   connection_string: postgres://localhost/db
          3 │   auto_publish: yes-please
-           ·   ──────┬─────
-           ·         ╰── invalid type: string "yes-please", expected either a boolean or a configuration map
+           ·   ────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -169,8 +168,7 @@ mod tests {
            ╭─[config.yaml:3:3]
          2 │   connection_string: postgres://localhost/db
          3 │   auto_publish: 42
-           ·   ──────┬─────
-           ·         ╰── invalid type: integer `42`, expected either a boolean or a configuration map
+           ·   ────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -194,8 +192,7 @@ mod tests {
            ╭─[config.yaml:3:3]
          2 │   connection_string: postgres://localhost/db
          3 │   auto_publish: [a, b]
-           ·   ──────┬─────
-           ·         ╰── invalid type: sequence, expected either a boolean or a configuration map
+           ·   ────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

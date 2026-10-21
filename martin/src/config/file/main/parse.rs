@@ -72,8 +72,7 @@ mod tests {
            ╭─[config.yaml:3:3]
          2 │   listen_addresses: "0.0.0.0:3000
          3 │   worker_processes: 4
-           ·   ┬
-           ·   ╰── invalid indentation in multiline quoted scalar
+           ·   ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -90,8 +89,7 @@ mod tests {
           │ warnings, abort
            ╭─[config.yaml:1:13]
          1 │ on_invalid: maybe
-           ·             ──┬──
-           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ·             ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -106,8 +104,7 @@ mod tests {
           × invalid u64
            ╭─[config.yaml:1:13]
          1 │ keep_alive: abc
-           ·             ─┬─
-           ·              ╰── invalid u64
+           ·             ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -128,8 +125,7 @@ mod tests {
            ╭─[config.yaml:3:17]
          2 │   metrics:
          3 │     add_labels: 5
-           ·                 ┬
-           ·                 ╰── expected mapping start
+           ·                 ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -148,8 +144,7 @@ mod tests {
            ╭─[config.yaml:2:11]
          1 │ cors:
          2 │   origin: 5
-           ·           ┬
-           ·           ╰── expected sequence start
+           ·           ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -170,8 +165,7 @@ mod tests {
            ╭─[config.yaml:4:19]
          3 │ keep_alive: 75
          4 │ worker_processes: abc
-           ·                   ─┬─
-           ·                    ╰── invalid u64
+           ·                   ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -192,8 +186,7 @@ mod tests {
            ╭─[config.yaml:3:13]
          2 │ not_a_key: 1
          3 │ on_invalid: maybe
-           ·             ──┬──
-           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ·             ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -213,8 +206,7 @@ mod tests {
            ╭─[config.yaml:2:1]
          1 │ keep_alive: 75
          2 │ keep_alive: 80
-           · ─────┬────
-           ·      ╰── duplicate mapping key: keep_alive, set DuplicateKeyPolicy in Options if acceptable
+           · ──────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -260,8 +252,7 @@ mod tests {
            ╭─[config.yaml:2:12]
          1 │ cache:
          2 │   size_mb: ${UNDEFINED_VAR}
-           ·            ────────┬───────
-           ·                    ╰── missing property `UNDEFINED_VAR`
+           ·            ────────────────
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -276,8 +267,7 @@ mod tests {
           × Invalid name: '${BASE:fallback}'
            ╭─[config.yaml:1:12]
          1 │ base_path: ${BASE:fallback}
-           ·            ────────┬───────
-           ·                    ╰── Invalid name: '${BASE:fallback}'
+           ·            ────────────────
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.

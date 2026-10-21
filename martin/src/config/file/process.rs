@@ -466,8 +466,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: atuo
-           · ───────┬──────
-           ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -487,8 +486,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: 42
-           · ───────┬──────
-           ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -509,8 +507,7 @@ mod tests {
            ╭─[config.yaml:2:15]
          1 │ convert_to_mlt:
          2 │   tessellate: yes-please
-           ·               ─────┬────
-           ·                    ╰── invalid boolean
+           ·               ──────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

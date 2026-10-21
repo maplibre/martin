@@ -591,8 +591,7 @@ sources:
            ╭─[config.yaml:6:29]
          5 │         tables:
          6 │           source_id_format: '{schema}.{tabel}'
-           ·                             ─────────┬────────
-           ·                                      ╰── source id format "{schema}.{tabel}" uses the unknown placeholder {tabel}, it may use {schema}, {table}, {column}
+           ·                             ──────────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -616,8 +615,7 @@ sources:
            ╭─[config.yaml:6:29]
          5 │         macros:
          6 │           source_id_format: '{schema}.{table}'
-           ·                             ─────────┬────────
-           ·                                      ╰── source id format "{schema}.{table}" uses the unknown placeholder {table}, it may use {schema}, {macro}
+           ·                             ──────────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
