@@ -40,7 +40,8 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, DeserializeFields as _, GlobalCacheConfig,
+    UnrecognizedValues,
 };
 #[cfg(any(
     feature = "pmtiles",

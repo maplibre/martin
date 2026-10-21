@@ -3,7 +3,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, GenericParam, Generics, parse_macro_input};
+use syn::{Data, DeriveInput, Fields, GenericParam, Generics, Type, parse_macro_input};
 
 /// Derives an empty `ConfigurationLivecycleHooks` impl, so the type opts into the trait's default hooks
 #[proc_macro_derive(ConfigurationLivecycleHooks)]
@@ -68,6 +68,116 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
         };
     })
+}
+
+/// Derives `DeserializeFields`, which reads one field's value from a map that also holds other keys.
+///
+/// Each field becomes one key, named by `#[serde(rename)]` if set, and keeps its `#[cfg]`.
+/// Every field must be an `Option`, so a missing key means `None` exactly like the serde derive.
+/// Serde options that change how a field deserializes are rejected.
+#[proc_macro_derive(DeserializeFields)]
+pub fn derive_deserialize_fields(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand_deserialize_fields(&input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Serde field options that only affect serialization.
+const SERIALIZE_ONLY_OPTIONS: &[&str] = &["skip_serializing", "skip_serializing_if", "serialize_with"];
+
+fn expand_deserialize_fields(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    if let Some(attr) = container_rename_all(&input.attrs) {
+        return Err(syn::Error::new_spanned(
+            attr,
+            "DeserializeFields does not support `#[serde(rename_all)]`; rename individual fields instead",
+        ));
+    }
+    let Data::Struct(data) = &input.data else {
+        return Err(syn::Error::new_spanned(
+            &input.ident,
+            "DeserializeFields can only be derived for structs",
+        ));
+    };
+    let Fields::Named(fields) = &data.fields else {
+        return Err(syn::Error::new_spanned(
+            &data.fields,
+            "DeserializeFields can only be derived for structs with named fields",
+        ));
+    };
+
+    let mut arms = Vec::new();
+    for field in &fields.named {
+        reject_deserialize_options(&field.attrs)?;
+        if !is_option(&field.ty) {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                "DeserializeFields requires every field to be an `Option`",
+            ));
+        }
+        let member = field.ident.as_ref().expect("named field has an ident");
+        let name = serde_field_name(field, member);
+        let cfgs = field.attrs.iter().filter(|attr| attr.path().is_ident("cfg"));
+        arms.push(quote! {
+            #(#cfgs)*
+            #name => self.#member = ::serde::de::MapAccess::next_value(map)?,
+        });
+    }
+
+    let ident = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    Ok(quote! {
+        #[automatically_derived]
+        impl #impl_generics crate::config::file::DeserializeFields for #ident #ty_generics #where_clause {
+            fn deserialize_field<'de, M: ::serde::de::MapAccess<'de>>(
+                &mut self,
+                key: &str,
+                map: &mut M,
+            ) -> ::core::result::Result<bool, M::Error> {
+                match key {
+                    #(#arms)*
+                    _ => return ::core::result::Result::Ok(false),
+                }
+                ::core::result::Result::Ok(true)
+            }
+        }
+    })
+}
+
+/// Fails on any `#[serde(...)]` field option other than a plain `rename` or a serialize-only one.
+fn reject_deserialize_options(attrs: &[syn::Attribute]) -> syn::Result<()> {
+    for attr in attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename") && meta.input.peek(syn::Token![=]) {
+                let _: syn::LitStr = meta.value()?.parse()?;
+                return Ok(());
+            }
+            if SERIALIZE_ONLY_OPTIONS.iter().any(|option| meta.path.is_ident(option)) {
+                if meta.input.peek(syn::Token![=]) {
+                    let _: syn::Expr = meta.value()?.parse()?;
+                }
+                return Ok(());
+            }
+            Err(meta.error("DeserializeFields does not support this serde option"))
+        })?;
+    }
+    Ok(())
+}
+
+/// Returns `true` if `ty` is spelled `Option<..>`, with or without a path prefix.
+fn is_option(ty: &Type) -> bool {
+    let Type::Path(path) = ty else {
+        return false;
+    };
+    path.qself.is_none()
+        && path
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "Option")
 }
 
 /// Adds `T: CollectUnrecognizedKeys` to every generic type parameter.
@@ -233,7 +343,7 @@ mod tests {
     use syn::parse::Parser as _;
     use syn::{DeriveInput, Field};
 
-    use crate::{expand, serde_field_name, serde_flag_is_set};
+    use crate::{expand, expand_deserialize_fields, serde_field_name, serde_flag_is_set};
 
     fn parse_field(src: &str) -> Field {
         Field::parse_named.parse_str(src).expect("field parses")
@@ -276,6 +386,56 @@ mod tests {
     fn expand_accepts(#[case] src: &str) {
         let input: DeriveInput = syn::parse_str(src).expect("input parses");
         expand(&input).expect("input is accepted");
+    }
+
+    #[rstest]
+    #[case::rename_all(
+        r#"#[serde(rename_all = "kebab-case")] struct S { a: Option<bool> }"#,
+        "does not support `#[serde(rename_all)]`"
+    )]
+    #[case::enum_("enum E { A }", "can only be derived for structs")]
+    #[case::tuple_struct("struct S(Option<bool>);", "structs with named fields")]
+    #[case::non_option_field("struct S { a: bool }", "every field to be an `Option`")]
+    #[case::alias(
+        r#"struct S { #[serde(alias = "b")] a: Option<bool> }"#,
+        "does not support this serde option"
+    )]
+    #[case::deserialize_with(
+        r#"struct S { #[serde(deserialize_with = "f")] a: Option<bool> }"#,
+        "does not support this serde option"
+    )]
+    #[case::with(
+        r#"struct S { #[serde(with = "m")] a: Option<bool> }"#,
+        "does not support this serde option"
+    )]
+    #[case::flatten(
+        "struct S { #[serde(flatten)] a: Option<bool> }",
+        "does not support this serde option"
+    )]
+    #[case::skip("struct S { #[serde(skip)] a: Option<bool> }", "does not support this serde option")]
+    #[case::rename_per_direction(
+        r#"struct S { #[serde(rename(deserialize = "b"))] a: Option<bool> }"#,
+        "does not support this serde option"
+    )]
+    fn expand_deserialize_fields_rejects(#[case] src: &str, #[case] expected: &str) {
+        let input: DeriveInput = syn::parse_str(src).expect("input parses");
+        let err = expand_deserialize_fields(&input)
+            .expect_err("input is rejected")
+            .to_string();
+        assert!(err.contains(expected), "unexpected error: {err}");
+    }
+
+    #[rstest]
+    #[case::empty_struct("struct S {}")]
+    #[case::rename(r#"struct S { #[serde(rename = "b")] a: Option<bool> }"#)]
+    #[case::serialize_only_options(
+        r#"struct S { #[serde(skip_serializing_if = "Option::is_none", serialize_with = "f")] a: Option<bool> }"#
+    )]
+    #[case::qualified_option("struct S { a: std::option::Option<bool> }")]
+    #[case::cfg_field(r#"struct S { #[cfg(feature = "x")] a: Option<bool> }"#)]
+    fn expand_deserialize_fields_accepts(#[case] src: &str) {
+        let input: DeriveInput = syn::parse_str(src).expect("input parses");
+        expand_deserialize_fields(&input).expect("input is accepted");
     }
 
     #[rstest]

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fmt;
 
 use actix_web::http::header::{CacheDirective, HeaderValue, from_comma_delimited};
-use serde::de::MapAccess;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 
 use crate::config::args::PreferredEncoding;
@@ -12,7 +11,7 @@ use crate::config::args::WebUiMode;
 #[cfg(any(feature = "metrics", feature = "_tiles"))]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
-use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, UnrecognizedKeys};
+use crate::config::file::{CollectUnrecognizedKeys, ConfigurationLivecycleHooks, DeserializeFields, UnrecognizedKeys};
 
 pub const DEFAULT_KEEP_ALIVE: u64 = 75;
 pub const DEFAULT_SHUTDOWN_TIMEOUT: u64 = 5;
@@ -62,7 +61,16 @@ impl<'de> Deserialize<'de> for CacheControlHeader {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Default,
+    CollectUnrecognizedKeys,
+    ConfigurationLivecycleHooks,
+    DeserializeFields,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
@@ -175,35 +183,6 @@ impl SrvConfig {
     #[must_use]
     pub fn public_path_prefix(&self) -> Option<&str> {
         self.base_path.as_deref().or(self.route_prefix.as_deref())
-    }
-
-    /// Reads the value of `key` from `map` if `key` names a field, and returns whether it did.
-    pub(crate) fn deserialize_field<'de, M: MapAccess<'de>>(
-        &mut self,
-        key: &str,
-        map: &mut M,
-    ) -> Result<bool, M::Error> {
-        match key {
-            "keep_alive" => self.keep_alive = map.next_value()?,
-            "shutdown_timeout" => self.shutdown_timeout = map.next_value()?,
-            "listen_addresses" => self.listen_addresses = map.next_value()?,
-            "route_prefix" => self.route_prefix = map.next_value()?,
-            "base_path" => self.base_path = map.next_value()?,
-            "worker_processes" => self.worker_processes = map.next_value()?,
-            "preferred_encoding" => self.preferred_encoding = map.next_value()?,
-            "cache_control" => self.cache_control = map.next_value()?,
-            #[cfg(all(feature = "webui", not(docsrs)))]
-            "web_ui" => self.web_ui = map.next_value()?,
-            #[cfg(feature = "_tiles")]
-            "endpoints" => self.endpoints = map.next_value()?,
-            "cors" => self.cors = map.next_value()?,
-            #[cfg(feature = "metrics")]
-            "observability" => self.observability = map.next_value()?,
-            #[cfg(feature = "_tiles")]
-            "tilejson_url_version_param" => self.tilejson_url_version_param = map.next_value()?,
-            _ => return Ok(false),
-        }
-        Ok(true)
     }
 }
 

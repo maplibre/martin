@@ -9,6 +9,9 @@ pub use crate::config::file::source_location::SourceLocation;
 mod collect_unrecognized;
 pub use collect_unrecognized::*;
 
+mod deserialize_fields;
+pub use deserialize_fields::*;
+
 mod main;
 pub use main::*;
 #[cfg(any(feature = "pmtiles", feature = "cog"))]
