@@ -47,12 +47,12 @@ runs:
       shell: bash
       run: echo "CARGO_PROFILE_DEV_DEBUG=0" >> "$GITHUB_ENV"
     - if: inputs.cache == 'true' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3 # zizmor: ignore[cache-poisoning] dev-only build cache; poisoning risk accepted
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}${{ inputs.cache-key }}
     - if: inputs.tools != ''
-      uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
       with: { tool: '${{ inputs.tools }}' }
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
@@ -61,7 +61,7 @@ runs:
       shell: bash
       run: just env-info
     - if: inputs.coverage == 'true'
-      uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
       with: { tool: 'cargo-llvm-cov' }
     - if: inputs.coverage == 'true'
       shell: bash

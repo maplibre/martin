@@ -346,7 +346,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@2bf61fb9464cc67f0cbdeabed6aa0380accd1c70 # v5.5.0
+        uses: docker/setup-docker-action@7ec28a010822b4626af4874f9448a4b05ac6f3e5 # v5.6.0
         with:
           daemon-config: |
             {
