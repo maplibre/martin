@@ -106,6 +106,44 @@ struct FunctionKey {
     function: String,
 }
 
+impl From<&TableInfo> for TableKey {
+    fn from(info: &TableInfo) -> Self {
+        Self {
+            schema: info.schema.clone(),
+            table: info.table.clone(),
+            geometry_column: info.geometry_column.clone(),
+        }
+    }
+}
+
+impl From<&FunctionInfo> for FunctionKey {
+    fn from(info: &FunctionInfo) -> Self {
+        Self {
+            schema: info.schema.clone(),
+            function: info.function.clone(),
+        }
+    }
+}
+
+/// The configured sources that merged with their catalog entry, which auto-publishing leaves out.
+#[derive(Debug, Default)]
+pub struct Merged {
+    tables: HashSet<TableKey>,
+    functions: HashSet<FunctionKey>,
+}
+
+impl Merged {
+    /// Records a configured table that merged.
+    pub fn table(&mut self, config: &TableInfo) {
+        self.tables.insert(config.into());
+    }
+
+    /// Records a configured function that merged.
+    pub fn function(&mut self, config: &FunctionInfo) {
+        self.functions.insert(config.into());
+    }
+}
+
 /// The sources to auto-publish under the ids they ask for, and what was decided on the way.
 #[derive(Debug, Default)]
 pub struct Plan {
@@ -210,25 +248,8 @@ impl AutoPublish {
         Self {
             tables,
             functions,
-            configured_tables: config
-                .tables
-                .iter()
-                .flatten()
-                .map(|(_, t)| TableKey {
-                    schema: t.schema.clone(),
-                    table: t.table.clone(),
-                    geometry_column: t.geometry_column.clone(),
-                })
-                .collect(),
-            configured_functions: config
-                .functions
-                .iter()
-                .flatten()
-                .map(|(_, f)| FunctionKey {
-                    schema: f.schema.clone(),
-                    function: f.function.clone(),
-                })
-                .collect(),
+            configured_tables: config.tables.iter().flatten().map(|(_, t)| t.into()).collect(),
+            configured_functions: config.functions.iter().flatten().map(|(_, f)| f.into()).collect(),
         }
     }
 
@@ -265,11 +286,13 @@ impl AutoPublish {
         tables: &SqlTableInfoMapMapMap,
         grid: &PgTileGrid,
         default_srid: Option<i32>,
+        merged: &Merged,
     ) -> HashSet<Transform> {
         let Some(rules) = &self.tables else {
             return HashSet::new();
         };
-        self.candidate_tables(rules, tables)
+        rules
+            .candidates(tables, merged)
             .1
             .into_iter()
             .filter_map(|(_, info)| table_srid(info.srid, grid, default_srid).ok())
@@ -282,29 +305,24 @@ impl AutoPublish {
     /// # Panics
     /// Panics if `catalog.transforms` lacks a pair that [`transforms`](Self::transforms) returned.
     #[must_use]
-    pub fn plan(&self, catalog: &Catalog, grid: &PgTileGrid, default_srid: Option<i32>) -> Plan {
+    pub fn plan(&self, catalog: &Catalog, grid: &PgTileGrid, default_srid: Option<i32>, merged: &Merged) -> Plan {
         let mut plan = Plan::default();
         if let Some(rules) = &self.tables {
-            self.plan_tables(rules, catalog, grid, default_srid, &mut plan);
+            rules.plan(catalog, grid, default_srid, merged, &mut plan);
         }
         if let Some(rules) = &self.functions {
-            self.plan_functions(rules, &catalog.functions, &mut plan);
+            rules.plan(&catalog.functions, merged, &mut plan);
         }
         plan
     }
+}
 
-    fn plan_tables(
-        &self,
-        rules: &TableRules,
-        catalog: &Catalog,
-        grid: &PgTileGrid,
-        default_srid: Option<i32>,
-        plan: &mut Plan,
-    ) {
-        let (schemas, tables) = self.candidate_tables(rules, &catalog.tables);
+impl TableRules {
+    fn plan(&self, catalog: &Catalog, grid: &PgTileGrid, default_srid: Option<i32>, merged: &Merged, plan: &mut Plan) {
+        let (schemas, tables) = self.candidates(&catalog.tables, merged);
         plan.decisions.push(Decision::ScannedTables {
             schemas,
-            id_format: rules.id_format.clone(),
+            id_format: self.id_format.clone(),
         });
         for (relation, info) in tables {
             let srid = match table_srid(info.srid, grid, default_srid) {
@@ -335,55 +353,19 @@ impl AutoPublish {
             }
             let mut info = info.clone();
             info.srid = srid;
-            rules.fill_defaults(&relation, &mut info, &mut plan.decisions);
-            plan.tables.push((rules.id(&relation), info));
+            self.fill_defaults(&relation, &mut info, &mut plan.decisions);
+            plan.tables.push((self.id(&relation), info));
         }
     }
 
-    fn plan_functions(&self, rules: &FunctionRules, functions: &SqlFuncInfoMapMap, plan: &mut Plan) {
-        let configured: HashSet<FunctionKey> = self
-            .configured_functions
-            .iter()
-            .filter_map(|key| {
-                let (schema, functions) = resolve(functions, &key.schema)?;
-                let (function, _) = resolve(functions, &key.function)?;
-                Some(FunctionKey {
-                    schema: schema.clone(),
-                    function: function.clone(),
-                })
-            })
-            .collect();
-        let scanned = scanned_schemas(functions, rules.schemas.as_ref());
-        plan.decisions.push(Decision::ScannedFunctions {
-            schemas: scanned.iter().map(|(schema, _)| (*schema).clone()).collect(),
-            id_format: rules.id_format.clone(),
-        });
-        for (schema, functions) in scanned {
-            for (function, (sql, info)) in functions {
-                let key = FunctionKey {
-                    schema: schema.clone(),
-                    function: function.clone(),
-                };
-                if configured.contains(&key) {
-                    continue;
-                }
-                let id = rules
-                    .id_format
-                    .replace("{schema}", schema)
-                    .replace("{function}", function_name(function));
-                plan.functions.push((id, info.clone(), sql.clone()));
-            }
-        }
-    }
-
-    /// The scanned schemas, and the tables in them that no configured source names.
-    fn candidate_tables<'a>(
+    /// The scanned schemas, and the tables in them that no merged configured source names.
+    fn candidates<'a>(
         &self,
-        rules: &TableRules,
         tables: &'a SqlTableInfoMapMapMap,
+        merged: &Merged,
     ) -> (Vec<String>, Vec<(TableKey, &'a TableInfo)>) {
-        let configured: HashSet<TableKey> = self
-            .configured_tables
+        let configured: HashSet<TableKey> = merged
+            .tables
             .iter()
             .filter_map(|key| {
                 let (schema, in_schema) = resolve(tables, &key.schema)?;
@@ -396,7 +378,7 @@ impl AutoPublish {
                 })
             })
             .collect();
-        let scanned = scanned_schemas(tables, rules.schemas.as_ref());
+        let scanned = scanned_schemas(tables, self.schemas.as_ref());
         let names = scanned.iter().map(|(schema, _)| (*schema).clone()).collect();
         let mut candidates = Vec::new();
         for (schema, in_schema) in scanned {
@@ -415,9 +397,7 @@ impl AutoPublish {
         }
         (names, candidates)
     }
-}
 
-impl TableRules {
     /// The id a table asks for.
     fn id(&self, relation: &TableKey) -> String {
         self.id_format
@@ -482,6 +462,44 @@ impl TableRules {
         report(IdColumnOutcome::NoneFound {
             searched: self.id_columns.clone(),
         });
+    }
+}
+
+impl FunctionRules {
+    fn plan(&self, functions: &SqlFuncInfoMapMap, merged: &Merged, plan: &mut Plan) {
+        let configured: HashSet<FunctionKey> = merged
+            .functions
+            .iter()
+            .filter_map(|key| {
+                let (schema, functions) = resolve(functions, &key.schema)?;
+                let (function, _) = resolve(functions, &key.function)?;
+                Some(FunctionKey {
+                    schema: schema.clone(),
+                    function: function.clone(),
+                })
+            })
+            .collect();
+        let scanned = scanned_schemas(functions, self.schemas.as_ref());
+        plan.decisions.push(Decision::ScannedFunctions {
+            schemas: scanned.iter().map(|(schema, _)| (*schema).clone()).collect(),
+            id_format: self.id_format.clone(),
+        });
+        for (schema, functions) in scanned {
+            for (function, (sql, info)) in functions {
+                let key = FunctionKey {
+                    schema: schema.clone(),
+                    function: function.clone(),
+                };
+                if configured.contains(&key) {
+                    continue;
+                }
+                let id = self
+                    .id_format
+                    .replace("{schema}", schema)
+                    .replace("{function}", function_name(function));
+                plan.functions.push((id, info.clone(), sql.clone()));
+            }
+        }
     }
 }
 
@@ -666,9 +684,17 @@ mod tests {
                     })
                     .collect();
 
+                let mut merged = Merged::default();
+                for (_, table) in fixture.config.tables.iter().flatten() {
+                    merged.table(table);
+                }
+                for (_, function) in fixture.config.functions.iter().flatten() {
+                    merged.function(function);
+                }
+
                 let auto = AutoPublish::new(&fixture.config);
-                let transforms = auto.transforms(&catalog.tables, &grid, default_srid);
-                let plan = auto.plan(&catalog, &grid, default_srid);
+                let transforms = auto.transforms(&catalog.tables, &grid, default_srid, &merged);
+                let plan = auto.plan(&catalog, &grid, default_srid, &merged);
                 let snapshot = Snapshot {
                     reads: auto.reads(),
                     transforms,

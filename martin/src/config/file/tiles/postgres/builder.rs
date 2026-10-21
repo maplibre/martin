@@ -9,7 +9,7 @@ use tracing::{debug, error, info, trace, warn};
 use crate::config::args::BoundsCalcType;
 use crate::config::args::OrderByType;
 use crate::config::file::postgres::auto_publish::{
-    AutoPublish, Catalog, Decision, IdColumnOutcome, SkipReason, Transform,
+    AutoPublish, Catalog, Decision, IdColumnOutcome, Merged, SkipReason, Transform,
 };
 use crate::config::file::postgres::resolver::{
     SqlFuncInfoMapMap, SqlTableInfoMapMapMap, query_available_function, query_available_tables, query_schemas,
@@ -249,9 +249,12 @@ impl PostgresAutoDiscoveryBuilder {
         if reads.functions {
             catalog.functions = query_available_function(&self.pool).await?;
         }
+        let mut merged = Merged::default();
+        let tables = self.merge_configured_tables(&catalog.tables, &all_schemas, &mut merged, &mut warnings);
+        let functions = self.merge_configured_functions(&catalog.functions, &all_schemas, &mut merged, &mut warnings);
         let grid = self.tile_grid_for(None);
         let mut refusals = HashMap::new();
-        for transform in self.auto.transforms(&catalog.tables, grid, self.default_srid) {
+        for transform in self.auto.transforms(&catalog.tables, grid, self.default_srid, &merged) {
             match self.pool.check_transform(transform.grid, transform.table).await {
                 Ok(()) => {}
                 Err(refusal @ CannotTransform(..)) => {
@@ -261,17 +264,25 @@ impl PostgresAutoDiscoveryBuilder {
             }
             catalog.transforms.insert(transform, !refusals.contains_key(&transform));
         }
-        let plan = self.auto.plan(&catalog, grid, self.default_srid);
+        let plan = self.auto.plan(&catalog, grid, self.default_srid, &merged);
         for decision in &plan.decisions {
             log_decision(decision, grid, &refusals);
         }
 
-        self.merge_configured_tables(&catalog.tables, &all_schemas, &mut specs, &mut warnings);
+        for (id, info) in tables {
+            let id2 = self.resolve_id(id, &info);
+            warn_on_rename(id, &id2, "Table");
+            specs.insert(id2, SourceSpec::Table(info));
+        }
         for (id, info) in plan.tables {
             let id = self.resolve_id(&id, &info);
             specs.insert(id, SourceSpec::Table(info));
         }
-        self.merge_configured_functions(&catalog.functions, &all_schemas, &mut specs, &mut warnings);
+        for (id, info, sql) in functions {
+            let id2 = self.resolve_id(id, &info);
+            warn_on_rename(id, &id2, "Function");
+            specs.insert(id2, SourceSpec::Function(info, sql));
+        }
         for (id, info, sql) in plan.functions {
             let id = self.resolve_id(&id, &info);
             specs.insert(id, SourceSpec::Function(info, sql));
@@ -281,14 +292,15 @@ impl PostgresAutoDiscoveryBuilder {
         Ok((specs, warnings))
     }
 
-    /// Merges each configured table with its catalog entry, inserting a [`SourceSpec::Table`] per id.
+    /// Merges each configured table with its catalog entry, recording each one that merged in `merged`.
     fn merge_configured_tables(
         &self,
         db_tables_info: &SqlTableInfoMapMapMap,
         all_schemas: &BTreeSet<String>,
-        specs: &mut BTreeMap<String, SourceSpec>,
+        merged: &mut Merged,
         warnings: &mut Vec<TileSourceWarning>,
-    ) {
+    ) -> Vec<(&String, TableInfo)> {
+        let mut tables = Vec::new();
         // The same table on two tile grids is two sources on purpose, so only a repeat on one grid is a duplicate.
         let mut declared = HashSet::<(&str, &str, &str, Option<&str>, Option<&str>)>::new();
         for (id, cfg_inf) in &self.tables {
@@ -309,9 +321,8 @@ impl PostgresAutoDiscoveryBuilder {
                             "Configured duplicate source: multiple config entries resolve to the same table and geometry column"
                         );
                     }
-                    let id2 = self.resolve_id(id, &merged_inf);
-                    warn_on_rename(id, &id2, "Table");
-                    specs.insert(id2, SourceSpec::Table(merged_inf));
+                    merged.table(cfg_inf);
+                    tables.push((id, merged_inf));
                 }
                 Err(error) => warnings.push(TileSourceWarning::SourceError {
                     source_id: id.clone(),
@@ -319,17 +330,19 @@ impl PostgresAutoDiscoveryBuilder {
                 }),
             }
         }
+        tables
     }
 
-    /// Merges each configured function with its catalog entry, inserting a [`SourceSpec::Function`] per id.
-    /// A function's SQL is already known at catalog time, so the spec carries it directly.
+    /// Merges each configured function with its catalog entry, recording each one that merged in `merged`.
+    /// A function's SQL is already known at catalog time, so it is returned beside the merged info.
     fn merge_configured_functions(
         &self,
         db_funcs_info: &SqlFuncInfoMapMap,
         all_schemas: &BTreeSet<String>,
-        specs: &mut BTreeMap<String, SourceSpec>,
+        merged: &mut Merged,
         warnings: &mut Vec<TileSourceWarning>,
-    ) {
+    ) -> Vec<(&String, FunctionInfo, PostgresSqlInfo)> {
+        let mut functions = Vec::new();
         // The same function on two tile grids is two sources on purpose, so only a repeat on one grid is a duplicate.
         let mut used_on_grid = HashSet::<(&str, &str, Option<&str>)>::new();
         for (id, cfg_inf) in &self.functions {
@@ -343,9 +356,8 @@ impl PostgresAutoDiscoveryBuilder {
                             "Configured duplicate source: multiple config entries resolve to the same function"
                         );
                     }
-                    let id2 = self.resolve_id(id, &merged_inf);
-                    warn_on_rename(id, &id2, "Function");
-                    specs.insert(id2, SourceSpec::Function(merged_inf, pg_sql_info));
+                    merged.function(cfg_inf);
+                    functions.push((id, merged_inf, pg_sql_info));
                 }
                 Err(error) => warnings.push(TileSourceWarning::SourceError {
                     source_id: id.clone(),
@@ -353,6 +365,7 @@ impl PostgresAutoDiscoveryBuilder {
                 }),
             }
         }
+        functions
     }
 
     /// Turns one [`SourceSpec`] into a running [`PostgresSource`].
