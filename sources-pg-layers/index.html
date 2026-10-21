@@ -2597,7 +2597,9 @@ layer takes are never read. This needs a SQL equivalent for each <code>where</co
 <li>comparisons of a column with a literal,</li>
 <li><code>==</code> or <code>!=</code> between two columns, unless both are floats,</li>
 <li><code>in</code> with a list of literals, <code>has(feature.x)</code> and <code>'x' in feature</code>,</li>
-<li><code>&amp;&amp;</code>, <code>||</code>, <code>!</code> and <code>? :</code>.</li>
+<li><code>&amp;&amp;</code>, <code>||</code>, <code>!</code> and <code>? :</code>,</li>
+<li><code>size</code>, <code>startsWith</code>, <code>endsWith</code>, <code>contains</code>, <code>lowerAscii</code> and <code>upperAscii</code> on a string column,
+  compared with a literal.</li>
 </ul>
 <p>Columns of type <code>bpchar</code> or <code>name</code> have none, as PostgreSQL compares them differently.
 When a layer reads a <code>jsonb</code> property, no <code>where</code> has one, as any key may share a column's name.
