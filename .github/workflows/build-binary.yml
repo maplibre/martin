@@ -65,15 +65,16 @@ jobs:
           --health-cmd pg_isready --health-interval 10s
           --health-timeout 5s --health-retries 5
     steps:
-      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Install just (and cargo-zigbuild for musl)
+      - name: Install Rust, just (and cargo-zigbuild for musl)
         uses: $/.github/actions/setup-rust
         with:
-          toolchain: none
           tools: ${{ inputs.musl && 'just,cargo-zigbuild' || 'just' }}
+          # Only PRs reuse the cache, and they always build in debug mode.
+          cache: ${{ !inputs.release_mode }}
+          cache-key: ${{ inputs.target }}${{ inputs.full && '-full' || '' }}${{ inputs.legacy_cpu && '-legacycpu' || '' }}
       - name: Install zig (musl only)
         if: inputs.musl
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
