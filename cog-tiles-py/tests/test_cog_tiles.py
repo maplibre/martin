@@ -3,7 +3,10 @@ import multiprocessing
 import pickle
 import sys
 import sysconfig
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +22,59 @@ MOSAIC = FIXTURES / "mosaic"
 def pattern(width: int, height: int, bands: int, left: int = 0, top: int = 0) -> np.ndarray:
     y, x, b = np.ogrid[top : top + height, left : left + width, :bands]
     return ((x + 2 * y + 64 * b) % 256).astype(np.uint8)
+
+
+class RangeServer(ThreadingHTTPServer):
+    """Serves the synthetic COGs over HTTP range requests. While `holding`, each GET waits for `released`."""
+
+    daemon_threads = True
+
+    def __init__(self):
+        super().__init__(("127.0.0.1", 0), RangeHandler)
+        self.holding = False
+        self.held = threading.Event()
+        self.released = threading.Event()
+        self.served_on_release = False
+        self.gets = 0
+
+    def handle_error(self, request, client_address):
+        pass
+
+
+class RangeHandler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        self.send_headers(200, (SYNTHETIC / self.path.lstrip("/")).stat().st_size)
+
+    def do_GET(self):
+        data = (SYNTHETIC / self.path.lstrip("/")).read_bytes()
+        self.server.gets += 1
+        if self.server.holding:
+            self.server.held.set()
+            self.server.served_on_release = self.server.released.wait(timeout=5)
+        start, end = map(int, self.headers["Range"].removeprefix("bytes=").split("-"))
+        self.send_headers(206, end - start + 1, content_range=f"bytes {start}-{end}/{len(data)}")
+        self.wfile.write(data[start : end + 1])
+
+    def send_headers(self, status, length, content_range=None):
+        self.send_response(status)
+        self.send_header("Content-Length", str(length))
+        self.send_header("Last-Modified", "Thu, 22 Oct 2026 00:00:00 GMT")
+        if content_range:
+            self.send_header("Content-Range", content_range)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+
+@pytest.fixture
+def server():
+    server = RangeServer()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server
+    server.released.set()
+    server.shutdown()
+    server.server_close()
 
 
 def test_open_reports_the_tile_layout():
@@ -322,3 +378,40 @@ def test_a_cancelled_read_async_raises_cancelled_error():
 
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(cancel())
+
+
+def test_a_cog_over_http_returns_the_tiles_of_the_local_file(server):
+    cog = cog_tiles.open(f"http://127.0.0.1:{server.server_port}/rgb_zstd.tif", options={"allow_http": "true"})
+    local = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    assert cog.tile(16, 32_748, 21_794) == local.tile(16, 32_748, 21_794)
+
+
+def test_tile_async_leaves_the_event_loop_free_while_it_fetches(server):
+    cog = cog_tiles.open(f"http://127.0.0.1:{server.server_port}/rgb_zstd.tif", options={"allow_http": "true"})
+    server.holding = True
+
+    async def fetch():
+        tile = asyncio.ensure_future(cog.tile_async(16, 32_748, 21_794))
+        await asyncio.to_thread(server.held.wait, 5)
+        server.released.set()
+        return await tile
+
+    assert asyncio.run(fetch()) == cog_tiles.open(SYNTHETIC / "rgb_zstd.tif").tile(16, 32_748, 21_794)
+    assert server.served_on_release
+
+
+def test_cancelling_read_async_stops_its_fetches(server):
+    cog = cog_tiles.open(f"http://127.0.0.1:{server.server_port}/rgb_zstd.tif", options={"allow_http": "true"})
+    server.gets = 0
+    server.holding = True
+
+    async def cancel():
+        read = asyncio.ensure_future(cog.read_async(cog.bounds, zoom=16, concurrency=1))
+        await asyncio.to_thread(server.held.wait, 5)
+        read.cancel()
+        await asyncio.gather(read, return_exceptions=True)
+
+    asyncio.run(cancel())
+    server.released.set()
+    time.sleep(0.5)
+    assert server.gets == 1
