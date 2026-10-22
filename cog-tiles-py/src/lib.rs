@@ -14,6 +14,8 @@ use pyo3_stub_gen::{define_stub_info_gatherer, module_variable};
 fn _cog_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py::open, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_mosaic, m)?)?;
+    m.add_function(wrap_pyfunction!(py::open_async, m)?)?;
+    m.add_function(wrap_pyfunction!(py::open_mosaic_async, m)?)?;
     m.add_class::<py::TileSource>()?;
     m.add_class::<py::Cog>()?;
     m.add_class::<py::Mosaic>()?;

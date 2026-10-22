@@ -1,14 +1,15 @@
 //! The Python classes and functions.
 
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{MosaicOptions, PixelWindow, TileCoord, lnglat_to_mercator};
+use cog_tiles::{CogResult, MosaicOptions, PixelWindow, TileCoord, TilePixels, lnglat_to_mercator};
 use numpy::ndarray::Array3;
 use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
@@ -17,7 +18,7 @@ use tokio_util::task::AbortOnDropHandle;
 
 use crate::error::to_py;
 use crate::location::{Location, split_mosaic};
-use crate::runtime::{runtime, wait};
+use crate::runtime::{runtime, spawn, wait};
 use crate::source::{Layout, Source, read_window, stream_tiles};
 
 /// How many tiles are fetched and decoded at once by default.
@@ -94,23 +95,38 @@ impl TileSource {
         Ok(tile.map(|data| PyBytes::new(py, &data)))
     }
 
+    /// `tile` for `asyncio`, fetching on background threads instead of the event loop.
+    async fn tile_async(&self, z: u8, x: u32, y: u32) -> PyResult<Option<Py<PyBytes>>> {
+        let coord = TileCoord::new(z, x, y).map_err(to_py)?;
+        let source = Arc::clone(&self.source);
+        let tile = spawn(async move { source.tile(coord).await }).await?.map_err(to_py)?;
+        Ok(tile.map(|data| Python::attach(|py| PyBytes::new(py, &data).unbind())))
+    }
+
     /// The decoded tile `z/x/y` as a `(tile_size, tile_size, bands)` `uint8` array,
     /// or `None` if there is no data there.
     fn tile_pixels<'py>(&self, py: Python<'py>, z: u8, x: u32, y: u32) -> PyResult<Option<Bound<'py, PyArray3<u8>>>> {
         let coord = TileCoord::new(z, x, y).map_err(to_py)?;
         let source = Arc::clone(&self.source);
         let pixels = wait(py, async move { source.pixels(coord).await })?.map_err(to_py)?;
-        pixels
-            .map(|pixels| {
-                let size = pixels.size() as usize;
-                let shape = (size, size, pixels.bands());
-                to_array(py, shape, pixels.into_data())
-            })
-            .transpose()
+        pixels.map(|pixels| pixels_to_array(py, pixels)).transpose()
+    }
+
+    /// `tile_pixels` for `asyncio`, fetching and decoding on background threads instead of the event loop.
+    async fn tile_pixels_async(&self, z: u8, x: u32, y: u32) -> PyResult<Option<Py<PyArray3<u8>>>> {
+        let coord = TileCoord::new(z, x, y).map_err(to_py)?;
+        let source = Arc::clone(&self.source);
+        let pixels = spawn(async move { source.pixels(coord).await }).await?.map_err(to_py)?;
+        Python::attach(|py| {
+            pixels
+                .map(|pixels| pixels_to_array(py, pixels).map(Bound::unbind))
+                .transpose()
+        })
     }
 
     /// Iterates over the encoded tiles with data in `bbox` at `zoom`, as `(z, x, y, data)`,
     /// fetching `concurrency` at a time in the background in whatever order they arrive.
+    /// Use it with `for` or `async for`.
     ///
     /// `zoom` is one zoom or a sequence of them, all zooms of the source when `None`.
     /// `bbox` is the source's bounds when `None`; a mosaic needs one.
@@ -186,6 +202,60 @@ impl TileSource {
         concurrency: usize,
         max_pixels: u64,
     ) -> PyResult<Option<Raster>> {
+        let window = self.checked_window(bbox, zoom, crs, concurrency, max_pixels)?;
+        let raster = wait(py, read_window(Arc::clone(&self.source), window, concurrency))??;
+        raster
+            .map(|(data, bands)| Raster::new(py, window, data, bands))
+            .transpose()
+    }
+
+    /// `read` for `asyncio`, fetching and decoding on background threads instead of the event loop.
+    #[pyo3(signature = (
+        bbox,
+        zoom = None,
+        *,
+        crs = "EPSG:4326",
+        concurrency = DEFAULT_CONCURRENCY,
+        max_pixels = DEFAULT_MAX_PIXELS,
+    ))]
+    async fn read_async(
+        &self,
+        #[gen_stub(override_type(type_repr = "tuple[builtins.float, builtins.float, builtins.float, builtins.float]", imports = ("builtins")))]
+        bbox: [f64; 4],
+        zoom: Option<u8>,
+        #[gen_stub(override_type(type_repr = "typing.Literal['EPSG:4326', 'EPSG:3857']", imports = ("typing")))]
+        crs: &str,
+        concurrency: usize,
+        max_pixels: u64,
+    ) -> PyResult<Option<Raster>> {
+        let window = self.checked_window(bbox, zoom, crs, concurrency, max_pixels)?;
+        let raster = spawn(read_window(Arc::clone(&self.source), window, concurrency)).await??;
+        Python::attach(|py| {
+            raster
+                .map(|(data, bands)| Raster::new(py, window, data, bands))
+                .transpose()
+        })
+    }
+}
+
+impl TileSource {
+    /// Wraps `source` with the layout it reports.
+    fn new(source: Source) -> Self {
+        Self {
+            layout: source.layout(),
+            source: Arc::new(source),
+        }
+    }
+
+    /// The window `read` stitches, refused if it has more than `max_pixels`.
+    fn checked_window(
+        &self,
+        bbox: [f64; 4],
+        zoom: Option<u8>,
+        crs: &str,
+        concurrency: usize,
+        max_pixels: u64,
+    ) -> PyResult<PixelWindow> {
         check_concurrency(concurrency)?;
         let zoom = zoom.unwrap_or(self.layout.max_zoom);
         let window =
@@ -198,16 +268,7 @@ impl TileSource {
                 window.height(),
             )));
         }
-        let Some((data, bands)) = wait(py, read_window(Arc::clone(&self.source), window, concurrency))?? else {
-            return Ok(None);
-        };
-        let shape = (window.height() as usize, window.width() as usize, bands);
-        Ok(Some(Raster {
-            data: to_array(py, shape, data)?.unbind(),
-            transform: window.geotransform(),
-            bounds: window.mercator_bounds(),
-            zoom,
-        }))
+        Ok(window)
     }
 }
 
@@ -245,6 +306,18 @@ impl Cog {
 /// The arguments `open` is called with to restore a pickled COG.
 type CogArgs = (PathBuf, BTreeMap<String, String>);
 
+impl Cog {
+    /// Opens the COG at `location`, the work that `open` and `open_async` wait for.
+    fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
+        Ok(Source::open(parse_location(&self.location, &self.options)?))
+    }
+
+    /// The Python object for this COG, read through `source`.
+    fn into_py(self, py: Python<'_>, source: Source) -> PyResult<Py<Self>> {
+        Py::new(py, PyClassInitializer::from(TileSource::new(source)).add_subclass(self))
+    }
+}
+
 /// Many COGs, each covering one tile at `file_zoom` and named after it.
 #[gen_stub_pyclass]
 #[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
@@ -256,6 +329,47 @@ pub struct Mosaic {
 
 /// The arguments `open_mosaic` is called with to restore a pickled mosaic.
 type MosaicArgs = (String, u8, u64, f64, Option<f64>, BTreeMap<String, String>);
+
+impl Mosaic {
+    /// Checks the arguments of `open_mosaic` and `open_mosaic_async`.
+    fn new(
+        location: String,
+        file_zoom: u8,
+        max_cached_files: u64,
+        file_expiry: f64,
+        file_idle_timeout: Option<f64>,
+        options: Option<BTreeMap<String, String>>,
+    ) -> PyResult<Self> {
+        let seconds = |value: f64| {
+            Duration::try_from_secs_f64(value)
+                .map_err(|e| PyValueError::new_err(format!("{value} is not a valid number of seconds: {e}")))
+        };
+        let mosaic_options = MosaicOptions::new(file_zoom)
+            .with_max_cached_files(max_cached_files)
+            .with_file_expiry(seconds(file_expiry)?)
+            .with_file_idle_timeout(file_idle_timeout.map(seconds).transpose()?);
+        Ok(Self {
+            location,
+            options: mosaic_options,
+            store_options: options.unwrap_or_default(),
+        })
+    }
+
+    /// Lists the location for one file, the work that `open_mosaic` and `open_mosaic_async` wait for.
+    fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
+        let (root, template) = split_mosaic(&self.location);
+        let pairs: Vec<_> = self.store_options.clone().into_iter().collect();
+        let root = Location::parse(&root, &pairs)?;
+        let template = template.to_owned();
+        let options = self.options;
+        Ok(async move { Source::open_mosaic(root, &template, options).await })
+    }
+
+    /// The Python object for this mosaic, read through `source`.
+    fn into_py(self, py: Python<'_>, source: Source) -> PyResult<Py<Self>> {
+        Py::new(py, PyClassInitializer::from(TileSource::new(source)).add_subclass(self))
+    }
+}
 
 #[gen_stub_pymethods]
 #[pymethods]
@@ -374,10 +488,24 @@ impl Raster {
     }
 }
 
-/// One tile from a [`TileIterator`]: `(z, x, y, data)`.
-type TileItem<'py> = (u8, u32, u32, Bound<'py, PyBytes>);
+impl Raster {
+    /// The raster of `window` from its stitched pixels.
+    fn new(py: Python<'_>, window: PixelWindow, data: Vec<u8>, bands: usize) -> PyResult<Self> {
+        let shape = (window.height() as usize, window.width() as usize, bands);
+        Ok(Self {
+            data: to_array(py, shape, data)?.unbind(),
+            transform: window.geotransform(),
+            bounds: window.mercator_bounds(),
+            zoom: window.zoom(),
+        })
+    }
+}
 
-/// Encoded tiles as `(z, x, y, data)`, fetched in the background. Dropping it stops the fetches.
+/// One tile from a [`TileIterator`]: `(z, x, y, data)`.
+type TileItem = (u8, u32, u32, Py<PyBytes>);
+
+/// Encoded tiles as `(z, x, y, data)`, fetched in the background, for `for` and `async for`.
+/// Dropping it stops the fetches.
 #[gen_stub_pyclass]
 #[pyclass(frozen, module = "cog_tiles")]
 pub struct TileIterator {
@@ -393,11 +521,26 @@ impl TileIterator {
     }
 
     #[gen_stub(override_return_type(type_repr = "tuple[builtins.int, builtins.int, builtins.int, builtins.bytes]", imports = ("builtins")))]
-    fn __next__<'py>(&self, py: Python<'py>) -> PyResult<Option<TileItem<'py>>> {
+    fn __next__(&self, py: Python<'_>) -> PyResult<Option<TileItem>> {
         let next = wait(py, async { self.receiver.lock().await.recv().await })?;
-        next.transpose()?
-            .map(|(coord, data)| Ok((coord.z(), coord.x(), coord.y(), PyBytes::new(py, &data))))
-            .transpose()
+        next.map(|item| to_tile_item(py, item)).transpose()
+    }
+
+    fn __aiter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    #[gen_stub(override_return_type(type_repr = "typing.Awaitable[tuple[builtins.int, builtins.int, builtins.int, builtins.bytes]]", imports = ("builtins", "typing")))]
+    fn __anext__<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        slf.call_method0(pyo3::intern!(slf.py(), "_anext"))
+    }
+
+    /// The coroutine `__anext__` returns, since `pyo3` cannot make `__anext__` itself `async`.
+    #[gen_stub(skip)]
+    async fn _anext(&self) -> PyResult<TileItem> {
+        let next = self.receiver.lock().await.recv().await;
+        let item = next.ok_or_else(|| PyStopAsyncIteration::new_err(()))?;
+        Python::attach(|py| to_tile_item(py, item))
     }
 }
 
@@ -409,17 +552,25 @@ impl TileIterator {
 #[pyfunction]
 #[pyo3(signature = (location, options = None))]
 pub fn open(py: Python<'_>, location: PathBuf, options: Option<BTreeMap<String, String>>) -> PyResult<Py<Cog>> {
-    let options = options.unwrap_or_default();
-    let parsed = parse_location(&location, &options)?;
-    let source = wait(py, Source::open(parsed))?.map_err(to_py)?;
-    let base = TileSource {
-        layout: source.layout(),
-        source: Arc::new(source),
+    let cog = Cog {
+        location,
+        options: options.unwrap_or_default(),
     };
-    Py::new(
-        py,
-        PyClassInitializer::from(base).add_subclass(Cog { location, options }),
-    )
+    let source = wait(py, cog.open_source()?)?.map_err(to_py)?;
+    cog.into_py(py, source)
+}
+
+/// `open` for `asyncio`, reading the headers on background threads instead of the event loop.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (location, options = None))]
+pub async fn open_async(location: PathBuf, options: Option<BTreeMap<String, String>>) -> PyResult<Py<Cog>> {
+    let cog = Cog {
+        location,
+        options: options.unwrap_or_default(),
+    };
+    let source = spawn(cog.open_source()?).await?.map_err(to_py)?;
+    Python::attach(|py| cog.into_py(py, source))
 }
 
 /// Opens a mosaic of COGs that each cover one tile at `file_zoom`, named by a template in
@@ -448,29 +599,47 @@ pub fn open_mosaic(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
 ) -> PyResult<Py<Mosaic>> {
-    let store_options = options.unwrap_or_default();
-    let seconds = |value: f64| {
-        Duration::try_from_secs_f64(value)
-            .map_err(|e| PyValueError::new_err(format!("{value} is not a valid number of seconds: {e}")))
-    };
-    let options = MosaicOptions::new(file_zoom)
-        .with_max_cached_files(max_cached_files)
-        .with_file_expiry(seconds(file_expiry)?)
-        .with_file_idle_timeout(file_idle_timeout.map(seconds).transpose()?);
-    let (root, template) = split_mosaic(&location);
-    let pairs: Vec<_> = store_options.clone().into_iter().collect();
-    let parsed = Location::parse(&root, &pairs)?;
-    let source = wait(py, Source::open_mosaic(parsed, template, options))?.map_err(to_py)?;
-    let base = TileSource {
-        layout: source.layout(),
-        source: Arc::new(source),
-    };
-    let mosaic = Mosaic {
+    let mosaic = Mosaic::new(
         location,
+        file_zoom,
+        max_cached_files,
+        file_expiry,
+        file_idle_timeout,
         options,
-        store_options,
-    };
-    Py::new(py, PyClassInitializer::from(base).add_subclass(mosaic))
+    )?;
+    let source = wait(py, mosaic.open_source()?)?.map_err(to_py)?;
+    mosaic.into_py(py, source)
+}
+
+/// `open_mosaic` for `asyncio`, listing and reading on background threads instead of the event loop.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (
+    location,
+    file_zoom,
+    max_cached_files = cog_tiles::DEFAULT_MAX_CACHED_FILES,
+    file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
+    file_idle_timeout = None,
+    options = None,
+))]
+pub async fn open_mosaic_async(
+    location: String,
+    file_zoom: u8,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+    options: Option<BTreeMap<String, String>>,
+) -> PyResult<Py<Mosaic>> {
+    let mosaic = Mosaic::new(
+        location,
+        file_zoom,
+        max_cached_files,
+        file_expiry,
+        file_idle_timeout,
+        options,
+    )?;
+    let source = spawn(mosaic.open_source()?).await?.map_err(to_py)?;
+    Python::attach(|py| mosaic.into_py(py, source))
 }
 
 fn parse_location(location: &std::path::Path, options: &BTreeMap<String, String>) -> PyResult<Location> {
@@ -506,6 +675,19 @@ fn check_concurrency(concurrency: usize) -> PyResult<()> {
         return Err(PyValueError::new_err("concurrency must be at least 1"));
     }
     Ok(())
+}
+
+/// The decoded tile as a `(size, size, bands)` array, without copying.
+fn pixels_to_array(py: Python<'_>, pixels: TilePixels) -> PyResult<Bound<'_, PyArray3<u8>>> {
+    let size = pixels.size() as usize;
+    let shape = (size, size, pixels.bands());
+    to_array(py, shape, pixels.into_data())
+}
+
+/// One received tile as the `(z, x, y, data)` a `TileIterator` yields.
+fn to_tile_item(py: Python<'_>, item: PyResult<(TileCoord, bytes::Bytes)>) -> PyResult<TileItem> {
+    let (coord, data) = item?;
+    Ok((coord.z(), coord.x(), coord.y(), PyBytes::new(py, &data).unbind()))
 }
 
 fn to_array(py: Python<'_>, shape: (usize, usize, usize), data: Vec<u8>) -> PyResult<Bound<'_, PyArray3<u8>>> {

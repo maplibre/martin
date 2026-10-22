@@ -37,6 +37,19 @@ Templates use `{quadkey}`, or `{x}` and `{y}` with an optional `{z}` (`{-y}` cou
 bottom, as in TMS). One file is found by listing the location when it is opened; the others are
 opened on first use and cached.
 
+With `asyncio`, e.g. in a tile server, every call that waits has an `_async` twin:
+
+```python
+cog = await cog_tiles.open_async("s3://bucket/ortho.tif")
+png = await cog.tile_async(18, 41936, 101296)
+raster = await cog.read_async(bbox, zoom=18)
+async for z, x, y, data in cog.tiles(bbox, zoom=18):
+    ...
+```
+
+The fetches run on background threads, so awaited calls neither block the event loop nor hold a
+thread each.
+
 ## What it reads
 
 COGs on the `WebMercatorQuad` grid, as `gdal_translate -of COG -co TILING_SCHEME=GoogleMapsCompatible`
@@ -51,7 +64,8 @@ tiles, 8-bit samples. Each tile is one internal tile, so nothing is resampled. O
 * Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
 * Headers are read once when opening (one request for a typical file); each tile is one range read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
-* Ctrl-C interrupts any call. Dropping a `tiles()` iterator cancels its pending fetches.
+* Ctrl-C interrupts any call. Cancelling an `_async` call or dropping a `tiles()` iterator stops its
+  pending fetches.
 
 ## Details
 

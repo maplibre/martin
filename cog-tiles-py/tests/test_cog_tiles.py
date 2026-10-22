@@ -250,3 +250,9 @@ def test_zero_concurrency_raises_value_error():
 def test_an_invalid_template_raises_value_error():
     with pytest.raises(ValueError, match="placeholder"):
         cog_tiles.open_mosaic(str(MOSAIC / "{q}.tif"), 16)
+
+
+def test_a_cog_over_http_returns_the_tiles_of_the_local_file(server):
+    cog = cog_tiles.open(f"http://127.0.0.1:{server.server_port}/rgb_zstd.tif", options={"allow_http": "true"})
+    local = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    assert cog.tile(16, 32_748, 21_794) == local.tile(16, 32_748, 21_794)
