@@ -81,13 +81,19 @@ jobs:
       - uses: $/.github/actions/upload-coverage
         with: { suite: cog }
   test-cog-py:
-    name: COG Python bindings
+    name: COG Python bindings ${{ matrix.python }}
     permissions:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs:
       - lint-rust
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [ '3.10', '3.15', '3.15t' ]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

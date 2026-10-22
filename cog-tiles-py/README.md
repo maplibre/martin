@@ -48,6 +48,7 @@ tiles, 8-bit samples. Each tile is one internal tile, so nothing is resampled. O
 
 * All I/O and decoding runs in Rust with the GIL released; `read` and `tiles` keep `concurrency`
   requests in flight (64 by default) and decode on every core.
+* Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
 * Headers are read once when opening (one request for a typical file); each tile is one range read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
 * Ctrl-C interrupts any call. Dropping a `tiles()` iterator cancels its pending fetches.

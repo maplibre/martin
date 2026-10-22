@@ -30,7 +30,7 @@ requires-dist = [{ name = "numpy", specifier = ">=1.22" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "maturin", specifier = ">=1.9,<2" },
+    { name = "maturin", specifier = ">=1.15,<2" },
     { name = "numpy", specifier = ">=1.22" },
     { name = "pytest", specifier = ">=8" },
 ]

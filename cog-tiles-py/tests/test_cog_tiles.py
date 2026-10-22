@@ -1,5 +1,7 @@
 import multiprocessing
 import pickle
+import sys
+import sysconfig
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -187,6 +189,11 @@ def test_threads_read_concurrently():
         first, *rest = pool.map(lambda _: cog.read(cog.bounds, zoom=16).data, range(32))
     for data in rest:
         np.testing.assert_array_equal(data, first)
+
+
+@pytest.mark.skipif(not sysconfig.get_config_var("Py_GIL_DISABLED"), reason="needs free-threaded Python")
+def test_importing_on_free_threaded_python_keeps_the_gil_disabled():
+    assert not sys._is_gil_enabled()
 
 
 def _read_in_child(cog, queue):
