@@ -60,7 +60,7 @@ font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
 </g>
 <rect class="tile" x="246" y="14" width="180" height="180"/>
 <text class="small" x="246" y="210">polygon</text>
-<text class="small muted" x="246" y="226">the tip merges into one</text>
+<text class="small muted" x="246" y="226">two tip vertices merge into one</text>
 <clipPath id="q2"><rect x="478" y="14" width="180" height="180"/></clipPath>
 <g clip-path="url(#q2)">
 <pattern id="gq2" width="30" height="30" patternUnits="userSpaceOnUse" x="13" y="-1"><circle class="grid" cx="15" cy="15" r="1.2"/></pattern>
@@ -105,7 +105,7 @@ font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
 <text class="small" x="710" y="210">make_valid</text>
 <text class="small muted" x="710" y="226">both lobes are kept</text>
 <path class="input" d="M14,256H34"/>
-<text class="muted small" x="44" y="256">float input</text>
+<text class="muted small" x="44" y="256">float polygon</text>
 <circle class="float" cx="143.2" cy="256" r="3"/>
 <text class="muted small" x="153.2" y="256">float vertex</text>
 <circle class="kept" cx="259.1" cy="256" r="3.5"/>

@@ -75,6 +75,23 @@ fn hole_that_rounds_onto_the_exterior_becomes_a_notch() {
 }
 
 #[test]
+fn vertex_closer_to_an_edge_than_fixed_point_resolves_rounds_valid() {
+    let exterior = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (5.0, 0.001), (0.0, 10.0)];
+    assert_snapshot!(quantize(&[&exterior]), @"
+    (0 0, 5 0, 0 10)
+    (5 0, 10 0, 10 10)
+    ");
+}
+
+#[test]
+fn holes_closer_than_fixed_point_resolves_take_out_their_union() {
+    let exterior = [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)];
+    let hole_a = [(2.0, 2.0), (8.0005, 2.0), (8.0005, 12.0), (2.0, 12.0)];
+    let hole_b = [(8.0014, 2.0), (14.0, 2.0), (14.0, 12.0), (8.0014, 12.0)];
+    assert_snapshot!(quantize(&[&exterior, &hole_a, &hole_b]), @"(0 0, 20 0, 20 20, 0 20), (2 2, 2 12, 8 12, 14 12, 14 2, 8 2)");
+}
+
+#[test]
 fn self_crossing_exterior_keeps_both_lobes() {
     let exterior = [(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0)];
     assert_snapshot!(make_valid(&[&exterior]), @"

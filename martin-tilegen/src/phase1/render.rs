@@ -277,6 +277,7 @@ pub struct Renderer {
     parts: Vec<u32>,
     vertices: Vec<Coord<i32>>,
     simplifier: Simplifier,
+    /// Rounds each simplified polygon onto the tile grid.
     quantizer: Quantizer,
     /// One tile's piece, shaped the same with tile-local vertices.
     piece: PieceBuf,
@@ -558,8 +559,6 @@ impl Renderer {
                     y: c.y * world,
                 })
             });
-            // Exteriors come with a positive area in y-down tile coordinates and holes a negative one,
-            // the MVT and MLT winding.
             let quantized = self
                 .quantizer
                 .polygon(rings)

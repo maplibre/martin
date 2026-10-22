@@ -1,13 +1,4 @@
 //! Rounding float polygons onto the integer grid without turning a valid polygon into an invalid one.
-//!
-//! Rounding each vertex on its own moves it up to half a unit per axis.
-//! Two edges closer than that can end up crossing, touching, or folding onto each other.
-//! For a valid polygon, that can only happen where a vertex was within a unit of another edge.
-//! A polygon whose rounded rings are still valid keeps them.
-//! Any other polygon is snap-rounded: each float edge bends through the center of every pixel it
-//! passes that holds a vertex or an edge crossing, so no two rounded edges cross.
-//! The area is then rebuilt from those edges as valid polygons: what the exterior covers, minus what
-//! any hole covers.
 
 use core::cmp::Ordering;
 use std::collections::HashMap;
@@ -20,10 +11,14 @@ use crate::planar::{Meet, meet};
 
 /// Fractional bits of the fixed-point coordinates a polygon is read into.
 const FRAC: u32 = 8;
+/// One grid unit in fixed point.
 const ONE: i64 = 1 << FRAC;
+/// Half a grid unit in fixed point.
 const HALF: i64 = ONE / 2;
 
+/// A coordinate in fixed point, [`ONE`] to a grid unit.
 type Fixed = Coord<i64>;
+/// A coordinate rounded to a grid point.
 type Pixel = Coord<i32>;
 
 /// Rounds float polygons onto the integer grid, keeping a valid polygon valid.
@@ -77,6 +72,13 @@ struct Net {
     holes: i32,
 }
 
+/// Which ring of a polygon an edge belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Ring {
+    Exterior,
+    Hole,
+}
+
 /// How many times the exterior and the holes wind around a point.
 #[derive(Debug, Clone, Copy, Default)]
 struct Winding {
@@ -85,6 +87,7 @@ struct Winding {
 }
 
 impl Winding {
+    /// Whether the point is inside the exterior and outside every hole.
     fn inside(self) -> bool {
         self.exterior != 0 && self.holes == 0
     }
@@ -99,10 +102,6 @@ impl Quantizer {
 
     /// Rounds one valid polygon's `rings`, exterior first, in grid units, into valid polygons.
     ///
-    /// Only edges that come within a unit of each other are checked.
-    /// A polygon that is not valid may come out as invalid as it went in: [`Quantizer::make_valid`]
-    /// takes any polygon.
-    ///
     /// # Errors
     ///
     /// [`TileError::Overflow`] if a coordinate is not finite or rounds outside the `i32` range.
@@ -112,7 +111,6 @@ impl Quantizer {
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
         self.read(rings)?;
-        debug_assert!(self.read_is_valid(), "Quantizer::polygon was given an invalid polygon");
         self.round();
         if !self.ring_ends.is_empty() {
             if self.rounding_kept_valid() {
@@ -121,6 +119,10 @@ impl Quantizer {
                 self.repair();
             }
         }
+        debug_assert!(
+            self.output_is_valid(),
+            "Quantizer::polygon was given an invalid polygon"
+        );
         Ok(Quantized { q: self })
     }
 
@@ -149,6 +151,8 @@ impl Quantizer {
         Ok(Quantized { q: self })
     }
 
+    /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three
+    /// and turning the exterior positive and the holes negative.
     fn read<R>(&mut self, rings: R) -> Result<(), TileError>
     where
         R: IntoIterator,
@@ -186,16 +190,7 @@ impl Quantizer {
         Ok(())
     }
 
-    fn read_is_valid(&self) -> bool {
-        let polygon_ends = [self.fixed_ends.len()];
-        let polygon_ends = if self.fixed_ends.is_empty() {
-            &[][..]
-        } else {
-            &polygon_ends
-        };
-        is_valid(&self.fixed, &self.fixed_ends, polygon_ends)
-    }
-
+    /// Whether the rounded polygons are valid.
     fn output_is_valid(&self) -> bool {
         let vertices: Vec<Fixed> = self.vertices.iter().map(|&p| widen(p)).collect();
         is_valid(&vertices, &self.ring_ends, &self.polygon_ends)
@@ -278,11 +273,8 @@ impl Quantizer {
         true
     }
 
-    /// Whether rounding kept a valid polygon valid.
-    ///
-    /// Rounding moves every point by less than a unit along each axis.
-    /// Two edges can only come to meet if a vertex of one was within a unit of the other.
-    /// A ring can only move across another if all of its vertices were within a unit of it.
+    /// Whether the polygon is valid in fixed point and stayed valid when rounded, checking only the
+    /// vertices within a unit of another edge.
     fn rounding_kept_valid(&mut self) -> bool {
         if !self.rounded_edges() {
             return false;
@@ -311,6 +303,9 @@ impl Quantizer {
             let (rv, ra, rb) = (rounded_at[v], rounded_at[a], rounded_at[b]);
             if rv == usize::MAX || ra == usize::MAX {
                 return true;
+            }
+            if !edges_at_clear_of(fixed, fixed_ends, v, a, b) {
+                return false;
             }
             if segs[rv].ring != segs[ra].ring {
                 near[v] = true;
@@ -365,10 +360,11 @@ impl Quantizer {
         self.vertices.clear();
         self.ring_ends.clear();
         self.polygon_ends.clear();
-        let mut segs: Vec<(Fixed, Fixed, bool)> = Vec::new();
+        let mut segs: Vec<(Fixed, Fixed, Ring)> = Vec::new();
         for (i, ring) in rings_of(&self.fixed, &self.fixed_ends).enumerate() {
+            let kind = if i == 0 { Ring::Exterior } else { Ring::Hole };
             for (k, &a) in ring.iter().enumerate() {
-                segs.push((a, ring[(k + 1) % ring.len()], i > 0));
+                segs.push((a, ring[(k + 1) % ring.len()], kind));
             }
         }
         let hot = hot_pixels(&segs);
@@ -413,6 +409,23 @@ impl Quantizer {
     }
 }
 
+/// Whether both edges at vertex `v` meet the edge from vertex `a` to vertex `b` only as a valid
+/// polygon's edges can.
+fn edges_at_clear_of(verts: &[Fixed], ends: &[usize], v: usize, a: usize, b: usize) -> bool {
+    let ring = ends.partition_point(|&e| e <= v);
+    let (start, end) = (if ring == 0 { 0 } else { ends[ring - 1] }, ends[ring]);
+    let prev = if v == start { end - 1 } else { v - 1 };
+    let next = if v + 1 == end { start } else { v + 1 };
+    let same_ring = (start..end).contains(&a);
+    [(prev, v), (v, next)]
+        .into_iter()
+        .all(|(x, y)| match contact((verts[x], verts[y]), (verts[a], verts[b])) {
+            Contact::Apart => true,
+            Contact::Point => !same_ring || x == b || y == a,
+            Contact::Bad => false,
+        })
+}
+
 /// Whether two rounded edges follow each other around a ring.
 fn adjacent(segs: &[Seg], i: usize, j: usize) -> bool {
     segs[i].ring == segs[j].ring && (i.abs_diff(j) == 1 || i.abs_diff(j) == segs[i].edges - 1)
@@ -441,6 +454,7 @@ impl<'a> Quantized<'a> {
     }
 }
 
+/// The rings of `verts` that end at `ends`.
 fn rings_of<'a, T>(verts: &'a [T], ends: &'a [usize]) -> impl Iterator<Item = &'a [T]> {
     let starts = core::iter::once(0).chain(ends.iter().copied());
     starts.zip(ends).map(|(s, &e)| &verts[s..e])
@@ -450,8 +464,7 @@ fn rings_of<'a, T>(verts: &'a [T], ends: &'a [usize]) -> impl Iterator<Item = &'
 #[expect(clippy::cast_possible_truncation, reason = "range-checked before the cast")]
 #[expect(clippy::cast_precision_loss, reason = "ONE and HALF are small powers of two")]
 fn to_fixed(v: f64) -> Result<i64, TileError> {
-    // Adding and taking away `1.5 · 2^52` rounds below `2^51` to a whole number, ties to even, and
-    // leaves anything bigger out of range.
+    /// Adding and taking away `1.5 · 2^52` rounds anything below `2^51` to a whole number, ties to even.
     const ROUND: f64 = 6_755_399_441_055_744.0;
     let f = (v * ONE as f64 + ROUND) - ROUND;
     let lo = f64::from(i32::MIN) * ONE as f64 - HALF as f64;
@@ -472,6 +485,7 @@ fn pixel(c: Fixed) -> Pixel {
     }
 }
 
+/// `p` with `i64` coordinates.
 fn widen(p: Pixel) -> Coord<i64> {
     Coord {
         x: i64::from(p.x),
@@ -488,8 +502,8 @@ struct Grid {
     points: Vec<(usize, usize)>,
 }
 
-/// Calls `test(i, j)` for every two of `lines` that pass through a common cell of a grid sized to
-/// their typical length, until it returns `false`; tells whether it never did.
+/// Whether `test(i, j)` holds for every two of `lines` that pass through a common cell of a grid sized
+/// to their typical length, stopping at the first that fails.
 fn near_pairs(lines: &[(Coord<i64>, Coord<i64>)], grid: &mut Grid, mut test: impl FnMut(usize, usize) -> bool) -> bool {
     let Grid { cells, lengths, .. } = grid;
     cells.clear();
@@ -517,7 +531,6 @@ fn near_pairs(lines: &[(Coord<i64>, Coord<i64>)], grid: &mut Grid, mut test: imp
             }
             continue;
         }
-        // Rounding can only widen a column's span, by a unit either side.
         #[expect(clippy::cast_precision_loss, reason = "a unit of error is allowed for")]
         let at = |x: i64| a.y as f64 + (b.y - a.y) as f64 * ((x - a.x) as f64 / (b.x - a.x) as f64);
         let mut x0 = a.x;
@@ -559,8 +572,8 @@ fn cell_size(lengths: &mut [i64], min: Fixed, max: Fixed, floor: i64) -> i64 {
         .max(floor)
 }
 
-/// Calls `test(v, a, b)` for every vertex `v` within a unit of an edge from vertex `a` to vertex `b`
-/// of the rings ending at `ends`, until it returns `false`; tells whether it never did.
+/// Whether `test(v, a, b)` holds for every vertex `v` within a unit of an edge from vertex `a` to vertex
+/// `b` of the rings ending at `ends`, stopping at the first that fails.
 fn near_vertices(
     verts: &[Fixed],
     ends: &[usize],
@@ -594,7 +607,6 @@ fn near_vertices(
         let d = verts[b] - verts[a];
         d.x.abs().max(d.y.abs())
     }));
-    // Cells twice the typical edge, a power of two in size.
     let shift = cell_size(lengths, min, max, ONE)
         .unsigned_abs()
         .next_power_of_two()
@@ -606,7 +618,6 @@ fn near_vertices(
         |x: i64| cell(x, min.x).min(cols - 1),
         |y: i64| cell(y, min.y).min(rows - 1),
     );
-    // Each column's vertices, by row.
     columns.resize(cols + 1, 0);
     for c in verts {
         columns[column(c.x) + 1] += 1;
@@ -633,7 +644,6 @@ fn near_vertices(
         let at = |x: i64| l.y as f64 + (r.y - l.y) as f64 * ((x - l.x) as f64 / (r.x - l.x) as f64);
         let (c0, c1) = (column(l.x - ONE), column(r.x + ONE));
         for cx in c0..=c1 {
-            // An edge across a few columns is probed over all of its height.
             #[expect(clippy::cast_possible_truncation, reason = "clamped to the edge's own span")]
             let (y0, y1) = if c1 - c0 <= 2 {
                 (lo, hi)
@@ -677,6 +687,7 @@ enum Contact {
     Bad,
 }
 
+/// How the edges `p1`-`p2` and `q1`-`q2` meet.
 fn contact((p1, p2): (Fixed, Fixed), (q1, q2): (Fixed, Fixed)) -> Contact {
     let boxed = |c: Fixed, a: Fixed, b: Fixed| {
         c.x >= a.x.min(b.x) && c.x <= a.x.max(b.x) && c.y >= a.y.min(b.y) && c.y <= a.y.max(b.y)
@@ -767,6 +778,7 @@ fn is_valid(verts: &[Fixed], ring_ends: &[usize], polygon_ends: &[usize]) -> boo
     (0..queries.len()).all(|q| shell_of[q] == q || held[q])
 }
 
+/// `p` in doubled coordinates.
 fn doubled(p: Pixel) -> Fixed {
     Coord {
         x: 2 * i64::from(p.x),
@@ -774,21 +786,24 @@ fn doubled(p: Pixel) -> Fixed {
     }
 }
 
+/// The edge from `a` to `b` with its lower `(x, y)` end first.
 fn left_first(a: Fixed, b: Fixed) -> (Fixed, Fixed) {
     if (a.x, a.y) <= (b.x, b.y) { (a, b) } else { (b, a) }
 }
 
+/// The cross product of `a` and `b`.
 fn cross(a: Fixed, b: Fixed) -> i128 {
     i128::from(a.x) * i128::from(b.y) - i128::from(a.y) * i128::from(b.x)
 }
 
+/// Twice the signed area of a fixed-point ring.
 fn fixed_area_2x(ring: &[Fixed]) -> i128 {
     let o = ring[0];
     ring.windows(2).map(|w| cross(w[0] - o, w[1] - o)).sum()
 }
 
 /// Every pixel holding a vertex or a point where two edges cross, sorted.
-fn hot_pixels(segs: &[(Fixed, Fixed, bool)]) -> Vec<Pixel> {
+fn hot_pixels(segs: &[(Fixed, Fixed, Ring)]) -> Vec<Pixel> {
     let mut hot: Vec<Pixel> = segs.iter().map(|s| pixel(s.0)).collect();
     let lines: Vec<(Fixed, Fixed)> = segs.iter().map(|s| (s.0, s.1)).collect();
     near_pairs(&lines, &mut Grid::default(), |i, j| {
@@ -835,6 +850,7 @@ struct Bound {
 }
 
 impl Bound {
+    /// Orders two bounds by their parameter.
     fn cmp(self, other: Self) -> Ordering {
         (self.n * other.d).cmp(&(other.n * self.d))
     }
@@ -902,10 +918,10 @@ fn passes(p: Fixed, q: Fixed, h: Pixel) -> bool {
 
 /// Each edge snapped through the hot pixels it passes, summed per rounded edge, keeping those that
 /// some ring still runs along.
-fn net_edges(segs: &[(Fixed, Fixed, bool)], hot: &[Pixel]) -> Vec<Net> {
+fn net_edges(segs: &[(Fixed, Fixed, Ring)], hot: &[Pixel]) -> Vec<Net> {
     let mut frags = Vec::new();
     let mut path: Vec<(i128, Pixel)> = Vec::new();
-    for &(p, q, hole) in segs {
+    for &(p, q, kind) in segs {
         let (pp, pq) = (pixel(p), pixel(q));
         if pp == pq {
             continue;
@@ -939,7 +955,10 @@ fn net_edges(segs: &[(Fixed, Fixed, bool)], hot: &[Pixel]) -> Vec<Net> {
         path.push((i128::MAX, pq));
         for w in path.windows(2) {
             let (a, b) = (w[0].1, w[1].1);
-            let (exterior, holes) = if hole { (0, 1) } else { (1, 0) };
+            let (exterior, holes) = match kind {
+                Ring::Exterior => (1, 0),
+                Ring::Hole => (0, 1),
+            };
             let (a, b, sign) = if (a.x, a.y) < (b.x, b.y) { (a, b, 1) } else { (b, a, -1) };
             frags.push(Net {
                 a,
@@ -964,8 +983,8 @@ fn net_edges(segs: &[(Fixed, Fixed, bool)], hot: &[Pixel]) -> Vec<Net> {
     net
 }
 
-/// For each query point (in doubled coordinates), calls `hit(query, edge)` for each edge that the
-/// upward ray from just right of the point crosses; each edge is given left end first.
+/// Calls `hit(query, edge)` for each edge, given left end first, that the upward ray from just right of
+/// each query point, in doubled coordinates, crosses.
 fn rays_up(edges: &[(Fixed, Fixed)], queries: &[Fixed], mut hit: impl FnMut(usize, usize)) {
     let x2 = |v: i64| 2 * v;
     let mut order: Vec<usize> = (0..edges.len()).filter(|&e| edges[e].0.x != edges[e].1.x).collect();
@@ -1017,7 +1036,6 @@ fn boundary(net: &[Net]) -> Vec<(Pixel, Pixel)> {
     });
     let mut half = Vec::new();
     for (n, w) in net.iter().zip(above) {
-        // A sloped edge's query reads its upper side, its left; a vertical one reads its right side.
         let (left, right) = if n.a.x == n.b.x {
             (
                 Winding {
@@ -1054,6 +1072,7 @@ fn by_angle(a: Coord<i64>, b: Coord<i64>) -> Ordering {
     half_plane(a).cmp(&half_plane(b)).then_with(|| 0.cmp(&cross(a, b)))
 }
 
+/// The vector from `from` to `to`.
 fn direction(from: Pixel, to: Pixel) -> Coord<i64> {
     Coord {
         x: i64::from(to.x) - i64::from(from.x),
