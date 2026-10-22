@@ -230,8 +230,10 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
         let width = f64::from(base.image_width()) * georef.resolution;
         let height = f64::from(base.image_height()) * georef.resolution;
         let mut chunks = Vec::with_capacity(ifds.len());
+        let mut previous = None;
         for (index, ifd) in ifds.iter().enumerate() {
-            chunks.push(if is_image(index, ifd) {
+            chunks.push(if is_image(index, ifd, previous) {
+                previous = Some((ifd.image_width(), ifd.image_height()));
                 Some(check_same_layout(base, base_chunks, ifd, index, location)?)
             } else {
                 None
@@ -557,14 +559,21 @@ fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileF
     }
 }
 
-/// The full-resolution image width in meters, once the first level is known.
-/// Checks that an overview is stored the same way as the full-resolution image.
 /// Whether an IFD is the full-resolution image or an overview, rather than a mask or another page.
-fn is_image(index: usize, ifd: &ImageFileDirectory) -> bool {
+///
+/// A page counts as an overview when it is half the size of `previous`, the image before it.
+fn is_image(index: usize, ifd: &ImageFileDirectory, previous: Option<(u32, u32)>) -> bool {
+    const REDUCED_RESOLUTION: u32 = 0b001;
+    const PAGE: u32 = 0b010;
+    const MASK: u32 = 0b100;
     let subfile = ifd.new_subfile_type().unwrap_or(0);
-    subfile & 0b100 == 0 && (index == 0 || subfile & 0b001 != 0)
+    let halves = previous.is_some_and(|(width, height)| {
+        (ifd.image_width(), ifd.image_height()) == (width.div_ceil(2), height.div_ceil(2))
+    });
+    subfile & MASK == 0 && (index == 0 || subfile & REDUCED_RESOLUTION != 0 || (subfile & PAGE != 0 && halves))
 }
 
+/// Checks that an overview is stored the same way as the full-resolution image, and returns how it is chunked.
 fn check_same_layout(
     base: &ImageFileDirectory,
     base_chunks: Chunks,

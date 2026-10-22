@@ -295,6 +295,42 @@ async fn opening_a_file_whose_ifd_follows_its_pixels_reads_only_the_header_and_t
 }
 
 #[tokio::test]
+async fn pages_that_halve_in_size_are_overviews() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let bytes = striped_tiff(
+        &[(512, 80), (256, 256)],
+        2,
+        Some([min_x, max_y, cog_tiles::resolution(17, 256)]),
+    );
+    let backend = MemoryBackend::new(bytes, "pages.tif".to_owned());
+
+    let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
+
+    let info = reader.info();
+    assert_eq!((info.min_zoom, info.max_zoom), (16, 17));
+    let png = reader.get_tile(tile).await.unwrap().unwrap();
+    assert_eq!(decode_png(&png), (256, 256, 3, expected_tile(0, 0, 3, 1)));
+}
+
+#[tokio::test]
+async fn pages_that_do_not_halve_in_size_are_other_images() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let bytes = striped_tiff(
+        &[(512, 80), (384, 128)],
+        2,
+        Some([min_x, max_y, cog_tiles::resolution(17, 256)]),
+    );
+    let backend = MemoryBackend::new(bytes, "pages.tif".to_owned());
+
+    let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
+
+    assert_eq!((reader.info().min_zoom, reader.info().max_zoom), (17, 17));
+    assert_eq!(reader.skipped_images(), &[] as &[SkippedImage]);
+}
+
+#[tokio::test]
 async fn compressed_strips_are_rejected() {
     let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
     let [min_x, _, _, max_y] = tile.mercator_bounds();
