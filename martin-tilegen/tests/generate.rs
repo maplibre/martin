@@ -16,7 +16,7 @@ use martin_tilegen::{
     SortConfig, Summary, TileFormat, generate,
 };
 use mbtiles::Mbtiles;
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use mlt_core::{Decoder, Parser, TileLayer};
 
 const GRID: LayerGrid = LayerGrid {
@@ -773,7 +773,7 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("rank".to_owned(), None)],
         layers: vec![LayerDef {
-            encoder: EncoderConfig::default()
+            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline))
                 .with_id_sort(true)
                 .with_spatial_morton_sort(true)
                 .with_spatial_hilbert_sort(true),

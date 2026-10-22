@@ -9,7 +9,7 @@ use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
 use map_tile_toolkit::ClipMode;
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
@@ -137,7 +137,7 @@ impl LayerDef {
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
-            encoder: EncoderConfig::default(),
+            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
             geometry: None,
             filter: None,
             minzoom_expr: None,

@@ -241,6 +241,7 @@ impl TileEncoder {
 #[cfg(test)]
 mod tests {
     use martin_tile_utils::decode_gzip;
+    use mlt_core::encoder::{Network, Profile};
     use mlt_core::fast_mvt::MvtReaderRef;
     use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
 
@@ -256,7 +257,7 @@ mod tests {
                 extent: 4096,
                 buffer: 64,
             },
-            encoder: EncoderConfig::default(),
+            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
         }
     }
 

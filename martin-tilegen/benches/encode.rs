@@ -18,7 +18,7 @@ use martin_tilegen::internals::{DedupIndex, EncodeSettings, LayerInfo, Seq, Tile
 use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::{LayerGrid, TileFormat, TileOrder};
 use mlt_core::PropValueRef;
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 
 const TILES: u64 = 100;
 const FEATURES: u64 = 200;
@@ -79,7 +79,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
                 extent: 4096,
                 buffer: 64,
             },
-            encoder: EncoderConfig::default(),
+            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
         }];
         let settings = EncodeSettings {
             layers: &layers,

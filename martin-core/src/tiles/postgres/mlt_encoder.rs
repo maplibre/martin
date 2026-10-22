@@ -5,6 +5,7 @@ mod nested;
 
 use std::collections::HashMap;
 
+use compact_str::ToCompactString as _;
 use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
 use mlt_core::encoder::EncoderConfig;
 #[cfg(feature = "unstable-mlt-v2")]
@@ -281,10 +282,10 @@ fn to_prop_value(kind: PropKind, value: PropValue) -> PropValue {
         (PropKind::F64, PropValue::F32(v)) => PropValue::F64(v.map(f64::from)),
         #[expect(clippy::cast_precision_loss, reason = "the round trip widens the same way")]
         (PropKind::F64, PropValue::I64(v)) => PropValue::F64(v.map(|v| v as f64)),
-        (PropKind::Str, PropValue::Bool(v)) => PropValue::Str(v.map(|v| v.to_string())),
-        (PropKind::Str, PropValue::I64(v)) => PropValue::Str(v.map(|v| v.to_string())),
-        (PropKind::Str, PropValue::F32(v)) => PropValue::Str(v.map(|v| v.to_string())),
-        (PropKind::Str, PropValue::F64(v)) => PropValue::Str(v.map(|v| v.to_string())),
+        (PropKind::Str, PropValue::Bool(v)) => PropValue::Str(v.map(|v| v.to_compact_string())),
+        (PropKind::Str, PropValue::I64(v)) => PropValue::Str(v.map(|v| v.to_compact_string())),
+        (PropKind::Str, PropValue::F32(v)) => PropValue::Str(v.map(|v| v.to_compact_string())),
+        (PropKind::Str, PropValue::F64(v)) => PropValue::Str(v.map(|v| v.to_compact_string())),
         (_, value) => value,
     }
 }
@@ -298,7 +299,7 @@ pub(super) fn st_asmvt_properties(document: Option<Value>) -> impl Iterator<Item
     };
     object.into_iter().filter_map(|(key, value)| {
         let value = match value {
-            Value::String(s) => PropValue::Str(Some(s)),
+            Value::String(s) => PropValue::Str(Some(s.into())),
             Value::Bool(b) => PropValue::Bool(Some(b)),
             Value::Number(n) => st_asmvt_number(&n),
             Value::Null | Value::Array(_) | Value::Object(_) => return None,
@@ -314,7 +315,7 @@ fn st_asmvt_number(number: &Number) -> PropValue {
         return PropValue::I64(Some(integer));
     }
     let Some(double) = number.as_f64() else {
-        return PropValue::Str(Some(number.to_string()));
+        return PropValue::Str(Some(number.to_compact_string()));
     };
     #[expect(clippy::cast_possible_truncation, reason = "saturates the way `strtol` does")]
     let integer = double.trunc() as i64;
