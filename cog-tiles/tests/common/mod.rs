@@ -3,7 +3,7 @@
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use bytes::Bytes;
 use cog_tiles::{AsyncBackend, CogResult, MemoryBackend};
@@ -101,11 +101,12 @@ pub fn mean_abs_diff(a: &[u8], b: &[u8]) -> f64 {
     sum as f64 / a.len() as f64
 }
 
-/// Wraps a backend and counts the requests made to it.
+/// Wraps a backend and counts the requests made to it and the bytes they read.
 #[derive(Debug)]
 pub struct Counting<B> {
     pub inner: B,
     pub reads: Arc<AtomicUsize>,
+    pub bytes: Arc<AtomicU64>,
 }
 
 impl<B> Counting<B> {
@@ -113,6 +114,7 @@ impl<B> Counting<B> {
         Self {
             inner,
             reads: Arc::new(AtomicUsize::new(0)),
+            bytes: Arc::new(AtomicU64::new(0)),
         }
     }
 }
@@ -128,6 +130,7 @@ impl<B: AsyncBackend> AsyncBackend for Counting<B> {
 
     async fn read(&self, range: Range<u64>) -> CogResult<Bytes> {
         self.reads.fetch_add(1, Ordering::SeqCst);
+        self.bytes.fetch_add(range.end - range.start, Ordering::SeqCst);
         self.inner.read(range).await
     }
 }

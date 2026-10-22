@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use async_tiff::decoder::DecoderRegistry;
 use async_tiff::metadata::TiffMetadataReader;
-use async_tiff::metadata::cache::ReadaheadMetadataCache;
 use async_tiff::tags::{Compression, PhotometricInterpretation, PlanarConfiguration, SampleFormat};
 use async_tiff::{ImageFileDirectory, TileByteRange};
 use bytes::Bytes;
@@ -12,6 +11,7 @@ use futures::FutureExt as _;
 
 use crate::backend::{AsyncBackend, TiffBridge};
 use crate::geo::{Georef, aligned_tile, match_zoom};
+use crate::metadata::BlockMetadataCache;
 use crate::tile::{TileCoord, mercator_to_lnglat};
 use crate::{CogError, CogResult, SkippedImage, TilePixels, UnsupportedReason};
 
@@ -462,7 +462,7 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
 /// Reads all IFDs, converting `async-tiff` panics on malformed input into errors.
 async fn read_ifds<B: AsyncBackend>(bridge: &TiffBridge<B>, prefetch: u64) -> CogResult<Vec<ImageFileDirectory>> {
     let location = bridge.0.location();
-    let cache = ReadaheadMetadataCache::new(bridge.clone()).with_initial_size(prefetch.min(bridge.0.size()).max(16));
+    let cache = BlockMetadataCache::new(bridge.clone(), prefetch.min(bridge.0.size()));
     let parsed = AssertUnwindSafe(async {
         let mut reader = TiffMetadataReader::try_open(&cache).await?;
         reader.read_all_ifds(&cache).await

@@ -279,6 +279,22 @@ async fn striped_uncompressed_geotiffs_are_cut_into_png_tiles() {
 }
 
 #[tokio::test]
+async fn opening_a_file_whose_ifd_follows_its_pixels_reads_only_the_header_and_the_ifd() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let bytes = striped_tiff(&[(1024, 80)], 0, Some([min_x, max_y, cog_tiles::resolution(18, 256)]));
+    let backend = Counting::new(MemoryBackend::new(bytes, "striped.tif".to_owned()));
+    let reads = Arc::clone(&backend.reads);
+    let bytes_read = Arc::clone(&backend.bytes);
+
+    AsyncCogReader::try_from_backend(backend).await.unwrap();
+
+    assert_eq!(reads.load(Ordering::SeqCst), 2);
+    let bytes_read = bytes_read.load(Ordering::SeqCst);
+    assert!(bytes_read <= 2 * 32 * 1024, "read {bytes_read} of 3,146,194 bytes");
+}
+
+#[tokio::test]
 async fn compressed_strips_are_rejected() {
     let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
     let [min_x, _, _, max_y] = tile.mercator_bounds();

@@ -7,6 +7,7 @@ mod encode;
 mod error;
 mod geo;
 mod jpeg;
+mod metadata;
 #[cfg(feature = "mosaic")]
 mod mosaic;
 mod pixels;
