@@ -14,7 +14,8 @@ Because every served tile is exactly one internal tile of the file, nothing is r
 
 - The projected CRS must be [`EPSG:3857`](<https://epsg.io/3857>), with square pixels and no rotation.
 - The full-resolution image and every overview must have the resolution of a `WebMercatorQuad` zoom level for their tile size, and their internal tiles must line up with that zoom's tiles. An image that does not, such as an overview starting part-way into a tile, is skipped with a warning rather than served shifted; the file is rejected only if none of its images can be served.
-- The image must be stored in square tiles (not strips), all of the same size, with the bands interleaved (`PlanarConfiguration=1`).
+- The image must be stored in square tiles of one size, or in uncompressed strips, with interleaved bands (`PlanarConfiguration=1`) and `Orientation=1`. Striped images are split into 256 px tiles.
+- Overviews are reduced-resolution images (`NewSubfileType=1`), or pages (`NewSubfileType=2`) half the size of the previous page. Other pages are skipped with a warning.
 
 GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG generation with GDAL](<#cog-generation-with-gdal>).
 
@@ -26,6 +27,7 @@ GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG
 | JPEG | 8-bit RGBA | PNG |
 | WebP | 8-bit RGB or RGBA | WebP, passed through |
 | None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG |
+| None, in strips | 8-bit gray, gray + alpha, RGB, or RGBA | PNG |
 
 Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
 
@@ -116,8 +118,9 @@ cog:
 ```
 
 - Every file must meet the [file requirements](<#file-requirements>), cover its tile at `zoom`, and use the same tile size and format as the others. A file that does not is reported as an error for the tiles it would serve.
+- Files without GeoTIFF tags must be square, and are placed on the tile in their file name.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format. For a remote mosaic this needs permission to list the bucket prefix.
-- Other files are opened on first use: a `HEAD` request and one read of the header, kept for `file_expiry`. Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
+- Other files are opened on first use with a `HEAD` request and one header read (one per IFD if IFDs come after the pixel data), and kept for `file_expiry`. Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 
 ## COG Hot Reload
