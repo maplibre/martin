@@ -12,3 +12,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AsyncCogReader`: read `WebMercatorQuad` tiles from one tile-aligned COG, passing JPEG/WebP tiles
   through and re-encoding lossless 8-bit tiles as PNG.
 - Backends: `MemoryBackend`, `FileBackend` (`fs`), `ObjectStoreBackend` (`object-store`).
+- `AsyncCogMosaic` (`mosaic`): read many COGs as one, each named after its tile by a `KeyTemplate`
+  (e.g. `{quadkey}.tif`), moved from `martin-core`.

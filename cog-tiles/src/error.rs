@@ -60,6 +60,56 @@ pub enum CogError {
         /// Row.
         y: u32,
     },
+
+    /// A mosaic's file name template is invalid.
+    #[cfg(feature = "mosaic")]
+    #[error("Invalid mosaic file name template {template:?}: {reason}")]
+    InvalidTemplate {
+        /// The template as given.
+        template: String,
+        /// What is wrong with it.
+        reason: crate::MosaicTemplateError,
+    },
+
+    /// A mosaic's file zoom is above the highest zoom a COG can have.
+    #[cfg(feature = "mosaic")]
+    #[error("The mosaic file zoom {file_zoom} is above the highest zoom {}", crate::MAX_ZOOM)]
+    FileZoomTooHigh {
+        /// The requested file zoom.
+        file_zoom: u8,
+    },
+
+    /// Cannot list a mosaic's files to find one to describe the mosaic with.
+    #[cfg(feature = "mosaic")]
+    #[error("Unable to list mosaic files under {location}: {source}")]
+    MosaicListing {
+        /// Display form of the mosaic location.
+        location: String,
+        /// The underlying object store error.
+        #[source]
+        source: object_store::Error,
+    },
+
+    /// One file of a mosaic cannot be read.
+    #[cfg(feature = "mosaic")]
+    #[error("Unable to read mosaic file {key}: {source}")]
+    MosaicFile {
+        /// The object key or path of the file, relative to the mosaic's location.
+        key: String,
+        /// Why the file cannot be read, handed to every request that waited for the same open.
+        #[source]
+        source: std::sync::Arc<crate::MosaicFileError>,
+    },
+
+    /// No file under a mosaic's location matches its key template.
+    #[cfg(feature = "mosaic")]
+    #[error("No file matching {template} was found under {location}")]
+    MosaicEmpty {
+        /// Display form of the mosaic location.
+        location: String,
+        /// The key template the files must match.
+        template: String,
+    },
 }
 
 impl CogError {

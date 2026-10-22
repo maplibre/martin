@@ -2013,11 +2013,14 @@ dependencies = [
  "bytes",
  "futures",
  "jpeg-decoder",
+ "moka",
  "object_store",
  "png 0.18.1",
  "rstest",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
