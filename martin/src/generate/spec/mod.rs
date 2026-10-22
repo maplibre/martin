@@ -15,7 +15,7 @@ use std::time::Instant;
 use crate::generate::spec::backend::{TestBackend, TestTable};
 use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml, read_spec, write_spec};
 use crate::generate::spec::postgres::Postgres;
-use crate::generate::spec::render::{outputs, render_bulk};
+use crate::generate::spec::render::{Served, render};
 use crate::generate::spec::report::{Change, Look, Reporter, Status, Tone, tally};
 use crate::generate::spec::review::{Review, Reviewed};
 use crate::generate::spec::rows::{Search, find_rows, id_columns, read_row, row_change};
@@ -71,6 +71,9 @@ pub struct RunArgs {
     pub config: PathBuf,
     /// Spec file to check
     pub spec: PathBuf,
+    /// Serve each source up to its own `maxzoom` instead of the spec's
+    #[arg(long)]
+    pub serve_own_max_zoom: bool,
 }
 
 /// Runs `martin test`, `Ok(false)` when a case fails or `generate` has changes it may not write.
@@ -93,11 +96,12 @@ fn table_of<'a>(tables: &'a [TestTable], source: &str) -> GenerateResult<&'a Tes
     })
 }
 
-/// One case per row found, with what bulk mode renders of it, against the case of the same row in `spec`.
+/// One case per row found, with what bulk mode renders of it and how serving it differs, against `spec`.
 async fn cases<B: TestBackend>(
     backend: &B,
     tables: &[TestTable],
     search: &Search,
+    max_zoom: u8,
     spec: Option<&Spec>,
     ids: &IdColumns,
     report: &Reporter,
@@ -107,18 +111,26 @@ async fn cases<B: TestBackend>(
         let name = format!("{source} {key}");
         report.working(&name);
         let started = Instant::now();
-        let bulk = render_bulk(backend, table_of(tables, source)?, *key).await?;
+        let rendered = render(backend, table_of(tables, source)?, *key, Some(max_zoom)).await?;
         let case = Case {
             source: source.clone(),
             paths: row.paths.clone(),
             input: row.input.clone(),
-            output: outputs(&bulk),
+            output: rendered.output,
         };
-        let reviewed = Reviewed::new(case, spec, ids);
+        let reviewed = Reviewed::new(case, rendered.served, spec, ids);
         report.line(&reviewed.status, Some(started.elapsed()), &name, reviewed.case.path());
+        report_served(report, &name, &reviewed.served);
         out.push(reviewed);
     }
     Ok(out)
+}
+
+/// How serving a case differs from bulk mode, if it does.
+fn report_served(report: &Reporter, name: &str, served: &Served) {
+    if !served.diffs.is_empty() {
+        report.block(Tone::Red, "SERVED", name, served);
+    }
 }
 
 /// Finds a row on each path through the layers of the backend's tables at zooms 0 to `max_zoom`, sweeping at most
@@ -149,9 +161,13 @@ pub async fn review<B: TestBackend>(
     );
     let search = find_rows(backend, &tables, old, sweep_rows, report).await?;
     let count = search.rows.len();
-    report.start("Rendering", format_args!("{count} cases in bulk mode"), count);
+    report.start(
+        "Rendering",
+        format_args!("{count} cases in bulk mode and served"),
+        count,
+    );
     let ids = id_columns(&tables);
-    let cases = cases(backend, &tables, &search, old, &ids, report).await?;
+    let cases = cases(backend, &tables, &search, max_zoom, old, &ids, report).await?;
     let review = Review::new(search.found, cases, old, max_zoom, ids);
     for r in review.gone() {
         report.line(&r.status, None, &review.name(&r.case).to_string(), r.case.path());
@@ -205,6 +221,7 @@ async fn generate_spec(args: GenerateArgs) -> GenerateResult<bool> {
 pub enum RunStatus {
     Pass,
     Fail,
+    ModesDiffer,
     RowChanged,
 }
 
@@ -213,17 +230,20 @@ impl RunStatus {
     const PASS: Look = Look::new("PASS", Tone::Green, "passed", false);
     /// The case renders other than the spec says.
     const FAIL: Look = Look::new("FAIL", Tone::Red, "failed", true);
+    /// The server renders the case other than bulk mode does.
+    const MODES_DIFFER: Look = Look::new("MODES DIFFER", Tone::Red, "modes differ", true);
     /// The case's row changed since the case was written.
     const ROW_CHANGED: Look = Look::new("ROW CHANGED", Tone::Yellow, "rows changed", true);
 }
 
 impl Status for RunStatus {
-    const ALL: &'static [Look] = &[Self::PASS, Self::FAIL, Self::ROW_CHANGED];
+    const ALL: &'static [Look] = &[Self::PASS, Self::FAIL, Self::MODES_DIFFER, Self::ROW_CHANGED];
 
     fn look(&self) -> Look {
         match self {
             Self::Pass => Self::PASS,
             Self::Fail => Self::FAIL,
+            Self::ModesDiffer => Self::MODES_DIFFER,
             Self::RowChanged => Self::ROW_CHANGED,
         }
     }
@@ -235,6 +255,8 @@ pub struct Outcome {
     pub row: Option<Change>,
     /// The spec's output and bulk mode's now, as YAML, when they differ.
     pub output: Option<Change>,
+    /// How serving the row differs from bulk mode.
+    pub served: Served,
 }
 
 impl Outcome {
@@ -245,31 +267,40 @@ impl Outcome {
             RunStatus::RowChanged
         } else if self.output.is_some() {
             RunStatus::Fail
+        } else if !self.served.diffs.is_empty() {
+            RunStatus::ModesDiffer
         } else {
             RunStatus::Pass
         }
     }
 }
 
-/// Renders `case` of one of `tables` in bulk mode and compares it with the spec.
+/// Renders `case` of one of `tables` in bulk mode and served, the server up to `max_zoom` unless
+/// `serve_own_max_zoom`, and compares.
 ///
 /// # Errors
 ///
 /// If the case has no key in its input, or cannot be rendered.
-pub async fn check<B: TestBackend>(backend: &B, tables: &[TestTable], case: &Case) -> GenerateResult<Outcome> {
+pub async fn check<B: TestBackend>(
+    backend: &B,
+    tables: &[TestTable],
+    case: &Case,
+    max_zoom: u8,
+    serve_own_max_zoom: bool,
+) -> GenerateResult<Outcome> {
     let table = table_of(tables, &case.source)?;
     let key = case
         .id(&id_columns(tables))
         .ok_or_else(|| GenerateError::CaseWithoutId(case.source.clone()))?;
     let now = read_row(backend, table, key).await?;
-    let bulk = render_bulk(backend, table, key).await?;
-    let output = outputs(&bulk);
+    let rendered = render(backend, table, key, (!serve_own_max_zoom).then_some(max_zoom)).await?;
     Ok(Outcome {
         row: row_change(case, now.as_ref()),
-        output: (output != case.output).then(|| Change {
+        output: (rendered.output != case.output).then(|| Change {
             old: output_yaml(&case.output),
-            new: output_yaml(&output),
+            new: output_yaml(&rendered.output),
         }),
+        served: rendered.served,
     })
 }
 
@@ -297,7 +328,7 @@ async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
         let name = CaseName(case, &ids).to_string();
         report.working(&name);
         let case_started = Instant::now();
-        let outcome = check(&backend, &tables, case).await?;
+        let outcome = check(&backend, &tables, case, spec.max_zoom, args.serve_own_max_zoom).await?;
         let status = outcome.status();
         report.line(&status, Some(case_started.elapsed()), &name, case.path());
         if let Some(change) = &outcome.row {
@@ -311,6 +342,7 @@ async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
                 report.diff(("spec", "bulk mode now"), change),
             );
         }
+        report_served(&report, &name, &outcome.served);
         statuses.push(status);
     }
     report.summary(
@@ -320,6 +352,11 @@ async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
     let failed = statuses.iter().filter(|s| **s != RunStatus::Pass).count();
     if failed > 0 {
         report.error(format_args!("{failed} of {} cases did not pass", spec.cases.len()));
+    }
+    if statuses
+        .iter()
+        .any(|s| matches!(s, RunStatus::Fail | RunStatus::RowChanged))
+    {
         report.hint(format_args!(
             "to see the new output and accept it: martin test generate -c {} -o {}",
             args.config.display(),
@@ -1312,7 +1349,7 @@ mod tests {
               - { layer: places, id: 1, geometry: point, zooms: 0-14, attributes: { id: 1, population: 5000 } }
         "})
         .expect("parses");
-        let outcome = check(&memory, &[table], &case).await.expect("checks");
+        let outcome = check(&memory, &[table], &case, 14, false).await.expect("checks");
         insta::assert_snapshot!(shown(&outcome), @"Pass");
     }
 
@@ -1351,7 +1388,7 @@ mod tests {
               - { layer: places, id: 1, geometry: point, zooms: 0-14, attributes: { id: 1, population: 5000 } }
         "})
         .expect("parses");
-        let outcome = check(&memory, &[table], &case).await.expect("checks");
+        let outcome = check(&memory, &[table], &case, 14, false).await.expect("checks");
         insta::assert_snapshot!(shown(&outcome), @"
         RowChanged
         -input +now
@@ -1404,7 +1441,7 @@ mod tests {
               - { layer: places, id: 1, geometry: point, zooms: 0-14, attributes: { id: 1, population: 5000 } }
         "})
         .expect("parses");
-        let outcome = check(&memory, &[table], &case).await.expect("checks");
+        let outcome = check(&memory, &[table], &case, 14, false).await.expect("checks");
         insta::assert_snapshot!(shown(&outcome), @"
         RowChanged
         -input +now
@@ -1459,7 +1496,7 @@ mod tests {
               - { layer: places, id: 1, geometry: point, zooms: 4-14, attributes: { id: 1, population: 5000 } }
         "})
         .expect("parses");
-        let outcome = check(&memory, &[table], &case).await.expect("checks");
+        let outcome = check(&memory, &[table], &case, 14, false).await.expect("checks");
         insta::assert_snapshot!(shown(&outcome), @"
         Fail
         -spec +bulk mode now
@@ -1508,7 +1545,7 @@ mod tests {
             output: []
         "})
         .expect("parses");
-        let err = check(&memory, &[table], &case).await.err().expect("fails");
+        let err = check(&memory, &[table], &case, 14, false).await.err().expect("fails");
         insta::assert_snapshot!(err, @"Case of `places` has no id in its input");
     }
 }
