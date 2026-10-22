@@ -42,6 +42,40 @@ pub fn expected_tile(x0: u32, y0: u32, bands: u32, shift: u32) -> Vec<u8> {
     out
 }
 
+/// An uncompressed RGB TIFF with one page per `(side, rows_per_strip)`, each written in strips and followed by its IFD.
+///
+/// Page `i` is the fixture pattern shifted by `i`, with `NewSubfileType` set to `subfile_type`.
+/// `georef` adds Web Mercator `GeoTIFF` tags to page 0: `[origin_x, origin_y, resolution]`.
+pub fn striped_tiff(pages: &[(u32, u32)], subfile_type: u32, georef: Option<[f64; 3]>) -> Vec<u8> {
+    use tiff::encoder::{TiffEncoder, colortype};
+    use tiff::tags::Tag;
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut encoder = TiffEncoder::new(&mut out).unwrap();
+    for (page, &(side, rows_per_strip)) in (0..).zip(pages) {
+        let mut pixels = Vec::new();
+        for y in 0..side {
+            for x in 0..side {
+                pixels.extend((0..3).map(|band| pattern(x, y, band, page)));
+            }
+        }
+        let mut image = encoder.new_image::<colortype::RGB8>(side, side).unwrap();
+        image.encoder().write_tag(Tag::NewSubfileType, subfile_type).unwrap();
+        if let (0, Some([x, y, resolution])) = (page, georef) {
+            let keys: [u16; 16] = [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857];
+            let dir = image.encoder();
+            dir.write_tag(Tag::GeoKeyDirectoryTag, &keys[..]).unwrap();
+            dir.write_tag(Tag::ModelPixelScaleTag, &[resolution, resolution, 0.0][..])
+                .unwrap();
+            dir.write_tag(Tag::ModelTiepointTag, &[0.0, 0.0, 0.0, x, y, 0.0][..])
+                .unwrap();
+        }
+        image.rows_per_strip(rows_per_strip).unwrap();
+        image.write_data(&pixels).unwrap();
+    }
+    out.into_inner()
+}
+
 /// Decodes a PNG into `(width, height, channels, pixels)`.
 pub fn decode_png(data: &[u8]) -> (u32, u32, usize, Vec<u8>) {
     let mut reader = png::Decoder::new(std::io::Cursor::new(data.to_vec()))

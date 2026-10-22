@@ -260,3 +260,36 @@ async fn pixels_within_a_centimeter_of_square_are_square() {
         )
     );
 }
+
+#[tokio::test]
+async fn striped_uncompressed_geotiffs_are_cut_into_png_tiles() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let bytes = striped_tiff(&[(512, 80)], 0, Some([min_x, max_y, cog_tiles::resolution(17, 256)]));
+    let backend = MemoryBackend::new(bytes, "striped.tif".to_owned());
+
+    let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
+
+    let info = reader.info();
+    assert_eq!((info.min_zoom, info.max_zoom, info.tile_size), (17, 17, 256));
+    assert_eq!(info.format, TileFormat::Png);
+    let south_east = TileCoord::new(17, 20_969, 50_649).unwrap();
+    let png = reader.get_tile(south_east).await.unwrap().unwrap();
+    assert_eq!(decode_png(&png), (256, 256, 3, expected_tile(256, 256, 3, 0)));
+}
+
+#[tokio::test]
+async fn compressed_strips_are_rejected() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let mut bytes = striped_tiff(&[(256, 64)], 0, Some([min_x, max_y, cog_tiles::resolution(16, 256)]));
+    patch_tag(&mut bytes, 259, 0, |_| 5.0);
+    let backend = MemoryBackend::new(bytes, "lzw.tif".to_owned());
+
+    let error = AsyncCogReader::try_from_backend(backend).await.unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "lzw.tif cannot be read as tiles: it is stored in LZW compressed strips, but only uncompressed strips are supported"
+    );
+}

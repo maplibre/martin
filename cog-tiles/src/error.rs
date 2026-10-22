@@ -217,9 +217,18 @@ pub enum UnsupportedReason {
         /// Tile height in pixels.
         height: u32,
     },
-    /// The image is stored in strips.
-    #[error("it is stored in strips, not tiles")]
-    Stripped,
+    /// The image is stored in compressed strips.
+    #[error("it is stored in {compression:?} compressed strips, but only uncompressed strips are supported")]
+    CompressedStrips {
+        /// The TIFF compression.
+        compression: Compression,
+    },
+    /// An image's strip offsets or byte counts do not hold its rows.
+    #[error("image {index} has strip offsets or byte counts that do not hold its rows")]
+    StripTable {
+        /// The IFD index.
+        index: usize,
+    },
     /// Samples are not 8-bit unsigned integers.
     #[error("only 8-bit unsigned samples are supported, found {bits:?} bits of {formats:?}")]
     SampleType {
@@ -244,7 +253,7 @@ pub enum UnsupportedReason {
         /// The photometric interpretation.
         photometric: PhotometricInterpretation,
     },
-    /// An overview has a different internal tile size.
+    /// An overview has a different internal tile size, or is tiled while the full-resolution image is striped.
     #[error("image {index} uses a different internal tile size")]
     OverviewTileSize {
         /// The IFD index.
@@ -256,15 +265,9 @@ pub enum UnsupportedReason {
         /// The IFD index.
         index: usize,
     },
-    /// An image has no tile grid.
-    #[error("image {index} is not tiled")]
+    /// An image has neither tiles nor strips.
+    #[error("image {index} has neither tiles nor strips")]
     Untiled {
-        /// The IFD index.
-        index: usize,
-    },
-    /// An image has more tiles than fit in `u32`.
-    #[error("image {index} has too many tiles")]
-    TooManyTiles {
         /// The IFD index.
         index: usize,
     },

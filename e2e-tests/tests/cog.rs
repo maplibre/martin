@@ -884,13 +884,13 @@ async fn a_georeference_without_its_unused_values_is_accepted(#[case] trim_it: f
 }
 
 #[tokio::test]
-async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
+async fn a_tiff_stored_in_compressed_strips_is_rejected() {
     let path = fixture("files/striped_not_tiled.tif");
     let error = Martin::builder()
         .arg(&path)
         .start()
         .await
-        .expect_err("martin must refuse to publish a striped TIFF");
+        .expect_err("martin must refuse to publish a TIFF in compressed strips");
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
@@ -902,7 +902,7 @@ async fn a_tiff_stored_in_strips_rather_than_tiles_is_rejected() {
         insta::assert_snapshot!(log, @"
          INFO Starting Martin martin.version=[VERSION]
          INFO Config file is not specified, auto-detecting sources
-        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in strips, not tiles warnings.count=1
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in LZW compressed strips, but only uncompressed strips are supported warnings.count=1
         ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
         ERROR resolve: error=Config(TileResolutionWarningsIssued)
         ERROR warnings issued during tile source resolution

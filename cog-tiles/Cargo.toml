@@ -49,6 +49,7 @@ object_store.workspace = true
 png.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+tiff.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]

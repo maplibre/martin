@@ -80,6 +80,65 @@ enum Encoding {
     Png,
 }
 
+/// Striped images carry no tile size, so they are cut into tiles of this many pixels.
+const STRIPED_TILE_SIZE: u32 = 256;
+
+/// How the pixels of an image are chunked in the file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Chunks {
+    /// Square tiles of this many pixels, each read and decoded on its own.
+    Tiles(u32),
+    /// Uncompressed strips of this many full-width rows, from which each tile's rows are read directly.
+    Strips(u32),
+}
+
+impl Chunks {
+    /// Reads how an image is chunked.
+    fn of(ifd: &ImageFileDirectory, index: usize, location: &str) -> CogResult<Self> {
+        let unsupported = |reason| CogError::unsupported(location, reason);
+        match (ifd.tile_width(), ifd.tile_height()) {
+            (Some(w), Some(h)) if w == h && w > 0 => return Ok(Self::Tiles(w)),
+            (Some(width), Some(height)) => {
+                return Err(unsupported(UnsupportedReason::NonSquareTiles { width, height }));
+            }
+            _ => {}
+        }
+        if ifd.strip_offsets().is_none() {
+            return Err(unsupported(UnsupportedReason::Untiled { index }));
+        }
+        if ifd.compression() != Compression::None {
+            return Err(unsupported(UnsupportedReason::CompressedStrips {
+                compression: ifd.compression(),
+            }));
+        }
+        let height = ifd.image_height();
+        let rows_per_strip = ifd.rows_per_strip().unwrap_or(height).min(height);
+        let row_bytes = u64::from(ifd.image_width()) * u64::from(ifd.samples_per_pixel());
+        let strips = height.div_ceil(rows_per_strip.max(1)) as usize;
+        let holds_rows = |(strip, &count): (usize, &u64)| {
+            let first = strip as u64 * u64::from(rows_per_strip);
+            count >= (u64::from(height) - first).min(u64::from(rows_per_strip)) * row_bytes
+        };
+        let valid = rows_per_strip > 0
+            && ifd.strip_offsets().is_some_and(|offsets| offsets.len() == strips)
+            && ifd
+                .strip_byte_counts()
+                .is_some_and(|counts| counts.len() == strips && counts.iter().enumerate().all(holds_rows));
+        if !valid {
+            return Err(unsupported(UnsupportedReason::StripTable { index }));
+        }
+        Ok(Self::Strips(rows_per_strip))
+    }
+
+    /// The width and height of the tiles the image is cut into.
+    fn tile_size(self) -> u32 {
+        match self {
+            Self::Tiles(size) => size,
+            Self::Strips(_) => STRIPED_TILE_SIZE,
+        }
+    }
+}
+
 /// One image (full resolution or overview) of the COG, providing the tiles of one zoom level.
 #[derive(Debug)]
 struct Level {
@@ -88,6 +147,7 @@ struct Level {
     cols: Range<u32>,
     /// Tile rows (at `zoom`) the image covers.
     rows: Range<u32>,
+    chunks: Chunks,
     ifd: ImageFileDirectory,
 }
 
@@ -164,25 +224,29 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
             .first()
             .ok_or_else(|| CogError::unsupported(location, UnsupportedReason::NoImages))?;
         let georef = Georef::from_ifd(base, location)?;
-        let tile_size = tile_size(base, location)?;
+        let base_chunks = Chunks::of(base, 0, location)?;
+        let tile_size = base_chunks.tile_size();
         let (format, encoding) = choose_encoding(base, location)?;
         let width = f64::from(base.image_width()) * georef.resolution;
         let height = f64::from(base.image_height()) * georef.resolution;
+        let mut chunks = Vec::with_capacity(ifds.len());
         for (index, ifd) in ifds.iter().enumerate() {
-            if is_image(index, ifd) {
-                check_same_layout(base, ifd, index, tile_size, location)?;
-            }
+            chunks.push(if is_image(index, ifd) {
+                Some(check_same_layout(base, base_chunks, ifd, index, location)?)
+            } else {
+                None
+            });
         }
 
         // Images that do not match a zoom level or are off the tile grid are left out, so a file
         // whose overviews are misaligned still provides the levels that are aligned.
         let mut levels: Vec<Level> = Vec::new();
         let mut skipped = Vec::new();
-        for (index, ifd) in ifds.into_iter().enumerate() {
-            if !is_image(index, &ifd) {
+        for (index, (ifd, chunks)) in ifds.into_iter().zip(chunks).enumerate() {
+            let Some(chunks) = chunks else {
                 continue;
-            }
-            match make_level(ifd, index, &georef, width, tile_size, location)? {
+            };
+            match make_level(ifd, chunks, index, &georef, width) {
                 Ok(level) if levels.iter().any(|l| l.zoom == level.zoom) => {
                     skipped.push(SkippedImage::DuplicateZoom {
                         index,
@@ -271,11 +335,11 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
     /// # Errors
     /// Returns an error if the backend fails or the tile cannot be decoded.
     pub async fn get_tile(&self, coord: TileCoord) -> CogResult<Option<Bytes>> {
-        let Some(tile) = self.locate(coord)? else {
-            return Ok(None);
-        };
         match self.encoding {
             Encoding::Passthrough => {
+                let Some(tile) = self.locate(coord)? else {
+                    return Ok(None);
+                };
                 let bytes = self.bridge.0.read(tile.range).await?;
                 let ifd = &tile.level.ifd;
                 Ok(Some(match ifd.jpeg_tables() {
@@ -286,10 +350,10 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
                 }))
             }
             #[cfg(feature = "png")]
-            Encoding::Png => {
-                let pixels = self.decode(tile.level, tile.col, tile.row).await?;
-                crate::encode::encode_png(&pixels, self.bridge.0.location()).map(Some)
-            }
+            Encoding::Png => match self.get_tile_pixels(coord).await? {
+                Some(pixels) => crate::encode::encode_png(&pixels, self.bridge.0.location()).map(Some),
+                None => Ok(None),
+            },
         }
     }
 
@@ -302,10 +366,49 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
     /// # Errors
     /// Returns an error if the backend fails or the tile cannot be decoded.
     pub async fn get_tile_pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
+        if let Some(level) = self.level(coord.z())
+            && let Chunks::Strips(rows_per_strip) = level.chunks
+        {
+            let Some((col, row)) = level.position(coord) else {
+                return Ok(None);
+            };
+            return self.read_rows(level, col, row, rows_per_strip).await.map(Some);
+        }
         match self.locate(coord)? {
             Some(StoredTile { level, col, row, .. }) => self.decode(level, col, row).await.map(Some),
             None => Ok(None),
         }
+    }
+
+    /// Reads the rows of tile `col`, `row` straight from the uncompressed strips of `level`.
+    async fn read_rows(&self, level: &Level, col: usize, row: usize, rows_per_strip: u32) -> CogResult<TilePixels> {
+        let location = self.bridge.0.location();
+        let ifd = &level.ifd;
+        let size = u64::from(STRIPED_TILE_SIZE);
+        let samples = u64::from(ifd.samples_per_pixel());
+        let width = u64::from(ifd.image_width());
+        let left = col as u64 * size;
+        let top = row as u64 * size;
+        let cols = size.min(width - left);
+        let rows = size.min(u64::from(ifd.image_height()) - top);
+        let offsets = ifd.strip_offsets().expect("strip offsets are checked when opening");
+        let rows_per_strip = u64::from(rows_per_strip);
+        let mut ranges: Vec<Range<u64>> = Vec::new();
+        for y in top..top + rows {
+            let strip = usize::try_from(y / rows_per_strip).expect("strip indexes fit in usize");
+            let start = offsets[strip] + ((y % rows_per_strip) * width + left) * samples;
+            let end = start + cols * samples;
+            match ranges.last_mut() {
+                Some(last) if last.end == start => last.end = end,
+                _ => ranges.push(start..end),
+            }
+        }
+        let mut data = Vec::with_capacity(usize::try_from(rows * cols * samples).unwrap_or_default());
+        for part in self.bridge.0.read_ranges(ranges).await? {
+            data.extend_from_slice(&part);
+        }
+        let shape = [rows, cols, samples].map(|v| usize::try_from(v).unwrap_or(usize::MAX));
+        TilePixels::padded(data, shape, STRIPED_TILE_SIZE, location)
     }
 
     /// The image, internal tile and byte range holding `coord`, or `None` if nothing is stored there.
@@ -398,17 +501,6 @@ fn unwrap_tiff_error(location: &str, error: async_tiff::error::AsyncTiffError) -
     }
 }
 
-fn tile_size(ifd: &ImageFileDirectory, location: &str) -> CogResult<u32> {
-    match (ifd.tile_width(), ifd.tile_height()) {
-        (Some(w), Some(h)) if w == h && w > 0 => Ok(w),
-        (Some(width), Some(height)) => Err(CogError::unsupported(
-            location,
-            UnsupportedReason::NonSquareTiles { width, height },
-        )),
-        _ => Err(CogError::unsupported(location, UnsupportedReason::Stripped)),
-    }
-}
-
 /// Picks the output format for the full-resolution image's pixel layout.
 fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileFormat, Encoding)> {
     let samples = ifd.samples_per_pixel();
@@ -475,17 +567,26 @@ fn is_image(index: usize, ifd: &ImageFileDirectory) -> bool {
 
 fn check_same_layout(
     base: &ImageFileDirectory,
+    base_chunks: Chunks,
     ifd: &ImageFileDirectory,
     index: usize,
-    tile_size: u32,
     location: &str,
-) -> CogResult<()> {
-    if ifd.tile_width() != Some(tile_size) || ifd.tile_height() != Some(tile_size) {
+) -> CogResult<Chunks> {
+    let same_tiles = match base_chunks {
+        Chunks::Tiles(size) => (ifd.tile_width(), ifd.tile_height()) == (Some(size), Some(size)),
+        Chunks::Strips(_) => ifd.tile_width().is_none() && ifd.tile_height().is_none(),
+    };
+    if !same_tiles {
         return Err(CogError::unsupported(
             location,
             UnsupportedReason::OverviewTileSize { index },
         ));
     }
+    let chunks = if index == 0 {
+        base_chunks
+    } else {
+        Chunks::of(ifd, index, location)?
+    };
     if ifd.compression() != base.compression()
         || ifd.photometric_interpretation() != base.photometric_interpretation()
         || ifd.samples_per_pixel() != base.samples_per_pixel()
@@ -497,54 +598,52 @@ fn check_same_layout(
             UnsupportedReason::OverviewLayout { index },
         ));
     }
-    Ok(())
+    Ok(chunks)
 }
 
 /// Maps one image to the zoom level it provides.
 ///
-/// Returns `Ok(Err(skipped))` for an image that cannot be used but does not make the file unusable.
+/// Returns `Err(skipped)` for an image that cannot be used but does not make the file unusable.
 fn make_level(
     ifd: ImageFileDirectory,
+    chunks: Chunks,
     index: usize,
     georef: &Georef,
     base_width: f64,
-    tile_size: u32,
-    location: &str,
-) -> CogResult<Result<Level, SkippedImage>> {
+) -> Result<Level, SkippedImage> {
+    let tile_size = chunks.tile_size();
     let resolution = if index == 0 {
         georef.resolution
     } else {
         base_width / f64::from(ifd.image_width())
     };
     let Some(zoom) = match_zoom(resolution, tile_size) else {
-        return Ok(Err(SkippedImage::NoMatchingZoom {
+        return Err(SkippedImage::NoMatchingZoom {
             index,
             resolution,
             tile_size,
-        }));
+        });
     };
     let Some(first_tile) = aligned_tile(georef.origin_x, georef.origin_y, zoom, tile_size) else {
-        return Ok(Err(SkippedImage::Misaligned { index, zoom }));
+        return Err(SkippedImage::Misaligned { index, zoom });
     };
-    let (cols, rows) = ifd
-        .tile_count()
-        .ok_or_else(|| CogError::unsupported(location, UnsupportedReason::Untiled { index }))?;
-    let to_u32 = |v: usize| {
-        u32::try_from(v).map_err(|_err| CogError::unsupported(location, UnsupportedReason::TooManyTiles { index }))
-    };
-    let tile_count = (to_u32(cols)?, to_u32(rows)?);
+    let tile_count = (
+        ifd.image_width().div_ceil(tile_size),
+        ifd.image_height().div_ceil(tile_size),
+    );
     let world = 1_u64 << zoom;
     if u64::from(first_tile.0) + u64::from(tile_count.0) > world
         || u64::from(first_tile.1) + u64::from(tile_count.1) > world
     {
-        return Ok(Err(SkippedImage::BeyondWorld { index, zoom }));
+        return Err(SkippedImage::BeyondWorld { index, zoom });
     }
     let (first_col, first_row) = first_tile;
     let (col_count, row_count) = tile_count;
-    Ok(Ok(Level {
+    Ok(Level {
         zoom,
         cols: first_col..first_col + col_count,
         rows: first_row..first_row + row_count,
+        chunks,
         ifd,
-    }))
+    })
 }
