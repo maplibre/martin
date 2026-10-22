@@ -30,6 +30,8 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "mbtiles")]
 use crate::cp::CopierArgs;
+#[cfg(feature = "unstable-generate")]
+use crate::generate::spec::TestArgs;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -64,9 +66,16 @@ pub struct Args {
 
 #[cfg(feature = "mbtiles")]
 #[derive(Subcommand, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "unstable-generate",
+    expect(clippy::large_enum_variant, reason = "parsed once at startup")
+)]
 pub enum Command {
     /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
     Cp(CopierArgs),
+    /// Generate and check specs of what table source layers make of real rows
+    #[cfg(feature = "unstable-generate")]
+    Test(TestArgs),
 }
 
 // None of these params will be transferred to the config

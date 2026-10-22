@@ -1,35 +1,180 @@
-//! The `PostgreSQL` side of `martin test`: the paths through the layers of a table source, with the SQL selecting
-//! the rows on each.
+//! The `PostgreSQL` backend of `martin test`: the table sources of one database, and the SQL selecting the rows on
+//! each path through their layers.
 
+use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
+use std::path::Path;
+use std::time::Duration;
 
+use martin_core::tiles::postgres::PostgresPool;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tilegen::TileGenError;
-use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Literal, Plan, Shape, SizeBand};
+use martin_tilegen::plan::{ColumnValues, Condition, GeometryType, Literal, Shape, SizeBand};
+use postgres_protocol::escape::escape_identifier;
 
-use crate::config::file::postgres::TableInfo;
-use crate::config::file::postgres::resolver::{condition_sql, linear_geometry};
-use crate::generate::GenerateResult;
+use crate::config::file::postgres::resolver::{condition_sql, linear_geometry, scan_sql};
+use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
+use crate::config::file::{Config, TileGrids, read_config};
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::env::OsEnv;
 use crate::generate::layers::{LowerOptions, lower_table};
-use crate::generate::postgres::ScanTable;
+use crate::generate::postgres::{PgScanSource, ScanTable};
+use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable};
+use crate::generate::{GenerateError, GenerateResult};
+use crate::srv::RESERVED_KEYWORDS;
 
-/// Every path through the layers of `info` at zooms 0 to `max_zoom`, without shapes for a source of points.
-/// The values the source's `filter` allows a column give a path each to a layer reading that column.
+/// How long the search for one path's row may take.
+const PATH_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// The table sources with layers of a configuration, and the database they come from.
+pub struct Postgres {
+    builder: PostgresAutoDiscoveryBuilder,
+    tables: BTreeMap<String, TableInfo>,
+}
+
+impl Postgres {
+    /// Reads the configuration and discovers its table sources.
+    ///
+    /// # Errors
+    ///
+    /// If the configuration cannot be read, or the database not reached.
+    pub async fn load(config_path: &Path) -> GenerateResult<Self> {
+        let mut config: Config = read_config(config_path, &OsEnv)?;
+        config.finalize().await?;
+        let grids = TileGrids::resolve(&config.tile_grids)?;
+        let pg = match config.postgres.as_slice() {
+            [] => return Err(GenerateError::NoSources),
+            [pg] => pg,
+            _ => return Err(GenerateError::MultipleDatabases),
+        };
+        let builder =
+            PostgresAutoDiscoveryBuilder::new(pg, IdResolver::new(RESERVED_KEYWORDS), config.cache.policy(), &grids)
+                .await?;
+        let (specs, _) = builder.discover().await?;
+        let tables = specs
+            .into_iter()
+            .filter_map(|(id, spec)| match spec {
+                SourceSpec::Table(info) if info.layers.is_some() => Some((id, info)),
+                SourceSpec::Table(_) | SourceSpec::Function(..) => None,
+            })
+            .collect();
+        Ok(Self { builder, tables })
+    }
+
+    /// The pool of the sources' database.
+    fn pool(&self) -> &PostgresPool {
+        self.builder.pool()
+    }
+
+    /// The table of source `source`.
+    fn info(&self, source: &str) -> GenerateResult<&TableInfo> {
+        self.tables.get(source).ok_or_else(|| {
+            let known = self.tables.keys().cloned().collect::<Vec<_>>().join(", ");
+            GenerateError::UnknownSource(source.to_owned(), known)
+        })
+    }
+
+    /// The table of source `source`, its `filter` narrowed to row `key`.
+    fn row(&self, source: &str, key: RowKey) -> GenerateResult<TableInfo> {
+        let mut info = self.info(source)?.clone();
+        let Some(column) = &info.id_column else {
+            return Err(GenerateError::NoIdColumn(source.to_owned()));
+        };
+        let row = format!("{column} = {key}");
+        info.filter = Some(match info.filter.take() {
+            Some(filter) => format!("({filter}) AND ({row})"),
+            None => row,
+        });
+        Ok(info)
+    }
+
+    /// The key of a row of `info` on `rows` with geometry of `shape`, reading the rows as the scan does.
+    async fn search(&self, info: &TableInfo, rows: &Condition, shape: Option<Shape>) -> Result<Option<RowKey>, String> {
+        let id_column = info.id_column.as_ref().ok_or("the source has no `id_column`")?;
+        let scan = scan_sql(info, &[], Some(rows), None).map_err(|e| e.to_string())?;
+        let id = escape_identifier(id_column);
+        let size = fmt::from_fn(|f| match shape {
+            Some(shape) => write!(f, " AND {}", ShapeSql(info, shape)),
+            None => Ok(()),
+        });
+        let query = format!("SELECT s.{id}::int8 FROM ({}{size}) AS s LIMIT 1", scan.sql);
+        let conn = self.pool().get().await.map_err(|e| e.to_string())?;
+        let timeout = format!("SET statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
+        conn.batch_execute(&timeout).await.map_err(|e| db_error(&e))?;
+        let found = conn.query_opt(query.as_str(), &[]).await;
+        conn.batch_execute("RESET statement_timeout")
+            .await
+            .map_err(|e| db_error(&e))?;
+        let found = found.map_err(|e| db_error(&e))?;
+        Ok(found.and_then(|row| RowKey::try_from(row.get::<_, i64>(0)).ok()))
+    }
+}
+
+/// What `PostgreSQL` says went wrong, the client's error when it says nothing.
+fn db_error(err: &(dyn std::error::Error + 'static)) -> String {
+    err.source().map_or_else(|| err.to_string(), ToString::to_string)
+}
+
+impl TestBackend for Postgres {
+    type Scan = PgScanSource;
+
+    fn tables(&self, max_zoom: u8) -> GenerateResult<Vec<TestTable>> {
+        let mut out = Vec::with_capacity(self.tables.len());
+        for (id, info) in &self.tables {
+            out.extend(test_table(id, info, max_zoom)?);
+        }
+        Ok(out)
+    }
+
+    /// Partitioned as bulk mode partitions a table, the scan of one row in a single partition.
+    async fn scan(&self, table: &TestTable, key: Option<RowKey>, rows: Rows) -> GenerateResult<PgScanSource> {
+        let (info, blocks) = match key {
+            Some(key) => (self.row(&table.source, key)?, u32::MAX),
+            None => (self.info(&table.source)?.clone(), PgScanSource::PARTITION_BLOCKS),
+        };
+        let scan = vec![ScanTable {
+            info,
+            def: table.def.clone(),
+        }];
+        let pool = self.pool().clone();
+        Ok(match rows {
+            Rows::Bulk => PgScanSource::new(pool, scan, blocks).await?,
+            Rows::All => PgScanSource::every_row(pool, scan, blocks).await?,
+        })
+    }
+
+    async fn find(&self, table: &TestTable, rows: &Condition, shape: Option<Shape>) -> Find {
+        let Ok(info) = self.info(&table.source) else {
+            return Find::Unsupported;
+        };
+        let selected = RowsSql(info, rows, shape).to_string();
+        match self.search(info, rows, shape).await {
+            Ok(key) => Find::Searched { rows: selected, key },
+            Err(error) => Find::Failed { rows: selected, error },
+        }
+    }
+}
+
+/// Source `id` with table `info` as `martin test` reads it, at zooms 0 to `max_zoom`, or `None` when it has none of
+/// them. The values the source's `filter` allows a column are known values of the column.
 ///
 /// # Errors
 ///
-/// If the source cannot be planned.
-pub fn paths(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Vec<Branch>> {
-    let Some(table) = lower(id, info.clone(), max_zoom)? else {
-        return Ok(Vec::new());
+/// If the source cannot be lowered.
+pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Option<TestTable>> {
+    let options = LowerOptions {
+        zooms: 0..=max_zoom,
+        bounds: None,
     };
-    let plan = Plan::new(vec![table.def]).map_err(TileGenError::from)?;
-    let points = table_geometry(info) == Some(GeometryType::Point);
-    Ok(plan
-        .branches(0, &filter_values(info))?
-        .into_iter()
-        .filter(|branch| !(points && branch.shape.is_some()))
-        .collect())
+    let Some(scan) = lower_table(id, info.clone(), &options)? else {
+        return Ok(None);
+    };
+    Ok(Some(TestTable {
+        source: id.to_owned(),
+        def: scan.def,
+        known: filter_values(info),
+        key: info.id_column.clone(),
+        geometry: table_geometry(info),
+    }))
 }
 
 /// The values of the columns the `filter` of `info` allows only some of, from the `IN` lists and `=` it ANDs.
@@ -106,18 +251,6 @@ fn table_geometry(info: &TableInfo) -> Option<GeometryType> {
     }
 }
 
-/// Lowers `info` for zooms 0 to `max_zoom`.
-fn lower(id: &str, info: TableInfo, max_zoom: u8) -> GenerateResult<Option<ScanTable>> {
-    lower_table(
-        id,
-        info,
-        &LowerOptions {
-            zooms: 0..=max_zoom,
-            bounds: None,
-        },
-    )
-}
-
 /// The SQL condition on the rows of a path.
 pub struct RowsSql<'a>(pub &'a TableInfo, pub &'a Condition, pub Option<Shape>);
 
@@ -185,7 +318,10 @@ mod tests {
 
     fn listed(yaml: &str) -> String {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("parses");
-        paths("source", &info, 14)
+        test_table("source", &info, 14)
+            .expect("lowers")
+            .expect("has zooms")
+            .paths()
             .expect("plans")
             .iter()
             .map(|branch| {
