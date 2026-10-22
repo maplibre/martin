@@ -12,10 +12,20 @@ homepage.workspace = true
 
 [lib]
 name = "_cog_tiles"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 # Exercised from Python (`pytest`), the Rust logic is tested in `cog-tiles`.
 test = false
 doctest = false
+
+[[bin]]
+name = "stub-gen"
+path = "src/bin/stub_gen.rs"
+# Links libpython, so `--all-targets` builds skip it.
+required-features = ["stub-gen"]
+test = false
+
+[features]
+stub-gen = []
 
 [dependencies]
 bytes.workspace = true
@@ -24,6 +34,7 @@ futures.workspace = true
 numpy.workspace = true
 object_store.workspace = true
 pyo3 = { workspace = true, features = ["abi3-py310"] }
+pyo3-stub-gen.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
 url.workspace = true
 

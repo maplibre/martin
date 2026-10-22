@@ -22,6 +22,7 @@ jobs:
       pull-requests: read
     outputs:
       rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      cog-py: ${{ steps.filter.outputs.cog-py == 'true' }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -39,6 +40,10 @@ jobs:
               - 'schemas/**'
               - 'docs/content/files/generated_config.md'
               - 'martin/martin-ui/src/lib/types.gen.ts'
+            cog-py:
+              - '.github/workflows/autofix.yml'
+              - 'Cargo.lock'
+              - 'cog-tiles-py/**'
 
   fmt:
     name: Format and sync lock files
@@ -114,6 +119,28 @@ jobs:
       - if: github.event_name == 'pull_request'
         uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
         with: {commit-message: "chore: regenerate config + OpenAPI schemas + UI types"}
+
+  cog-py-stubs:
+    name: Regenerate the cog-tiles Python stub
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    needs: changes
+    if: |
+      needs.changes.outputs.cog-py == 'true' && (
+        github.event.action == 'opened' ||
+        github.event.action == 'synchronize' ||
+        github.event.action == 'reopened'
+      )
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+      - run: just sync-cog-py-stubs
+      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
+        with: {commit-message: "chore: regenerate the cog-tiles Python stub"}
 
   bless:
     name: Bless test output

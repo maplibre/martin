@@ -11,6 +11,7 @@ use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use tokio::sync::{Mutex, mpsc};
 
 use crate::error::to_py;
@@ -25,6 +26,7 @@ const DEFAULT_CONCURRENCY: usize = 64;
 const DEFAULT_MAX_PIXELS: u64 = 1 << 28;
 
 /// Tiles read from one COG or from a mosaic of them.
+#[gen_stub_pyclass]
 #[pyclass(frozen, subclass, module = "cog_tiles")]
 pub struct TileSource {
     source: Arc<Source>,
@@ -38,6 +40,7 @@ enum Zooms {
     Many(Vec<u8>),
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl TileSource {
     /// The lowest zoom with tiles.
@@ -60,6 +63,7 @@ impl TileSource {
 
     /// The format of every tile: `"jpg"`, `"webp"` or `"png"`.
     #[getter]
+    #[gen_stub(override_return_type(type_repr = "typing.Literal['jpg', 'webp', 'png']", imports = ("typing")))]
     fn format(&self) -> &'static str {
         self.layout.format.extension()
     }
@@ -112,8 +116,11 @@ impl TileSource {
     #[pyo3(signature = (bbox = None, zoom = None, *, crs = "EPSG:4326", concurrency = DEFAULT_CONCURRENCY))]
     fn tiles(
         &self,
+        #[gen_stub(override_type(type_repr = "tuple[builtins.float, builtins.float, builtins.float, builtins.float] | None", imports = ("builtins")))]
         bbox: Option<[f64; 4]>,
+        #[gen_stub(override_type(type_repr = "builtins.int | typing.Sequence[builtins.int] | None", imports = ("builtins", "typing")))]
         zoom: Option<Zooms>,
+        #[gen_stub(override_type(type_repr = "typing.Literal['EPSG:4326', 'EPSG:3857']", imports = ("typing")))]
         crs: &str,
         concurrency: usize,
     ) -> PyResult<TileIterator> {
@@ -170,8 +177,10 @@ impl TileSource {
     fn read(
         &self,
         py: Python<'_>,
+        #[gen_stub(override_type(type_repr = "tuple[builtins.float, builtins.float, builtins.float, builtins.float]", imports = ("builtins")))]
         bbox: [f64; 4],
         zoom: Option<u8>,
+        #[gen_stub(override_type(type_repr = "typing.Literal['EPSG:4326', 'EPSG:3857']", imports = ("typing")))]
         crs: &str,
         concurrency: usize,
         max_pixels: u64,
@@ -202,14 +211,17 @@ impl TileSource {
 }
 
 /// One tile-aligned Cloud Optimized `GeoTIFF`.
+#[gen_stub_pyclass]
 #[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
 pub struct Cog {
     location: PathBuf,
     options: BTreeMap<String, String>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl Cog {
+    #[gen_stub(skip)]
     fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, CogArgs)> {
         let this = slf.get();
         let open = slf.py().import("cog_tiles")?.getattr("open")?;
@@ -233,6 +245,7 @@ impl Cog {
 type CogArgs = (PathBuf, BTreeMap<String, String>);
 
 /// Many COGs, each covering one tile at `file_zoom` and named after it.
+#[gen_stub_pyclass]
 #[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
 pub struct Mosaic {
     location: String,
@@ -243,6 +256,7 @@ pub struct Mosaic {
 /// The arguments `open_mosaic` is called with to restore a pickled mosaic.
 type MosaicArgs = (String, u8, u64, f64, Option<f64>, BTreeMap<String, String>);
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl Mosaic {
     /// The zoom at which each file covers exactly one tile.
@@ -257,6 +271,7 @@ impl Mosaic {
         split_mosaic(&slf.get().location).1.to_owned()
     }
 
+    #[gen_stub(skip)]
     fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, MosaicArgs)> {
         let this = slf.get();
         let open = slf.py().import("cog_tiles")?.getattr("open_mosaic")?;
@@ -290,6 +305,7 @@ impl Mosaic {
 /// Pixels stitched from tiles, with where they are in EPSG:3857.
 ///
 /// `numpy.asarray(raster)` is `raster.data`.
+#[gen_stub_pyclass]
 #[pyclass(frozen, module = "cog_tiles")]
 pub struct Raster {
     data: Py<PyArray3<u8>>,
@@ -298,6 +314,7 @@ pub struct Raster {
     zoom: u8,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl Raster {
     /// The pixels as a `(height, width, bands)` `uint8` array.
@@ -329,11 +346,13 @@ impl Raster {
     /// Always `"EPSG:3857"`.
     #[getter]
     #[expect(clippy::unused_self, reason = "a Python property")]
+    #[gen_stub(override_return_type(type_repr = "typing.Literal['EPSG:3857']", imports = ("typing")))]
     fn crs(&self) -> &'static str {
         "EPSG:3857"
     }
 
     #[pyo3(signature = (dtype = None, copy = None))]
+    #[gen_stub(override_return_type(type_repr = "numpy.ndarray", imports = ("numpy")))]
     fn __array__<'py>(
         &self,
         py: Python<'py>,
@@ -358,18 +377,21 @@ impl Raster {
 type TileItem<'py> = (u8, u32, u32, Bound<'py, PyBytes>);
 
 /// Encoded tiles as `(z, x, y, data)`, fetched in the background. Dropping it stops the fetches.
+#[gen_stub_pyclass]
 #[pyclass(frozen, module = "cog_tiles")]
 pub struct TileIterator {
     receiver: Mutex<mpsc::Receiver<PyResult<(TileCoord, bytes::Bytes)>>>,
     _task: AbortOnDrop<()>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl TileIterator {
     fn __iter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
+    #[gen_stub(override_return_type(type_repr = "tuple[builtins.int, builtins.int, builtins.int, builtins.bytes]", imports = ("builtins")))]
     fn __next__<'py>(&self, py: Python<'py>) -> PyResult<Option<TileItem<'py>>> {
         let next = wait(py, async { self.receiver.lock().await.recv().await })?;
         next.transpose()?
@@ -382,6 +404,7 @@ impl TileIterator {
 ///
 /// Object store credentials come from the usual environment variables (e.g. `AWS_REGION`,
 /// `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (location, options = None))]
 pub fn open(py: Python<'_>, location: PathBuf, options: Option<BTreeMap<String, String>>) -> PyResult<Py<Cog>> {
@@ -405,6 +428,7 @@ pub fn open(py: Python<'_>, location: PathBuf, options: Option<BTreeMap<String, 
 ///
 /// One file is found by listing the location now; the others are opened on first use and kept
 /// for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
+#[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (
     location,

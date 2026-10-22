@@ -6,13 +6,13 @@ use cog_tiles::CogError;
 use pyo3::exceptions::{PyException, PyFileNotFoundError, PyValueError};
 use pyo3::prelude::*;
 
-pyo3::create_exception!(
+pyo3_stub_gen::create_exception!(
     cog_tiles,
     CogTilesError,
     PyException,
     "A COG or mosaic cannot be opened or read."
 );
-pyo3::create_exception!(
+pyo3_stub_gen::create_exception!(
     cog_tiles,
     UnsupportedCogError,
     CogTilesError,

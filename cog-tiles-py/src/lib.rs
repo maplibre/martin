@@ -7,8 +7,10 @@ mod runtime;
 mod source;
 
 use pyo3::prelude::*;
+use pyo3_stub_gen::{define_stub_info_gatherer, module_variable};
 
-#[pymodule]
+/// Web map tiles and stitched rasters from tile-aligned Cloud Optimized `GeoTIFFs`.
+#[pymodule(name = "cog_tiles")]
 fn _cog_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py::open, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_mosaic, m)?)?;
@@ -22,3 +24,7 @@ fn _cog_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("MAX_ZOOM", cog_tiles::MAX_ZOOM)?;
     Ok(())
 }
+
+module_variable!("cog_tiles", "MAX_ZOOM", u8);
+
+define_stub_info_gatherer!(stub_info);

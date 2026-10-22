@@ -713,6 +713,11 @@ test-cog: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
+# Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
+sync-cog-py-stubs:
+    LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        cargo run --package cog-tiles-py --bin stub-gen --features stub-gen
+
 # Build the cog-tiles Python bindings and run their tests
 test-cog-py:
     cd cog-tiles-py && uv sync --group dev --no-install-project

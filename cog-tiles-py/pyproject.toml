@@ -26,8 +26,7 @@ Documentation = "https://github.com/maplibre/martin/tree/main/cog-tiles-py"
 dev = ["maturin>=1.9,<2", "numpy>=1.22", "pytest>=8"]
 
 [tool.maturin]
-python-source = "python"
-module-name = "cog_tiles._cog_tiles"
+module-name = "cog_tiles"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
