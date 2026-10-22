@@ -4,7 +4,7 @@ use std::ops::{Range, RangeInclusive};
 
 use geo::BoundingRect;
 use geo_types::{Coord, LineString, Polygon, Rect};
-use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
+use map_tile_toolkit::{ClipMode, PolygonSlice, Quantizer, Slicer};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
@@ -277,6 +277,7 @@ pub struct Renderer {
     parts: Vec<u32>,
     vertices: Vec<Coord<i32>>,
     simplifier: Simplifier,
+    quantizer: Quantizer,
     /// One tile's piece, shaped the same with tile-local vertices.
     piece: PieceBuf,
     /// The slicer's output for the feature at one zoom, which comes in no particular order: every
@@ -551,30 +552,24 @@ impl Renderer {
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         for rings in self.simplifier.polygons(epsilon) {
-            let first_ring = self.parts.len();
-            for (i, ring) in rings.enumerate() {
-                let start = self.vertices.len();
-                let mut n = push_quantized(&mut self.vertices, ring, shift, world)?;
-                if n > 1 && self.vertices[start] == self.vertices[start + n - 1] {
-                    self.vertices.pop();
-                    n -= 1;
+            let rings = rings.map(|ring| {
+                ring.map(|c| Coord {
+                    x: (c.x + shift) * world,
+                    y: c.y * world,
+                })
+            });
+            // Exteriors come with a positive area in y-down tile coordinates and holes a negative one,
+            // the MVT and MLT winding.
+            let quantized = self
+                .quantizer
+                .polygon(rings)
+                .map_err(|_overflow| GeometryError::CoordOverflow)?;
+            for polygon in quantized.polygons() {
+                let first_ring = self.parts.len();
+                for ring in polygon {
+                    self.vertices.extend_from_slice(ring);
+                    self.parts.push(vertex_count(ring.len())?);
                 }
-                // Exteriors get a positive area in y-down tile coordinates and holes a negative one,
-                // the MVT and MLT winding; a ring collapsed by quantization has none and is dropped.
-                let area = signed_area_2x(&self.vertices[start..]);
-                if n < 3 || area == 0 {
-                    self.vertices.truncate(start);
-                    if i == 0 {
-                        break;
-                    }
-                    continue;
-                }
-                if (area > 0) == (i > 0) {
-                    self.vertices[start..].reverse();
-                }
-                self.parts.push(vertex_count(n)?);
-            }
-            if self.parts.len() > first_ring {
                 self.polys.push(len32(self.parts.len() - first_ring)?);
             }
         }
@@ -948,6 +943,7 @@ mod tests {
 
     use geo::SimplifyIdx as _;
     use geo_types::coord;
+    use map_tile_toolkit::signed_area_2x;
 
     use super::*;
     use crate::project::from_lonlat;

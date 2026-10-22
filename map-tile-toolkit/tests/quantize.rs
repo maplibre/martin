@@ -1,0 +1,152 @@
+//! `Quantizer` rounds float polygons onto the integer grid and never makes a valid polygon invalid.
+
+use std::fmt::Write as _;
+
+use geo_types::Coord;
+use insta::assert_snapshot;
+use map_tile_toolkit::{Quantized, Quantizer, TileError};
+
+fn coords<'a>(rings: &'a [&[(f64, f64)]]) -> impl Iterator<Item = impl Iterator<Item = Coord<f64>>> + 'a {
+    rings.iter().map(|r| r.iter().map(|&(x, y)| Coord { x, y }))
+}
+
+/// One line per polygon, each ring in parentheses.
+fn show(quantized: Quantized<'_>) -> String {
+    let mut out = String::new();
+    for polygon in quantized.polygons() {
+        let rings: Vec<String> = polygon
+            .map(|r| {
+                let coords: Vec<String> = r.iter().map(|c| format!("{} {}", c.x, c.y)).collect();
+                format!("({})", coords.join(", "))
+            })
+            .collect();
+        writeln!(out, "{}", rings.join(", ")).expect("writing to a String");
+    }
+    out
+}
+
+fn quantize(rings: &[&[(f64, f64)]]) -> String {
+    show(Quantizer::new().polygon(coords(rings)).expect("finite coordinates"))
+}
+
+fn make_valid(rings: &[&[(f64, f64)]]) -> String {
+    show(Quantizer::new().make_valid(coords(rings)).expect("finite coordinates"))
+}
+
+#[test]
+fn polygon_that_rounds_valid_keeps_every_vertex() {
+    let exterior = [(0.2, 0.1), (9.7, 0.4), (9.6, 9.5), (0.4, 9.8)];
+    let hole = [(3.2, 3.1), (3.4, 6.7), (6.6, 6.8), (6.9, 3.3)];
+    assert_snapshot!(quantize(&[&exterior, &hole]), @"(0 0, 10 0, 10 10, 0 10), (3 3, 3 7, 7 7, 7 3)");
+}
+
+#[test]
+fn clockwise_exterior_and_counter_clockwise_hole_are_reversed() {
+    let exterior = [(0.0, 0.0), (0.0, 10.0), (10.0, 10.0), (10.0, 0.0)];
+    let hole = [(3.0, 3.0), (7.0, 3.0), (7.0, 7.0), (3.0, 7.0)];
+    assert_snapshot!(quantize(&[&exterior, &hole]), @"(10 0, 10 10, 0 10, 0 0), (3 7, 7 7, 7 3, 3 3)");
+}
+
+#[test]
+fn two_tip_vertices_that_would_cross_merge_into_one() {
+    let exterior = [
+        (1612.28, 395.41),
+        (1617.38, 388.41),
+        (1654.28, 308.21),
+        (1653.54, 308.55),
+        (1618.68, 323.32),
+        (1609.48, 368.51),
+        (1607.98, 394.02),
+    ];
+    assert_snapshot!(quantize(&[&exterior]), @"(1608 394, 1609 369, 1619 323, 1654 309, 1617 388, 1612 395)");
+}
+
+#[test]
+fn sliver_that_rounds_onto_itself_keeps_its_area_off_the_fold() {
+    let exterior = [(-32.0, -0.25), (3148.25, 12.25), (-490.25, -0.25), (14.5, 0.0)];
+    assert_snapshot!(quantize(&[&exterior]), @"(-490 0, -32 0, 15 0, 3148 12)");
+}
+
+#[test]
+fn hole_that_rounds_onto_the_exterior_becomes_a_notch() {
+    let exterior = [(0.6, 0.0), (10.0, 0.0), (10.0, 10.0), (0.6, 10.0)];
+    let hole = [(1.4, 4.0), (1.4, 6.0), (3.0, 5.0)];
+    assert_snapshot!(quantize(&[&exterior, &hole]), @"(1 0, 10 0, 10 10, 1 10, 1 6, 3 5, 1 4)");
+}
+
+#[test]
+fn self_crossing_exterior_keeps_both_lobes() {
+    let exterior = [(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0)];
+    assert_snapshot!(make_valid(&[&exterior]), @"
+    (0 0, 5 5, 0 10)
+    (5 5, 10 0, 10 10)
+    ");
+}
+
+#[test]
+fn overlapping_holes_take_out_their_union() {
+    let exterior = [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)];
+    let hole_a = [(2.0, 2.0), (12.0, 2.0), (12.0, 12.0), (2.0, 12.0)];
+    let hole_b = [(8.0, 8.0), (18.0, 8.0), (18.0, 18.0), (8.0, 18.0)];
+    assert_snapshot!(make_valid(&[&exterior, &hole_a, &hole_b]), @"(0 0, 20 0, 20 20, 0 20), (2 2, 2 12, 8 12, 8 18, 18 18, 18 8, 12 8, 12 2)");
+}
+
+#[test]
+fn hole_crossing_the_exterior_takes_out_only_its_inside_part() {
+    let exterior = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let hole = [(8.0, 4.0), (14.0, 4.0), (14.0, 6.0), (8.0, 6.0)];
+    assert_snapshot!(make_valid(&[&exterior, &hole]), @"(0 0, 10 0, 10 4, 8 4, 8 6, 10 6, 10 10, 0 10)");
+}
+
+#[test]
+fn hole_outside_the_exterior_is_ignored() {
+    let exterior = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let hole = [(12.0, 4.0), (14.0, 4.0), (14.0, 6.0), (12.0, 6.0)];
+    assert_snapshot!(make_valid(&[&exterior, &hole]), @"(0 0, 10 0, 10 10, 0 10)");
+}
+
+#[test]
+fn exterior_that_rounds_to_a_line_leaves_nothing() {
+    let exterior = [(0.0, 0.0), (10.0, 0.3), (20.0, 0.1)];
+    assert_snapshot!(quantize(&[&exterior]), @"");
+}
+
+#[test]
+fn coordinate_that_is_not_finite_is_an_overflow() {
+    let mut quantizer = Quantizer::new();
+    let exterior = [
+        Coord { x: 0.0, y: 0.0 },
+        Coord { x: f64::NAN, y: 1.0 },
+        Coord { x: 1.0, y: 0.0 },
+    ];
+    assert_eq!(quantizer.make_valid([exterior]).err(), Some(TileError::Overflow));
+}
+
+#[test]
+fn coordinate_that_rounds_past_i32_is_an_overflow() {
+    let mut quantizer = Quantizer::new();
+    let exterior = [
+        Coord { x: 0.0, y: 0.0 },
+        Coord {
+            x: 2_147_483_647.5,
+            y: 1.0,
+        },
+        Coord { x: 1.0, y: 0.0 },
+    ];
+    assert_eq!(quantizer.polygon([exterior]).err(), Some(TileError::Overflow));
+}
+
+#[test]
+fn make_valid_rounds_a_valid_polygon_like_polygon_does() {
+    let exterior = [(0.2, 0.1), (9.7, 0.4), (9.6, 9.5), (0.4, 9.8)];
+    let hole = [(3.2, 3.1), (3.4, 6.7), (6.6, 6.8), (6.9, 3.3)];
+    assert_snapshot!(make_valid(&[&exterior, &hole]), @"(0 0, 10 0, 10 10, 0 10), (3 3, 3 7, 7 7, 7 3)");
+}
+
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "Quantizer::polygon was given an invalid polygon")]
+fn polygon_given_a_self_crossing_exterior_panics_in_debug_builds() {
+    let exterior = [(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0)];
+    quantize(&[&exterior]);
+}

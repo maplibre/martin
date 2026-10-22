@@ -280,6 +280,45 @@ up front (e.g. with [`geo`](https://docs.rs/geo)); for web mercator at zoom `z`,
 scale by `2^z · extent / circumference`, move the top-left corner to the origin, flip `y`, and round,
 landing in `[0, 2^z · extent)`.
 
+### Rounding polygons
+
+Rounding a polygon's vertices one by one can make a valid polygon invalid: two edges closer than a unit
+can end up crossing, touching, or folding onto each other. `Quantizer::polygon` rounds one valid float
+polygon, already scaled to grid units, and gives zero or more valid integer polygons. If the rounded rings
+are still valid, they are what it gives, every vertex rounded to the nearest grid point. Otherwise it
+snap-rounds the polygon: each edge bends through the center of every grid cell it crosses that holds a
+vertex or a point where two edges cross, so no two rounded edges cross. Then it rebuilds the area as
+valid polygons: a fold that collapsed is dropped, and a narrow neck that collapsed to a point splits the
+polygon in two. Rings come open, exteriors with a positive `signed_area_2x` and holes with a negative one.
+
+Rounding moves a point less than a unit along each axis, so `polygon` only checks the edges that come
+within a unit of a vertex. That relies on the polygon being valid: an invalid one may come out as invalid
+as it went in, and debug builds panic on it. `Quantizer::make_valid` takes any polygon and checks every
+pair of rounded edges. Its area is what the exterior covers, minus what any hole covers. So both lobes of
+a self-crossing exterior are kept, and a hole only takes out its part inside the exterior.
+
+```rust
+use geo_types::coord;
+use map_tile_toolkit::{Quantizer, TileError};
+
+fn main() -> Result<(), TileError> {
+    let mut quantizer = Quantizer::new();
+    // Two tip vertices under a unit apart: rounded one by one, the tip's edges would cross.
+    let exterior = [
+        coord! { x: 1612.28, y: 395.41 }, coord! { x: 1617.38, y: 388.41 },
+        coord! { x: 1654.28, y: 308.21 }, coord! { x: 1653.54, y: 308.55 },
+        coord! { x: 1618.68, y: 323.32 }, coord! { x: 1609.48, y: 368.51 },
+        coord! { x: 1607.98, y: 394.02 },
+    ];
+    for polygon in quantizer.polygon([exterior])?.polygons() {
+        for ring in polygon {
+            assert_eq!(ring.len(), 6); // the tip is one vertex
+        }
+    }
+    Ok(())
+}
+```
+
 ### Limits
 
 A segment is walked through exactly the tiles it touches, so cost follows those tiles, not its bounding
