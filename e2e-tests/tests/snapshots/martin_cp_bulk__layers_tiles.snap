@@ -2,18 +2,18 @@
 source: e2e-tests/tests/martin_cp_bulk.rs
 expression: tile_listing(&output).await
 ---
-0/0/0 703 bytes
+0/0/0 688 bytes
 1/0/0 214 bytes
-1/0/1 330 bytes
-1/1/0 330 bytes
-1/1/1 966 bytes
+1/0/1 314 bytes
+1/1/0 318 bytes
+1/1/1 891 bytes
 2/1/1 42 bytes
-2/1/2 161 bytes
-2/2/1 142 bytes
-2/2/2 497 bytes
+2/1/2 135 bytes
+2/2/1 136 bytes
+2/2/2 449 bytes
 2/3/2 64 bytes
 3/3/3 42 bytes
-3/3/4 161 bytes
-3/4/3 150 bytes
-3/4/4 522 bytes
+3/3/4 139 bytes
+3/4/3 136 bytes
+3/4/4 463 bytes
 3/7/4 64 bytes
