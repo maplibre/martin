@@ -29,14 +29,23 @@ pub struct Branch {
     pub path: String,
     /// The rows on this path, or why a source cannot select them.
     pub rows: Result<Condition, Untranslatable>,
-    /// Only the rows whose geometry has this size, which no [`Condition`] can express.
-    pub size: Option<SizeBand>,
+    /// Only the rows whose geometry has this shape, which no [`Condition`] can express.
+    pub shape: Option<Shape>,
 }
 
 impl Display for Branch {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.layer, self.path)
     }
+}
+
+/// The geometries of a path's rows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Shape {
+    /// Lines and polygons in a size band.
+    Size(SizeBand),
+    /// Lines and polygons whose bounding box crosses an edge of the tiles at this zoom.
+    CrossesTileEdge(u8),
 }
 
 /// Lines and polygons whose bounding box's longer side is `min` to below `max` pixels of a 256-pixel tile
@@ -48,11 +57,21 @@ pub struct SizeBand {
     pub max: f64,
 }
 
-impl SizeBand {
-    /// Whether a geometry with the bounding box `bbox`, in the renderer's unit square, is in this band.
+impl Shape {
+    /// Whether a geometry with the bounding box `bbox`, in the renderer's unit square, has this shape.
     fn holds(self, bbox: Rect<f64>) -> bool {
-        let size = bbox.width().max(bbox.height()) * 256.0 * f64::from(1u32 << self.zoom);
-        self.min <= size && size < self.max
+        let scale = |zoom: u8| f64::from(1u32 << zoom);
+        match self {
+            Self::Size(SizeBand { zoom, min, max }) => {
+                let size = bbox.width().max(bbox.height()) * 256.0 * scale(zoom);
+                min <= size && size < max
+            }
+            Self::CrossesTileEdge(zoom) => {
+                let cell = |v: f64| (v * scale(zoom)).floor();
+                let (lo, hi) = (bbox.min(), bbox.max());
+                cell(lo.x).total_cmp(&cell(hi.x)).is_ne() || cell(lo.y).total_cmp(&cell(hi.y)).is_ne()
+            }
+        }
     }
 }
 
@@ -137,7 +156,7 @@ impl Plan {
                 let branch = &path.branch;
                 let seen = branch.rows.is_ok()
                     && out.iter().any(|p| {
-                        p.branch.layer == branch.layer && p.branch.rows == branch.rows && p.branch.size == branch.size
+                        p.branch.layer == branch.layer && p.branch.rows == branch.rows && p.branch.shape == branch.shape
                     });
                 if !seen {
                     out.push(path);
@@ -160,7 +179,7 @@ struct Test<'p> {
     reach: Reach,
     /// Parts of expressions, each with the value it has on the path.
     checks: Vec<(IdedExpr, Want)>,
-    size: Option<SizeBand>,
+    shape: Option<Shape>,
 }
 
 impl Test<'_> {
@@ -185,8 +204,8 @@ impl Test<'_> {
         };
         reached
             && self.checks.iter().all(|(part, want)| want.holds(eval_part(part, view)))
-            && self.size.is_none_or(|size| {
-                !matches!(geom, FeatureGeom::Points(_)) && bounding_box(geom).is_some_and(|bbox| size.holds(bbox))
+            && self.shape.is_none_or(|shape| {
+                !matches!(geom, FeatureGeom::Points(_)) && bounding_box(geom).is_some_and(|bbox| shape.holds(bbox))
             })
     }
 }
@@ -274,7 +293,7 @@ type Part<'a> = (&'a str, Result<Condition, TranslateError>);
 
 impl<'a> LayerPaths<'a, '_> {
     /// The layer's paths: its `where`, its rules, the choices in its expressions, the known values of the columns
-    /// they read, every feature when none of these split the layer, and its size limits.
+    /// they read, every feature when none of these split the layer, and the shapes its geometries take.
     fn all(&self) -> Vec<Path<'a>> {
         let mut out = Vec::new();
         if let Some(filter) = self.layer.filter.map(|f| self.expr(f)) {
@@ -286,7 +305,7 @@ impl<'a> LayerPaths<'a, '_> {
         if out.is_empty() {
             out.push(self.path("every feature".to_owned(), self.base(), self.test(Reach::Layer)));
         }
-        self.sizes(&mut out);
+        self.shapes(&mut out);
         out
     }
 
@@ -616,9 +635,9 @@ impl<'a> LayerPaths<'a, '_> {
         self.plan.with_view(self.table, &feature, |view| eval_part(expr, view))
     }
 
-    /// For the rules of each `min_size`, lines and polygons kept only at the layer's max zoom, and those too small for
-    /// every zoom.
-    fn sizes(&self, out: &mut Vec<Path<'a>>) {
+    /// For the rules of each `min_size`, lines and polygons kept only at the layer's max zoom, those too small for
+    /// every zoom, those shorter than a tile unit at the max zoom, and those crossing a tile edge there.
+    fn shapes(&self, out: &mut Vec<Path<'a>>) {
         if self.layer.geometry == Some(GeometryType::Point) {
             return;
         }
@@ -642,32 +661,48 @@ impl<'a> LayerPaths<'a, '_> {
                 let shapes = [GeometryType::Line, GeometryType::Polygon].map(Condition::Geometry);
                 parts.push(("geometry", Ok(Condition::or(shapes))));
             }
-            let mut band = |path: String, size: SizeBand| {
+            let mut shape = |path: String, shape: Shape| {
                 let mut test = self.test(reach.clone());
-                test.size = Some(size);
+                test.shape = Some(shape);
                 let mut path = self.path(format!("{prefix}{path}"), parts.clone(), test);
-                path.branch.size = Some(size);
+                path.branch.shape = Some(shape);
                 out.push(path);
             };
             let (min, max) = (*self.layer.zooms.start(), *self.layer.zooms.end());
             let at_max = min_size.at_max_zoom;
             let below = min_size.below_max_zoom;
             if min < max && at_max < 2.0 * below {
-                let size = SizeBand {
+                let band = SizeBand {
                     zoom: max,
                     min: at_max,
                     max: 2.0 * below,
                 };
-                band(format!("kept only at z{max} (`min_size_at_maxzoom`)"), size);
+                shape(
+                    format!("kept only at z{max} (`min_size_at_maxzoom`)"),
+                    Shape::Size(band),
+                );
             }
             if at_max > 0.0 {
-                let size = SizeBand {
+                let band = SizeBand {
                     zoom: max,
                     min: 0.0,
                     max: at_max,
                 };
-                band("dropped, smaller than `min_size` at every zoom".to_owned(), size);
+                shape(
+                    "dropped, smaller than `min_size` at every zoom".to_owned(),
+                    Shape::Size(band),
+                );
             }
+            let unit = 256.0 / f64::from(self.layer.render.grid.extent);
+            if at_max < unit {
+                let band = SizeBand {
+                    zoom: max,
+                    min: at_max,
+                    max: unit,
+                };
+                shape(format!("shorter than one tile unit at z{max}"), Shape::Size(band));
+            }
+            shape(format!("crosses a z{max} tile edge"), Shape::CrossesTileEdge(max));
         }
     }
 
@@ -811,7 +846,7 @@ impl<'a> LayerPaths<'a, '_> {
             layer: self.layer,
             reach,
             checks: Vec::new(),
-            size: None,
+            shape: None,
         }
     }
 
@@ -833,7 +868,7 @@ impl<'a> LayerPaths<'a, '_> {
                 layer: self.layer.info.name.clone(),
                 path,
                 rows,
-                size: None,
+                shape: None,
             },
             test,
         }

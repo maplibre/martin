@@ -15,7 +15,7 @@ use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::phase2::LayerInfo;
-pub use crate::plan::branch::{Branch, ColumnValues, SizeBand};
+pub use crate::plan::branch::{Branch, ColumnValues, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
     CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
