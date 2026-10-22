@@ -918,7 +918,7 @@ fn trim_ring_seam(vertices: &mut Vec<Coord<i32>>, start: usize) {
     if let [first, second, .., last] = vertices[start..]
         && between(last, first, second)
     {
-        vertices.remove(start);
+        vertices.swap_remove(start);
     }
 }
 
@@ -1444,7 +1444,7 @@ mod tests {
             },
         );
         assert_eq!(tiles.len(), 1);
-        assert_eq!(tiles[0].2.vertices, [[90, 10], [90, 90], [10, 90], [10, 10]]);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90], [10, 90]]);
     }
 
     #[test]
