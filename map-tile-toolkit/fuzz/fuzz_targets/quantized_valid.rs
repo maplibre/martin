@@ -60,8 +60,11 @@ fuzz_target!(|input: Input| {
     let float = polygon(&rings, |c| c);
     let ring_area = |r: &LineString<f64>| Polygon::new(r.clone(), vec![]).unsigned_area();
     let before = ring_area(float.exterior()) - float.interiors().iter().map(ring_area).sum::<f64>();
-    // `geo` accepts an exterior with no area, so a negative or zero area tells such a polygon apart.
-    let valid = float.check_validation().is_ok() && before > 0.0;
+    // `geo` accepts a ring folded flat onto a line, which OGC does not.
+    let valid = float.check_validation().is_ok()
+        && std::iter::once(float.exterior())
+            .chain(float.interiors())
+            .all(|r| ring_area(r) > 0.0);
 
     let mut quantizer = Quantizer::new();
     let float_rings = rings.iter().map(|r| r.iter().copied());
