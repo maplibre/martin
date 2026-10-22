@@ -107,7 +107,7 @@ bytestring = "1.5"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.1.1", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "cog-tiles", version = "0.1.2", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
