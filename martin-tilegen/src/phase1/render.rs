@@ -553,12 +553,7 @@ impl Renderer {
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         for rings in self.simplifier.polygons(epsilon) {
-            let rings = rings.map(|ring| {
-                ring.map(|c| Coord {
-                    x: (c.x + shift) * world,
-                    y: c.y * world,
-                })
-            });
+            let rings = rings.map(|ring| ring.map(|c| to_grid(c, shift, world)));
             let quantized = self
                 .quantizer
                 .polygon(rings)
@@ -903,10 +898,19 @@ fn push_quantized(
     Ok(vertices.len() - start)
 }
 
-/// Rounds to the zoom grid; `shift` moves features lying wholly outside the world back into it.
+/// Scales to the zoom grid, with `shift` moving features lying wholly outside the world back into it.
+fn to_grid(c: Coord<f64>, shift: f64, world: f64) -> Coord<f64> {
+    Coord {
+        x: (c.x + shift) * world,
+        y: c.y * world,
+    }
+}
+
+/// Rounds to the zoom grid, as [`to_grid`] scales it.
 #[expect(clippy::cast_possible_truncation, reason = "range-checked before the cast")]
 fn quantize(c: Coord<f64>, shift: f64, world: f64) -> Result<Vertex, GeometryError> {
-    let (x, y) = (((c.x + shift) * world).round(), (c.y * world).round());
+    let c = to_grid(c, shift, world);
+    let (x, y) = (c.x.round(), c.y.round());
     let range = f64::from(i32::MIN)..=f64::from(i32::MAX);
     if range.contains(&x) && range.contains(&y) {
         Ok([x as i32, y as i32])
