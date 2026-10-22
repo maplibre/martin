@@ -135,8 +135,8 @@ impl RenderLayer {
         })
     }
 
-    /// [`ClipMode::Unclipped`] gives every tile each line or polygon of a feature that reaches it,
-    /// whole, so polygons get no fill ranges.
+    /// [`ClipMode::Unclipped`] gives every tile that any point, line or polygon of a feature reaches the
+    /// whole feature, so polygons get no fill ranges.
     #[must_use]
     pub fn with_clip_mode(mut self, clip_mode: ClipMode) -> Self {
         self.clip_mode = clip_mode;
@@ -285,6 +285,8 @@ pub struct Renderer {
     /// line run or polygon ring with its tile, its vertices tile-local in `sliced_vertices`.
     sliced: Vec<SlicedPart>,
     sliced_vertices: Vec<Vertex>,
+    /// Unclipped, the tiles any line or polygon of the feature reaches at one zoom.
+    reached: Vec<map_tile_toolkit::TileId>,
     points: Vec<(i32, i32, Vertex)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
@@ -420,7 +422,7 @@ impl Renderer {
     }
 
     /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
-    /// a point reaches.
+    /// a point reaches (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -433,8 +435,10 @@ impl Renderer {
         let (extent, buffer) = (to_i32(grid.extent)?, to_i32(grid.buffer)?);
         let world = scale(zoom) * f64::from(grid.extent);
         self.points.clear();
+        self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
+            self.vertices.push(Coord { x, y });
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
             let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
@@ -446,6 +450,18 @@ impl Renderer {
             }
         }
         self.points.sort_by_key(|&(tx, ty, _)| (tx, ty));
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            self.points.dedup_by_key(|p| (p.0, p.1));
+            for &(tx, ty, _) in &self.points {
+                self.piece.clear();
+                let origin = (tx * extent, ty * extent);
+                self.piece
+                    .vertices
+                    .extend(self.vertices.iter().map(|c| [c.x - origin.0, c.y - origin.1]));
+                ctx.push(zoom, tx, ty, Geom::Points(&self.piece.vertices), out)?;
+            }
+            return Ok(());
+        }
         for group in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
             let (tx, ty, _) = group[0];
             self.piece.clear();
@@ -480,7 +496,7 @@ impl Renderer {
     }
 
     /// Slices each line into the kept tiles it reaches and pushes one piece per tile, holding every run
-    /// of the feature's lines there (unclipped, every line that reaches the tile, whole). A slicer error drops the whole feature at this zoom: nothing is
+    /// of the feature's lines there (unclipped, the whole feature). A slicer error drops the whole feature at this zoom: nothing is
     /// pushed until every line is sliced.
     fn slice_lines(
         &mut self,
@@ -497,6 +513,7 @@ impl Renderer {
         let slicer = &self.slicers[pos].1;
         self.sliced.clear();
         self.sliced_vertices.clear();
+        self.reached.clear();
         let mut rest = vertices;
         for &len in parts {
             let (line, tail) = rest.split_at(len as usize);
@@ -504,6 +521,10 @@ impl Renderer {
             for slice in slicer.line(line).map_err(GeometryError::from)? {
                 let tile = slice.tile();
                 if !(min.x..=max.x).contains(&tile.x) || !(min.y..=max.y).contains(&tile.y) {
+                    continue;
+                }
+                if ctx.layer.clip_mode == ClipMode::Unclipped {
+                    self.reached.push(tile);
                     continue;
                 }
                 let start = self.sliced_vertices.len();
@@ -516,7 +537,28 @@ impl Renderer {
                 });
             }
         }
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            return self.push_reached(ctx, zoom, (&[], parts, vertices), out);
+        }
         self.push_sliced(ctx, zoom, PieceKind::Lines, out)
+    }
+
+    /// Pushes the whole feature to each tile in [`Self::reached`].
+    fn push_reached(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        feature: Rings<'_>,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.reached.sort_unstable_by_key(|t| (t.x, t.y));
+        self.reached.dedup();
+        let reached = std::mem::take(&mut self.reached);
+        let result = reached
+            .iter()
+            .try_for_each(|t| self.push_whole(ctx, zoom, (t.x, t.y), feature, out));
+        self.reached = reached;
+        result
     }
 
     /// Pushes one piece per tile from [`Self::sliced`]: the tile's parts in the order they were
@@ -631,6 +673,7 @@ impl Renderer {
         self.sliced.clear();
         self.sliced_vertices.clear();
         self.runs.clear();
+        self.reached.clear();
         // Each polygon is sliced on its own; its pieces and those of the feature's other polygons in
         // a tile make one piece there, and nothing is pushed until every polygon is sliced.
         let mut rest = rings.as_slice();
@@ -643,6 +686,9 @@ impl Renderer {
                 .within(min, max);
             while let Some(slice) = pieces.next() {
                 match slice.map_err(GeometryError::from)? {
+                    PolygonSlice::Piece(piece) if ctx.layer.clip_mode == ClipMode::Unclipped => {
+                        self.reached.push(piece.tile());
+                    }
                     PolygonSlice::Piece(piece) => {
                         for ring in piece.rings() {
                             let start = self.sliced_vertices.len();
@@ -661,6 +707,9 @@ impl Renderer {
                     PolygonSlice::Run(run) => self.runs.push((run.x.start, run.x.end, run.y)),
                 }
             }
+        }
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            return self.push_reached(ctx, zoom, (polys, parts, vertices), out);
         }
         self.push_sliced(ctx, zoom, PieceKind::Polygons, out)?;
         self.push_fills(ctx, zoom, out)
@@ -1329,6 +1378,35 @@ mod tests {
             "covered tiles get the whole polygon"
         );
         assert_eq!(records, tiles.len(), "no fill ranges");
+    }
+
+    #[test]
+    fn unclipped_features_are_whole_in_every_tile_any_part_reaches() {
+        let layer = RenderLayer::new(0, 3..=3, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let polygons = [
+            Polygon::new(square(0.1, 0.3), vec![]),
+            Polygon::new(square(0.27, 0.3), vec![]),
+        ];
+        let lines = [
+            LineString::from(vec![(0.1, 0.28), (0.3, 0.28)]),
+            LineString::from(vec![(0.27, 0.27), (0.3, 0.3)]),
+        ];
+        let points = [Coord { x: 0.06, y: 0.3 }, Coord { x: 0.3, y: 0.3 }];
+        let square_tiles: Vec<_> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).collect();
+        let row_tiles = vec![(0, 2), (1, 2), (2, 2)];
+        for (geom, reached) in [
+            (FeatureGeom::Polygons(&polygons), square_tiles),
+            (FeatureGeom::Lines(&lines), row_tiles),
+            (FeatureGeom::Points(&points), vec![(0, 2), (2, 2)]),
+        ] {
+            let pieces = global_pieces(&layer, geom);
+            let mut tiles: Vec<_> = pieces.iter().map(|p| p.0).collect();
+            tiles.sort_unstable();
+            assert_eq!(tiles, reached);
+            assert!(pieces.iter().all(|p| p.2 == pieces[0].2), "always whole");
+        }
     }
 
     #[test]
