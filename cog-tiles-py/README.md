@@ -24,6 +24,8 @@ raster.data.shape     # (1311, 1166, 3)
 raster.transform      # GDAL geotransform in EPSG:3857
 ```
 
+![What tile, tiles and read return](https://raw.githubusercontent.com/maplibre/martin/main/cog-tiles-py/docs/images/tile-tiles-read.svg)
+
 Many files, each covering one tile at a file zoom and named after it:
 
 ```python
@@ -73,3 +75,5 @@ uv venv && uv pip install maturin pytest numpy
 uv run maturin develop --release
 uv run pytest
 ```
+
+`cog_tiles.pyi` is generated from the bindings by `just sync-cog-py-stubs`; autofix.ci regenerates it on pull requests.
