@@ -9,89 +9,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0-beta.4](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.3...martin-v2.0.0-beta.4) - 2026-10-22
 
+> [!NOTE]
+> This is the fourth beta of Martin 2.0. It has four breaking changes relative to [2.0.0-beta.3](https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.3), listed below.
+> If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
+
+### Breaking changes
+
+- PostgreSQL sources need PostgreSQL 15 or newer, up from 12 ([#3563](https://github.com/maplibre/martin/pull/3563)). See [migration](https://maplibre.org/martin/migration-guide/#postgresql-sources-need-postgresql-15-and-postgis-35).
+- PMTiles and MBTiles tiles send `Cache-Control: max-age=0, stale-while-revalidate=86400` when no `cache_control` is configured. Before, they sent none ([#3552](https://github.com/maplibre/martin/pull/3552)).
+  A returning visitor's browser draws its cached tiles at once and revalidates them in the background, so a rewritten archive shows up on the next load. A quick zoom in and out on a Berlin archive over 4G went from 827 ms to 345 ms.
+  Set `cache_control: no-cache` for the previous behaviour. See [migration](https://maplibre.org/martin/migration-guide/#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default).
+- COG sources are stable and part of the default build. Builds that pass `--features unstable-cog` pass `cog` instead ([#3626](https://github.com/maplibre/martin/pull/3626)). See [migration](https://maplibre.org/martin/migration-guide/#cargo-features-were-merged).
+- An auto-published PostgreSQL table no longer takes the id of a table that was skipped, so `roads.1` can become `roads`. A configured table is no longer published a second time when the catalog spells it in a different case ([#3675](https://github.com/maplibre/martin/pull/3675)).
+
 ### Added
 
-- *(pg)* apply string functions of a layer `where` in the table query ([#3663](https://github.com/maplibre/martin/pull/3663))
-- *(pg)* apply key reads of a layer `where` in the table query ([#3671](https://github.com/maplibre/martin/pull/3671))
-- *(pg)* apply `in` lists of a layer `where` in the table query ([#3662](https://github.com/maplibre/martin/pull/3662))
-- *(pg)* apply layer `where` in the table query ([#3661](https://github.com/maplibre/martin/pull/3661))
-- *(pg)* apply layer `geometry` in the table query ([#3660](https://github.com/maplibre/martin/pull/3660))
-- *(pg)* prefetch blocks of engine-served tiles into the tile cache ([#3633](https://github.com/maplibre/martin/pull/3633))
-- *(pg)* serve table sources with `layers` through Martin's engine ([#3632](https://github.com/maplibre/martin/pull/3632))
-- [**breaking**] add `order_by` to PostgreSQL table sources ([#3572](https://github.com/maplibre/martin/pull/3572))
-- *(cog)* stabilize COG sources as the default `cog` feature ([#3626](https://github.com/maplibre/martin/pull/3626))
-- *(cog)* add mosaic COG sources ([#3621](https://github.com/maplibre/martin/pull/3621))
-- *(generate)* honor `clip_geom` for lines and polygons ([#3617](https://github.com/maplibre/martin/pull/3617))
-- *(rendering)* configurable size of MapLibre Native's ambient cache ([#3609](https://github.com/maplibre/martin/pull/3609))
-- *(generate)* layer `sort_by` draw order ([#3559](https://github.com/maplibre/martin/pull/3559))
-- *(generate)* per-feature layer `rules` ([#3558](https://github.com/maplibre/martin/pull/3558))
-- *(generate)* layer `where`, zoom and id expressions and attribute maps ([#3557](https://github.com/maplibre/martin/pull/3557))
-- *(generate)* lower table `layers` into the plan ([#3555](https://github.com/maplibre/martin/pull/3555))
-- *(generate)* PMTiles output ([#3517](https://github.com/maplibre/martin/pull/3517))
-- *(tilegen)* render polygons with edge pieces and fill ranges ([#3515](https://github.com/maplibre/martin/pull/3515))
-- *(cli)* accept human-readable sizes like `1GiB` for memory and cache flags ([#3596](https://github.com/maplibre/martin/pull/3596))
-- *(generate)* `martin generate` CLI and end-to-end tests ([#3514](https://github.com/maplibre/martin/pull/3514))
-- *(generate)* Postgres FeatureSource with partitioned whole-table scans ([#3513](https://github.com/maplibre/martin/pull/3513))
-- *(postgres)* [**breaking**] require PostgreSQL 15 ([#3563](https://github.com/maplibre/martin/pull/3563))
-- *(config)* tile PostgreSQL tables with the engine when they declare layers ([#3548](https://github.com/maplibre/martin/pull/3548))
-- *(config)* parse the tiling layer schema with CEL expressions behind unstable-generate ([#3547](https://github.com/maplibre/martin/pull/3547))
-- *(cog)* add the cog-tiles crate and serve COGs with it ([#3620](https://github.com/maplibre/martin/pull/3620))
-- *(tilegen)* compiled CEL expressions over feature props ([#3556](https://github.com/maplibre/martin/pull/3556))
-- *(tilegen)* plan tables into layers, FeatureSource and end-to-end generate() ([#3554](https://github.com/maplibre/martin/pull/3554))
-- *(tilegen)* render points and lines into per-zoom tile pieces ([#3512](https://github.com/maplibre/martin/pull/3512))
-- *(tilegen)* add martin-tilegen crate with tile order, sort key and external sort ([#3510](https://github.com/maplibre/martin/pull/3510))
-- *(tilegen)* tile grouping, MLT/MVT encoding, compression and dedup ([#3553](https://github.com/maplibre/martin/pull/3553))
+- COGs are read with the new [`cog-tiles`](https://crates.io/crates/cog-tiles) crate ([#3620](https://github.com/maplibre/martin/pull/3620)).
+  Gray and ZSTD COGs are served, PixelIsPoint files are placed correctly, and RGBA JPEG tiles are re-encoded as PNG.
+  An image off the tile grid is skipped with a warning instead of being served shifted. Rotated, sheared or flipped images are rejected instead of being served misplaced.
+- `cog.mosaics` serves many COG files, one per tile at a fixed zoom, as one source. `path` names each file with `{quadkey}`, or `{x}` and `{y}` with an optional `{z}` ([#3621](https://github.com/maplibre/martin/pull/3621), [#3626](https://github.com/maplibre/martin/pull/3626)).
+  Files open on first use and are kept for `file_expiry`, or closed early after `file_idle_timeout`. See the [documentation](https://maplibre.org/martin/sources-cog-files/#mosaic-of-many-cogs).
+
+  ```yaml
+  cog:
+    mosaics:
+      ortho:
+        path: s3://my-bucket/ortho/{quadkey}.tif
+        zoom: 16
+  ```
+
+- `postgres.order_by` (or `--order-by`) sorts table features by id, `id-asc` or `id-desc`, so `max_feature_count` drops a predictable set of features ([#1455](https://github.com/maplibre/martin/issues/1455), [#3572](https://github.com/maplibre/martin/pull/3572)).
+- `styles.rendering.ambient_cache_size_mb` sizes MapLibre Native's own cache of fetched tiles, glyphs and sprites, or turns it off with `0` ([#3609](https://github.com/maplibre/martin/pull/3609)).
+  When a style's sources are Martin's own, that cache only costs CPU.
+- `--cache-size` and `mbtiles` size flags take human-readable sizes such as `512MB` or `1GiB`. A bare number is still MB ([#3596](https://github.com/maplibre/martin/pull/3596)).
+- `mbtiles` installs with `cargo binstall` ([#3570](https://github.com/maplibre/martin/pull/3570)).
 
 ### Fixed
 
-- *(deps)* update npm dependencies ([#3714](https://github.com/maplibre/martin/pull/3714))
-- *(deps)* update npm dependencies ([#3709](https://github.com/maplibre/martin/pull/3709))
-- *(config)* point server setting errors at the bad value ([#3695](https://github.com/maplibre/martin/pull/3695))
-- *(generate)* keep the bulk scan box inside +-180 ([#3704](https://github.com/maplibre/martin/pull/3704))
-- *(generate)* keep every feature of the tiles a `--bbox` touches ([#3699](https://github.com/maplibre/martin/pull/3699))
-- *(duckdb)* reject unknown source_id_format placeholders at config load ([#3691](https://github.com/maplibre/martin/pull/3691))
-- *(pg)* plan auto-publish without the database ([#3675](https://github.com/maplibre/martin/pull/3675))
-- *(pg)* keep the column's geometry type for a configured table without one ([#3668](https://github.com/maplibre/martin/pull/3668))
-- *(pg)* reject SRIDs and id formats that never worked when the config loads ([#3678](https://github.com/maplibre/martin/pull/3678))
-- *(pg)* read half a grid unit past the buffer when serving layers ([#3658](https://github.com/maplibre/martin/pull/3658))
-- *(cp)* keep `--bbox` rows of tables in projected CRSs in bulk mode ([#3657](https://github.com/maplibre/martin/pull/3657))
-- *(pg)* reject `max_feature_count` with a layer `where` or `geometry` ([#3656](https://github.com/maplibre/martin/pull/3656))
-- *(tilegen)* keep bulk sort open files independent of the run count ([#3652](https://github.com/maplibre/martin/pull/3652))
-- *(pg)* cap engine prefetch at 16 tiles per side and require layers ([#3651](https://github.com/maplibre/martin/pull/3651))
-- *(tests)* pause tokio time in the on_slow deadline test ([#3646](https://github.com/maplibre/martin/pull/3646))
-- *(tests)* pass `CachePolicy` by reference in PG reloader tests ([#3628](https://github.com/maplibre/martin/pull/3628))
-- *(generate)* signals, encodings, discovery warnings and scan timeouts ([#3606](https://github.com/maplibre/martin/pull/3606))
-- *(pmtiles)* keep configured sources out of prefix discovery ([#3594](https://github.com/maplibre/martin/pull/3594))
-- *(ci)* check out geojson snapshots with LF and break the tilegen/core dev-dep cycle ([#3670](https://github.com/maplibre/martin/pull/3670))
+- Martin refuses to start on an SRID PostGIS has no code for (outside 1 to 999999) and on an unknown placeholder in a source id format. Before, both failed later or published broken sources ([#3678](https://github.com/maplibre/martin/pull/3678)).
+- A configuration error in a top-level server key such as `cors` or `observability` points at the bad value instead of the key ([#3695](https://github.com/maplibre/martin/pull/3695)).
+- A PMTiles file under a polled object-store prefix that is also listed in `pmtiles.sources` is served once, under its configured id and settings. Before, the prefix poller replaced it with a default source ([#3452](https://github.com/maplibre/martin/issues/3452), [#3594](https://github.com/maplibre/martin/pull/3594)). Remote COG prefixes get the same fix.
+- Martin builds with GCC 16 and newer clang (`libdeflater` 1.26.1) ([#3608](https://github.com/maplibre/martin/issues/3608), [#3623](https://github.com/maplibre/martin/pull/3623)).
+
+### Performance
+
+- The base Docker images ship PGO-optimized binaries (and BOLT on x86_64). PostGIS throughput rose by 3 to 7% ([#3569](https://github.com/maplibre/martin/pull/3569)).
+- A configured table without `geometry_type` keeps its column's geometry type, so its tile query skips `ST_CurveToLine` ([#3668](https://github.com/maplibre/martin/pull/3668)).
+
+### Unstable
+
+> [!WARNING]
+> None of this is in the release binaries. It needs a build with `--features unstable-generate`, and its configuration may still change.
+
+- `martin cp --mode bulk` reads each table once and builds the whole tileset itself, as MBTiles or PMTiles, using a method adapted from [Planetiler](https://github.com/onthegomap/planetiler). See [Generating Tilesets](https://maplibre.org/martin/martin-generate/) ([#3510](https://github.com/maplibre/martin/pull/3510), [#3511](https://github.com/maplibre/martin/pull/3511), [#3512](https://github.com/maplibre/martin/pull/3512), [#3513](https://github.com/maplibre/martin/pull/3513), [#3514](https://github.com/maplibre/martin/pull/3514), [#3515](https://github.com/maplibre/martin/pull/3515), [#3517](https://github.com/maplibre/martin/pull/3517), [#3553](https://github.com/maplibre/martin/pull/3553), [#3554](https://github.com/maplibre/martin/pull/3554), [#3629](https://github.com/maplibre/martin/pull/3629)).
+- PostgreSQL table sources take [`layers`](https://maplibre.org/martin/sources-pg-layers/) with CEL `where`, zoom and id expressions, attribute maps, per-feature `rules` and `sort_by` ([#3547](https://github.com/maplibre/martin/pull/3547), [#3555](https://github.com/maplibre/martin/pull/3555), [#3556](https://github.com/maplibre/martin/pull/3556), [#3557](https://github.com/maplibre/martin/pull/3557), [#3558](https://github.com/maplibre/martin/pull/3558), [#3559](https://github.com/maplibre/martin/pull/3559), [#3617](https://github.com/maplibre/martin/pull/3617)).
+  The server tiles a table with `layers` through the same engine, in prefetched blocks ([#3548](https://github.com/maplibre/martin/pull/3548), [#3632](https://github.com/maplibre/martin/pull/3632), [#3633](https://github.com/maplibre/martin/pull/3633), [#3651](https://github.com/maplibre/martin/pull/3651)), and applies a layer's `geometry` and `where` in the table query ([#3660](https://github.com/maplibre/martin/pull/3660), [#3661](https://github.com/maplibre/martin/pull/3661), [#3662](https://github.com/maplibre/martin/pull/3662), [#3663](https://github.com/maplibre/martin/pull/3663), [#3671](https://github.com/maplibre/martin/pull/3671)).
+- Bulk mode is faster: RDP ranks each feature once ([#3622](https://github.com/maplibre/martin/pull/3622)), tables are read over ctid ranges on several connections ([#3643](https://github.com/maplibre/martin/pull/3643)) and views split by `abs(id) % 32` ([#3659](https://github.com/maplibre/martin/pull/3659)), and the external sort, merge and encode do less work ([#3618](https://github.com/maplibre/martin/pull/3618), [#3619](https://github.com/maplibre/martin/pull/3619), [#3624](https://github.com/maplibre/martin/pull/3624), [#3650](https://github.com/maplibre/martin/pull/3650), [#3652](https://github.com/maplibre/martin/pull/3652), [#3653](https://github.com/maplibre/martin/pull/3653), [#3669](https://github.com/maplibre/martin/pull/3669), [#3682](https://github.com/maplibre/martin/pull/3682), [#3684](https://github.com/maplibre/martin/pull/3684)).
+- Bulk mode fixes: `--bbox` keeps every feature of the tiles it touches and stays inside +-180 ([#3699](https://github.com/maplibre/martin/pull/3699), [#3704](https://github.com/maplibre/martin/pull/3704)), and keeps rows of tables in projected CRSs ([#3657](https://github.com/maplibre/martin/pull/3657)). Engine-served tiles read past the buffer edge ([#3658](https://github.com/maplibre/martin/pull/3658)), and `max_feature_count` with a layer `where` or `geometry` is refused ([#3656](https://github.com/maplibre/martin/pull/3656)). Signals, encodings, discovery warnings and scan timeouts are handled ([#3606](https://github.com/maplibre/martin/pull/3606)).
+- DuckDB sources (`unstable-duckdb`) refuse an unknown `source_id_format` placeholder at config load ([#3691](https://github.com/maplibre/martin/pull/3691)).
 
 ### Other
 
-- *(deps)* update mlt-core to 0.22.0 ([#3712](https://github.com/maplibre/martin/pull/3712))
-- *(deps)* bump vitest, @vitest/ui and @vitest/coverage-v8 to 5.0.5 together ([#3703](https://github.com/maplibre/martin/pull/3703))
-- *(duckdb)* pin auto-publish behaviour through DuckDbConfig::resolve ([#3690](https://github.com/maplibre/martin/pull/3690))
-- retry test container starts ([#3679](https://github.com/maplibre/martin/pull/3679))
-- *(pg)* pin auto-publish behaviour through `discover()` ([#3676](https://github.com/maplibre/martin/pull/3676))
-- *(tilegen)* decode single geometries without wrapping them in a Vec ([#3669](https://github.com/maplibre/martin/pull/3669))
-- *(generate)* enable splitting views by `abs(ID) % 32` ([#3659](https://github.com/maplibre/martin/pull/3659))
-- import local items via `crate::` paths ([#3667](https://github.com/maplibre/martin/pull/3667))
-- format Rust code at 120 columns ([#3673](https://github.com/maplibre/martin/pull/3673))
-- *(generate)* read PostgreSQL tables over ctid ranges on several connections ([#3643](https://github.com/maplibre/martin/pull/3643))
-- *(tilegen)* move the reader contract back into martin-tilegen ([#3630](https://github.com/maplibre/martin/pull/3630))
-- merge cp and bulk mode ([#3629](https://github.com/maplibre/martin/pull/3629))
-- *(generate)* hash `agg_tiles_hash` while writing MBTiles ([#3624](https://github.com/maplibre/martin/pull/3624))
-- drop redundant clones and tighten a lock guard found by clippy nursery ([#3625](https://github.com/maplibre/martin/pull/3625))
-- *(deps)* update dependency vite to v8.3.4 ([#3616](https://github.com/maplibre/martin/pull/3616))
-- structured log fields and DAMP e2e tests ([#3602](https://github.com/maplibre/martin/pull/3602))
-- *(pg)* extract row property and geometry SQL from the tile query ([#3590](https://github.com/maplibre/martin/pull/3590))
-- *(tilegen)* bound the pipeline by queue size, bump mlt-core to 0.20.2 and use its prop types ([#3579](https://github.com/maplibre/martin/pull/3579))
-- fix changelog anchors and fail the docs build on warnings ([#3561](https://github.com/maplibre/martin/pull/3561))
-- *(postgres)* compute exact bounds in the tests that assert them ([#3562](https://github.com/maplibre/martin/pull/3562))
-- default archive tiles to stale-while-revalidate ([#3552](https://github.com/maplibre/martin/pull/3552))
-- cut the Windows and PostGIS test time ([#3528](https://github.com/maplibre/martin/pull/3528))
-- *(tilegen)* keep scanned text properties in the batch's byte arena ([#3682](https://github.com/maplibre/martin/pull/3682))
-- *(tilegen)* move the layer interpreter into the plan ([#3613](https://github.com/maplibre/martin/pull/3613))
-- *(mbtiles)* make mbtiles installable with cargo-binstall ([#3570](https://github.com/maplibre/martin/pull/3570))
-- update Cargo.toml dependencies
+- Log lines carry their values as structured fields, such as `cache.name` or `tile.coord`, instead of inside the message ([#3602](https://github.com/maplibre/martin/pull/3602)).
+- *(docs)* diagrams across the source, MBTiles and postprocessing pages, the architecture of bulk mode, and fixed changelog anchors ([#3584](https://github.com/maplibre/martin/pull/3584), [#3585](https://github.com/maplibre/martin/pull/3585), [#3586](https://github.com/maplibre/martin/pull/3586), [#3588](https://github.com/maplibre/martin/pull/3588), [#3571](https://github.com/maplibre/martin/pull/3571), [#3627](https://github.com/maplibre/martin/pull/3627), [#3561](https://github.com/maplibre/martin/pull/3561))
+- *(deps)* update `mlt-core` to 0.22.0, `pmtiles` to 0.25, `serde-saphyr` to v2, `rstest`, the AWS crates, `map-tile-toolkit` (now in this repository), the Docker images, the frontend's npm dependencies and the GitHub Actions, and bump crates past RUSTSEC advisories ([#3712](https://github.com/maplibre/martin/pull/3712), [#3705](https://github.com/maplibre/martin/pull/3705), [#3706](https://github.com/maplibre/martin/pull/3706), [#3708](https://github.com/maplibre/martin/pull/3708), [#3709](https://github.com/maplibre/martin/pull/3709), [#3710](https://github.com/maplibre/martin/pull/3710), [#3711](https://github.com/maplibre/martin/pull/3711), [#3713](https://github.com/maplibre/martin/pull/3713), [#3714](https://github.com/maplibre/martin/pull/3714), [#3715](https://github.com/maplibre/martin/pull/3715), [#3598](https://github.com/maplibre/martin/pull/3598), [#3611](https://github.com/maplibre/martin/pull/3611), [#3601](https://github.com/maplibre/martin/pull/3601), [#3600](https://github.com/maplibre/martin/pull/3600), [#3648](https://github.com/maplibre/martin/pull/3648), [#3575](https://github.com/maplibre/martin/pull/3575), [#3576](https://github.com/maplibre/martin/pull/3576), [#3597](https://github.com/maplibre/martin/pull/3597), [#3616](https://github.com/maplibre/martin/pull/3616), [#3703](https://github.com/maplibre/martin/pull/3703), [#3574](https://github.com/maplibre/martin/pull/3574), [#3577](https://github.com/maplibre/martin/pull/3577), [#3599](https://github.com/maplibre/martin/pull/3599), [#3607](https://github.com/maplibre/martin/pull/3607), [#3645](https://github.com/maplibre/martin/pull/3645), [#3681](https://github.com/maplibre/martin/pull/3681))
+- *(ci)* faster and cheaper CI, release binaries built nightly, and pre-commit hooks run with prek ([#3528](https://github.com/maplibre/martin/pull/3528), [#3541](https://github.com/maplibre/martin/pull/3541), [#3551](https://github.com/maplibre/martin/pull/3551), [#3564](https://github.com/maplibre/martin/pull/3564), [#3565](https://github.com/maplibre/martin/pull/3565), [#3566](https://github.com/maplibre/martin/pull/3566), [#3567](https://github.com/maplibre/martin/pull/3567), [#3573](https://github.com/maplibre/martin/pull/3573), [#3680](https://github.com/maplibre/martin/pull/3680))
 
 ## [2.0.0-beta.3](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.2...martin-v2.0.0-beta.3) - 2026-10-09
 
