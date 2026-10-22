@@ -1,0 +1,43 @@
+[package]
+name = "cog-tiles-py"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Python bindings for cog-tiles: web map tiles and stitched rasters from tile-aligned Cloud Optimized GeoTIFFs"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "_cog_tiles"
+crate-type = ["cdylib", "rlib"]
+# Exercised from Python (`pytest`), the Rust logic is tested in `cog-tiles`.
+test = false
+doctest = false
+
+[[bin]]
+name = "stub-gen"
+path = "src/bin/stub_gen.rs"
+# Links libpython, so `--all-targets` builds skip it.
+required-features = ["stub-gen"]
+test = false
+
+[features]
+stub-gen = []
+
+[dependencies]
+bytes.workspace = true
+cog-tiles = { workspace = true, features = ["mosaic", "webp"] }
+futures.workspace = true
+numpy.workspace = true
+object_store.workspace = true
+pyo3 = { workspace = true, features = ["abi3-py310", "abi3t"] }
+pyo3-stub-gen.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
+url.workspace = true
+
+[lints]
+workspace = true

@@ -18,6 +18,14 @@ semver_check = true
 name = "cog-tiles"
 
 [[package]]
+name = "cog-tiles-py"
+git_only = true # `publish = false`, released to PyPI by python-release.yml from the tag
+git_tag_name = "python-cog-tiles-v{{ version }}"
+git_release_name = "python-cog-tiles-v{{ version }}"
+changelog_include = ["cog-tiles"]
+semver_check = false # cdylib, its API is the Python module
+
+[[package]]
 name = "map-tile-toolkit"
 
 [[package]]

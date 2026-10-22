@@ -31,6 +31,10 @@ exceptions = [
     { crate = "borrow-or-share", allow = ["MIT-0"] },
     # cql2 -> stacker -> psm, build script only; Apache-2.0 with the LLVM linking exception
     { crate = "ar_archive_writer", allow = ["Apache-2.0 WITH LLVM-exception"] },
+    # cog-tiles-py -> pyo3 -> pyo3-build-config, build script only; Apache-2.0 with the LLVM linking exception
+    { crate = "target-lexicon", allow = ["Apache-2.0 WITH LLVM-exception"] },
+    # cog-tiles-py -> pyo3-stub-gen -> rustpython-parser, only used to write the Python stub
+    { crate = "unicode_names2", allow = ["Unicode-DFS-2016"] },
 ]
 
 [licenses.private]
