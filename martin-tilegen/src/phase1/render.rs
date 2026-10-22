@@ -554,11 +554,12 @@ impl Renderer {
             let first_ring = self.parts.len();
             for (i, ring) in rings.enumerate() {
                 let start = self.vertices.len();
-                let mut n = push_quantized(&mut self.vertices, ring, shift, world)?;
+                let n = push_quantized(&mut self.vertices, ring, shift, world)?;
                 if n > 1 && self.vertices[start] == self.vertices[start + n - 1] {
                     self.vertices.pop();
-                    n -= 1;
                 }
+                trim_ring_seam(&mut self.vertices, start);
+                let n = self.vertices.len() - start;
                 // Exteriors get a positive area in y-down tile coordinates and holes a negative one,
                 // the MVT and MLT winding; a ring collapsed by quantization has none and is dropped.
                 let area = signed_area_2x(&self.vertices[start..]);
@@ -891,7 +892,8 @@ fn invalid_buffer(grid: LayerGrid) -> RenderLayerError {
     }
 }
 
-/// Quantizes and appends `line` without consecutive duplicates; returns how many vertices it kept.
+/// Quantizes and appends `line` without consecutive duplicates or vertices rounded onto a straight run;
+/// returns how many vertices it kept.
 fn push_quantized(
     vertices: &mut Vec<Coord<i32>>,
     line: impl Iterator<Item = Coord<f64>>,
@@ -901,12 +903,40 @@ fn push_quantized(
     let start = vertices.len();
     for c in line {
         let [x, y] = quantize(c, shift, world)?;
-        let c = Coord { x, y };
-        if vertices.len() == start || vertices.last() != Some(&c) {
-            vertices.push(c);
+        let vertex = Coord { x, y };
+        match vertices[start..] {
+            [.., last] if last == vertex => {}
+            [.., prev, last] if between(prev, last, vertex) => *vertices.last_mut().expect("two vertices") = vertex,
+            _ => vertices.push(vertex),
         }
     }
     Ok(vertices.len() - start)
+}
+
+/// Drops the vertices of the open ring from `start` that lie between their neighbours across the seam.
+fn trim_ring_seam(vertices: &mut Vec<Coord<i32>>, start: usize) {
+    loop {
+        match vertices[start..] {
+            [first, .., prev, last] if between(prev, last, first) => {
+                vertices.pop();
+            }
+            [first, second, .., last] if between(last, first, second) => {
+                vertices.remove(start);
+            }
+            _ => return,
+        }
+    }
+}
+
+/// Whether `b` lies on the segment from `a` to `c`, strictly between them.
+fn between(a: Coord<i32>, b: Coord<i32>, c: Coord<i32>) -> bool {
+    let step = |p: Coord<i32>, q: Coord<i32>| (i64::from(q.x) - i64::from(p.x), i64::from(q.y) - i64::from(p.y));
+    let ((abx, aby), (bcx, bcy)) = (step(a, b), step(b, c));
+    let wide = i128::from;
+    // A zero cross product is zero modulo 2^64 too, so the wrapping one rejects nearly every vertex cheaply.
+    abx.wrapping_mul(bcy) == aby.wrapping_mul(bcx)
+        && wide(abx) * wide(bcy) == wide(aby) * wide(bcx)
+        && wide(abx) * wide(bcx) + wide(aby) * wide(bcy) > 0
 }
 
 /// Rounds to the zoom grid; `shift` moves features lying wholly outside the world back into it.
@@ -1071,7 +1101,7 @@ mod tests {
     fn simplification_drops_vertices_at_low_zoom() {
         let layer = RenderLayer::new(0, 0..=8, GRID).unwrap();
         let zigzag: Vec<_> = (0..=100)
-            .map(|i| coord! { x: f64::from(i) * 0.01, y: f64::from(i % 2) * 0.001 })
+            .map(|i| coord! { x: f64::from(i) * 0.01, y: f64::from(i % 2) * 0.01 })
             .map(from_lonlat)
             .collect();
         let tiles = render_feature(
@@ -1341,6 +1371,86 @@ mod tests {
         // Tiles 6..10 lie wholly inside the hole (0.3..0.7 of 16 tiles is 4.8..11.2).
         assert!(!tiles.contains(&(4, 7, 7)) && !tiles.contains(&(4, 8, 9)));
         assert!(tiles.contains(&(4, 2, 2)), "covered by the exterior");
+    }
+
+    #[test]
+    fn vertices_rounded_onto_a_straight_run_are_dropped() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line: LineString = [(10.0, 10.0), (50.0, 10.4), (90.0, 10.0), (90.0, 49.6), (90.0, 90.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
+    fn a_line_that_doubles_back_keeps_its_turning_point() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line: LineString = [(10.0, 10.0), (90.0, 10.0), (50.0, 10.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [50, 10]]);
+    }
+
+    #[test]
+    fn ring_vertices_rounded_onto_a_straight_edge_are_dropped() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let ring: LineString = [
+            (50.0, 10.3),
+            (90.0, 10.0),
+            (90.0, 50.2),
+            (90.0, 90.0),
+            (10.0, 90.0),
+            (10.0, 10.0),
+            (50.0, 10.3),
+        ]
+        .into_iter()
+        .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+        .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&[Polygon::new(ring, vec![])]),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[90, 10], [90, 90], [10, 90], [10, 10]]);
     }
 
     #[test]
