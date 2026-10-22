@@ -2009,7 +2009,7 @@ dependencies = [
 
 [[package]]
 name = "cog-tiles"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "async-tiff",
  "async-trait",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "cog-tiles-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "cog-tiles",

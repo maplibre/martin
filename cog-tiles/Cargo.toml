@@ -1,6 +1,6 @@
 [package]
 name = "cog-tiles"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Read web map tiles from tile-aligned Cloud Optimized GeoTIFFs (COG) in local files or object stores, fetching only the bytes each tile needs"
 keywords = ["cog", "geotiff", "tiles", "webmercator", "gis"]

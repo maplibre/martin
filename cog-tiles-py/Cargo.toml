@@ -1,6 +1,6 @@
 [package]
 name = "cog-tiles-py"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Python bindings for cog-tiles: web map tiles and stitched rasters from tile-aligned Cloud Optimized GeoTIFFs"
 publish = false
