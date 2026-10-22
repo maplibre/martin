@@ -77,6 +77,11 @@ impl CompiledExpr {
         })
     }
 
+    /// The compiled syntax tree.
+    pub(crate) fn ast(&self) -> &IdedExpr {
+        &self.expr
+    }
+
     /// The property names this expression reads.
     pub fn columns(&self) -> impl Iterator<Item = &str> {
         self.columns.iter().map(String::as_str)
@@ -105,15 +110,23 @@ impl CompiledExpr {
         self.columns.contains(name).then_some(name)
     }
 
-    pub fn eval<'v, S>(&self, feature: &'v FeatureView<'_, S>) -> Result<Value, ExecutionError>
+    pub fn eval<S>(&self, feature: &FeatureView<'_, S>) -> Result<Value, ExecutionError>
     where
         S: AsRef<str> + Debug + Send + Sync,
     {
-        let root: &Context<'_, 'v> = &SHARED.root;
-        let mut scope = root.new_inner_scope();
-        scope.set_variable_resolver(feature);
-        Value::resolve(&self.expr, &scope)
+        eval_part(&self.expr, feature)
     }
+}
+
+/// Evaluates `part`, a part of a compiled expression or one built from such parts.
+pub(crate) fn eval_part<'v, S>(part: &IdedExpr, feature: &'v FeatureView<'_, S>) -> Result<Value, ExecutionError>
+where
+    S: AsRef<str> + Debug + Send + Sync,
+{
+    let root: &Context<'_, 'v> = &SHARED.root;
+    let mut scope = root.new_inner_scope();
+    scope.set_variable_resolver(feature);
+    Value::resolve(part, &scope)
 }
 
 enum WalkError {

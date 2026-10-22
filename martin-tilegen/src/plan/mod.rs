@@ -1,5 +1,6 @@
 //! What to generate: source tables, and the output layers each table feeds.
 
+mod branch;
 mod eval;
 mod filter;
 
@@ -14,6 +15,7 @@ use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::phase2::LayerInfo;
+pub use crate::plan::branch::{Branch, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
     CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
@@ -253,6 +255,8 @@ pub struct Plan {
 #[derive(Debug)]
 pub(crate) struct PlannedTable {
     pub(crate) columns: Vec<String>,
+    /// The scanned columns, as [`Self::columns`] names them.
+    pub(crate) defs: Vec<ColumnDef>,
     pub(crate) dynamic_props: bool,
     pub(crate) layers: Range<usize>,
     /// Whether some layer evaluates an expression, so features need a [`FeatureView`](crate::expr::FeatureView).
@@ -423,6 +427,7 @@ impl Plan {
                 reads: reads.into_iter().filter(|name| !columns.contains(name)).collect(),
                 columns,
                 dynamic_props: kept.iter().any(|c| matches!(c, ColumnDef::Keys(_))),
+                defs: kept,
                 layers: start..layers.len(),
                 evaluates: rules || exprs.len() > first_expr,
             });
