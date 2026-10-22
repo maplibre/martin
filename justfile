@@ -713,6 +713,12 @@ test-cog: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
+# Build the cog-tiles Python bindings and run their tests
+test-cog-py:
+    cd cog-tiles-py && uv sync --group dev --no-install-project
+    cd cog-tiles-py && uv run --no-sync maturin develop
+    cd cog-tiles-py && uv run --no-sync pytest
+
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')
     cargo nextest run -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test

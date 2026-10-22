@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "cog-tiles"
+description = "Web map tiles and stitched rasters from tile-aligned Cloud Optimized GeoTIFFs, local or in S3, GCS, Azure or HTTP"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT OR Apache-2.0"
+keywords = ["cog", "geotiff", "tiles", "webmercator", "gis", "raster"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Typing :: Typed",
+]
+dependencies = ["numpy>=1.22"]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/maplibre/martin"
+Documentation = "https://github.com/maplibre/martin/tree/main/cog-tiles-py"
+
+[dependency-groups]
+dev = ["maturin>=1.9,<2", "numpy>=1.22", "pytest>=8"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "cog_tiles._cog_tiles"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
