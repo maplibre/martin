@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::TileGenError;
-use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Literal, Plan, SizeBand};
+use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Literal, Plan, Shape, SizeBand};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
@@ -14,7 +14,7 @@ use crate::generate::GenerateResult;
 use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::ScanTable;
 
-/// Every path through the layers of `info` at zooms 0 to `max_zoom`, without size bands for a source of points.
+/// Every path through the layers of `info` at zooms 0 to `max_zoom`, without shapes for a source of points.
 /// The values the source's `filter` allows a column give a path each to a layer reading that column.
 ///
 /// # Errors
@@ -29,7 +29,7 @@ pub fn paths(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Vec<Bra
     Ok(plan
         .branches(0, &filter_values(info))?
         .into_iter()
-        .filter(|branch| !(points && branch.size.is_some()))
+        .filter(|branch| !(points && branch.shape.is_some()))
         .collect())
 }
 
@@ -120,33 +120,56 @@ fn lower(id: &str, info: TableInfo, max_zoom: u8) -> GenerateResult<Option<ScanT
 }
 
 /// The SQL condition on the rows of a path.
-pub struct RowsSql<'a>(pub &'a TableInfo, pub &'a Condition, pub Option<SizeBand>);
+pub struct RowsSql<'a>(pub &'a TableInfo, pub &'a Condition, pub Option<Shape>);
 
 impl Display for RowsSql<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self(info, condition, size) = *self;
+        let Self(info, condition, shape) = *self;
         let condition = condition_sql(info, condition);
-        match size {
-            Some(size) => write!(f, "({condition}) AND {}", SizeSql(info, size)),
+        match shape {
+            Some(shape) => write!(f, "({condition}) AND {}", ShapeSql(info, shape)),
             None => f.write_str(&condition),
         }
     }
 }
 
-/// The SQL condition on the geometries of a size band.
-pub struct SizeSql<'a>(pub &'a TableInfo, pub SizeBand);
+/// The SQL condition on the geometries of a shape, without a subquery, which would keep `PostgreSQL` from pushing
+/// it below the joins of a view.
+pub struct ShapeSql<'a>(pub &'a TableInfo, pub Shape);
 
-impl Display for SizeSql<'_> {
+impl Display for ShapeSql<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self(info, SizeBand { zoom, min, max }) = *self;
-        let meters = |pixels: f64| pixels * EARTH_CIRCUMFERENCE / 256.0 / f64::from(1u32 << zoom);
+        let Self(info, shape) = *self;
         let geom = escape_identifier(&info.geometry_column);
-        write!(
-            f,
-            "numrange({}, {}) @> (SELECT greatest(ST_XMax(b) - ST_XMin(b), ST_YMax(b) - ST_YMin(b))::numeric FROM (SELECT ST_Transform({geom}::geometry, 3857)::box2d AS b) AS bbox)",
-            meters(min),
-            meters(max)
-        )
+        let side = |side: &str| format!("ST_{side}(ST_Transform({geom}::geometry, 3857)::box2d)");
+        let tile = |zoom: u8| EARTH_CIRCUMFERENCE / f64::from(1u32 << zoom);
+        match shape {
+            Shape::Size(SizeBand { zoom, min, max }) => {
+                let meters = |pixels: f64| pixels * tile(zoom) / 256.0;
+                write!(
+                    f,
+                    "numrange({}, {}) @> greatest({} - {}, {} - {})::numeric",
+                    meters(min),
+                    meters(max),
+                    side("XMax"),
+                    side("XMin"),
+                    side("YMax"),
+                    side("YMin")
+                )
+            }
+            Shape::CrossesTileEdge(zoom) => {
+                let (half, tile) = (EARTH_CIRCUMFERENCE / 2.0, tile(zoom));
+                let cell = |name: &str| format!("floor(({} + {half}) / {tile})", side(name));
+                write!(
+                    f,
+                    "({} <> {} OR {} <> {})",
+                    cell("XMin"),
+                    cell("XMax"),
+                    cell("YMin"),
+                    cell("YMax")
+                )
+            }
+        }
     }
 }
 
@@ -163,7 +186,7 @@ mod tests {
             .iter()
             .map(|branch| {
                 let sql = match &branch.rows {
-                    Ok(condition) => RowsSql(&info, condition, branch.size).to_string(),
+                    Ok(condition) => RowsSql(&info, condition, branch.shape).to_string(),
                     Err(err) => format!("cannot query: {}", err.reason),
                 };
                 format!("{branch}\n    {sql}")
@@ -197,9 +220,36 @@ mod tests {
         roads: no rule matches
             "class" IS DISTINCT FROM 'motorway' AND "class" IS DISTINCT FROM 'path'
         roads: kept only at z14 (`min_size_at_maxzoom`)
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0.5971642834779397, 19.10925707129407) @> (SELECT greatest(ST_XMax(b) - ST_XMin(b), ST_YMax(b) - ST_YMin(b))::numeric FROM (SELECT ST_Transform("geom"::geometry, 3857)::box2d AS b) AS bbox)
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0.5971642834779397, 19.10925707129407) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
         roads: dropped, smaller than `min_size` at every zoom
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> (SELECT greatest(ST_XMax(b) - ST_XMin(b), ST_YMax(b) - ST_YMin(b))::numeric FROM (SELECT ST_Transform("geom"::geometry, 3857)::box2d AS b) AS bbox)
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
+        roads: crosses a z14 tile edge
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641))
+        "#);
+    }
+
+    #[test]
+    fn lines_without_min_size_take_a_path_shorter_than_one_tile_unit() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: segments
+            srid: 4326
+            geometry_column: geom
+            geometry_type: LINESTRING
+            extent: 4096
+            clip_geom: false
+            properties:
+              id: int8
+            layers:
+              segments:
+                min_size: 0
+        "}), @r#"
+        segments: every feature
+            TRUE
+        segments: shorter than one tile unit at z14
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
+        segments: crosses a z14 tile edge
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641))
         "#);
     }
 
