@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.5](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.4...martin-v2.0.0-beta.5) - 2026-10-22
+
+### Added
+
+- *(cog)* read striped, paged and untagged mosaic TIFFs ([#3728](https://github.com/maplibre/martin/pull/3728))
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [2.0.0-beta.4](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.3...martin-v2.0.0-beta.4) - 2026-10-22
 
 > [!NOTE]
