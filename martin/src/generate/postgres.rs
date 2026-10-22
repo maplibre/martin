@@ -49,6 +49,25 @@ impl PgScanSource {
     ///
     /// Fails on an invalid plan, an invalid filter or if a table's size cannot be read.
     pub async fn new(pool: PostgresPool, tables: Vec<ScanTable>, partition_blocks: u32) -> TileGenResult<Self> {
+        Self::split(pool, tables, partition_blocks, true).await
+    }
+
+    /// Like [`Self::new`], but also reads the rows no layer takes.
+    ///
+    /// # Errors
+    ///
+    /// Fails on an invalid plan, an invalid filter or if a table's size cannot be read.
+    pub async fn every_row(pool: PostgresPool, tables: Vec<ScanTable>, partition_blocks: u32) -> TileGenResult<Self> {
+        Self::split(pool, tables, partition_blocks, false).await
+    }
+
+    /// Splits the scans, each reading only the rows some layer takes if `pushdown`.
+    async fn split(
+        pool: PostgresPool,
+        tables: Vec<ScanTable>,
+        partition_blocks: u32,
+        pushdown: bool,
+    ) -> TileGenResult<Self> {
         let plan = Plan::new(tables.iter().map(|t| t.def.clone()).collect())?;
         let conn = pool.get().await.map_err(SourceError::from)?;
         let mut scans = Vec::with_capacity(tables.len());
@@ -57,7 +76,7 @@ impl PgScanSource {
             let sql = scan_sql(
                 &scan.info,
                 plan.columns(index),
-                rows.condition(),
+                rows.condition().filter(|_| pushdown),
                 scan_bbox(&scan.def.layers),
             )
             .map_err(SourceError::from)?;
