@@ -20,15 +20,20 @@ A COG can be read as tiles when it is already a tile pyramid on the `WebMercator
   internal tiles line up with that zoom's tiles (within 0.05 px). Images that do not (e.g. a
   misaligned overview) are left out and reported by `AsyncCogReader::skipped_images`, as long as
   at least one image can be read;
-* square internal tiles, 8-bit unsigned samples, pixel-interleaved.
+* square internal tiles or uncompressed strips, 8-bit unsigned samples, pixel-interleaved.
+  Striped images are cut into 256 px tiles, and the tiles of one row share a single read of its rows;
+* overviews are reduced-resolution subfiles, or pages (`NewSubfileType=2`) each half the size of the image before.
 
-Each tile it returns is then exactly one internal tile, so nothing is resampled:
+In a mosaic, a file without a `GeoKeyDirectory` is placed exactly on the tile its name stands for.
+
+Each tile it returns is then exactly one internal tile (or one 256 px square of strips), so nothing is resampled:
 
 | Stored as                                                           | Returned as                                  |
 |---------------------------------------------------------------------|----------------------------------------------|
 | JPEG (YCbCr, RGB, or grayscale)                                     | JPEG, as stored, with `JPEGTables` merged in |
 | WebP                                                                | WebP, as stored                              |
 | none / Deflate / LZW / ZSTD (gray, gray+alpha, RGB, RGBA), JPEG RGBA | PNG, re-encoded (`png` feature)             |
+| uncompressed strips (gray, gray+alpha, RGB, RGBA)                   | PNG, re-encoded (`png` feature)              |
 
 Files that cannot be read this way are rejected when opened, with an error saying why
 (e.g. "its CRS is EPSG:32610", "image 2 is not aligned to the zoom 18 tile grid").
