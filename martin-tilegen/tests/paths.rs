@@ -2,7 +2,8 @@
 
 use geo_types::{Coord, LineString};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, LayerDef, Plan, RuleDef, TableDef, ValueDef,
+    AttributesDef, ColumnDef, ColumnValues, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
+    ValueDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, Geometry, SourceFeature};
@@ -52,7 +53,7 @@ fn a_feature_takes_the_first_rule_it_matches() {
     let taken: Vec<Vec<String>> = [city, capital, unnamed]
         .iter()
         .map(|f| {
-            let paths = plan.paths_of(0, Crs::Wgs84, f).unwrap();
+            let paths = plan.paths_of(0, &[], Crs::Wgs84, f).unwrap();
             paths.iter().map(ToString::to_string).collect()
         })
         .collect();
@@ -101,7 +102,7 @@ fn a_feature_is_where_not_where_or_null() {
     let taken: Vec<Vec<String>> = [big, small, unknown]
         .iter()
         .map(|f| {
-            let paths = plan.paths_of(0, Crs::Wgs84, f).unwrap();
+            let paths = plan.paths_of(0, &[], Crs::Wgs84, f).unwrap();
             paths.iter().map(ToString::to_string).collect()
         })
         .collect();
@@ -164,7 +165,7 @@ fn only_the_features_of_a_rule_take_the_choices_of_its_attributes() {
     let taken: Vec<Vec<String>> = [city, town]
         .iter()
         .map(|f| {
-            let paths = plan.paths_of(0, Crs::Wgs84, f).unwrap();
+            let paths = plan.paths_of(0, &[], Crs::Wgs84, f).unwrap();
             paths.iter().map(ToString::to_string).collect()
         })
         .collect();
@@ -177,6 +178,43 @@ fn only_the_features_of_a_rule_take_the_choices_of_its_attributes() {
         [
             "places: no rule",
         ],
+    ]
+    "#);
+}
+
+#[test]
+fn a_feature_takes_the_path_of_its_known_value() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), None)],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "kind".to_owned(),
+                    value: ValueDef::Expr("type.upperAscii()".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "type".to_owned(),
+        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+    }];
+    let stop = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
+        props: vec![(KeyId::new(0), Prop::Str("stop".into()))],
+    };
+    let paths = plan.paths_of(0, &known, Crs::Wgs84, &stop).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "devices: every feature",
+        "devices: `type` is 'stop'",
     ]
     "#);
 }
@@ -207,11 +245,11 @@ fn a_rule_with_its_own_min_size_has_its_own_size_paths() {
         geometry: short,
         props: vec![(KeyId::new(0), Prop::Str("minor".into()))],
     };
-    let branches: Vec<String> = plan.branches(0).unwrap().iter().map(ToString::to_string).collect();
+    let branches: Vec<String> = plan.branches(0, &[]).unwrap().iter().map(ToString::to_string).collect();
     let taken: Vec<Vec<String>> = [major, minor]
         .iter()
         .map(|f| {
-            let paths = plan.paths_of(0, Crs::Wgs84, f).unwrap();
+            let paths = plan.paths_of(0, &[], Crs::Wgs84, f).unwrap();
             paths.iter().map(ToString::to_string).collect()
         })
         .collect();

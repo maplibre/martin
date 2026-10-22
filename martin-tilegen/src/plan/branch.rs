@@ -3,7 +3,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
-use cel::common::types::CelString;
+use cel::common::types::{CelBool, CelDouble, CelInt, CelString, CelUInt};
 use cel::{ExecutionError, Value};
 use geo::BoundingRect;
 use geo_types::Rect;
@@ -12,8 +12,8 @@ use crate::error::TileGenResult;
 use crate::expr::{Cel, FEATURE, FeatureView, condition_of, eval_part, feature_key};
 use crate::phase1::project_geometry;
 use crate::plan::{
-    Case, ColumnDef, Condition, ExprRef, Filter, GeometryType, Plan, PlannedAttrs, PlannedExpr, PlannedId,
-    PlannedLayer, PlannedValue, PlannedZoom, Polarity, Term, TranslateError, Untranslatable,
+    Case, ColumnDef, CompareOp, Condition, ExprRef, Filter, GeometryType, Literal, Plan, PlannedAttrs, PlannedExpr,
+    PlannedId, PlannedLayer, PlannedValue, PlannedZoom, Polarity, Term, TranslateError, Untranslatable, ValueKind,
 };
 use crate::props::SourceStr;
 use crate::source::{Crs, SourceFeature};
@@ -54,14 +54,23 @@ impl SizeBand {
     }
 }
 
+/// The only values a column of a table takes, `null` not among them, known from outside the plan, e.g. from the
+/// source's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColumnValues {
+    pub column: String,
+    pub values: Vec<Literal>,
+}
+
 impl Plan {
     /// Every path through the layers of table `table` in layer order, each with rows that may take other paths too.
+    /// A column in `known` that a layer's expressions read gives that layer one path per value.
     ///
     /// # Errors
     ///
     /// If the plan has no table `table`.
-    pub fn branches(&self, table: u16) -> TileGenResult<Vec<Branch>> {
-        Ok(self.paths(table)?.into_iter().map(|path| path.branch).collect())
+    pub fn branches(&self, table: u16, known: &[ColumnValues]) -> TileGenResult<Vec<Branch>> {
+        Ok(self.paths(table, known)?.into_iter().map(|path| path.branch).collect())
     }
 
     /// The paths of [`Self::branches`] that `feature` takes as the layers evaluate it, its geometry in `crs`.
@@ -69,8 +78,14 @@ impl Plan {
     /// # Errors
     ///
     /// If the plan has no table `table`.
-    pub fn paths_of(&self, table: u16, crs: Crs, feature: &SourceFeature) -> TileGenResult<Vec<Branch>> {
-        let paths = self.paths(table)?;
+    pub fn paths_of(
+        &self,
+        table: u16,
+        known: &[ColumnValues],
+        crs: Crs,
+        feature: &SourceFeature,
+    ) -> TileGenResult<Vec<Branch>> {
+        let paths = self.paths(table, known)?;
         let mut geometry = feature.geometry.clone();
         project_geometry(crs, &mut geometry);
         let Some(geom) = geometry.feature_geom() else {
@@ -87,7 +102,7 @@ impl Plan {
     }
 
     /// The paths through the layers of table `table`, without a second path with the rows of an earlier one.
-    fn paths(&self, table: u16) -> TileGenResult<Vec<Path<'_>>> {
+    fn paths(&self, table: u16, known: &[ColumnValues]) -> TileGenResult<Vec<Path<'_>>> {
         let planned = self
             .tables
             .get(usize::from(table))
@@ -99,6 +114,7 @@ impl Plan {
                 exprs: &self.exprs,
                 layer: &self.layers[layer_index],
                 layer_index,
+                known,
             };
             for path in paths.all() {
                 let branch = &path.branch;
@@ -214,18 +230,20 @@ fn bounding_box(geom: FeatureGeom<'_>) -> Option<Rect<f64>> {
 }
 
 /// Finds the paths through one layer.
-struct LayerPaths<'a> {
+struct LayerPaths<'a, 'k> {
     columns: &'a [ColumnDef],
     exprs: &'a [PlannedExpr],
     layer: &'a PlannedLayer,
     layer_index: usize,
+    known: &'k [ColumnValues],
 }
 
 /// A part of a path's rows: the expression it comes from, and its condition.
 type Part<'a> = (&'a str, Result<Condition, TranslateError>);
 
-impl<'a> LayerPaths<'a> {
-    /// The layer's paths: its `where`, its rules, the choices in its expressions, and its size limits.
+impl<'a> LayerPaths<'a, '_> {
+    /// The layer's paths: its `where`, its rules, the choices in its expressions, the known values of the columns
+    /// they read, and its size limits.
     fn all(&self) -> Vec<Path<'a>> {
         let mut out = Vec::new();
         match self.layer.filter.map(|f| self.expr(f)) {
@@ -237,6 +255,7 @@ impl<'a> LayerPaths<'a> {
         }
         self.rules(&mut out);
         self.expressions(&mut out);
+        self.values(&mut out);
         self.sizes(&mut out);
         out
     }
@@ -250,7 +269,7 @@ impl<'a> LayerPaths<'a> {
         let mut test = self.test(Reach::Geometry);
         test.checks.push((filter.expr.ast().clone(), Want::False));
         out.push(self.path(format!("not where `{source}`"), parts, test));
-        for column in filter.expr.columns().filter(|c| self.is_value(c)) {
+        for column in filter.expr.columns().filter(|c| self.may_be_null(c)) {
             let mut parts = self.geometry();
             parts.push((source.as_str(), Ok(column_is_null(column))));
             let mut test = self.test(Reach::Geometry);
@@ -310,7 +329,7 @@ impl<'a> LayerPaths<'a> {
                             check.checks.push((test.clone(), want));
                             out.push(self.path(format!("`{source}`: `{}` {side}", Cel(test)), parts, check));
                         }
-                        for column in read_columns(test).into_iter().filter(|c| self.is_value(c)) {
+                        for column in read_columns(test).into_iter().filter(|c| self.may_be_null(c)) {
                             let mut parts = base();
                             parts.push((source, Ok(column_is_null(&column))));
                             let mut check = self.test(reach.clone());
@@ -337,6 +356,26 @@ impl<'a> LayerPaths<'a> {
                         out.push(self.path(format!("`{source}`: all null"), parts, check));
                     }
                 }
+            }
+        }
+    }
+
+    /// Each known value of a column the layer's expressions read.
+    fn values(&self, out: &mut Vec<Path<'a>>) {
+        let read: Vec<String> = self
+            .exprs
+            .iter()
+            .filter(|planned| planned.layer == self.layer_index)
+            .flat_map(|planned| read_columns(planned.expr.ast()))
+            .collect();
+        for known in self.known.iter().filter(|k| read.contains(&k.column)) {
+            for value in &known.values {
+                let path = format!("`{}` is {}", known.column, LiteralCel(value));
+                let mut parts = self.base();
+                parts.push(("the source's filter", self.equals(&known.column, value)));
+                let mut test = self.test(Reach::Layer);
+                test.checks.push((equals(&known.column, value), Want::True));
+                out.push(self.path(path, parts, test));
             }
         }
     }
@@ -510,6 +549,25 @@ impl<'a> LayerPaths<'a> {
         condition_of(expr, self.columns, polarity)
     }
 
+    /// `column == value`, which no source can check while a `jsonb` column may replace the columns it reads.
+    fn equals(&self, column: &str, value: &Literal) -> Result<Condition, TranslateError> {
+        if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
+            return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
+        }
+        let kind = match value {
+            Literal::Bool(_) => ValueKind::Bool,
+            Literal::Int(_) | Literal::UInt(_) => ValueKind::Int,
+            Literal::Float(_) => ValueKind::Float,
+            Literal::String(_) => ValueKind::String,
+        };
+        Ok(Condition::Compare {
+            left: Term::Column(column.to_owned()),
+            op: CompareOp::Eq,
+            right: Term::Literal(value.clone()),
+            kind,
+        })
+    }
+
     /// A test on the features of `reach`, with no checks yet.
     fn test(&self, reach: Reach) -> Test<'a> {
         Test {
@@ -547,6 +605,11 @@ impl<'a> LayerPaths<'a> {
     /// The planned expression `filter` refers to.
     fn expr(&self, filter: ExprRef<Filter>) -> &'a PlannedExpr {
         &self.exprs[filter.index]
+    }
+
+    /// Whether `name` is a column read by value that no known values rule out being `null`.
+    fn may_be_null(&self, name: &str) -> bool {
+        self.is_value(name) && !self.known.iter().any(|k| k.column == name)
     }
 
     /// Whether `name` is a column read by value.
@@ -592,6 +655,21 @@ fn case_exprs(case: &Case) -> impl Iterator<Item = usize> + '_ {
         }))
 }
 
+/// A literal as CEL writes it.
+struct LiteralCel<'a>(&'a Literal);
+
+impl Display for LiteralCel<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Literal::Bool(v) => write!(f, "{v}"),
+            Literal::Int(v) => write!(f, "{v}"),
+            Literal::UInt(v) => write!(f, "{v}u"),
+            Literal::Float(v) => write!(f, "{v:?}"),
+            Literal::String(v) => write!(f, "'{}'", v.replace('\\', "\\\\").replace('\'', "\\'")),
+        }
+    }
+}
+
 /// `column IS NULL`.
 fn column_is_null(column: &str) -> Condition {
     Condition::IsNull {
@@ -623,6 +701,22 @@ fn property(column: &str) -> IdedExpr {
         expr: Expr::Literal(LiteralValue::String(CelString::from(column.to_owned()))),
     };
     call(operators::INDEX, vec![feature, key])
+}
+
+/// `feature['column'] == value`.
+fn equals(column: &str, value: &Literal) -> IdedExpr {
+    let literal = match value {
+        Literal::Bool(v) => LiteralValue::Boolean(CelBool::from(*v)),
+        Literal::Int(v) => LiteralValue::Int(CelInt::from(*v)),
+        Literal::UInt(v) => LiteralValue::UInt(CelUInt::from(*v)),
+        Literal::Float(v) => LiteralValue::Double(CelDouble::from(*v)),
+        Literal::String(v) => LiteralValue::String(CelString::from(v.clone())),
+    };
+    let literal = IdedExpr {
+        id: 0,
+        expr: Expr::Literal(literal),
+    };
+    call(operators::EQUALS, vec![property(column), literal])
 }
 
 /// The properties `expr` reads by name, in order of first appearance.

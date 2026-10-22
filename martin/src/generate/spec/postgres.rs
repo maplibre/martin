@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::TileGenError;
-use martin_tilegen::plan::{Branch, Condition, GeometryType, Plan, SizeBand};
+use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Literal, Plan, SizeBand};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
@@ -15,6 +15,7 @@ use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::ScanTable;
 
 /// Every path through the layers of `info` at zooms 0 to `max_zoom`, without size bands for a source of points.
+/// The values the source's `filter` allows a column give a path each to a layer reading that column.
 ///
 /// # Errors
 ///
@@ -26,10 +27,72 @@ pub fn paths(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Vec<Bra
     let plan = Plan::new(vec![table.def]).map_err(TileGenError::from)?;
     let points = table_geometry(info) == Some(GeometryType::Point);
     Ok(plan
-        .branches(0)?
+        .branches(0, &filter_values(info))?
         .into_iter()
         .filter(|branch| !(points && branch.size.is_some()))
         .collect())
+}
+
+/// The values of the columns the `filter` of `info` allows only some of, from the `IN` lists and `=` it ANDs.
+fn filter_values(info: &TableInfo) -> Vec<ColumnValues> {
+    let Some(expr) = info.filter.as_deref().and_then(|f| cql2::parse_text(f).ok()) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    collect_values(&expr, &mut out);
+    out
+}
+
+/// The column values `expr` and the conditions it ANDs allow.
+fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnValues>) {
+    let cql2::Expr::Operation { op, args } = expr else {
+        return;
+    };
+    let op = op.to_ascii_lowercase();
+    if op == "and" {
+        for arg in args {
+            collect_values(arg, out);
+        }
+        return;
+    }
+    let [column, value] = args.as_slice() else {
+        return;
+    };
+    let cql2::Expr::Property { property } = &**column else {
+        return;
+    };
+    let values = if op == "in"
+        && let cql2::Expr::Array(items) = &**value
+    {
+        items.iter().map(|item| literal(item)).collect()
+    } else if op == "=" {
+        literal(value).map(|value| vec![value])
+    } else {
+        None
+    };
+    if let Some(values) = values {
+        out.push(ColumnValues {
+            column: property.clone(),
+            values,
+        });
+    }
+}
+
+/// A CQL2 literal, with whole numbers as integers.
+fn literal(expr: &cql2::Expr) -> Option<Literal> {
+    if let cql2::Expr::Literal(v) = expr {
+        Some(Literal::String(v.clone()))
+    } else if let cql2::Expr::Bool(v) = expr {
+        Some(Literal::Bool(*v))
+    } else if let cql2::Expr::Float(v) = expr {
+        if v.fract() == 0.0 && v.abs() < 9.0e15 {
+            #[expect(clippy::cast_possible_truncation, reason = "a whole number in range of i64")]
+            return Some(Literal::Int(*v as i64));
+        }
+        Some(Literal::Float(*v))
+    } else {
+        None
+    }
 }
 
 /// The geometry type of every row of `info`, when its column declares a single one.
@@ -196,6 +259,36 @@ mod tests {
             "population" <= 1000000
         places: `population > 1000000 ? 2 : 8`: `population > 1000000` fails with `population` null
             "population" IS NULL
+        "#);
+    }
+
+    #[test]
+    fn each_value_the_filter_allows_a_column_the_layer_reads_is_a_path() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"type IN ('traffic_signals', 'stop', 'yield') AND lanes = 2\"
+            properties:
+              type: text
+              lanes: int4
+            layers:
+              devices:
+                attributes:
+                  class: \"type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()\"
+        "}), @r#"
+        devices: every feature
+            TRUE
+        devices: `type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()`: `type == 'traffic_signals'` true
+            "type" = 'traffic_signals'
+        devices: `type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()`: `type == 'traffic_signals'` false
+            "type" IS DISTINCT FROM 'traffic_signals'
+        devices: `type` is 'stop'
+            "type" = 'stop'
+        devices: `type` is 'yield'
+            "type" = 'yield'
         "#);
     }
 
