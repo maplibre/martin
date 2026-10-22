@@ -297,6 +297,8 @@ as it went in, and debug builds panic on it. `Quantizer::make_valid` takes any p
 pair of rounded edges. Its area is what the exterior covers, minus what any hole covers. So both lobes of
 a self-crossing exterior are kept, and a hole only takes out its part inside the exterior.
 
+![How Quantizer rounds polygons](https://raw.githubusercontent.com/maplibre/martin/main/map-tile-toolkit/docs/images/quantize.svg)
+
 ```rust
 use geo_types::coord;
 use map_tile_toolkit::{Quantizer, TileError};
