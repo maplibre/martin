@@ -216,6 +216,16 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
     /// # Errors
     /// See [`try_from_backend`](Self::try_from_backend).
     pub async fn try_from_backend_with_prefetch(backend: B, prefetch: u64) -> CogResult<Self> {
+        Self::open(backend, prefetch, None).await
+    }
+
+    /// Like [`try_from_backend`](Self::try_from_backend), placing a file without `GeoTIFF` tags exactly on `tile`.
+    #[cfg(feature = "mosaic")]
+    pub(crate) async fn try_from_backend_on_tile(backend: B, tile: TileCoord) -> CogResult<Self> {
+        Self::open(backend, DEFAULT_PREFETCH, Some(tile)).await
+    }
+
+    async fn open(backend: B, prefetch: u64, untagged_tile: Option<TileCoord>) -> CogResult<Self> {
         let bridge = TiffBridge(Arc::new(backend));
         let ifds = read_ifds(&bridge, prefetch).await?;
         let location = bridge.0.location();
@@ -223,7 +233,10 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
         let base = ifds
             .first()
             .ok_or_else(|| CogError::unsupported(location, UnsupportedReason::NoImages))?;
-        let georef = Georef::from_ifd(base, location)?;
+        let georef = match untagged_tile {
+            Some(tile) if base.geo_key_directory().is_none() => Georef::from_tile(tile, base.image_width()),
+            _ => Georef::from_ifd(base, location)?,
+        };
         let base_chunks = Chunks::of(base, 0, location)?;
         let tile_size = base_chunks.tile_size();
         let (format, encoding) = choose_encoding(base, location)?;

@@ -2,7 +2,7 @@
 
 use async_tiff::ImageFileDirectory;
 
-use crate::tile::{HALF_EARTH, MAX_ZOOM, resolution};
+use crate::tile::{HALF_EARTH, MAX_ZOOM, TileCoord, resolution, tile_extent};
 use crate::{CogError, CogResult, UnsupportedReason};
 
 /// `ProjectedCRSGeoKey` values that denote Web Mercator: the EPSG code and its deprecated alias.
@@ -97,6 +97,18 @@ impl Georef {
             origin_y,
             resolution: scale_x,
         })
+    }
+}
+
+impl Georef {
+    /// Places an image `width` pixels wide exactly on `tile`, for a file whose tile is named outside of it.
+    pub fn from_tile(tile: TileCoord, width: u32) -> Self {
+        let [origin_x, _, _, origin_y] = tile.mercator_bounds();
+        Self {
+            origin_x,
+            origin_y,
+            resolution: tile_extent(tile.z()) / f64::from(width.max(1)),
+        }
     }
 }
 

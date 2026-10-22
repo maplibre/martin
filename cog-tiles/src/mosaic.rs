@@ -294,7 +294,7 @@ impl AsyncCogMosaic {
         let file_tile = TileCoord::new(self.file_zoom, coord.x() >> shift, coord.y() >> shift)?;
         let key = self.template.render(file_tile);
         let open = async {
-            let Some(reader) = self.files.open(&key).await? else {
+            let Some(reader) = self.files.open(&key, file_tile).await? else {
                 return Ok(None);
             };
             for reason in reader.skipped_images() {
@@ -376,12 +376,12 @@ enum MosaicFiles {
 }
 
 impl MosaicFiles {
-    /// Opens the file named `key`, or returns `None` if it does not exist.
-    async fn open(&self, key: &str) -> Result<Option<MosaicReader>, MosaicFileError> {
+    /// Opens the file named `key` for `tile`, or returns `None` if it does not exist.
+    async fn open(&self, key: &str, tile: TileCoord) -> Result<Option<MosaicReader>, MosaicFileError> {
         match self {
             Self::Dir(root) => match FileBackend::open(root.join(key)).await {
                 Ok(backend) => Ok(Some(MosaicReader::File(
-                    AsyncCogReader::try_from_backend(backend).await?,
+                    AsyncCogReader::try_from_backend_on_tile(backend, tile).await?,
                 ))),
                 Err(e) if is_not_found(&e) => Ok(None),
                 Err(e) => Err(e.into()),
@@ -394,7 +394,7 @@ impl MosaicFiles {
                 };
                 match ObjectStoreBackend::open(Arc::clone(store), path).await {
                     Ok(backend) => Ok(Some(MosaicReader::ObjectStore(
-                        AsyncCogReader::try_from_backend(backend).await?,
+                        AsyncCogReader::try_from_backend_on_tile(backend, tile).await?,
                     ))),
                     Err(e) if is_not_found(&e) => Ok(None),
                     Err(e) => Err(e.into()),

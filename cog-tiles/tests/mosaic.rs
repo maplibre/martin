@@ -1,6 +1,8 @@
 #![cfg(feature = "mosaic")]
 #![allow(clippy::unwrap_used, clippy::panic)]
 
+mod common;
+
 use std::path::{Path as StdPath, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,6 +11,7 @@ use cog_tiles::{
     AsyncCogMosaic, AsyncCogReader, CogError, FileBackend, MosaicFileError, MosaicInfo, MosaicOptions,
     MosaicTemplateError, TileCoord, TileFormat,
 };
+use common::{expected_tile, striped_tiff};
 use object_store::memory::InMemory;
 use object_store::path::Path;
 use object_store::{ObjectStoreExt as _, PutPayload};
@@ -306,4 +309,39 @@ async fn an_object_store_mosaic_matches_a_directory_mosaic() {
     assert_eq!(tile, local.get_tile(coord).await.unwrap());
     let missing = TileCoord::new(16, 32_750, 21_794).unwrap();
     assert_eq!(remote.get_tile(missing).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn files_without_geotiff_tags_are_placed_by_their_name() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("0230102033312300_rgb.tif"),
+        striped_tiff(&[(512, 80), (256, 256)], 2, None),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("0230102033312301_rgb.tif"),
+        striped_tiff(&[(512, 80), (256, 256)], 2, None),
+    )
+    .unwrap();
+
+    let mosaic = AsyncCogMosaic::open_dir(dir.path(), "{quadkey}_rgb.tif", MosaicOptions::new(16))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        mosaic.info(),
+        &MosaicInfo {
+            file_zoom: 16,
+            max_zoom: 17,
+            tile_size: 256,
+            format: TileFormat::Png,
+        }
+    );
+    let z16_east = TileCoord::new(16, 10_485, 25_324).unwrap();
+    let pixels = mosaic.get_tile_pixels(z16_east).await.unwrap().unwrap();
+    assert_eq!(pixels.data(), expected_tile(0, 0, 3, 1));
+    let z17_east_north_east = TileCoord::new(17, 20_971, 50_648).unwrap();
+    let pixels = mosaic.get_tile_pixels(z17_east_north_east).await.unwrap().unwrap();
+    assert_eq!(pixels.data(), expected_tile(256, 0, 3, 0));
 }
