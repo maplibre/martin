@@ -1,14 +1,12 @@
 //! The Tokio runtime all I/O runs on, and waiting for it without holding the GIL.
 
 use std::future::Future;
-use std::pin::{Pin, pin};
+use std::pin::pin;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::task::{Context, Poll};
 use std::time::Duration;
 
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
-use tokio::task::JoinHandle;
 
 /// How often a blocking call wakes up to let Python handle signals such as Ctrl-C.
 const SIGNAL_CHECK_INTERVAL: Duration = Duration::from_millis(100);
@@ -57,22 +55,5 @@ where
             Ok(output) => return Ok(output),
             Err(_elapsed) => py.check_signals()?,
         }
-    }
-}
-
-/// A spawned task that is aborted when dropped, so cancelling a read stops its fetches.
-pub struct AbortOnDrop<T>(pub JoinHandle<T>);
-
-impl<T> Drop for AbortOnDrop<T> {
-    fn drop(&mut self) {
-        self.0.abort();
-    }
-}
-
-impl<T> Future for AbortOnDrop<T> {
-    type Output = Result<T, tokio::task::JoinError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Pin::new(&mut self.0).poll(cx)
     }
 }

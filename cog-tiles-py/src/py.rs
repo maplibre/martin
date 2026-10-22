@@ -13,10 +13,11 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use tokio::sync::{Mutex, mpsc};
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::error::to_py;
 use crate::location::{Location, split_mosaic};
-use crate::runtime::{AbortOnDrop, runtime, wait};
+use crate::runtime::{runtime, wait};
 use crate::source::{Layout, Source, read_window, stream_tiles};
 
 /// How many tiles are fetched and decoded at once by default.
@@ -156,7 +157,7 @@ impl TileSource {
         let task = runtime()?.spawn(stream_tiles(Arc::clone(&self.source), windows, concurrency, sender));
         Ok(TileIterator {
             receiver: Mutex::new(receiver),
-            _task: AbortOnDrop(task),
+            _task: AbortOnDropHandle::new(task),
         })
     }
 
@@ -381,7 +382,7 @@ type TileItem<'py> = (u8, u32, u32, Bound<'py, PyBytes>);
 #[pyclass(frozen, module = "cog_tiles")]
 pub struct TileIterator {
     receiver: Mutex<mpsc::Receiver<PyResult<(TileCoord, bytes::Bytes)>>>,
-    _task: AbortOnDrop<()>,
+    _task: AbortOnDropHandle<()>,
 }
 
 #[gen_stub_pymethods]

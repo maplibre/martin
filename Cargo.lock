@@ -2038,6 +2038,7 @@ dependencies = [
  "pyo3",
  "pyo3-stub-gen",
  "tokio",
+ "tokio-util",
  "url",
 ]
 
@@ -10303,6 +10304,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "libc",
  "pin-project-lite",
  "tokio",

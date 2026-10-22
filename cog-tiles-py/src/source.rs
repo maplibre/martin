@@ -10,10 +10,10 @@ use cog_tiles::{
 use futures::{StreamExt as _, stream};
 use pyo3::PyResult;
 use tokio::sync::mpsc;
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::error::{CogTilesError, to_py};
 use crate::location::Location;
-use crate::runtime::AbortOnDrop;
 
 /// Where tiles are read from.
 pub enum Source {
@@ -119,7 +119,7 @@ pub async fn read_window(
     let mut decoded = stream::iter(window.tiles())
         .map(|coord| {
             let source = Arc::clone(&source);
-            AbortOnDrop(tokio::spawn(async move { (coord, source.pixels(coord).await) }))
+            AbortOnDropHandle::new(tokio::spawn(async move { (coord, source.pixels(coord).await) }))
         })
         .buffer_unordered(concurrency);
     let pixel_count = window.width() as usize * window.height() as usize;
@@ -152,7 +152,7 @@ pub async fn stream_tiles(
     let mut tiles = stream::iter(windows.into_iter().flat_map(|window| window.tiles()))
         .map(|coord| {
             let source = Arc::clone(&source);
-            AbortOnDrop(tokio::spawn(async move { (coord, source.tile(coord).await) }))
+            AbortOnDropHandle::new(tokio::spawn(async move { (coord, source.tile(coord).await) }))
         })
         .buffer_unordered(concurrency);
     while let Some(joined) = tiles.next().await {

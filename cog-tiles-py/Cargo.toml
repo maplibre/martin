@@ -36,6 +36,7 @@ object_store.workspace = true
 pyo3 = { workspace = true, features = ["abi3-py310", "abi3t"] }
 pyo3-stub-gen.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
 url.workspace = true
 
 [lints]
