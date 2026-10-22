@@ -138,6 +138,43 @@ impl Plan {
         }
     }
 
+    /// The first case the feature matches, the layer's own settings when it matches none, or `None` when the layer
+    /// filters the feature out.
+    pub(super) fn matched_case<'p>(
+        &self,
+        layer: &'p PlannedLayer,
+        view: &FeatureView<'_, SourceStr>,
+        errors: &mut [u64],
+    ) -> Option<&'p Case> {
+        if let Some(filter) = &layer.filter
+            && !self.eval(filter, view, errors)
+        {
+            return None;
+        }
+        Some(
+            layer
+                .cases
+                .iter()
+                .find(|case| case.when.as_ref().is_none_or(|when| self.eval(when, view, errors)))
+                .unwrap_or(&layer.fallback),
+        )
+    }
+
+    /// Passes `f` the view expressions of table `table` have of `feature`.
+    pub(super) fn with_view<T>(
+        &self,
+        table: usize,
+        feature: &SourceFeature,
+        f: impl FnOnce(&FeatureView<'_, SourceStr>) -> T,
+    ) -> T {
+        let mut names = self.keys.names[table].clone();
+        if self.tables[table].dynamic_props {
+            learn_keys(&mut names, &feature.props, &self.keys.tables[table]);
+        }
+        let mut slots = PropSlots::default();
+        f(&slots.bind(&names.0, &feature.props))
+    }
+
     /// The feature's zooms and the first case it matches, or `None` when the layer filters the feature
     /// out.
     fn feature_case<'p>(
@@ -146,16 +183,7 @@ impl Plan {
         view: &FeatureView<'_, SourceStr>,
         errors: &mut [u64],
     ) -> Option<(RangeInclusive<u8>, &'p Case)> {
-        if let Some(filter) = &layer.filter
-            && !self.eval(filter, view, errors)
-        {
-            return None;
-        }
-        let case = layer
-            .cases
-            .iter()
-            .find(|case| case.when.as_ref().is_none_or(|when| self.eval(when, view, errors)))
-            .unwrap_or(&layer.fallback);
+        let case = self.matched_case(layer, view, errors)?;
         let (lo, hi) = (*layer.zooms.start(), *layer.zooms.end());
         let min = self.zoom(case.minzoom, view, errors).map_or(lo, |z| z.max(lo));
         let max = self.zoom(case.maxzoom, view, errors).map_or(hi, |z| z.min(hi));
