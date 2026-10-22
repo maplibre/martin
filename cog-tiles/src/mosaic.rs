@@ -14,7 +14,7 @@ use object_store::path::Path;
 
 use crate::{
     AsyncCogReader, CogError, CogInfo, CogResult, FileBackend, KeyTemplate, MAX_ZOOM, ObjectStoreBackend, TileCoord,
-    TileFormat,
+    TileFormat, TilePixels,
 };
 
 /// The default for [`MosaicOptions::max_cached_files`].
@@ -273,6 +273,19 @@ impl AsyncCogMosaic {
         }
     }
 
+    /// Reads and decodes one tile, like [`AsyncCogReader::get_tile_pixels`].
+    ///
+    /// Returns `Ok(None)` like [`get_tile`](Self::get_tile).
+    ///
+    /// # Errors
+    /// See [`get_tile`](Self::get_tile).
+    pub async fn get_tile_pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
+        match self.reader_for(coord).await? {
+            Some(reader) => reader.get_tile_pixels(coord).await,
+            None => Ok(None),
+        }
+    }
+
     /// Opens (or gets from the cache) the file that holds `coord`.
     async fn reader_for(&self, coord: TileCoord) -> CogResult<Option<Arc<MosaicReader>>> {
         let Some(shift) = coord.z().checked_sub(self.file_zoom) else {
@@ -431,6 +444,13 @@ impl MosaicReader {
         match self {
             Self::File(reader) => reader.get_tile(coord).await,
             Self::ObjectStore(reader) => reader.get_tile(coord).await,
+        }
+    }
+
+    async fn get_tile_pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
+        match self {
+            Self::File(reader) => reader.get_tile_pixels(coord).await,
+            Self::ObjectStore(reader) => reader.get_tile_pixels(coord).await,
         }
     }
 }

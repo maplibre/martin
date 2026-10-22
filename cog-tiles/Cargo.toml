@@ -22,12 +22,14 @@ fs = ["tokio/rt", "tokio/fs"]
 png = ["dep:png"]
 # Read COGs from any `object_store` backend (S3, GCS, Azure, HTTP, memory, ...).
 object-store = ["dep:object_store"]
+# Decode WebP tiles to pixels (links libwebp).
+webp = ["async-tiff/webp"]
 # Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`).
 mosaic = ["fs", "object-store", "dep:moka", "dep:tracing"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
-__all = ["fs", "png", "object-store", "mosaic"]
+__all = ["fs", "png", "object-store", "mosaic", "webp"]
 
 [dependencies]
 async-tiff.workspace = true

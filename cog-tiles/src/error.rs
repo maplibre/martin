@@ -61,6 +61,22 @@ pub enum CogError {
         y: u32,
     },
 
+    /// An area is empty, not finite, inverted, or outside the world.
+    #[error("Invalid bounds {bounds:?}")]
+    InvalidBounds {
+        /// The bounds as given.
+        bounds: [f64; 4],
+    },
+
+    /// A window of pixels is too large to address.
+    #[error("A window of {width}x{height} pixels is too large")]
+    WindowTooLarge {
+        /// Width in pixels.
+        width: u64,
+        /// Height in pixels.
+        height: u64,
+    },
+
     /// A mosaic's file name template is invalid.
     #[cfg(feature = "mosaic")]
     #[error("Invalid mosaic file name template {template:?}: {reason}")]
