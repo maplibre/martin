@@ -55,7 +55,7 @@ class Mosaic(TileSource):
 class Raster:
     r"""
     Pixels stitched from tiles, with where they are in EPSG:3857.
-    
+
     `numpy.asarray(raster)` is `raster.data`.
     """
     @property
@@ -148,7 +148,7 @@ class TileSource:
         r"""
         Iterates over the encoded tiles with data in `bbox` at `zoom`, as `(z, x, y, data)`,
         fetching `concurrency` at a time in the background in whatever order they arrive.
-        
+
         `zoom` is one zoom or a sequence of them, all zooms of the source when `None`.
         `bbox` is the source's bounds when `None`; a mosaic needs one.
         """
@@ -156,7 +156,7 @@ class TileSource:
         r"""
         Stitches the decoded tiles that `bbox` touches at `zoom` into one raster of whole pixels,
         fetching and decoding `concurrency` tiles at a time on all cores.
-        
+
         `zoom` is the highest zoom of the source when `None`. `bbox` is in `crs`, `"EPSG:4326"`
         (degrees) or `"EPSG:3857"` (meters). Pixels without data are 0.
         Returns `None` if no tile in `bbox` has data.
@@ -171,7 +171,7 @@ class UnsupportedCogError(CogTilesError):
 def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
     r"""
     Opens one COG from a local path or a URL (`s3://`, `gs://`, `az://`, `https://`, `file://`).
-    
+
     Object store credentials come from the usual environment variables (e.g. `AWS_REGION`,
     `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
     """
@@ -182,8 +182,7 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
     `location`: `{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g.
     `"s3://bucket/ortho/{quadkey}.tif"` or `"/data/ortho/{z}/{x}/{y}.tif"`.
     `{-y}` is the row counted from the bottom (TMS).
-    
+
     One file is found by listing the location now; the others are opened on first use and kept
     for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
     """
-
