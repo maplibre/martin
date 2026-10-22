@@ -823,7 +823,7 @@ async fn a_file_emptied_while_served_fails_its_uncached_tiles_without_crashing()
 )]
 #[case::every_overview_must_use_the_same_tile_size(
     |cog: CogFixture| cog.set_short(2, tag::TILE_WIDTH, 512),
-    "image 2 uses a different internal tile size"
+    "image 2 is tiled in 512x256 px tiles, but the full-resolution image is tiled in 256x256 px tiles"
 )]
 #[case::the_bands_must_be_a_color_type_martin_can_re_encode(
     |cog: CogFixture| cog.set_short(0, tag::PHOTOMETRIC_INTERPRETATION, 0),
@@ -885,7 +885,7 @@ async fn a_georeference_without_its_unused_values_is_accepted(#[case] trim_it: f
 
 #[tokio::test]
 async fn a_tiff_stored_in_compressed_strips_is_rejected() {
-    let path = fixture("files/striped_not_tiled.tif");
+    let path = fixture("files/lzw_strips.tif");
     let error = Martin::builder()
         .arg(&path)
         .start()
@@ -902,7 +902,7 @@ async fn a_tiff_stored_in_compressed_strips_is_rejected() {
         insta::assert_snapshot!(log, @"
          INFO Starting Martin martin.version=[VERSION]
          INFO Config file is not specified, auto-detecting sources
-        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: it is stored in LZW compressed strips, but only uncompressed strips are supported warnings.count=1
+        ERROR resolve:handle_tile_warnings: Tile source resolution warning warning=Path [PATH]: [PATH] cannot be read as tiles: image 0 uses LZW compressed strips, only uncompressed strips are supported warnings.count=1
         ERROR resolve:handle_tile_warnings: error=TileResolutionWarningsIssued warnings.count=1
         ERROR resolve: error=Config(TileResolutionWarningsIssued)
         ERROR warnings issued during tile source resolution

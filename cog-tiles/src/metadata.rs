@@ -7,17 +7,15 @@ use async_tiff::metadata::MetadataFetch;
 use bytes::{Bytes, BytesMut};
 use futures::lock::Mutex;
 
-/// Caches metadata reads in blocks, for headers packed at the start of a file and for IFDs spread through it.
-///
-/// A read just past a cached block extends that block, doubling it, as headers packed at the start
-/// of a COG are read. Any other read fetches a new block around it, so an IFD stored after its
-/// image's pixels costs one request instead of reading every pixel before it.
+/// Metadata read cache that grows a block for adjacent reads and fetches a new block for distant ones.
 #[derive(Debug)]
 pub(crate) struct BlockMetadataCache<F> {
+    /// Underlying reader.
     inner: F,
+    /// Minimum fetch size.
     block_size: u64,
-    /// Cached blocks: their start offset and bytes.
-    blocks: Mutex<Vec<(u64, Bytes)>>,
+    /// Cached blocks.
+    blocks: Mutex<Vec<Block>>,
 }
 
 impl<F> BlockMetadataCache<F> {
@@ -31,47 +29,66 @@ impl<F> BlockMetadataCache<F> {
     }
 }
 
-/// The part of `range` held by the block at `start`, if the block holds its start.
-/// A block may end early at the end of the file, so the slice may be shorter than `range`.
-fn slice(start: u64, block: &Bytes, range: &Range<u64>) -> Option<Bytes> {
-    let from = usize::try_from(range.start.checked_sub(start)?).ok()?;
-    let to = usize::try_from(range.end - start).ok()?.min(block.len());
-    (from <= to).then(|| block.slice(from..to))
+/// Bytes read from the file at `start`.
+#[derive(Debug)]
+struct Block {
+    /// File offset of the first byte.
+    start: u64,
+    /// Data, possibly cut short by the end of the file.
+    bytes: Bytes,
+}
+
+impl Block {
+    /// File offset just past the last byte.
+    fn end(&self) -> u64 {
+        self.start + self.bytes.len() as u64
+    }
+
+    /// Whether the block contains all of `range`.
+    fn holds(&self, range: &Range<u64>) -> bool {
+        self.start <= range.start && range.end <= self.end()
+    }
+
+    /// Whether `range` starts inside the block or within `gap` bytes after it.
+    fn is_followed_by(&self, range: &Range<u64>, gap: u64) -> bool {
+        self.start <= range.start && range.start <= self.end() + gap
+    }
+
+    /// Returns the part of `range` in this block, which must not start before it.
+    fn slice(&self, range: &Range<u64>) -> Bytes {
+        let len = self.bytes.len();
+        let offset = |at: u64| usize::try_from(at - self.start).map_or(len, |at| at.min(len));
+        self.bytes.slice(offset(range.start)..offset(range.end))
+    }
 }
 
 #[async_trait::async_trait]
 impl<F: MetadataFetch> MetadataFetch for BlockMetadataCache<F> {
     async fn fetch(&self, range: Range<u64>) -> AsyncTiffResult<Bytes> {
         let mut blocks = self.blocks.lock().await;
-        let block_end = |(start, block): &(u64, Bytes)| start + block.len() as u64;
-        if let Some(bytes) = blocks
-            .iter()
-            .find(|entry| entry.0 <= range.start && range.end <= block_end(entry))
-            .and_then(|(start, block)| slice(*start, block, &range))
-        {
-            return Ok(bytes);
+        if let Some(block) = blocks.iter().find(|block| block.holds(&range)) {
+            return Ok(block.slice(&range));
         }
-        let growing = blocks
-            .iter()
-            .position(|entry| entry.0 <= range.start && range.start <= block_end(entry) + self.block_size);
-        if let Some(index) = growing {
-            let (start, block) = &blocks[index];
-            let end = block_end(&blocks[index]);
-            let grow = (block.len() as u64).max(self.block_size);
+        if let Some(block) = blocks
+            .iter_mut()
+            .find(|block| block.is_followed_by(&range, self.block_size))
+        {
+            let end = block.end();
+            let grow = (block.bytes.len() as u64).max(self.block_size);
             let more = self.inner.fetch(end..range.end.max(end + grow)).await?;
-            let mut merged = BytesMut::with_capacity(block.len() + more.len());
-            merged.extend_from_slice(block);
+            let mut merged = BytesMut::with_capacity(block.bytes.len() + more.len());
+            merged.extend_from_slice(&block.bytes);
             merged.extend_from_slice(&more);
-            let start = *start;
-            let merged = merged.freeze();
-            let bytes = slice(start, &merged, &range).unwrap_or_default();
-            blocks[index] = (start, merged);
-            return Ok(bytes);
+            block.bytes = merged.freeze();
+            return Ok(block.slice(&range));
         }
         let start = range.start.saturating_sub(self.block_size / 2);
-        let block = self.inner.fetch(start..range.end.max(start + self.block_size)).await?;
-        let bytes = slice(start, &block, &range).unwrap_or_default();
-        blocks.push((start, block));
+        let block = Block {
+            start,
+            bytes: self.inner.fetch(start..range.end.max(start + self.block_size)).await?,
+        };
+        let bytes = block.slice(&range);
+        blocks.push(block);
         Ok(bytes)
     }
 }

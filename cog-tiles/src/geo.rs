@@ -101,14 +101,21 @@ impl Georef {
 }
 
 impl Georef {
-    /// Places an image `width` pixels wide exactly on `tile`, for a file whose tile is named outside of it.
-    pub fn from_tile(tile: TileCoord, width: u32) -> Self {
+    /// Georeferences a square image without `GeoTIFF` tags so that it covers `tile`.
+    pub fn from_tile(tile: TileCoord, ifd: &ImageFileDirectory, location: &str) -> CogResult<Self> {
+        let (width, height) = (ifd.image_width(), ifd.image_height());
+        if width != height || width == 0 {
+            return Err(CogError::unsupported(
+                location,
+                UnsupportedReason::UntaggedNotSquare { tile, width, height },
+            ));
+        }
         let [origin_x, _, _, origin_y] = tile.mercator_bounds();
-        Self {
+        Ok(Self {
             origin_x,
             origin_y,
-            resolution: tile_extent(tile.z()) / f64::from(width.max(1)),
-        }
+            resolution: tile_extent(tile.z()) / f64::from(width),
+        })
     }
 }
 

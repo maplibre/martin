@@ -11,48 +11,63 @@ use moka::future::Cache;
 
 use crate::{CogError, CogResult};
 
-/// The default for [`BandCache::new`]: room for about 40 bands of a 4096 px wide RGB image.
-pub(crate) const DEFAULT_BAND_CACHE_BYTES: u64 = 128 * 1024 * 1024;
+/// Maximum size of all cached bands, about 40 bands of a 4096 px wide RGB image.
+const BAND_CACHE_BYTES: u64 = 128 * 1024 * 1024;
 
 /// How long a band is kept without being used.
 const BAND_IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Identifies one opened file in a [`BandCache`], so a replaced file never gets the old file's bands.
+/// Counter for [`FileId::next`].
 static NEXT_FILE_ID: AtomicU64 = AtomicU64::new(0);
 
-/// Which band: the opened file, the zoom of its image, and the tile row.
-type BandKey = (u64, u8, u32);
+/// Unique id of an opened file, so bands of a replaced file are never reused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct FileId(u64);
 
-/// Row bands of striped images, bounded in bytes, which concurrent reads of one band wait for together.
+impl FileId {
+    /// Returns a new unique id.
+    pub fn next() -> Self {
+        Self(NEXT_FILE_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+/// Cache key of one band.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct BandKey {
+    /// File the band belongs to.
+    pub file: FileId,
+    /// Zoom of the striped image.
+    pub zoom: u8,
+    /// Tile row of the band.
+    pub row: u32,
+}
+
+/// Size-bounded cache of striped image row bands, where concurrent reads of one band share one fetch.
 #[derive(Debug, Clone)]
 pub(crate) struct BandCache(Cache<BandKey, Bytes>);
 
-impl BandCache {
-    /// A cache holding at most `max_bytes` of bands.
-    pub fn new(max_bytes: u64) -> Self {
+impl Default for BandCache {
+    fn default() -> Self {
         Self(
             Cache::builder()
-                .max_capacity(max_bytes)
+                .max_capacity(BAND_CACHE_BYTES)
                 .weigher(|_key, band: &Bytes| u32::try_from(band.len()).unwrap_or(u32::MAX))
                 .time_to_idle(BAND_IDLE_TIMEOUT)
                 .build(),
         )
     }
+}
 
-    /// A new identity for an opened file.
-    pub fn file_id() -> u64 {
-        NEXT_FILE_ID.fetch_add(1, Ordering::Relaxed)
-    }
-
-    /// The band of `file` at `zoom` and tile `row`, read with `read` unless it is cached or being read.
+impl BandCache {
+    /// Returns the band for `key`, calling `read` only if it is not cached or already being read.
     pub async fn get(
         &self,
-        (file, zoom, row): BandKey,
+        key: BandKey,
         location: &str,
         read: impl Future<Output = CogResult<Bytes>>,
     ) -> CogResult<Bytes> {
         self.0
-            .try_get_with((file, zoom, row), read)
+            .try_get_with(key, read)
             .await
             .map_err(|shared| match Arc::try_unwrap(shared) {
                 Ok(error) => error,

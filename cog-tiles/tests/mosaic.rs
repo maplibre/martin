@@ -11,7 +11,7 @@ use cog_tiles::{
     AsyncCogMosaic, AsyncCogReader, CogError, FileBackend, MosaicFileError, MosaicInfo, MosaicOptions,
     MosaicTemplateError, TileCoord, TileFormat,
 };
-use common::{expected_tile, striped_tiff};
+use common::{expected_tile, patch_tag, striped_tiff};
 use object_store::memory::InMemory;
 use object_store::path::Path;
 use object_store::{ObjectStoreExt as _, PutPayload};
@@ -344,4 +344,28 @@ async fn files_without_geotiff_tags_are_placed_by_their_name() {
     let z17_east_north_east = TileCoord::new(17, 20_971, 50_648).unwrap();
     let pixels = mosaic.get_tile_pixels(z17_east_north_east).await.unwrap().unwrap();
     assert_eq!(pixels.data(), expected_tile(256, 0, 3, 0));
+}
+
+#[tokio::test]
+async fn a_file_without_geotiff_tags_that_is_not_square_cannot_be_placed_by_its_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut bytes = striped_tiff(&[(512, 80)], 0, None);
+    patch_tag(&mut bytes, 257, 0, |_| 480.0);
+    std::fs::write(dir.path().join("0230102033312300_rgb.tif"), bytes).unwrap();
+
+    let error = AsyncCogMosaic::open_dir(dir.path(), "{quadkey}_rgb.tif", MosaicOptions::new(16))
+        .await
+        .unwrap_err();
+
+    let CogError::MosaicFile { key, source } = error else {
+        panic!("{error:?}");
+    };
+    assert_eq!(key, "0230102033312300_rgb.tif");
+    let MosaicFileError::Tiles(CogError::Unsupported { reason, .. }) = &*source else {
+        panic!("{source:?}");
+    };
+    assert_eq!(
+        reason.to_string(),
+        "it has no GeoTIFF tags and is not square (512x480 px), so it cannot be placed on tile 16/10484/25324"
+    );
 }

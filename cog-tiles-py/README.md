@@ -57,17 +57,18 @@ writes them: EPSG:3857, every image (and overview) at a zoom level's resolution 
 tiles, 8-bit samples. Each tile is one internal tile, so nothing is resampled. Other files raise
 `UnsupportedCogError` saying why.
 
-Uncompressed striped files are cut into 256 px tiles, and pages that each halve in size count as
-overviews. In a mosaic, a file without GeoTIFF tags is placed on the tile its name stands for, so
-`open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)` reads such files as delivered.
+Uncompressed striped files are split into 256 px tiles.
+Pages that are half the size of the previous page are used as overviews.
+In a mosaic, square files without GeoTIFF tags are placed on the tile in their file name,
+e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
 
 ## Performance
 
 * All I/O and decoding runs in Rust with the GIL released; `read` and `tiles` keep `concurrency`
   requests in flight (64 by default) and decode on every core.
 * Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
-* Headers are read once when opening (one request for a typical file, one per IFD when IFDs follow
-  the pixels); each tile is one range read, and the tiles of one row of a striped file share one.
+* Headers are read once when opening: one request for a typical file, or one per IFD if IFDs come after
+  the pixel data. Each tile is one range read. Tiles in the same row of a striped file share one read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
 * Ctrl-C interrupts any call. Cancelling an `_async` call or dropping a `tiles()` iterator stops its
   pending fetches.

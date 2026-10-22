@@ -34,9 +34,10 @@ Because every served tile is exactly one internal tile of the file, nothing is r
   and their internal tiles must line up with that zoom's tiles.
   An image that does not, such as an overview starting part-way into a tile, is skipped with a warning rather than served shifted;
   the file is rejected only if none of its images can be served.
-- The image must be stored in square tiles, all of the same size, or in uncompressed strips, with the bands interleaved (`PlanarConfiguration=1`).
-  Striped images are cut into 256 px tiles, read row by row from the strips.
-- Overviews are reduced-resolution images (`NewSubfileType=1`), or pages (`NewSubfileType=2`) that are each half the size of the image before them.
+- The image must be stored in square tiles of one size, or in uncompressed strips, with interleaved bands (`PlanarConfiguration=1`) and `Orientation=1`.
+  Striped images are split into 256 px tiles.
+- Overviews are reduced-resolution images (`NewSubfileType=1`), or pages (`NewSubfileType=2`) half the size of the previous page.
+  Other pages are skipped with a warning.
 
 --8<-- "images/sources/cog-align.svg"
 
@@ -143,10 +144,10 @@ cog:
 
 - Every file must meet the [file requirements](#file-requirements), cover its tile at `zoom`, and use the same tile size and format as the others.
   A file that does not is reported as an error for the tiles it would serve.
-- A file without GeoTIFF tags is placed exactly on the tile its name stands for, at the resolution its width gives.
+- Files without GeoTIFF tags must be square, and are placed on the tile in their file name.
 - At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
   For a remote mosaic this needs permission to list the bucket prefix.
-- Other files are opened on first use: a `HEAD` request and one read of the header (or one per IFD, when IFDs follow the pixels), kept for `file_expiry`.
+- Other files are opened on first use with a `HEAD` request and one header read (one per IFD if IFDs come after the pixel data), and kept for `file_expiry`.
   Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
 - Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
 

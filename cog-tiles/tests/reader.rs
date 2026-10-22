@@ -314,11 +314,11 @@ async fn pages_that_halve_in_size_are_overviews() {
 }
 
 #[tokio::test]
-async fn pages_that_do_not_halve_in_size_are_other_images() {
+async fn a_page_that_does_not_halve_in_size_is_skipped_and_the_next_halving_page_is_an_overview() {
     let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
     let [min_x, _, _, max_y] = tile.mercator_bounds();
     let bytes = striped_tiff(
-        &[(512, 80), (384, 128)],
+        &[(512, 80), (384, 128), (256, 256)],
         2,
         Some([min_x, max_y, cog_tiles::resolution(17, 256)]),
     );
@@ -326,8 +326,34 @@ async fn pages_that_do_not_halve_in_size_are_other_images() {
 
     let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
 
-    assert_eq!((reader.info().min_zoom, reader.info().max_zoom), (17, 17));
-    assert_eq!(reader.skipped_images(), &[] as &[SkippedImage]);
+    assert_eq!((reader.info().min_zoom, reader.info().max_zoom), (16, 17));
+    let skipped: Vec<String> = reader.skipped_images().iter().map(ToString::to_string).collect();
+    assert_eq!(
+        skipped,
+        ["image 1 is a 384x384 px page, but an overview page must be 256x256 px (half the previous image)"]
+    );
+    let png = reader.get_tile(tile).await.unwrap().unwrap();
+    assert_eq!(decode_png(&png), (256, 256, 3, expected_tile(0, 0, 3, 2)));
+}
+
+#[tokio::test]
+async fn an_overview_page_stored_differently_names_the_tag_and_both_values() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let mut bytes = striped_tiff(
+        &[(512, 80), (256, 256)],
+        2,
+        Some([min_x, max_y, cog_tiles::resolution(17, 256)]),
+    );
+    patch_page_tag(&mut bytes, 1, PHOTOMETRIC, 0, |_| PHOTOMETRIC_YCBCR);
+    let backend = MemoryBackend::new(bytes, "pages.tif".to_owned());
+
+    let error = AsyncCogReader::try_from_backend(backend).await.unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "pages.tif cannot be read as tiles: image 1 has PhotometricInterpretation YCbCr, but the full-resolution image has RGB"
+    );
 }
 
 #[tokio::test]
@@ -351,18 +377,40 @@ async fn tiles_in_one_row_of_a_striped_image_share_one_read() {
     assert_eq!(reads.load(Ordering::SeqCst) - opened, 1);
 }
 
+#[rstest]
+#[case::compression(
+    259,
+    0,
+    5.0,
+    "image 0 uses LZW compressed strips, only uncompressed strips are supported"
+)]
+#[case::planar_configuration(284, 0, 2.0, "bands are stored separately (PlanarConfiguration=2)")]
+#[case::rows_per_strip(
+    278,
+    0,
+    100.0,
+    "image 0 needs 6 strips of 100 rows, but has 7 StripOffsets and 7 StripByteCounts"
+)]
+#[case::strip_byte_counts(279, 2, 122_879.0, "strip 2 of image 0 has 122879 bytes, expected 122880")]
+#[case::orientation(274, 0, 3.0, "image 0 has Orientation 3, only 1 (top-left) is supported")]
+#[case::fill_order(266, 0, 2.0, "image 0 has FillOrder 2, only 1 is supported")]
 #[tokio::test]
-async fn compressed_strips_are_rejected() {
+async fn a_striped_file_that_cannot_be_read_names_the_tag_that_prevents_it(
+    #[case] tag: u16,
+    #[case] index: usize,
+    #[case] value: f64,
+    #[case] reason: &str,
+) {
     let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
     let [min_x, _, _, max_y] = tile.mercator_bounds();
-    let mut bytes = striped_tiff(&[(256, 64)], 0, Some([min_x, max_y, cog_tiles::resolution(16, 256)]));
-    patch_tag(&mut bytes, 259, 0, |_| 5.0);
-    let backend = MemoryBackend::new(bytes, "lzw.tif".to_owned());
+    let mut bytes = striped_tiff(&[(512, 80)], 0, Some([min_x, max_y, cog_tiles::resolution(17, 256)]));
+    patch_tag(&mut bytes, tag, index, |_| value);
+    let backend = MemoryBackend::new(bytes, "striped.tif".to_owned());
 
     let error = AsyncCogReader::try_from_backend(backend).await.unwrap_err();
 
     assert_eq!(
         error.to_string(),
-        "lzw.tif cannot be read as tiles: it is stored in LZW compressed strips, but only uncompressed strips are supported"
+        format!("striped.tif cannot be read as tiles: {reason}")
     );
 }

@@ -21,12 +21,12 @@ A COG can be read as tiles when it is already a tile pyramid on the `WebMercator
   misaligned overview) are left out and reported by `AsyncCogReader::skipped_images`, as long as
   at least one image can be read;
 * square internal tiles or uncompressed strips, 8-bit unsigned samples, pixel-interleaved.
-  Striped images are cut into 256 px tiles, and the tiles of one row share a single read of its rows;
-* overviews are reduced-resolution subfiles, or pages (`NewSubfileType=2`) each half the size of the image before.
+  Striped images are split into 256 px tiles;
+* overviews are reduced-resolution subfiles, or pages (`NewSubfileType=2`) half the size of the previous page.
 
-In a mosaic, a file without a `GeoKeyDirectory` is placed exactly on the tile its name stands for.
+In a mosaic, square files without a `GeoKeyDirectory` are placed on the tile in their file name.
 
-Each tile it returns is then exactly one internal tile (or one 256 px square of strips), so nothing is resampled:
+Each tile it returns is then exactly one internal tile (or a 256 px block of strips), so nothing is resampled:
 
 | Stored as                                                           | Returned as                                  |
 |---------------------------------------------------------------------|----------------------------------------------|

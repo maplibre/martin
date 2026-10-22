@@ -12,7 +12,7 @@ use object_store::ObjectStore;
 use object_store::local::LocalFileSystem;
 use object_store::path::Path;
 
-use crate::bands::{BandCache, DEFAULT_BAND_CACHE_BYTES};
+use crate::bands::BandCache;
 use crate::{
     AsyncCogReader, CogError, CogInfo, CogResult, FileBackend, KeyTemplate, MAX_ZOOM, ObjectStoreBackend, TileCoord,
     TileFormat, TilePixels,
@@ -139,14 +139,19 @@ pub enum MosaicFileError {
 /// ```
 #[derive(Debug)]
 pub struct AsyncCogMosaic {
+    /// Template for file keys.
     template: KeyTemplate,
+    /// Zoom of the tile each file covers.
     file_zoom: u8,
+    /// Where the files are.
     files: MosaicFiles,
+    /// Opened files by key, `None` if missing.
     readers: Cache<String, Option<Arc<MosaicReader>>>,
     /// Row bands of striped images, shared by every file.
     bands: BandCache,
     /// The tile size and format of the first file opened, which every other file must share.
     layout: OnceLock<(u32, TileFormat)>,
+    /// Mosaic metadata.
     info: MosaicInfo,
 }
 
@@ -203,6 +208,7 @@ impl AsyncCogMosaic {
         Self::open(template, options, files, &*store, &prefix, location).await
     }
 
+    /// Validates the options and opens one listed file to fill in the mosaic metadata.
     async fn open(
         template: &str,
         options: MosaicOptions,
@@ -231,7 +237,7 @@ impl AsyncCogMosaic {
             file_zoom: options.file_zoom,
             files,
             readers: readers.build(),
-            bands: BandCache::new(DEFAULT_BAND_CACHE_BYTES),
+            bands: BandCache::default(),
             layout: OnceLock::new(),
             info: MosaicInfo {
                 file_zoom: options.file_zoom,
@@ -376,7 +382,12 @@ enum MosaicFiles {
     /// Under a local directory.
     Dir(PathBuf),
     /// Under a prefix in an object store.
-    ObjectStore { store: Arc<dyn ObjectStore>, prefix: Path },
+    ObjectStore {
+        /// Object store.
+        store: Arc<dyn ObjectStore>,
+        /// Prefix of all file keys.
+        prefix: Path,
+    },
 }
 
 impl MosaicFiles {
@@ -430,11 +441,14 @@ fn is_not_found(error: &CogError) -> bool {
 /// One opened file of a mosaic.
 #[derive(Debug)]
 enum MosaicReader {
+    /// Local file.
     File(AsyncCogReader<FileBackend>),
+    /// Object store object.
     ObjectStore(AsyncCogReader<ObjectStoreBackend>),
 }
 
 impl MosaicReader {
+    /// See [`AsyncCogReader::info`].
     fn info(&self) -> &CogInfo {
         match self {
             Self::File(reader) => reader.info(),
@@ -442,6 +456,7 @@ impl MosaicReader {
         }
     }
 
+    /// See [`AsyncCogReader::skipped_images`].
     fn skipped_images(&self) -> &[crate::SkippedImage] {
         match self {
             Self::File(reader) => reader.skipped_images(),
@@ -449,6 +464,7 @@ impl MosaicReader {
         }
     }
 
+    /// See [`AsyncCogReader::get_tile`].
     async fn get_tile(&self, coord: TileCoord) -> CogResult<Option<Bytes>> {
         match self {
             Self::File(reader) => reader.get_tile(coord).await,
@@ -456,6 +472,7 @@ impl MosaicReader {
         }
     }
 
+    /// See [`AsyncCogReader::get_tile_pixels`].
     async fn get_tile_pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
         match self {
             Self::File(reader) => reader.get_tile_pixels(coord).await,

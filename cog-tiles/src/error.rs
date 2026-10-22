@@ -1,7 +1,11 @@
 use std::ops::Range;
 
 use async_tiff::error::AsyncTiffError;
-use async_tiff::tags::{Compression, PhotometricInterpretation, SampleFormat};
+use std::fmt;
+
+use async_tiff::tags::{Compression, PhotometricInterpretation, SampleFormat, Tag};
+
+use crate::TileCoord;
 
 /// A specialized [`Result`] type for `cog-tiles` operations.
 pub type CogResult<T> = Result<T, CogError>;
@@ -145,6 +149,7 @@ impl CogError {
         }
     }
 
+    /// Wraps an `async-tiff` error for `location`.
     pub(crate) fn tiff(location: &str, source: AsyncTiffError) -> Self {
         Self::Tiff {
             location: location.to_owned(),
@@ -160,6 +165,16 @@ pub enum UnsupportedReason {
     /// The file has no `GeoKeyDirectory` tag.
     #[error("it has no GeoTIFF GeoKeyDirectory")]
     NoGeoKeys,
+    /// A mosaic file without `GeoTIFF` tags is not square.
+    #[error("it has no GeoTIFF tags and is not square ({width}x{height} px), so it cannot be placed on tile {tile}")]
+    UntaggedNotSquare {
+        /// Tile from the file name.
+        tile: TileCoord,
+        /// Image width in pixels.
+        width: u32,
+        /// Image height in pixels.
+        height: u32,
+    },
     /// The projected CRS is not Web Mercator.
     #[error("its CRS is EPSG:{epsg}, but only EPSG:3857 (Web Mercator) is supported")]
     Crs {
@@ -210,24 +225,72 @@ pub enum UnsupportedReason {
     #[error("the TIFF parser failed on malformed metadata: {0}")]
     MalformedMetadata(String),
     /// Internal tiles are not square.
-    #[error("its internal tiles are not square ({width}x{height})")]
+    #[error("image {index} has non-square internal tiles ({width}x{height})")]
     NonSquareTiles {
+        /// The IFD index.
+        index: usize,
         /// Tile width in pixels.
         width: u32,
         /// Tile height in pixels.
         height: u32,
     },
-    /// The image is stored in compressed strips.
-    #[error("it is stored in {compression:?} compressed strips, but only uncompressed strips are supported")]
+    /// An image uses compressed strips.
+    #[error("image {index} uses {compression:?} compressed strips, only uncompressed strips are supported")]
     CompressedStrips {
+        /// The IFD index.
+        index: usize,
         /// The TIFF compression.
         compression: Compression,
     },
-    /// An image's strip offsets or byte counts do not hold its rows.
-    #[error("image {index} has strip offsets or byte counts that do not hold its rows")]
-    StripTable {
+    /// `RowsPerStrip` is 0.
+    #[error("image {index} has 0 rows per strip")]
+    EmptyStrips {
         /// The IFD index.
         index: usize,
+    },
+    /// The number of strip offsets or byte counts does not match the number of strips.
+    #[error(
+        "image {index} needs {strips} strips of {rows_per_strip} rows, but has {offsets} StripOffsets and {byte_counts} StripByteCounts"
+    )]
+    StripCount {
+        /// The IFD index.
+        index: usize,
+        /// `RowsPerStrip` value.
+        rows_per_strip: u32,
+        /// Expected number of strips.
+        strips: usize,
+        /// Number of `StripOffsets` values.
+        offsets: usize,
+        /// Number of `StripByteCounts` values.
+        byte_counts: usize,
+    },
+    /// A strip is shorter than its rows.
+    #[error("strip {strip} of image {index} has {byte_count} bytes, expected {needed}")]
+    ShortStrip {
+        /// The IFD index.
+        index: usize,
+        /// Strip index.
+        strip: usize,
+        /// `StripByteCounts` value.
+        byte_count: u64,
+        /// Expected byte count.
+        needed: u64,
+    },
+    /// `Orientation` is not 1 (top-left).
+    #[error("image {index} has Orientation {orientation}, only 1 (top-left) is supported")]
+    Orientation {
+        /// The IFD index.
+        index: usize,
+        /// `Orientation` value.
+        orientation: u16,
+    },
+    /// `FillOrder` is not 1.
+    #[error("image {index} has FillOrder {fill_order}, only 1 is supported")]
+    FillOrder {
+        /// The IFD index.
+        index: usize,
+        /// `FillOrder` value.
+        fill_order: u16,
     },
     /// Samples are not 8-bit unsigned integers.
     #[error("only 8-bit unsigned samples are supported, found {bits:?} bits of {formats:?}")]
@@ -253,17 +316,27 @@ pub enum UnsupportedReason {
         /// The photometric interpretation.
         photometric: PhotometricInterpretation,
     },
-    /// An overview has a different internal tile size, or is tiled while the full-resolution image is striped.
-    #[error("image {index} uses a different internal tile size")]
-    OverviewTileSize {
+    /// An overview is tiled or striped differently from the full-resolution image.
+    #[error("image {index} is {overview}, but the full-resolution image is {base}")]
+    OverviewChunking {
         /// The IFD index.
         index: usize,
+        /// Overview chunking.
+        overview: Chunking,
+        /// Full-resolution image chunking.
+        base: Chunking,
     },
-    /// An overview is compressed or laid out differently.
-    #[error("image {index} is stored differently from the full-resolution image")]
+    /// An overview has a different compression, color type or sample layout than the full-resolution image.
+    #[error("image {index} has {tag:?} {overview}, but the full-resolution image has {base}")]
     OverviewLayout {
         /// The IFD index.
         index: usize,
+        /// Tag that differs.
+        tag: Tag,
+        /// Value in the overview.
+        overview: String,
+        /// Value in the full-resolution image.
+        base: String,
     },
     /// An image has neither tiles nor strips.
     #[error("image {index} has neither tiles nor strips")]
@@ -304,6 +377,30 @@ pub enum UnsupportedReason {
     },
 }
 
+/// Whether an image is tiled or striped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Chunking {
+    /// Tiled, with this tile size.
+    Tiles {
+        /// Tile width in pixels.
+        width: u32,
+        /// Tile height in pixels.
+        height: u32,
+    },
+    /// Striped.
+    Strips,
+}
+
+impl fmt::Display for Chunking {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Tiles { width, height } => write!(f, "tiled in {width}x{height} px tiles"),
+            Self::Strips => f.write_str("stored in strips"),
+        }
+    }
+}
+
 /// Why an image of a COG is not served, while the rest of the file is.
 #[derive(thiserror::Error, Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -335,6 +432,22 @@ pub enum SkippedImage {
         index: usize,
         /// The matched zoom.
         zoom: u8,
+    },
+    /// A page is not half the size of the previous image, so it is not used as an overview.
+    #[error(
+        "image {index} is a {width}x{height} px page, but an overview page must be {half_width}x{half_height} px (half the previous image)"
+    )]
+    PageNotHalf {
+        /// The IFD index.
+        index: usize,
+        /// Page width in pixels.
+        width: u32,
+        /// Page height in pixels.
+        height: u32,
+        /// Expected width, half the previous image rounded up.
+        half_width: u32,
+        /// Expected height, half the previous image rounded up.
+        half_height: u32,
     },
     /// The image extends past the edge of the world.
     #[error("image {index} extends beyond the edge of the world at zoom {zoom}")]
