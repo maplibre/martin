@@ -299,6 +299,9 @@ every pair of rounded edges. Its area is what the exterior covers, minus what an
 lobes of a self-crossing exterior are kept, split at an added vertex where its edges cross, and a hole
 only takes out its part inside the exterior.
 
+In the example below, the tip's two vertices are under a unit apart, so rounded one by one its edges
+would cross: instead the two tip vertices merge into one.
+
 ![How Quantizer rounds polygons](https://raw.githubusercontent.com/maplibre/martin/main/map-tile-toolkit/docs/images/quantize.svg)
 
 ```rust
@@ -307,7 +310,6 @@ use map_tile_toolkit::{Quantizer, TileError};
 
 fn main() -> Result<(), TileError> {
     let mut quantizer = Quantizer::new();
-    // Two tip vertices under a unit apart: rounded one by one, the tip's edges would cross.
     let exterior = [
         coord! { x: 1612.28, y: 395.41 }, coord! { x: 1617.38, y: 388.41 },
         coord! { x: 1654.28, y: 308.21 }, coord! { x: 1653.54, y: 308.55 },
@@ -316,7 +318,7 @@ fn main() -> Result<(), TileError> {
     ];
     for polygon in quantizer.polygon([exterior])?.polygons() {
         for ring in polygon {
-            assert_eq!(ring.len(), 6); // the two tip vertices merge into one
+            assert_eq!(ring.len(), 6);
         }
     }
     Ok(())
