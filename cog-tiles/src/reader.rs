@@ -10,6 +10,7 @@ use bytes::Bytes;
 use futures::FutureExt as _;
 
 use crate::backend::{AsyncBackend, TiffBridge};
+use crate::bands::{BandCache, DEFAULT_BAND_CACHE_BYTES};
 use crate::geo::{Georef, aligned_tile, match_zoom};
 use crate::metadata::BlockMetadataCache;
 use crate::tile::{TileCoord, mercator_to_lnglat};
@@ -199,6 +200,9 @@ pub struct AsyncCogReader<B> {
     skipped: Vec<SkippedImage>,
     encoding: Encoding,
     decoders: Arc<DecoderRegistry>,
+    /// Identifies this opened file in `bands`.
+    file_id: u64,
+    bands: BandCache,
 }
 
 impl<B: AsyncBackend> AsyncCogReader<B> {
@@ -216,16 +220,17 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
     /// # Errors
     /// See [`try_from_backend`](Self::try_from_backend).
     pub async fn try_from_backend_with_prefetch(backend: B, prefetch: u64) -> CogResult<Self> {
-        Self::open(backend, prefetch, None).await
+        Self::open(backend, prefetch, None, BandCache::new(DEFAULT_BAND_CACHE_BYTES)).await
     }
 
-    /// Like [`try_from_backend`](Self::try_from_backend), placing a file without `GeoTIFF` tags exactly on `tile`.
+    /// Like [`try_from_backend`](Self::try_from_backend), placing a file without `GeoTIFF` tags exactly on `tile`,
+    /// and keeping the row bands of striped images in `bands`.
     #[cfg(feature = "mosaic")]
-    pub(crate) async fn try_from_backend_on_tile(backend: B, tile: TileCoord) -> CogResult<Self> {
-        Self::open(backend, DEFAULT_PREFETCH, Some(tile)).await
+    pub(crate) async fn try_from_backend_on_tile(backend: B, tile: TileCoord, bands: BandCache) -> CogResult<Self> {
+        Self::open(backend, DEFAULT_PREFETCH, Some(tile), bands).await
     }
 
-    async fn open(backend: B, prefetch: u64, untagged_tile: Option<TileCoord>) -> CogResult<Self> {
+    async fn open(backend: B, prefetch: u64, untagged_tile: Option<TileCoord>, bands: BandCache) -> CogResult<Self> {
         let bridge = TiffBridge(Arc::new(backend));
         let ifds = read_ifds(&bridge, prefetch).await?;
         let location = bridge.0.location();
@@ -312,6 +317,8 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
             skipped,
             encoding,
             decoders: Arc::new(DecoderRegistry::default()),
+            file_id: BandCache::file_id(),
+            bands,
         })
     }
 
@@ -395,34 +402,53 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
         }
     }
 
-    /// Reads the rows of tile `col`, `row` straight from the uncompressed strips of `level`.
+    /// Cuts tile `col`, `row` out of the full-width band of rows it lies in, read from the strips of `level`.
     async fn read_rows(&self, level: &Level, col: usize, row: usize, rows_per_strip: u32) -> CogResult<TilePixels> {
         let location = self.bridge.0.location();
         let ifd = &level.ifd;
         let size = u64::from(STRIPED_TILE_SIZE);
         let samples = u64::from(ifd.samples_per_pixel());
-        let width = u64::from(ifd.image_width());
-        let left = col as u64 * size;
+        let row_bytes = u64::from(ifd.image_width()) * samples;
+        let left = col as u64 * size * samples;
         let top = row as u64 * size;
-        let cols = size.min(width - left);
+        let cols = size.min(u64::from(ifd.image_width()) - col as u64 * size) * samples;
         let rows = size.min(u64::from(ifd.image_height()) - top);
-        let offsets = ifd.strip_offsets().expect("strip offsets are checked when opening");
-        let rows_per_strip = u64::from(rows_per_strip);
-        let mut ranges: Vec<Range<u64>> = Vec::new();
-        for y in top..top + rows {
-            let strip = usize::try_from(y / rows_per_strip).expect("strip indexes fit in usize");
-            let start = offsets[strip] + ((y % rows_per_strip) * width + left) * samples;
-            let end = start + cols * samples;
-            match ranges.last_mut() {
-                Some(last) if last.end == start => last.end = end,
-                _ => ranges.push(start..end),
+        let key = (
+            self.file_id,
+            level.zoom,
+            u32::try_from(row).expect("tile rows fit in u32"),
+        );
+        let read_band = async {
+            let offsets = ifd.strip_offsets().expect("strip offsets are checked when opening");
+            let rows_per_strip = u64::from(rows_per_strip);
+            let mut ranges: Vec<Range<u64>> = Vec::new();
+            let mut y = top;
+            while y < top + rows {
+                let strip = usize::try_from(y / rows_per_strip).expect("strip indexes fit in usize");
+                let strip_end = (y / rows_per_strip + 1) * rows_per_strip;
+                let next = strip_end.min(top + rows);
+                let start = offsets[strip] + (y % rows_per_strip) * row_bytes;
+                let end = start + (next - y) * row_bytes;
+                match ranges.last_mut() {
+                    Some(last) if last.end == start => last.end = end,
+                    _ => ranges.push(start..end),
+                }
+                y = next;
             }
+            let mut parts = self.bridge.0.read_ranges(ranges).await?;
+            if parts.len() == 1 {
+                return Ok(parts.remove(0));
+            }
+            Ok(Bytes::from(parts.concat()))
+        };
+        let band = self.bands.get(key, location, read_band).await?;
+        let to_usize = |v: u64| usize::try_from(v).expect("band offsets fit in usize");
+        let mut data = Vec::with_capacity(to_usize(rows * cols));
+        for y in 0..rows {
+            let start = to_usize(y * row_bytes + left);
+            data.extend_from_slice(&band[start..start + to_usize(cols)]);
         }
-        let mut data = Vec::with_capacity(usize::try_from(rows * cols * samples).unwrap_or_default());
-        for part in self.bridge.0.read_ranges(ranges).await? {
-            data.extend_from_slice(&part);
-        }
-        let shape = [rows, cols, samples].map(|v| usize::try_from(v).unwrap_or(usize::MAX));
+        let shape = [to_usize(rows), to_usize(cols / samples), to_usize(samples)];
         TilePixels::padded(data, shape, STRIPED_TILE_SIZE, location)
     }
 

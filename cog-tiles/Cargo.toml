@@ -25,7 +25,7 @@ object-store = ["dep:object_store"]
 # Decode WebP tiles to pixels (links libwebp).
 webp = ["async-tiff/webp"]
 # Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`).
-mosaic = ["fs", "object-store", "dep:moka", "dep:tracing"]
+mosaic = ["fs", "object-store", "dep:tracing"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
@@ -36,7 +36,7 @@ async-tiff.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 futures.workspace = true
-moka = { workspace = true, optional = true, features = ["future"] }
+moka = { workspace = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 thiserror.workspace = true

@@ -331,6 +331,27 @@ async fn pages_that_do_not_halve_in_size_are_other_images() {
 }
 
 #[tokio::test]
+async fn tiles_in_one_row_of_a_striped_image_share_one_read() {
+    let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
+    let [min_x, _, _, max_y] = tile.mercator_bounds();
+    let bytes = striped_tiff(&[(1024, 80)], 0, Some([min_x, max_y, cog_tiles::resolution(18, 256)]));
+    let backend = Counting::new(MemoryBackend::new(bytes, "striped.tif".to_owned()));
+    let reads = Arc::clone(&backend.reads);
+    let reader = AsyncCogReader::try_from_backend(backend).await.unwrap();
+    let opened = reads.load(Ordering::SeqCst);
+
+    let row = [41_936, 41_937, 41_938, 41_939].map(|x| TileCoord::new(18, x, 101_297).unwrap());
+    let tiles = futures::future::join_all(row.map(|coord| reader.get_tile_pixels(coord))).await;
+
+    assert_eq!(reads.load(Ordering::SeqCst) - opened, 1);
+    for (col, tile) in (0..).zip(tiles) {
+        assert_eq!(tile.unwrap().unwrap().data(), expected_tile(col * 256, 256, 3, 0));
+    }
+    reader.get_tile_pixels(row[0]).await.unwrap().unwrap();
+    assert_eq!(reads.load(Ordering::SeqCst) - opened, 1);
+}
+
+#[tokio::test]
 async fn compressed_strips_are_rejected() {
     let tile = TileCoord::new(16, 10_484, 25_324).unwrap();
     let [min_x, _, _, max_y] = tile.mercator_bounds();

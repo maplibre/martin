@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod backend;
+mod bands;
 #[cfg(feature = "png")]
 mod encode;
 mod error;
