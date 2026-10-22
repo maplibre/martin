@@ -913,18 +913,12 @@ fn push_quantized(
     Ok(vertices.len() - start)
 }
 
-/// Drops the vertices of the open ring from `start` that lie between their neighbours across the seam.
+/// Drops the first vertex of the open ring from `start` when it lies between its neighbours across the seam.
 fn trim_ring_seam(vertices: &mut Vec<Coord<i32>>, start: usize) {
-    loop {
-        match vertices[start..] {
-            [first, .., prev, last] if between(prev, last, first) => {
-                vertices.pop();
-            }
-            [first, second, .., last] if between(last, first, second) => {
-                vertices.remove(start);
-            }
-            _ => return,
-        }
+    if let [first, second, .., last] = vertices[start..]
+        && between(last, first, second)
+    {
+        vertices.remove(start);
     }
 }
 
