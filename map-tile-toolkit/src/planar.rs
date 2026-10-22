@@ -61,7 +61,7 @@ impl PlanarScratch {
 }
 
 /// How two segments meet.
-pub(crate) enum Meet {
+enum Meet {
     Apart,
     /// Exactly at one endpoint they share.
     Vertex(Coord<i32>),
@@ -82,7 +82,7 @@ fn within(p: Coord<i32>, a: Coord<i32>, b: Coord<i32>) -> bool {
     p.x >= a.x.min(b.x) && p.x <= a.x.max(b.x) && p.y >= a.y.min(b.y) && p.y <= a.y.max(b.y)
 }
 
-pub(crate) fn meet(p1: Coord<i32>, p2: Coord<i32>, q1: Coord<i32>, q2: Coord<i32>) -> Meet {
+fn meet(p1: Coord<i32>, p2: Coord<i32>, q1: Coord<i32>, q2: Coord<i32>) -> Meet {
     if p1.x.max(p2.x) < q1.x.min(q2.x)
         || q1.x.max(q2.x) < p1.x.min(p2.x)
         || p1.y.max(p2.y) < q1.y.min(q2.y)
