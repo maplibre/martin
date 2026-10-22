@@ -1,4 +1,4 @@
-//! The Tokio runtime all I/O runs on, and waiting for it without holding the GIL.
+//! The Tokio runtime all I/O runs on, and waiting for it without holding the GIL or the event loop.
 
 use std::future::Future;
 use std::pin::pin;
@@ -7,6 +7,9 @@ use std::time::Duration;
 
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
+use tokio_util::task::AbortOnDropHandle;
+
+use crate::error::CogTilesError;
 
 /// How often a blocking call wakes up to let Python handle signals such as Ctrl-C.
 const SIGNAL_CHECK_INTERVAL: Duration = Duration::from_millis(100);
@@ -56,4 +59,17 @@ where
             Err(_elapsed) => py.check_signals()?,
         }
     }
+}
+
+/// Runs `future` on the runtime for an `async` method.
+/// The event loop only polls the join handle, so it never runs I/O or decoding itself.
+/// Cancelling the awaiting coroutine aborts the task.
+pub async fn spawn<F>(future: F) -> PyResult<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    AbortOnDropHandle::new(runtime()?.spawn(future))
+        .await
+        .map_err(|e| CogTilesError::new_err(e.to_string()))
 }

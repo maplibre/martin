@@ -17,7 +17,9 @@ __all__ = [
     "TileSource",
     "UnsupportedCogError",
     "open",
+    "open_async",
     "open_mosaic",
+    "open_mosaic_async",
 ]
 
 MAX_ZOOM: builtins.int
@@ -91,10 +93,13 @@ class Raster:
 @typing.final
 class TileIterator:
     r"""
-    Encoded tiles as `(z, x, y, data)`, fetched in the background. Dropping it stops the fetches.
+    Encoded tiles as `(z, x, y, data)`, fetched in the background, for `for` and `async for`.
+    Dropping it stops the fetches.
     """
     def __iter__(self) -> TileIterator: ...
     def __next__(self) -> tuple[builtins.int, builtins.int, builtins.int, builtins.bytes]: ...
+    def __aiter__(self) -> TileIterator: ...
+    def __anext__(self) -> typing.Awaitable[tuple[builtins.int, builtins.int, builtins.int, builtins.bytes]]: ...
 
 class TileSource:
     r"""
@@ -139,15 +144,24 @@ class TileSource:
         r"""
         The encoded tile `z/x/y` (XYZ, `y = 0` at the top), or `None` if there is no data there.
         """
+    async def tile_async(self, z: builtins.int, x: builtins.int, y: builtins.int) -> typing.Optional[bytes]:
+        r"""
+        `tile` for `asyncio`, fetching on background threads instead of the event loop.
+        """
     def tile_pixels(self, z: builtins.int, x: builtins.int, y: builtins.int) -> typing.Optional[numpy.typing.NDArray[numpy.uint8]]:
         r"""
         The decoded tile `z/x/y` as a `(tile_size, tile_size, bands)` `uint8` array,
         or `None` if there is no data there.
         """
+    async def tile_pixels_async(self, z: builtins.int, x: builtins.int, y: builtins.int) -> typing.Optional[numpy.typing.NDArray[numpy.uint8]]:
+        r"""
+        `tile_pixels` for `asyncio`, fetching and decoding on background threads instead of the event loop.
+        """
     def tiles(self, bbox: tuple[builtins.float, builtins.float, builtins.float, builtins.float] | None = None, zoom: builtins.int | typing.Sequence[builtins.int] | None = None, *, crs: typing.Literal['EPSG:4326', 'EPSG:3857'] = "EPSG:4326", concurrency: builtins.int = 64) -> TileIterator:
         r"""
         Iterates over the encoded tiles with data in `bbox` at `zoom`, as `(z, x, y, data)`,
         fetching `concurrency` at a time in the background in whatever order they arrive.
+        Use it with `for` or `async for`.
 
         `zoom` is one zoom or a sequence of them, all zooms of the source when `None`.
         `bbox` is the source's bounds when `None`; a mosaic needs one.
@@ -160,6 +174,10 @@ class TileSource:
         `zoom` is the highest zoom of the source when `None`. `bbox` is in `crs`, `"EPSG:4326"`
         (degrees) or `"EPSG:3857"` (meters). Pixels without data are 0.
         Returns `None` if no tile in `bbox` has data.
+        """
+    async def read_async(self, bbox: tuple[builtins.float, builtins.float, builtins.float, builtins.float], zoom: typing.Optional[builtins.int] = None, *, crs: typing.Literal['EPSG:4326', 'EPSG:3857'] = "EPSG:4326", concurrency: builtins.int = 64, max_pixels: builtins.int = 268435456) -> typing.Optional[Raster]:
+        r"""
+        `read` for `asyncio`, fetching and decoding on background threads instead of the event loop.
         """
 
 class UnsupportedCogError(CogTilesError):
@@ -176,6 +194,11 @@ def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Op
     `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
     """
 
+async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
+    r"""
+    `open` for `asyncio`, reading the headers on background threads instead of the event loop.
+    """
+
 def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
     r"""
     Opens a mosaic of COGs that each cover one tile at `file_zoom`, named by a template in
@@ -185,4 +208,9 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
 
     One file is found by listing the location now; the others are opened on first use and kept
     for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
+    """
+
+async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
+    r"""
+    `open_mosaic` for `asyncio`, listing and reading on background threads instead of the event loop.
     """
