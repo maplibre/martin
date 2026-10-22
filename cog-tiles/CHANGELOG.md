@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.1...cog-tiles-v0.1.2) - 2026-10-22
+
+### Added
+
+- `mosaic` feature: read mosaics of many COGs, each named after the tile it covers ([#3718](https://github.com/maplibre/martin/pull/3718)).
+- Decode tiles to pixels and stitch them into windows; `webp` feature decodes WebP tiles ([#3719](https://github.com/maplibre/martin/pull/3719)).
+
 ## [0.1.1](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.0...cog-tiles-v0.1.1) - 2026-10-22
 
 ### Other
