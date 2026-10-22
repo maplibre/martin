@@ -1,5 +1,5 @@
-<svg class="d" viewBox="0 0 904 300" role="img" aria-label="cog.tile returns one internal tile from one range read, or None if there is no data there. cog.tiles yields every encoded tile with data in bbox as (z, x, y, data), in arrival order. cog.read stitches the decoded tiles bbox touches into one raster of whole pixels; pixels without data are 0" xmlns="http://www.w3.org/2000/svg">
-<title>cog.tile returns one internal tile from one range read, or None if there is no data there. cog.tiles yields every encoded tile with data in bbox as (z, x, y, data), in arrival order. cog.read stitches the decoded tiles bbox touches into one raster of whole pixels; pixels without data are 0</title>
+<svg class="d" viewBox="0 0 904 300" role="img" aria-label="cog.tile returns one encoded tile or None, from one range read. cog.tiles yields (z, x, y, data) for each tile with data in bbox, in arrival order. cog.read returns one Raster of the whole pixels bbox touches, with no-data pixels set to 0" xmlns="http://www.w3.org/2000/svg">
+<title>cog.tile returns one encoded tile or None, from one range read. cog.tiles yields (z, x, y, data) for each tile with data in bbox, in arrival order. cog.read returns one Raster of the whole pixels bbox touches, with no-data pixels set to 0</title>
 <style>.d{--fg:var(--md-default-fg-color,#6e7781);--light:var(--md-default-fg-color--light,#848d97);
 --lighter:var(--md-default-fg-color--lighter,#848d9799);--f0:#3f7ad6;--f1:#e07a2e;
 font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
@@ -10,71 +10,73 @@ font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
 .d .hatch{stroke:var(--lighter);stroke-width:1.5}
 .d .picked{fill:var(--f1);fill-opacity:.2;stroke:var(--f1);stroke-width:1.5}
 .d .decoded{fill:var(--f0);fill-opacity:.1;stroke:var(--f0);stroke-width:1}
-.d .raster{fill:var(--f0);fill-opacity:.3;stroke:var(--f0);stroke-width:1.5}
+.d .raster{fill:var(--f0);fill-opacity:.3}
+.d .arrow{fill:none;stroke:var(--fg);stroke-width:1}
 .d .bbox{fill:none;stroke:var(--fg);stroke-width:1.5;stroke-dasharray:5 4}</style>
 <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch" x1="0" y1="0" x2="0" y2="8"/></pattern>
 <text x="18" y="20">cog.tile(z, x, y)</text>
-<rect class="tile" x="18" y="46" width="60" height="60"/>
-<rect class="tile" x="78" y="46" width="60" height="60"/>
-<rect class="tile" x="138" y="46" width="60" height="60"/>
-<rect class="nodata" x="198" y="46" width="60" height="60"/>
-<rect class="tile" x="18" y="106" width="60" height="60"/>
-<rect class="picked" x="78" y="106" width="60" height="60"/>
-<rect class="tile" x="138" y="106" width="60" height="60"/>
-<rect class="tile" x="198" y="106" width="60" height="60"/>
-<rect class="tile" x="18" y="166" width="60" height="60"/>
-<rect class="tile" x="78" y="166" width="60" height="60"/>
-<rect class="tile" x="138" y="166" width="60" height="60"/>
-<rect class="tile" x="198" y="166" width="60" height="60"/>
-<text class="small mid" x="108.0" y="136.0">z/x/y</text>
-<text class="small mid muted" x="228.0" y="76.0">None</text>
-<text class="small" x="18" y="248">one internal tile, one range read</text>
-<text class="small" x="18" y="265">returns the encoded tile,</text>
-<text class="small" x="18" y="282">or None if there is no data there</text>
+<text class="small" x="18" y="38">-&gt; bytes | None</text>
+<rect class="tile" x="18" y="64" width="60" height="60"/>
+<rect class="tile" x="78" y="64" width="60" height="60"/>
+<rect class="tile" x="138" y="64" width="60" height="60"/>
+<rect class="nodata" x="198" y="64" width="60" height="60"/>
+<rect class="tile" x="18" y="124" width="60" height="60"/>
+<rect class="tile" x="138" y="124" width="60" height="60"/>
+<rect class="tile" x="198" y="124" width="60" height="60"/>
+<rect class="tile" x="18" y="184" width="60" height="60"/>
+<rect class="tile" x="78" y="184" width="60" height="60"/>
+<rect class="tile" x="138" y="184" width="60" height="60"/>
+<rect class="tile" x="198" y="184" width="60" height="60"/>
+<rect class="picked" x="78" y="124" width="60" height="60"/>
+<text class="small mid" x="108.0" y="154.0">z/x/y</text>
+<text class="small mid muted" x="228.0" y="94.0">None</text>
+<text class="small" x="18" y="266">one internal tile</text>
+<text class="small" x="18" y="283">one range read</text>
 <text x="318" y="20">cog.tiles(bbox, zoom)</text>
-<rect class="picked" x="318" y="46" width="60" height="60"/>
-<rect class="picked" x="378" y="46" width="60" height="60"/>
-<rect class="picked" x="438" y="46" width="60" height="60"/>
-<rect class="nodata" x="498" y="46" width="60" height="60"/>
-<rect class="picked" x="318" y="106" width="60" height="60"/>
-<rect class="picked" x="378" y="106" width="60" height="60"/>
-<rect class="picked" x="438" y="106" width="60" height="60"/>
-<rect class="picked" x="498" y="106" width="60" height="60"/>
-<rect class="tile" x="318" y="166" width="60" height="60"/>
-<rect class="tile" x="378" y="166" width="60" height="60"/>
-<rect class="tile" x="438" y="166" width="60" height="60"/>
-<rect class="tile" x="498" y="166" width="60" height="60"/>
-<text class="mid" x="348.0" y="76.0">3</text>
-<text class="mid" x="408.0" y="76.0">1</text>
-<text class="mid" x="468.0" y="76.0">6</text>
-<text class="mid" x="348.0" y="136.0">2</text>
-<text class="mid" x="408.0" y="136.0">7</text>
-<text class="mid" x="468.0" y="136.0">4</text>
-<text class="mid" x="528.0" y="136.0">5</text>
-<rect class="bbox" x="356" y="68" width="184" height="80"/>
-<text class="small" x="360" y="158">bbox</text>
-<text class="small" x="318" y="248">every encoded tile with data in bbox,</text>
-<text class="small" x="318" y="265">as (z, x, y, data) in arrival order,</text>
-<text class="small" x="318" y="282">fetching concurrency at a time</text>
+<text class="small" x="318" y="38">-&gt; Iterator[tuple[int, int, int, bytes]]</text>
+<rect class="nodata" x="498" y="64" width="60" height="60"/>
+<rect class="tile" x="318" y="184" width="60" height="60"/>
+<rect class="tile" x="378" y="184" width="60" height="60"/>
+<rect class="tile" x="438" y="184" width="60" height="60"/>
+<rect class="tile" x="498" y="184" width="60" height="60"/>
+<rect class="picked" x="318" y="64" width="60" height="60"/>
+<rect class="picked" x="378" y="64" width="60" height="60"/>
+<rect class="picked" x="438" y="64" width="60" height="60"/>
+<rect class="picked" x="318" y="124" width="60" height="60"/>
+<rect class="picked" x="378" y="124" width="60" height="60"/>
+<rect class="picked" x="438" y="124" width="60" height="60"/>
+<rect class="picked" x="498" y="124" width="60" height="60"/>
+<text class="mid" x="348.0" y="94.0">3</text>
+<text class="mid" x="408.0" y="94.0">1</text>
+<text class="mid" x="468.0" y="94.0">6</text>
+<text class="mid" x="348.0" y="154.0">2</text>
+<text class="mid" x="408.0" y="154.0">7</text>
+<text class="mid" x="468.0" y="154.0">4</text>
+<text class="mid" x="528.0" y="154.0">5</text>
+<rect class="bbox" x="356" y="86" width="184" height="80"/>
+<path class="arrow" d="M564 150H542M547 146L542 150L547 154"/>
+<text class="small" x="568" y="150">bbox</text>
+<text class="small" x="318" y="266">(z, x, y, data) per tile with data in bbox</text>
+<text class="small" x="318" y="283">in arrival order</text>
 <text x="618" y="20">cog.read(bbox, zoom)</text>
-<rect class="decoded" x="618" y="46" width="60" height="60"/>
-<rect class="decoded" x="678" y="46" width="60" height="60"/>
-<rect class="decoded" x="738" y="46" width="60" height="60"/>
-<rect class="nodata" x="798" y="46" width="60" height="60"/>
-<rect class="decoded" x="618" y="106" width="60" height="60"/>
-<rect class="decoded" x="678" y="106" width="60" height="60"/>
-<rect class="decoded" x="738" y="106" width="60" height="60"/>
-<rect class="decoded" x="798" y="106" width="60" height="60"/>
-<rect class="tile" x="618" y="166" width="60" height="60"/>
-<rect class="tile" x="678" y="166" width="60" height="60"/>
-<rect class="tile" x="738" y="166" width="60" height="60"/>
-<rect class="tile" x="798" y="166" width="60" height="60"/>
-<rect class="raster" x="653" y="65" width="190" height="86"/>
-<rect class="nodata" x="798" y="65" width="45" height="41"/>
-<text class="mid" x="820.5" y="85.5">0</text>
-<rect class="bbox" x="656" y="68" width="184" height="80"/>
-<text class="small" x="660" y="158">bbox</text>
-<text class="small" x="618" y="248">the decoded tiles bbox touches,</text>
-<text class="small" x="618" y="265">stitched into one raster of whole</text>
-<text class="small" x="618" y="282">pixels; pixels without data are 0</text>
+<text class="small" x="618" y="38">-&gt; Raster | None</text>
+<rect class="nodata" x="798" y="64" width="60" height="60"/>
+<rect class="tile" x="618" y="184" width="60" height="60"/>
+<rect class="tile" x="678" y="184" width="60" height="60"/>
+<rect class="tile" x="738" y="184" width="60" height="60"/>
+<rect class="tile" x="798" y="184" width="60" height="60"/>
+<rect class="decoded" x="618" y="64" width="60" height="60"/>
+<rect class="decoded" x="678" y="64" width="60" height="60"/>
+<rect class="decoded" x="738" y="64" width="60" height="60"/>
+<rect class="decoded" x="618" y="124" width="60" height="60"/>
+<rect class="decoded" x="678" y="124" width="60" height="60"/>
+<rect class="decoded" x="738" y="124" width="60" height="60"/>
+<rect class="decoded" x="798" y="124" width="60" height="60"/>
+<path class="raster" d="M656 86H798V124H840V166H656Z"/>
+<text class="mid" x="819" y="105">0</text>
+<rect class="bbox" x="656" y="86" width="184" height="80"/>
+<path class="arrow" d="M864 150H842M847 146L842 150L847 154"/>
+<text class="small" x="868" y="150">bbox</text>
+<text class="small" x="618" y="266">whole pixels bbox touches</text>
+<text class="small" x="618" y="283">no-data pixels = 0</text>
 </svg>
