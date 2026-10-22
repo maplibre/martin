@@ -7,7 +7,10 @@ mod encode;
 mod error;
 mod geo;
 mod jpeg;
+#[cfg(feature = "mosaic")]
+mod mosaic;
 mod reader;
+mod template;
 mod tile;
 
 #[cfg(feature = "object-store")]
@@ -19,7 +22,12 @@ pub use crate::backend::FileBackend;
 pub use crate::backend::ObjectStoreBackend;
 pub use crate::backend::{AsyncBackend, MemoryBackend};
 pub use crate::error::{CogError, CogResult, SkippedImage, UnsupportedReason};
+#[cfg(feature = "mosaic")]
+pub use crate::mosaic::{
+    AsyncCogMosaic, DEFAULT_FILE_EXPIRY, DEFAULT_MAX_CACHED_FILES, MosaicFileError, MosaicInfo, MosaicOptions,
+};
 pub use crate::reader::{AsyncCogReader, CogInfo, DEFAULT_PREFETCH, TileFormat};
+pub use crate::template::{KeyTemplate, MosaicTemplateError};
 pub use crate::tile::{
     EARTH_CIRCUMFERENCE, HALF_EARTH, MAX_ZOOM, TileCoord, mercator_to_lnglat, resolution, tile_extent,
 };

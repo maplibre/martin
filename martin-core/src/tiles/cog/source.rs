@@ -2,7 +2,9 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use cog_tiles::{AsyncBackend as _, AsyncCogReader, CogInfo, FileBackend, ObjectStoreBackend, TileFormat};
+use cog_tiles::{
+    AsyncBackend as _, AsyncCogMosaic, AsyncCogReader, CogInfo, FileBackend, ObjectStoreBackend, TileFormat,
+};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use serde_json::Value;
@@ -11,7 +13,6 @@ use tracing::instrument;
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
-use crate::tiles::cog::mosaic::Mosaic;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Where the tiles of a [`CogSource`] come from.
@@ -19,7 +20,7 @@ use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 pub(super) enum CogTiles {
     File(Arc<AsyncCogReader<FileBackend>>),
     ObjectStore(Arc<AsyncCogReader<ObjectStoreBackend>>),
-    Mosaic(Arc<Mosaic>),
+    Mosaic(Arc<AsyncCogMosaic>),
 }
 
 /// Tile source that reads from one `Cloud Optimized GeoTIFF` file, or from a mosaic of them.
@@ -118,7 +119,7 @@ impl CogSource {
 }
 
 /// Logs the images of a COG that are not served, e.g. overviews that are off the tile grid.
-pub(super) fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
+fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedImage]) {
     for reason in skipped {
         tracing::warn!(
             cog.location = location,
@@ -129,7 +130,7 @@ pub(super) fn warn_skipped_images(location: &str, skipped: &[cog_tiles::SkippedI
 }
 
 /// The `cog-tiles` form of a tile coordinate.
-pub(super) fn cog_coord(xyz: TileCoord) -> Result<cog_tiles::TileCoord, CogError> {
+fn cog_coord(xyz: TileCoord) -> Result<cog_tiles::TileCoord, CogError> {
     Ok(cog_tiles::TileCoord::new(xyz.z(), xyz.x(), xyz.y())?)
 }
 
@@ -181,7 +182,7 @@ impl Source for CogSource {
         let tile = match &self.tiles {
             CogTiles::File(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
             CogTiles::ObjectStore(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
-            CogTiles::Mosaic(mosaic) => mosaic.get_tile(xyz).await?,
+            CogTiles::Mosaic(mosaic) => mosaic.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
         };
         Ok(tile.unwrap_or_default())
     }

@@ -22,26 +22,31 @@ fs = ["tokio/rt", "tokio/fs"]
 png = ["dep:png"]
 # Read COGs from any `object_store` backend (S3, GCS, Azure, HTTP, memory, ...).
 object-store = ["dep:object_store"]
+# Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`).
+mosaic = ["fs", "object-store", "dep:moka", "dep:tracing"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
-__all = ["fs", "png", "object-store"]
+__all = ["fs", "png", "object-store", "mosaic"]
 
 [dependencies]
 async-tiff.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 futures.workspace = true
+moka = { workspace = true, optional = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
+tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
 jpeg-decoder.workspace = true
 object_store.workspace = true
 png.workspace = true
 rstest.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]
