@@ -931,12 +931,12 @@ fn trim_ring_seam(vertices: &mut Vec<Coord<i32>>, start: usize) {
 /// Whether `b` lies on the segment from `a` to `c`, strictly between them.
 fn between(a: Coord<i32>, b: Coord<i32>, c: Coord<i32>) -> bool {
     let step = |p: Coord<i32>, q: Coord<i32>| (i64::from(q.x) - i64::from(p.x), i64::from(q.y) - i64::from(p.y));
-    let ((abx, aby), (bcx, bcy)) = (step(a, b), step(b, c));
-    let wide = i128::from;
+    let (abx, aby) = step(a, b);
+    let (bcx, bcy) = step(b, c);
     // A zero cross product is zero modulo 2^64 too, so the wrapping one rejects nearly every vertex cheaply.
     abx.wrapping_mul(bcy) == aby.wrapping_mul(bcx)
-        && wide(abx) * wide(bcy) == wide(aby) * wide(bcx)
-        && wide(abx) * wide(bcx) + wide(aby) * wide(bcy) > 0
+        && i128::from(abx) * i128::from(bcy) == i128::from(aby) * i128::from(bcx)
+        && i128::from(abx) * i128::from(bcx) + i128::from(aby) * i128::from(bcy) > 0
 }
 
 /// Rounds to the zoom grid; `shift` moves features lying wholly outside the world back into it.
