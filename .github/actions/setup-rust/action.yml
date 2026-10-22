@@ -18,7 +18,7 @@ inputs:
   cache:
     description: >-
       Restore the Rust build cache, and save it when running on main.
-      Opt-in because the repo shares a 50GB quota across all caches.
+      Opt-in because the repo shares a 100GB quota across all caches.
     default: "false"
   cache-key:
     description: >-
