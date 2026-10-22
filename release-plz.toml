@@ -34,6 +34,10 @@ changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", "c
 semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
 
 [[package]]
+name = "martin-tilegen"
+semver_check = false # 0.1.0 was published with --no-verify and its baseline does not build against crates.io mbtiles
+
+[[package]]
 name = "mbtiles"
 changelog_include = ["martin-tile-utils", "mbtiles", ".github", "tests", "docs"]
 
