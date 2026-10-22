@@ -687,7 +687,7 @@ impl Renderer {
             while let Some(slice) = pieces.next() {
                 match slice.map_err(GeometryError::from)? {
                     PolygonSlice::Piece(piece) if ctx.layer.clip_mode == ClipMode::Unclipped => {
-                        self.reached.push(piece.tile())
+                        self.reached.push(piece.tile());
                     }
                     PolygonSlice::Piece(piece) => {
                         for ring in piece.rings() {
