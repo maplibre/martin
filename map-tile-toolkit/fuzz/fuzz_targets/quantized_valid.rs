@@ -2,10 +2,11 @@
 //! polygon to the integer grid, and every polygon it gives must be valid, as must every piece the
 //! slicer cuts from it.
 //!
-//! Each coordinate is an `i16` divided by `2^bits`, so vertices land between grid points.
+//! Each coordinate is an `i16` divided by `1 + scale % 2048`, so vertices land between grid points and
+//! can be closer together than the quantizer's fixed point resolves.
 //! The float polygon may be invalid: `make_valid` repairs whatever it gets.
-//! A valid float polygon goes through `polygon` or `make_valid`, by the parity of `bits`.
-//! Its rounded area must stay within one unit of its perimeter.
+//! A valid float polygon goes through `make_valid` if `repair` is set, else through `polygon`.
+//! Its rounded area must differ from its float area by at most its perimeter plus one.
 
 #![no_main]
 
@@ -20,8 +21,10 @@ use map_tile_toolkit::{PolygonSlice, Quantizer, Slicer};
 struct Input {
     extent: u8,
     buffer: u8,
-    /// Coordinates are divided by `2^(1 + bits % 6)`.
-    bits: u8,
+    /// Coordinates are divided by `1 + scale % 2048`.
+    scale: u16,
+    /// Whether a valid float polygon goes through `make_valid` instead of `polygon`.
+    repair: bool,
     /// One polygon's rings, exterior first.
     rings: Vec<Vec<(i16, i16)>>,
 }
@@ -39,7 +42,7 @@ fn as_f64(c: Coord<i32>) -> Coord<f64> {
 }
 
 fuzz_target!(|input: Input| {
-    let unit = f64::from(1_u32 << (1 + input.bits % 6));
+    let unit = f64::from(1 + input.scale % 2048);
     let rings: Vec<Vec<Coord<f64>>> = input
         .rings
         .iter()
@@ -60,7 +63,6 @@ fuzz_target!(|input: Input| {
     let float = polygon(&rings, |c| c);
     let ring_area = |r: &LineString<f64>| Polygon::new(r.clone(), vec![]).unsigned_area();
     let before = ring_area(float.exterior()) - float.interiors().iter().map(ring_area).sum::<f64>();
-    // `geo` accepts a ring folded flat onto a line, which OGC does not.
     let valid = float.check_validation().is_ok()
         && std::iter::once(float.exterior())
             .chain(float.interiors())
@@ -68,7 +70,7 @@ fuzz_target!(|input: Input| {
 
     let mut quantizer = Quantizer::new();
     let float_rings = rings.iter().map(|r| r.iter().copied());
-    let quantized = if valid && input.bits % 2 == 0 {
+    let quantized = if valid && !input.repair {
         quantizer.polygon(float_rings)
     } else {
         quantizer.make_valid(float_rings)
