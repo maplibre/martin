@@ -9,6 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 arbitrary = { version = "1", features = ["derive"] }
+geo = "0.33.1"
 geo-types = "0.7.19"
 libfuzzer-sys = "0.4"
 
@@ -32,6 +33,13 @@ bench = false
 [[bin]]
 name = "point_equivalence"
 path = "fuzz_targets/point_equivalence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "quantized_valid"
+path = "fuzz_targets/quantized_valid.rs"
 test = false
 doc = false
 bench = false

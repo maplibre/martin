@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0](https://github.com/maplibre/martin/compare/martin-core-v0.13.0...martin-core-v0.14.0) - 2026-10-22
+
+### Added
+
+- *(pg)* apply layer `where` in the table query ([#3661](https://github.com/maplibre/martin/pull/3661))
+- *(pg)* apply layer `geometry` in the table query ([#3660](https://github.com/maplibre/martin/pull/3660))
+- *(pg)* prefetch blocks of engine-served tiles into the tile cache ([#3633](https://github.com/maplibre/martin/pull/3633))
+- *(pg)* serve table sources with `layers` through Martin's engine ([#3632](https://github.com/maplibre/martin/pull/3632))
+- *(cog)* stabilize COG sources as the default `cog` feature ([#3626](https://github.com/maplibre/martin/pull/3626))
+- *(cog)* add mosaic COG sources ([#3621](https://github.com/maplibre/martin/pull/3621))
+- *(cog)* add the cog-tiles crate and serve COGs with it ([#3620](https://github.com/maplibre/martin/pull/3620))
+- *(rendering)* configurable size of MapLibre Native's ambient cache ([#3609](https://github.com/maplibre/martin/pull/3609))
+- *(tilegen)* compiled CEL expressions over feature props ([#3556](https://github.com/maplibre/martin/pull/3556))
+- *(tilegen)* render polygons with edge pieces and fill ranges ([#3515](https://github.com/maplibre/martin/pull/3515))
+- *(generate)* Postgres FeatureSource with partitioned whole-table scans ([#3513](https://github.com/maplibre/martin/pull/3513))
+- *(tilegen)* plan tables into layers, FeatureSource and end-to-end generate() ([#3554](https://github.com/maplibre/martin/pull/3554))
+- *(tilegen)* render points and lines into per-zoom tile pieces ([#3512](https://github.com/maplibre/martin/pull/3512))
+- *(tilegen)* add martin-tilegen crate with tile order, sort key and external sort ([#3510](https://github.com/maplibre/martin/pull/3510))
+- *(postgres)* [**breaking**] require PostgreSQL 15 ([#3563](https://github.com/maplibre/martin/pull/3563))
+
+### Fixed
+
+- *(ci)* check out geojson snapshots with LF and break the tilegen/core dev-dep cycle ([#3670](https://github.com/maplibre/martin/pull/3670))
+- *(pg)* read half a grid unit past the buffer when serving layers ([#3658](https://github.com/maplibre/martin/pull/3658))
+- *(pg)* cap engine prefetch at 16 tiles per side and require layers ([#3651](https://github.com/maplibre/martin/pull/3651))
+- *(generate)* signals, encodings, discovery warnings and scan timeouts ([#3606](https://github.com/maplibre/martin/pull/3606))
+
+### Other
+
+- *(deps)* update mlt-core to 0.22.0 ([#3712](https://github.com/maplibre/martin/pull/3712))
+- *(tilegen)* keep scanned text properties in the batch's byte arena ([#3682](https://github.com/maplibre/martin/pull/3682))
+- import local items via `crate::` paths ([#3667](https://github.com/maplibre/martin/pull/3667))
+- format Rust code at 120 columns ([#3673](https://github.com/maplibre/martin/pull/3673))
+- *(generate)* read PostgreSQL tables over ctid ranges on several connections ([#3643](https://github.com/maplibre/martin/pull/3643))
+- *(tilegen)* move the reader contract back into martin-tilegen ([#3630](https://github.com/maplibre/martin/pull/3630))
+- drop redundant clones and tighten a lock guard found by clippy nursery ([#3625](https://github.com/maplibre/martin/pull/3625))
+- *(tilegen)* move the layer interpreter into the plan ([#3613](https://github.com/maplibre/martin/pull/3613))
+- structured log fields and DAMP e2e tests ([#3602](https://github.com/maplibre/martin/pull/3602))
+- *(tilegen)* bound the pipeline by queue size, bump mlt-core to 0.20.2 and use its prop types ([#3579](https://github.com/maplibre/martin/pull/3579))
+
 ## [0.13.0](https://github.com/maplibre/martin/compare/martin-core-v0.12.2...martin-core-v0.13.0) - 2026-10-09
 
 ### Added

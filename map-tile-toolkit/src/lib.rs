@@ -35,5 +35,9 @@ pub use crate::slicer::{
     ClipMode, LineSlice, LineSlices, Local, LocalIter, PointSlice, PointSlices, Slicer, TileLines,
 };
 
+// Rounding float polygons onto the integer grid without making them invalid.
+mod quantize;
+pub use crate::quantize::{Quantized, Quantizer};
+
 mod mosaic;
 pub use crate::mosaic::{Mosaic, PolygonMosaic};

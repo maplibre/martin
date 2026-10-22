@@ -2,7 +2,6 @@ use std::ops::Range;
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 
-#[cfg(feature = "png")]
 use async_tiff::decoder::DecoderRegistry;
 use async_tiff::metadata::TiffMetadataReader;
 use async_tiff::metadata::cache::ReadaheadMetadataCache;
@@ -14,7 +13,7 @@ use futures::FutureExt as _;
 use crate::backend::{AsyncBackend, TiffBridge};
 use crate::geo::{Georef, aligned_tile, match_zoom};
 use crate::tile::{TileCoord, mercator_to_lnglat};
-use crate::{CogError, CogResult, SkippedImage, UnsupportedReason};
+use crate::{CogError, CogResult, SkippedImage, TilePixels, UnsupportedReason};
 
 /// How many bytes to read up front when opening a COG. GDAL puts all headers at the start,
 /// so one request usually covers every IFD of a typical file.
@@ -104,6 +103,14 @@ impl Level {
     }
 }
 
+/// Where one stored tile is: its image, internal column and row, and bytes.
+struct StoredTile<'a> {
+    level: &'a Level,
+    col: usize,
+    row: usize,
+    range: Range<u64>,
+}
+
 /// Reads `WebMercatorQuad` tiles from one Cloud Optimized `GeoTIFF`.
 ///
 /// The COG must be in `EPSG:3857`, and every image in it (the full-resolution image and each
@@ -131,7 +138,6 @@ pub struct AsyncCogReader<B> {
     /// Why images that cannot be read as tiles were left out.
     skipped: Vec<SkippedImage>,
     encoding: Encoding,
-    #[cfg(feature = "png")]
     decoders: Arc<DecoderRegistry>,
 }
 
@@ -226,7 +232,6 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
             levels: by_zoom,
             skipped,
             encoding,
-            #[cfg(feature = "png")]
             decoders: Arc::new(DecoderRegistry::default()),
         })
     }
@@ -266,19 +271,57 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
     /// # Errors
     /// Returns an error if the backend fails or the tile cannot be decoded.
     pub async fn get_tile(&self, coord: TileCoord) -> CogResult<Option<Bytes>> {
+        let Some(tile) = self.locate(coord)? else {
+            return Ok(None);
+        };
+        match self.encoding {
+            Encoding::Passthrough => {
+                let bytes = self.bridge.0.read(tile.range).await?;
+                let ifd = &tile.level.ifd;
+                Ok(Some(match ifd.jpeg_tables() {
+                    Some(tables) if ifd.compression() == Compression::ModernJPEG => {
+                        crate::jpeg::merge_tables(tables, bytes)
+                    }
+                    _ => bytes,
+                }))
+            }
+            #[cfg(feature = "png")]
+            Encoding::Png => {
+                let pixels = self.decode(tile.level, tile.col, tile.row).await?;
+                crate::encode::encode_png(&pixels, self.bridge.0.location()).map(Some)
+            }
+        }
+    }
+
+    /// Reads and decodes one tile into [`CogInfo::tile_size`]-square pixels, with the bands of the file.
+    ///
+    /// Returns `Ok(None)` like [`get_tile`](Self::get_tile). Decoding happens on the calling task,
+    /// so spawn concurrent calls as tasks to decode on several threads.
+    /// WebP tiles need the `webp` feature.
+    ///
+    /// # Errors
+    /// Returns an error if the backend fails or the tile cannot be decoded.
+    pub async fn get_tile_pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
+        match self.locate(coord)? {
+            Some(StoredTile { level, col, row, .. }) => self.decode(level, col, row).await.map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// The image, internal tile and byte range holding `coord`, or `None` if nothing is stored there.
+    fn locate(&self, coord: TileCoord) -> CogResult<Option<StoredTile<'_>>> {
         let Some(level) = self.level(coord.z()) else {
             return Ok(None);
         };
         let Some((col, row)) = level.position(coord) else {
             return Ok(None);
         };
-        let location = self.bridge.0.location();
         let range = match level.ifd.tile_byte_range(col, row) {
             Some(TileByteRange::Chunky(range)) => range,
             Some(TileByteRange::Planar(ranges)) if ranges.len() == 1 => ranges[0].clone(),
             _ => {
                 return Err(CogError::unsupported(
-                    location,
+                    self.bridge.0.location(),
                     UnsupportedReason::MissingByteRange {
                         zoom: level.zoom,
                         col,
@@ -287,34 +330,24 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
                 ));
             }
         };
-        if range.is_empty() {
-            return Ok(None);
-        }
-        match self.encoding {
-            Encoding::Passthrough => {
-                let bytes = self.bridge.0.read(range).await?;
-                Ok(Some(match level.ifd.jpeg_tables() {
-                    Some(tables) if level.ifd.compression() == Compression::ModernJPEG => {
-                        crate::jpeg::merge_tables(tables, bytes)
-                    }
-                    _ => bytes,
-                }))
-            }
-            #[cfg(feature = "png")]
-            Encoding::Png => {
-                let tile = level
-                    .ifd
-                    .fetch_tile(col, row, &self.bridge)
-                    .await
-                    .map_err(|e| unwrap_tiff_error(location, e))?;
-                let array = tile.decode(&self.decoders).map_err(|e| CogError::tiff(location, e))?;
-                let shape = array.shape();
-                let async_tiff::TypedArray::UInt8(pixels) = array.data() else {
-                    return Err(CogError::unsupported(location, UnsupportedReason::DecodedNotEightBit));
-                };
-                crate::encode::encode_png(pixels, shape, self.info.tile_size, location).map(Some)
-            }
-        }
+        Ok((!range.is_empty()).then_some(StoredTile { level, col, row, range }))
+    }
+
+    async fn decode(&self, level: &Level, col: usize, row: usize) -> CogResult<TilePixels> {
+        let location = self.bridge.0.location();
+        let tile = level
+            .ifd
+            .fetch_tile(col, row, &self.bridge)
+            .await
+            .map_err(|e| unwrap_tiff_error(location, e))?;
+        let (data, shape, _) = tile
+            .decode(&self.decoders)
+            .map_err(|e| CogError::tiff(location, e))?
+            .into_inner();
+        let async_tiff::TypedArray::UInt8(data) = data else {
+            return Err(CogError::unsupported(location, UnsupportedReason::DecodedNotEightBit));
+        };
+        TilePixels::padded(data, shape, self.info.tile_size, location)
     }
 
     fn level(&self, zoom: u8) -> Option<&Level> {

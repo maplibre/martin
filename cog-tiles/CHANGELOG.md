@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.0...cog-tiles-v0.1.1) - 2026-10-22
+
+### Other
+
+- update Cargo.toml dependencies
+
 ### Added
 
 - `AsyncCogReader`: read `WebMercatorQuad` tiles from one tile-aligned COG, passing JPEG/WebP tiles
   through and re-encoding lossless 8-bit tiles as PNG.
 - Backends: `MemoryBackend`, `FileBackend` (`fs`), `ObjectStoreBackend` (`object-store`).
+- `get_tile_pixels` on readers and mosaics: decoded 8-bit tiles as `TilePixels`; WebP needs the `webp` feature.
+- `PixelWindow`: the tiles an area touches at one zoom, stitched into one raster with its geotransform.
+- `lnglat_to_mercator` and `MAX_LATITUDE`.
+- `AsyncCogMosaic` (`mosaic`): read many COGs as one, each named after its tile by a `KeyTemplate`
+  (e.g. `{quadkey}.tif`), moved from `martin-core`.

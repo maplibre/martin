@@ -55,8 +55,43 @@ if let Some(tile) = reader.get_tile(TileCoord::new(18, 41936, 101296)?).await? {
 
 The structure follows `pmtiles`: an `AsyncBackend` trait for byte-range sources
 (`MemoryBackend`, `FileBackend`, `ObjectStoreBackend`), an `AsyncCogReader` that parses headers
-once and is shared by all requests. Mosaics of many COGs are left to the caller, e.g. Martin opens
-one reader per file and keeps them in its own cache.
+once and is shared by all requests.
+
+Many files, each covering one tile at a file zoom and named after it (`mosaic` feature):
+
+```rust,no_run
+# #[cfg(feature = "mosaic")]
+# async fn run() -> cog_tiles::CogResult<()> {
+use cog_tiles::{AsyncCogMosaic, MosaicOptions, TileCoord};
+
+let mosaic = AsyncCogMosaic::open_dir("/data/ortho", "{quadkey}.tif", MosaicOptions::new(16)).await?;
+let tile = mosaic.get_tile(TileCoord::new(18, 130_992, 87_176)?).await?;
+# Ok(())
+# }
+```
+
+Decoded pixels instead of encoded tiles, e.g. to stitch an area into one raster:
+
+```rust,no_run
+# async fn run(reader: cog_tiles::AsyncCogReader<cog_tiles::MemoryBackend>) -> cog_tiles::CogResult<()> {
+use cog_tiles::PixelWindow;
+
+let window = PixelWindow::from_lnglat_bounds(18, reader.info().tile_size, [-0.1, 51.49, -0.09, 51.5])?;
+let mut raster = None;
+for coord in window.tiles() {
+    if let Some(pixels) = reader.get_tile_pixels(coord).await? {
+        let size = window.width() as usize * window.height() as usize * pixels.bands();
+        window.paste(raster.get_or_insert_with(|| vec![0; size]), coord, &pixels);
+    }
+}
+// `window.geotransform()` places `raster` in EPSG:3857.
+# Ok(())
+# }
+```
+
+A `KeyTemplate` names each file by its tile at the file zoom with `{quadkey}`, `{z}`, `{x}`, `{y}`
+and `{-y}` (the row counted from the bottom, as in TMS). Files are opened on first use and kept in
+a bounded, expiring cache; tiles without a file are `None`.
 
 ## Features
 
@@ -65,6 +100,8 @@ one reader per file and keeps them in its own cache.
 * `object-store`: `ObjectStoreBackend` over any
   [`object_store`](https://crates.io/crates/object_store). Reads are pinned to the object's
   `ETag`/version, so a replaced object fails instead of mixing two files.
+* `webp`: decode WebP tiles with `get_tile_pixels` (links `libwebp`). Without it, WebP tiles are only passed through.
+* `mosaic`: `AsyncCogMosaic` over a local directory or an object store prefix (enables `fs` and `object-store`).
 
 ## Not supported yet
 

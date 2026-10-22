@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -73,7 +73,7 @@ postgres = [
 unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 cog = [
     "dep:cog-tiles",
-    "cog-tiles/object-store",
+    "cog-tiles/mosaic",
     "dep:futures",
     "dep:object_store",
     "dep:serde_json",

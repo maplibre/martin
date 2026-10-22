@@ -1,0 +1,2 @@
+# What `just toolkit::fuzz <target> -- -jobs=N` workers log.
+fuzz-*.log
