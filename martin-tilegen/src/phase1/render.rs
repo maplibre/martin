@@ -511,7 +511,6 @@ impl Renderer {
         };
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &self.slicers[pos].1;
-        let whole = ctx.layer.clip_mode == ClipMode::Unclipped;
         self.sliced.clear();
         self.sliced_vertices.clear();
         self.reached.clear();
@@ -524,7 +523,7 @@ impl Renderer {
                 if !(min.x..=max.x).contains(&tile.x) || !(min.y..=max.y).contains(&tile.y) {
                     continue;
                 }
-                if whole {
+                if ctx.layer.clip_mode == ClipMode::Unclipped {
                     self.reached.push(tile);
                     continue;
                 }
@@ -538,7 +537,7 @@ impl Renderer {
                 });
             }
         }
-        if whole {
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
             return self.push_reached(ctx, zoom, (&[], parts, vertices), out);
         }
         self.push_sliced(ctx, zoom, PieceKind::Lines, out)
@@ -671,7 +670,6 @@ impl Renderer {
         }
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &mut self.slicers[pos].1;
-        let whole = ctx.layer.clip_mode == ClipMode::Unclipped;
         self.sliced.clear();
         self.sliced_vertices.clear();
         self.runs.clear();
@@ -688,7 +686,7 @@ impl Renderer {
                 .within(min, max);
             while let Some(slice) = pieces.next() {
                 match slice.map_err(GeometryError::from)? {
-                    PolygonSlice::Piece(piece) if whole => self.reached.push(piece.tile()),
+                    PolygonSlice::Piece(piece) if ctx.layer.clip_mode == ClipMode::Unclipped => self.reached.push(piece.tile()),
                     PolygonSlice::Piece(piece) => {
                         for ring in piece.rings() {
                             let start = self.sliced_vertices.len();
@@ -708,7 +706,7 @@ impl Renderer {
                 }
             }
         }
-        if whole {
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
             return self.push_reached(ctx, zoom, (polys, parts, vertices), out);
         }
         self.push_sliced(ctx, zoom, PieceKind::Polygons, out)?;
