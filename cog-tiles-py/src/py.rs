@@ -580,6 +580,7 @@ pub async fn open_async(location: PathBuf, options: Option<BTreeMap<String, Stri
 ///
 /// One file is found by listing the location now; the others are opened on first use and kept
 /// for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
+/// Square files without `GeoTIFF` tags are placed on the tile in their file name.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (

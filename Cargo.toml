@@ -213,6 +213,7 @@ tempfile = "3.21.0"
 test_each_file = "0.3.7"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
 thiserror = "2"
+tiff = { version = "0.11.3", default-features = false, features = ["deflate", "lzw"] }
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.14"

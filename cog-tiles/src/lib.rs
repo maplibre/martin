@@ -2,11 +2,13 @@
 #![forbid(unsafe_code)]
 
 mod backend;
+mod bands;
 #[cfg(feature = "png")]
 mod encode;
 mod error;
 mod geo;
 mod jpeg;
+mod metadata;
 #[cfg(feature = "mosaic")]
 mod mosaic;
 mod pixels;
@@ -22,7 +24,7 @@ pub use crate::backend::FileBackend;
 #[cfg(feature = "object-store")]
 pub use crate::backend::ObjectStoreBackend;
 pub use crate::backend::{AsyncBackend, MemoryBackend};
-pub use crate::error::{CogError, CogResult, SkippedImage, UnsupportedReason};
+pub use crate::error::{Chunking, CogError, CogResult, SkippedImage, UnsupportedReason};
 #[cfg(feature = "mosaic")]
 pub use crate::mosaic::{
     AsyncCogMosaic, DEFAULT_FILE_EXPIRY, DEFAULT_MAX_CACHED_FILES, MosaicFileError, MosaicInfo, MosaicOptions,

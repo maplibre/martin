@@ -23,7 +23,7 @@ Repository = "https://github.com/maplibre/martin"
 Documentation = "https://github.com/maplibre/martin/tree/main/cog-tiles-py"
 
 [dependency-groups]
-dev = ["maturin>=1.15,<2", "numpy>=1.22", "pytest>=8"]
+dev = ["maturin>=1.15,<2", "numpy>=1.22", "pytest>=8", "tifffile>=2025.5.10"]
 
 [tool.maturin]
 module-name = "cog_tiles"

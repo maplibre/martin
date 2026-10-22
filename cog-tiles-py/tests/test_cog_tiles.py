@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import tifffile
 
 import cog_tiles
 
@@ -161,6 +162,23 @@ def test_a_mosaic_read_stitches_across_files():
     raster = mosaic.read((west, south, east, north), zoom=16)
     assert raster.data.shape[:2] == (512, 512)
     np.testing.assert_array_equal(raster.data[256:, 256:], se.read(se.bounds, zoom=16).data)
+
+
+def test_a_mosaic_places_untagged_striped_files_by_their_name(tmp_path):
+    for quadkey in ["0230102033312300", "0230102033312301"]:
+        with tifffile.TiffWriter(tmp_path / f"{quadkey}_rgb.tif") as tif:
+            tif.write(pattern(512, 512, 3), photometric="rgb", rowsperstrip=80, subfiletype=2, metadata=None)
+            tif.write(pattern(256, 256, 3, left=1), photometric="rgb", rowsperstrip=256, subfiletype=2, metadata=None)
+    mosaic = cog_tiles.open_mosaic(str(tmp_path / "{quadkey}_rgb.tif"), file_zoom=16)
+
+    raster = mosaic.read(
+        (-13626581.906454941, 4551366.412212535, -13625358.914002378, 4551977.908438817),
+        zoom=17,
+        crs="EPSG:3857",
+    )
+
+    assert (mosaic.min_zoom, mosaic.max_zoom) == (16, 17)
+    np.testing.assert_array_equal(raster.data, np.concatenate([pattern(512, 512, 3), pattern(512, 512, 3)], axis=1))
 
 
 def test_a_mosaic_needs_a_bbox_to_iterate():

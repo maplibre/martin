@@ -2022,6 +2022,7 @@ dependencies = [
  "rstest",
  "tempfile",
  "thiserror 2.0.21",
+ "tiff",
  "tokio",
  "tracing",
 ]

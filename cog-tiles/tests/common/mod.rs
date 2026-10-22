@@ -3,7 +3,7 @@
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use bytes::Bytes;
 use cog_tiles::{AsyncBackend, CogResult, MemoryBackend};
@@ -42,6 +42,40 @@ pub fn expected_tile(x0: u32, y0: u32, bands: u32, shift: u32) -> Vec<u8> {
     out
 }
 
+/// Uncompressed striped RGB TIFF with one page per `(side, rows_per_strip)`, with `georef` as `[origin_x, origin_y, resolution]` of page 0.
+pub fn striped_tiff(pages: &[(u32, u32)], subfile_type: u32, georef: Option<[f64; 3]>) -> Vec<u8> {
+    use tiff::encoder::{TiffEncoder, colortype};
+    use tiff::tags::Tag;
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut encoder = TiffEncoder::new(&mut out).unwrap();
+    for (page, &(side, rows_per_strip)) in (0..).zip(pages) {
+        let mut pixels = Vec::new();
+        for y in 0..side {
+            for x in 0..side {
+                pixels.extend((0..3).map(|band| pattern(x, y, band, page)));
+            }
+        }
+        let mut image = encoder.new_image::<colortype::RGB8>(side, side).unwrap();
+        image.encoder().write_tag(Tag::NewSubfileType, subfile_type).unwrap();
+        image.encoder().write_tag(Tag::Orientation, 1_u16).unwrap();
+        image.encoder().write_tag(Tag::FillOrder, 1_u16).unwrap();
+        image.encoder().write_tag(Tag::PlanarConfiguration, 1_u16).unwrap();
+        if let (0, Some([x, y, resolution])) = (page, georef) {
+            let keys: [u16; 16] = [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857];
+            let dir = image.encoder();
+            dir.write_tag(Tag::GeoKeyDirectoryTag, &keys[..]).unwrap();
+            dir.write_tag(Tag::ModelPixelScaleTag, &[resolution, resolution, 0.0][..])
+                .unwrap();
+            dir.write_tag(Tag::ModelTiepointTag, &[0.0, 0.0, 0.0, x, y, 0.0][..])
+                .unwrap();
+        }
+        image.rows_per_strip(rows_per_strip).unwrap();
+        image.write_data(&pixels).unwrap();
+    }
+    out.into_inner()
+}
+
 /// Decodes a PNG into `(width, height, channels, pixels)`.
 pub fn decode_png(data: &[u8]) -> (u32, u32, usize, Vec<u8>) {
     let mut reader = png::Decoder::new(std::io::Cursor::new(data.to_vec()))
@@ -67,11 +101,12 @@ pub fn mean_abs_diff(a: &[u8], b: &[u8]) -> f64 {
     sum as f64 / a.len() as f64
 }
 
-/// Wraps a backend and counts the requests made to it.
+/// Wraps a backend and counts the requests made to it and the bytes they read.
 #[derive(Debug)]
 pub struct Counting<B> {
     pub inner: B,
     pub reads: Arc<AtomicUsize>,
+    pub bytes: Arc<AtomicU64>,
 }
 
 impl<B> Counting<B> {
@@ -79,6 +114,7 @@ impl<B> Counting<B> {
         Self {
             inner,
             reads: Arc::new(AtomicUsize::new(0)),
+            bytes: Arc::new(AtomicU64::new(0)),
         }
     }
 }
@@ -94,38 +130,72 @@ impl<B: AsyncBackend> AsyncBackend for Counting<B> {
 
     async fn read(&self, range: Range<u64>) -> CogResult<Bytes> {
         self.reads.fetch_add(1, Ordering::SeqCst);
+        self.bytes.fetch_add(range.end - range.start, Ordering::SeqCst);
         self.inner.read(range).await
     }
 }
 
-/// Rewrites value `index` of `tag` in every IFD of a little-endian classic TIFF that has it,
-/// for tests that need a slightly different file. Handles `SHORT` and `DOUBLE` tags.
+/// Rewrites value `index` of `tag` in every IFD of a little-endian classic TIFF that has it.
 pub fn patch_tag(bytes: &mut [u8], tag: u16, index: usize, change: impl Fn(f64) -> f64) {
+    patch_ifd_tags(bytes, None, tag, index, change);
+}
+
+/// Like [`patch_tag`], but only in IFD `page`.
+pub fn patch_page_tag(bytes: &mut [u8], page: usize, tag: u16, index: usize, change: impl Fn(f64) -> f64) {
+    patch_ifd_tags(bytes, Some(page), tag, index, change);
+}
+
+/// Shared implementation of [`patch_tag`] and [`patch_page_tag`].
+fn patch_ifd_tags(bytes: &mut [u8], page: Option<usize>, tag: u16, index: usize, change: impl Fn(f64) -> f64) {
     let u16_at = |b: &[u8], at: usize| u16::from_le_bytes(b[at..at + 2].try_into().unwrap());
     let u32_at = |b: &[u8], at: usize| u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
     assert_eq!(&bytes[..4], b"II*\0", "not a little-endian classic TIFF");
     let mut ifd = u32_at(bytes, 4) as usize;
-    while ifd != 0 {
+    let mut patched = false;
+    for current in 0.. {
+        if ifd == 0 {
+            break;
+        }
         let count = usize::from(u16_at(bytes, ifd));
         for entry in (0..count).map(|i| ifd + 2 + i * 12) {
-            if u16_at(bytes, entry) != tag {
+            if u16_at(bytes, entry) != tag || page.is_some_and(|page| page != current) {
                 continue;
             }
             let kind = u16_at(bytes, entry + 2);
-            assert!(matches!(kind, 3 | 12), "tag {tag} has unsupported type {kind}");
-            if kind == 3 {
-                let at = entry + 8 + index * 2;
-                let value = change(f64::from(u16_at(bytes, at)));
-                #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                bytes[at..at + 2].copy_from_slice(&(value as u16).to_le_bytes());
+            assert!(matches!(kind, 3 | 4 | 12), "tag {tag} has unsupported type {kind}");
+            let size = match kind {
+                3 => 2,
+                4 => 4,
+                _ => 8,
+            };
+            let values = u32_at(bytes, entry + 4) as usize;
+            let data = if values * size <= 4 {
+                entry + 8
             } else {
-                let at = u32_at(bytes, entry + 8) as usize + index * 8;
-                let value = change(f64::from_le_bytes(bytes[at..at + 8].try_into().unwrap()));
-                bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
+                u32_at(bytes, entry + 8) as usize
+            };
+            let at = data + index * size;
+            match kind {
+                3 => {
+                    let value = change(f64::from(u16_at(bytes, at)));
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    bytes[at..at + 2].copy_from_slice(&(value as u16).to_le_bytes());
+                }
+                4 => {
+                    let value = change(f64::from(u32_at(bytes, at)));
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    bytes[at..at + 4].copy_from_slice(&(value as u32).to_le_bytes());
+                }
+                _ => {
+                    let value = change(f64::from_le_bytes(bytes[at..at + 8].try_into().unwrap()));
+                    bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
+                }
             }
+            patched = true;
         }
         ifd = u32_at(bytes, ifd + 2 + count * 12) as usize;
     }
+    assert!(patched, "no IFD has tag {tag}");
 }
 
 /// A fixture read into memory with `edit` applied to its bytes.

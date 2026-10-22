@@ -208,6 +208,7 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
 
     One file is found by listing the location now; the others are opened on first use and kept
     for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
+    Square files without `GeoTIFF` tags are placed on the tile in their file name.
     """
 
 async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
