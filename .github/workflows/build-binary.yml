@@ -72,9 +72,9 @@ jobs:
         uses: $/.github/actions/setup-rust
         with:
           tools: ${{ inputs.musl && 'just,cargo-zigbuild' || 'just' }}
-          # PGO builds are instrumented, so their artefacts are no use to the next build.
-          cache: ${{ !inputs.pgo }}
-          cache-key: ${{ inputs.target }}${{ inputs.full && '-full' || '' }}${{ inputs.legacy_cpu && '-legacycpu' || '' }}${{ inputs.release_mode && '-release' || '' }}
+          # Only PRs reuse the cache, and they always build in debug mode.
+          cache: ${{ !inputs.release_mode }}
+          cache-key: ${{ inputs.target }}${{ inputs.full && '-full' || '' }}${{ inputs.legacy_cpu && '-legacycpu' || '' }}
       - name: Install zig (musl only)
         if: inputs.musl
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
