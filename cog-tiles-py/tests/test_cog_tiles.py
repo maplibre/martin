@@ -12,53 +12,59 @@ FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "cog"
 SYNTHETIC = FIXTURES / "synthetic"
 MOSAIC = FIXTURES / "mosaic"
 
-# The z16 tile at the top-left of the synthetic fixtures.
-Z16_X = 16374 * 2
-Z16_Y = 10897 * 2
-
 
 def pattern(width: int, height: int, bands: int, left: int = 0, top: int = 0) -> np.ndarray:
-    y, x, b = np.meshgrid(
-        np.arange(top, top + height), np.arange(left, left + width), np.arange(bands), indexing="ij"
-    )
+    y, x, b = np.ogrid[top : top + height, left : left + width, :bands]
     return ((x + 2 * y + 64 * b) % 256).astype(np.uint8)
 
 
 def test_open_reports_the_tile_layout():
     cog = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif")
+    assert isinstance(cog, cog_tiles.TileSource)
     assert (cog.min_zoom, cog.max_zoom, cog.tile_size) == (15, 16, 256)
     assert (cog.format, cog.content_type) == ("jpg", "image/jpeg")
     west, south, east, north = cog.bounds
     assert west == pytest.approx(-0.10986328125)
-    assert west < east and south < north
-    assert isinstance(cog, cog_tiles.TileSource)
+    assert west < east
+    assert south < north
 
 
-def test_tile_returns_the_encoded_tile():
-    jpeg = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif").tile(16, Z16_X, Z16_Y)
-    png = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif").tile(16, Z16_X, Z16_Y)
-    assert jpeg[:2] == b"\xff\xd8"
-    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+def test_a_jpeg_cog_returns_jpeg_tiles():
+    cog = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif")
+    assert cog.tile(16, 32_748, 21_794).startswith(b"\xff\xd8")
 
 
-def test_tile_without_data_is_none():
+def test_a_zstd_cog_returns_png_tiles():
+    cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    assert cog.tile(16, 32_748, 21_794).startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_an_empty_tile_is_none():
     cog = cog_tiles.open(SYNTHETIC / "sparse.tif")
-    assert cog.tile(16, Z16_X + 1, Z16_Y + 1) is None
-    assert cog.tile(16, Z16_X + 5, Z16_Y) is None
+    assert cog.tile(16, 32_749, 21_795) is None
+
+
+def test_a_tile_outside_the_bounds_is_none():
+    cog = cog_tiles.open(SYNTHETIC / "sparse.tif")
+    assert cog.tile(16, 32_753, 21_794) is None
+
+
+def test_a_tile_below_the_min_zoom_is_none():
+    cog = cog_tiles.open(SYNTHETIC / "sparse.tif")
     assert cog.tile(3, 0, 0) is None
 
 
 def test_tile_pixels_are_the_decoded_tile():
     cog = cog_tiles.open(SYNTHETIC / "rgba_deflate.tif")
-    pixels = cog.tile_pixels(16, Z16_X + 1, Z16_Y)
+    pixels = cog.tile_pixels(16, 32_749, 21_794)
     assert pixels.dtype == np.uint8
     np.testing.assert_array_equal(pixels, pattern(256, 256, 4, left=256))
 
 
 def test_webp_tiles_decode_too():
     cog = cog_tiles.open(SYNTHETIC / "rgb_webp.tif")
-    pixels = cog.tile_pixels(16, Z16_X, Z16_Y).astype(np.int16)
-    assert np.abs(pixels - pattern(256, 256, 3)).mean() < 4
+    pixels = cog.tile_pixels(16, 32_748, 21_794)
+    assert np.abs(pixels.astype(np.int16) - pattern(256, 256, 3)).mean() < 4
 
 
 def test_read_stitches_the_whole_image():
@@ -66,9 +72,9 @@ def test_read_stitches_the_whole_image():
     raster = cog.read(cog.bounds, zoom=16)
     np.testing.assert_array_equal(raster.data, pattern(512, 512, 3))
     assert raster.bounds == pytest.approx(cog.mercator_bounds)
-    min_x, res, _, max_y, _, neg_res = raster.transform
+    min_x, x_res, _, max_y, _, y_res = raster.transform
     assert (min_x, max_y) == pytest.approx((cog.mercator_bounds[0], cog.mercator_bounds[3]))
-    assert res == pytest.approx(-neg_res)
+    assert x_res == pytest.approx(-y_res)
     assert (raster.zoom, raster.crs) == (16, "EPSG:3857")
 
 
@@ -107,25 +113,24 @@ def test_a_raster_converts_to_an_array():
 def test_tiles_yields_every_tile_with_data():
     cog = cog_tiles.open(SYNTHETIC / "sparse.tif")
     tiles = {(z, x, y): data for z, x, y, data in cog.tiles(zoom=16)}
-    assert set(tiles) == {(16, Z16_X, Z16_Y), (16, Z16_X + 1, Z16_Y), (16, Z16_X, Z16_Y + 1)}
-    assert tiles[(16, Z16_X, Z16_Y)] == cog.tile(16, Z16_X, Z16_Y)
+    assert tiles.keys() == {(16, 32_748, 21_794), (16, 32_749, 21_794), (16, 32_748, 21_795)}
+    assert tiles[16, 32_748, 21_794] == cog.tile(16, 32_748, 21_794)
 
 
 def test_tiles_defaults_to_every_zoom_of_the_source():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
-    coords = sorted((z, x, y) for z, x, y, _ in cog.tiles())
-    assert coords == [
-        (15, Z16_X // 2, Z16_Y // 2),
-        (16, Z16_X, Z16_Y),
-        (16, Z16_X, Z16_Y + 1),
-        (16, Z16_X + 1, Z16_Y),
-        (16, Z16_X + 1, Z16_Y + 1),
+    assert sorted((z, x, y) for z, x, y, _ in cog.tiles()) == [
+        (15, 16_374, 10_897),
+        (16, 32_748, 21_794),
+        (16, 32_748, 21_795),
+        (16, 32_749, 21_794),
+        (16, 32_749, 21_795),
     ]
 
 
 def test_tiles_outside_the_source_are_skipped():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
-    assert list(cog.tiles(bbox=(10.0, 10.0, 11.0, 11.0), zoom=range(0, 31))) == []
+    assert not list(cog.tiles(bbox=(10.0, 10.0, 11.0, 11.0), zoom=range(31)))
 
 
 def test_a_tile_iterator_can_be_dropped_early():
@@ -138,7 +143,8 @@ def test_a_tile_iterator_can_be_dropped_early():
 def test_a_mosaic_reads_each_tile_from_its_file():
     mosaic = cog_tiles.open_mosaic(str(MOSAIC / "{quadkey}.tif"), file_zoom=16)
     assert (mosaic.min_zoom, mosaic.max_zoom, mosaic.file_zoom) == (16, 17, 16)
-    assert (mosaic.template, mosaic.bounds) == ("{quadkey}.tif", None)
+    assert mosaic.template == "{quadkey}.tif"
+    assert mosaic.bounds is None
     single = cog_tiles.open(MOSAIC / "0313131311301121.tif")
     assert mosaic.tile(17, 65_499, 43_588) == single.tile(17, 65_499, 43_588)
     assert mosaic.tile(16, 32_750, 21_794) is None
@@ -165,7 +171,7 @@ def test_cogs_survive_pickling():
     cog = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif")
     restored = pickle.loads(pickle.dumps(cog))
     assert repr(restored) == repr(cog)
-    assert restored.tile(16, Z16_X, Z16_Y) == cog.tile(16, Z16_X, Z16_Y)
+    assert restored.tile(16, 32_748, 21_794) == cog.tile(16, 32_748, 21_794)
 
 
 def test_mosaics_survive_pickling():
@@ -177,20 +183,20 @@ def test_mosaics_survive_pickling():
 
 def test_threads_read_concurrently():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
-    with ThreadPoolExecutor(8) as pool:
-        rasters = list(pool.map(lambda _: cog.read(cog.bounds, zoom=16).data, range(32)))
-    for raster in rasters:
-        np.testing.assert_array_equal(raster, rasters[0])
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        first, *rest = pool.map(lambda _: cog.read(cog.bounds, zoom=16).data, range(32))
+    for data in rest:
+        np.testing.assert_array_equal(data, first)
 
 
 def _read_in_child(cog, queue):
-    queue.put(cog.tile(16, Z16_X, Z16_Y))
+    queue.put(cog.tile(16, 32_748, 21_794))
 
 
 @pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
 def test_a_forked_child_reads_with_its_own_runtime():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
-    expected = cog.tile(16, Z16_X, Z16_Y)
+    expected = cog.tile(16, 32_748, 21_794)
     context = multiprocessing.get_context("fork")
     queue = context.Queue()
     child = context.Process(target=_read_in_child, args=(cog, queue))
@@ -210,19 +216,28 @@ def test_an_unsupported_file_says_why():
         cog_tiles.open(SYNTHETIC / "utm.tif")
 
 
-@pytest.mark.parametrize(
-    "call",
-    [
-        lambda cog: cog.tile(16, 1 << 16, 0),
-        lambda cog: cog.read((1.0, 0.0, 0.0, 1.0)),
-        lambda cog: cog.read(cog.bounds, crs="EPSG:4269"),
-        lambda cog: cog.tiles(concurrency=0),
-    ],
-)
-def test_invalid_arguments_raise_value_error(call):
+def test_a_tile_past_the_zoom_raises_value_error():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
     with pytest.raises(ValueError):
-        call(cog)
+        cog.tile(16, 65_536, 0)
+
+
+def test_an_inverted_bbox_raises_value_error():
+    cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    with pytest.raises(ValueError):
+        cog.read((1.0, 0.0, 0.0, 1.0))
+
+
+def test_an_unknown_crs_raises_value_error():
+    cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    with pytest.raises(ValueError):
+        cog.read(cog.bounds, crs="EPSG:4269")
+
+
+def test_zero_concurrency_raises_value_error():
+    cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
+    with pytest.raises(ValueError):
+        cog.tiles(concurrency=0)
 
 
 def test_an_invalid_template_raises_value_error():
