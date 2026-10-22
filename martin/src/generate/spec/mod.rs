@@ -8,7 +8,11 @@ pub mod render;
 pub mod report;
 pub mod review;
 pub mod rows;
+#[cfg(feature = "tui")]
+pub mod tui;
 
+#[cfg(feature = "tui")]
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -37,7 +41,7 @@ pub struct TestArgs {
 /// What `martin test` does.
 #[derive(clap::Subcommand, Debug, PartialEq)]
 pub enum TestAction {
-    /// Find a row on every path through the layers, render each, and write how they differ from the spec
+    /// Find a row on every path through the layers, render each, and review how they differ from the spec
     Generate(GenerateArgs),
     /// Render every case of a spec and compare
     Run(RunArgs),
@@ -55,7 +59,7 @@ pub struct GenerateArgs {
     /// Highest zoom of every case, the spec's if it exists, else 14
     #[arg(long)]
     pub max_zoom: Option<u8>,
-    /// Write every case as generated
+    /// Write every case as generated, without a review
     #[arg(long)]
     pub accept: bool,
     /// Rows to read per table at most when looking for rows on the paths the database cannot select
@@ -173,25 +177,43 @@ async fn generate_spec(args: GenerateArgs) -> GenerateResult<bool> {
     let mut review = review(&backend, max_zoom, old.as_ref(), args.sweep_rows, &report).await?;
     report.summary(started.elapsed(), review.summary());
     let pending = review.pending().count();
-    if pending > 0 && !args.accept && old.is_some() {
-        for r in review.pending() {
-            let look = r.status.look();
-            report.block(
-                look.tone,
-                look.label,
-                &review.name(&r.case).to_string(),
-                report.diff(("spec", "now"), &r.diff()),
-            );
+    #[cfg(feature = "tui")]
+    let reviewed = if pending > 0 && !args.accept && std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
+        let write = tui::show(&mut review, &output.display().to_string()).map_err(GenerateError::Review)?;
+        report.note(review.decided());
+        Some(write)
+    } else {
+        None
+    };
+    #[cfg(not(feature = "tui"))]
+    let reviewed = None;
+    let write = match reviewed {
+        Some(write) => write,
+        None if pending == 0 || args.accept || old.is_none() => {
+            review.accept_all();
+            true
         }
-        report.error(format_args!(
-            "{pending} cases differ from {}, pass --accept to write them",
-            output.display()
-        ));
-        return Ok(false);
-    }
-    review.accept_all();
+        None => {
+            for r in review.pending() {
+                let look = r.status.look();
+                report.block(
+                    look.tone,
+                    look.label,
+                    &review.name(&r.case).to_string(),
+                    report.diff(("spec", "now"), &r.diff()),
+                );
+            }
+            report.error(format_args!(
+                "{pending} cases differ from {}, review them in a terminal, or pass --accept",
+                output.display()
+            ));
+            return Ok(false);
+        }
+    };
     let spec = review.spec();
-    if old.as_ref() == Some(&spec) {
+    if !write {
+        report.note(format_args!("Left {} as it was", output.display()));
+    } else if old.as_ref() == Some(&spec) {
         report.note(format_args!("{} is up to date", output.display()));
     } else {
         write_spec(output, &spec)?;

@@ -4,7 +4,7 @@ use std::fmt::{self, Display};
 
 use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml};
 use crate::generate::spec::report::{Change, Look, Status, Tone, tally};
-use crate::generate::spec::rows::Found;
+use crate::generate::spec::rows::{Found, RowSearch};
 
 /// How a generated case relates to the spec.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -143,6 +143,11 @@ impl Review {
         self.cases.iter().filter(|r| r.status != CaseStatus::Same)
     }
 
+    /// The cases to decide on, to change their decisions.
+    pub fn pending_mut(&mut self) -> impl Iterator<Item = &mut Reviewed> {
+        self.cases.iter_mut().filter(|r| r.status != CaseStatus::Same)
+    }
+
     /// The cases of the spec no path takes any more.
     pub fn gone(&self) -> impl Iterator<Item = &Reviewed> {
         self.cases.iter().filter(|r| r.status == CaseStatus::Gone)
@@ -173,6 +178,36 @@ impl Review {
             max_zoom: self.max_zoom,
             cases,
         }
+    }
+
+    /// The cases to decide on with the decision `decision`.
+    pub fn decided_as(&self, decision: Decision) -> impl Iterator<Item = &Reviewed> {
+        self.pending().filter(move |r| r.decision == decision)
+    }
+
+    /// How many cases are unchanged.
+    #[must_use]
+    pub fn unchanged(&self) -> usize {
+        self.cases.iter().filter(|r| r.status == CaseStatus::Same).count()
+    }
+
+    /// The paths no row was found for.
+    pub fn paths_without_row(&self) -> impl Iterator<Item = &Found> {
+        self.found.iter().filter(|f| !matches!(f.row, RowSearch::Found(..)))
+    }
+
+    /// The decisions, counted.
+    #[must_use]
+    pub fn decided(&self) -> impl Display + '_ {
+        fmt::from_fn(|f| {
+            write!(
+                f,
+                "{} accepted, {} rejected, {} undecided",
+                self.decided_as(Decision::Accepted).count(),
+                self.decided_as(Decision::Rejected).count(),
+                self.decided_as(Decision::Undecided).count()
+            )
+        })
     }
 
     /// The paths and cases, counted by status.
