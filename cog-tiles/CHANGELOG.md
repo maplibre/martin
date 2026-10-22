@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.2...cog-tiles-v0.2.0) - 2026-10-22
+
+### Added
+
+- *(cog)* read striped, paged and untagged mosaic TIFFs ([#3728](https://github.com/maplibre/martin/pull/3728))
+
 ## [0.1.2](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.1...cog-tiles-v0.1.2) - 2026-10-22
 
 ### Added
