@@ -114,7 +114,7 @@ impl Screen<'_> {
             KeyCode::Left | KeyCode::Char('h' | 'p') => self.go(self.at.saturating_sub(1)),
             KeyCode::Down | KeyCode::Char('j') => self.scroll = self.scroll.saturating_add(1),
             KeyCode::Up | KeyCode::Char('k') => self.scroll = self.scroll.saturating_sub(1),
-            KeyCode::Char('w') if self.at == last => return Flow::Write,
+            KeyCode::Char('w') if self.at == last && self.review.kept_at_other_zoom().is_none() => return Flow::Write,
             KeyCode::Char('q') | KeyCode::Esc => return Flow::Quit,
             _ => {}
         }
@@ -226,6 +226,16 @@ impl Screen<'_> {
             bold(format!("{:>3}", self.review.unchanged())),
         ]));
         lines.push(Line::raw(""));
+        if let Some(zoom) = self.review.kept_at_other_zoom() {
+            lines.push(Line::from(vec![
+                bold(format!(
+                    " The spec has max zoom {zoom}, these cases {}",
+                    self.review.max_zoom
+                )),
+                dim(", so accept every changed and gone case to write"),
+            ]));
+            lines.push(Line::raw(""));
+        }
         let without_row: Vec<_> = self.review.paths_without_row().collect();
         if without_row.is_empty() {
             lines.push(Line::raw(" Every path through the layers takes a row."));
@@ -266,12 +276,13 @@ impl Screen<'_> {
                 .scroll((self.scroll, 0)),
             body,
         );
+        let write = match self.review.kept_at_other_zoom() {
+            None => format!(" w write {}  ", self.spec_name),
+            Some(_) => String::new(),
+        };
         frame.render_widget(
-            Paragraph::new(format!(
-                " w write {}   ← back   ↑/↓ scroll   q quit without writing",
-                self.spec_name
-            ))
-            .style(Style::new().fg(Color::DarkGray)),
+            Paragraph::new(format!("{write} ← back   ↑/↓ scroll   q quit without writing"))
+                .style(Style::new().fg(Color::DarkGray)),
             keys,
         );
     }
@@ -785,5 +796,91 @@ mod tests {
         let events = "w".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
         let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
         insta::assert_snapshot!(write, @"false");
+    }
+
+    #[test]
+    fn a_case_kept_at_another_max_zoom_than_the_cases_blocks_the_write() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1 }
+            output:
+              - { layer: roads, id: 1, geometry: line, zooms: 4-12 }
+        "})
+        .expect("parses");
+        let cases = vec![Reviewed::new(case, Some(&old), &ids)];
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 12, ids);
+        let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
+        let events = "rw".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
+        let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
+        insta::assert_snapshot!(format!("write: {write}\n\n{}", terminal.backend()), @r#"
+        write: false
+
+        " Reviewed  spec.yaml                                                                                "
+        "                                                                                                    "
+        " accepted     0                                                                                     "
+        " rejected     1  roads 1  kept as in the spec                                                       "
+        " undecided    0                                                                                     "
+        " same         0                                                                                     "
+        "                                                                                                    "
+        " The spec has max zoom 14, these cases 12, so accept every changed and gone case to write           "
+        "                                                                                                    "
+        " Every path through the layers takes a row.                                                         "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        " ← back   ↑/↓ scroll   q quit without writing                                                       "
+        "#);
+    }
+
+    #[test]
+    fn accepting_every_case_at_another_max_zoom_writes_the_new_max_zoom() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1 }
+            output:
+              - { layer: roads, id: 1, geometry: line, zooms: 4-12 }
+        "})
+        .expect("parses");
+        let cases = vec![Reviewed::new(case, Some(&old), &ids)];
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 12, ids);
+        let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
+        let events = "aw".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
+        let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
+        insta::assert_snapshot!(format!("write: {write}\n\n{}", yaml(&review.spec())), @"
+        write: true
+
+        max_zoom: 12
+        cases:
+        - source: roads
+          input:
+            osm_id: 1
+          output:
+          - layer: roads
+            id: 1
+            geometry: line
+            zooms: 4-12
+        ");
     }
 }

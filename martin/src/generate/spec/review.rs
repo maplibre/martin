@@ -106,7 +106,9 @@ impl Reviewed {
 pub struct Review {
     pub found: Vec<Found>,
     pub cases: Vec<Reviewed>,
-    max_zoom: u8,
+    pub max_zoom: u8,
+    /// The highest zoom of the spec's cases.
+    spec_max_zoom: Option<u8>,
     ids: IdColumns,
 }
 
@@ -128,6 +130,7 @@ impl Review {
             found,
             cases,
             max_zoom,
+            spec_max_zoom: spec.map(|spec| spec.max_zoom),
             ids,
         }
     }
@@ -160,6 +163,18 @@ impl Review {
                 r.decision = Decision::Accepted;
             }
         }
+    }
+
+    /// The spec's max zoom, when it differs from the generated cases' and a case is kept as in the spec, which the
+    /// spec cannot hold together.
+    #[must_use]
+    pub fn kept_at_other_zoom(&self) -> Option<u8> {
+        self.spec_max_zoom.filter(|&zoom| {
+            zoom != self.max_zoom
+                && self
+                    .pending()
+                    .any(|r| r.decision != Decision::Accepted && r.old.is_some())
+        })
     }
 
     /// The spec to write, with unchanged and accepted cases as generated and the others as the spec has them.
