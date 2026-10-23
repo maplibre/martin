@@ -395,7 +395,7 @@ async fn handle_static_request(
 
     #[cfg(target_os = "linux")]
     let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
-        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors(), styles.webp_quality()).await,
+        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors(), styles.image_quality()).await,
         Err(resp) => *resp,
     };
     #[cfg(not(target_os = "linux"))]

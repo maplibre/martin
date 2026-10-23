@@ -7,7 +7,7 @@ use std::{env, mem};
 use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
 #[cfg(feature = "rendering")]
-use martin_core::styles::TileSize;
+use martin_core::styles::{ImageQuality, TileSize};
 use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -75,10 +75,11 @@ pub struct RendererConfig {
     /// `false` keeps full-colour RGBA.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub png_palette: OptBoolObj<PngPaletteConfig>,
-    /// Encode rendered WebP images lossy at quality 80, which is the default.
-    /// `quality: lossless` keeps every pixel.
+    /// Quality of rendered WebP and JPEG images: 1 to 100, or `lossless`. \[default: 80\]
+    /// `lossless` keeps every pixel of a WebP, and encodes a JPEG at 100.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub webp: Option<WebpConfig>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
+    pub quality: Option<ImageQuality>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -155,97 +156,9 @@ impl From<PngPaletteSize> for u16 {
 impl CollectUnrecognizedKeys for PngPaletteSize {
     fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
 }
-#[cfg(feature = "rendering")]
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
-)]
-#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-pub struct WebpConfig {
-    /// Lossy quality, 1 to 100, or `lossless`. Defaults to 80.
-    #[serde(default)]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
-    pub quality: WebpQuality,
-
-    #[serde(flatten, skip_serializing)]
-    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub unrecognized: UnrecognizedValues,
-}
-
-/// Quality of rendered WebP images: lossy at 1 to 100, or `lossless`.
-#[cfg(feature = "rendering")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-#[serde(rename_all = "lowercase")]
-pub enum WebpQuality {
-    /// Keep every pixel.
-    Lossless,
-    /// Lossy at this quality, 1 to 100.
-    #[serde(untagged)]
-    Lossy(#[cfg_attr(feature = "unstable-schemas", schemars(range(min = 1, max = 100)))] u8),
-}
 
 #[cfg(feature = "rendering")]
-impl WebpQuality {
-    /// The lossy quality, or `None` for lossless.
-    #[must_use]
-    pub const fn lossy(self) -> Option<u8> {
-        match self {
-            Self::Lossless => None,
-            Self::Lossy(quality) => Some(quality),
-        }
-    }
-}
-
-#[cfg(feature = "rendering")]
-impl Default for WebpQuality {
-    fn default() -> Self {
-        Self::Lossy(80)
-    }
-}
-
-#[cfg(feature = "rendering")]
-impl<'de> Deserialize<'de> for WebpQuality {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Visitor;
-
-        impl serde::de::Visitor<'_> for Visitor {
-            type Value = WebpQuality;
-
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                f.write_str("a quality from 1 to 100, or \"lossless\"")
-            }
-
-            fn visit_u64<E: serde::de::Error>(self, quality: u64) -> Result<WebpQuality, E> {
-                u8::try_from(quality)
-                    .ok()
-                    .filter(|q| (1..=100).contains(q))
-                    .map(WebpQuality::Lossy)
-                    .ok_or_else(|| invalid(quality))
-            }
-
-            fn visit_i64<E: serde::de::Error>(self, quality: i64) -> Result<WebpQuality, E> {
-                u64::try_from(quality).map_or_else(|_| Err(invalid(quality)), |quality| self.visit_u64(quality))
-            }
-
-            fn visit_str<E: serde::de::Error>(self, quality: &str) -> Result<WebpQuality, E> {
-                if quality == "lossless" {
-                    Ok(WebpQuality::Lossless)
-                } else {
-                    Err(invalid(format_args!("\"{quality}\"")))
-                }
-            }
-        }
-
-        fn invalid<E: serde::de::Error>(quality: impl std::fmt::Display) -> E {
-            E::custom(format!("quality must be 1 to 100 or \"lossless\", not {quality}"))
-        }
-
-        deserializer.deserialize_any(Visitor)
-    }
-}
-
-#[cfg(feature = "rendering")]
-impl CollectUnrecognizedKeys for WebpQuality {
+impl CollectUnrecognizedKeys for ImageQuality {
     fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
 }
 
@@ -267,10 +180,10 @@ impl RendererConfig {
         }
     }
 
-    /// Quality of rendered lossy WebP images, or `None` to encode them lossless.
+    /// Quality of rendered WebP and JPEG images.
     #[must_use]
-    pub fn webp_quality(&self) -> Option<u8> {
-        self.webp.as_ref().map(|webp| webp.quality).unwrap_or_default().lossy()
+    pub fn image_quality(&self) -> ImageQuality {
+        self.quality.unwrap_or_default()
     }
 }
 
@@ -289,7 +202,6 @@ impl StyleConfig {
                     .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER, None)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_png_max_colors(RendererConfig::default().png_max_colors());
-                results.set_webp_quality(RendererConfig::default().webp_quality());
             }
             OptBoolObj::Object(ref o) => {
                 results
@@ -302,7 +214,7 @@ impl StyleConfig {
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_max_pixel_ratio(o.max_pixel_ratio);
                 results.set_png_max_colors(o.png_max_colors());
-                results.set_webp_quality(o.webp_quality());
+                results.set_image_quality(o.image_quality());
             }
         }
         #[cfg(all(feature = "rendering", not(target_os = "linux")))]
@@ -479,69 +391,72 @@ mod tests {
     }
 
     #[cfg(feature = "rendering")]
+    fn lossy(quality: u8) -> ImageQuality {
+        ImageQuality::Lossy(martin_core::styles::LossyQuality::new(quality).expect("a quality from 1 to 100"))
+    }
+
+    #[cfg(feature = "rendering")]
     #[rstest::rstest]
-    #[case::unset("rendering:\n  enabled: true\n", Some(80))]
-    #[case::defaults("rendering:\n  enabled: true\n  webp: {}\n", Some(80))]
-    #[case::lowest("rendering:\n  enabled: true\n  webp:\n    quality: 1\n", Some(1))]
-    #[case::highest("rendering:\n  enabled: true\n  webp:\n    quality: 100\n", Some(100))]
-    #[case::lossless("rendering:\n  enabled: true\n  webp:\n    quality: lossless\n", None)]
-    fn renderer_config_picks_the_webp_quality(#[case] yaml: &str, #[case] quality: Option<u8>) {
-        let cfg: InnerStyleConfig = serde_saphyr::from_str(yaml).expect("rendering must parse");
+    #[case::unset("", lossy(80))]
+    #[case::lowest("quality: 1", lossy(1))]
+    #[case::highest("quality: 100", lossy(100))]
+    #[case::lossless("quality: lossless", ImageQuality::Lossless)]
+    fn renderer_config_picks_the_image_quality(#[case] option: &str, #[case] quality: ImageQuality) {
+        let yaml = format!("rendering:\n  enabled: true\n  {option}\n");
+        let cfg: InnerStyleConfig = serde_saphyr::from_str(&yaml).expect("rendering must parse");
         let OptBoolObj::Object(renderer) = cfg.rendering else {
             panic!("expected Object variant, got {:?}", cfg.rendering);
         };
-        assert_eq!(renderer.webp_quality(), quality);
+        assert_eq!(renderer.image_quality(), quality);
     }
 
     #[cfg(feature = "rendering")]
     #[rstest::rstest]
     #[case::zero("0", "not 0")]
     #[case::above_100("101", "not 101")]
-    #[case::negative("-1", "not -1")]
     #[case::above_u8("300", "not 300")]
-    #[case::above_i64("18446744073709551615", "not 18446744073709551615")]
-    #[case::unknown_word("best", "not \"best\"")]
-    #[case::fraction("80.5", "a quality from 1 to 100, or \"lossless\"")]
-    fn renderer_config_rejects_webp_quality(#[case] quality: &str, #[case] message: &str) {
-        let yaml = format!("rendering:\n  enabled: true\n  webp:\n    quality: {quality}\n");
+    #[case::u64_max("18446744073709551615", "not 18446744073709551615")]
+    #[case::unknown_word("best", r#"not "best""#)]
+    #[case::negative(
+        "-1",
+        r#"invalid type: integer `-1`, expected a quality from 1 to 100, or "lossless""#
+    )]
+    #[case::fraction("80.5", r#"expected a quality from 1 to 100, or "lossless""#)]
+    fn renderer_config_rejects_image_quality(#[case] quality: &str, #[case] message: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  quality: {quality}\n");
         let err = serde_saphyr::from_str::<InnerStyleConfig>(&yaml).expect_err("an invalid quality must be rejected");
         assert!(err.to_string().contains(message), "unexpected error message: {err}");
     }
 
     #[cfg(feature = "rendering")]
     #[test]
-    fn renderer_config_names_the_allowed_webp_qualities() {
+    fn renderer_config_names_the_allowed_image_qualities() {
         let yaml = indoc! {"
             rendering:
               enabled: true
-              webp:
-                quality: 0
+              quality: 0
         "};
         let err = serde_saphyr::from_str::<InnerStyleConfig>(yaml).expect_err("0 is not a quality");
         insta::assert_snapshot!(err, @r#"
-        error: line 4 column 14: quality must be 1 to 100 or "lossless", not 0
-         --> <input>:4:14
+        error: line 3 column 12: quality must be 1 to 100 or "lossless", not 0
+         --> <input>:3:12
           |
+        1 | rendering:
         2 |   enabled: true
-        3 |   webp:
-        4 |     quality: 0
-          |              ^ quality must be 1 to 100 or "lossless", not 0
+        3 |   quality: 0
+          |            ^ quality must be 1 to 100 or "lossless", not 0
         "#);
     }
 
     #[cfg(feature = "rendering")]
     #[rstest::rstest]
-    #[case::lossy(WebpQuality::Lossy(80), "80")]
-    #[case::lossless(WebpQuality::Lossless, "lossless")]
-    fn webp_quality_round_trips(#[case] quality: WebpQuality, #[case] yaml: &str) {
-        let config = WebpConfig {
-            quality,
-            ..WebpConfig::default()
-        };
-        let written = serde_saphyr::to_string(&config).expect("serializes");
-        assert_eq!(written.trim(), format!("quality: {yaml}"));
-        let read: WebpConfig = serde_saphyr::from_str(&written).expect("parses back");
-        assert_eq!(read, config);
+    #[case::lossy(lossy(80), "80")]
+    #[case::lossless(ImageQuality::Lossless, "lossless")]
+    fn image_quality_round_trips(#[case] quality: ImageQuality, #[case] yaml: &str) {
+        let written = serde_saphyr::to_string(&quality).expect("serializes");
+        assert_eq!(written.trim(), yaml);
+        let read: ImageQuality = serde_saphyr::from_str(&written).expect("parses back");
+        assert_eq!(read, quality);
     }
 
     #[cfg(feature = "rendering")]

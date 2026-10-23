@@ -56,16 +56,15 @@ styles:
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
-        # Lossy WebP quality 1 to 100, or `lossless` [default: 80]
-        webp:
-            quality: 80
+        # Quality of WebP and JPEG images, 1 to 100, or `lossless` [default: 80]
+        quality: 80
 ```
 
 ## Indexed (palette) PNG
 
 Rendered PNG tiles and static images are indexed (palette) PNGs.
 For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference.
-JPEG and WebP are not affected, WebP has its own [quality](#webp-quality) setting.
+JPEG and WebP are not affected, they follow the [quality](#quality) setting.
 
 Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128).
 Encoding a tile this way takes a few milliseconds of CPU.
@@ -87,24 +86,27 @@ styles:
         png_palette: false
 ```
 
-## WebP quality
+## Quality
 
-Rendered WebP tiles and static images are lossy at quality 80, encoded with [libwebp](https://developers.google.com/speed/webp).
-For map tiles they are about a sixth of the size of lossless WebP, with no visible difference.
-The alpha channel stays lossless.
+Rendered WebP and JPEG tiles and static images are lossy at quality 80.
+`quality` is 1 to 100, or `lossless`. Any other value fails at startup.
+PNG is not affected, see [indexed PNG](#indexed-palette-png).
+
+- **WebP** is encoded lossy with [libwebp](https://developers.google.com/speed/webp).
+  At quality 80, map tiles are about a sixth of the size of lossless WebP, with no visible difference.
+  The alpha channel stays lossless.
+  `lossless` keeps every pixel.
+- **JPEG** has no lossless mode, so `lossless` encodes it at quality 100.
 
 !!! note
-    Up to 2.0.0-beta.4, rendered WebP was lossless.
-    Set `quality: lossless` to keep that output.
-
-`quality` is 1 to 100, or `lossless`. Any other value fails at startup.
+    Up to 2.0.0-beta.4, rendered WebP was lossless and JPEG was encoded at quality 75.
+    Set `quality: lossless` to keep lossless WebP.
 
 ```yaml
 styles:
     rendering:
         enabled: true
-        webp:
-            quality: 90
+        quality: 90
 ```
 
 Lossless WebP keeps every pixel, for example for imagery or styles with smooth gradients:
@@ -113,8 +115,7 @@ Lossless WebP keeps every pixel, for example for imagery or styles with smooth g
 styles:
     rendering:
         enabled: true
-        webp:
-            quality: lossless
+        quality: lossless
 ```
 
 ## Rendered XYZ tiles
