@@ -288,8 +288,6 @@ pub struct Renderer {
     /// Unclipped, the tiles any line or polygon of the feature reaches at one zoom.
     reached: Vec<map_tile_toolkit::TileId>,
     points: Vec<(i32, i32, Vertex)>,
-    /// Each distinct quantized point with its first position, to drop points that round onto another.
-    unique: Vec<(Vertex, usize)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
     ranges: Vec<Range<u64>>,
@@ -441,7 +439,9 @@ impl Renderer {
             let [x, y] = quantize(*c, shift, world)?;
             self.vertices.push(Coord { x, y });
         }
-        dedup_vertices(&mut self.vertices, &mut self.unique);
+        if self.vertices.len() > 1 {
+            dedup_vertices(&mut self.vertices);
+        }
         self.points.clear();
         for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
@@ -955,13 +955,9 @@ fn push_quantized(
     Ok(vertices.len() - start)
 }
 
-/// Keeps the first of each repeated vertex, in order.
-fn dedup_vertices(vertices: &mut Vec<Coord<i32>>, unique: &mut Vec<(Vertex, usize)>) {
-    if vertices.len() < 2 {
-        return;
-    }
-    unique.clear();
-    unique.extend(vertices.iter().enumerate().map(|(i, c)| ([c.x, c.y], i)));
+/// Keeps the first of each repeated vertex, in order; only multipoints pay for the buffer.
+fn dedup_vertices(vertices: &mut Vec<Coord<i32>>) {
+    let mut unique: Vec<(Vertex, usize)> = vertices.iter().enumerate().map(|(i, c)| ([c.x, c.y], i)).collect();
     unique.sort_unstable();
     unique.dedup_by_key(|(vertex, _)| *vertex);
     if unique.len() == vertices.len() {
