@@ -682,7 +682,7 @@ fn row_properties<'a>(info: &TableInfo, properties: impl IntoIterator<Item = &'a
 
 /// The geometry column as `geometry`; `ST_AsMVTGeom` cannot encode arcs, so a column that may hold them
 /// is linearized.
-pub(super) fn linear_geometry(info: &TableInfo) -> String {
+pub fn linear_geometry(info: &TableInfo) -> String {
     let column = escape_identifier(&info.geometry_column);
     if may_contain_arcs(info.geometry_type.as_deref()) {
         format!("ST_CurveToLine({column}::geometry)")
