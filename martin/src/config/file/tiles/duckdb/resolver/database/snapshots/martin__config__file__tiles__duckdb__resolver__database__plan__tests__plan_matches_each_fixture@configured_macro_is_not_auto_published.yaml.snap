@@ -1,0 +1,14 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/configured_macro_is_not_auto_published.yaml
+---
+reads:
+  tables: true
+  macros: true
+tables: []
+macros:
+  - id: other
+    schema: main
+    macro: other
+decisions: []

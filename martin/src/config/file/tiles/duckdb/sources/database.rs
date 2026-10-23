@@ -7,7 +7,6 @@ use tilejson::Bounds;
 #[cfg(feature = "_tiles")]
 use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::duckdb::sources::auto_publish::{MacroDiscovery, TableDiscovery};
 use crate::config::file::tiles::duckdb::sources::{DuckDbCfgPublish, DuckDbSourceSettings, MvtLayerOptions};
 use crate::config::file::{CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues};
 use crate::config::primitives::OptBoolObj;
@@ -75,16 +74,6 @@ impl DuckDbDatabaseEntry {
             self.auto_publish = OptBoolObj::Bool(true);
         }
         Ok(())
-    }
-
-    /// Table discovery settings, or `None` when tables are not auto-published.
-    pub(crate) fn table_discovery(&self) -> Option<TableDiscovery> {
-        DuckDbCfgPublish::table_discovery(&self.auto_publish)
-    }
-
-    /// Macro discovery settings, or `None` when macros are not auto-published.
-    pub(crate) fn macro_discovery(&self) -> Option<MacroDiscovery> {
-        DuckDbCfgPublish::macro_discovery(&self.auto_publish)
     }
 
     /// Source id stem, from the database file name.

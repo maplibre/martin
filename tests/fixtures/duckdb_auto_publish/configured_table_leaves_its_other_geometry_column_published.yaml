@@ -1,0 +1,11 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    tables:
+      source_id_format: "{table}.{column}"
+  tables:
+    my_outline: { table: parcels, geometry_column: outline }
+catalog:
+  columns:
+    - { schema: main, table: parcels, column: outline, data_type: GEOMETRY }
+    - { schema: main, table: parcels, column: centroid, data_type: GEOMETRY }

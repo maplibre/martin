@@ -1,0 +1,10 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    from_schemas: PLACES
+catalog:
+  columns:
+    - { schema: places, table: points, column: geom, data_type: GEOMETRY }
+    - { schema: main, table: roads, column: geom, data_type: GEOMETRY }
+  macros:
+    - { schema: places, macro: tiles }

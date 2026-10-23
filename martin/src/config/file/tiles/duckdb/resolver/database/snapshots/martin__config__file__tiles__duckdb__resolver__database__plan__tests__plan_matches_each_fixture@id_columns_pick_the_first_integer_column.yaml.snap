@@ -1,0 +1,35 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/id_columns_pick_the_first_integer_column.yaml
+---
+reads:
+  tables: true
+  macros: false
+tables:
+  - id: no_ids
+    schema: main
+    table: no_ids
+    geometry_column: geom
+  - id: text_ids
+    schema: main
+    table: text_ids
+    id_column: gid
+    geometry_column: geom
+macros: []
+decisions:
+  - IdColumn:
+      schema: main
+      table: no_ids
+      outcome:
+        NoneFound:
+          searched:
+            - uuid
+            - gid
+  - IdColumn:
+      schema: main
+      table: text_ids
+      outcome:
+        NotInteger:
+          column: uuid
+          data_type: VARCHAR

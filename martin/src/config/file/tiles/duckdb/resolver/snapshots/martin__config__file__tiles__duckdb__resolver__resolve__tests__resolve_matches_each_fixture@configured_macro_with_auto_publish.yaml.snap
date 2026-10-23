@@ -5,5 +5,4 @@ input_file: tests/fixtures/duckdb_discover/configured_macro_with_auto_publish.ya
 ---
 sources:
   my_tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
-  tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
 warnings: []

@@ -1,0 +1,15 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/configured_table_is_not_auto_published.yaml
+---
+reads:
+  tables: true
+  macros: true
+tables:
+  - id: roads
+    schema: main
+    table: roads
+    geometry_column: geom
+macros: []
+decisions: []

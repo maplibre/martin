@@ -1,4 +1,4 @@
-pub(crate) mod auto_publish;
+mod auto_publish;
 mod database;
 mod geoparquet;
 mod layer;

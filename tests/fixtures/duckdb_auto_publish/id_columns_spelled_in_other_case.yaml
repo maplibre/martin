@@ -1,0 +1,9 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    tables:
+      id_columns: GID
+catalog:
+  columns:
+    - { schema: main, table: points, column: gid, data_type: INTEGER }
+    - { schema: main, table: points, column: geom, data_type: GEOMETRY }

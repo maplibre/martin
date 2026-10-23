@@ -1,11 +1,9 @@
-use std::collections::HashSet;
 use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedValues};
-use crate::config::primitives::OptBoolObj::{self, Bool, NoValue, Object};
-use crate::config::primitives::{IdFormat, MacroIdFormat, TableIdFormat, one_or_many};
+use crate::config::primitives::{MacroIdFormat, OptBoolObj, TableIdFormat, one_or_many};
 
 /// Automatic discovery of the tables and table macros of a `DuckDB` database file.
 #[serde_with::skip_serializing_none]
@@ -88,108 +86,4 @@ pub struct DuckDbCfgPublishTables {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
-}
-
-/// The effective table discovery settings of one database entry.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TableDiscovery {
-    /// Schemas to search, or every schema when `None`.
-    pub schemas: Option<HashSet<String>>,
-    pub source_id_format: String,
-    pub id_columns: Option<Vec<String>>,
-    pub clip_geom: Option<bool>,
-    pub buffer: Option<u32>,
-    pub extent: Option<NonZeroU32>,
-}
-
-/// The effective macro discovery settings of one database entry.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct MacroDiscovery {
-    /// Schemas to search, or every schema when `None`.
-    pub schemas: Option<HashSet<String>>,
-    pub source_id_format: String,
-}
-
-fn merge_schemas(outer: &[String], inner: &[String]) -> Option<HashSet<String>> {
-    let schemas: HashSet<String> = outer.iter().chain(inner).cloned().collect();
-    (!schemas.is_empty()).then_some(schemas)
-}
-
-impl DuckDbCfgPublish {
-    /// Table discovery settings, or `None` when tables are not auto-published.
-    pub(crate) fn table_discovery(auto_publish: &OptBoolObj<Self>) -> Option<TableDiscovery> {
-        match auto_publish {
-            NoValue | Bool(false) => None,
-            Bool(true) => Some(TableDiscovery::default()),
-            Object(publish) => match &publish.tables {
-                Bool(false) => None,
-                NoValue if !matches!(publish.macros, NoValue | Bool(false)) => None,
-                NoValue | Bool(true) => Some(TableDiscovery {
-                    schemas: merge_schemas(&publish.from_schemas, &[]),
-                    ..TableDiscovery::default()
-                }),
-                Object(tables) => Some(TableDiscovery {
-                    schemas: merge_schemas(&publish.from_schemas, &tables.from_schemas),
-                    source_id_format: tables
-                        .source_id_format
-                        .as_ref()
-                        .map_or(DEFAULT_TABLE_ID_FORMAT, IdFormat::as_str)
-                        .to_owned(),
-                    id_columns: (!tables.id_columns.is_empty()).then(|| tables.id_columns.clone()),
-                    clip_geom: tables.clip_geom,
-                    buffer: tables.buffer,
-                    extent: tables.extent,
-                }),
-            },
-        }
-    }
-
-    /// Macro discovery settings, or `None` when macros are not auto-published.
-    pub(crate) fn macro_discovery(auto_publish: &OptBoolObj<Self>) -> Option<MacroDiscovery> {
-        match auto_publish {
-            NoValue | Bool(false) => None,
-            Bool(true) => Some(MacroDiscovery::default()),
-            Object(publish) => match &publish.macros {
-                Bool(false) => None,
-                NoValue if !matches!(publish.tables, NoValue | Bool(false)) => None,
-                NoValue | Bool(true) => Some(MacroDiscovery {
-                    schemas: merge_schemas(&publish.from_schemas, &[]),
-                    ..MacroDiscovery::default()
-                }),
-                Object(macros) => Some(MacroDiscovery {
-                    schemas: merge_schemas(&publish.from_schemas, &macros.from_schemas),
-                    source_id_format: macros
-                        .source_id_format
-                        .as_ref()
-                        .map_or(DEFAULT_MACRO_ID_FORMAT, IdFormat::as_str)
-                        .to_owned(),
-                }),
-            },
-        }
-    }
-}
-
-const DEFAULT_TABLE_ID_FORMAT: &str = "{table}";
-const DEFAULT_MACRO_ID_FORMAT: &str = "{macro}";
-
-impl Default for MacroDiscovery {
-    fn default() -> Self {
-        Self {
-            schemas: None,
-            source_id_format: DEFAULT_MACRO_ID_FORMAT.to_owned(),
-        }
-    }
-}
-
-impl Default for TableDiscovery {
-    fn default() -> Self {
-        Self {
-            schemas: None,
-            source_id_format: DEFAULT_TABLE_ID_FORMAT.to_owned(),
-            id_columns: None,
-            clip_geom: None,
-            buffer: None,
-            extent: None,
-        }
-    }
 }
