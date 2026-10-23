@@ -444,7 +444,7 @@ async fn postgres_selects_no_row_whose_id_is_null_or_negative() {
 }
 
 #[tokio::test]
-async fn postgres_finds_no_row_for_the_null_path_of_a_not_null_column() {
+async fn postgres_gives_a_not_null_column_no_null_path() {
     seed(indoc! {"
         DROP SCHEMA IF EXISTS martin_test_not_null CASCADE;
         CREATE SCHEMA martin_test_not_null;
@@ -496,18 +496,12 @@ async fn postgres_finds_no_row_for_the_null_path_of_a_not_null_column() {
                 key: 2,
             },
         ),
-        (
-            "places: minzoom, `kind` is null in `kind == 'major'`",
-            NoneSelected {
-                rows: "\"kind\" IS NULL",
-            },
-        ),
     ]
     "#);
 }
 
 #[tokio::test]
-async fn postgres_finds_no_row_for_a_value_a_check_forbids() {
+async fn postgres_gives_a_path_to_each_value_a_check_allows_and_to_null() {
     seed(indoc! {"
         DROP SCHEMA IF EXISTS martin_test_check CASCADE;
         CREATE SCHEMA martin_test_check;
@@ -550,20 +544,21 @@ async fn postgres_finds_no_row_for_a_value_a_check_forbids() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: minzoom 12, `kind == 'other'` is true",
-            NoneSelected {
-                rows: "\"kind\" = 'other'",
-            },
-        ),
-        (
-            "places: minzoom 5, `kind == 'other'` is false",
+            "places: kind 'major' -> minzoom 5",
             Selected {
-                rows: "\"kind\" IS DISTINCT FROM 'other'",
+                rows: "\"kind\" = 'major'",
                 key: 1,
             },
         ),
         (
-            "places: minzoom, `kind` is null in `kind == 'other'`",
+            "places: kind 'minor' -> minzoom 5",
+            Selected {
+                rows: "\"kind\" = 'minor'",
+                key: 2,
+            },
+        ),
+        (
+            "places: kind null -> minzoom 5",
             NoneSelected {
                 rows: "\"kind\" IS NULL",
             },
@@ -573,7 +568,7 @@ async fn postgres_finds_no_row_for_a_value_a_check_forbids() {
 }
 
 #[tokio::test]
-async fn postgres_finds_no_row_for_the_null_path_of_the_id_column_while_a_row_with_a_null_id_takes_it() {
+async fn postgres_gives_the_id_column_no_null_path_as_no_row_without_an_id_is_selected() {
     seed(indoc! {"
         DROP SCHEMA IF EXISTS martin_test_null_key_path CASCADE;
         CREATE SCHEMA martin_test_null_key_path;
@@ -625,10 +620,425 @@ async fn postgres_finds_no_row_for_the_null_path_of_the_id_column_while_a_row_wi
                 key: 2,
             },
         ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_gives_a_path_to_each_label_of_an_enum_column() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_enum CASCADE;
+        CREATE SCHEMA martin_test_enum;
+        CREATE TYPE martin_test_enum.kind AS ENUM ('major', 'minor');
+        CREATE TABLE martin_test_enum.places (id int8 PRIMARY KEY, kind martin_test_enum.kind, geom geometry(Point, 4326));
+        INSERT INTO martin_test_enum.places VALUES
+          (1, 'major', 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'minor', 'SRID=4326;POINT(16.38 48.21)'),
+          (3, NULL, 'SRID=4326;POINT(16.39 48.22)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_enum
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+              layers:
+                places:
+                  minzoom: \"kind == 'major' ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
         (
-            "places: minzoom, `id` is null in `id == 1`",
-            NoneSelected {
-                rows: "\"id\" IS NULL",
+            "places: kind 'major' -> minzoom 5",
+            Selected {
+                rows: "\"kind\"::text = 'major'",
+                key: 1,
+            },
+        ),
+        (
+            "places: kind 'minor' -> minzoom 8",
+            Selected {
+                rows: "\"kind\"::text = 'minor'",
+                key: 2,
+            },
+        ),
+        (
+            "places: kind null -> minzoom 8",
+            Selected {
+                rows: "\"kind\"::text IS NULL",
+                key: 3,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_gives_a_path_to_each_value_a_check_on_a_varchar_column_allows() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_varchar CASCADE;
+        CREATE SCHEMA martin_test_check_varchar;
+        CREATE TABLE martin_test_check_varchar.places (
+          id int8 PRIMARY KEY,
+          kind varchar(10) NOT NULL CHECK (kind IN ('major', 'minor')),
+          geom geometry(Point, 4326)
+        );
+        INSERT INTO martin_test_check_varchar.places VALUES
+          (1, 'major', 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'minor', 'SRID=4326;POINT(16.38 48.21)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_varchar
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: varchar
+              layers:
+                places:
+                  minzoom: \"kind == 'major' ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: kind 'major' -> minzoom 5",
+            Selected {
+                rows: "\"kind\" = 'major'",
+                key: 1,
+            },
+        ),
+        (
+            "places: kind 'minor' -> minzoom 8",
+            Selected {
+                rows: "\"kind\" = 'minor'",
+                key: 2,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_gives_a_path_to_each_integer_a_check_allows() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_int CASCADE;
+        CREATE SCHEMA martin_test_check_int;
+        CREATE TABLE martin_test_check_int.places (
+          id int8 PRIMARY KEY,
+          kind int4 NOT NULL CHECK (kind IN (-1, 2)),
+          geom geometry(Point, 4326)
+        );
+        INSERT INTO martin_test_check_int.places VALUES
+          (1, -1, 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 2, 'SRID=4326;POINT(16.38 48.21)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_int
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: int4
+              layers:
+                places:
+                  minzoom: \"kind < 0 ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: kind -1 -> minzoom 5",
+            Selected {
+                rows: "\"kind\" = -1",
+                key: 1,
+            },
+        ),
+        (
+            "places: kind 2 -> minzoom 8",
+            Selected {
+                rows: "\"kind\" = 2",
+                key: 2,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_gives_the_one_value_a_check_allows_a_path() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_one CASCADE;
+        CREATE SCHEMA martin_test_check_one;
+        CREATE TABLE martin_test_check_one.places (
+          id int8 PRIMARY KEY,
+          kind text NOT NULL CHECK (kind = 'major'),
+          geom geometry(Point, 4326)
+        );
+        INSERT INTO martin_test_check_one.places VALUES
+          (1, 'major', 'SRID=4326;POINT(16.37 48.20)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_one
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+              layers:
+                places:
+                  minzoom: \"kind == 'major' ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: kind 'major' -> minzoom 5",
+            Selected {
+                rows: "\"kind\" = 'major'",
+                key: 1,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_reads_check_values_with_quotes_and_commas() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_quotes CASCADE;
+        CREATE SCHEMA martin_test_check_quotes;
+        CREATE TABLE martin_test_check_quotes.places (
+          id int8 PRIMARY KEY,
+          kind text NOT NULL CHECK (kind IN ('it''s', 'a, b')),
+          geom geometry(Point, 4326)
+        );
+        INSERT INTO martin_test_check_quotes.places VALUES
+          (1, 'it''s', 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'a, b', 'SRID=4326;POINT(16.38 48.21)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_quotes
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+              layers:
+                places:
+                  minzoom: \"kind == 'a, b' ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: kind 'it\\'s' -> minzoom 8",
+            Selected {
+                rows: "\"kind\" = 'it''s'",
+                key: 1,
+            },
+        ),
+        (
+            "places: kind 'a, b' -> minzoom 5",
+            Selected {
+                rows: "\"kind\" = 'a, b'",
+                key: 2,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_keeps_the_choice_paths_of_a_column_whose_check_lists_no_values() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_length CASCADE;
+        CREATE SCHEMA martin_test_check_length;
+        CREATE TABLE martin_test_check_length.places (
+          id int8 PRIMARY KEY,
+          kind text NOT NULL CHECK (length(kind) < 6),
+          geom geometry(Point, 4326)
+        );
+        INSERT INTO martin_test_check_length.places VALUES
+          (1, 'major', 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'minor', 'SRID=4326;POINT(16.38 48.21)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_length
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+              layers:
+                places:
+                  minzoom: \"kind == 'major' ? 5 : 8\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: minzoom 5, `kind == 'major'` is true",
+            Selected {
+                rows: "\"kind\" = 'major'",
+                key: 1,
+            },
+        ),
+        (
+            "places: minzoom 8, `kind == 'major'` is false",
+            Selected {
+                rows: "\"kind\" IS DISTINCT FROM 'major'",
+                key: 2,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_ignores_a_check_that_is_not_validated() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_check_not_valid CASCADE;
+        CREATE SCHEMA martin_test_check_not_valid;
+        CREATE TABLE martin_test_check_not_valid.places (id int8 PRIMARY KEY, kind text NOT NULL, geom geometry(Point, 4326));
+        INSERT INTO martin_test_check_not_valid.places VALUES
+          (1, 'major', 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'other', 'SRID=4326;POINT(16.38 48.21)');
+        ALTER TABLE martin_test_check_not_valid.places ADD CHECK (kind IN ('major', 'minor')) NOT VALID;
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_check_not_valid
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+              layers:
+                places:
+                  minzoom: \"kind == 'other' ? 12 : 5\"
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: minzoom 12, `kind == 'other'` is true",
+            Selected {
+                rows: "\"kind\" = 'other'",
+                key: 2,
+            },
+        ),
+        (
+            "places: minzoom 5, `kind == 'other'` is false",
+            Selected {
+                rows: "\"kind\" IS DISTINCT FROM 'other'",
+                key: 1,
             },
         ),
     ]
