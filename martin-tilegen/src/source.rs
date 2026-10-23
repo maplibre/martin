@@ -235,4 +235,21 @@ mod tests {
         assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());
         assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
     }
+
+    #[test]
+    #[ignore = "wkb reads the type code as `code & 0x7`, so a TRIANGLE (17) decodes as a point; georust/wkb#104"]
+    fn wkb_decodes_a_triangle_as_a_polygon() {
+        let ring = [(0.0, 0.0), (4.0, 0.0), (0.0, 3.0), (0.0, 0.0)];
+        let mut triangle = vec![1, 17, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0];
+        for (x, y) in ring {
+            triangle.extend_from_slice(&f64::to_le_bytes(x));
+            triangle.extend_from_slice(&f64::to_le_bytes(y));
+        }
+        let mut geometry = Geometry::Wkb(Bytes::from(triangle));
+        assert!(geometry.decode_wkb());
+        assert_eq!(
+            geometry,
+            Geometry::Polygon(Polygon::new(LineString::from(ring.to_vec()), vec![]))
+        );
+    }
 }

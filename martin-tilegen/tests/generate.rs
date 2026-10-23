@@ -10,10 +10,12 @@ use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::plan::{AttributesDef, ColumnDef, IdDef, LayerDef, Plan, SortDef, TableDef};
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
-use martin_tilegen::source::{Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceFeature, SourceResult};
+use martin_tilegen::source::{
+    Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceError, SourceFeature, SourceResult,
+};
 use martin_tilegen::{
-    ClipMode, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold, Progress,
-    SortConfig, Summary, TileFormat, generate,
+    ClipMode, EncodedTile, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold,
+    Progress, SortConfig, Summary, TileFormat, TileGenResult, TileOrder, TileSink, generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
@@ -799,4 +801,101 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
     id Some(5)
     id Some(2)
     ");
+}
+
+struct Discard;
+
+impl TileSink for Discard {
+    fn tile_order(&self) -> TileOrder {
+        TileOrder::Tms
+    }
+
+    fn write_all(&mut self, batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>) -> TileGenResult<()> {
+        for batch in batches {
+            batch?;
+        }
+        Ok(())
+    }
+
+    fn finish(self, _metadata: &tilejson::TileJSON) -> TileGenResult<()> {
+        Ok(())
+    }
+}
+
+fn generate_into_discard(source: &impl FeatureSource, threads: usize) -> TileGenResult<Summary> {
+    let dir = tempfile::tempdir().unwrap();
+    let config = GenerateConfig {
+        threads,
+        sort: SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 16 << 10,
+            max_fan_in: 4,
+        },
+        format: TileFormat::Mlt,
+        encoding: Encoding::Gzip,
+        batch_tiles: 7,
+        window: 3,
+    };
+    generate(
+        source,
+        &plan(),
+        Discard,
+        &config,
+        tilejson::tilejson! { tiles: vec![] },
+        &Progress::default(),
+    )
+}
+
+#[test]
+fn a_failing_partition_fails_the_generation_whatever_the_thread_count() {
+    struct FailingPartition(MemorySource);
+
+    impl FeatureSource for FailingPartition {
+        fn partitions(&self) -> u32 {
+            self.0.partitions()
+        }
+
+        fn read(
+            &self,
+            partition: u32,
+            keys: &[KeyInterner],
+            emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
+        ) -> SourceResult<()> {
+            self.0.read(partition, keys, emit)?;
+            if partition == 3 {
+                return Err(SourceError::Other("the connection dropped".into()));
+            }
+            Ok(())
+        }
+    }
+
+    for threads in [1, 4] {
+        let err = generate_into_discard(&FailingPartition(source()), threads).unwrap_err();
+        assert_eq!(err.to_string(), "the connection dropped", "{threads} threads");
+    }
+}
+
+#[test]
+fn a_failing_render_fails_the_generation_whatever_the_thread_count() {
+    let mut source = source();
+    source.batches[3].table = 9;
+    for threads in [1, 4] {
+        let err = generate_into_discard(&source, threads).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "feature batch names table 9, but the plan has fewer tables",
+            "{threads} threads"
+        );
+    }
+}
+
+#[test]
+fn skipped_features_are_counted_whatever_the_thread_count() {
+    let mut source = source();
+    source.batches[1].features[0].geometry = Geometry::Wkb(vec![1, 7, 0, 0, 0, 0, 0, 0, 0].into());
+    source.batches[4].features[0].geometry = Geometry::Wkb(Vec::new().into());
+    for threads in [1, 4] {
+        let summary = generate_into_discard(&source, threads).unwrap();
+        assert_eq!((summary.features, summary.skipped), (120, 2), "{threads} threads");
+    }
 }

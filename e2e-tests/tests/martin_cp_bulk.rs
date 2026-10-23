@@ -224,6 +224,270 @@ async fn martin_serves_the_default_pmtiles_output() {
 }
 
 #[tokio::test]
+async fn spreads_jsonb_keys_over_properties_as_martin_serves_them() {
+    let config_yaml = indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            array_props:
+              schema: public
+              table: array_props
+              srid: 4326
+              geometry_column: geom
+              id_column: feat_id
+              bounds: [-180.0, -90.0, 180.0, 90.0]
+              properties:
+                tags: int4
+                label: text
+                doc: jsonb
+    "};
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(&config, config_yaml).expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let (_, _, _, data) = tiles(&output)
+        .await
+        .into_iter()
+        .next()
+        .expect("the copy wrote no tiles");
+    let generated = mlt_layers(&data);
+
+    let mut martin = Martin::builder()
+        .with_postgres()
+        .config(config_yaml)
+        .start()
+        .await
+        .expect("failed to start martin");
+    let served = martin
+        .get_with_headers("/array_props/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
+        .await
+        .mlt();
+    martin.stop().await;
+
+    insta::assert_snapshot!(mlt_dump(&generated), @r#"
+    layer array_props extent 4096
+      id=Some(1) geom=POINT(2048 2048) props=[kind=Str(Some("a")), label=Str(Some("one")), rank=I32(Some(1)), score=F64(Some(1.5)), tags=Str(Some("{1,2,3}"))]
+      id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("two")), rank=I32(Some(-2)), score=F64(Some(3.0)), tags=Str(None)]
+    "#);
+    assert_eq!(mlt_dump(&generated), mlt_dump(&served));
+}
+
+#[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshot of the tile")]
+async fn martin_serves_mvt_output_in_every_compression() {
+    let dir = temp_dir();
+    let mut dumps = Vec::new();
+    for (output, encoding) in [("gzip.mbtiles", "gzip"), ("br.pmtiles", "br"), ("zstd.pmtiles", "zstd")] {
+        let output = dir.path().join(output);
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--source")
+            .arg("points1")
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mvt")
+            .arg("--encoding")
+            .arg(encoding)
+            .arg("--max-zoom")
+            .arg("1")
+            .run()
+            .await;
+        let mut martin = Martin::builder()
+            .arg(&output)
+            .start()
+            .await
+            .expect("failed to start martin");
+        let name = output
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .expect("a utf-8 file name");
+        let tile = martin
+            .get_with_headers(&format!("/{name}/0/0/0"), &[("Accept-Encoding", encoding)])
+            .await;
+        martin.stop().await;
+        assert_eq!(tile.header("content-encoding"), Some(encoding), "{name}");
+        assert_eq!(tile.header("content-type"), Some("application/x-protobuf"), "{name}");
+        dumps.push(tile.mvt_dump());
+    }
+    insta::assert_snapshot!(dumps[0], @"
+    layer: 0
+      name: points1
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: POINT(2312,2004)
+        properties:
+          gid = 12 (uint)
+      feature: 1
+        id: (none)
+        geometry: POINT(2316,1790)
+        properties:
+          gid = 24 (uint)
+      feature: 2
+        id: (none)
+        geometry: POINT(2619,1520)
+        properties:
+          gid = 8 (uint)
+      feature: 3
+        id: (none)
+        geometry: POINT(2754,966)
+        properties:
+          gid = 17 (uint)
+      feature: 4
+        id: (none)
+        geometry: POINT(3802,665)
+        properties:
+          gid = 7 (uint)
+      feature: 5
+        id: (none)
+        geometry: POINT(3898,1322)
+        properties:
+          gid = 29 (uint)
+      feature: 6
+        id: (none)
+        geometry: POINT(3786,1562)
+        properties:
+          gid = 6 (uint)
+      feature: 7
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 3 (uint)
+      feature: 8
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 2 (uint)
+      feature: 9
+        id: (none)
+        geometry: POINT(3673,1911)
+        properties:
+          gid = 1 (uint)
+      feature: 10
+        id: (none)
+        geometry: POINT(2749,1706)
+        properties:
+          gid = 20 (uint)
+      feature: 11
+        id: (none)
+        geometry: POINT(2780,1898)
+        properties:
+          gid = 30 (uint)
+      feature: 12
+        id: (none)
+        geometry:
+          POINT(4145,2032)
+          POINT(49,2032)
+        properties:
+          gid = 21 (uint)
+      feature: 13
+        id: (none)
+        geometry:
+          POINT(4104,1845)
+          POINT(8,1845)
+        properties:
+          gid = 9 (uint)
+      feature: 14
+        id: (none)
+        geometry: POINT(862,1817)
+        properties:
+          gid = 15 (uint)
+      feature: 15
+        id: (none)
+        geometry: POINT(1415,16)
+        properties:
+          gid = 16 (uint)
+      feature: 16
+        id: (none)
+        geometry: POINT(69,313)
+        properties:
+          gid = 5 (uint)
+      feature: 17
+        id: (none)
+        geometry: POINT(1377,2078)
+        properties:
+          gid = 27 (uint)
+      feature: 18
+        id: (none)
+        geometry: POINT(1455,2502)
+        properties:
+          gid = 14 (uint)
+      feature: 19
+        id: (none)
+        geometry: POINT(1310,3101)
+        properties:
+          gid = 26 (uint)
+      feature: 20
+        id: (none)
+        geometry: POINT(636,2785)
+        properties:
+          gid = 4 (uint)
+      feature: 21
+        id: (none)
+        geometry: POINT(769,2818)
+        properties:
+          gid = 18 (uint)
+      feature: 22
+        id: (none)
+        geometry: POINT(166,2707)
+        properties:
+          gid = 28 (uint)
+      feature: 23
+        id: (none)
+        geometry: POINT(1728,2658)
+        properties:
+          gid = 25 (uint)
+      feature: 24
+        id: (none)
+        geometry: POINT(3639,2944)
+        properties:
+          gid = 10 (uint)
+      feature: 25
+        id: (none)
+        geometry: POINT(3553,2982)
+        properties:
+          gid = 22 (uint)
+      feature: 26
+        id: (none)
+        geometry: POINT(2337,2613)
+        properties:
+          gid = 13 (uint)
+      feature: 27
+        id: (none)
+        geometry: POINT(2583,2400)
+        properties:
+          gid = 23 (uint)
+      feature: 28
+        id: (none)
+        geometry: POINT(2961,2263)
+        properties:
+          gid = 11 (uint)
+      feature: 29
+        id: (none)
+        geometry: POINT(3825,2146)
+        properties:
+          gid = 19 (uint)
+    ");
+    assert_eq!(dumps[1], dumps[0]);
+    assert_eq!(dumps[2], dumps[0]);
+}
+
+#[tokio::test]
 async fn refuses_encodings_martin_cannot_serve() {
     let dir = temp_dir();
     let mut log = String::new();
@@ -793,6 +1057,164 @@ async fn rejects_function_sources() {
         .run_expecting_failure()
         .await;
     assert!(log.contains("function source"), "{log}");
+}
+
+#[tokio::test]
+async fn refuses_an_unknown_source() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--source")
+        .arg("points9")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR No table source matches `points9`. Available table sources: points1");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_a_source_on_another_tile_grid() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            tile_grids:
+              WGS84Square:
+                crs: EPSG:4326
+                origin: [-180, 90]
+                extent_at_zoom0: 360
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  tile_grid: WGS84Square
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Source `points1` uses tile grid `WGS84Square`; `--mode bulk` supports Web Mercator only");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_sources_from_two_databases() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              - connection_string: ${DATABASE_URL}
+                auto_publish: false
+                tables:
+                  points1:
+                    schema: public
+                    table: points1
+                    srid: 4326
+                    geometry_column: geom
+                    geometry_type: POINT
+              - connection_string: ${DATABASE_URL}
+                auto_publish: false
+                tables:
+                  points2:
+                    schema: public
+                    table: points2
+                    srid: 4326
+                    geometry_column: geom
+                    geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Sources come from more than one database; generate them separately");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_zooms_no_layer_has() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  maxzoom: 2
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--min-zoom")
+        .arg("5")
+        .arg("--max-zoom")
+        .arg("6")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR No layer has a zoom between 5 and 6");
+    assert!(!output.exists());
 }
 
 #[tokio::test]

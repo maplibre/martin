@@ -639,6 +639,78 @@ async fn sql_matches_the_plan_on_negative_literal_less_than_int() {
 }
 
 #[tokio::test]
+async fn sql_matches_the_plan_on_negated_int_literal() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), i int4);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', -3),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -2),
+          (5, 'SRID=4326;POINT(1 1)', -2147483648),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', 3),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', 2),
+          (8, 'SRID=4326;POINT(2 2)', -1);
+    "})
+    .await;
+    let kept = kept(
+        &pool,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          i: int4
+        layers:
+          l:
+            where: 'i > -(2)'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 6, 7, 8}");
+}
+
+#[tokio::test]
+async fn sql_matches_the_plan_on_negated_float_literal() {
+    let pool = connect(indoc! {r"
+        CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
+        INSERT INTO where_rows VALUES
+          (1, 'SRID=4326;POINT(0 0)', 1.5),
+          (2, 'SRID=4326;LINESTRING(0 0, 1 1)', 'NaN'),
+          (3, 'SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 0))', NULL),
+          (4, 'SRID=4326;MULTIPOINT(0 0, 1 1)', -1.5),
+          (5, 'SRID=4326;POINT(1 1)', 'Infinity'),
+          (6, 'SRID=4326;MULTIPOLYGON(((0 0, 1 0, 1 1, 0 0)))', -2),
+          (7, 'SRID=4326;MULTILINESTRING((0 0, 1 1))', '-Infinity'),
+          (8, 'SRID=4326;POINT(2 2)', -0.0);
+    "})
+    .await;
+    let kept = kept(
+        &pool,
+        indoc! {r"
+        schema: pg_temp
+        table: where_rows
+        srid: 4326
+        geometry_column: geom
+        geometry_type: GEOMETRY
+        id_column: id
+        properties:
+          f: float8
+        layers:
+          l:
+            where: 'f >= -(1.5)'
+        "},
+    )
+    .await;
+    assert_eq!(kept.by_sql, kept.by_plan);
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 5, 8}");
+}
+
+#[tokio::test]
 async fn sql_matches_the_plan_on_float_greater() {
     let pool = connect(indoc! {r"
         CREATE TEMP TABLE where_rows (id int8, geom geometry(Geometry, 4326), f float8);
