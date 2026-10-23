@@ -24,6 +24,8 @@ use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
+#[cfg(feature = "unstable-generate")]
+use martin::generate::spec;
 use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
@@ -230,6 +232,25 @@ async fn main() {
             std::process::exit(1);
         }
         return;
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    if let Some(Command::Test(test_args)) = args.command {
+        let log_format = LogFormat::from_env();
+        let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "martin=error".to_owned());
+        init_tracing(
+            &ensure_martin_core_log_level_matches(Some(rust_log), "martin="),
+            log_format,
+            false,
+        );
+        match Box::pin(spec::start(test_args)).await {
+            Ok(true) => return,
+            Ok(false) => std::process::exit(1),
+            Err(e) => {
+                eprintln!("{}", e.render_diagnostic_with(log_format));
+                std::process::exit(2);
+            }
+        }
     }
 
     #[cfg(feature = "tui")]
