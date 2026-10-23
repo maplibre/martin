@@ -21,7 +21,7 @@ use crate::generate::spec::rows::RowSearch;
 ///
 /// If the terminal fails.
 pub fn show(review: &mut Review, spec_name: &str) -> io::Result<bool> {
-    let mut terminal = ratatui::try_init()?;
+    let mut terminal = ratatui::try_init().inspect_err(|_| ratatui::restore())?;
     let result = review_on(
         &mut terminal,
         std::iter::from_fn(|| Some(event::read())),
