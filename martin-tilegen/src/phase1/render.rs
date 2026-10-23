@@ -288,6 +288,8 @@ pub struct Renderer {
     /// Unclipped, the tiles any line or polygon of the feature reaches at one zoom.
     reached: Vec<map_tile_toolkit::TileId>,
     points: Vec<(i32, i32, Vertex)>,
+    /// Each distinct quantized point with its first position, to drop points that round onto another.
+    unique: Vec<(Vertex, usize)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
     ranges: Vec<Range<u64>>,
@@ -421,8 +423,8 @@ impl Renderer {
         }
     }
 
-    /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
-    /// a point reaches (unclipped, all the points).
+    /// Quantizes the points at `zoom`, keeping one of those rounding onto the same vertex, and pushes one
+    /// piece per tile, including neighbors whose buffer a point reaches (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -434,11 +436,14 @@ impl Renderer {
         let grid = ctx.layer.grid;
         let (extent, buffer) = (to_i32(grid.extent)?, to_i32(grid.buffer)?);
         let world = scale(zoom) * f64::from(grid.extent);
-        self.points.clear();
         self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
             self.vertices.push(Coord { x, y });
+        }
+        dedup_vertices(&mut self.vertices, &mut self.unique);
+        self.points.clear();
+        for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
             let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
@@ -950,6 +955,23 @@ fn push_quantized(
     Ok(vertices.len() - start)
 }
 
+/// Keeps the first of each repeated vertex, in order.
+fn dedup_vertices(vertices: &mut Vec<Coord<i32>>, unique: &mut Vec<(Vertex, usize)>) {
+    if vertices.len() < 2 {
+        return;
+    }
+    unique.clear();
+    unique.extend(vertices.iter().enumerate().map(|(i, c)| ([c.x, c.y], i)));
+    unique.sort_unstable();
+    unique.dedup_by_key(|(vertex, _)| *vertex);
+    if unique.len() == vertices.len() {
+        return;
+    }
+    unique.sort_unstable_by_key(|&(_, i)| i);
+    vertices.clear();
+    vertices.extend(unique.iter().map(|&([x, y], _)| Coord { x, y }));
+}
+
 /// Appends `vertex` to the run from `start`, skipping a repeat and replacing a last vertex that lies between.
 fn push_vertex(vertices: &mut Vec<Coord<i32>>, start: usize, vertex: Coord<i32>) {
     match vertices[start..] {
@@ -1132,6 +1154,31 @@ mod tests {
         assert_eq!(names, ["1/0/0", "1/0/1", "1/1/0", "1/1/1"]);
         let local: Vec<_> = tiles.iter().map(|t| t.2.vertices[0]).collect();
         assert_eq!(local, [[257, 256], [257, 0], [1, 256], [1, 0]]);
+    }
+
+    #[test]
+    fn points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let points = [
+            coord! { x: 0.5, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+            coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+        ];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128], [64, 128]]);
+    }
+
+    #[test]
+    fn unclipped_points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let points = [coord! { x: 0.5, y: 0.5 }, coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 }];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128]]);
     }
 
     #[test]
