@@ -261,13 +261,17 @@ impl Screen<'_> {
                     bold(f.source.clone()),
                     Span::raw(format!("  {}", f.branch)),
                 ]));
-                let why = match (&f.row, &f.selected, &f.error) {
-                    (RowSearch::NoKey, ..) => "the source has no key column".to_owned(),
-                    (_, Some(selected), Some(error)) => format!("rows where {selected}: {error}"),
-                    (_, Some(selected), None) => format!("rows where {selected}"),
-                    (_, None, _) => "none among the rows swept".to_owned(),
+                let why: Vec<String> = match &f.row {
+                    RowSearch::NoKey => vec!["the source has no key column".to_owned()],
+                    RowSearch::NoneSelected { rows } => vec![format!("no row where {rows}")],
+                    RowSearch::NoneSwept { rows, because } => std::iter::once(format!("none of {rows} rows swept"))
+                        .chain(because.iter().map(ToString::to_string))
+                        .collect(),
+                    RowSearch::Kept(_) | RowSearch::Selected { .. } | RowSearch::Swept { .. } => Vec::new(),
                 };
-                lines.push(Line::from(vec![Span::raw("     "), dim(why)]));
+                for why in why {
+                    lines.push(Line::from(vec![Span::raw("     "), dim(why)]));
+                }
             }
         }
         let [body, keys] = Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).areas(frame.area());
@@ -328,7 +332,7 @@ mod tests {
     use super::*;
     use crate::generate::spec::file::{Case, IdColumns, Spec, yaml};
     use crate::generate::spec::render::{Served, TileDiff, TileDiffKind};
-    use crate::generate::spec::rows::{Found, Via};
+    use crate::generate::spec::rows::{Found, Miss};
 
     fn drawn(review: &mut Review, keys: &str) -> String {
         let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
@@ -457,9 +461,10 @@ mod tests {
                     rows: Ok(Condition::Const(true)),
                     shape: None,
                 },
-                selected: Some("\"class\" = 'motorway'".to_owned()),
-                error: None,
-                row: RowSearch::Found(1, Via::Backend),
+                row: RowSearch::Selected {
+                    rows: "\"class\" = 'motorway'".to_owned(),
+                    key: 1,
+                },
             },
             Found {
                 source: "roads".to_owned(),
@@ -469,9 +474,25 @@ mod tests {
                     rows: Ok(Condition::Const(true)),
                     shape: None,
                 },
-                selected: Some("\"class\" IS DISTINCT FROM 'motorway'".to_owned()),
-                error: None,
-                row: RowSearch::NoRow,
+                row: RowSearch::NoneSelected {
+                    rows: "\"class\" IS DISTINCT FROM 'motorway'".to_owned(),
+                },
+            },
+            Found {
+                source: "roads".to_owned(),
+                branch: Branch {
+                    layer: "roads".to_owned(),
+                    path: "crosses a z14 tile edge".to_owned(),
+                    rows: Ok(Condition::Const(true)),
+                    shape: None,
+                },
+                row: RowSearch::NoneSwept {
+                    rows: 100,
+                    because: vec![Miss::SelectFailed {
+                        rows: "TRUE".to_owned(),
+                        error: "canceling statement due to statement timeout".to_owned(),
+                    }],
+                },
             },
         ];
         let mut review = Review::new(found, cases, Some(&old), 14, ids);
@@ -483,14 +504,14 @@ mod tests {
         " undecided    1  roads 9  kept as in the spec                                                       "
         " same         0                                                                                     "
         "                                                                                                    "
-        " 1 path takes no row, so no case covers them                                                        "
+        " 2 paths take no row, so no case covers them                                                        "
         "                                                                                                    "
         " NO ROW  roads  roads: no rule                                                                      "
-        "     rows where "class" IS DISTINCT FROM 'motorway'                                                 "
+        "     no row where "class" IS DISTINCT FROM 'motorway'                                               "
         "                                                                                                    "
-        "                                                                                                    "
-        "                                                                                                    "
-        "                                                                                                    "
+        " NO ROW  roads  roads: crosses a z14 tile edge                                                      "
+        "     none of 100 rows swept                                                                         "
+        "     selecting the rows where TRUE failed: canceling statement due to statement timeout             "
         " w write spec.yaml   <- back   ↑/↓ scroll   q quit without writing                                  "
         "#);
     }

@@ -5,7 +5,7 @@ use std::fmt::{self, Display};
 use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml};
 use crate::generate::spec::render::Served;
 use crate::generate::spec::report::{Change, Look, Status, Tone, tally};
-use crate::generate::spec::rows::{Found, RowSearch};
+use crate::generate::spec::rows::Found;
 
 /// How a generated case relates to the spec.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -198,7 +198,7 @@ impl Review {
 
     /// The paths no row was found for.
     pub fn paths_without_row(&self) -> impl Iterator<Item = &Found> {
-        self.found.iter().filter(|f| !matches!(f.row, RowSearch::Found(..)))
+        self.found.iter().filter(|f| f.row.key().is_none())
     }
 
     /// The decisions, counted.
