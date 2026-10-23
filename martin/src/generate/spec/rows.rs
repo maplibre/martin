@@ -323,6 +323,9 @@ async fn sweep<B: TestBackend>(
     wanted: Vec<String>,
     limit: u64,
 ) -> GenerateResult<(Vec<Option<ReadRow>>, u64)> {
+    if limit == 0 {
+        return Ok((vec![None; wanted.len()], 0));
+    }
     let scan = backend.scan(table, None, Rows::All).await?;
     let table = table.clone();
     tokio::task::spawn_blocking(move || {

@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Display};
 
-use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml};
+use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml};
 use crate::generate::spec::report::{Change, Look, Status, Tone, tally};
 use crate::generate::spec::rows::Found;
 
@@ -18,9 +18,9 @@ pub enum CaseStatus {
 impl CaseStatus {
     /// The spec has no case of the row.
     const NEW: Look = Look::new("NEW", Tone::Cyan, "new", false);
-    /// The spec's case of the row has another output.
+    /// The spec's case of the row has another input or output.
     const CHANGED: Look = Look::new("CHANGED", Tone::Yellow, "changed", true);
-    /// The spec's case of the row has the same output.
+    /// The spec's case of the row has the same input and output.
     const SAME: Look = Look::new("SAME", Tone::Green, "same", false);
     /// No path takes the spec's case any more.
     const GONE: Look = Look::new("GONE", Tone::Red, "gone", true);
@@ -65,7 +65,7 @@ impl Reviewed {
             .cloned();
         let status = match &old {
             None => CaseStatus::New,
-            Some(old) if old.output == case.output => CaseStatus::Same,
+            Some(old) if old.input == case.input && old.output == case.output => CaseStatus::Same,
             Some(_) => CaseStatus::Changed,
         };
         Self {
@@ -76,18 +76,27 @@ impl Reviewed {
         }
     }
 
-    /// The spec's output and the generated one, as YAML.
+    /// The spec's output and the generated one as YAML, with their inputs where those differ.
     #[must_use]
     pub fn diff(&self) -> Change {
+        let gone = self.status == CaseStatus::Gone;
+        let input_changed = !gone && self.old.as_ref().is_some_and(|old| old.input != self.case.input);
+        let shown = |case: &Case| {
+            if input_changed {
+                case_yaml(case)
+            } else {
+                output_yaml(&case.output)
+            }
+        };
         Change {
             old: self
                 .old
                 .as_ref()
-                .map_or_else(|| "(not in the spec)\n".to_owned(), |old| output_yaml(&old.output)),
-            new: if self.status == CaseStatus::Gone {
+                .map_or_else(|| "(not in the spec)\n".to_owned(), shown),
+            new: if gone {
                 "(no path takes the row any more)\n".to_owned()
             } else {
-                output_yaml(&self.case.output)
+                shown(&self.case)
             },
         }
     }
@@ -363,5 +372,49 @@ mod tests {
             ),
         ]
         "#);
+    }
+
+    #[test]
+    fn a_case_with_another_input_than_the_spec_is_changed_and_shows_both_inputs() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1, geometry: 'POINT(1 1)' }
+                output:
+                  - { layer: roads, id: 1, geometry: point, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1, geometry: 'POINT(2 2)' }
+            output:
+              - { layer: roads, id: 1, geometry: point, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let reviewed = Reviewed::new(case, Some(&old), &ids);
+        let diff = reviewed.diff();
+        insta::assert_snapshot!(format!("{:?}\n--- spec\n{}--- now\n{}", reviewed.status, diff.old, diff.new), @"
+        Changed
+        --- spec
+        input:
+          geometry: POINT(1 1)
+          osm_id: 1
+        output:
+        - layer: roads
+          id: 1
+          geometry: point
+          zooms: 4-14
+        --- now
+        input:
+          geometry: POINT(2 2)
+          osm_id: 1
+        output:
+        - layer: roads
+          id: 1
+          geometry: point
+          zooms: 4-14
+        ");
     }
 }

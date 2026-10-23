@@ -537,6 +537,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_sweep_limited_to_no_rows_reads_none() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: places
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            id_column: id
+            properties:
+              id: int8
+            layers:
+              places: {}
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, geometry: 'POINT(16.37 48.20)' }
+        "})
+        .expect("parses");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: test_table("places", &info, 14).expect("lowers").expect("has zooms"),
+                rows,
+            }],
+        };
+        let review = review(&memory, 14, None, 0, &Reporter::new()).await.expect("reviews");
+        let found: Vec<(String, RowSearch)> = review
+            .found
+            .iter()
+            .map(|found| (found.branch.to_string(), found.row.clone()))
+            .collect();
+        insta::assert_debug_snapshot!((found, review.cases.len()), @r#"
+        (
+            [
+                (
+                    "places: every feature",
+                    NoneSwept {
+                        rows: 0,
+                        because: [
+                            BackendCannotSelect,
+                        ],
+                    },
+                ),
+            ],
+            0,
+        )
+        "#);
+    }
+
+    #[tokio::test]
     async fn the_row_the_backend_selects_is_taken_when_it_takes_the_path() {
         let info: TableInfo = serde_saphyr::from_str(indoc! {"
             schema: public

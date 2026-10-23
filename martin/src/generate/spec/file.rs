@@ -167,6 +167,20 @@ pub fn output_yaml(output: &[Output]) -> String {
     }
 }
 
+/// The input and features of a case as YAML, to diff.
+#[must_use]
+pub fn case_yaml(case: &Case) -> String {
+    #[derive(Serialize)]
+    struct Shown<'a> {
+        input: &'a BTreeMap<String, Value>,
+        output: &'a [Output],
+    }
+    yaml(&Shown {
+        input: &case.input,
+        output: &case.output,
+    })
+}
+
 /// Reads a spec file.
 ///
 /// # Errors

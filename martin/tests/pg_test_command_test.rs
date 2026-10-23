@@ -292,11 +292,159 @@ async fn postgres_selects_lines_by_their_shape_at_the_max_zoom() {
         (
             "roads: crosses a z14 tile edge",
             Selected {
-                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641))",
+                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641))",
                 key: 1,
             },
         ),
     ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_selects_a_line_that_ends_on_a_horizontal_tile_edge_only_once_it_crosses() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_edges CASCADE;
+        CREATE SCHEMA martin_test_edges;
+        CREATE TABLE martin_test_edges.roads (id int8 PRIMARY KEY, geom geometry(LineString, 3857));
+        INSERT INTO martin_test_edges.roads VALUES
+          (1, 'SRID=3857;LINESTRING(100 -100, 200 0)'),
+          (2, 'SRID=3857;LINESTRING(100 100, 200 0)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            roads:
+              schema: martin_test_edges
+              table: roads
+              srid: 3857
+              geometry_column: geom
+              geometry_type: LINESTRING
+              id_column: id
+              properties:
+                id: int8
+              layers:
+                roads:
+                  min_size: 0
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .filter(|found| found.branch.to_string().contains("tile edge"))
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "roads: crosses a z14 tile edge",
+            Selected {
+                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641))",
+                key: 2,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_selects_no_row_whose_id_is_null_or_negative() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_keys CASCADE;
+        CREATE SCHEMA martin_test_keys;
+        CREATE TABLE martin_test_keys.places (id int8, geom geometry(Point, 4326));
+        INSERT INTO martin_test_keys.places VALUES
+          (NULL, 'SRID=4326;POINT(16.37 48.20)'),
+          (-5, 'SRID=4326;POINT(16.38 48.21)'),
+          (7, 'SRID=4326;POINT(16.39 48.22)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_keys
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+              layers:
+                places: {}
+    "})
+    .await;
+    let review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    let found: Vec<(String, RowSearch)> = review
+        .found
+        .iter()
+        .map(|found| (found.branch.to_string(), found.row.clone()))
+        .collect();
+    insta::assert_debug_snapshot!(found, @r#"
+    [
+        (
+            "places: every feature",
+            Selected {
+                rows: "TRUE",
+                key: 7,
+            },
+        ),
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn generate_over_postgres_reads_a_row_by_an_id_column_with_a_dash() {
+    seed(indoc! {r#"
+        DROP SCHEMA IF EXISTS martin_test_quoted CASCADE;
+        CREATE SCHEMA martin_test_quoted;
+        CREATE TABLE martin_test_quoted.places ("row-id" int8 PRIMARY KEY, geom geometry(Point, 4326));
+        INSERT INTO martin_test_quoted.places VALUES
+          (1, 'SRID=4326;POINT(16.37 48.20)');
+    "#})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_quoted
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: row-id
+              properties:
+                row-id: int8
+              layers:
+                places: {}
+    "})
+    .await;
+    let mut review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    review.accept_all();
+    insta::assert_snapshot!(yaml(&review.spec()), @r#"
+    max_zoom: 14
+    cases:
+    - source: places
+      paths:
+      - "places: every feature"
+      input:
+        geometry: POINT(16.37 48.2)
+        row-id: 1
+      output:
+      - layer: places
+        id: 1
+        geometry: point
+        zooms: 0-14
+        attributes:
+          row-id: 1
     "#);
 }
 
