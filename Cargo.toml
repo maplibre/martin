@@ -136,6 +136,7 @@ humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
+image-webp = "0.2.4"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = "0.18.3"
 indoc = "2"
@@ -228,6 +229,7 @@ tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 walkdir = "2.5.0"
+webp = { version = "0.3.1", default-features = false }
 wincode = "0.6.2"
 wiremock = "0.6"
 wkb = "0.9.2"

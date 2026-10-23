@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use image::ImageFormat;
+use image::{ColorType, ImageFormat};
 use indoc::formatdoc;
 use martin_e2e_tests::{
     Cassette, Martin, StartError, TestResponse, assert_image_matches, assert_images_alike, assert_images_differ,
@@ -33,6 +33,12 @@ fn png_pixel_format(body: &[u8]) -> String {
         .expect("response body is not a PNG");
     let info = reader.info();
     format!("{:?} {:?}", info.color_type, info.bit_depth)
+}
+
+/// `Lossy` or `Lossless`, how the WebP `body` is encoded.
+fn webp_encoding(body: &[u8]) -> &'static str {
+    let mut webp = image_webp::WebPDecoder::new(std::io::Cursor::new(body)).expect("response body is not a WebP");
+    if webp.is_lossy() { "Lossy" } else { "Lossless" }
 }
 
 /// Stop martin and consume the log lines rendering always emits, leaving the log clean for the
@@ -924,13 +930,24 @@ const ENCODED_PATHS: &[&str] = &[
     "/style/maplibre_demo/0/0/0.jpg",
 ];
 
-/// `path: status, content type, PNG colour type and bit depth` for each of `paths`.
+const QUALITY_PATHS: &[&str] = &[
+    "/style/maplibre_demo/0/0/0.webp",
+    "/style/maptiler_basic/0/0/0.webp",
+    "/style/maplibre_demo/static/0,0,0/200x200.webp",
+    "/style/maplibre_demo/0/0/0.jpg",
+];
+
+/// `path: status, content type, encoding` for each of `paths`. The encoding is the colour type and
+/// bit depth of a PNG, and whether a WebP is lossy.
 async fn encodings(martin: &Martin, paths: &[&str]) -> String {
     let mut lines = Vec::new();
     for path in paths {
         let response = martin.get(path).await;
-        let pixels = if response.image_format() == ImageFormat::Png {
+        let format = response.image_format();
+        let pixels = if format == ImageFormat::Png {
             png_pixel_format(response.body())
+        } else if format == ImageFormat::WebP {
+            webp_encoding(response.body()).to_owned()
         } else {
             "-".to_owned()
         };
@@ -1109,6 +1126,166 @@ async fn a_png_palette_size_outside_png_fails_startup(#[case] max_colors: u32) {
         log.contains("max_colors must be 2 to 256"),
         "log must name the invalid option; log:\n{log}"
     );
+}
+
+#[tokio::test]
+async fn rendered_webps_are_lossy_by_default() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 2
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(encodings(&martin, QUALITY_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.webp: 200 image/webp Lossy
+    /style/maptiler_basic/0/0/0.webp: 200 image/webp Lossy
+    /style/maplibre_demo/static/0,0,0/200x200.webp: 200 image/webp Lossy
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_lossless_quality_keeps_webps_lossless() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 2
+                quality: lossless
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_snapshot!(encodings(&martin, QUALITY_PATHS).await, @"
+    /style/maplibre_demo/0/0/0.webp: 200 image/webp Lossless
+    /style/maptiler_basic/0/0/0.webp: 200 image/webp Lossless
+    /style/maplibre_demo/static/0,0,0/200x200.webp: 200 image/webp Lossless
+    /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
+    ");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_lower_quality_serves_smaller_images() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut served = Vec::new();
+    for quality in [10, 100] {
+        let mut martin = Martin::builder()
+            .config(&formatdoc! {"
+                styles:
+                  rendering:
+                    enabled: true
+                    workers: 2
+                    quality: {quality}
+                  sources:
+                    maplibre_demo: {maplibre_demo}
+                    maptiler_basic: {maptiler_basic}
+            "})
+            .start()
+            .await
+            .expect("failed to start martin");
+        let mut responses = Vec::new();
+        for path in QUALITY_PATHS {
+            responses.push(martin.get(path).await);
+        }
+        stop_and_take_rendering_log(&mut martin).await;
+        served.push(responses);
+    }
+
+    let [low, high] = served.as_slice() else {
+        unreachable!("two qualities were served");
+    };
+    for ((path, low), high) in QUALITY_PATHS.iter().zip(low).zip(high) {
+        for response in [low, high] {
+            assert_eq!(response.status(), 200, "{path}");
+            // Decodes every pixel, not only the header.
+            let color = response.image_color();
+            assert!(matches!(color, ColorType::Rgb8 | ColorType::Rgba8), "{path}: {color:?}");
+            if response.image_format() == ImageFormat::WebP {
+                assert_eq!(webp_encoding(response.body()), "Lossy", "{path}");
+            }
+        }
+        assert_eq!(low.image_size(), high.image_size(), "{path}");
+        assert!(
+            low.body().len() < high.body().len(),
+            "{path}: quality 10 is {} bytes, quality 100 is {} bytes",
+            low.body().len(),
+            high.body().len()
+        );
+    }
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_quality_outside_1_to_100_fails_startup() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let error = Martin::builder()
+        .env("RUST_LOG", "martin=error")
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 2
+                quality: 0
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect_err("martin must reject the quality");
+    let StartError::EarlyExit { status, log } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    assert!(!status.success(), "exit status must be a failure: {status}");
+    insta::with_settings!({filters => vec![(r"/\S*/config\.yaml", "[CONFIG]")]}, {
+        insta::assert_snapshot!(log, @r#"
+        ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × quality must be 1 to 100 or "lossless", not 0
+           ╭─[[CONFIG]:5:14]
+         4 │     workers: 2
+         5 │     quality: 0
+           ·              ─
+         6 │   sources:
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    });
 }
 
 #[rstest]
