@@ -390,7 +390,7 @@ fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
                     ),
                 },
             ),
-            size: None,
+            shape: None,
         },
     ]
     "#);
