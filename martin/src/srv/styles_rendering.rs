@@ -23,7 +23,6 @@ use image::{ImageFormat, RgbImage, RgbaImage};
 use martin_core::styles::StyleSources;
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
-#[cfg(target_os = "linux")]
 use tokio::sync::Semaphore;
 use tracing::{error, trace, warn};
 
@@ -89,7 +88,11 @@ pub(super) async fn encode_image_response(
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
 ) -> HttpResponse {
-    match encode_off_worker(image, format, png_max_colors).await {
+    match encode_off_worker(&ENCODE_PERMITS, move || {
+        encode_image(image.as_image(), format, png_max_colors)
+    })
+    .await
+    {
         Ok(bytes) => HttpResponse::Ok().content_type(format.content_type()).body(bytes),
         Err(e) => {
             error!(error = %e, "Failed to encode image");
@@ -100,20 +103,25 @@ pub(super) async fn encode_image_response(
     }
 }
 
-#[cfg(target_os = "linux")]
+/// Run `encode` on the blocking pool while holding one of `permits`.
 async fn encode_off_worker(
-    image: martin_core::styles::StaticImage,
-    format: ImageFormatRequest,
-    png_max_colors: Option<u16>,
+    permits: &'static Semaphore,
+    encode: impl FnOnce() -> Result<Vec<u8>, EncodeError> + Send + 'static,
 ) -> Result<Vec<u8>, EncodeError> {
-    let _permit = ENCODE_PERMITS
+    let permit = permits
         .acquire()
         .await
         // The only way to fail is a closed semaphore, which happens at shutdown.
         .map_err(|_closed| EncodeError::ShuttingDown)?;
     // Encoding is CPU-bound for milliseconds, which would stall
     // every other request on this actix worker if it ran inline.
-    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors)).await?
+    tokio::task::spawn_blocking(move || {
+        // The permit lives in the task, not in the request future: a cancelled
+        // request must not free it while the encode is still running.
+        let _permit = permit;
+        encode()
+    })
+    .await?
 }
 
 /// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set.
@@ -278,6 +286,7 @@ pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpRespons
 mod tests {
     use image::ColorType;
     use rstest::rstest;
+    use tokio::sync::oneshot;
 
     use super::*;
 
@@ -296,6 +305,33 @@ mod tests {
 
         let decoded = image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
         assert_eq!(decoded.to_rgba8(), image);
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_request_keeps_the_permit_until_the_encode_returns() {
+        static PERMITS: Semaphore = Semaphore::const_new(1);
+        let (started_tx, started_rx) = oneshot::channel();
+        let (finish_tx, finish_rx) = oneshot::channel();
+        let request = tokio::spawn(encode_off_worker(&PERMITS, move || {
+            started_tx.send(()).expect("the test waits for the start");
+            finish_rx.blocking_recv().expect("the test releases the encode");
+            Ok(Vec::new())
+        }));
+        started_rx.await.expect("the encode starts");
+
+        request.abort();
+        assert!(request.await.expect_err("the request is cancelled").is_cancelled());
+        assert_eq!(
+            PERMITS.available_permits(),
+            0,
+            "the running encode still holds the permit"
+        );
+
+        finish_tx.send(()).expect("the encode waits for the release");
+        let _permit = PERMITS
+            .acquire()
+            .await
+            .expect("the permit is released once the encode returns");
     }
 
     #[test]
