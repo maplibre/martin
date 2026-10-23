@@ -954,7 +954,7 @@ fn a_line_layer_with_the_default_min_size_has_a_path_per_shape() {
         },
         Branch {
             layer: "roads",
-            path: "kept only at z14 by `min_size_at_maxzoom`",
+            path: "kept only at z14 (`min_size_at_maxzoom`)",
             rows: Ok(
                 Geometry(
                     Line,
@@ -972,7 +972,7 @@ fn a_line_layer_with_the_default_min_size_has_a_path_per_shape() {
         },
         Branch {
             layer: "roads",
-            path: "smaller than `min_size` at every zoom",
+            path: "dropped, smaller than `min_size` at every zoom",
             rows: Ok(
                 Geometry(
                     Line,
@@ -1121,7 +1121,7 @@ fn a_line_just_below_the_default_min_size_is_kept_only_at_z14() {
     insta::assert_debug_snapshot!(taken, @r#"
     [
         "roads: every feature",
-        "roads: kept only at z14 by `min_size_at_maxzoom`",
+        "roads: kept only at z14 (`min_size_at_maxzoom`)",
     ]
     "#);
 }
@@ -1146,7 +1146,7 @@ fn a_tiny_line_is_smaller_than_the_default_min_size_at_every_zoom() {
     insta::assert_debug_snapshot!(taken, @r#"
     [
         "roads: every feature",
-        "roads: smaller than `min_size` at every zoom",
+        "roads: dropped, smaller than `min_size` at every zoom",
     ]
     "#);
 }
