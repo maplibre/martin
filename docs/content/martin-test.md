@@ -14,7 +14,7 @@ tags:
     It is only built with the `unstable-generate` feature:
 
     ```bash
-    cargo build --package martin --bin martin --features unstable-generate
+    cargo install --path martin --locked --features unstable-generate
     ```
 
 `martin test` renders real rows through the [`layers`](sources-pg-layers.md) of table sources in
