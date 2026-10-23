@@ -543,4 +543,40 @@ mod tests {
             name: A 9
         ");
     }
+
+    #[test]
+    fn a_feature_served_with_fewer_vertices_and_another_attribute_names_both() {
+        let diff = TileDiff {
+            coord: TileCoord::new_unchecked(14, 8937, 5681),
+            kind: TileDiffKind::Feature {
+                bulk: Feature {
+                    layer: "roads".to_owned(),
+                    id: Some(1),
+                    geometry: Geometry::LineString(line_string![(x: 0, y: 0), (x: 4, y: 1), (x: 9, y: 0)]),
+                    attributes: serde_json::from_value(json!({ "name": "A 9" })).expect("an object"),
+                },
+                served: Feature {
+                    layer: "roads".to_owned(),
+                    id: Some(1),
+                    geometry: Geometry::LineString(line_string![(x: 0, y: 0), (x: 9, y: 0)]),
+                    attributes: BTreeMap::new(),
+                },
+            },
+        };
+        insta::assert_snapshot!(diff, @r#"z14 8937/5681 roads 1: 3 vertices in bulk mode, 2 served, `name` "A 9" in bulk mode, (none) served"#);
+    }
+
+    #[test]
+    fn a_feature_only_the_server_has_is_named_by_its_layer_and_id() {
+        let diff = TileDiff {
+            coord: TileCoord::new_unchecked(13, 4468, 2840),
+            kind: TileDiffKind::FeatureOnlyServed(Feature {
+                layer: "roads".to_owned(),
+                id: Some(2),
+                geometry: Geometry::Point(point! { x: 1, y: 2 }),
+                attributes: BTreeMap::new(),
+            }),
+        };
+        insta::assert_snapshot!(diff, @"z13 4468/2840 roads 2: only served");
+    }
 }

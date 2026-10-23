@@ -4,11 +4,12 @@
 use std::io::Write as _;
 
 use indoc::indoc;
-use martin::generate::spec::file::yaml;
+use martin::generate::spec::backend::TestBackend as _;
+use martin::generate::spec::file::{Case, yaml};
 use martin::generate::spec::postgres::Postgres;
 use martin::generate::spec::report::Reporter;
-use martin::generate::spec::review;
 use martin::generate::spec::rows::RowSearch;
+use martin::generate::spec::{check, review};
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 
 /// Runs `sql` on the test database.
@@ -511,4 +512,162 @@ async fn generate_over_postgres_writes_each_row_as_bulk_mode_reads_it() {
         attributes:
           name: Baden
     "#);
+}
+
+#[tokio::test]
+async fn the_server_serves_a_point_as_bulk_mode_writes_it() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_serve_point CASCADE;
+        CREATE SCHEMA martin_test_serve_point;
+        CREATE TABLE martin_test_serve_point.places (id int8 PRIMARY KEY, geom geometry(Point, 4326));
+        INSERT INTO martin_test_serve_point.places VALUES
+          (1, 'SRID=4326;POINT(16.37 48.20)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_serve_point
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+              layers:
+                places:
+                  attributes: [id]
+    "})
+    .await;
+    let case: Case = serde_saphyr::from_str(indoc! {"
+        source: places
+        input: { geometry: POINT(16.37 48.2), id: 1 }
+        output:
+          - { layer: places, id: 1, geometry: point, zooms: 0-14, attributes: { id: 1 } }
+    "})
+    .unwrap();
+    let tables = backend.tables(14).unwrap();
+    let outcome = check(&backend, &tables, &case, 14, false).await.unwrap();
+    insta::assert_debug_snapshot!((outcome.status(), outcome.served), @"
+    (
+        Pass,
+        Served {
+            diffs: [],
+            compared: 122,
+        },
+    )
+    ");
+}
+
+#[tokio::test]
+async fn a_server_up_to_the_spec_max_zoom_keeps_the_line_bulk_mode_keeps_only_there() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_serve_spec CASCADE;
+        CREATE SCHEMA martin_test_serve_spec;
+        CREATE TABLE martin_test_serve_spec.roads (id int8 PRIMARY KEY, geom geometry(LineString, 4326));
+        INSERT INTO martin_test_serve_spec.roads VALUES
+          (1, 'SRID=4326;LINESTRING(16.371 48.201, 16.37104 48.201)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            roads:
+              schema: martin_test_serve_spec
+              table: roads
+              srid: 4326
+              geometry_column: geom
+              geometry_type: LINESTRING
+              id_column: id
+              maxzoom: 18
+              properties:
+                id: int8
+              layers:
+                roads:
+                  attributes: [id]
+    "})
+    .await;
+    let case: Case = serde_saphyr::from_str(indoc! {"
+        source: roads
+        input: { geometry: 'LINESTRING(16.371 48.201,16.37104 48.201)', id: 1 }
+        output:
+          - { layer: roads, id: 1, geometry: line, zooms: 14-14, attributes: { id: 1 } }
+    "})
+    .unwrap();
+    let tables = backend.tables(14).unwrap();
+    let outcome = check(&backend, &tables, &case, 14, false).await.unwrap();
+    insta::assert_debug_snapshot!((outcome.status(), outcome.served), @"
+    (
+        Pass,
+        Served {
+            diffs: [],
+            compared: 9,
+        },
+    )
+    ");
+}
+
+#[tokio::test]
+async fn a_server_up_to_the_source_maxzoom_drops_a_line_bulk_mode_keeps_only_at_the_spec_max_zoom() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_serve_own CASCADE;
+        CREATE SCHEMA martin_test_serve_own;
+        CREATE TABLE martin_test_serve_own.roads (id int8 PRIMARY KEY, geom geometry(LineString, 4326));
+        INSERT INTO martin_test_serve_own.roads VALUES
+          (1, 'SRID=4326;LINESTRING(16.371 48.201, 16.37104 48.201)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            roads:
+              schema: martin_test_serve_own
+              table: roads
+              srid: 4326
+              geometry_column: geom
+              geometry_type: LINESTRING
+              id_column: id
+              maxzoom: 18
+              properties:
+                id: int8
+              layers:
+                roads:
+                  attributes: [id]
+    "})
+    .await;
+    let case: Case = serde_saphyr::from_str(indoc! {"
+        source: roads
+        input: { geometry: 'LINESTRING(16.371 48.201,16.37104 48.201)', id: 1 }
+        output:
+          - { layer: roads, id: 1, geometry: line, zooms: 14-14, attributes: { id: 1 } }
+    "})
+    .unwrap();
+    let tables = backend.tables(14).unwrap();
+    let outcome = check(&backend, &tables, &case, 14, true).await.unwrap();
+    insta::assert_debug_snapshot!((outcome.status(), outcome.served), @"
+    (
+        ModesDiffer,
+        Served {
+            diffs: [
+                TileDiff {
+                    coord: TileCoord {
+                        z: 14,
+                        x: 8937,
+                        y: 5681,
+                    },
+                    kind: OnlyBulk,
+                },
+            ],
+            compared: 9,
+        },
+    )
+    ");
 }
