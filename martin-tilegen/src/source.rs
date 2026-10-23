@@ -2,7 +2,7 @@
 
 use bytes::Bytes;
 use geo_traits::to_geo::ToGeoGeometry as _;
-use geo_types::{Coord, Geometry as GeoGeometry, LineString, Polygon};
+use geo_types::{Coord, Geometry as GeoGeometry, GeometryCollection, LineString, Polygon};
 use wkb::reader::Wkb;
 
 use crate::FeatureGeom;
@@ -82,18 +82,27 @@ impl Geometry {
 }
 
 fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
-    Some(match Wkb::try_new(bytes).ok()?.try_to_geometry()? {
-        GeoGeometry::Point(p) => Geometry::Point(p.0),
-        GeoGeometry::MultiPoint(mp) => Geometry::Points(mp.0.into_iter().map(|p| p.0).collect()),
-        GeoGeometry::LineString(ls) => Geometry::Line(ls),
-        GeoGeometry::MultiLineString(mls) => Geometry::Lines(mls.0),
-        GeoGeometry::Polygon(polygon) => Geometry::Polygon(polygon),
-        GeoGeometry::MultiPolygon(mp) => Geometry::Polygons(mp.0),
-        GeoGeometry::Line(line) => Geometry::Line(line.into()),
-        GeoGeometry::Rect(rect) => Geometry::Polygon(rect.to_polygon()),
-        GeoGeometry::Triangle(triangle) => Geometry::Polygon(triangle.to_polygon()),
-        GeoGeometry::GeometryCollection(_) => return None,
-    })
+    Wkb::try_new(bytes).ok()?.try_to_geometry()?.try_into().ok()
+}
+
+impl TryFrom<GeoGeometry<f64>> for Geometry {
+    /// A geometry collection, which has no single feature geometry.
+    type Error = GeometryCollection<f64>;
+
+    fn try_from(geometry: GeoGeometry<f64>) -> Result<Self, Self::Error> {
+        Ok(match geometry {
+            GeoGeometry::Point(p) => Self::Point(p.0),
+            GeoGeometry::MultiPoint(mp) => Self::Points(mp.0.into_iter().map(|p| p.0).collect()),
+            GeoGeometry::LineString(ls) => Self::Line(ls),
+            GeoGeometry::MultiLineString(mls) => Self::Lines(mls.0),
+            GeoGeometry::Polygon(polygon) => Self::Polygon(polygon),
+            GeoGeometry::MultiPolygon(mp) => Self::Polygons(mp.0),
+            GeoGeometry::Line(line) => Self::Line(line.into()),
+            GeoGeometry::Rect(rect) => Self::Polygon(rect.to_polygon()),
+            GeoGeometry::Triangle(triangle) => Self::Polygon(triangle.to_polygon()),
+            GeoGeometry::GeometryCollection(collection) => return Err(collection),
+        })
+    }
 }
 
 /// One feature as a source reads it.

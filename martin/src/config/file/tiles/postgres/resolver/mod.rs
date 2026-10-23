@@ -11,7 +11,9 @@ pub use crate::config::file::tiles::postgres::resolver::query_functions::{
 };
 pub use crate::config::file::tiles::postgres::resolver::query_schemas::query_schemas;
 #[cfg(feature = "unstable-generate")]
-pub use crate::config::file::tiles::postgres::resolver::query_tables::{ScanSql, engine_sql, scan_sql};
+pub use crate::config::file::tiles::postgres::resolver::query_tables::{
+    ScanSql, engine_sql, linear_geometry, scan_sql,
+};
 pub use crate::config::file::tiles::postgres::resolver::query_tables::{
     SqlTableInfoMapMapMap, query_available_tables, table_to_query,
 };

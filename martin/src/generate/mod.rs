@@ -163,6 +163,10 @@ pub enum GenerateError {
     BadEncoding(String),
     #[error("No table source matches `{0}`. Available table sources: {1}")]
     UnknownSource(String, String),
+    #[error("Source `{0}` has no `id_column`, which `martin test` selects its rows by")]
+    NoIdColumn(String),
+    #[error("Case of `{0}` has no id in its input")]
+    CaseWithoutId(String),
     #[error("Source `{0}` is a function source; only tables and views can be scanned")]
     FunctionSource(String),
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
@@ -185,6 +189,16 @@ pub enum GenerateError {
     Interrupted(PathBuf),
     #[error("Could not listen for interrupts: {0}")]
     Signal(#[source] std::io::Error),
+    #[error("Cannot read spec file {}: {}", .0.display(), .1)]
+    ReadSpec(PathBuf, #[source] std::io::Error),
+    #[error("Cannot parse spec file {}: {}", .0.display(), .1)]
+    ParseSpec(PathBuf, #[source] Box<serde_saphyr::Error>),
+    #[error("Cannot write spec file {}: {}", .0.display(), .1)]
+    WriteSpec(PathBuf, #[source] std::io::Error),
+    #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
+    CaseTooLarge { table: String, key: u64, tiles: usize },
+    #[error("Cannot decode a tile bulk mode wrote: {0}")]
+    Decode(#[source] mlt_core::MltError),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
