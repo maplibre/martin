@@ -214,4 +214,28 @@ mod tests {
           output: []
         ");
     }
+
+    #[test]
+    fn a_case_is_named_by_its_source_and_the_key_in_its_input() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 7, class: motorway }
+            output: []
+        "})
+        .expect("parses");
+        insta::assert_snapshot!(CaseName(&case, &ids), @"roads 7");
+    }
+
+    #[test]
+    fn a_case_without_the_key_in_its_input_has_no_id() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { class: motorway }
+            output: []
+        "})
+        .expect("parses");
+        insta::assert_snapshot!(CaseName(&case, &ids), @"roads (no id)");
+    }
 }
