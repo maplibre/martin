@@ -190,7 +190,7 @@ impl TileSink for MemorySink {
 
 #[cfg(test)]
 mod tests {
-    use mlt_core::geo_types::point;
+    use mlt_core::geo_types::{line_string, point};
     use serde_json::json;
 
     use super::*;
@@ -228,6 +228,70 @@ mod tests {
             name:
               value: A 9
               minzoom: 11
+        ");
+    }
+
+    #[test]
+    fn an_attribute_dropped_before_the_last_zoom_names_its_maxzoom() {
+        let feature = |attributes: Value| Feature {
+            layer: "roads".to_owned(),
+            id: Some(1),
+            geometry: Geometry::Point(point! { x: 1, y: 2 }),
+            attributes: serde_json::from_value(attributes).expect("an object"),
+        };
+        let tiles = Tiles::from([
+            (
+                TileCoord::new_unchecked(10, 0, 0),
+                vec![feature(json!({ "kind": "major", "ref": "A 9" }))],
+            ),
+            (
+                TileCoord::new_unchecked(11, 0, 0),
+                vec![feature(json!({ "kind": "major" }))],
+            ),
+        ]);
+        insta::assert_snapshot!(yaml(&outputs(&tiles)), @"
+        - layer: roads
+          id: 1
+          geometry: point
+          zooms: 10-11
+          attributes:
+            kind: major
+            ref:
+              value: A 9
+              maxzoom: 10
+        ");
+    }
+
+    #[test]
+    fn a_row_in_two_layers_is_one_output_per_layer() {
+        let tiles = Tiles::from([(
+            TileCoord::new_unchecked(14, 0, 0),
+            vec![
+                Feature {
+                    layer: "roads".to_owned(),
+                    id: Some(1),
+                    geometry: Geometry::LineString(line_string![(x: 0, y: 0), (x: 9, y: 9)]),
+                    attributes: BTreeMap::new(),
+                },
+                Feature {
+                    layer: "road_labels".to_owned(),
+                    id: Some(1),
+                    geometry: Geometry::Point(point! { x: 4, y: 4 }),
+                    attributes: serde_json::from_value(json!({ "name": "A 9" })).expect("an object"),
+                },
+            ],
+        )]);
+        insta::assert_snapshot!(yaml(&outputs(&tiles)), @"
+        - layer: roads
+          id: 1
+          geometry: line
+          zooms: 14-14
+        - layer: road_labels
+          id: 1
+          geometry: point
+          zooms: 14-14
+          attributes:
+            name: A 9
         ");
     }
 }

@@ -96,3 +96,138 @@ fn geometry(text: &str) -> Option<Geometry> {
         _ => return None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::*;
+    use crate::config::file::postgres::TableInfo;
+    use crate::generate::spec::postgres::test_table;
+    use crate::generate::spec::rows::read_row;
+
+    #[tokio::test]
+    async fn a_row_reads_the_columns_the_layers_read_its_key_and_its_geometry() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: places
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            id_column: id
+            properties:
+              id: int8
+              name: text
+              population: int8
+            layers:
+              places:
+                attributes:
+                  name: name
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, name: Wien, population: 2000000, geometry: 'POINT(16.37 48.20)' }
+        "})
+        .expect("parses");
+        let table = test_table("places", &info, 14).expect("lowers").expect("has zooms");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: table.clone(),
+                rows,
+            }],
+        };
+        let row = read_row(&memory, &table, 1).await.expect("reads");
+        insta::assert_debug_snapshot!(row, @r#"
+        Some(
+            ReadRow {
+                key: 1,
+                paths: [
+                    "places: every feature",
+                ],
+                input: {
+                    "geometry": String("POINT(16.37 48.2)"),
+                    "id": Number(1),
+                    "name": String("Wien"),
+                },
+            },
+        )
+        "#);
+    }
+
+    #[tokio::test]
+    async fn a_missing_column_is_null_in_the_input() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: places
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            id_column: id
+            properties:
+              id: int8
+              name: text
+            layers:
+              places:
+                attributes:
+                  name: name
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, geometry: 'POINT(16.37 48.20)' }
+        "})
+        .expect("parses");
+        let table = test_table("places", &info, 14).expect("lowers").expect("has zooms");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: table.clone(),
+                rows,
+            }],
+        };
+        let row = read_row(&memory, &table, 1).await.expect("reads");
+        insta::assert_debug_snapshot!(row, @r#"
+        Some(
+            ReadRow {
+                key: 1,
+                paths: [
+                    "places: every feature",
+                ],
+                input: {
+                    "geometry": String("POINT(16.37 48.2)"),
+                    "id": Number(1),
+                    "name": Null,
+                },
+            },
+        )
+        "#);
+    }
+
+    #[tokio::test]
+    async fn a_row_without_a_geometry_is_not_read() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: places
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            id_column: id
+            properties:
+              id: int8
+            layers:
+              places: {}
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1 }
+        "})
+        .expect("parses");
+        let table = test_table("places", &info, 14).expect("lowers").expect("has zooms");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: table.clone(),
+                rows,
+            }],
+        };
+        let row = read_row(&memory, &table, 1).await.expect("reads");
+        insta::assert_debug_snapshot!(row, @"None");
+    }
+}
