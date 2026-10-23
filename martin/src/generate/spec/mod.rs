@@ -506,7 +506,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: where `population > 1000`",
+                "places: kept by `where: population > 1000`",
                 Swept {
                     key: 1,
                     because: [
@@ -515,7 +515,7 @@ mod tests {
                 },
             ),
             (
-                "places: not where `population > 1000`",
+                "places: dropped, `where: population > 1000` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -524,7 +524,7 @@ mod tests {
                 },
             ),
             (
-                "places: where `population > 1000` with `population` null",
+                "places: dropped, `population` is null in `where: population > 1000`",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -733,14 +733,14 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: where `population > 1000`",
+                "places: kept by `where: population > 1000`",
                 Selected {
                     rows: "TRUE",
                     key: 1,
                 },
             ),
             (
-                "places: not where `population > 1000`",
+                "places: dropped, `where: population > 1000` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -752,7 +752,7 @@ mod tests {
                 },
             ),
             (
-                "places: where `population > 1000` with `population` null",
+                "places: dropped, `population` is null in `where: population > 1000`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -870,14 +870,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: every feature",
-                Selected {
-                    rows: "TRUE",
-                    key: 1,
-                },
-            ),
-            (
-                "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` true",
+                "places: attributes.short 'A', `(name + '!') == 'A!'` is true",
                 Swept {
                     key: 1,
                     because: [
@@ -890,7 +883,7 @@ mod tests {
                 },
             ),
             (
-                "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` false",
+                "places: attributes.short `name`, `(name + '!') == 'A!'` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -903,7 +896,7 @@ mod tests {
                 },
             ),
             (
-                "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` fails with `name` null",
+                "places: attributes.short, `name` is null in `(name + '!') == 'A!'`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -991,7 +984,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: where `population > 1000`']
+                paths: ['places: kept by `where: population > 1000`']
                 input: { id: 3 }
                 output: []
         "})
@@ -1007,13 +1000,13 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: where `population > 1000`",
+                "places: kept by `where: population > 1000`",
                 Kept(
                     3,
                 ),
             ),
             (
-                "places: not where `population > 1000`",
+                "places: dropped, `where: population > 1000` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -1022,7 +1015,7 @@ mod tests {
                 },
             ),
             (
-                "places: where `population > 1000` with `population` null",
+                "places: dropped, `population` is null in `where: population > 1000`",
                 NoneSwept {
                     rows: 3,
                     because: [
@@ -1066,7 +1059,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: where `population > 1000`']
+                paths: ['places: kept by `where: population > 1000`']
                 input: { id: 3 }
                 output: []
         "})
@@ -1082,7 +1075,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: where `population > 1000`",
+                "places: kept by `where: population > 1000`",
                 Swept {
                     key: 1,
                     because: [
@@ -1094,7 +1087,7 @@ mod tests {
                 },
             ),
             (
-                "places: not where `population > 1000`",
+                "places: dropped, `where: population > 1000` is false",
                 Swept {
                     key: 3,
                     because: [
@@ -1103,7 +1096,7 @@ mod tests {
                 },
             ),
             (
-                "places: where `population > 1000` with `population` null",
+                "places: dropped, `population` is null in `where: population > 1000`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -1146,7 +1139,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: where `population > 1000`']
+                paths: ['places: kept by `where: population > 1000`']
                 input: { id: 9 }
                 output: []
         "})
@@ -1162,7 +1155,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: where `population > 1000`",
+                "places: kept by `where: population > 1000`",
                 Swept {
                     key: 1,
                     because: [
@@ -1174,7 +1167,7 @@ mod tests {
                 },
             ),
             (
-                "places: not where `population > 1000`",
+                "places: dropped, `where: population > 1000` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -1183,7 +1176,7 @@ mod tests {
                 },
             ),
             (
-                "places: where `population > 1000` with `population` null",
+                "places: dropped, `population` is null in `where: population > 1000`",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -1238,7 +1231,7 @@ mod tests {
         cases:
         - source: roads
           paths:
-          - "roads: rule 1 `class == 'motorway'`"
+          - "roads: rule 1 `where: class == 'motorway'`"
           - "roads: crosses a z14 tile edge"
           input:
             class: motorway
@@ -1254,7 +1247,7 @@ mod tests {
               label: A1!
         - source: roads
           paths:
-          - "roads: rule 2 `class == 'path'`"
+          - "roads: rule 2 `where: class == 'path'`"
           input:
             class: path
             geometry: LINESTRING(16.37 48.2,16.38 48.21)
@@ -1267,8 +1260,8 @@ mod tests {
             zooms: 12-14
         - source: roads
           paths:
-          - "roads: no rule"
-          - "roads: kept only at z14 by `min_size_at_maxzoom`"
+          - "roads: no rule matches"
+          - "roads: kept only at z14 (`min_size_at_maxzoom`)"
           input:
             class: track
             geometry: LINESTRING(16.37 48.2,16.37001 48.2)

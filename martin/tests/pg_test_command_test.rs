@@ -68,21 +68,21 @@ async fn postgres_selects_a_row_on_each_path_of_a_where() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: where `population > 1000`",
+            "places: kept by `where: population > 1000`",
             Selected {
                 rows: "\"population\" > 1000",
                 key: 1,
             },
         ),
         (
-            "places: not where `population > 1000`",
+            "places: dropped, `where: population > 1000` is false",
             Selected {
                 rows: "\"population\" <= 1000",
                 key: 2,
             },
         ),
         (
-            "places: where `population > 1000` with `population` null",
+            "places: dropped, `population` is null in `where: population > 1000`",
             Selected {
                 rows: "\"population\" IS NULL",
                 key: 3,
@@ -131,20 +131,20 @@ async fn postgres_selects_no_row_for_a_path_no_row_takes() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: where `population > 1000`",
+            "places: kept by `where: population > 1000`",
             Selected {
                 rows: "\"population\" > 1000",
                 key: 1,
             },
         ),
         (
-            "places: not where `population > 1000`",
+            "places: dropped, `where: population > 1000` is false",
             NoneSelected {
                 rows: "\"population\" <= 1000",
             },
         ),
         (
-            "places: where `population > 1000` with `population` null",
+            "places: dropped, `population` is null in `where: population > 1000`",
             NoneSelected {
                 rows: "\"population\" IS NULL",
             },
@@ -194,14 +194,7 @@ async fn postgres_sweeps_a_path_sql_cannot_express() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: every feature",
-            Selected {
-                rows: "TRUE",
-                key: 1,
-            },
-        ),
-        (
-            "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` true",
+            "places: attributes.short 'A', `(name + '!') == 'A!'` is true",
             Swept {
                 key: 1,
                 because: [
@@ -214,7 +207,7 @@ async fn postgres_sweeps_a_path_sql_cannot_express() {
             },
         ),
         (
-            "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` false",
+            "places: attributes.short `name`, `(name + '!') == 'A!'` is false",
             Swept {
                 key: 2,
                 because: [
@@ -227,7 +220,7 @@ async fn postgres_sweeps_a_path_sql_cannot_express() {
             },
         ),
         (
-            "places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` fails with `name` null",
+            "places: attributes.short, `name` is null in `(name + '!') == 'A!'`",
             NoneSelected {
                 rows: "\"name\" IS NULL",
             },
@@ -489,8 +482,7 @@ async fn generate_over_postgres_writes_each_row_as_bulk_mode_reads_it() {
     cases:
     - source: places
       paths:
-      - "places: every feature"
-      - "places: `population > 1000000 ? 2 : 8`: `population > 1000000` true"
+      - "places: minzoom 2, `population > 1000000` is true"
       input:
         geometry: POINT(16.37 48.2)
         id: 1
@@ -505,8 +497,7 @@ async fn generate_over_postgres_writes_each_row_as_bulk_mode_reads_it() {
           name: Wien
     - source: places
       paths:
-      - "places: `population > 1000000 ? 2 : 8`: `population > 1000000` false"
-      - "places: every feature"
+      - "places: minzoom 8, `population > 1000000` is false"
       input:
         geometry: POINT(16.23 48.01)
         id: 2
