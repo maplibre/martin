@@ -441,15 +441,16 @@ impl<'a> LayerPaths<'a, '_> {
                     continue;
                 };
                 let others = self.known.iter().filter(|k| k.column != column);
-                let assigned: Vec<(&str, Prop<SourceStr>)> = std::iter::once((column, prop(value, kind)))
-                    .chain(others.filter_map(|k| match k.values.as_slice() {
-                        [only] => {
-                            let kind = compared_as(self.columns, &k.column, only)?;
-                            Some((k.column.as_str(), prop(only, kind)))
-                        }
-                        _ => None,
-                    }))
-                    .collect();
+                let assigned: Vec<(&str, Prop<SourceStr>)> =
+                    std::iter::once((column, prop(value, kind.as_ref().ok().copied())))
+                        .chain(others.filter_map(|k| match k.values.as_slice() {
+                            [only] => {
+                                let kind = compared_as(self.columns, &k.column, only)?;
+                                Some((k.column.as_str(), prop(only, kind.as_ref().ok().copied())))
+                            }
+                            _ => None,
+                        }))
+                        .collect();
                 let decides = |expr: &IdedExpr| self.decided_by(expr, column);
                 let eval = |expr: &IdedExpr| self.eval_with(expr, &assigned);
                 let filter = self.layer.filter.map(|f| self.expr(f));
@@ -786,10 +787,16 @@ impl<'a> LayerPaths<'a, '_> {
 
     /// `column == value` compared as `kind`, which no source can check while a `jsonb` column may replace the columns
     /// it reads.
-    fn equals(&self, column: &str, value: &Literal, kind: ValueKind) -> Result<Condition, TranslateError> {
+    fn equals(
+        &self,
+        column: &str,
+        value: &Literal,
+        kind: Result<ValueKind, TranslateError>,
+    ) -> Result<Condition, TranslateError> {
         if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
             return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
         }
+        let kind = kind?;
         Ok(Condition::Compare {
             left: Term::Column(column.to_owned()),
             op: CompareOp::Eq,
@@ -850,9 +857,10 @@ impl<'a> LayerPaths<'a, '_> {
     }
 }
 
-/// The kind `column` of `columns` and `value` compare as, or `None` when the column reads as values of another kind,
-/// e.g. a `numeric` column read as text, so expressions never see `value` there.
-fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<ValueKind> {
+/// The kind `column` of `columns` and `value` compare as, an error when the column's kind is not known, or `None` when
+/// the column reads as values of another kind, e.g. a `numeric` column read as text, so expressions never see `value`
+/// there.
+fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<Result<ValueKind, TranslateError>> {
     let kind = match value {
         Literal::Bool(_) => ValueKind::Bool,
         Literal::Int(_) | Literal::UInt(_) => ValueKind::Int,
@@ -860,26 +868,30 @@ fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<V
         Literal::String(_) => ValueKind::String,
     };
     let read_as = columns.iter().find_map(|c| match c {
-        ColumnDef::Value(name, read_as) if name == column => *read_as,
+        ColumnDef::Value(name, read_as) if name == column => Some(*read_as),
         ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
     });
-    read_as.map_or(Some(kind), |read_as| read_as.common(kind))
+    match read_as {
+        Some(Some(read_as)) => read_as.common(kind).map(Ok),
+        Some(None) => Some(Err(TranslateError::UnknownColumnType(column.to_owned()))),
+        None => Some(Ok(kind)),
+    }
 }
 
-/// `value` as a source reads it from a column of `kind`, saturating an unsigned integer above `i64::MAX`, which no
-/// source reads.
-fn prop(value: &Literal, kind: ValueKind) -> Prop<SourceStr> {
+/// `value` as a source reads it from a column of `kind`, as itself when the kind is not known, saturating an unsigned
+/// integer above `i64::MAX`, which no source reads.
+fn prop(value: &Literal, kind: Option<ValueKind>) -> Prop<SourceStr> {
     match (value, kind) {
         #[expect(
             clippy::cast_precision_loss,
             reason = "a float column holds the nearest float to the number too"
         )]
-        (Literal::Int(v), ValueKind::Float) => Prop::F64(*v as f64),
+        (Literal::Int(v), Some(ValueKind::Float)) => Prop::F64(*v as f64),
         #[expect(
             clippy::cast_precision_loss,
             reason = "a float column holds the nearest float to the number too"
         )]
-        (Literal::UInt(v), ValueKind::Float) => Prop::F64(*v as f64),
+        (Literal::UInt(v), Some(ValueKind::Float)) => Prop::F64(*v as f64),
         (Literal::Bool(v), _) => Prop::Bool(*v),
         (Literal::Int(v), _) => Prop::I64(*v),
         (Literal::UInt(v), _) => Prop::I64(i64::try_from(*v).unwrap_or(i64::MAX)),

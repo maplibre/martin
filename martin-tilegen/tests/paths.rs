@@ -277,7 +277,7 @@ fn a_town_outside_the_rule_takes_none_of_the_choices_of_its_attributes() {
 #[test]
 fn a_known_column_the_layer_reads_has_a_path_per_value() {
     let plan = Plan::new(vec![TableDef {
-        columns: vec![ColumnDef::Value("type".to_owned(), None)],
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
             geometry: Some(GeometryType::Point),
             attributes: AttributesDef::Computed {
@@ -347,6 +347,48 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
                         },
                     ],
                 ),
+            ),
+            size: None,
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), None)],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "kind".to_owned(),
+                    value: ValueDef::Expr("type.upperAscii()".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "type".to_owned(),
+        values: vec![Literal::String("stop".to_owned())],
+    }];
+    insta::assert_debug_snapshot!(plan.branches(0, &known).unwrap(), @r#"
+    [
+        Branch {
+            layer: "devices",
+            path: "type 'stop' -> attributes.kind 'STOP'",
+            rows: Err(
+                Untranslatable {
+                    layer: "devices",
+                    expr: "the source's filter",
+                    reason: UnknownColumnType(
+                        "type",
+                    ),
+                },
             ),
             size: None,
         },
