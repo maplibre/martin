@@ -141,7 +141,12 @@ impl Display for ShapeSql<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let Self(info, shape) = *self;
         let geom = escape_identifier(&info.geometry_column);
-        let side = |side: &str| format!("ST_{side}(ST_Transform({geom}::geometry, 3857)::box2d)");
+        let half = EARTH_CIRCUMFERENCE / 2.0;
+        let x = |side: &str| format!("ST_X{side}(ST_Transform({geom}::geometry, 3857)::box2d)");
+        // `y` clamped to the Mercator square, as the renderer projects it.
+        let y = |side: &str| {
+            format!("least(greatest(ST_Y{side}(ST_Transform({geom}::geometry, 3857)::box2d), -{half}), {half})")
+        };
         let tile = |zoom: u8| EARTH_CIRCUMFERENCE / f64::from(1u32 << zoom);
         match shape {
             Shape::Size(SizeBand { zoom, min, max }) => {
@@ -151,24 +156,24 @@ impl Display for ShapeSql<'_> {
                     "numrange({}, {}) @> greatest({} - {}, {} - {})::numeric",
                     meters(min),
                     meters(max),
-                    side("XMax"),
-                    side("XMin"),
-                    side("YMax"),
-                    side("YMin")
+                    x("Max"),
+                    x("Min"),
+                    y("Max"),
+                    y("Min")
                 )
             }
             Shape::CrossesTileEdge(zoom) => {
                 // Tile rows count from the north edge, as in the renderer's unit square.
-                let (half, tile) = (EARTH_CIRCUMFERENCE / 2.0, tile(zoom));
-                let column = |name: &str| format!("floor(({} + {half}) / {tile})", side(name));
-                let row = |name: &str| format!("floor(({half} - {}) / {tile})", side(name));
+                let tile = tile(zoom);
+                let column = |side: &str| format!("floor(({} + {half}) / {tile})", x(side));
+                let row = |side: &str| format!("floor(({half} - {}) / {tile})", y(side));
                 write!(
                     f,
                     "({} <> {} OR {} <> {})",
-                    column("XMin"),
-                    column("XMax"),
-                    row("YMin"),
-                    row("YMax")
+                    column("Min"),
+                    column("Max"),
+                    row("Min"),
+                    row("Max")
                 )
             }
         }
@@ -222,11 +227,11 @@ mod tests {
         roads: no rule matches
             "class" IS DISTINCT FROM 'motorway' AND "class" IS DISTINCT FROM 'path'
         roads: kept only at z14 (`min_size_at_maxzoom`)
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0.5971642834779397, 19.10925707129407) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0.5971642834779397, 19.10925707129407) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), least(greatest(ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925) - least(greatest(ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925))::numeric
         roads: dropped, smaller than `min_size` at every zoom
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), least(greatest(ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925) - least(greatest(ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925))::numeric
         roads: crosses a z14 tile edge
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641))
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - least(greatest(ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641) <> floor((20037508.34278925 - least(greatest(ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641))
         "#);
     }
 
@@ -249,9 +254,9 @@ mod tests {
         segments: every feature
             TRUE
         segments: shorter than one tile unit at z14
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), least(greatest(ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925) - least(greatest(ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925))::numeric
         segments: crosses a z14 tile edge
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641))
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - least(greatest(ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641) <> floor((20037508.34278925 - least(greatest(ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641))
         "#);
     }
 
