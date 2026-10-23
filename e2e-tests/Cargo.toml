@@ -32,13 +32,15 @@ jxl-oxide.workspace = true
 martin-tile-utils.workspace = true
 mlt-core.workspace = true
 pmtiles = { workspace = true, features = ["tilejson", "object-store", "mmap-async-tokio", "write"] }
+portable-pty.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
-sqlx.workspace = true
+sqlx = { workspace = true, features = ["postgres", "tls-rustls-ring-webpki"] }
 tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
+vt100.workspace = true
 wiremock.workspace = true
 
 [dev-dependencies]

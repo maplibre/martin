@@ -166,6 +166,7 @@ object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "h
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
 pmtiles = { version = "0.25.0", default-features = false }
+portable-pty = "0.9.0"
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
@@ -227,6 +228,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
+vt100 = "0.16.2"
 walkdir = "2.5.0"
 wincode = "0.6.2"
 wiremock = "0.6"
