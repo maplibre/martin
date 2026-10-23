@@ -66,25 +66,23 @@ Paths are the distinct, interesting cases this configuration can produce.
 --8<-- "images/generate/test-rows.svg"
 
 ```text
-   Searching 12 paths through the layers of 1 sources, max zoom 14
-       FOUND [   0.014s] roads  roads: every feature  row 1
-       FOUND [   0.018s] roads  roads: `class == 'primary' ? 6 : 12`: `class == 'primary'` true  row 1
-       FOUND [   0.070s] roads  roads: `class == 'primary' ? 6 : 12`: `class == 'primary'` false  row 2
-       FOUND [   0.072s] roads  roads: `class` is 'residential'  row 2
-      NO ROW [   0.071s] roads  roads: kept only at z14 by `min_size_at_maxzoom`
-      NO ROW [   0.004s] roads  roads: smaller than `min_size` at every zoom
-       FOUND [   0.012s] roads  roads: crosses a z14 tile edge  row 1
-       FOUND [   0.071s] roads  road_labels: where `name != null`  row 1
-       FOUND [   0.075s] roads  road_labels: not where `name != null`  row 3
-      NO ROW [   0.078s] roads  road_labels: kept only at z14 by `min_size_at_maxzoom`
-      NO ROW [   0.003s] roads  road_labels: smaller than `min_size` at every zoom
-       FOUND [   0.010s] roads  road_labels: crosses a z14 tile edge  row 1
+   Searching 10 paths through the layers of 1 sources, max zoom 14
+       FOUND [   0.011s] roads  roads: class 'primary' -> minzoom 6  row 1
+       FOUND [   0.017s] roads  roads: class 'residential' -> minzoom 12  row 2
+      NO ROW [   0.055s] roads  roads: kept only at z14 (`min_size_at_maxzoom`)
+      NO ROW [   0.003s] roads  roads: dropped, smaller than `min_size` at every zoom
+       FOUND [   0.008s] roads  roads: crosses a z14 tile edge  row 1
+       FOUND [   0.052s] roads  road_labels: kept by `where: name != null`  row 1
+       FOUND [   0.053s] roads  road_labels: dropped, `where: name != null` is false  row 3
+      NO ROW [   0.052s] roads  road_labels: kept only at z14 (`min_size_at_maxzoom`)
+      NO ROW [   0.002s] roads  road_labels: dropped, smaller than `min_size` at every zoom
+       FOUND [   0.008s] roads  road_labels: crosses a z14 tile edge  row 1
    Rendering 3 cases in bulk mode and served
-         NEW [   0.223s] roads 1  roads: every feature
-         NEW [   0.126s] roads 2  roads: `class == 'primary' ? 6 : 12`: `class == 'primary'` false
-         NEW [   0.119s] roads 3  road_labels: not where `name != null`
+         NEW [   0.210s] roads 1  roads: class 'primary' -> minzoom 6
+         NEW [   0.109s] roads 2  roads: class 'residential' -> minzoom 12
+         NEW [   0.098s] roads 3  road_labels: dropped, `where: name != null` is false
 ------------
-     Summary [   1.079s] 12 paths: 8 found, 4 no row, 3 cases: 3 new
+     Summary [   0.775s] 10 paths: 6 found, 4 no row, 3 cases: 3 new
 ```
 
 A row on several paths is one case. `NO ROW`: no row takes the path.
@@ -96,10 +94,8 @@ max_zoom: 14
 cases:
 - source: roads
   paths:
-  - "road_labels: not where `name != null`"
-  - "roads: every feature"
-  - "roads: `class == 'primary' ? 6 : 12`: `class == 'primary'` false"
-  - "roads: `class` is 'residential'"
+  - "road_labels: dropped, `where: name != null` is false"
+  - "roads: class 'residential' -> minzoom 12"
   input: # (1)!
     class: residential
     geometry: LINESTRING(16.34 48.22,16.341 48.221)
@@ -129,7 +125,7 @@ After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:
 
 ```text
     Starting 3 cases of roads.spec.yaml with config.yaml, max zoom 14
-        FAIL [   0.236s] roads 1  roads: every feature
+        FAIL [   0.186s] roads 1  roads: class 'primary' -> minzoom 6
 
 --- OUTPUT: roads 1
     -spec +bulk mode now
@@ -142,11 +138,11 @@ After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:
          class: primary
      - layer: road_labels
 
-        PASS [   0.171s] roads 2  roads: `class == 'primary' ? 6 : 12`: `class == 'primary'` false
-        PASS [   0.173s] roads 3  road_labels: not where `name != null`
+        PASS [   0.141s] roads 2  roads: class 'residential' -> minzoom 12
+        PASS [   0.127s] roads 3  road_labels: dropped, `where: name != null` is false
 ------------
-     Summary [   0.688s] 3 cases run: 2 passed, 1 failed
-        FAIL [   0.236s] roads 1  roads: every feature
+     Summary [   0.543s] 3 cases run: 2 passed, 1 failed
+        FAIL [   0.186s] roads 1  roads: class 'primary' -> minzoom 6
 error: 1 of 3 cases did not pass
   to see the new output and accept it: martin test generate -c config.yaml -o roads.spec.yaml
 ```
