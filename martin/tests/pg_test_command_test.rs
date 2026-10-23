@@ -278,14 +278,14 @@ async fn postgres_selects_lines_by_their_shape_at_the_max_zoom() {
         (
             "roads: shorter than one tile unit at z14",
             Selected {
-                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) - ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) - ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d))::numeric",
+                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) - ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), least(greatest(ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925) - least(greatest(ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925))::numeric",
                 key: 2,
             },
         ),
         (
             "roads: crosses a z14 tile edge",
             Selected {
-                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641))",
+                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - least(greatest(ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641) <> floor((20037508.34278925 - least(greatest(ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641))",
                 key: 1,
             },
         ),
@@ -335,7 +335,7 @@ async fn postgres_selects_a_line_that_ends_on_a_horizontal_tile_edge_only_once_i
         (
             "roads: crosses a z14 tile edge",
             Selected {
-                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d)) / 2445.984905125641))",
+                rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - least(greatest(ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641) <> floor((20037508.34278925 - least(greatest(ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641))",
                 key: 2,
             },
         ),
