@@ -115,7 +115,8 @@ impl PgScanSource {
         })
     }
 
-    /// Reads the snapshot `snapshot`, exported by a transaction that stays open while this source is read.
+    /// Reads the snapshot `snapshot`, exported by a transaction that stays open while this source is read and holds
+    /// one connection of the same pool, so this source opens at most one reader fewer than the pool holds.
     #[must_use]
     pub fn at_snapshot(self, snapshot: String) -> Self {
         Self {
@@ -129,9 +130,13 @@ impl PgScanSource {
         &self.plan
     }
 
-    /// Opens up to `count` readers that share one snapshot, no more than the pool holds.
+    /// Opens up to `count` readers that share one snapshot, no more than the pool has room for.
     fn open_scan_readers(&self, count: usize) -> SourceResult<Vec<ScanReader<'_>>> {
-        let count = count.min(self.pool.max_size()).max(1);
+        let room = self
+            .pool
+            .max_size()
+            .saturating_sub(usize::from(self.snapshot.is_some()));
+        let count = count.min(room).max(1);
         let conns = self.runtime.block_on(async {
             match &self.snapshot {
                 Some(snapshot) => {
