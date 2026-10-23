@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
+use std::marker::PhantomData;
 #[cfg(feature = "_tiles")]
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,7 @@ use martin_core::tiles::BackendSource;
 #[cfg(feature = "_tiles")]
 use martin_tile_utils::TileGrid;
 use serde::de::value::MapAccessDeserializer;
-use serde::de::{self, MapAccess, Visitor};
+use serde::de::{self, DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
 use serde::ser::{Error as _, SerializeMap as _};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "_tiles")]
@@ -169,15 +170,16 @@ pub mod path_or_config {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, CollectUnrecognizedKeys)]
+// Deserialized by `FileConfigVisitor`; the `serde` attributes only shape the schema and the unrecognized keys.
+#[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
-    #[serde(default, deserialize_with = "one_or_many::deserialize")]
+    #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub paths: Vec<PathBuf>,
     /// A list of directories whose subdirectories are each published under the subdirectory's name
-    #[serde(default, deserialize_with = "one_or_many::deserialize")]
+    #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub collections: Vec<PathBuf>,
     /// A map of source IDs to file paths or config objects
@@ -186,6 +188,72 @@ pub struct FileConfig<T> {
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
     pub custom: T,
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for FileConfig<T> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(FileConfigVisitor(PhantomData))
+    }
+}
+
+/// Reads a [`FileConfig`] with `custom` read straight from the map, so its errors keep their YAML location.
+struct FileConfigVisitor<T>(PhantomData<T>);
+
+impl<'de, T: Deserialize<'de>> Visitor<'de> for FileConfigVisitor<T> {
+    type Value = FileConfig<T>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("struct FileConfig")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfig<T>, M::Error> {
+        let mut rest = WithoutFileKeys {
+            map,
+            paths: Vec::new(),
+            collections: Vec::new(),
+            sources: BTreeMap::new(),
+        };
+        let custom = T::deserialize(MapAccessDeserializer::new(&mut rest))?;
+        Ok(FileConfig {
+            paths: rest.paths,
+            collections: rest.collections,
+            sources: rest.sources,
+            custom,
+        })
+    }
+}
+
+/// The live map with `paths`, `collections` and `sources` read off instead of being passed on.
+struct WithoutFileKeys<M> {
+    map: M,
+    paths: Vec<PathBuf>,
+    collections: Vec<PathBuf>,
+    sources: BTreeMap<String, FileConfigSrc>,
+}
+
+/// One path or a list of paths.
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct OneOrManyPaths(#[serde(deserialize_with = "one_or_many::deserialize")] Vec<PathBuf>);
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for WithoutFileKeys<M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        while let Some(key) = self.map.next_key::<String>()? {
+            match key.as_str() {
+                "paths" => self.paths = self.map.next_value::<OneOrManyPaths>()?.0,
+                "collections" => self.collections = self.map.next_value::<OneOrManyPaths>()?.0,
+                "sources" => self.sources = self.map.next_value()?,
+                _ => return seed.deserialize(key.into_deserializer()).map(Some),
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        self.map.next_value_seed(seed)
+    }
 }
 
 impl<T: Serialize> Serialize for FileConfig<T> {
@@ -1408,6 +1476,50 @@ mod deserialize_tests {
                 a mismatched type or an unexpected shape.
         "
         );
+    }
+
+    #[test]
+    #[cfg(feature = "pmtiles")]
+    fn file_config_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc::indoc! {"
+            pmtiles:
+              paths: /a
+              recursive: maybe
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid boolean
+           ╭─[config.yaml:3:14]
+         2 │   paths: /a
+         3 │   recursive: maybe
+           ·              ─────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    #[cfg(feature = "rendering")]
+    fn nested_file_config_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc::indoc! {"
+            styles:
+              rendering:
+                enabled: true
+                png_palette:
+                  max_colors: 0
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × max_colors must be 2 to 256, not 0
+           ╭─[config.yaml:5:19]
+         4 │     png_palette:
+         5 │       max_colors: 0
+           ·                   ─
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]

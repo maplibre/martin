@@ -25,7 +25,7 @@ pub fn derive_configuration_livecycle_hooks(input: TokenStream) -> TokenStream {
 /// - `#[serde(flatten)]` fields add no path segment,
 /// - `#[serde(skip)]` fields are ignored, and
 /// - `#[serde(rename)]` sets a field's path segment.
-#[proc_macro_derive(CollectUnrecognizedKeys)]
+#[proc_macro_derive(CollectUnrecognizedKeys, attributes(serde))]
 pub fn derive_collect_unrecognized_keys(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand(&input).unwrap_or_else(syn::Error::into_compile_error).into()
