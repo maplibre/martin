@@ -210,10 +210,12 @@ async fn generate_spec(args: GenerateArgs) -> GenerateResult<bool> {
             return Ok(false);
         }
     };
-    let spec = review.spec();
     if !write {
         report.note(format_args!("Left {} as it was", output.display()));
-    } else if old.as_ref() == Some(&spec) {
+        return Ok(false);
+    }
+    let spec = review.spec();
+    if old.as_ref() == Some(&spec) {
         report.note(format_args!("{} is up to date", output.display()));
     } else {
         write_spec(output, &spec)?;
