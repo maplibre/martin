@@ -3,7 +3,7 @@
 use geo_types::{Coord, LineString};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ColumnValues, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
-    ValueDef,
+    ValueDef, ValueKind,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, Geometry, SourceFeature};
@@ -496,6 +496,105 @@ fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
             size: None,
         },
     ]
+    "#);
+}
+
+#[test]
+fn a_column_read_as_text_has_no_path_for_a_number() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("amount".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("amount != ''".to_owned()),
+            ..LayerDef::new("payments", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "amount".to_owned(),
+        values: vec![Literal::Int(2)],
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "payments: where `amount != ''`",
+        "payments: not where `amount != ''`",
+    ]
+    "#);
+}
+
+#[test]
+fn a_float_column_compares_a_whole_number_as_a_float() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("height".to_owned(), Some(ValueKind::Float))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("height > 1.0".to_owned()),
+            ..LayerDef::new("poles", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "height".to_owned(),
+        values: vec![Literal::Int(2)],
+    }];
+    let branches = plan.branches(0, &known).unwrap();
+    insta::assert_debug_snapshot!(branches.last().unwrap(), @r#"
+    Branch {
+        layer: "poles",
+        path: "`height` is 2",
+        rows: Ok(
+            And(
+                [
+                    Geometry(
+                        Point,
+                    ),
+                    Compare {
+                        left: Column(
+                            "height",
+                        ),
+                        op: Gt,
+                        right: Literal(
+                            Float(
+                                1.0,
+                            ),
+                        ),
+                        kind: Float,
+                    },
+                    Compare {
+                        left: Column(
+                            "height",
+                        ),
+                        op: Ne,
+                        right: Literal(
+                            Float(
+                                NaN,
+                            ),
+                        ),
+                        kind: Float,
+                    },
+                    Compare {
+                        left: Column(
+                            "height",
+                        ),
+                        op: Eq,
+                        right: Literal(
+                            Int(
+                                2,
+                            ),
+                        ),
+                        kind: Float,
+                    },
+                ],
+            ),
+        ),
+        size: None,
+    }
     "#);
 }
 

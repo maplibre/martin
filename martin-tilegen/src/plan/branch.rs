@@ -370,9 +370,12 @@ impl<'a> LayerPaths<'a, '_> {
             .collect();
         for known in self.known.iter().filter(|k| read.contains(&k.column)) {
             for value in &known.values {
+                let Some(kind) = self.compared_as(&known.column, value) else {
+                    continue;
+                };
                 let path = format!("`{}` is {}", known.column, LiteralCel(value));
                 let mut parts = self.base();
-                parts.push(("the source's filter", self.equals(&known.column, value)));
+                parts.push(("the source's filter", self.equals(&known.column, value, kind)));
                 let mut test = self.test(Reach::Layer);
                 test.checks.push((equals(&known.column, value), Want::True));
                 out.push(self.path(path, parts, test));
@@ -549,17 +552,28 @@ impl<'a> LayerPaths<'a, '_> {
         condition_of(expr, self.columns, polarity)
     }
 
-    /// `column == value`, which no source can check while a `jsonb` column may replace the columns it reads.
-    fn equals(&self, column: &str, value: &Literal) -> Result<Condition, TranslateError> {
-        if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
-            return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
-        }
+    /// The kind `column` and `value` compare as, or `None` when the column reads as values of another kind, e.g. a
+    /// `numeric` column read as text, so expressions never see `value` there.
+    fn compared_as(&self, column: &str, value: &Literal) -> Option<ValueKind> {
         let kind = match value {
             Literal::Bool(_) => ValueKind::Bool,
             Literal::Int(_) | Literal::UInt(_) => ValueKind::Int,
             Literal::Float(_) => ValueKind::Float,
             Literal::String(_) => ValueKind::String,
         };
+        let read_as = self.columns.iter().find_map(|c| match c {
+            ColumnDef::Value(name, read_as) if name == column => *read_as,
+            ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
+        });
+        read_as.map_or(Some(kind), |read_as| read_as.common(kind))
+    }
+
+    /// `column == value` compared as `kind`, which no source can check while a `jsonb` column may replace the columns
+    /// it reads.
+    fn equals(&self, column: &str, value: &Literal, kind: ValueKind) -> Result<Condition, TranslateError> {
+        if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
+            return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
+        }
         Ok(Condition::Compare {
             left: Term::Column(column.to_owned()),
             op: CompareOp::Eq,
