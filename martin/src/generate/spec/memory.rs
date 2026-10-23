@@ -83,18 +83,9 @@ fn prop(value: &Value) -> Option<Prop<SourceStr>> {
     }
 }
 
-/// A WKT geometry, `None` when it cannot be parsed or has no feature geometry type.
+/// A WKT geometry, `None` when it cannot be parsed or is a geometry collection.
 fn geometry(text: &str) -> Option<Geometry> {
-    #[expect(clippy::wildcard_enum_match_arm, reason = "no other geometry is a feature geometry")]
-    Some(match geo_types::Geometry::<f64>::try_from_wkt_str(text).ok()? {
-        geo_types::Geometry::Point(point) => Geometry::Point(point.0),
-        geo_types::Geometry::LineString(line) => Geometry::Line(line),
-        geo_types::Geometry::Polygon(polygon) => Geometry::Polygon(polygon),
-        geo_types::Geometry::MultiPoint(points) => Geometry::Points(points.0.into_iter().map(|p| p.0).collect()),
-        geo_types::Geometry::MultiLineString(lines) => Geometry::Lines(lines.0),
-        geo_types::Geometry::MultiPolygon(polygons) => Geometry::Polygons(polygons.0),
-        _ => return None,
-    })
+    geo_types::Geometry::<f64>::try_from_wkt_str(text).ok()?.try_into().ok()
 }
 
 #[cfg(test)]
