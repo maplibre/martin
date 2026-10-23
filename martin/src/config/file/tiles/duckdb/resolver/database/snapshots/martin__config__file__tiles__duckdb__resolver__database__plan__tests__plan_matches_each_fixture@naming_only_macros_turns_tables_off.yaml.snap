@@ -1,0 +1,14 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/naming_only_macros_turns_tables_off.yaml
+---
+reads:
+  tables: false
+  macros: true
+tables: []
+macros:
+  - id: tiles
+    schema: main
+    macro: tiles
+decisions: []

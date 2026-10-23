@@ -1,0 +1,19 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/table_with_two_geometry_columns.yaml
+---
+reads:
+  tables: true
+  macros: false
+tables:
+  - id: parcels.centroid
+    schema: main
+    table: parcels
+    geometry_column: centroid
+  - id: parcels.outline
+    schema: main
+    table: parcels
+    geometry_column: outline
+macros: []
+decisions: []

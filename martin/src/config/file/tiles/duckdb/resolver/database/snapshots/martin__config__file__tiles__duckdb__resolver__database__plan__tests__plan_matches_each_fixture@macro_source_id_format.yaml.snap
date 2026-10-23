@@ -1,0 +1,14 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/macro_source_id_format.yaml
+---
+reads:
+  tables: false
+  macros: true
+tables: []
+macros:
+  - id: tiles__roads
+    schema: tiles
+    macro: roads
+decisions: []

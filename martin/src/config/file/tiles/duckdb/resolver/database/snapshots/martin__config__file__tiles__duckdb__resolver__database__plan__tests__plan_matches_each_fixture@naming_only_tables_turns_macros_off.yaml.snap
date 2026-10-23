@@ -1,0 +1,15 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/naming_only_tables_turns_macros_off.yaml
+---
+reads:
+  tables: true
+  macros: false
+tables:
+  - id: roads
+    schema: main
+    table: roads
+    geometry_column: geom
+macros: []
+decisions: []

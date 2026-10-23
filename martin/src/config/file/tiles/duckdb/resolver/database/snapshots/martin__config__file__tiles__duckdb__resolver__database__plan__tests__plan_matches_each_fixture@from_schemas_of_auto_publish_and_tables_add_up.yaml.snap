@@ -1,0 +1,22 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/from_schemas_of_auto_publish_and_tables_add_up.yaml
+---
+reads:
+  tables: true
+  macros: true
+tables:
+  - id: roads
+    schema: a
+    table: roads
+    geometry_column: geom
+  - id: rivers
+    schema: b
+    table: rivers
+    geometry_column: geom
+macros:
+  - id: a_tiles
+    schema: a
+    macro: a_tiles
+decisions: []

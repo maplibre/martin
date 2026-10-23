@@ -7,7 +7,7 @@ use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::info;
 
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::duckdb::resolver::database::resolve_database_entry;
+use crate::config::file::tiles::duckdb::resolver::database::{PreparedDatabase, prepare_database_entry};
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
@@ -17,8 +17,13 @@ use crate::config::primitives::IdResolver;
 /// One resolved `DuckDB` source: a live source, or a per-source warning.
 type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>;
 
-/// Every source one config entry resolves to.
-type ResolvedEntry = BoxFuture<'static, Vec<Result<BoxedSource, TileSourceWarning>>>;
+/// One config entry, with its database sources still waiting for their ids.
+enum PreparedEntry {
+    Database(PreparedDatabase),
+    GeoParquet(Result<BoxedSource, TileSourceWarning>),
+}
+
+type PendingEntry = BoxFuture<'static, PreparedEntry>;
 
 pub type DuckDbResolution =
     SourceBuildResult<(Vec<BoxedSource>, Vec<TileSourceWarning>, HashMap<String, ProcessConfig>)>;
@@ -81,20 +86,19 @@ fn resolve_geoparquet_entry(
     })
 }
 
-fn resolve_source_entry(
+fn prepare_source_entry(
     source: &DuckDbSourceEntry,
     id_resolver: &IdResolver,
     default_cache: CachePolicy,
-) -> ResolvedEntry {
+) -> PendingEntry {
     match source {
         DuckDbSourceEntry::Database(entry) => {
             let entry = entry.clone();
-            let id_resolver = id_resolver.clone();
-            Box::pin(async move { resolve_database_entry(&entry, &id_resolver, default_cache).await })
+            Box::pin(async move { PreparedEntry::Database(prepare_database_entry(&entry).await) })
         }
         DuckDbSourceEntry::GeoParquet(entry) => {
             let source = resolve_geoparquet_entry(entry, id_resolver, default_cache);
-            Box::pin(async move { vec![source.await] })
+            Box::pin(async move { PreparedEntry::GeoParquet(source.await) })
         }
     }
 }
@@ -106,9 +110,16 @@ impl DuckDbConfig {
         let pending = self
             .sources
             .iter()
-            .map(|source| resolve_source_entry(source, &id_resolver, default_cache.clone()))
+            .map(|source| prepare_source_entry(source, &id_resolver, default_cache.clone()))
             .collect::<Vec<_>>();
-        let resolved = join_all(pending).await;
+        let resolved = join_all(pending)
+            .await
+            .into_iter()
+            .map(|prepared| match prepared {
+                PreparedEntry::Database(database) => database.resolve(&id_resolver, &default_cache),
+                PreparedEntry::GeoParquet(source) => vec![source],
+            })
+            .collect::<Vec<_>>();
         let process = self
             .sources
             .iter()

@@ -1,0 +1,15 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    from_schemas: a
+    tables:
+      from_schemas: b
+    macros: true
+catalog:
+  columns:
+    - { schema: a, table: roads, column: geom, data_type: GEOMETRY }
+    - { schema: b, table: rivers, column: geom, data_type: GEOMETRY }
+    - { schema: c, table: lakes, column: geom, data_type: GEOMETRY }
+  macros:
+    - { schema: a, macro: a_tiles }
+    - { schema: b, macro: b_tiles }
