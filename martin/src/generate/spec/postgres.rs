@@ -254,6 +254,24 @@ mod tests {
     }
 
     #[test]
+    fn a_table_of_points_has_no_shape_path_even_where_the_layer_takes_any_geometry() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: stops
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            properties:
+              id: int8
+            layers:
+              stops: {}
+        "}), @"
+        stops: every feature
+            TRUE
+        ");
+    }
+
+    #[test]
     fn a_where_is_taken_not_taken_or_null() {
         insta::assert_snapshot!(listed(indoc! {"
             schema: public
