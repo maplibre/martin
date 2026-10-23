@@ -38,7 +38,7 @@ Remove `--tui`. Martin now shows the dashboard when stdout is a terminal. Use `-
 
 The dashboard's log pane follows `RUST_LOG_FORMAT` and defaults to `pretty`.
 
-See [Terminal dashboard](run-with-cli.md#terminal-dashboard).
+See [Terminal dashboard](run-with-cli.md).
 
 ### The web UI is served to localhost by default
 
