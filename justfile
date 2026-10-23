@@ -213,7 +213,7 @@ bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'car
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
+    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
@@ -695,7 +695,7 @@ test: fetch start
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
+    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
