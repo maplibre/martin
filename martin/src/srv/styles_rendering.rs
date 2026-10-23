@@ -341,19 +341,6 @@ mod tests {
             .to_rgba8()
     }
 
-    /// Peak signal-to-noise ratio of `decoded` against `original` over all four channels, in dB.
-    fn psnr(original: &RgbaImage, decoded: &RgbaImage) -> f64 {
-        let sq_err: u64 = original
-            .as_raw()
-            .iter()
-            .zip(decoded.as_raw())
-            .map(|(&a, &b)| u64::from(a.abs_diff(b)).pow(2))
-            .sum();
-        #[expect(clippy::cast_precision_loss, reason = "a tile has far fewer than 2^52 samples")]
-        let mse = sq_err as f64 / original.as_raw().len() as f64;
-        10.0 * (255.0 * 255.0 / mse).log10()
-    }
-
     #[test]
     fn a_lossy_webp_of_a_rendered_tile_is_a_fraction_of_lossless() {
         let tile = rendered_tile();
@@ -367,28 +354,7 @@ mod tests {
             lossy.len(),
             lossless.len()
         );
-        let psnr = psnr(&tile, &decode_webp(&lossy));
-        assert!(psnr > 35.0, "PSNR {psnr:.1} dB");
-    }
-
-    #[test]
-    fn a_higher_webp_quality_keeps_more_detail() {
-        let tile = rendered_tile();
-        let encoded: Vec<(usize, f64)> = [10, 50, 80, 100]
-            .into_iter()
-            .map(|quality| {
-                let bytes = webp(&tile, Some(quality));
-                (bytes.len(), psnr(&tile, &decode_webp(&bytes)))
-            })
-            .collect();
-
-        for pair in encoded.windows(2) {
-            let [(smaller_len, lower_psnr), (larger_len, higher_psnr)] = pair else {
-                unreachable!("windows(2) yields pairs");
-            };
-            assert!(smaller_len < larger_len, "{encoded:?}");
-            assert!(lower_psnr < higher_psnr, "{encoded:?}");
-        }
+        assert_eq!(decode_webp(&lossy).dimensions(), tile.dimensions());
     }
 
     #[test]

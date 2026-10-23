@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use image::ImageFormat;
+use image::{ColorType, ImageFormat};
 use indoc::formatdoc;
 use martin_e2e_tests::{
     Cassette, Martin, StartError, TestResponse, assert_image_matches, assert_images_alike, assert_images_differ,
@@ -1139,17 +1139,14 @@ async fn a_png_palette_size_outside_png_fails_startup(#[case] max_colors: u32) {
     );
 }
 
-#[rstest]
-#[case::lossy_by_default("", "Lossy")]
-#[case::lossless("webp: {quality: lossless}", "Lossless")]
-#[tokio::test]
-async fn rendered_webps_follow_the_webp_quality(#[case] webp: &str, #[case] encoding: &str) {
-    let cassette = Cassette::serving(UPSTREAMS).await;
+/// Martin rendering the `maplibre_demo` and `maptiler_basic` styles from `cassette`, with `webp`
+/// (one line, empty for the default) as its `styles.rendering.webp` option.
+async fn martin_with_webp(cassette: &Cassette, webp: &str) -> Martin {
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
     let maplibre_demo = maplibre_demo.display();
     let maptiler_basic = maptiler_basic.display();
-    let mut martin = Martin::builder()
+    Martin::builder()
         .config(&formatdoc! {"
             styles:
               rendering:
@@ -1162,7 +1159,16 @@ async fn rendered_webps_follow_the_webp_quality(#[case] webp: &str, #[case] enco
         "})
         .start()
         .await
-        .expect("failed to start martin");
+        .expect("failed to start martin")
+}
+
+#[rstest]
+#[case::lossy_by_default("", "Lossy")]
+#[case::lossless("webp: {quality: lossless}", "Lossless")]
+#[tokio::test]
+async fn rendered_webps_follow_the_webp_quality(#[case] webp: &str, #[case] encoding: &str) {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut martin = martin_with_webp(&cassette, webp).await;
 
     let expected: Vec<String> = WEBP_PATHS
         .iter()
@@ -1174,12 +1180,44 @@ async fn rendered_webps_follow_the_webp_quality(#[case] webp: &str, #[case] enco
     cassette.assert_no_misses();
 }
 
-#[rstest]
-#[case::zero("0")]
-#[case::above_100("101")]
-#[case::unknown_word("best")]
 #[tokio::test]
-async fn a_webp_quality_outside_1_to_100_fails_startup(#[case] quality: &str) {
+async fn a_lower_webp_quality_serves_smaller_webps() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let mut served = Vec::new();
+    for quality in [10, 100] {
+        let mut martin = martin_with_webp(&cassette, &format!("webp: {{quality: {quality}}}")).await;
+        let mut responses = Vec::new();
+        for path in WEBP_PATHS {
+            responses.push(martin.get(path).await);
+        }
+        stop_and_take_rendering_log(&mut martin).await;
+        served.push(responses);
+    }
+
+    let [low, high] = served.as_slice() else {
+        unreachable!("two qualities were served");
+    };
+    for ((path, low), high) in WEBP_PATHS.iter().zip(low).zip(high) {
+        for response in [low, high] {
+            assert_eq!(response.status(), 200, "{path}");
+            assert_eq!(webp_encoding(response.body()), "Lossy", "{path}");
+            // Decodes every pixel, not only the header.
+            let color = response.image_color();
+            assert!(matches!(color, ColorType::Rgb8 | ColorType::Rgba8), "{path}: {color:?}");
+        }
+        assert_eq!(low.image_size(), high.image_size(), "{path}");
+        assert!(
+            low.body().len() < high.body().len(),
+            "{path}: quality 10 is {} bytes, quality 100 is {} bytes",
+            low.body().len(),
+            high.body().len()
+        );
+    }
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_webp_quality_outside_1_to_100_fails_startup() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maplibre_demo = maplibre_demo.display();
@@ -1190,7 +1228,7 @@ async fn a_webp_quality_outside_1_to_100_fails_startup(#[case] quality: &str) {
                 enabled: true
                 workers: 2
                 webp:
-                  quality: {quality}
+                  quality: 0
               sources:
                 maplibre_demo: {maplibre_demo}
         "})
@@ -1202,7 +1240,7 @@ async fn a_webp_quality_outside_1_to_100_fails_startup(#[case] quality: &str) {
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
     assert!(
-        log.contains(r#"quality must be 1 to 100 or "lossless""#),
+        log.contains(r#"quality must be 1 to 100 or "lossless", not 0"#),
         "log must name the invalid option; log:\n{log}"
     );
 }

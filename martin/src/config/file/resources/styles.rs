@@ -173,10 +173,15 @@ pub struct WebpConfig {
 
 /// Quality of rendered WebP images: lossy at 1 to 100, or `lossless`.
 #[cfg(feature = "rendering")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
 pub enum WebpQuality {
+    /// Keep every pixel.
     Lossless,
-    Lossy(u8),
+    /// Lossy at this quality, 1 to 100.
+    #[serde(untagged)]
+    Lossy(#[cfg_attr(feature = "unstable-schemas", schemars(range(min = 1, max = 100)))] u8),
 }
 
 #[cfg(feature = "rendering")]
@@ -199,16 +204,6 @@ impl Default for WebpQuality {
 }
 
 #[cfg(feature = "rendering")]
-impl Serialize for WebpQuality {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Lossless => serializer.serialize_str("lossless"),
-            Self::Lossy(quality) => serializer.serialize_u8(*quality),
-        }
-    }
-}
-
-#[cfg(feature = "rendering")]
 impl<'de> Deserialize<'de> for WebpQuality {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct Visitor;
@@ -220,27 +215,29 @@ impl<'de> Deserialize<'de> for WebpQuality {
                 f.write_str("a quality from 1 to 100, or \"lossless\"")
             }
 
-            fn visit_i64<E: serde::de::Error>(self, quality: i64) -> Result<WebpQuality, E> {
+            fn visit_u64<E: serde::de::Error>(self, quality: u64) -> Result<WebpQuality, E> {
                 u8::try_from(quality)
                     .ok()
                     .filter(|q| (1..=100).contains(q))
                     .map(WebpQuality::Lossy)
-                    .ok_or_else(|| E::custom(format!("quality must be 1 to 100 or \"lossless\", not {quality}")))
+                    .ok_or_else(|| invalid(quality))
             }
 
-            fn visit_u64<E: serde::de::Error>(self, quality: u64) -> Result<WebpQuality, E> {
-                self.visit_i64(i64::try_from(quality).unwrap_or(i64::MAX))
+            fn visit_i64<E: serde::de::Error>(self, quality: i64) -> Result<WebpQuality, E> {
+                u64::try_from(quality).map_or_else(|_| Err(invalid(quality)), |quality| self.visit_u64(quality))
             }
 
             fn visit_str<E: serde::de::Error>(self, quality: &str) -> Result<WebpQuality, E> {
                 if quality == "lossless" {
                     Ok(WebpQuality::Lossless)
                 } else {
-                    Err(E::custom(format!(
-                        "quality must be 1 to 100 or \"lossless\", not \"{quality}\""
-                    )))
+                    Err(invalid(format_args!("\"{quality}\"")))
                 }
             }
+        }
+
+        fn invalid<E: serde::de::Error>(quality: impl std::fmt::Display) -> E {
+            E::custom(format!("quality must be 1 to 100 or \"lossless\", not {quality}"))
         }
 
         deserializer.deserialize_any(Visitor)
@@ -250,23 +247,6 @@ impl<'de> Deserialize<'de> for WebpQuality {
 #[cfg(feature = "rendering")]
 impl CollectUnrecognizedKeys for WebpQuality {
     fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
-}
-
-#[cfg(all(feature = "rendering", feature = "unstable-schemas"))]
-impl schemars::JsonSchema for WebpQuality {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("WebpQuality")
-    }
-
-    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({
-            "description": "Lossy WebP quality from 1 to 100, or `lossless`.",
-            "oneOf": [
-                { "type": "integer", "minimum": 1, "maximum": 100 },
-                { "const": "lossless" }
-            ]
-        })
-    }
 }
 
 #[cfg(feature = "rendering")]
@@ -519,6 +499,7 @@ mod tests {
     #[case::above_100("101", "not 101")]
     #[case::negative("-1", "not -1")]
     #[case::above_u8("300", "not 300")]
+    #[case::above_i64("18446744073709551615", "not 18446744073709551615")]
     #[case::unknown_word("best", "not \"best\"")]
     #[case::fraction("80.5", "a quality from 1 to 100, or \"lossless\"")]
     fn renderer_config_rejects_webp_quality(#[case] quality: &str, #[case] message: &str) {

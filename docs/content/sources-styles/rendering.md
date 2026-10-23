@@ -95,7 +95,7 @@ The alpha channel stays lossless.
 
 !!! note
     Up to 2.0.0-beta.4, rendered WebP was lossless.
-    Set `quality: lossless` to keep that output (and its `ETag`s).
+    Set `quality: lossless` to keep that output.
 
 `quality` is 1 to 100, or `lossless`. Any other value fails at startup.
 
