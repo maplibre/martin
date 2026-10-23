@@ -63,17 +63,35 @@ pub async fn open_scan_connections(pool: &PostgresPool, count: usize) -> Result<
     if count <= 1 {
         return Ok(vec![first]);
     }
-    let snapshot: String = first
-        .query_one("SELECT pg_export_snapshot()", &[])
-        .await
-        .map_err(|e| PostgresError::PostgresError(e, "exporting the scan snapshot"))?
-        .get(0);
+    let snapshot = export_snapshot(&first).await?;
     let mut conns = Vec::with_capacity(count);
     conns.push(first);
     for _ in 1..count {
         conns.push(open_scan_transaction(pool, Some(&snapshot)).await?);
     }
     Ok(conns)
+}
+
+/// The id of the snapshot of the scan transaction on `conn`, which other connections can read while it stays open.
+///
+/// # Errors
+///
+/// Fails if the snapshot cannot be exported.
+pub async fn export_snapshot(conn: &Client) -> Result<String, PostgresError> {
+    Ok(conn
+        .query_one("SELECT pg_export_snapshot()", &[])
+        .await
+        .map_err(|e| PostgresError::PostgresError(e, "exporting the scan snapshot"))?
+        .get(0))
+}
+
+/// Opens a scan connection that reads the snapshot `snapshot` of a transaction still open.
+///
+/// # Errors
+///
+/// Fails if a connection cannot be had, a transaction cannot be opened or the snapshot cannot be read.
+pub async fn open_snapshot_connection(pool: &PostgresPool, snapshot: &str) -> Result<Object, PostgresError> {
+    open_scan_transaction(pool, Some(snapshot)).await
 }
 
 async fn open_scan_transaction(pool: &PostgresPool, snapshot: Option<&str>) -> Result<Object, PostgresError> {

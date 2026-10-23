@@ -2,7 +2,8 @@
 //! or by integer id for views, read over several connections that share one snapshot.
 
 use martin_core::tiles::postgres::{
-    PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, scan_features,
+    PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, open_snapshot_connection,
+    scan_features,
 };
 use martin_tile_utils::{bbox_to_xyz, xyz_to_bbox};
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
@@ -28,6 +29,8 @@ pub struct PgScanSource {
     pool: PostgresPool,
     plan: Plan,
     scans: Vec<Scan>,
+    /// The snapshot of another transaction to read, instead of one of its own.
+    snapshot: Option<String>,
 }
 
 struct Scan {
@@ -108,7 +111,17 @@ impl PgScanSource {
             pool,
             plan,
             scans,
+            snapshot: None,
         })
+    }
+
+    /// Reads the snapshot `snapshot`, exported by a transaction that stays open while this source is read.
+    #[must_use]
+    pub fn at_snapshot(self, snapshot: String) -> Self {
+        Self {
+            snapshot: Some(snapshot),
+            ..self
+        }
     }
 
     #[must_use]
@@ -119,7 +132,18 @@ impl PgScanSource {
     /// Opens up to `count` readers that share one snapshot, no more than the pool holds.
     fn open_scan_readers(&self, count: usize) -> SourceResult<Vec<ScanReader<'_>>> {
         let count = count.min(self.pool.max_size()).max(1);
-        let conns = self.runtime.block_on(open_scan_connections(&self.pool, count))?;
+        let conns = self.runtime.block_on(async {
+            match &self.snapshot {
+                Some(snapshot) => {
+                    let mut conns = Vec::with_capacity(count);
+                    for _ in 0..count {
+                        conns.push(open_snapshot_connection(&self.pool, snapshot).await?);
+                    }
+                    Ok(conns)
+                }
+                None => open_scan_connections(&self.pool, count).await,
+            }
+        })?;
         Ok(conns
             .into_iter()
             .map(|conn| ScanReader {

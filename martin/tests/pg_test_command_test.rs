@@ -512,3 +512,86 @@ async fn generate_over_postgres_writes_each_row_as_bulk_mode_reads_it() {
           name: Baden
     "#);
 }
+
+#[tokio::test]
+async fn generate_over_postgres_reads_the_rows_as_they_were_when_it_loaded() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_snapshot CASCADE;
+        CREATE SCHEMA martin_test_snapshot;
+        CREATE TABLE martin_test_snapshot.places (id int8 PRIMARY KEY, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_test_snapshot.places VALUES
+          (1, 'Wien', 'SRID=4326;POINT(16.37 48.20)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_snapshot
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                name: text
+              layers:
+                places:
+                  attributes:
+                    name: name
+    "})
+    .await;
+    seed("UPDATE martin_test_snapshot.places SET name = 'Vienna' WHERE id = 1;").await;
+    let mut review = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    review.accept_all();
+    insta::assert_snapshot!(yaml(&review.spec()), @r#"
+    max_zoom: 14
+    cases:
+    - source: places
+      paths:
+      - "places: every feature"
+      input:
+        geometry: POINT(16.37 48.2)
+        id: 1
+        name: Wien
+      output:
+      - layer: places
+        id: 1
+        geometry: point
+        zooms: 0-14
+        attributes:
+          name: Wien
+    "#);
+}
+
+#[tokio::test]
+async fn postgres_needs_a_pool_of_two_connections() {
+    let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    file.write_all(
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              pool_size: 1
+              auto_publish: false
+              tables:
+                places:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: gid
+                  properties:
+                    gid: int4
+                  layers:
+                    places: {}
+        "}
+        .as_bytes(),
+    )
+    .unwrap();
+    let error = Postgres::load(file.path()).await.err().unwrap();
+    insta::assert_snapshot!(error, @"`martin test` holds one connection open for its snapshot and reads through another, but `pool_size` is 1; set it to at least 2");
+}

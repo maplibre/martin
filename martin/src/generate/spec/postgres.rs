@@ -6,7 +6,9 @@ use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 use std::time::Duration;
 
-use martin_core::tiles::postgres::PostgresPool;
+use martin_core::tiles::postgres::{
+    PooledConnection, PostgresPool, export_snapshot, open_scan_connection, open_snapshot_connection,
+};
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::plan::{ColumnValues, Condition, GeometryType, Literal, Shape, SizeBand};
 use postgres_protocol::escape::escape_identifier;
@@ -25,10 +27,27 @@ use crate::srv::RESERVED_KEYWORDS;
 /// How long the search for one path's row may take.
 const PATH_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// The table sources with layers of a configuration, and the database they come from.
+/// The table sources with layers of a configuration, and the database they come from as it was when they were
+/// loaded.
 pub struct Postgres {
     builder: PostgresAutoDiscoveryBuilder,
     tables: BTreeMap<String, TableInfo>,
+    snapshot: Snapshot,
+}
+
+/// An open transaction whose snapshot every read of the database imports, so a row reads the same however often
+/// it is read.
+struct Snapshot {
+    conn: Option<PooledConnection>,
+    id: String,
+}
+
+impl Drop for Snapshot {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            PostgresPool::discard(conn);
+        }
+    }
 }
 
 impl Postgres {
@@ -57,7 +76,18 @@ impl Postgres {
                 SourceSpec::Table(_) | SourceSpec::Function(..) => None,
             })
             .collect();
-        Ok(Self { builder, tables })
+        let pool_size = builder.pool().max_size();
+        if pool_size < 2 {
+            return Err(GenerateError::PoolTooSmall { pool_size });
+        }
+        let conn = open_scan_connection(builder.pool()).await?;
+        let id = export_snapshot(&conn).await?;
+        let snapshot = Snapshot { conn: Some(conn), id };
+        Ok(Self {
+            builder,
+            tables,
+            snapshot,
+        })
     }
 
     /// The pool of the sources' database.
@@ -100,13 +130,18 @@ impl Postgres {
             "SELECT s.{id}::int8 FROM ({}{size}) AS s WHERE s.{id}::int8 >= 0 LIMIT 1",
             scan.sql
         );
-        let conn = self.pool().get().await.map_err(|e| e.to_string())?;
-        let timeout = format!("SET statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
-        conn.batch_execute(&timeout).await.map_err(|e| db_error(&e))?;
-        let found = conn.query_opt(query.as_str(), &[]).await;
-        conn.batch_execute("RESET statement_timeout")
+        let conn = open_snapshot_connection(self.pool(), &self.snapshot.id)
             .await
-            .map_err(|e| db_error(&e))?;
+            .map_err(|e| e.to_string())?;
+        let found = async {
+            let timeout = format!("SET LOCAL statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
+            conn.batch_execute(&timeout).await?;
+            conn.query_opt(query.as_str(), &[]).await
+        }
+        .await;
+        if conn.batch_execute("ROLLBACK").await.is_err() {
+            PostgresPool::discard(conn);
+        }
         let Some(row) = found.map_err(|e| db_error(&e))? else {
             return Ok(None);
         };
@@ -131,7 +166,8 @@ impl TestBackend for Postgres {
         Ok(out)
     }
 
-    /// Partitioned as bulk mode partitions a table, the scan of one row in a single partition.
+    /// Partitioned as bulk mode partitions a table, the scan of one row in a single partition, reading the snapshot
+    /// of the load.
     async fn scan(&self, table: &TestTable, key: Option<RowKey>, rows: Rows) -> GenerateResult<PgScanSource> {
         let (info, blocks) = match key {
             Some(key) => (self.row(&table.source, key)?, u32::MAX),
@@ -142,10 +178,11 @@ impl TestBackend for Postgres {
             def: table.def.clone(),
         }];
         let pool = self.pool().clone();
-        Ok(match rows {
+        let source = match rows {
             Rows::Bulk => PgScanSource::new(pool, scan, blocks).await?,
             Rows::All => PgScanSource::every_row(pool, scan, blocks).await?,
-        })
+        };
+        Ok(source.at_snapshot(self.snapshot.id.clone()))
     }
 
     async fn find(&self, table: &TestTable, rows: &Condition, shape: Option<Shape>) -> Find {
