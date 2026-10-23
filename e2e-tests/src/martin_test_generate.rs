@@ -24,17 +24,56 @@ const SETTLED: Duration = Duration::from_millis(200);
 /// How long the review may take to show a screen or to exit.
 const TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Runs `sql` on the `PostgreSQL` database that `DATABASE_URL` points at.
+/// The database the review tests seed, apart from the one `DATABASE_URL` names, whose sources other tests discover.
+const SEEDS: &str = "martin_test_seeds";
+
+/// A connection to the database `url` names.
+async fn connect(url: &str) -> PgConnection {
+    PgConnection::connect(url)
+        .await
+        .unwrap_or_else(|e| panic!("failed to connect to {url}: {e}"))
+}
+
+/// Runs `sql` on `conn`.
+async fn run(conn: &mut PgConnection, sql: &str) {
+    sqlx::raw_sql(AssertSqlSafe(sql.to_owned()))
+        .execute(conn)
+        .await
+        .unwrap_or_else(|e| panic!("failed to run {sql}: {e}"));
+}
+
+/// `DATABASE_URL` naming [`SEEDS`] instead of its database.
+fn seeds_url() -> String {
+    let url =
+        env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
+    let (base, params) = url
+        .split_once('?')
+        .map_or((url.as_str(), ""), |(base, params)| (base, params));
+    let (server, _) = base.rsplit_once('/').expect("DATABASE_URL names a database");
+    match params {
+        "" => format!("{server}/{SEEDS}"),
+        params => format!("{server}/{SEEDS}?{params}"),
+    }
+}
+
+/// Runs `sql` on the database the review tests seed, which this creates with `PostGIS` on first use.
 pub async fn seed_postgres(sql: &str) {
     let url =
         env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
-    let mut conn = PgConnection::connect(&url)
+    let mut main = connect(&url).await;
+    run(&mut main, "SELECT pg_advisory_lock(hashtext('martin_test_seeds'))").await;
+    let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM pg_database WHERE datname = $1")
+        .bind(SEEDS)
+        .fetch_optional(&mut main)
         .await
-        .unwrap_or_else(|e| panic!("failed to connect to {url}: {e}"));
-    sqlx::raw_sql(AssertSqlSafe(sql.to_owned()))
-        .execute(&mut conn)
-        .await
-        .unwrap_or_else(|e| panic!("failed to run {sql}: {e}"));
+        .unwrap_or_else(|e| panic!("failed to look for {SEEDS}: {e}"));
+    if exists.is_none() {
+        run(&mut main, &format!("CREATE DATABASE {SEEDS}")).await;
+    }
+    let mut seeds = connect(&seeds_url()).await;
+    run(&mut seeds, "CREATE EXTENSION IF NOT EXISTS postgis").await;
+    run(&mut main, "SELECT pg_advisory_unlock(hashtext('martin_test_seeds'))").await;
+    run(&mut seeds, sql).await;
 }
 
 /// What `martin test generate` drew so far, and when it last drew.
@@ -52,7 +91,8 @@ pub struct MartinTestReview {
 }
 
 impl MartinTestReview {
-    /// Runs `martin test generate` with `args` in `dir`, so the paths it shows are those of `args`.
+    /// Runs `martin test generate` with `args` in `dir`, so the paths it shows are those of `args`, with `DATABASE_URL`
+    /// naming the database the review tests seed.
     #[must_use]
     pub fn start(dir: &Path, args: &[&str]) -> Self {
         let pty = native_pty_system()
@@ -71,6 +111,7 @@ impl MartinTestReview {
                 .chain(args.iter().map(OsString::from)),
         );
         cmd.cwd(dir);
+        cmd.env("DATABASE_URL", seeds_url());
         let child = pty.slave.spawn_command(cmd).expect("martin starts");
         drop(pty.slave);
         let drawn = Arc::new(Mutex::new(Drawn {

@@ -11,17 +11,68 @@ use martin::generate::spec::review;
 use martin::generate::spec::rows::RowSearch;
 use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
 
-/// Runs `sql` on the test database.
-async fn seed(sql: &str) {
-    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-    let pool = PostgresPool::new(&url, None, None, None, 1, RetryTimeout::default())
+/// The database the tests seed, apart from the one `DATABASE_URL` names, whose sources other tests discover.
+const SEEDS: &str = "martin_test_seeds";
+
+/// A connection pool on the database `url` names.
+async fn pool(url: &str) -> PostgresPool {
+    PostgresPool::new(url, None, None, None, 1, RetryTimeout::default())
         .await
-        .unwrap();
-    pool.get().await.unwrap().batch_execute(sql).await.unwrap();
+        .unwrap()
 }
 
-/// The `PostgreSQL` backend of the configuration `yaml`.
+/// `DATABASE_URL` naming [`SEEDS`] instead of its database, which this creates with `PostGIS` on first use.
+async fn seeds_url() -> String {
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL");
+    let (base, params) = url
+        .split_once('?')
+        .map_or((url.as_str(), ""), |(base, params)| (base, params));
+    let (server, _) = base.rsplit_once('/').expect("DATABASE_URL names a database");
+    let seeds = match params {
+        "" => format!("{server}/{SEEDS}"),
+        params => format!("{server}/{SEEDS}?{params}"),
+    };
+    let main = pool(&url).await;
+    let conn = main.get().await.unwrap();
+    conn.batch_execute("SELECT pg_advisory_lock(hashtext('martin_test_seeds'))")
+        .await
+        .unwrap();
+    let exists = conn
+        .query_opt("SELECT 1 FROM pg_database WHERE datname = $1", &[&SEEDS])
+        .await
+        .unwrap();
+    if exists.is_none() {
+        conn.batch_execute(&format!("CREATE DATABASE {SEEDS}")).await.unwrap();
+    }
+    pool(&seeds)
+        .await
+        .get()
+        .await
+        .unwrap()
+        .batch_execute("CREATE EXTENSION IF NOT EXISTS postgis")
+        .await
+        .unwrap();
+    conn.batch_execute("SELECT pg_advisory_unlock(hashtext('martin_test_seeds'))")
+        .await
+        .unwrap();
+    seeds
+}
+
+/// Runs `sql` on the database the tests seed.
+async fn seed(sql: &str) {
+    pool(&seeds_url().await)
+        .await
+        .get()
+        .await
+        .unwrap()
+        .batch_execute(sql)
+        .await
+        .unwrap();
+}
+
+/// The `PostgreSQL` backend of the configuration `yaml`, its `${DATABASE_URL}` the database the tests seed.
 async fn load(yaml: &str) -> Postgres {
+    let yaml = yaml.replace("${DATABASE_URL}", &seeds_url().await);
     let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     file.write_all(yaml.as_bytes()).unwrap();
     Postgres::load(file.path()).await.unwrap()
