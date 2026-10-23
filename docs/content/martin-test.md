@@ -22,7 +22,8 @@ tags:
 
 --8<-- "images/generate/test-overview.svg"
 
-After a change to the layers, `run` shows what changed and `generate` updates the spec.
+After a change to the layers, `run` shows how the spec's cases changed. Only `generate` finds rows for paths the
+change added, so run it to cover them, and to update the spec.
 
 ## Usage
 
@@ -108,5 +109,7 @@ After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:
 
 In a terminal, `generate` opens a review. `--accept` writes every case instead. Without a terminal, it
 writes a new spec, or prints the diffs of an existing one and exits with `1`.
+A `--max-zoom` other than the spec's cannot keep its cases as they are, so the review only writes once each
+changed and gone case is accepted.
 
 ![martin test generate reviews the changed case, accepts it, and writes the spec](images/generate/test-review.gif)
