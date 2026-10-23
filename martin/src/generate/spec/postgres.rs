@@ -158,15 +158,17 @@ impl Display for ShapeSql<'_> {
                 )
             }
             Shape::CrossesTileEdge(zoom) => {
+                // Tile rows count from the north edge, as in the renderer's unit square.
                 let (half, tile) = (EARTH_CIRCUMFERENCE / 2.0, tile(zoom));
-                let cell = |name: &str| format!("floor(({} + {half}) / {tile})", side(name));
+                let column = |name: &str| format!("floor(({} + {half}) / {tile})", side(name));
+                let row = |name: &str| format!("floor(({half} - {}) / {tile})", side(name));
                 write!(
                     f,
                     "({} <> {} OR {} <> {})",
-                    cell("XMin"),
-                    cell("XMax"),
-                    cell("YMin"),
-                    cell("YMax")
+                    column("XMin"),
+                    column("XMax"),
+                    row("YMin"),
+                    row("YMax")
                 )
             }
         }
@@ -224,7 +226,7 @@ mod tests {
         roads: dropped, smaller than `min_size` at every zoom
             (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
         roads: crosses a z14 tile edge
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641))
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641))
         "#);
     }
 
@@ -249,7 +251,7 @@ mod tests {
         segments: shorter than one tile unit at z14
             (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> greatest(ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d), ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d))::numeric
         segments: crosses a z14 tile edge
-            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641))
+            (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform("geom"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - ST_YMin(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641) <> floor((20037508.34278925 - ST_YMax(ST_Transform("geom"::geometry, 3857)::box2d)) / 2445.984905125641))
         "#);
     }
 
