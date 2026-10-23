@@ -1276,11 +1276,11 @@ async fn a_quality_outside_1_to_100_fails_startup() {
         ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
 
           × quality must be 1 to 100 or "lossless", not 0
-           ╭─[[CONFIG]:2:3]
-         1 │ styles:
-         2 │   rendering:
-           ·   ─
-         3 │     enabled: true
+           ╭─[[CONFIG]:5:14]
+         4 │     workers: 2
+         5 │     quality: 0
+           ·              ─
+         6 │   sources:
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
