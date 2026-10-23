@@ -564,4 +564,163 @@ mod tests {
           output: []
         ");
     }
+
+    #[test]
+    fn a_gone_case_shows_that_accepting_removes_it() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 9 }
+                paths: ['roads: rule 2']
+                output:
+                  - { layer: roads, id: 9, geometry: line, zooms: 12-14 }
+        "})
+        .expect("parses");
+        let mut review = Review::new(Vec::new(), Vec::new(), Some(&old), 14, ids);
+        insta::assert_snapshot!(drawn(&mut review, ""), @r#"
+        " Reviewing [1/1]  GONE  roads 9  undecided                                                          "
+        " in the spec, but no path takes this row any more, accept removes it                                "
+        "                                                                                                    "
+        " paths   roads: rule 2                                                                              "
+        " -spec +now ────────────────────────────────────────────────────────────────────────────────────────"
+        "   1      │-- layer: roads                                                                          "
+        "   2      │-  id: 9                                                                                 "
+        "   3      │-  geometry: line                                                                        "
+        "   4      │-  zooms: 12-14                                                                          "
+        "        1 │+(no path takes the row any more)                                                        "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        "#);
+    }
+
+    #[test]
+    fn accepting_the_rest_and_writing_writes_every_generated_case_and_drops_the_gone() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+              - source: roads
+                input: { osm_id: 9 }
+                output: []
+        "})
+        .expect("parses");
+        let generated: Vec<Case> = serde_saphyr::from_str(indoc! {"
+            - source: roads
+              input: { osm_id: 1 }
+              output:
+                - { layer: roads, id: 1, geometry: line, zooms: 5-14 }
+            - source: roads
+              input: { osm_id: 2 }
+              output: []
+        "})
+        .expect("parses");
+        let cases = generated
+            .into_iter()
+            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .collect();
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
+        let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
+        let events = "Aw".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
+        let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
+        insta::assert_snapshot!(format!("write: {write}\n\n{}", yaml(&review.spec())), @"
+        write: true
+
+        max_zoom: 14
+        cases:
+        - source: roads
+          input:
+            osm_id: 1
+          output:
+          - layer: roads
+            id: 1
+            geometry: line
+            zooms: 5-14
+        - source: roads
+          input:
+            osm_id: 2
+          output: []
+        ");
+    }
+
+    #[test]
+    fn quitting_after_a_decision_writes_nothing() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+              - source: roads
+                input: { osm_id: 9 }
+                output: []
+        "})
+        .expect("parses");
+        let generated: Vec<Case> = serde_saphyr::from_str(indoc! {"
+            - source: roads
+              input: { osm_id: 1 }
+              output:
+                - { layer: roads, id: 1, geometry: line, zooms: 5-14 }
+            - source: roads
+              input: { osm_id: 2 }
+              output: []
+        "})
+        .expect("parses");
+        let cases = generated
+            .into_iter()
+            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .collect();
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
+        let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
+        let events = "aq".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
+        let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
+        insta::assert_snapshot!(write, @"false");
+    }
+
+    #[test]
+    fn writing_before_the_last_screen_does_nothing() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+              - source: roads
+                input: { osm_id: 9 }
+                output: []
+        "})
+        .expect("parses");
+        let generated: Vec<Case> = serde_saphyr::from_str(indoc! {"
+            - source: roads
+              input: { osm_id: 1 }
+              output:
+                - { layer: roads, id: 1, geometry: line, zooms: 5-14 }
+            - source: roads
+              input: { osm_id: 2 }
+              output: []
+        "})
+        .expect("parses");
+        let cases = generated
+            .into_iter()
+            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .collect();
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
+        let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
+        let events = "w".chars().map(|key| Ok(Event::Key(KeyCode::Char(key).into())));
+        let write = review_on(&mut terminal, events, &mut review, "spec.yaml").expect("a test terminal");
+        insta::assert_snapshot!(write, @"false");
+    }
 }
