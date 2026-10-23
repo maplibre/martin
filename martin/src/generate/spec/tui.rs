@@ -7,7 +7,7 @@ use ratatui::backend::Backend;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
 use similar::TextDiff;
 
@@ -21,7 +21,7 @@ use crate::generate::spec::rows::RowSearch;
 ///
 /// If the terminal fails.
 pub fn show(review: &mut Review, spec_name: &str) -> io::Result<bool> {
-    let mut terminal = ratatui::init();
+    let mut terminal = ratatui::try_init()?;
     let result = review_on(
         &mut terminal,
         std::iter::from_fn(|| Some(event::read())),
@@ -129,7 +129,8 @@ impl Screen<'_> {
         }
     }
 
-    /// Draws one case: what it is, how serving it differs, and its diff against the spec.
+    /// Draws one case: what it is, then its paths, how serving it differs and its diff against the spec, which scroll
+    /// together and wrap.
     fn draw_case(&self, frame: &mut Frame<'_>, r: &Reviewed) {
         let total = self.review.pending().count();
         let decision = match r.decision {
@@ -137,7 +138,7 @@ impl Screen<'_> {
             Decision::Rejected => Span::styled("rejected", Style::new().fg(Color::Red)),
             Decision::Undecided => dim("undecided"),
         };
-        let mut info = vec![
+        let header = vec![
             Line::from(vec![
                 bold(format!(" Reviewing [{}/{total}]  ", self.at + 1)),
                 status_span(&r.status),
@@ -147,8 +148,8 @@ impl Screen<'_> {
                 decision,
             ]),
             Line::from(vec![Span::raw(" "), dim(meaning(r.status))]),
-            Line::raw(""),
         ];
+        let mut info = vec![Line::raw("")];
         for (i, path) in r.case.paths.iter().enumerate() {
             let label = if i == 0 { " paths   " } else { "         " };
             info.push(Line::from(vec![dim(label), Span::raw(path.clone())]));
@@ -165,11 +166,9 @@ impl Screen<'_> {
                 ]));
             }
         }
-        let height = u16::try_from(info.len()).unwrap_or(u16::MAX);
         let [top, body, keys] =
-            Layout::vertical([Constraint::Length(height), Constraint::Min(3), Constraint::Length(1)])
-                .areas(frame.area());
-        frame.render_widget(Paragraph::new(info), top);
+            Layout::vertical([Constraint::Length(2), Constraint::Min(3), Constraint::Length(1)]).areas(frame.area());
+        frame.render_widget(Paragraph::new(header), top);
 
         let change = r.diff();
         let diff = TextDiff::from_lines(&change.old, &change.new);
@@ -188,17 +187,16 @@ impl Screen<'_> {
                 ])
             })
             .collect();
-        let title = Line::from(vec![
+        info.push(Line::raw(""));
+        info.push(Line::from(vec![
             Span::raw(" "),
             Span::styled("-spec", Style::new().fg(Color::Red)),
             Span::raw(" "),
             Span::styled("+now", Style::new().fg(Color::Green)),
-            Span::raw(" "),
-        ]);
+        ]));
+        info.extend(lines);
         frame.render_widget(
-            Paragraph::new(lines)
-                .block(Block::new().borders(Borders::TOP).title(title))
-                .scroll((self.scroll, 0)),
+            Paragraph::new(info).wrap(Wrap { trim: false }).scroll((self.scroll, 0)),
             body,
         );
         frame.render_widget(
@@ -298,7 +296,7 @@ const fn meaning(status: CaseStatus) -> &'static str {
         CaseStatus::New => "not in the spec, accept adds it",
         CaseStatus::Gone => "in the spec, but no path takes this row any more, accept removes it",
         CaseStatus::Changed | CaseStatus::Same => {
-            "bulk mode renders the row differently from the spec, accept takes the new output"
+            "the row or what bulk mode renders of it differs from the spec, accept takes the new case"
         }
     }
 }
@@ -366,11 +364,12 @@ mod tests {
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         insta::assert_snapshot!(drawn(&mut review, ""), @r#"
         " Reviewing [1/1]  CHANGED  roads 1  undecided                                                       "
-        " bulk mode renders the row differently from the spec, accept takes the new output                   "
+        " the row or what bulk mode renders of it differs from the spec, accept takes the new case           "
         "                                                                                                    "
         " paths   roads: rule 1                                                                              "
         " served  same tiles as bulk mode                                                                    "
-        " -spec +now ────────────────────────────────────────────────────────────────────────────────────────"
+        "                                                                                                    "
+        " -spec +now                                                                                         "
         "   1    1 │ - layer: roads                                                                          "
         "   2    2 │   id: 1                                                                                 "
         "   3    3 │   geometry: line                                                                        "
@@ -379,7 +378,93 @@ mod tests {
         "   5    5 │   attributes:                                                                           "
         "   6    6 │     kind: major                                                                         "
         "                                                                                                    "
+        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        "#);
+    }
+
+    #[test]
+    fn a_case_with_more_paths_than_the_screen_scrolls_to_its_diff() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 2 }
+            paths: ['roads: rule 1', 'roads: rule 2', 'roads: rule 3', 'roads: rule 4', 'roads: rule 5',
+                    'roads: rule 6', 'roads: rule 7', 'roads: rule 8', 'roads: rule 9', 'roads: rule 10',
+                    'roads: rule 11', 'roads: rule 12', 'roads: rule 13', 'roads: rule 14', 'roads: rule 15']
+            output: []
+        "})
+        .expect("parses");
+        let cases = vec![Reviewed::new(case, Served::default(), None, &ids)];
+        let mut review = Review::new(Vec::new(), cases, None, 14, ids);
+        insta::assert_snapshot!(drawn(&mut review, "jjjjjjjjjjjj"), @r#"
+        " Reviewing [1/1]  NEW  roads 2  undecided                                                           "
+        " not in the spec, accept adds it                                                                    "
+        "         roads: rule 12                                                                             "
+        "         roads: rule 13                                                                             "
+        "         roads: rule 14                                                                             "
+        "         roads: rule 15                                                                             "
+        " served  same tiles as bulk mode                                                                    "
         "                                                                                                    "
+        " -spec +now                                                                                         "
+        "   1      │-(not in the spec)                                                                       "
+        "        1 │+(no feature in any layer)                                                               "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        "                                                                                                    "
+        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        "#);
+    }
+
+    #[test]
+    fn a_changed_value_wider_than_the_screen_wraps() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                paths: ['roads: rule 1']
+                output:
+                  - layer: roads
+                    id: 1
+                    geometry: line
+                    zooms: 4-14
+                    attributes:
+                      note: 'the road that runs from the old harbour past the station and the market to the castle on the hill, then north'
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1 }
+            paths: ['roads: rule 1']
+            output:
+              - layer: roads
+                id: 1
+                geometry: line
+                zooms: 4-14
+                attributes:
+                  note: 'the road that runs from the old harbour past the station and the market to the castle on the hill, then south'
+        "})
+        .expect("parses");
+        let cases = vec![Reviewed::new(case, Served::default(), Some(&old), &ids)];
+        let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
+        insta::assert_snapshot!(drawn(&mut review, ""), @r#"
+        " Reviewing [1/1]  CHANGED  roads 1  undecided                                                       "
+        " the row or what bulk mode renders of it differs from the spec, accept takes the new case           "
+        "                                                                                                    "
+        " paths   roads: rule 1                                                                              "
+        " served  same tiles as bulk mode                                                                    "
+        "                                                                                                    "
+        " -spec +now                                                                                         "
+        "   1    1 │ - layer: roads                                                                          "
+        "   2    2 │   id: 1                                                                                 "
+        "   3    3 │   geometry: line                                                                        "
+        "   4    4 │   zooms: 4-14                                                                           "
+        "   5    5 │   attributes:                                                                           "
+        "   6      │-    note: the road that runs from the old harbour past the station and the market to the"
+        "castle on the hill, then north                                                                      "
+        "        6 │+    note: the road that runs from the old harbour past the station and the market to the"
         " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
         "#);
     }
@@ -409,10 +494,10 @@ mod tests {
         "                                                                                                    "
         " paths   roads: rule 2                                                                              "
         " served  z14 1/1: only bulk mode has the tile                                                       "
-        " -spec +now ────────────────────────────────────────────────────────────────────────────────────────"
+        "                                                                                                    "
+        " -spec +now                                                                                         "
         "   1      │-(not in the spec)                                                                       "
         "        1 │+(no feature in any layer)                                                               "
-        "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
@@ -584,13 +669,13 @@ mod tests {
         " in the spec, but no path takes this row any more, accept removes it                                "
         "                                                                                                    "
         " paths   roads: rule 2                                                                              "
-        " -spec +now ────────────────────────────────────────────────────────────────────────────────────────"
+        "                                                                                                    "
+        " -spec +now                                                                                         "
         "   1      │-- layer: roads                                                                          "
         "   2      │-  id: 9                                                                                 "
         "   3      │-  geometry: line                                                                        "
         "   4      │-  zooms: 12-14                                                                          "
         "        1 │+(no path takes the row any more)                                                        "
-        "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
