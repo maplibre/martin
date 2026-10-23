@@ -190,15 +190,15 @@ mod tests {
                   - where: \"class == 'path'\"
                     minzoom: 12
         "}), @r#"
-        roads: rule 1 `class == 'motorway'`
+        roads: rule 1 `where: class == 'motorway'`
             "class" = 'motorway'
-        roads: rule 2 `class == 'path'`
+        roads: rule 2 `where: class == 'path'`
             "class" IS DISTINCT FROM 'motorway' AND "class" = 'path'
-        roads: no rule
+        roads: no rule matches
             "class" IS DISTINCT FROM 'motorway' AND "class" IS DISTINCT FROM 'path'
-        roads: kept only at z14 by `min_size_at_maxzoom`
+        roads: kept only at z14 (`min_size_at_maxzoom`)
             (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0.5971642834779397, 19.10925707129407) @> (SELECT greatest(ST_XMax(b) - ST_XMin(b), ST_YMax(b) - ST_YMin(b))::numeric FROM (SELECT ST_Transform("geom"::geometry, 3857)::box2d AS b) AS bbox)
-        roads: smaller than `min_size` at every zoom
+        roads: dropped, smaller than `min_size` at every zoom
             (ST_GeometryType("geom"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType("geom"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND numrange(0, 0.5971642834779397) @> (SELECT greatest(ST_XMax(b) - ST_XMin(b), ST_YMax(b) - ST_YMin(b))::numeric FROM (SELECT ST_Transform("geom"::geometry, 3857)::box2d AS b) AS bbox)
         "#);
     }
@@ -218,11 +218,11 @@ mod tests {
                 geometry: point
                 where: population > 1000
         "}), @r#"
-        places: where `population > 1000`
+        places: kept by `where: population > 1000`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" > 1000
-        places: not where `population > 1000`
+        places: dropped, `where: population > 1000` is false
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" <= 1000
-        places: where `population > 1000` with `population` null
+        places: dropped, `population` is null in `where: population > 1000`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" IS NULL
         "#);
     }
@@ -245,19 +245,17 @@ mod tests {
                 attributes:
                   label: \"coalesce(feature['name:en'], name)\"
         "}), @r#"
-        places: every feature
-            TRUE
-        places: `coalesce(feature['name:en'], name)`: `feature['name:en']` is the first not null
+        places: attributes.label from `feature['name:en']`
             "name:en" IS NOT NULL
-        places: `coalesce(feature['name:en'], name)`: `name` is the first not null
+        places: attributes.label from `name`
             "name:en" IS NULL AND "name" IS NOT NULL
-        places: `coalesce(feature['name:en'], name)`: all null
+        places: attributes.label null, every `coalesce` argument is null
             "name:en" IS NULL AND "name" IS NULL
-        places: `population > 1000000 ? 2 : 8`: `population > 1000000` true
+        places: minzoom 2, `population > 1000000` is true
             "population" > 1000000
-        places: `population > 1000000 ? 2 : 8`: `population > 1000000` false
+        places: minzoom 8, `population > 1000000` is false
             "population" <= 1000000
-        places: `population > 1000000 ? 2 : 8`: `population > 1000000` fails with `population` null
+        places: minzoom, `population` is null in `population > 1000000`
             "population" IS NULL
         "#);
     }
@@ -279,15 +277,11 @@ mod tests {
                 attributes:
                   class: \"type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()\"
         "}), @r#"
-        devices: every feature
-            TRUE
-        devices: `type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()`: `type == 'traffic_signals'` true
+        devices: type 'traffic_signals' -> attributes.class 'TRAFFIC_LIGHT'
             "type" = 'traffic_signals'
-        devices: `type == 'traffic_signals' ? 'TRAFFIC_LIGHT' : type.upperAscii()`: `type == 'traffic_signals'` false
-            "type" IS DISTINCT FROM 'traffic_signals'
-        devices: `type` is 'stop'
+        devices: type 'stop' -> attributes.class 'STOP'
             "type" = 'stop'
-        devices: `type` is 'yield'
+        devices: type 'yield' -> attributes.class 'YIELD'
             "type" = 'yield'
         "#);
     }
@@ -308,9 +302,7 @@ mod tests {
                 attributes:
                   class: \"type.upperAscii()\"
         "}), @r#"
-        devices: every feature
-            TRUE
-        devices: `type` is 'stop'
+        devices: type 'stop' -> attributes.class 'STOP'
             "type" = 'stop'
         "#);
     }
@@ -373,11 +365,9 @@ mod tests {
                 attributes:
                   class: \"lanes * 2\"
         "}), @r#"
-        devices: every feature
-            TRUE
-        devices: `lanes` is 1
+        devices: lanes 1 -> attributes.class 2
             "lanes" = 1
-        devices: `lanes` is 2
+        devices: lanes 2 -> attributes.class 4
             "lanes" = 2
         "#);
     }
@@ -398,11 +388,9 @@ mod tests {
                 attributes:
                   class: \"width * 2.0\"
         "}), @r#"
-        devices: every feature
-            TRUE
-        devices: `width` is 2.5
+        devices: width 2.5 -> attributes.class 5.0
             ("width")::float8 = ('2.5')::float8
-        devices: `width` is 3.75
+        devices: width 3.75 -> attributes.class 7.5
             ("width")::float8 = ('3.75')::float8
         "#);
     }
@@ -443,13 +431,11 @@ mod tests {
                 attributes:
                   short: \"name + '!' == 'A!' ? 'A' : name\"
         "}), @r#"
-        places: every feature
-            TRUE
-        places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` true
+        places: attributes.short 'A', `(name + '!') == 'A!'` is true
             cannot query: uses `+`, which has no SQL equivalent
-        places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` false
+        places: attributes.short `name`, `(name + '!') == 'A!'` is false
             cannot query: uses `+`, which has no SQL equivalent
-        places: `name + '!' == 'A!' ? 'A' : name`: `(name + '!') == 'A!'` fails with `name` null
+        places: attributes.short, `name` is null in `(name + '!') == 'A!'`
             "name" IS NULL
         "#);
     }
@@ -473,15 +459,15 @@ mod tests {
                     attributes:
                       label: \"coalesce(name_en, name)\"
         "}), @r#"
-        places: rule 1 `class == 'city'`
+        places: rule 1 `where: class == 'city'`
             "class" = 'city'
-        places: no rule
+        places: no rule matches
             "class" IS DISTINCT FROM 'city'
-        places: `coalesce(name_en, name)`: `name_en` is the first not null
+        places: rule 1 attributes.label from `name_en`
             "class" = 'city' AND "name_en" IS NOT NULL
-        places: `coalesce(name_en, name)`: `name` is the first not null
+        places: rule 1 attributes.label from `name`
             "class" = 'city' AND "name_en" IS NULL AND "name" IS NOT NULL
-        places: `coalesce(name_en, name)`: all null
+        places: rule 1 attributes.label null, every `coalesce` argument is null
             "class" = 'city' AND "name_en" IS NULL AND "name" IS NULL
         "#);
     }

@@ -43,7 +43,7 @@ fn a_city_takes_the_first_rule() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: rule 1 `class == 'city'`",
+        "places: rule 1 `where: class == 'city'`",
     ]
     "#);
 }
@@ -77,7 +77,7 @@ fn a_capital_skips_the_first_rule_and_takes_the_second() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: rule 2 `class.startsWith('c')`",
+        "places: rule 2 `where: class.startsWith('c')`",
     ]
     "#);
 }
@@ -111,7 +111,7 @@ fn a_place_without_a_class_takes_no_rule() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: no rule",
+        "places: no rule matches",
     ]
     "#);
 }
@@ -136,7 +136,7 @@ fn a_place_above_the_population_is_where() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: where `population > 1000`",
+        "places: kept by `where: population > 1000`",
     ]
     "#);
 }
@@ -161,7 +161,7 @@ fn a_place_below_the_population_is_not_where() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: not where `population > 1000`",
+        "places: dropped, `where: population > 1000` is false",
     ]
     "#);
 }
@@ -186,7 +186,7 @@ fn a_place_without_a_population_is_where_with_the_column_null() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: where `population > 1000` with `population` null",
+        "places: dropped, `population` is null in `where: population > 1000`",
     ]
     "#);
 }
@@ -227,8 +227,8 @@ fn a_city_without_an_english_name_is_labelled_by_its_name() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: rule 1 `class == 'city'`",
-        "places: `coalesce(name_en, name)`: `name` is the first not null",
+        "places: rule 1 `where: class == 'city'`",
+        "places: rule 1 attributes.label from `name`",
     ]
     "#);
 }
@@ -269,7 +269,7 @@ fn a_town_outside_the_rule_takes_none_of_the_choices_of_its_attributes() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: no rule",
+        "places: no rule matches",
     ]
     "#);
 }
@@ -300,17 +300,7 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
     [
         Branch {
             layer: "devices",
-            path: "every feature",
-            rows: Ok(
-                Geometry(
-                    Point,
-                ),
-            ),
-            size: None,
-        },
-        Branch {
-            layer: "devices",
-            path: "`type` is 'stop'",
+            path: "type 'stop' -> attributes.kind 'STOP'",
             rows: Ok(
                 And(
                     [
@@ -336,7 +326,7 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
         },
         Branch {
             layer: "devices",
-            path: "`type` is 'yield'",
+            path: "type 'yield' -> attributes.kind 'YIELD'",
             rows: Ok(
                 And(
                     [
@@ -425,10 +415,117 @@ fn a_known_column_in_a_where_has_no_null_path() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: where `type == 'stop'`",
-        "devices: not where `type == 'stop'`",
-        "devices: `type` is 'stop'",
-        "devices: `type` is 'yield'",
+        "devices: type 'stop' -> kept by `where: type == 'stop'`",
+        "devices: type 'yield' -> dropped, `where: type == 'stop'` is false",
+    ]
+    "#);
+}
+
+#[test]
+fn a_value_that_decides_every_rule_names_the_rule_it_takes() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), None)],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            rules: vec![RuleDef {
+                when: Some("type == 'stop'".to_owned()),
+                attributes: vec![ComputedAttr {
+                    name: "label".to_owned(),
+                    value: ValueDef::Expr("type + '!'".to_owned()),
+                    zooms: 0..=14,
+                }],
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "type".to_owned(),
+        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: type 'stop' -> rule 1, attributes.label 'stop!'",
+        "devices: type 'yield' -> no rule matches",
+    ]
+    "#);
+}
+
+#[test]
+fn a_rule_the_values_cannot_decide_keeps_its_paths() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("type".to_owned(), None),
+            ColumnDef::Value("lanes".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "kind".to_owned(),
+                    value: ValueDef::Expr("type.upperAscii()".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            rules: vec![RuleDef {
+                when: Some("lanes > 2".to_owned()),
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnValues {
+        column: "type".to_owned(),
+        values: vec![Literal::String("stop".to_owned())],
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: rule 1 `where: lanes > 2`",
+        "devices: no rule matches",
+        "devices: type 'stop' -> attributes.kind 'STOP'",
+    ]
+    "#);
+}
+
+#[test]
+fn a_choice_inside_an_expression_names_its_field_without_a_value() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "rank".to_owned(),
+                    value: ValueDef::Expr("(lanes > 2 ? 1 : 0) + 1".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let branches: Vec<String> = plan.branches(0, &[]).unwrap().iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "roads: attributes.rank, `lanes > 2` is true",
+        "roads: attributes.rank, `lanes > 2` is false",
+        "roads: attributes.rank, `lanes` is null in `lanes > 2`",
     ]
     "#);
 }
@@ -455,39 +552,11 @@ fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
     [
         Branch {
             layer: "devices",
-            path: "where `type == 'stop'`",
+            path: "type 'stop' -> kept by `where: type == 'stop'`",
             rows: Err(
                 Untranslatable {
                     layer: "devices",
-                    expr: "type == 'stop'",
-                    reason: KeysMayReplaceColumns(
-                        "tags",
-                    ),
-                },
-            ),
-            size: None,
-        },
-        Branch {
-            layer: "devices",
-            path: "not where `type == 'stop'`",
-            rows: Err(
-                Untranslatable {
-                    layer: "devices",
-                    expr: "type == 'stop'",
-                    reason: KeysMayReplaceColumns(
-                        "tags",
-                    ),
-                },
-            ),
-            size: None,
-        },
-        Branch {
-            layer: "devices",
-            path: "`type` is 'stop'",
-            rows: Err(
-                Untranslatable {
-                    layer: "devices",
-                    expr: "type == 'stop'",
+                    expr: "the source's filter",
                     reason: KeysMayReplaceColumns(
                         "tags",
                     ),
@@ -522,8 +591,8 @@ fn a_column_read_as_text_has_no_path_for_a_number() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "payments: where `amount != ''`",
-        "payments: not where `amount != ''`",
+        "payments: kept by `where: amount != ''`",
+        "payments: dropped, `where: amount != ''` is false",
     ]
     "#);
 }
@@ -547,37 +616,13 @@ fn a_float_column_compares_a_whole_number_as_a_float() {
     insta::assert_debug_snapshot!(branches.last().unwrap(), @r#"
     Branch {
         layer: "poles",
-        path: "`height` is 2",
+        path: "height 2 -> kept by `where: height > 1.0`",
         rows: Ok(
             And(
                 [
                     Geometry(
                         Point,
                     ),
-                    Compare {
-                        left: Column(
-                            "height",
-                        ),
-                        op: Gt,
-                        right: Literal(
-                            Float(
-                                1.0,
-                            ),
-                        ),
-                        kind: Float,
-                    },
-                    Compare {
-                        left: Column(
-                            "height",
-                        ),
-                        op: Ne,
-                        right: Literal(
-                            Float(
-                                NaN,
-                            ),
-                        ),
-                        kind: Float,
-                    },
                     Compare {
                         left: Column(
                             "height",
@@ -629,14 +674,13 @@ fn a_stop_sign_takes_the_path_of_its_value() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "devices: every feature",
-        "devices: `type` is 'stop'",
+        "devices: type 'stop' -> attributes.kind 'STOP'",
     ]
     "#);
 }
 
 #[test]
-fn a_value_the_filter_does_not_list_takes_no_value_path() {
+fn a_value_the_filter_does_not_list_takes_no_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
@@ -664,11 +708,7 @@ fn a_value_the_filter_does_not_list_takes_no_value_path() {
     };
     let paths = plan.paths_of(0, &known, Crs::Wgs84, &give_way).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
-    insta::assert_debug_snapshot!(taken, @r#"
-    [
-        "devices: every feature",
-    ]
-    "#);
+    insta::assert_debug_snapshot!(taken, @"[]");
 }
 
 #[test]
@@ -695,8 +735,7 @@ fn an_integer_property_takes_the_path_of_its_known_integer_value() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "roads: where `lanes > 1`",
-        "roads: `lanes` is 2",
+        "roads: lanes 2 -> kept by `where: lanes > 1`",
     ]
     "#);
 }
@@ -719,10 +758,10 @@ fn a_rule_with_its_own_min_size_has_its_own_size_paths() {
     let branches: Vec<String> = plan.branches(0, &[]).unwrap().iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "roads: rule 1 `class == 'major'`",
-        "roads: no rule",
-        "roads: no rule: kept only at z14 by `min_size_at_maxzoom`",
-        "roads: no rule: smaller than `min_size` at every zoom",
+        "roads: rule 1 `where: class == 'major'`",
+        "roads: no rule matches",
+        "roads: no rule: kept only at z14 (`min_size_at_maxzoom`)",
+        "roads: no rule: dropped, smaller than `min_size` at every zoom",
     ]
     "#);
 }
@@ -751,7 +790,7 @@ fn a_short_major_road_is_kept_by_the_min_size_of_its_rule() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "roads: rule 1 `class == 'major'`",
+        "roads: rule 1 `where: class == 'major'`",
     ]
     "#);
 }
@@ -780,8 +819,8 @@ fn a_short_minor_road_is_smaller_than_the_layer_min_size_at_every_zoom() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "roads: no rule",
-        "roads: no rule: smaller than `min_size` at every zoom",
+        "roads: no rule matches",
+        "roads: no rule: dropped, smaller than `min_size` at every zoom",
     ]
     "#);
 }
