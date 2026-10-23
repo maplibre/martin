@@ -79,7 +79,7 @@ impl Postgres {
         let Some(column) = &info.id_column else {
             return Err(GenerateError::NoIdColumn(source.to_owned()));
         };
-        let row = format!("{column} = {key}");
+        let row = format!("\"{}\" = {key}", info.table_column(column).replace('"', "\"\""));
         info.filter = Some(match info.filter.take() {
             Some(filter) => format!("({filter}) AND ({row})"),
             None => row,
@@ -96,7 +96,10 @@ impl Postgres {
             Some(shape) => write!(f, " AND {}", ShapeSql(info, shape)),
             None => Ok(()),
         });
-        let query = format!("SELECT s.{id}::int8 FROM ({}{size}) AS s LIMIT 1", scan.sql);
+        let query = format!(
+            "SELECT s.{id}::int8 FROM ({}{size}) AS s WHERE s.{id}::int8 >= 0 LIMIT 1",
+            scan.sql
+        );
         let conn = self.pool().get().await.map_err(|e| e.to_string())?;
         let timeout = format!("SET statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
         conn.batch_execute(&timeout).await.map_err(|e| db_error(&e))?;
@@ -104,8 +107,11 @@ impl Postgres {
         conn.batch_execute("RESET statement_timeout")
             .await
             .map_err(|e| db_error(&e))?;
-        let found = found.map_err(|e| db_error(&e))?;
-        Ok(found.and_then(|row| RowKey::try_from(row.get::<_, i64>(0)).ok()))
+        let Some(row) = found.map_err(|e| db_error(&e))? else {
+            return Ok(None);
+        };
+        let key = row.try_get::<_, i64>(0).map_err(|e| db_error(&e))?;
+        RowKey::try_from(key).map(Some).map_err(|e| e.to_string())
     }
 }
 

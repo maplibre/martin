@@ -195,6 +195,8 @@ pub enum GenerateError {
     ParseSpec(PathBuf, #[source] Box<serde_saphyr::Error>),
     #[error("Cannot write spec file {}: {}", .0.display(), .1)]
     WriteSpec(PathBuf, #[source] std::io::Error),
+    #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
+    CaseTooLarge { table: String, key: u64, tiles: usize },
     #[error("Cannot decode a tile bulk mode wrote: {0}")]
     Decode(#[source] mlt_core::MltError),
     #[error("Background task failed: {0}")]

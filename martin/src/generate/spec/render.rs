@@ -7,7 +7,8 @@ use indexmap::IndexMap;
 use martin_tile_utils::{Encoding, TileCoord};
 use martin_tilegen::plan::Plan;
 use martin_tilegen::{
-    EncodedTile, GenerateConfig, Progress, SortConfig, TileFormat, TileGenResult, TileOrder, TileSink, generate,
+    EncodedTile, GenerateConfig, Progress, SortConfig, TileFormat, TileGenError, TileGenResult, TileOrder, TileSink,
+    generate,
 };
 use mlt_core::geo_types::Geometry;
 use mlt_core::mvt::mvt_to_feature_collection;
@@ -17,6 +18,9 @@ use tilejson::{TileJSON, tilejson};
 use crate::generate::spec::backend::{RowKey, Rows, TestBackend, TestTable};
 use crate::generate::spec::file::{Attribute, GeometryKind, Output, Zooms};
 use crate::generate::{GenerateError, GenerateResult};
+
+/// The most tiles one case may render, which bulk mode holds in memory.
+const MAX_CASE_TILES: usize = 1 << 20;
 
 /// Every tile of one case, decoded.
 pub type Tiles = BTreeMap<TileCoord, Vec<Feature>>;
@@ -48,13 +52,13 @@ impl Feature {
 ///
 /// # Errors
 ///
-/// If the row cannot be read or rendered.
+/// If the row cannot be read or rendered, or renders more than [`MAX_CASE_TILES`] tiles.
 pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: RowKey) -> GenerateResult<Tiles> {
     let scan = backend.scan(table, Some(key), Rows::Bulk).await?;
     let def = table.def.clone();
     let sink = MemorySink::default();
     let tiles = Arc::clone(&sink.tiles);
-    tokio::task::spawn_blocking(move || {
+    let rendered = tokio::task::spawn_blocking(move || {
         let plan = Plan::new(vec![def])?;
         let config = GenerateConfig {
             threads: 1,
@@ -77,8 +81,16 @@ pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: Ro
             &Progress::default(),
         )
     })
-    .await??;
+    .await?;
     let tiles = std::mem::take(&mut *tiles.lock().expect("the sink does not panic"));
+    if tiles.len() > MAX_CASE_TILES {
+        return Err(GenerateError::CaseTooLarge {
+            table: table.source.clone(),
+            key,
+            tiles: MAX_CASE_TILES,
+        });
+    }
+    rendered?;
     tiles
         .into_iter()
         .map(|tile| Ok((tile.coord, decode(&tile.data)?)))
@@ -164,7 +176,7 @@ pub fn outputs(tiles: &Tiles) -> Vec<Output> {
         .collect()
 }
 
-/// Collects the tiles of a run in memory.
+/// Collects the tiles of a run in memory, and stops the run once it has more than [`MAX_CASE_TILES`].
 #[derive(Default)]
 struct MemorySink {
     tiles: Arc<Mutex<Vec<EncodedTile>>>,
@@ -179,6 +191,9 @@ impl TileSink for MemorySink {
         let mut tiles = self.tiles.lock().expect("the sink does not panic");
         for batch in batches {
             tiles.extend(batch?);
+            if tiles.len() > MAX_CASE_TILES {
+                return Err(TileGenError::WriterStopped);
+            }
         }
         Ok(())
     }
