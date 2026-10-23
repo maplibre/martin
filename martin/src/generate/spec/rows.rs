@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use indexmap::IndexMap;
 use martin_tilegen::TileGenError;
-use martin_tilegen::plan::{Branch, ColumnDef, Plan};
+use martin_tilegen::plan::{Branch, ColumnDef, Plan, TranslateError};
 use martin_tilegen::props::Prop;
 use martin_tilegen::source::{Crs, FeatureSource, Geometry, SourceError, SourceFeature};
 use mlt_core::geo_types;
@@ -20,24 +20,53 @@ use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable}
 use crate::generate::spec::file::{Case, IdColumns, Spec, yaml};
 use crate::generate::spec::report::{Change, Look, Reporter, Status, Tone};
 
-/// How a path's row was found.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Via {
-    /// The spec's case on the path still takes it.
-    Spec,
-    /// The backend selected it.
-    Backend,
-    /// A sweep over the table's rows came across it.
-    Sweep,
-}
-
-/// What the search for a path's row found.
+/// Why a path has the row it has, or has none.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RowSearch {
-    Found(RowKey, Via),
-    NoRow,
     /// The table has no key column to select a row by.
     NoKey,
+    /// Row `0` of the spec's case on the path still takes it.
+    Kept(RowKey),
+    /// The backend selected the rows on the path, and row `key` of them takes it.
+    Selected { rows: String, key: RowKey },
+    /// The backend selected the rows on the path, and there are none.
+    NoneSelected { rows: String },
+    /// A sweep came across row `key` on the path, searched for by a sweep `because` of these misses.
+    Swept { key: RowKey, because: Vec<Miss> },
+    /// A sweep over `rows` rows came across none on the path, searched for by a sweep `because` of these misses.
+    NoneSwept { rows: u64, because: Vec<Miss> },
+}
+
+/// Why the search for a path's row went on to a sweep.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Miss {
+    /// Row `0` of the spec's case on the path is gone.
+    SpecRowGone(RowKey),
+    /// Row `0` of the spec's case on the path no longer takes it.
+    SpecRowOffPath(RowKey),
+    /// The backend cannot select rows.
+    BackendCannotSelect,
+    /// No condition selects the rows on the path.
+    CannotSelect(TranslateError),
+    /// The backend selected the rows on the path, but row `key` of them does not take it.
+    SelectedOffPath { rows: String, key: RowKey },
+    /// The backend failed to select the rows on the path.
+    SelectFailed { rows: String, error: String },
+}
+
+impl Display for Miss {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SpecRowGone(key) => write!(f, "row {key} of the spec is gone"),
+            Self::SpecRowOffPath(key) => write!(f, "row {key} of the spec no longer takes the path"),
+            Self::BackendCannotSelect => f.write_str("the backend cannot select rows"),
+            Self::CannotSelect(reason) => write!(f, "no condition selects the rows, it {reason}"),
+            Self::SelectedOffPath { rows, key } => {
+                write!(f, "row {key} of the rows where {rows} does not take the path")
+            }
+            Self::SelectFailed { rows, error } => write!(f, "selecting the rows where {rows} failed: {error}"),
+        }
+    }
 }
 
 impl RowSearch {
@@ -47,6 +76,15 @@ impl RowSearch {
     const NO_ROW: Look = Look::new("NO ROW", Tone::Yellow, "no row", true);
     /// The table has no key column.
     const NO_KEY: Look = Look::new("NO KEY", Tone::Yellow, "no key", true);
+
+    /// The key of the row on the path, if there is one.
+    #[must_use]
+    pub const fn key(&self) -> Option<RowKey> {
+        match self {
+            Self::Kept(key) | Self::Selected { key, .. } | Self::Swept { key, .. } => Some(*key),
+            Self::NoKey | Self::NoneSelected { .. } | Self::NoneSwept { .. } => None,
+        }
+    }
 }
 
 impl Status for RowSearch {
@@ -54,8 +92,8 @@ impl Status for RowSearch {
 
     fn look(&self) -> Look {
         match self {
-            Self::Found(..) => Self::FOUND,
-            Self::NoRow => Self::NO_ROW,
+            Self::Kept(_) | Self::Selected { .. } | Self::Swept { .. } => Self::FOUND,
+            Self::NoneSelected { .. } | Self::NoneSwept { .. } => Self::NO_ROW,
             Self::NoKey => Self::NO_KEY,
         }
     }
@@ -66,23 +104,25 @@ impl Status for RowSearch {
 pub struct Found {
     pub source: String,
     pub branch: Branch,
-    /// How the backend selected the path's rows, e.g. as SQL, if it did.
-    pub selected: Option<String>,
-    /// Why the backend found no row that takes the path, when a sweep searched instead.
-    pub error: Option<String>,
     pub row: RowSearch,
 }
 
 impl Display for Found {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let branch = &self.branch;
         match &self.row {
-            RowSearch::Found(key, Via::Sweep) => write!(f, "{}  row {key}, swept", self.branch),
-            RowSearch::Found(key, Via::Spec | Via::Backend) => write!(f, "{}  row {key}", self.branch),
-            RowSearch::NoRow => match &self.error {
-                Some(error) => write!(f, "{}  {error}", self.branch),
-                None => self.branch.fmt(f),
-            },
-            RowSearch::NoKey => write!(f, "{}  the source has no key column", self.branch),
+            RowSearch::NoKey => write!(f, "{branch}  the source has no key column"),
+            RowSearch::Kept(key) => write!(f, "{branch}  row {key}, as in the spec"),
+            RowSearch::Selected { key, .. } => write!(f, "{branch}  row {key}"),
+            RowSearch::NoneSelected { .. } => branch.fmt(f),
+            RowSearch::Swept { key, .. } => write!(f, "{branch}  row {key}, swept"),
+            RowSearch::NoneSwept { rows, because } => {
+                write!(f, "{branch}  none of {rows} rows swept")?;
+                for miss in because {
+                    write!(f, ", {miss}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -125,75 +165,63 @@ pub async fn find_rows<B: TestBackend>(
     };
     for table in tables {
         let source = &table.source;
-        let mut swept = Vec::new();
+        let mut swept: Vec<(usize, Vec<Miss>)> = Vec::new();
         for branch in table.paths()? {
             report.working(format_args!("{source} {branch}"));
             let started = Instant::now();
-            let mut found = Found {
-                source: source.clone(),
-                branch,
-                selected: None,
-                error: None,
-                row: if table.key.is_some() {
-                    RowSearch::NoRow
-                } else {
-                    RowSearch::NoKey
-                },
+            let kept = case_on(old, source, &branch).and_then(|case| case.id(&ids));
+            let (row, read) = if table.key.is_none() {
+                (Ok(RowSearch::NoKey), None)
+            } else {
+                search_row(backend, table, &branch, kept).await?
             };
-            let kept = case_on(old, source, &found.branch).and_then(|case| case.id(&ids));
-            let mut sweep = table.key.is_some();
-            if let Some(key) = kept
-                && let Some(row) = taking(backend, table, key, &found.branch).await?
-            {
-                found.row = RowSearch::Found(key, Via::Spec);
-                search.rows.entry((source.clone(), key)).or_insert(row);
-                sweep = false;
-            } else if sweep && let Ok(condition) = &found.branch.rows {
-                match backend.find(table, condition, found.branch.shape).await {
-                    Find::Unsupported => {}
-                    Find::Searched { rows, key } => {
-                        found.selected = Some(rows);
-                        match key {
-                            None => sweep = false,
-                            Some(key) => match taking(backend, table, key, &found.branch).await? {
-                                Some(row) => {
-                                    found.row = RowSearch::Found(key, Via::Backend);
-                                    search.rows.entry((source.clone(), key)).or_insert(row);
-                                    sweep = false;
-                                }
-                                None => found.error = Some(format!("row {key} does not take the path")),
-                            },
-                        }
-                    }
-                    Find::Failed { rows, error } => {
-                        found.selected = Some(rows);
-                        found.error = Some(error);
+            if let Some(read) = read {
+                search.rows.entry((source.clone(), read.key)).or_insert(read);
+            }
+            let found = match row {
+                Ok(row) => {
+                    let found = Found {
+                        source: source.clone(),
+                        branch,
+                        row,
+                    };
+                    report.line(&found.row, Some(started.elapsed()), source, &found);
+                    found
+                }
+                Err(because) => {
+                    swept.push((search.found.len(), because));
+                    Found {
+                        source: source.clone(),
+                        branch,
+                        row: RowSearch::NoneSwept {
+                            rows: 0,
+                            because: Vec::new(),
+                        },
                     }
                 }
-            }
-            if sweep {
-                swept.push(search.found.len());
-            } else {
-                report.line(&found.row, Some(started.elapsed()), source, &found);
-            }
+            };
             search.found.push(found);
         }
         if swept.is_empty() {
             continue;
         }
-        let wanted: Vec<String> = swept.iter().map(|&i| search.found[i].branch.to_string()).collect();
+        let wanted: Vec<String> = swept.iter().map(|(i, _)| search.found[*i].branch.to_string()).collect();
         report.working(format_args!(
             "{source}: sweeping up to {sweep_rows} rows for {} paths",
             wanted.len()
         ));
         let started = Instant::now();
-        let hits = sweep(backend, table, wanted, sweep_rows).await?;
-        for (&i, hit) in swept.iter().zip(hits) {
+        let (hits, seen) = sweep(backend, table, wanted, sweep_rows).await?;
+        for ((i, because), hit) in swept.into_iter().zip(hits) {
             let found = &mut search.found[i];
-            if let Some(row) = hit {
-                found.row = RowSearch::Found(row.key, Via::Sweep);
-                search.rows.entry((source.clone(), row.key)).or_insert(row);
-            }
+            found.row = match hit {
+                Some(row) => {
+                    let key = row.key;
+                    search.rows.entry((source.clone(), key)).or_insert(row);
+                    RowSearch::Swept { key, because }
+                }
+                None => RowSearch::NoneSwept { rows: seen, because },
+            };
             report.line(&found.row, Some(started.elapsed()), source, &*found);
         }
     }
@@ -201,12 +229,50 @@ pub async fn find_rows<B: TestBackend>(
     for ((source, key), row) in rows.iter_mut() {
         let found_for: Vec<String> = found
             .iter()
-            .filter(|f| f.source == *source && matches!(f.row, RowSearch::Found(k, _) if k == *key))
+            .filter(|f| f.source == *source && f.row.key() == Some(*key))
             .map(|f| f.branch.to_string())
             .collect();
         row.paths.sort_by_key(|path| !found_for.contains(path));
     }
     Ok(search)
+}
+
+/// The row on `branch` of `table` without a sweep: row `kept` of the spec while it still takes the path, else one the
+/// backend selects; else the misses that leave the path to a sweep.
+async fn search_row<B: TestBackend>(
+    backend: &B,
+    table: &TestTable,
+    branch: &Branch,
+    kept: Option<RowKey>,
+) -> GenerateResult<(Result<RowSearch, Vec<Miss>>, Option<ReadRow>)> {
+    let path = branch.to_string();
+    let mut because = Vec::new();
+    if let Some(key) = kept {
+        match read_row(backend, table, key).await? {
+            Some(row) if row.paths.contains(&path) => return Ok((Ok(RowSearch::Kept(key)), Some(row))),
+            Some(_) => because.push(Miss::SpecRowOffPath(key)),
+            None => because.push(Miss::SpecRowGone(key)),
+        }
+    }
+    let condition = match &branch.rows {
+        Ok(condition) => condition,
+        Err(err) => {
+            because.push(Miss::CannotSelect(err.reason.clone()));
+            return Ok((Err(because), None));
+        }
+    };
+    match backend.find(table, condition, branch.shape).await {
+        Find::Unsupported => because.push(Miss::BackendCannotSelect),
+        Find::Searched { rows, key: None } => return Ok((Ok(RowSearch::NoneSelected { rows }), None)),
+        Find::Searched { rows, key: Some(key) } => match read_row(backend, table, key).await? {
+            Some(row) if row.paths.contains(&path) => {
+                return Ok((Ok(RowSearch::Selected { rows, key }), Some(row)));
+            }
+            Some(_) | None => because.push(Miss::SelectedOffPath { rows, key }),
+        },
+        Find::Failed { rows, error } => because.push(Miss::SelectFailed { rows, error }),
+    }
+    Ok((Err(because), None))
 }
 
 /// The key column of each table that has one.
@@ -224,19 +290,6 @@ fn case_on<'a>(old: Option<&'a Spec>, source: &str, branch: &Branch) -> Option<&
     old?.cases
         .iter()
         .find(|case| case.source == source && case.paths.contains(&path))
-}
-
-/// Row `key` of `table` if it takes `branch`.
-async fn taking<B: TestBackend>(
-    backend: &B,
-    table: &TestTable,
-    key: RowKey,
-    branch: &Branch,
-) -> GenerateResult<Option<ReadRow>> {
-    let path = branch.to_string();
-    Ok(read_row(backend, table, key)
-        .await?
-        .filter(|row| row.paths.contains(&path)))
 }
 
 /// Row `key` of `table`, or `None` when it is gone.
@@ -263,13 +316,13 @@ pub async fn read_row<B: TestBackend>(backend: &B, table: &TestTable, key: RowKe
     .await?
 }
 
-/// The first row of a sweep over at most `limit` rows of `table` on each path of `wanted`.
+/// The first row of a sweep over at most `limit` rows of `table` on each path of `wanted`, and how many rows it read.
 async fn sweep<B: TestBackend>(
     backend: &B,
     table: &TestTable,
     wanted: Vec<String>,
     limit: u64,
-) -> GenerateResult<Vec<Option<ReadRow>>> {
+) -> GenerateResult<(Vec<Option<ReadRow>>, u64)> {
     let scan = backend.scan(table, None, Rows::All).await?;
     let table = table.clone();
     tokio::task::spawn_blocking(move || {
@@ -297,7 +350,7 @@ async fn sweep<B: TestBackend>(
                 ControlFlow::Continue(())
             })
         })?;
-        Ok(hits)
+        Ok((hits, seen))
     })
     .await?
 }
