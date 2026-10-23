@@ -1,6 +1,6 @@
 //! Which paths through the layers a feature takes, as the plan evaluates it.
 
-use geo_types::{Coord, LineString};
+use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ColumnValues, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
     ValueDef, ValueKind,
@@ -322,7 +322,7 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
                     ],
                 ),
             ),
-            size: None,
+            shape: None,
         },
         Branch {
             layer: "devices",
@@ -348,7 +348,7 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
                     ],
                 ),
             ),
-            size: None,
+            shape: None,
         },
     ]
     "#);
@@ -390,7 +390,7 @@ fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
                     ),
                 },
             ),
-            size: None,
+            shape: None,
         },
     ]
     "#);
@@ -604,7 +604,7 @@ fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
                     ),
                 },
             ),
-            size: None,
+            shape: None,
         },
     ]
     "#);
@@ -680,7 +680,7 @@ fn a_float_column_compares_a_whole_number_as_a_float() {
                 ],
             ),
         ),
-        size: None,
+        shape: None,
     }
     "#);
 }
@@ -802,8 +802,11 @@ fn a_rule_with_its_own_min_size_has_its_own_size_paths() {
     [
         "roads: rule 1 `where: class == 'major'`",
         "roads: no rule matches",
+        "roads: rule 1: shorter than one tile unit at z14",
+        "roads: rule 1: crosses a z14 tile edge",
         "roads: no rule: kept only at z14 (`min_size_at_maxzoom`)",
         "roads: no rule: dropped, smaller than `min_size` at every zoom",
+        "roads: no rule: crosses a z14 tile edge",
     ]
     "#);
 }
@@ -833,6 +836,7 @@ fn a_short_major_road_is_kept_by_the_min_size_of_its_rule() {
     insta::assert_debug_snapshot!(taken, @r#"
     [
         "roads: rule 1 `where: class == 'major'`",
+        "roads: rule 1: shorter than one tile unit at z14",
     ]
     "#);
 }
@@ -863,6 +867,343 @@ fn a_short_minor_road_is_smaller_than_the_layer_min_size_at_every_zoom() {
     [
         "roads: no rule matches",
         "roads: no rule: dropped, smaller than `min_size` at every zoom",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_layer_without_min_size_has_a_path_per_shape() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.branches(0, &[]).unwrap(), @r#"
+    [
+        Branch {
+            layer: "roads",
+            path: "every feature",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: None,
+        },
+        Branch {
+            layer: "roads",
+            path: "shorter than one tile unit at z14",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: Some(
+                Size(
+                    SizeBand {
+                        zoom: 14,
+                        min: 0.0,
+                        max: 0.0625,
+                    },
+                ),
+            ),
+        },
+        Branch {
+            layer: "roads",
+            path: "crosses a z14 tile edge",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: Some(
+                CrossesTileEdge(
+                    14,
+                ),
+            ),
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_layer_with_the_default_min_size_has_a_path_per_shape() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.branches(0, &[]).unwrap(), @r#"
+    [
+        Branch {
+            layer: "roads",
+            path: "every feature",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: None,
+        },
+        Branch {
+            layer: "roads",
+            path: "kept only at z14 (`min_size_at_maxzoom`)",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: Some(
+                Size(
+                    SizeBand {
+                        zoom: 14,
+                        min: 0.0625,
+                        max: 2.0,
+                    },
+                ),
+            ),
+        },
+        Branch {
+            layer: "roads",
+            path: "dropped, smaller than `min_size` at every zoom",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: Some(
+                Size(
+                    SizeBand {
+                        zoom: 14,
+                        min: 0.0,
+                        max: 0.0625,
+                    },
+                ),
+            ),
+        },
+        Branch {
+            layer: "roads",
+            path: "crosses a z14 tile edge",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: Some(
+                CrossesTileEdge(
+                    14,
+                ),
+            ),
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn a_point_layer_has_no_shape_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let branches: Vec<String> = plan.branches(0, &[]).unwrap().iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "roads: every feature",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_across_a_z14_tile_edge_takes_the_crossing_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.03, 0.01)])),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+        "roads: crosses a z14 tile edge",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_inside_one_z14_tile_takes_no_shape_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.015, 0.01)])),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_shorter_than_one_z14_tile_unit_takes_the_sub_unit_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+        "roads: shorter than one tile unit at z14",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_just_below_the_default_min_size_is_kept_only_at_z14() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_02, 0.01)])),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+        "roads: kept only at z14 (`min_size_at_maxzoom`)",
+    ]
+    "#);
+}
+
+#[test]
+fn a_tiny_line_is_smaller_than_the_default_min_size_at_every_zoom() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+        "roads: dropped, smaller than `min_size` at every zoom",
+    ]
+    "#);
+}
+
+#[test]
+fn a_polygon_across_a_z14_tile_edge_takes_the_crossing_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Polygon(Polygon::new(
+            LineString::from(vec![(0.01, 0.01), (0.03, 0.01), (0.03, 0.02), (0.01, 0.01)]),
+            vec![],
+        )),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
+        "roads: crosses a z14 tile edge",
+    ]
+    "#);
+}
+
+#[test]
+fn a_point_in_a_layer_of_any_geometry_takes_no_shape_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: None,
+            min_size: PixelThreshold::ZERO,
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let feature = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Point(Coord {
+            x: 0.021_972_656_25,
+            y: 0.01,
+        }),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "roads: every feature",
     ]
     "#);
 }
