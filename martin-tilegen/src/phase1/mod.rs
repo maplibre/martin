@@ -155,7 +155,7 @@ fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErro
 }
 
 /// Decodes and projects the geometry in place; one that fails to decode stays WKB.
-fn project_geometry(crs: Crs, geometry: &mut Geometry) {
+pub(crate) fn project_geometry(crs: Crs, geometry: &mut Geometry) {
     if !geometry.decode_wkb() {
         return;
     }

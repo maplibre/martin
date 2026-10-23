@@ -796,6 +796,73 @@ async fn rejects_function_sources() {
 }
 
 #[tokio::test]
+async fn bbox_tiles_keep_every_feature_they_cover() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let bounded = dir.path().join("bounded.mbtiles");
+    let world = dir.path().join("world.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&bounded)
+        .arg("--bbox=20,1,30,10")
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&world)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    insta::assert_snapshot!(tile_listing(&bounded).await, @"
+    0/0/0 193 bytes
+    1/1/1 95 bytes
+    2/2/2 60 bytes
+    3/4/4 43 bytes
+    ");
+    let world = tiles(&world).await;
+    for tile in tiles(&bounded).await {
+        assert!(
+            world.contains(&tile),
+            "tile {}/{}/{} differs from the unbounded run",
+            tile.0,
+            tile.1,
+            tile.2
+        );
+    }
+}
+
+#[tokio::test]
 async fn rejects_inverted_and_off_world_bboxes() {
     let dir = temp_dir();
     for (bbox, expected) in [

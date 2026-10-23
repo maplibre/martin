@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.3...martin-config-macros-v0.1.4) - 2026-10-22
+
+### Fixed
+
+- *(config)* point server setting errors at the bad value ([#3695](https://github.com/maplibre/martin/pull/3695))
+
+### Other
+
+- import local items via `crate::` paths ([#3667](https://github.com/maplibre/martin/pull/3667))
+- format Rust code at 120 columns ([#3673](https://github.com/maplibre/martin/pull/3673))
+
 ## [0.1.3](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.2...martin-config-macros-v0.1.3) - 2026-10-01
 
 ### Fixed

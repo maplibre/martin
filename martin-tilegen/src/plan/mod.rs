@@ -1,5 +1,6 @@
 //! What to generate: source tables, and the output layers each table feeds.
 
+mod branch;
 mod eval;
 mod filter;
 
@@ -9,11 +10,12 @@ use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
 use map_tile_toolkit::ClipMode;
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::phase2::LayerInfo;
+pub use crate::plan::branch::{Branch, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
     CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
@@ -137,7 +139,7 @@ impl LayerDef {
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
-            encoder: EncoderConfig::default(),
+            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
             geometry: None,
             filter: None,
             minzoom_expr: None,
@@ -253,6 +255,8 @@ pub struct Plan {
 #[derive(Debug)]
 pub(crate) struct PlannedTable {
     pub(crate) columns: Vec<String>,
+    /// The scanned columns, as [`Self::columns`] names them.
+    pub(crate) defs: Vec<ColumnDef>,
     pub(crate) dynamic_props: bool,
     pub(crate) layers: Range<usize>,
     /// Whether some layer evaluates an expression, so features need a [`FeatureView`](crate::expr::FeatureView).
@@ -423,6 +427,7 @@ impl Plan {
                 reads: reads.into_iter().filter(|name| !columns.contains(name)).collect(),
                 columns,
                 dynamic_props: kept.iter().any(|c| matches!(c, ColumnDef::Keys(_))),
+                defs: kept,
                 layers: start..layers.len(),
                 evaluates: rules || exprs.len() > first_expr,
             });

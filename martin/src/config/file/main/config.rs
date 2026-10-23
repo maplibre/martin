@@ -1,11 +1,14 @@
 #[cfg(feature = "_tiles")]
 use std::collections::BTreeMap;
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
@@ -37,7 +40,8 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, DeserializeFields as _, GlobalCacheConfig,
+    UnrecognizedValues,
 };
 #[cfg(any(
     feature = "pmtiles",
@@ -284,6 +288,47 @@ pub struct Config {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// Reads a [`Config`] with the server keys read straight into `srv`, so their errors keep their YAML location.
+pub(crate) struct ConfigVisitor;
+
+impl<'de> Visitor<'de> for ConfigVisitor {
+    type Value = Config;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("struct Config")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Config, M::Error> {
+        let mut srv = SrvConfig::default();
+        let mut config = Config::deserialize(MapAccessDeserializer::new(WithoutSrvKeys { map, srv: &mut srv }))?;
+        config.srv = srv;
+        Ok(config)
+    }
+}
+
+/// The live map with the server keys read into `srv` instead of being passed on.
+struct WithoutSrvKeys<'a, M> {
+    map: M,
+    srv: &'a mut SrvConfig,
+}
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for WithoutSrvKeys<'_, M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        while let Some(key) = self.map.next_key::<String>()? {
+            if !self.srv.deserialize_field(&key, &mut self.map)? {
+                return seed.deserialize(key.into_deserializer()).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        self.map.next_value_seed(seed)
+    }
 }
 
 /// Describes the action to take during startup when configuration is found to be invalid

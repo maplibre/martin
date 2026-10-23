@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1](https://github.com/maplibre/martin/compare/mbtiles-v0.21.0...mbtiles-v0.21.1) - 2026-10-22
+
+### Added
+
+- *(cli)* accept human-readable sizes like `1GiB` for memory and cache flags ([#3596](https://github.com/maplibre/martin/pull/3596))
+- *(tilegen)* tile grouping, MLT/MVT encoding, compression and dedup ([#3553](https://github.com/maplibre/martin/pull/3553))
+
+### Other
+
+- import local items via `crate::` paths ([#3667](https://github.com/maplibre/martin/pull/3667))
+- format Rust code at 120 columns ([#3673](https://github.com/maplibre/martin/pull/3673))
+- *(generate)* hash `agg_tiles_hash` while writing MBTiles ([#3624](https://github.com/maplibre/martin/pull/3624))
+- drop redundant clones and tighten a lock guard found by clippy nursery ([#3625](https://github.com/maplibre/martin/pull/3625))
+- structured log fields and DAMP e2e tests ([#3602](https://github.com/maplibre/martin/pull/3602))
+- *(tilegen)* bound the pipeline by queue size, bump mlt-core to 0.20.2 and use its prop types ([#3579](https://github.com/maplibre/martin/pull/3579))
+- *(mbtiles)* make mbtiles installable with cargo-binstall ([#3570](https://github.com/maplibre/martin/pull/3570))
+
 ## [0.21.0](https://github.com/maplibre/martin/compare/mbtiles-v0.20.2...mbtiles-v0.21.0) - 2026-10-09
 
 ### Added

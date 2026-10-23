@@ -106,7 +106,11 @@ impl PropType {
             Self::Int64 => PropValue::I64(row.try_get(idx).map_err(read)?),
             Self::Float => PropValue::F32(row.try_get(idx).map_err(read)?),
             Self::Double => PropValue::F64(row.try_get(idx).map_err(read)?),
-            Self::Text => PropValue::Str(row.try_get(idx).map_err(read)?),
+            Self::Text => PropValue::Str(
+                row.try_get::<_, Option<&str>>(idx)
+                    .map_err(read)?
+                    .map(CompactString::from),
+            ),
         }))
     }
 }

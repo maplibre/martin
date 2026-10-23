@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "cog-tiles",
+    "cog-tiles-py",
     "e2e-tests",
     "map-tile-toolkit",
     "martin",
@@ -107,7 +108,7 @@ bytestring = "1.5"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.1.0", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "cog-tiles", version = "0.2.0", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
@@ -118,7 +119,7 @@ dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
 derive-debug = "0.1.2"
-duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
+duckdb = { version = ">=1.10503.1, <1.20000", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
 flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
@@ -146,20 +147,21 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.3" }
+map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.4" }
 maplibre_native = "0.10.0"
-martin-config-macros = { path = "./martin-config-macros", version = "0.1.3" }
-martin-core = { path = "./martin-core", version = "0.13.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.0" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.1.0", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.21.0" }
+martin-config-macros = { path = "./martin-config-macros", version = "0.1.4" }
+martin-core = { path = "./martin-core", version = "0.14.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.1" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.1.1", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.21.1" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.20.2", default-features = false }
+mlt-core = { version = "0.22.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
+numpy = "0.29"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
@@ -175,6 +177,8 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
+pyo3 = "0.29"
+pyo3-stub-gen = { version = "0.23.1", default-features = false, features = ["infer_signature", "numpy"] }
 quantizr = "1.4"
 quote = "1"
 radsort = "0.1.1"
@@ -183,7 +187,7 @@ rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
-rstest = "0.27.0"
+rstest = "0.28.0"
 rustix = { version = "1.1.5", default-features = false }
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
@@ -209,9 +213,11 @@ tempfile = "3.21.0"
 test_each_file = "0.3.7"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
 thiserror = "2"
+tiff = { version = "0.11.3", default-features = false, features = ["deflate", "lzw"] }
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.14"
+tokio-util = "0.7"
 tracing = "0.1.44"
 tracing-actix-web = "0.7.21"
 tracing-indicatif = "0.3"

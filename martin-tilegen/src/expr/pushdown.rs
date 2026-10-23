@@ -12,6 +12,15 @@ impl CompiledExpr {
     }
 }
 
+/// A part of an expression as a condition of `polarity`, reading only `columns`.
+pub(crate) fn condition_of(
+    expr: &IdedExpr,
+    columns: &[ColumnDef],
+    polarity: Polarity,
+) -> Result<Condition, TranslateError> {
+    Translator { columns }.condition(expr, polarity)
+}
+
 /// Translates expressions over a table's columns, pushing negations down to the comparisons.
 struct Translator<'a> {
     columns: &'a [ColumnDef],

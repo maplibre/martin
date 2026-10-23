@@ -4,7 +4,7 @@ use martin_tile_utils::TileInfo;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use martin_tile_utils::{Encoding, Format};
 #[cfg(feature = "_tiles")]
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
 #[cfg(feature = "_tiles")]
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -83,7 +83,9 @@ impl ProcessConfig {
         Ok(ResolvedProcess {
             #[cfg(feature = "_tiles")]
             mlt: match &self.convert_to_mlt {
-                None | Some(MltProcessConfig::Auto) => MltConversion::Encode(EncoderConfig::default()),
+                None | Some(MltProcessConfig::Auto) => {
+                    MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
+                }
                 Some(MltProcessConfig::Explicit(cfg)) => MltConversion::Encode(EncoderConfig::from(cfg.clone())),
                 Some(MltProcessConfig::Disabled) => MltConversion::Disabled,
             },
@@ -192,7 +194,7 @@ impl Default for ResolvedProcess {
     fn default() -> Self {
         Self {
             #[cfg(feature = "_tiles")]
-            mlt: MltConversion::Encode(EncoderConfig::default()),
+            mlt: MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline))),
             #[cfg(feature = "_tiles")]
             mvt: MvtConversion::Encode,
             cache_control: None,
@@ -342,9 +344,9 @@ impl From<MltEncoderConfig> for EncoderConfig {
             unrecognized: _unrecognized,
         } = src;
 
-        let mut cfg = Self::default();
+        let mut cfg = Self::from_profile(Profile::Web(Network::Offline));
         if let Some(v) = tessellate {
-            cfg = cfg.with_tessellation(v);
+            cfg = cfg.with_tessellation(if v { Tessellation::Always } else { Tessellation::Off });
         }
         if let Some(v) = try_spatial_morton_sort {
             cfg = cfg.with_spatial_morton_sort(v);
@@ -466,8 +468,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: atuo
-           · ───────┬──────
-           ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -487,8 +488,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: 42
-           · ───────┬──────
-           ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -509,8 +509,7 @@ mod tests {
            ╭─[config.yaml:2:15]
          1 │ convert_to_mlt:
          2 │   tessellate: yes-please
-           ·               ─────┬────
-           ·                    ╰── invalid boolean
+           ·               ──────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

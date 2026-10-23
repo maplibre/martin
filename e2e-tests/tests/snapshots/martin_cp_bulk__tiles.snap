@@ -2,7 +2,7 @@
 source: e2e-tests/tests/martin_cp_bulk.rs
 expression: tile_listing(&output).await
 ---
-0/0/0 546 bytes
+0/0/0 598 bytes
 1/0/0 242 bytes
 1/0/1 250 bytes
 1/1/0 241 bytes

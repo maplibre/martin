@@ -33,6 +33,12 @@ impl TileCoord {
         Ok(Self { z, x, y })
     }
 
+    /// Creates a tile coordinate the caller knows to be valid.
+    pub(crate) fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
+        debug_assert!(Self::new(z, x, y).is_ok(), "{z}/{x}/{y} is not a valid tile");
+        Self { z, x, y }
+    }
+
     /// Zoom level.
     #[must_use]
     pub fn z(&self) -> u8 {
@@ -105,6 +111,19 @@ pub fn mercator_to_lnglat(x: f64, y: f64) -> [f64; 2] {
     [lng, lat]
 }
 
+/// The largest latitude Web Mercator can show, in degrees: the north edge of tile `0/0/0`.
+pub const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
+
+/// Converts `[longitude, latitude]` in degrees to an `EPSG:3857` coordinate.
+/// Latitudes beyond [`MAX_LATITUDE`] are clamped to it.
+#[must_use]
+pub fn lnglat_to_mercator(lng: f64, lat: f64) -> [f64; 2] {
+    let x = lng / 180.0 * HALF_EARTH;
+    let lat = lat.clamp(-MAX_LATITUDE, MAX_LATITUDE).to_radians();
+    let y = lat.tan().asinh() / PI * HALF_EARTH;
+    [x, y]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,6 +148,9 @@ mod tests {
         assert!((max_y - min_y - 611.496_226_281_41).abs() < 1e-6);
         let [lng, lat] = mercator_to_lnglat(HALF_EARTH, HALF_EARTH);
         assert!((lng - 180.0).abs() < 1e-9);
-        assert!((lat - 85.051_128_779_806_59).abs() < 1e-9);
+        assert!((lat - MAX_LATITUDE).abs() < 1e-9);
+        let [x, y] = lnglat_to_mercator(lng, 90.0);
+        assert!((x - HALF_EARTH).abs() < 1e-6);
+        assert!((y - HALF_EARTH).abs() < 1e-6);
     }
 }

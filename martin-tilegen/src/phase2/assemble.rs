@@ -240,7 +240,7 @@ fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &Ge
 #[cfg(test)]
 mod tests {
     use crate::props::KeyInterner;
-    use mlt_core::encoder::EncoderConfig;
+    use mlt_core::encoder::{EncoderConfig, Network, Profile};
     use mlt_core::geo_types::{Geometry, LineString, MultiLineString, Point};
     use mlt_core::{Decoder, Parser, PropValue, TileLayer};
 
@@ -320,7 +320,12 @@ mod tests {
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
-        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let decoded = decode_mlt(
+            &assembled
+                .layer
+                .encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
+                .unwrap(),
+        );
 
         assert_eq!(decoded.name(), "roads");
         assert_eq!(decoded.property_names(), ["name", "height", "extra"]);
@@ -372,7 +377,12 @@ mod tests {
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
-        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let decoded = decode_mlt(
+            &assembled
+                .layer
+                .encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
+                .unwrap(),
+        );
         let features: Vec<_> = decoded
             .features()
             .iter()
@@ -413,7 +423,12 @@ mod tests {
         let assembled = scratch
             .assemble("water", GRID, &names, &[(Seq::default(), &bytes)])
             .unwrap();
-        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let decoded = decode_mlt(
+            &assembled
+                .layer
+                .encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
+                .unwrap(),
+        );
         let Geometry::MultiPolygon(multi) = decoded.features()[0].geometry() else {
             panic!("two polygons")
         };
@@ -459,15 +474,20 @@ mod tests {
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch.assemble("pois", GRID, &names, &records).unwrap();
-        let decoded = decode_mlt(&assembled.layer.encode(EncoderConfig::default()).unwrap());
+        let decoded = decode_mlt(
+            &assembled
+                .layer
+                .encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
+                .unwrap(),
+        );
 
         let values: Vec<_> = decoded.features().iter().map(|f| f.properties().to_vec()).collect();
         assert_eq!(
             values,
             [
-                [PropValue::Str(Some("a".to_owned())), PropValue::F64(Some(1.0))],
-                [PropValue::Str(Some("7".to_owned())), PropValue::F64(Some(2.5))],
-                [PropValue::Str(Some("true".to_owned())), PropValue::F64(None)],
+                [PropValue::Str(Some("a".into())), PropValue::F64(Some(1.0))],
+                [PropValue::Str(Some("7".into())), PropValue::F64(Some(2.5))],
+                [PropValue::Str(Some("true".into())), PropValue::F64(None)],
             ]
         );
     }

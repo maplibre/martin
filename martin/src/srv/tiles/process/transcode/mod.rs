@@ -66,7 +66,7 @@ pub fn apply_pre_cache_processors(
 mod tests {
     use martin_core::tiles::Tile;
     use martin_tile_utils::{Encoding, Format, TileData, TileInfo};
-    use mlt_core::encoder::EncoderConfig;
+    use mlt_core::encoder::{EncoderConfig, Network, Profile};
     use rstest::rstest;
 
     use super::to_mvt::{empty_layer_mvt_bytes, mvt_with_feature_bytes};
@@ -131,7 +131,7 @@ mod tests {
     #[rstest]
     #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt)]
     #[case::mvt_disabled(
-        MltConversion::Encode(EncoderConfig::default()),
+        MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline))),
         MvtConversion::Disabled,
         Format::Mlt
     )]
@@ -154,7 +154,7 @@ mod tests {
     #[rstest]
     #[case::mlt_disabled(MltConversion::Disabled, MvtConversion::Encode, Format::Mvt, Format::Mlt)]
     #[case::mvt_disabled(
-        MltConversion::Encode(EncoderConfig::default()),
+        MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline))),
         MvtConversion::Disabled,
         Format::Mlt,
         Format::Mvt

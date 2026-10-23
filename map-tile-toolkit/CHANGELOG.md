@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.3.3...map-tile-toolkit-v0.3.4) - 2026-10-22
+
+### Added
+
+- move map-tile-toolkit into the workspace ([#3648](https://github.com/maplibre/martin/pull/3648))
+
+### Other
+
+- import local items via `crate::` paths ([#3667](https://github.com/maplibre/martin/pull/3667))
+- format Rust code at 120 columns ([#3673](https://github.com/maplibre/martin/pull/3673))
+
 ## [0.3.3](https://github.com/nyurik/map-tile-toolkit/compare/v0.3.2...v0.3.3) - 2026-10-18
 
 ### Added

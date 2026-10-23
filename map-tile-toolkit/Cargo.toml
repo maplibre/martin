@@ -1,6 +1,6 @@
 [package]
 name = "map-tile-toolkit"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Clip integer polylines and polygons into per-tile pieces on a simple tile grid"
 keywords = ["mvt", "tile", "geo", "polyline", "clip"]

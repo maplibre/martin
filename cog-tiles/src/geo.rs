@@ -2,7 +2,7 @@
 
 use async_tiff::ImageFileDirectory;
 
-use crate::tile::{HALF_EARTH, MAX_ZOOM, resolution};
+use crate::tile::{HALF_EARTH, MAX_ZOOM, TileCoord, resolution, tile_extent};
 use crate::{CogError, CogResult, UnsupportedReason};
 
 /// `ProjectedCRSGeoKey` values that denote Web Mercator: the EPSG code and its deprecated alias.
@@ -96,6 +96,25 @@ impl Georef {
             origin_x,
             origin_y,
             resolution: scale_x,
+        })
+    }
+}
+
+impl Georef {
+    /// Georeferences a square image without `GeoTIFF` tags so that it covers `tile`.
+    pub fn from_tile(tile: TileCoord, ifd: &ImageFileDirectory, location: &str) -> CogResult<Self> {
+        let (width, height) = (ifd.image_width(), ifd.image_height());
+        if width != height || width == 0 {
+            return Err(CogError::unsupported(
+                location,
+                UnsupportedReason::UntaggedNotSquare { tile, width, height },
+            ));
+        }
+        let [origin_x, _, _, origin_y] = tile.mercator_bounds();
+        Ok(Self {
+            origin_x,
+            origin_y,
+            resolution: tile_extent(tile.z()) / f64::from(width),
         })
     }
 }

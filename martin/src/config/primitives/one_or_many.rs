@@ -155,8 +155,7 @@ mod tests {
            ╭─[config.yaml:3:5]
          2 │   connection_string:
          3 │     - first
-           ·     ┬
-           ·     ╰── expected string scalar
+           ·     ─
          4 │     - second
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates

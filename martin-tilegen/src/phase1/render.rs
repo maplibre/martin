@@ -4,7 +4,7 @@ use std::ops::{Range, RangeInclusive};
 
 use geo::BoundingRect;
 use geo_types::{Coord, LineString, Polygon, Rect};
-use map_tile_toolkit::{ClipMode, PolygonSlice, Slicer, signed_area_2x};
+use map_tile_toolkit::{ClipMode, PolygonSlice, Quantizer, Slicer};
 use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
@@ -135,8 +135,8 @@ impl RenderLayer {
         })
     }
 
-    /// [`ClipMode::Unclipped`] gives every tile each line or polygon of a feature that reaches it,
-    /// whole, so polygons get no fill ranges.
+    /// [`ClipMode::Unclipped`] gives every tile that any point, line or polygon of a feature reaches the
+    /// whole feature, so polygons get no fill ranges.
     #[must_use]
     pub fn with_clip_mode(mut self, clip_mode: ClipMode) -> Self {
         self.clip_mode = clip_mode;
@@ -277,12 +277,16 @@ pub struct Renderer {
     parts: Vec<u32>,
     vertices: Vec<Coord<i32>>,
     simplifier: Simplifier,
+    /// Rounds each simplified polygon onto the tile grid.
+    quantizer: Quantizer,
     /// One tile's piece, shaped the same with tile-local vertices.
     piece: PieceBuf,
     /// The slicer's output for the feature at one zoom, which comes in no particular order: every
     /// line run or polygon ring with its tile, its vertices tile-local in `sliced_vertices`.
     sliced: Vec<SlicedPart>,
     sliced_vertices: Vec<Vertex>,
+    /// Unclipped, the tiles any line or polygon of the feature reaches at one zoom.
+    reached: Vec<map_tile_toolkit::TileId>,
     points: Vec<(i32, i32, Vertex)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
@@ -418,7 +422,7 @@ impl Renderer {
     }
 
     /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
-    /// a point reaches.
+    /// a point reaches (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -431,8 +435,10 @@ impl Renderer {
         let (extent, buffer) = (to_i32(grid.extent)?, to_i32(grid.buffer)?);
         let world = scale(zoom) * f64::from(grid.extent);
         self.points.clear();
+        self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
+            self.vertices.push(Coord { x, y });
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
             let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
@@ -444,6 +450,18 @@ impl Renderer {
             }
         }
         self.points.sort_by_key(|&(tx, ty, _)| (tx, ty));
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            self.points.dedup_by_key(|p| (p.0, p.1));
+            for &(tx, ty, _) in &self.points {
+                self.piece.clear();
+                let origin = (tx * extent, ty * extent);
+                self.piece
+                    .vertices
+                    .extend(self.vertices.iter().map(|c| [c.x - origin.0, c.y - origin.1]));
+                ctx.push(zoom, tx, ty, Geom::Points(&self.piece.vertices), out)?;
+            }
+            return Ok(());
+        }
         for group in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
             let (tx, ty, _) = group[0];
             self.piece.clear();
@@ -478,7 +496,7 @@ impl Renderer {
     }
 
     /// Slices each line into the kept tiles it reaches and pushes one piece per tile, holding every run
-    /// of the feature's lines there (unclipped, every line that reaches the tile, whole). A slicer error drops the whole feature at this zoom: nothing is
+    /// of the feature's lines there (unclipped, the whole feature). A slicer error drops the whole feature at this zoom: nothing is
     /// pushed until every line is sliced.
     fn slice_lines(
         &mut self,
@@ -495,6 +513,7 @@ impl Renderer {
         let slicer = &self.slicers[pos].1;
         self.sliced.clear();
         self.sliced_vertices.clear();
+        self.reached.clear();
         let mut rest = vertices;
         for &len in parts {
             let (line, tail) = rest.split_at(len as usize);
@@ -502,6 +521,10 @@ impl Renderer {
             for slice in slicer.line(line).map_err(GeometryError::from)? {
                 let tile = slice.tile();
                 if !(min.x..=max.x).contains(&tile.x) || !(min.y..=max.y).contains(&tile.y) {
+                    continue;
+                }
+                if ctx.layer.clip_mode == ClipMode::Unclipped {
+                    self.reached.push(tile);
                     continue;
                 }
                 let start = self.sliced_vertices.len();
@@ -514,7 +537,28 @@ impl Renderer {
                 });
             }
         }
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            return self.push_reached(ctx, zoom, (&[], parts, vertices), out);
+        }
         self.push_sliced(ctx, zoom, PieceKind::Lines, out)
+    }
+
+    /// Pushes the whole feature to each tile in [`Self::reached`].
+    fn push_reached(
+        &mut self,
+        ctx: &Ctx<'_>,
+        zoom: u8,
+        feature: Rings<'_>,
+        out: &mut SortBuffer<'_>,
+    ) -> TileGenResult<()> {
+        self.reached.sort_unstable_by_key(|t| (t.x, t.y));
+        self.reached.dedup();
+        let reached = std::mem::take(&mut self.reached);
+        let result = reached
+            .iter()
+            .try_for_each(|t| self.push_whole(ctx, zoom, (t.x, t.y), feature, out));
+        self.reached = reached;
+        result
     }
 
     /// Pushes one piece per tile from [`Self::sliced`]: the tile's parts in the order they were
@@ -551,30 +595,22 @@ impl Renderer {
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
         for rings in self.simplifier.polygons(epsilon) {
-            let first_ring = self.parts.len();
-            for (i, ring) in rings.enumerate() {
-                let start = self.vertices.len();
-                let mut n = push_quantized(&mut self.vertices, ring, shift, world)?;
-                if n > 1 && self.vertices[start] == self.vertices[start + n - 1] {
-                    self.vertices.pop();
-                    n -= 1;
-                }
-                // Exteriors get a positive area in y-down tile coordinates and holes a negative one,
-                // the MVT and MLT winding; a ring collapsed by quantization has none and is dropped.
-                let area = signed_area_2x(&self.vertices[start..]);
-                if n < 3 || area == 0 {
-                    self.vertices.truncate(start);
-                    if i == 0 {
-                        break;
+            let rings = rings.map(|ring| ring.map(|c| to_grid(c, shift, world)));
+            let quantized = self
+                .quantizer
+                .polygon(rings)
+                .map_err(|_overflow| GeometryError::CoordOverflow)?;
+            for polygon in quantized.polygons() {
+                let first_ring = self.parts.len();
+                for ring in polygon {
+                    let start = self.vertices.len();
+                    for &vertex in ring.iter().chain(ring.first()) {
+                        push_vertex(&mut self.vertices, start, vertex);
                     }
-                    continue;
+                    self.vertices.pop();
+                    trim_ring_seam(&mut self.vertices, start);
+                    self.parts.push(vertex_count(self.vertices.len() - start)?);
                 }
-                if (area > 0) == (i > 0) {
-                    self.vertices[start..].reverse();
-                }
-                self.parts.push(vertex_count(n)?);
-            }
-            if self.parts.len() > first_ring {
                 self.polys.push(len32(self.parts.len() - first_ring)?);
             }
         }
@@ -637,6 +673,7 @@ impl Renderer {
         self.sliced.clear();
         self.sliced_vertices.clear();
         self.runs.clear();
+        self.reached.clear();
         // Each polygon is sliced on its own; its pieces and those of the feature's other polygons in
         // a tile make one piece there, and nothing is pushed until every polygon is sliced.
         let mut rest = rings.as_slice();
@@ -649,6 +686,9 @@ impl Renderer {
                 .within(min, max);
             while let Some(slice) = pieces.next() {
                 match slice.map_err(GeometryError::from)? {
+                    PolygonSlice::Piece(piece) if ctx.layer.clip_mode == ClipMode::Unclipped => {
+                        self.reached.push(piece.tile());
+                    }
                     PolygonSlice::Piece(piece) => {
                         for ring in piece.rings() {
                             let start = self.sliced_vertices.len();
@@ -667,6 +707,9 @@ impl Renderer {
                     PolygonSlice::Run(run) => self.runs.push((run.x.start, run.x.end, run.y)),
                 }
             }
+        }
+        if ctx.layer.clip_mode == ClipMode::Unclipped {
+            return self.push_reached(ctx, zoom, (polys, parts, vertices), out);
         }
         self.push_sliced(ctx, zoom, PieceKind::Polygons, out)?;
         self.push_fills(ctx, zoom, out)
@@ -891,7 +934,8 @@ fn invalid_buffer(grid: LayerGrid) -> RenderLayerError {
     }
 }
 
-/// Quantizes and appends `line` without consecutive duplicates; returns how many vertices it kept.
+/// Quantizes and appends `line` without consecutive duplicates or vertices rounded onto a straight run;
+/// returns how many vertices it kept.
 fn push_quantized(
     vertices: &mut Vec<Coord<i32>>,
     line: impl Iterator<Item = Coord<f64>>,
@@ -901,18 +945,53 @@ fn push_quantized(
     let start = vertices.len();
     for c in line {
         let [x, y] = quantize(c, shift, world)?;
-        let c = Coord { x, y };
-        if vertices.len() == start || vertices.last() != Some(&c) {
-            vertices.push(c);
-        }
+        push_vertex(vertices, start, Coord { x, y });
     }
     Ok(vertices.len() - start)
 }
 
-/// Rounds to the zoom grid; `shift` moves features lying wholly outside the world back into it.
+/// Appends `vertex` to the run from `start`, skipping a repeat and replacing a last vertex that lies between.
+fn push_vertex(vertices: &mut Vec<Coord<i32>>, start: usize, vertex: Coord<i32>) {
+    match vertices[start..] {
+        [.., last] if last == vertex => {}
+        [.., prev, last] if between(prev, last, vertex) => *vertices.last_mut().expect("two vertices") = vertex,
+        _ => vertices.push(vertex),
+    }
+}
+
+/// Drops the first vertex of the open ring from `start` when it lies between its neighbours across the seam.
+fn trim_ring_seam(vertices: &mut Vec<Coord<i32>>, start: usize) {
+    if let [first, second, .., last] = vertices[start..]
+        && between(last, first, second)
+    {
+        vertices.swap_remove(start);
+    }
+}
+
+/// Whether `b` lies on the segment from `a` to `c`, strictly between them.
+fn between(a: Coord<i32>, b: Coord<i32>, c: Coord<i32>) -> bool {
+    let step = |p: Coord<i32>, q: Coord<i32>| (i64::from(q.x) - i64::from(p.x), i64::from(q.y) - i64::from(p.y));
+    let (abx, aby) = step(a, b);
+    let (bcx, bcy) = step(b, c);
+    // A zero cross product is zero modulo 2^64 too, so the wrapping one rejects nearly every vertex cheaply.
+    abx.wrapping_mul(bcy) == aby.wrapping_mul(bcx)
+        && i128::from(abx) * i128::from(bcy) == i128::from(aby) * i128::from(bcx)
+        && i128::from(abx) * i128::from(bcx) + i128::from(aby) * i128::from(bcy) > 0
+}
+
+/// Scales to the zoom grid, with `shift` moving features lying wholly outside the world back into it.
+fn to_grid(c: Coord<f64>, shift: f64, world: f64) -> Coord<f64> {
+    Coord {
+        x: (c.x + shift) * world,
+        y: c.y * world,
+    }
+}
+
+/// Rounds to the zoom grid, as [`to_grid`] scales it.
 #[expect(clippy::cast_possible_truncation, reason = "range-checked before the cast")]
 fn quantize(c: Coord<f64>, shift: f64, world: f64) -> Result<Vertex, GeometryError> {
-    let (x, y) = (((c.x + shift) * world).round(), (c.y * world).round());
+    let c = to_grid(c, shift, world);
+    let (x, y) = (c.x.round(), c.y.round());
     let range = f64::from(i32::MIN)..=f64::from(i32::MAX);
     if range.contains(&x) && range.contains(&y) {
         Ok([x as i32, y as i32])
@@ -948,6 +1027,7 @@ mod tests {
 
     use geo::SimplifyIdx as _;
     use geo_types::coord;
+    use map_tile_toolkit::signed_area_2x;
 
     use super::*;
     use crate::project::from_lonlat;
@@ -1071,7 +1151,7 @@ mod tests {
     fn simplification_drops_vertices_at_low_zoom() {
         let layer = RenderLayer::new(0, 0..=8, GRID).unwrap();
         let zigzag: Vec<_> = (0..=100)
-            .map(|i| coord! { x: f64::from(i) * 0.01, y: f64::from(i % 2) * 0.001 })
+            .map(|i| coord! { x: f64::from(i) * 0.01, y: f64::from(i % 2) * 0.01 })
             .map(from_lonlat)
             .collect();
         let tiles = render_feature(
@@ -1301,6 +1381,35 @@ mod tests {
     }
 
     #[test]
+    fn unclipped_features_are_whole_in_every_tile_any_part_reaches() {
+        let layer = RenderLayer::new(0, 3..=3, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let polygons = [
+            Polygon::new(square(0.1, 0.3), vec![]),
+            Polygon::new(square(0.27, 0.3), vec![]),
+        ];
+        let lines = [
+            LineString::from(vec![(0.1, 0.28), (0.3, 0.28)]),
+            LineString::from(vec![(0.27, 0.27), (0.3, 0.3)]),
+        ];
+        let points = [Coord { x: 0.06, y: 0.3 }, Coord { x: 0.3, y: 0.3 }];
+        let square_tiles: Vec<_> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).collect();
+        let row_tiles = vec![(0, 2), (1, 2), (2, 2)];
+        for (geom, reached) in [
+            (FeatureGeom::Polygons(&polygons), square_tiles),
+            (FeatureGeom::Lines(&lines), row_tiles),
+            (FeatureGeom::Points(&points), vec![(0, 2), (2, 2)]),
+        ] {
+            let pieces = global_pieces(&layer, geom);
+            let mut tiles: Vec<_> = pieces.iter().map(|p| p.0).collect();
+            tiles.sort_unstable();
+            assert_eq!(tiles, reached);
+            assert!(pieces.iter().all(|p| p.2 == pieces[0].2), "always whole");
+        }
+    }
+
+    #[test]
     fn polygons_get_mvt_winding_and_keep_holes_empty() {
         let layer = RenderLayer::new(0, 4..=4, GRID).unwrap();
         // Clockwise exterior in unit coordinates (negative area, y down), with a large hole.
@@ -1341,6 +1450,86 @@ mod tests {
         // Tiles 6..10 lie wholly inside the hole (0.3..0.7 of 16 tiles is 4.8..11.2).
         assert!(!tiles.contains(&(4, 7, 7)) && !tiles.contains(&(4, 8, 9)));
         assert!(tiles.contains(&(4, 2, 2)), "covered by the exterior");
+    }
+
+    #[test]
+    fn vertices_rounded_onto_a_straight_run_are_dropped() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line: LineString = [(10.0, 10.0), (50.0, 10.4), (90.0, 10.0), (90.0, 49.6), (90.0, 90.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
+    fn a_line_that_doubles_back_keeps_its_turning_point() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line: LineString = [(10.0, 10.0), (90.0, 10.0), (50.0, 10.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [50, 10]]);
+    }
+
+    #[test]
+    fn ring_vertices_rounded_onto_a_straight_edge_are_dropped() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let ring: LineString = [
+            (50.0, 10.3),
+            (90.0, 10.0),
+            (90.0, 50.2),
+            (90.0, 90.0),
+            (10.0, 90.0),
+            (10.0, 10.0),
+            (50.0, 10.3),
+        ]
+        .into_iter()
+        .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+        .collect();
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&[Polygon::new(ring, vec![])]),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90], [10, 90]]);
     }
 
     #[test]

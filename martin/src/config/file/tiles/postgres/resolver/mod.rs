@@ -4,6 +4,8 @@ mod query_functions;
 mod query_schemas;
 mod query_tables;
 
+#[cfg(feature = "unstable-generate")]
+pub use crate::config::file::tiles::postgres::resolver::condition::condition_sql;
 pub use crate::config::file::tiles::postgres::resolver::query_functions::{
     SqlFuncInfoMapMap, function_name, query_available_function,
 };

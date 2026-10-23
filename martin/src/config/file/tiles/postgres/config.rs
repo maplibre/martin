@@ -392,8 +392,7 @@ mod tests {
            ╭─[config.yaml:3:17]
          2 │   connection_string: postgres://localhost/db
          3 │   default_srid: 0
-           ·                 ┬
-           ·                 ╰── SRID 0 is out of range, it must be from 1 to 999999
+           ·                 ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -413,8 +412,7 @@ mod tests {
            ╭─[config.yaml:3:17]
          2 │   connection_string: postgres://localhost/db
          3 │   default_srid: 1000000
-           ·                 ───┬───
-           ·                    ╰── SRID 1000000 is out of range, it must be from 1 to 999999
+           ·                 ───────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -437,8 +435,7 @@ mod tests {
            ╭─[config.yaml:5:25]
          4 │     tables:
          5 │       source_id_format: '{schema}.{tabel}'
-           ·                         ─────────┬────────
-           ·                                  ╰── source id format "{schema}.{tabel}" uses the unknown placeholder {tabel}, it may use {schema}, {table}, {column}
+           ·                         ──────────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -461,8 +458,7 @@ mod tests {
            ╭─[config.yaml:5:25]
          4 │     functions:
          5 │       source_id_format: '{schema}.{table}'
-           ·                         ─────────┬────────
-           ·                                  ╰── source id format "{schema}.{table}" uses the unknown placeholder {table}, it may use {schema}, {function}
+           ·                         ──────────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.

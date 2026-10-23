@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use compact_str::ToCompactString as _;
 use mlt_core::{
     MltResult, NestedKey, NestedKind, NestedValue, PropKind, PropValue, PropertyKey, TileFeatureBuilder,
     TileLayerBuilder,
@@ -161,7 +162,7 @@ fn value(document: Value, kind: &NestedKind) -> NestedValue {
                 .filter(|(_, value)| !value.is_null())
                 .filter_map(|(key, entry)| {
                     let kind = fields.get(&key)?;
-                    Some((key, value(entry, kind)))
+                    Some((key.into(), value(entry, kind)))
                 })
                 .collect(),
         )),
@@ -175,8 +176,8 @@ fn leaf(kind: PropKind, document: Value) -> PropValue {
         (PropKind::Bool, Value::Bool(b)) => PropValue::Bool(Some(b)),
         (PropKind::I64, Value::Number(n)) => PropValue::I64(n.as_i64()),
         (PropKind::F64, Value::Number(n)) => PropValue::F64(n.as_f64()),
-        (PropKind::Str, Value::String(s)) => PropValue::Str(Some(s)),
-        (PropKind::Str, document) => PropValue::Str(Some(document.to_string())),
+        (PropKind::Str, Value::String(s)) => PropValue::Str(Some(s.into())),
+        (PropKind::Str, document) => PropValue::Str(Some(document.to_compact_string())),
         (kind, _) => PropValue::null(kind),
     }
 }

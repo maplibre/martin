@@ -3,6 +3,7 @@
 pub mod layers;
 pub mod postgres;
 pub mod serve;
+pub mod spec;
 
 use std::collections::{BTreeMap, HashSet};
 use std::num::NonZeroUsize;
