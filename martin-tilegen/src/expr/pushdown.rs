@@ -482,7 +482,7 @@ impl CompareOp {
 
 impl ValueKind {
     /// The type this and `other` compare as: numbers as floats once one is a float.
-    fn common(self, other: Self) -> Option<Self> {
+    pub(crate) fn common(self, other: Self) -> Option<Self> {
         match (self, other) {
             (Self::Float, Self::Int) | (Self::Int, Self::Float) => Some(Self::Float),
             (left, right) => (left == right).then_some(left),
