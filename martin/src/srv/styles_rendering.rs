@@ -40,7 +40,7 @@ pub(super) enum ImageFormatRequest {
     /// `image/jpeg` - lossy, no alpha (RGBA is flattened to RGB on encode).
     #[serde(rename = "jpg", alias = "jpeg")]
     Jpeg,
-    /// `image/webp` - lossless WebP via the `image` crate.
+    /// `image/webp` - lossy WebP via libwebp at the configured quality, or lossless. Supports alpha.
     Webp,
 }
 
@@ -79,17 +79,21 @@ enum EncodeError {
     Image(#[from] image::ImageError),
     #[error(transparent)]
     Palette(#[from] png_palette::PngPaletteError),
+    #[error("Failed to encode a lossy WebP: {0:?}")]
+    Webp(webp::WebPEncodingError),
 }
 
 /// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
 /// A PNG is indexed with at most `png_max_colors` colours if set, and RGBA otherwise.
+/// A WebP is lossy at `webp_quality` if set, and lossless otherwise.
 #[cfg(target_os = "linux")]
 pub(super) async fn encode_image_response(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
+    webp_quality: Option<u8>,
 ) -> HttpResponse {
-    match encode_off_worker(image, format, png_max_colors).await {
+    match encode_off_worker(image, format, png_max_colors, webp_quality).await {
         Ok(bytes) => HttpResponse::Ok().content_type(format.content_type()).body(bytes),
         Err(e) => {
             error!(error = %e, "Failed to encode image");
@@ -105,6 +109,7 @@ async fn encode_off_worker(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
+    webp_quality: Option<u8>,
 ) -> Result<Vec<u8>, EncodeError> {
     let _permit = ENCODE_PERMITS
         .acquire()
@@ -113,18 +118,28 @@ async fn encode_off_worker(
         .map_err(|_closed| EncodeError::ShuttingDown)?;
     // Encoding is CPU-bound for milliseconds, which would stall
     // every other request on this actix worker if it ran inline.
-    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors)).await?
+    tokio::task::spawn_blocking(move || encode_image(image.as_image(), format, png_max_colors, webp_quality)).await?
 }
 
-/// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set.
+/// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set,
+/// and as a lossy WebP at `webp_quality` (1 to 100) if set.
 /// JPEG has no alpha channel, so RGBA is flattened to RGB before encoding.
 fn encode_image(
     img: &RgbaImage,
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
+    webp_quality: Option<u8>,
 ) -> Result<Vec<u8>, EncodeError> {
-    if let (ImageFormatRequest::Png, Some(max_colors)) = (format, png_max_colors) {
-        return Ok(png_palette::encode(img, max_colors)?);
+    match (format, png_max_colors, webp_quality) {
+        (ImageFormatRequest::Png, Some(max_colors), _) => return Ok(png_palette::encode(img, max_colors)?),
+        (ImageFormatRequest::Webp, _, Some(quality)) => {
+            // libwebp keeps the alpha channel lossless next to the lossy colours.
+            let webp = webp::Encoder::from_rgba(img.as_raw(), img.width(), img.height())
+                .encode_simple(false, f32::from(quality))
+                .map_err(EncodeError::Webp)?;
+            return Ok(webp.to_vec());
+        }
+        _ => {}
     }
     let image_format = format.image_format();
     let mut output = Cursor::new(Vec::new());
@@ -207,7 +222,9 @@ pub async fn get_rendered_tile_style(path: Path<StyleRenderRequest>, styles: Dat
             .render_with_pixel_ratio(style_path, zxy.z(), zxy.x(), zxy.y(), pixel_ratio)
             .await
         {
-            Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
+            Ok(image) => {
+                encode_image_response(image, path.format, styles.png_max_colors(), styles.webp_quality()).await
+            }
             Err(StyleError::RenderingIsDisabled) => rendering_disabled(style_id, zxy),
             Err(e) => {
                 error!(style.id = %style_id, tile.coord = %zxy, error = %e, "Failed to render style");
@@ -292,7 +309,7 @@ mod tests {
     fn a_lossless_encode_keeps_every_pixel(#[case] format: ImageFormatRequest) {
         let image = translucent_image();
 
-        let encoded = encode_image(&image, format, None).expect("encodes");
+        let encoded = encode_image(&image, format, None, None).expect("encodes");
 
         let decoded = image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
         assert_eq!(decoded.to_rgba8(), image);
@@ -300,10 +317,94 @@ mod tests {
 
     #[test]
     fn a_jpeg_encode_drops_the_alpha_channel() {
-        let encoded = encode_image(&translucent_image(), ImageFormatRequest::Jpeg, None).expect("encodes");
+        let encoded = encode_image(&translucent_image(), ImageFormatRequest::Jpeg, None, None).expect("encodes");
 
         let decoded = image::load_from_memory_with_format(&encoded, ImageFormat::Jpeg).expect("decodes");
         assert_eq!(decoded.color(), ColorType::Rgb8);
         assert_eq!((decoded.width(), decoded.height()), (64, 32));
+    }
+
+    /// A 512×512 tile rendered by `MapLibre` Native from the `maptiler_basic` style.
+    fn rendered_tile() -> RgbaImage {
+        image::open("../tests/fixtures/rendering_references/maptiler_basic_0_0_0.png")
+            .expect("the rendered reference tile loads")
+            .to_rgba8()
+    }
+
+    fn webp(img: &RgbaImage, quality: Option<u8>) -> Vec<u8> {
+        encode_image(img, ImageFormatRequest::Webp, None, quality).expect("encodes")
+    }
+
+    fn decode_webp(bytes: &[u8]) -> RgbaImage {
+        image::load_from_memory_with_format(bytes, ImageFormat::WebP)
+            .expect("decodes")
+            .to_rgba8()
+    }
+
+    /// Peak signal-to-noise ratio of `decoded` against `original` over all four channels, in dB.
+    fn psnr(original: &RgbaImage, decoded: &RgbaImage) -> f64 {
+        let sq_err: u64 = original
+            .as_raw()
+            .iter()
+            .zip(decoded.as_raw())
+            .map(|(&a, &b)| u64::from(a.abs_diff(b)).pow(2))
+            .sum();
+        #[expect(clippy::cast_precision_loss, reason = "a tile has far fewer than 2^52 samples")]
+        let mse = sq_err as f64 / original.as_raw().len() as f64;
+        10.0 * (255.0 * 255.0 / mse).log10()
+    }
+
+    #[test]
+    fn a_lossy_webp_of_a_rendered_tile_is_a_fraction_of_lossless() {
+        let tile = rendered_tile();
+
+        let lossless = webp(&tile, None);
+        let lossy = webp(&tile, Some(80));
+
+        assert!(
+            lossy.len() * 3 < lossless.len(),
+            "lossy {} bytes, lossless {} bytes",
+            lossy.len(),
+            lossless.len()
+        );
+        let psnr = psnr(&tile, &decode_webp(&lossy));
+        assert!(psnr > 35.0, "PSNR {psnr:.1} dB");
+    }
+
+    #[test]
+    fn a_higher_webp_quality_keeps_more_detail() {
+        let tile = rendered_tile();
+        let encoded: Vec<(usize, f64)> = [10, 50, 80, 100]
+            .into_iter()
+            .map(|quality| {
+                let bytes = webp(&tile, Some(quality));
+                (bytes.len(), psnr(&tile, &decode_webp(&bytes)))
+            })
+            .collect();
+
+        for pair in encoded.windows(2) {
+            let [(smaller_len, lower_psnr), (larger_len, higher_psnr)] = pair else {
+                unreachable!("windows(2) yields pairs");
+            };
+            assert!(smaller_len < larger_len, "{encoded:?}");
+            assert!(lower_psnr < higher_psnr, "{encoded:?}");
+        }
+    }
+
+    #[test]
+    fn a_lossy_webp_keeps_the_alpha_channel() {
+        let image = translucent_image();
+
+        let decoded = decode_webp(&webp(&image, Some(80)));
+
+        let alpha = |img: &RgbaImage| img.pixels().map(|px| px.0[3]).collect::<Vec<_>>();
+        assert_eq!(alpha(&decoded), alpha(&image));
+    }
+
+    #[test]
+    fn an_empty_image_fails_to_encode_as_a_lossy_webp() {
+        let err = encode_image(&RgbaImage::new(0, 0), ImageFormatRequest::Webp, None, Some(80))
+            .expect_err("nothing to encode");
+        assert!(matches!(err, EncodeError::Webp(_)), "{err}");
     }
 }

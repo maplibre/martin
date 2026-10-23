@@ -56,13 +56,16 @@ styles:
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
+        # Lossy WebP quality 1 to 100, or `lossless` [default: 80]
+        webp:
+            quality: 80
 ```
 
 ## Indexed (palette) PNG
 
 Rendered PNG tiles and static images are indexed (palette) PNGs.
 For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference.
-JPEG and WebP are not affected.
+JPEG and WebP are not affected, WebP has its own [quality](#webp-quality) setting.
 
 Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128).
 Encoding a tile this way takes a few milliseconds of CPU.
@@ -84,11 +87,41 @@ styles:
         png_palette: false
 ```
 
+## WebP quality
+
+Rendered WebP tiles and static images are lossy at quality 80, encoded with [libwebp](https://developers.google.com/speed/webp).
+For map tiles they are about a sixth of the size of lossless WebP, with no visible difference.
+The alpha channel stays lossless.
+
+!!! note
+    Up to 2.0.0-beta.4, rendered WebP was lossless.
+    Set `quality: lossless` to keep that output (and its `ETag`s).
+
+`quality` is 1 to 100, or `lossless`. Any other value fails at startup.
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        webp:
+            quality: 90
+```
+
+Lossless WebP keeps every pixel, for example for imagery or styles with smooth gradients:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        webp:
+            quality: lossless
+```
+
 ## Rendered XYZ tiles
 
 We support generating a rasterized image for an XYZ tile of a given style.
 
-After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
 ### Tile size
 

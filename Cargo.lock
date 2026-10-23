@@ -5837,6 +5837,7 @@ dependencies = [
  "url",
  "utoipa",
  "walkdir",
+ "webp",
  "wiremock",
  "xxhash-rust",
 ]

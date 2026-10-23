@@ -69,6 +69,7 @@ jpegxl
 justfiles
 keepalives
 LAEA
+libwebp
 linestring
 linestrings
 lldb

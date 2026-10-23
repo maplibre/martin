@@ -101,6 +101,9 @@ pub struct StyleSources {
     /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     png_max_colors: Option<u16>,
+    /// Encode rendered WebP images lossy at this quality, 1 to 100. `None` encodes them lossless.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    webp_quality: Option<u8>,
 }
 
 /// Highest tile pixel ratio served when none is configured.
@@ -278,6 +281,19 @@ impl StyleSources {
     #[must_use]
     pub fn png_max_colors(&self) -> Option<u16> {
         self.png_max_colors
+    }
+
+    /// Encode rendered WebP images lossy at `quality`, 1 to 100 (`None` encodes them lossless).
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_webp_quality(&mut self, quality: Option<u8>) {
+        self.webp_quality = quality;
+    }
+
+    /// Quality of rendered lossy WebP images, or `None` if they are encoded lossless.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn webp_quality(&self) -> Option<u8> {
+        self.webp_quality
     }
 }
 
