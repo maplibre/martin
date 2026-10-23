@@ -11,7 +11,7 @@ patches and validates MBTiles archives.
 
 ## Getting Started
 
-- [Introduction](<https://maplibre.org/martin/index.md>): What Martin is and what it can do
+- [Index](<https://maplibre.org/martin/index.md>): What Martin is and what it can do
 - [Martin Quick Start Guide](<https://maplibre.org/martin/quick-start/index.md>): Choosing a quick start guide
 - [On Linux](<https://maplibre.org/martin/quick-start-linux/index.md>): Serving a first tileset on Linux
 - [On macOS](<https://maplibre.org/martin/quick-start-macos/index.md>): Serving a first tileset on macOS
