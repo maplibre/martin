@@ -77,7 +77,7 @@ Paths are the distinct, interesting cases this configuration can produce.
       NO ROW [   0.052s] roads  road_labels: kept only at z14 (`min_size_at_maxzoom`)
       NO ROW [   0.002s] roads  road_labels: dropped, smaller than `min_size` at every zoom
        FOUND [   0.008s] roads  road_labels: crosses a z14 tile edge  row 1
-   Rendering 3 cases in bulk mode and served
+   Rendering 3 cases in bulk mode
          NEW [   0.210s] roads 1  roads: class 'primary' -> minzoom 6
          NEW [   0.109s] roads 2  roads: class 'residential' -> minzoom 12
          NEW [   0.098s] roads 3  road_labels: dropped, `where: name != null` is false

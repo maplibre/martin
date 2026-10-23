@@ -202,8 +202,6 @@ pub enum GenerateError {
     #[cfg(feature = "tui")]
     #[error("The review terminal failed: {0}")]
     Review(#[source] std::io::Error),
-    #[error("Serving a tile failed: {0}")]
-    Served(#[source] Box<martin_core::tiles::MartinCoreError>),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }

@@ -6,7 +6,6 @@ use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 use std::time::Duration;
 
-use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::PostgresPool;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::plan::{ColumnValues, Condition, GeometryType, Literal, Shape, SizeBand};
@@ -158,15 +157,6 @@ impl TestBackend for Postgres {
             Ok(key) => Find::Searched { rows: selected, key },
             Err(error) => Find::Failed { rows: selected, error },
         }
-    }
-
-    async fn serve(&self, table: &TestTable, key: RowKey, max_zoom: Option<u8>) -> GenerateResult<Option<BoxedSource>> {
-        let mut info = self.row(&table.source, key)?;
-        if let Some(max_zoom) = max_zoom {
-            info.maxzoom = Some(info.maxzoom.map_or(max_zoom, |z| z.min(max_zoom)));
-        }
-        let (source, _) = self.builder.instantiate(&table.source, SourceSpec::Table(info)).await?;
-        Ok(Some(source))
     }
 }
 

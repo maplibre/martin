@@ -129,8 +129,7 @@ impl Screen<'_> {
         }
     }
 
-    /// Draws one case: what it is, then its paths, how serving it differs and its diff against the spec, which scroll
-    /// together and wrap.
+    /// Draws one case: what it is, then its paths and its diff against the spec, which scroll together and wrap.
     fn draw_case(&self, frame: &mut Frame<'_>, r: &Reviewed) {
         let total = self.review.pending().count();
         let decision = match r.decision {
@@ -153,18 +152,6 @@ impl Screen<'_> {
         for (i, path) in r.case.paths.iter().enumerate() {
             let label = if i == 0 { " paths   " } else { "         " };
             info.push(Line::from(vec![dim(label), Span::raw(path.clone())]));
-        }
-        if r.status != CaseStatus::Gone {
-            if r.served.diffs.is_empty() {
-                info.push(Line::from(vec![dim(" served  "), Span::raw("same tiles as bulk mode")]));
-            }
-            for (i, d) in r.served.diffs.iter().enumerate() {
-                let label = if i == 0 { " served  " } else { "         " };
-                info.push(Line::from(vec![
-                    dim(label),
-                    Span::styled(d.to_string(), Style::new().fg(Color::Red)),
-                ]));
-            }
         }
         let [top, body, keys] =
             Layout::vertical([Constraint::Length(2), Constraint::Min(3), Constraint::Length(1)]).areas(frame.area());
@@ -323,13 +310,11 @@ fn bold(text: impl Into<String>) -> Span<'static> {
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-    use martin_tile_utils::TileCoord;
     use martin_tilegen::plan::{Branch, Condition};
     use ratatui::backend::TestBackend;
 
     use super::*;
     use crate::generate::spec::file::{Case, IdColumns, Spec, yaml};
-    use crate::generate::spec::render::{Served, TileDiff, TileDiffKind};
     use crate::generate::spec::rows::{Found, Miss};
 
     fn drawn(review: &mut Review, keys: &str) -> String {
@@ -360,14 +345,13 @@ mod tests {
               - { layer: roads, id: 1, geometry: line, zooms: 5-14, attributes: { kind: major } }
         "})
         .expect("parses");
-        let cases = vec![Reviewed::new(case, Served::default(), Some(&old), &ids)];
+        let cases = vec![Reviewed::new(case, Some(&old), &ids)];
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         insta::assert_snapshot!(drawn(&mut review, ""), @r#"
         " Reviewing [1/1]  CHANGED  roads 1  undecided                                                       "
         " the row or what bulk mode renders of it differs from the spec, accept takes the new case           "
         "                                                                                                    "
         " paths   roads: rule 1                                                                              "
-        " served  same tiles as bulk mode                                                                    "
         "                                                                                                    "
         " -spec +now                                                                                         "
         "   1    1 │ - layer: roads                                                                          "
@@ -377,6 +361,7 @@ mod tests {
         "        4 │+  zooms: 5-14                                                                           "
         "   5    5 │   attributes:                                                                           "
         "   6    6 │     kind: major                                                                         "
+        "                                                                                                    "
         "                                                                                                    "
         " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
         "#);
@@ -394,7 +379,7 @@ mod tests {
             output: []
         "})
         .expect("parses");
-        let cases = vec![Reviewed::new(case, Served::default(), None, &ids)];
+        let cases = vec![Reviewed::new(case, None, &ids)];
         let mut review = Review::new(Vec::new(), cases, None, 14, ids);
         insta::assert_snapshot!(drawn(&mut review, "jjjjjjjjjjjj"), @r#"
         " Reviewing [1/1]  NEW  roads 2  undecided                                                           "
@@ -403,11 +388,11 @@ mod tests {
         "         roads: rule 13                                                                             "
         "         roads: rule 14                                                                             "
         "         roads: rule 15                                                                             "
-        " served  same tiles as bulk mode                                                                    "
         "                                                                                                    "
         " -spec +now                                                                                         "
         "   1      │-(not in the spec)                                                                       "
         "        1 │+(no feature in any layer)                                                               "
+        "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
@@ -447,14 +432,13 @@ mod tests {
                   note: 'the road that runs from the old harbour past the station and the market to the castle on the hill, then south'
         "})
         .expect("parses");
-        let cases = vec![Reviewed::new(case, Served::default(), Some(&old), &ids)];
+        let cases = vec![Reviewed::new(case, Some(&old), &ids)];
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         insta::assert_snapshot!(drawn(&mut review, ""), @r#"
         " Reviewing [1/1]  CHANGED  roads 1  undecided                                                       "
         " the row or what bulk mode renders of it differs from the spec, accept takes the new case           "
         "                                                                                                    "
         " paths   roads: rule 1                                                                              "
-        " served  same tiles as bulk mode                                                                    "
         "                                                                                                    "
         " -spec +now                                                                                         "
         "   1    1 │ - layer: roads                                                                          "
@@ -465,12 +449,13 @@ mod tests {
         "   6      │-    note: the road that runs from the old harbour past the station and the market to the"
         "castle on the hill, then north                                                                      "
         "        6 │+    note: the road that runs from the old harbour past the station and the market to the"
+        "castle on the hill, then south                                                                      "
         " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
         "#);
     }
 
     #[test]
-    fn a_new_case_shows_how_serving_it_differs() {
+    fn a_new_case_shows_its_output_against_no_case() {
         let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
         let case: Case = serde_saphyr::from_str(indoc! {"
             source: roads
@@ -479,25 +464,18 @@ mod tests {
             output: []
         "})
         .expect("parses");
-        let served = Served {
-            diffs: vec![TileDiff {
-                coord: TileCoord::new_unchecked(14, 1, 1),
-                kind: TileDiffKind::OnlyBulk,
-            }],
-            compared: 9,
-        };
-        let cases = vec![Reviewed::new(case, served, None, &ids)];
+        let cases = vec![Reviewed::new(case, None, &ids)];
         let mut review = Review::new(Vec::new(), cases, None, 14, ids);
         insta::assert_snapshot!(drawn(&mut review, ""), @r#"
         " Reviewing [1/1]  NEW  roads 2  undecided                                                           "
         " not in the spec, accept adds it                                                                    "
         "                                                                                                    "
         " paths   roads: rule 2                                                                              "
-        " served  z14 1/1: only bulk mode has the tile                                                       "
         "                                                                                                    "
         " -spec +now                                                                                         "
         "   1      │-(not in the spec)                                                                       "
         "        1 │+(no feature in any layer)                                                               "
+        "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
@@ -535,7 +513,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let found = vec![
             Found {
@@ -628,7 +606,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         drawn(&mut review, "arn");
@@ -711,7 +689,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
@@ -764,7 +742,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");
@@ -800,7 +778,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         let mut terminal = Terminal::new(TestBackend::new(100, 16)).expect("a test terminal");

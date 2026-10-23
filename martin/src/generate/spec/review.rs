@@ -3,7 +3,6 @@
 use std::fmt::{self, Display};
 
 use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml};
-use crate::generate::spec::render::Served;
 use crate::generate::spec::report::{Change, Look, Status, Tone, tally};
 use crate::generate::spec::rows::Found;
 
@@ -55,14 +54,12 @@ pub struct Reviewed {
     pub old: Option<Case>,
     pub status: CaseStatus,
     pub decision: Decision,
-    /// How serving the row differs from bulk mode.
-    pub served: Served,
 }
 
 impl Reviewed {
-    /// `case`, served as `served`, against the case of the same row in `spec`.
+    /// `case` against the case of the same row in `spec`.
     #[must_use]
-    pub fn new(case: Case, served: Served, spec: Option<&Spec>, ids: &IdColumns) -> Self {
+    pub fn new(case: Case, spec: Option<&Spec>, ids: &IdColumns) -> Self {
         let old = spec
             .and_then(|spec| spec.cases.iter().find(|o| o.same_row(&case, ids)))
             .cloned();
@@ -76,7 +73,6 @@ impl Reviewed {
             old,
             status,
             decision: Decision::Undecided,
-            served,
         }
     }
 
@@ -125,7 +121,6 @@ impl Review {
                     old: Some(old.clone()),
                     status: CaseStatus::Gone,
                     decision: Decision::Undecided,
-                    served: Served::default(),
                 });
             }
         }
@@ -265,7 +260,7 @@ mod tests {
         .expect("parses");
         let cases = generated
             .into_iter()
-            .map(|case| Reviewed::new(case, Served::default(), Some(&old), &ids))
+            .map(|case| Reviewed::new(case, Some(&old), &ids))
             .collect();
         let mut review = Review::new(Vec::new(), cases, Some(&old), 14, ids);
         review.accept_all();
@@ -308,7 +303,7 @@ mod tests {
         .expect("parses");
         let review = Review::new(
             Vec::new(),
-            vec![Reviewed::new(case, Served::default(), Some(&old), &ids)],
+            vec![Reviewed::new(case, Some(&old), &ids)],
             Some(&old),
             14,
             ids,
@@ -353,7 +348,7 @@ mod tests {
         .expect("parses");
         let review = Review::new(
             Vec::new(),
-            vec![Reviewed::new(case, Served::default(), Some(&old), &ids)],
+            vec![Reviewed::new(case, Some(&old), &ids)],
             Some(&old),
             14,
             ids,
@@ -394,7 +389,7 @@ mod tests {
         .expect("parses");
         let review = Review::new(
             Vec::new(),
-            vec![Reviewed::new(case, Served::default(), Some(&old), &ids)],
+            vec![Reviewed::new(case, Some(&old), &ids)],
             Some(&old),
             14,
             ids,
@@ -433,7 +428,7 @@ mod tests {
               - { layer: roads, id: 1, geometry: point, zooms: 4-14 }
         "})
         .expect("parses");
-        let reviewed = Reviewed::new(case, Served::default(), Some(&old), &ids);
+        let reviewed = Reviewed::new(case, Some(&old), &ids);
         let diff = reviewed.diff();
         insta::assert_snapshot!(format!("{:?}\n--- spec\n{}--- now\n{}", reviewed.status, diff.old, diff.new), @"
         Changed

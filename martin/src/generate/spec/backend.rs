@@ -1,6 +1,5 @@
 //! What `martin test` needs from a backend, and the tables it reads through one.
 
-use martin_core::tiles::BoxedSource;
 use martin_tilegen::TileGenError;
 use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Plan, Shape, TableDef};
 use martin_tilegen::source::FeatureSource;
@@ -92,16 +91,5 @@ pub trait TestBackend {
     /// A row of `table` on `rows` with geometry of `shape`, selected by the backend itself.
     async fn find(&self, _table: &TestTable, _rows: &Condition, _shape: Option<Shape>) -> Find {
         Find::Unsupported
-    }
-
-    /// Row `key` of `table` as the tile server serves it, up to `max_zoom` or else the source's own, or `None` when
-    /// the backend has no server.
-    async fn serve(
-        &self,
-        _table: &TestTable,
-        _key: RowKey,
-        _max_zoom: Option<u8>,
-    ) -> GenerateResult<Option<BoxedSource>> {
-        Ok(None)
     }
 }
