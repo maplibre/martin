@@ -25,71 +25,79 @@ copyright = "Copyright &copy; 2026 MapLibre Contributors"
 #
 # Read more: https://zensical.org/docs/setup/navigation/
 nav = [
-  { "Introduction" = "index.md" },
-  { "Quick Start" = [
-    "quick-start/index.md",
-    {"On Linux" = "quick-start-linux.md"},
-    {"On macOS" = "quick-start-macos.md"},
-    {"On Windows" = "quick-start-windows.md"},
-    {"View with QGIS" = "quick-start-qgis.md"}
+  {"Getting Started" = [
+    "index.md",
+    { "Quick Start" = [
+      "quick-start/index.md",
+      {"On Linux" = "quick-start-linux.md"},
+      {"On macOS" = "quick-start-macos.md"},
+      {"On Windows" = "quick-start-windows.md"},
+      {"View with QGIS" = "quick-start-qgis.md"}
+    ]},
+    {"Installation" = "installation.md"}
   ]},
-  {"Installation" = "installation.md"},
-  {"Running" = [
-    "run/index.md",
-    {"Command Line Interface" = "run-with-cli.md"},
-    {"Environment Variables" = "env-vars.md"},
-    {"Hosting Environment-specific Guides" = [
-        {"Docker" = "run-with-docker.md"},
-        {"Docker Compose" = "run-with-docker-compose.md"},
-        {"AWS Lambda" = "run-with-lambda.md"}
+  {"Usage" = [
+    {"Running" = [
+      "run/index.md",
+      {"Command Line Interface" = "run-with-cli.md"},
+      {"Environment Variables" = "env-vars.md"},
+      {"Troubleshooting" = "troubleshooting.md"}
     ]},
-    {"Reverse Proxies" = [
-        "run-with-reverse-proxy/index.md",
-        {"NGINX" = "run-with-nginx.md"},
-        {"Apache" = "run-with-apache.md"}
+    {"Deployment" = [
+      {"Docker" = "run-with-docker.md"},
+      {"Docker Compose" = "run-with-docker-compose.md"},
+      {"AWS Lambda" = "run-with-lambda.md"},
+      {"Reverse Proxies" = [
+          "run-with-reverse-proxy/index.md",
+          {"NGINX" = "run-with-nginx.md"},
+          {"Apache" = "run-with-apache.md"}
+      ]}
     ]},
-    {"Troubleshooting" = "troubleshooting.md"}
-  ]},
-  {"Configuration File" = [
-    "config-file/index.md",
-    {"Tile sources" = [
-        "sources-tiles/index.md",
-        {"MBTiles and PMTiles File Sources" = [
-            "sources-files/index.md",
-            {"MBTiles File Sources" = "sources-mbtiles.md"},
-            {"PMTiles File Sources" = "sources-pmtiles.md"}
-        ]},
-        {"PostgreSQL Connections" = [
-            "pg-connections/index.md",
-            {"PostgreSQL Table Sources" = "sources-pg-tables.md"},
-            {"PostgreSQL Function Sources" = "sources-pg-functions.md"},
-            {"Table Source Layers" = "sources-pg-layers.md"}
-        ]},
-        {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
-        {"GeoJSON Sources" = "sources-geojson.md"},
-        {"DuckDB Sources" = "sources-duckdb.md"},
-        {"Passthrough Sources" = "sources-passthrough.md"}
-    ]},
-    {"Tile Serving" = [
-        {"Composite Sources" = "sources-composite.md"},
-        {"Tile Grids" = "tile-grids.md"}
-    ]},
-    {"Postprocessing" = [
-        "postprocessing/index.md",
-        {"MVT/MLT Conversion" = "postprocessing/mlt.md"},
-        {"Hillshade" = "postprocessing/hillshade.md"},
-        {"Contours" = "postprocessing/contour.md"}
-    ]},
-    {"Supporting Resources" = [
-        {"Sprites" = "sources-sprites.md"},
-        {"Styles" = [
-            "sources-styles/index.md",
-            {"Server-side raster tile rendering" = "sources-styles/rendering.md"}
-        ]},
-        {"Fonts" = "sources-fonts.md"}
+    {"Available API Endpoints" = "using.md"},
+    {"Configuration File" = [
+      "config-file/index.md",
+      {"Tile sources" = [
+          "sources-tiles/index.md",
+          {"MBTiles and PMTiles File Sources" = [
+              "sources-files/index.md",
+              {"MBTiles File Sources" = "sources-mbtiles.md"},
+              {"PMTiles File Sources" = "sources-pmtiles.md"}
+          ]},
+          {"PostgreSQL Connections" = [
+              "pg-connections/index.md",
+              {"PostgreSQL Table Sources" = "sources-pg-tables.md"},
+              {"PostgreSQL Function Sources" = "sources-pg-functions.md"},
+              {"Table Source Layers" = "sources-pg-layers.md"}
+          ]},
+          {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
+          {"GeoJSON Sources" = "sources-geojson.md"},
+          {"DuckDB Sources" = "sources-duckdb.md"},
+          {"Passthrough Sources" = "sources-passthrough.md"}
+      ]},
+      {"Tile Serving" = [
+          {"Composite Sources" = "sources-composite.md"},
+          {"Tile Grids" = "tile-grids.md"}
+      ]},
+      {"Tile Generation" = [
+          {"Bulk Tile Generation" = "martin-cp.md"},
+          {"Generating Tilesets" = "martin-generate.md"}
+      ]},
+      {"Postprocessing" = [
+          "postprocessing/index.md",
+          {"MVT/MLT Conversion" = "postprocessing/mlt.md"},
+          {"Hillshade" = "postprocessing/hillshade.md"},
+          {"Contours" = "postprocessing/contour.md"}
+      ]},
+      {"Supporting Resources" = [
+          {"Sprites" = "sources-sprites.md"},
+          {"Styles" = [
+              "sources-styles/index.md",
+              {"Server-side raster tile rendering" = "sources-styles/rendering.md"}
+          ]},
+          {"Fonts" = "sources-fonts.md"}
+      ]}
     ]}
   ]},
-  {"Available API Endpoints" = "using.md"},
   {"Guides" = [
     "using-guides/index.md",
     {"Self-hosting a basemap from scratch" = "recipe-basemap-selfhosted.md"},
@@ -107,8 +115,6 @@ nav = [
         {"Setting up a basemap and overlaying data" = "recipe-basemap-postgis.md"},
         {"Using PostgreSQL with SSL Certificates" = "pg-ssl-certificates.md"}
     ]},
-    {"Bulk Tile Generation" = "martin-cp.md"},
-    {"Generating Tilesets" = "martin-generate.md"},
     {"Working with MBTiles archives" = [
         "mbtiles/index.md",
         {"MBTiles Schemas" = "mbtiles-schema.md"},
@@ -129,8 +135,10 @@ nav = [
         {"Generation" = "architecture-generate.md"}
     ]}
   ]},
-  {"Migration Guide" = "migration-guide.md"},
-  {"Changelog" = "changelog.md"}
+  {"Releases" = [
+    {"Migration Guide" = "migration-guide.md"},
+    {"Changelog" = "changelog.md"}
+  ]}
 ]
 
 # With the "extra_css" option you can add your own CSS styling to customize
