@@ -760,3 +760,38 @@ async fn a_snapshot_source_leaves_the_exporting_connection_its_slot_of_the_pool(
     .unwrap();
     assert_eq!(readers, 1);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_snapshot_source_in_a_pool_of_one_fails_to_open_a_reader_instead_of_waiting() {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        pool_size: Some(std::num::NonZeroUsize::new(1).unwrap()),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let specs: BTreeMap<String, SourceSpec> = specs.into_iter().collect();
+    let table = lower("points1", table_info(&specs, "points1"));
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
+        .await
+        .unwrap();
+    let exporting = open_scan_connection(builder.pool()).await.unwrap();
+    let snapshot = export_snapshot(&exporting).await.unwrap();
+    let source = source.at_snapshot(snapshot);
+    let error = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio::task::spawn_blocking(move || source.open_readers(1).err().map(|e| e.to_string())),
+    )
+    .await
+    .expect("the reader fails without waiting for the exporting connection")
+    .unwrap();
+    insta::assert_snapshot!(error.unwrap_or_default(), @"The transaction that exported the snapshot holds the only connection of a pool of 1; set `pool_size` to at least 2");
+}

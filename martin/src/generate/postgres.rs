@@ -116,7 +116,7 @@ impl PgScanSource {
     }
 
     /// Reads the snapshot `snapshot`, exported by a transaction that stays open while this source is read and holds
-    /// one connection of the same pool, so this source opens at most one reader fewer than the pool holds.
+    /// one connection of the same pool, which no reader of this source can take.
     #[must_use]
     pub fn at_snapshot(self, snapshot: String) -> Self {
         Self {
@@ -131,12 +131,17 @@ impl PgScanSource {
     }
 
     /// Opens up to `count` readers that share one snapshot, no more than the pool has room for.
+    ///
+    /// # Errors
+    ///
+    /// If the exporting transaction of the snapshot holds the pool's only connection, or a reader cannot open.
     fn open_scan_readers(&self, count: usize) -> SourceResult<Vec<ScanReader<'_>>> {
-        let room = self
-            .pool
-            .max_size()
-            .saturating_sub(usize::from(self.snapshot.is_some()));
-        let count = count.min(room).max(1);
+        let pool_size = self.pool.max_size();
+        let room = pool_size.saturating_sub(usize::from(self.snapshot.is_some()));
+        if room == 0 {
+            return Err(SourceError::Other(Box::new(NoRoomForReader { pool_size })));
+        }
+        let count = count.clamp(1, room);
         let conns = self.runtime.block_on(async {
             match &self.snapshot {
                 Some(snapshot) => {
@@ -182,6 +187,15 @@ impl FeatureSource for PgScanSource {
             .map(|reader| Box::new(reader) as Box<dyn FeatureReader + '_>)
             .collect())
     }
+}
+
+/// The exporting transaction of a snapshot holds the only connection of the pool, so no reader can open.
+#[derive(Debug, thiserror::Error)]
+#[error(
+    "The transaction that exported the snapshot holds the only connection of a pool of {pool_size}; set `pool_size` to at least 2"
+)]
+struct NoRoomForReader {
+    pool_size: usize,
 }
 
 struct ScanReader<'a> {
