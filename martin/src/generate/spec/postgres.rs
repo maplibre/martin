@@ -293,6 +293,142 @@ mod tests {
     }
 
     #[test]
+    fn a_filter_equal_to_one_value_gives_that_value_a_path() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"type = 'stop'\"
+            properties:
+              type: text
+            layers:
+              devices:
+                attributes:
+                  class: \"type.upperAscii()\"
+        "}), @r#"
+        devices: every feature
+            TRUE
+        devices: `type` is 'stop'
+            "type" = 'stop'
+        "#);
+    }
+
+    #[test]
+    fn a_filter_or_gives_no_value_a_path() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"type = 'stop' OR type = 'yield'\"
+            properties:
+              type: text
+            layers:
+              devices:
+                attributes:
+                  class: \"type.upperAscii()\"
+        "}), @"
+        devices: every feature
+            TRUE
+        ");
+    }
+
+    #[test]
+    fn a_filter_not_in_gives_no_value_a_path() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"type NOT IN ('stop', 'yield')\"
+            properties:
+              type: text
+            layers:
+              devices:
+                attributes:
+                  class: \"type.upperAscii()\"
+        "}), @"
+        devices: every feature
+            TRUE
+        ");
+    }
+
+    #[test]
+    fn whole_numbers_in_a_filter_are_integer_values() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"lanes IN (1, 2)\"
+            properties:
+              lanes: int4
+            layers:
+              devices:
+                attributes:
+                  class: \"lanes * 2\"
+        "}), @r#"
+        devices: every feature
+            TRUE
+        devices: `lanes` is 1
+            "lanes" = 1
+        devices: `lanes` is 2
+            "lanes" = 2
+        "#);
+    }
+
+    #[test]
+    fn fractions_in_a_filter_are_float_values() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"width IN (2.5, 3.75)\"
+            properties:
+              width: float8
+            layers:
+              devices:
+                attributes:
+                  class: \"width * 2.0\"
+        "}), @r#"
+        devices: every feature
+            TRUE
+        devices: `width` is 2.5
+            ("width")::float8 = ('2.5')::float8
+        devices: `width` is 3.75
+            ("width")::float8 = ('3.75')::float8
+        "#);
+    }
+
+    #[test]
+    fn a_column_the_filter_compares_otherwise_gives_no_value_a_path() {
+        insta::assert_snapshot!(listed(indoc! {"
+            schema: public
+            table: points
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            filter: \"lanes > 2\"
+            properties:
+              lanes: int4
+            layers:
+              devices:
+                attributes:
+                  class: \"lanes * 2\"
+        "}), @"
+        devices: every feature
+            TRUE
+        ");
+    }
+
+    #[test]
     fn a_choice_sql_cannot_express_cannot_be_queried() {
         insta::assert_snapshot!(listed(indoc! {"
             schema: public
