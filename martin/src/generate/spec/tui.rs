@@ -188,7 +188,7 @@ impl Screen<'_> {
         );
         frame.render_widget(
             Paragraph::new(
-                " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing",
+                " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing",
             )
             .style(Style::new().fg(Color::DarkGray)),
             keys,
@@ -268,7 +268,7 @@ impl Screen<'_> {
         );
         frame.render_widget(
             Paragraph::new(format!(
-                " w write {}   <- back   ↑/↓ scroll   q quit without writing",
+                " w write {}   ← back   ↑/↓ scroll   q quit without writing",
                 self.spec_name
             ))
             .style(Style::new().fg(Color::DarkGray)),
@@ -363,7 +363,7 @@ mod tests {
         "   6    6 │     kind: major                                                                         "
         "                                                                                                    "
         "                                                                                                    "
-        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
         "#);
     }
 
@@ -397,7 +397,7 @@ mod tests {
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
-        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
         "#);
     }
 
@@ -450,7 +450,7 @@ mod tests {
         "castle on the hill, then north                                                                      "
         "        6 │+    note: the road that runs from the old harbour past the station and the market to the"
         "castle on the hill, then south                                                                      "
-        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
         "#);
     }
 
@@ -482,7 +482,7 @@ mod tests {
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
-        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
         "#);
     }
 
@@ -575,7 +575,7 @@ mod tests {
         " NO ROW  roads  roads: crosses a z14 tile edge                                                      "
         "     none of 100 rows swept                                                                         "
         "     selecting the rows where TRUE failed: canceling statement due to statement timeout             "
-        " w write spec.yaml   <- back   ↑/↓ scroll   q quit without writing                                  "
+        " w write spec.yaml   ← back   ↑/↓ scroll   q quit without writing                                   "
         "#);
     }
 
@@ -658,12 +658,12 @@ mod tests {
         "                                                                                                    "
         "                                                                                                    "
         "                                                                                                    "
-        " a accept   r reject   A accept the rest   <-/-> previous/next   ↑/↓ scroll   q quit without writing"
+        " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
         "#);
     }
 
     #[test]
-    fn accepting_the_rest_and_writing_writes_every_generated_case_and_drops_the_gone() {
+    fn accepting_all_undecided_and_writing_writes_every_generated_case_and_drops_the_gone() {
         let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
         let old: Spec = serde_saphyr::from_str(indoc! {"
             max_zoom: 14
