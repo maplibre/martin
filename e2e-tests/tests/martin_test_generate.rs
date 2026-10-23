@@ -71,7 +71,7 @@ async fn a_changed_case_shows_its_output_against_the_spec() {
     "   6    6 │     kind: major                                                                         "
     "                                                                                                    "
     "                                                                                                    "
-    " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
+    " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing    "
     "#);
 }
 
@@ -141,7 +141,7 @@ async fn a_case_with_more_paths_than_the_screen_scrolls_to_its_diff() {
     "         places: attributes.a10 'yes', `id < 20` is true                                            "
     "         places: attributes.a11 'yes', `id < 21` is true                                            "
     "         places: attributes.a12 'yes', `id < 22` is true                                            "
-    " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
+    " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing    "
     "#);
 }
 
@@ -218,7 +218,7 @@ async fn a_changed_value_wider_than_the_screen_wraps() {
     "castle on the hill, then north                                                                      "
     "        6 │+    note: the road that runs from the old harbour past the station and the market to the"
     "castle on the hill, then south                                                                      "
-    " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
+    " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing    "
     "#);
 }
 
@@ -270,7 +270,7 @@ async fn a_new_case_shows_its_output_against_no_case() {
     "        6 │+    id: 2                                                                               "
     "                                                                                                    "
     "                                                                                                    "
-    " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
+    " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing    "
     "#);
 }
 
@@ -346,7 +346,7 @@ async fn the_last_screen_lists_the_decisions_and_the_paths_without_a_row() {
     "                                                                                                    "
     " NO ROW  places  places: attributes.short, `name` is null in `(name + '!') == 'A!'`                 "
     "     no row where "name" IS NULL                                                                    "
-    " w write spec.yaml   ← back   ↑/↓ scroll   q quit without writing                                   "
+    " w write spec.yaml  <- back  ↑/↓ scroll  q quit without writing                                     "
     "#);
 }
 
@@ -496,7 +496,7 @@ async fn a_gone_case_shows_that_accepting_removes_it() {
     "                                                                                                    "
     "                                                                                                    "
     "                                                                                                    "
-    " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing "
+    " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing    "
     "#);
 }
 
@@ -788,7 +788,7 @@ async fn a_case_kept_at_another_max_zoom_than_the_cases_blocks_the_write() {
     "                                                                                                    "
     "                                                                                                    "
     "                                                                                                    "
-    " ← back   ↑/↓ scroll   q quit without writing                                                       "
+    " <- back  ↑/↓ scroll  q quit without writing                                                        "
     "#);
 }
 

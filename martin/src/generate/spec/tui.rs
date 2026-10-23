@@ -188,7 +188,7 @@ impl Screen<'_> {
         );
         frame.render_widget(
             Paragraph::new(
-                " a accept   r reject   A accept all undecided   ←/→ prev/next   ↑/↓ scroll   q quit without writing",
+                " a accept  r reject  A accept all undecided  <-/-> prev/next  ↑/↓ scroll  q quit without writing",
             )
             .style(Style::new().fg(Color::DarkGray)),
             keys,
@@ -277,11 +277,11 @@ impl Screen<'_> {
             body,
         );
         let write = match self.review.kept_at_other_zoom() {
-            None => format!(" w write {}  ", self.spec_name),
+            None => format!(" w write {} ", self.spec_name),
             Some(_) => String::new(),
         };
         frame.render_widget(
-            Paragraph::new(format!("{write} ← back   ↑/↓ scroll   q quit without writing"))
+            Paragraph::new(format!("{write} <- back  ↑/↓ scroll  q quit without writing"))
                 .style(Style::new().fg(Color::DarkGray)),
             keys,
         );
