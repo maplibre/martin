@@ -237,4 +237,131 @@ mod tests {
           output: []
         ");
     }
+
+    #[test]
+    fn a_case_of_a_row_the_spec_lacks_is_new_and_the_spec_case_of_no_row_found_is_gone() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 2 }
+            output:
+              - { layer: roads, id: 2, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let review = Review::new(
+            Vec::new(),
+            vec![Reviewed::new(case, Some(&old), &ids)],
+            Some(&old),
+            14,
+            ids,
+        );
+        let statuses: Vec<(String, CaseStatus)> = review
+            .cases
+            .iter()
+            .map(|r| (review.name(&r.case).to_string(), r.status))
+            .collect();
+        insta::assert_debug_snapshot!(statuses, @r#"
+        [
+            (
+                "roads 2",
+                New,
+            ),
+            (
+                "roads 1",
+                Gone,
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    fn a_case_with_the_output_of_the_spec_is_same() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1 }
+            output:
+              - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let review = Review::new(
+            Vec::new(),
+            vec![Reviewed::new(case, Some(&old), &ids)],
+            Some(&old),
+            14,
+            ids,
+        );
+        let statuses: Vec<(String, CaseStatus)> = review
+            .cases
+            .iter()
+            .map(|r| (review.name(&r.case).to_string(), r.status))
+            .collect();
+        insta::assert_debug_snapshot!(statuses, @r#"
+        [
+            (
+                "roads 1",
+                Same,
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    fn a_case_with_another_output_than_the_spec_is_changed() {
+        let ids = IdColumns::from([("roads".to_owned(), "osm_id".to_owned())]);
+        let old: Spec = serde_saphyr::from_str(indoc! {"
+            max_zoom: 14
+            cases:
+              - source: roads
+                input: { osm_id: 1 }
+                output:
+                  - { layer: roads, id: 1, geometry: line, zooms: 4-14 }
+        "})
+        .expect("parses");
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: roads
+            input: { osm_id: 1 }
+            output:
+              - { layer: roads, id: 1, geometry: line, zooms: 5-14 }
+        "})
+        .expect("parses");
+        let review = Review::new(
+            Vec::new(),
+            vec![Reviewed::new(case, Some(&old), &ids)],
+            Some(&old),
+            14,
+            ids,
+        );
+        let statuses: Vec<(String, CaseStatus)> = review
+            .cases
+            .iter()
+            .map(|r| (review.name(&r.case).to_string(), r.status))
+            .collect();
+        insta::assert_debug_snapshot!(statuses, @r#"
+        [
+            (
+                "roads 1",
+                Changed,
+            ),
+        ]
+        "#);
+    }
 }
