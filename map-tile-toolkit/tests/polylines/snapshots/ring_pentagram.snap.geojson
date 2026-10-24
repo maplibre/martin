@@ -44,6 +44,10 @@
         "type": "LineString",
         "coordinates": [
           [
+            25.0,
+            5.0
+          ],
+          [
             37.0,
             42.0
           ],

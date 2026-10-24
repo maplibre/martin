@@ -101,6 +101,26 @@
         "type": "MultiPoint",
         "coordinates": [
           [
+            -20.0,
+            -19.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -2/-1",
+        "indices": [
+          7
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
             3.0,
             3.0
           ]
@@ -281,6 +301,10 @@
         "type": "MultiPoint",
         "coordinates": [
           [
+            70.0,
+            5.0
+          ],
+          [
             45.0,
             -2.0
           ]
@@ -289,6 +313,7 @@
       "properties": {
         "role": "tile 2/-1",
         "indices": [
+          5,
           8
         ],
         "marker-color": "#b5211f",
@@ -382,6 +407,26 @@
           4
         ],
         "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            70.0,
+            5.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 3/-1",
+        "indices": [
+          5
+        ],
+        "marker-color": "#261fb5",
         "marker-size": "small"
       }
     },

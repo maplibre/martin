@@ -231,11 +231,11 @@ impl Crossing {
     }
 }
 
-/// Row `ty`'s center line: the midpoint of its buffered box `[ty·e - b, ty·e + e - 1 + b]`, rounded
+/// Row `ty`'s center line: the midpoint of its buffered box `[ty·e - b, ty·e + e + b]`, rounded
 /// toward zero, as the clip computes it with `midpoint` - in closed form: the buffer cancels, and the
-/// sum `2·ty·e + e - 1` is negative exactly when `ty < 0`, where rounding toward zero rounds up.
+/// sum `2·ty·e + e` is negative exactly when `ty < 0`, where rounding toward zero rounds up.
 fn row_center(ty: i64, extent: i64) -> i64 {
-    ty * extent + if ty < 0 { extent / 2 } else { (extent - 1) / 2 }
+    ty * extent + if ty < 0 { (extent + 1) / 2 } else { extent / 2 }
 }
 
 /// Rebuild `tree` as a Fenwick (binary indexed) tree over `values`, in `O(n)`.
@@ -500,9 +500,9 @@ impl<V> core::fmt::Debug for Scratch<V> {
     }
 }
 
-/// The fill ring of `run` on `grid`: tile (0, 0)'s buffered box `[-buffer, extent - 1 + buffer]`
-/// grown by one unit, wound like the run's polygon - the same in every tile's local frame. It fits
-/// `i32` because [`Grid::new`] keeps `extent + buffer` within it.
+/// The fill ring of `run` on `grid`: tile (0, 0)'s buffered box `[-buffer, extent + buffer]` grown
+/// by one unit, wound like the run's polygon - the same in every tile's local frame. It fits `i32`
+/// because [`Grid::new`] keeps `extent + buffer` below `i32::MAX`.
 pub(crate) fn fill_ring<V: PolyVertex>(grid: Grid, run: &FillRun) -> [V; 5] {
     let (extent, buffer) = (grid.extent_i32(), grid.buffer_i32());
     let sw = Coord {
@@ -510,8 +510,8 @@ pub(crate) fn fill_ring<V: PolyVertex>(grid: Grid, run: &FillRun) -> [V; 5] {
         y: -buffer - 1,
     };
     let ne = Coord {
-        x: extent + buffer,
-        y: extent + buffer,
+        x: extent + buffer + 1,
+        y: extent + buffer + 1,
     };
     fill_box(run.orient, sw, ne).map(V::synthetic_at)
 }
@@ -870,9 +870,9 @@ fn prepare<V: PolyVertex, R: AsRef<[V]>>(
             i32::try_from((i64::from(c) + d).div_euclid(extent)).unwrap_or(0)
         };
         return Ok(Some(Start::Small {
-            x0: tile(lo.x, -buffer),
+            x0: tile(lo.x, -buffer - 1),
             x1: tile(hi.x, buffer),
-            y0: tile(lo.y, -buffer),
+            y0: tile(lo.y, -buffer - 1),
             y1: tile(hi.y, buffer),
         }));
     }
@@ -887,7 +887,7 @@ fn prepare<V: PolyVertex, R: AsRef<[V]>>(
     s.active.clear();
     s.inside.clear();
     s.inside.resize(s.rings.len(), false);
-    let first = (i64::from(lo.y) - buffer).div_euclid(extent);
+    let first = (i64::from(lo.y) - buffer - 1).div_euclid(extent);
     let last = (i64::from(hi.y) + buffer).div_euclid(extent);
     Ok(Some(Start::Sweep { rows: first..=last }))
 }
@@ -1168,7 +1168,7 @@ impl Sweep {
         s.long_cover.clear();
         s.covering.clear();
         s.crossings.clear();
-        let (slab_lo, slab_hi) = (ty * extent - buffer, ty * extent + extent - 1 + buffer);
+        let (slab_lo, slab_hi) = (ty * extent - buffer, ty * extent + extent + buffer);
         let cy = row_center(ty, extent);
         for &c in &s.active {
             let chunk = s.chunks[c as usize];
@@ -1212,8 +1212,8 @@ impl Sweep {
                         edge,
                         ring: chunk.ring,
                         up: b.y > a.y,
-                        // Right of tile `tx`'s box iff x > tx·extent + extent - 1 + buffer.
-                        right_of: (x - extent - buffer).div_euclid(extent),
+                        // Right of tile `tx`'s box iff x > tx·extent + extent + buffer.
+                        right_of: (x - extent - buffer - 1).div_euclid(extent),
                     });
                 }
             }
@@ -1506,7 +1506,7 @@ fn index_chunks<V: Vertex, R: AsRef<[V]>>(s: &mut PolyScratch<V>, rings: &[R], e
                 first: first as u32,
                 count: count as u32,
                 rows: (
-                    (i64::from(y0) - buffer).div_euclid(extent),
+                    (i64::from(y0) - buffer - 1).div_euclid(extent),
                     (i64::from(y1) + buffer).div_euclid(extent),
                 ),
             });

@@ -12,7 +12,7 @@
 //! per-tile piece, sorted by `role`. Regenerate with `just bless`.
 //!
 //! Every fixture is snapshotted at two buffer sizes, each into its own directory:
-//! - `snapshots/` - buffer 0 (tile boxes flush with the grid);
+//! - `snapshots/` - buffer 0 (tile boxes flush with the grid, sharing their edges);
 //! - `snapshots-5/` - buffer 5 (each tile box grown 5 units per side, so near-edge vertices and
 //!   crossing segments also land in the neighboring tiles).
 

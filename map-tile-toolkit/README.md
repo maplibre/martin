@@ -70,7 +70,7 @@ its outside vertices are compared with the synthetic corners a detour winding ar
 way would need: with more vertices, the detour replaces them (a straight chord when it needs no corner),
 otherwise they are kept. A tile the polygon covers gets just the four corners, and a tile inside a hole
 gets nothing. Synthetic corners sit one unit outside the buffered box, at tile-local `-buffer - 1` or
-`extent + buffer`, so they never land in it.
+`extent + buffer + 1`, so they never land in it.
 
 ![Which polygon vertices a tile keeps](https://raw.githubusercontent.com/maplibre/martin/main/map-tile-toolkit/docs/images/clip-polygons.svg)
 
@@ -275,7 +275,10 @@ fn main() -> Result<(), TileError> {
 The slicer is integer-only: `extent` is both the tile side and its output resolution (the vector-tile
 `extent`). Vertex `x` belongs to tile `x.div_euclid(extent)`, whose own area is `[0, extent)` in its
 local frame `x - tile · extent`; buffer vertices, a line's first vertex past an edge and synthetic
-corners lie outside it. Add `tile · extent` to get global coordinates back. Do float and projection work
+corners lie outside it. A tile keeps what touches its buffered box, the closed `[-buffer, extent +
+buffer]` in that frame, as `ST_AsMVTGeom` clips: a vertex at `extent` lies on the edge of two tiles and
+reaches both. Add `tile · extent` to get global coordinates back. Do float and projection work
+
 up front (e.g. with [`geo`](https://docs.rs/geo)); for web mercator at zoom `z`, project, simplify, then
 scale by `2^z · extent / circumference`, move the top-left corner to the origin, flip `y`, and round,
 landing in `[0, 2^z · extent)`.

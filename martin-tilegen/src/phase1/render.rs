@@ -9,6 +9,7 @@ use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::phase1::simplify::Simplifier;
+use crate::phase1::touch::TileBox;
 use crate::sort::record::{EncodedProps, Geom, Vertex, encode};
 use crate::sort::{LayerId, Seq, SortBuffer, SortKey};
 use crate::{LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
@@ -218,7 +219,7 @@ impl RenderLayer {
             return Ok(None);
         }
         let (first, last) = (
-            (i64::from(lo) - i64::from(buffer)).div_euclid(i64::from(extent)),
+            (i64::from(lo) - i64::from(buffer) - 1).div_euclid(i64::from(extent)),
             (i64::from(hi) + i64::from(buffer)).div_euclid(i64::from(extent)),
         );
         let side = 1i64 << zoom;
@@ -262,6 +263,11 @@ impl RenderLayer {
         } else {
             threshold.below_max_zoom
         }
+    }
+
+    /// Every tile's buffered box, in its own frame.
+    fn tile_box(&self) -> Result<TileBox, GeometryError> {
+        Ok(TileBox::new(to_i32(self.grid.extent)?, to_i32(self.grid.buffer)?))
     }
 }
 
@@ -453,7 +459,13 @@ impl Renderer {
         for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
-            let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
+            let near = |l: i32| {
+                [
+                    (l <= buffer).then_some(-1),
+                    Some(0),
+                    (l >= extent - buffer).then_some(1),
+                ]
+            };
             for dx in near(lx).into_iter().flatten() {
                 for dy in near(ly).into_iter().flatten() {
                     self.points
@@ -521,6 +533,7 @@ impl Renderer {
         let Some((min, max)) = ctx.layer.reachable(zoom, vertices)? else {
             return Ok(());
         };
+        let tile_box = ctx.layer.tile_box()?;
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &self.slicers[pos].1;
         self.sliced.clear();
@@ -541,6 +554,10 @@ impl Renderer {
                 }
                 let start = self.sliced_vertices.len();
                 self.sliced_vertices.extend(slice.run().iter().map(|c| [c.x, c.y]));
+                if !tile_box.holds_length(&self.sliced_vertices[start..]) {
+                    self.sliced_vertices.truncate(start);
+                    continue;
+                }
                 self.sliced.push(SlicedPart {
                     tile: slice.tile(),
                     polygon: 0,
@@ -681,6 +698,7 @@ impl Renderer {
             rings.push(ring);
             rest = tail;
         }
+        let tile_box = ctx.layer.tile_box()?;
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &mut self.slicers[pos].1;
         self.sliced.clear();
@@ -703,6 +721,7 @@ impl Renderer {
                         self.reached.push(piece.tile());
                     }
                     PolygonSlice::Piece(piece) => {
+                        let (first_part, first_vertex) = (self.sliced.len(), self.sliced_vertices.len());
                         for ring in piece.rings() {
                             let start = self.sliced_vertices.len();
                             self.sliced_vertices.extend(ring.iter().map(|c| [c.x, c.y]));
@@ -714,6 +733,14 @@ impl Renderer {
                                 start,
                                 len: vertex_count(self.sliced_vertices.len() - start)?,
                             });
+                        }
+                        let vertices = &self.sliced_vertices;
+                        let rings = self.sliced[first_part..]
+                            .iter()
+                            .map(|p| &vertices[p.start..p.start + p.len as usize]);
+                        if !tile_box.holds_area(rings) {
+                            self.sliced.truncate(first_part);
+                            self.sliced_vertices.truncate(first_vertex);
                         }
                     }
                     // Only clipped: an unclipped slicer gives covered tiles the whole polygon.
@@ -1145,6 +1172,109 @@ mod tests {
         assert_eq!(names, ["1/0/0", "1/0/1", "1/1/0", "1/1/1"]);
         let local: Vec<_> = tiles.iter().map(|t| t.2.vertices[0]).collect();
         assert_eq!(local, [[257, 256], [257, 0], [1, 256], [1, 0]]);
+    }
+
+    #[test]
+    fn point_on_the_far_buffer_edge_reaches_the_neighbor() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let tiles = render(
+            &layer,
+            FeatureGeom::Points(&[coord! { x: 264.0 / 512.0, y: 100.0 / 512.0 }]),
+        );
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(found, [("1/0/0", vec![[264, 100]]), ("1/1/0", vec![[8, 100]])]);
+    }
+
+    #[test]
+    fn clipped_lines_touching_a_buffer_edge_from_outside_are_dropped() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let lines = [
+            LineString::from(vec![(264.0 / 512.0, 100.0 / 512.0), (300.0 / 512.0, 100.0 / 512.0)]),
+            LineString::from(vec![(200.0 / 512.0, 100.0 / 512.0), (248.0 / 512.0, 100.0 / 512.0)]),
+        ];
+        let tiles = render(&layer, FeatureGeom::Lines(&lines));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[200, 100], [248, 100]]),
+                ("1/1/0", vec![[8, 100], [44, 100]])
+            ]
+        );
+    }
+
+    #[test]
+    fn unclipped_lines_touching_a_buffer_edge_from_outside_reach_the_tile() {
+        let layer = RenderLayer::new(0, 1..=1, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let lines = [
+            LineString::from(vec![(264.0 / 512.0, 100.0 / 512.0), (300.0 / 512.0, 100.0 / 512.0)]),
+            LineString::from(vec![(200.0 / 512.0, 100.0 / 512.0), (248.0 / 512.0, 100.0 / 512.0)]),
+        ];
+        let tiles = render(&layer, FeatureGeom::Lines(&lines));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[264, 100], [300, 100], [200, 100], [248, 100]]),
+                ("1/1/0", vec![[8, 100], [44, 100], [-56, 100], [-8, 100]])
+            ]
+        );
+    }
+
+    #[test]
+    fn clipped_line_along_a_buffer_edge_is_kept() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let line = LineString::from(vec![(264.0 / 512.0, 50.0 / 512.0), (264.0 / 512.0, 150.0 / 512.0)]);
+        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[264, 50], [264, 150]]),
+                ("1/1/0", vec![[8, 50], [8, 150]])
+            ]
+        );
+    }
+
+    #[test]
+    fn clipped_polygon_touching_a_buffer_edge_from_outside_is_dropped() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let square = Polygon::new(
+            LineString::from(vec![
+                (264.0 / 512.0, 50.0 / 512.0),
+                (300.0 / 512.0, 50.0 / 512.0),
+                (300.0 / 512.0, 150.0 / 512.0),
+                (264.0 / 512.0, 150.0 / 512.0),
+            ]),
+            vec![],
+        );
+        let tiles = render(&layer, FeatureGeom::Polygons(std::slice::from_ref(&square)));
+        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(names, ["1/1/0"]);
+    }
+
+    #[test]
+    fn clipped_polygon_lying_on_a_tiles_buffer_box_is_kept_there() {
+        let layer = RenderLayer::new(0, 2..=2, GRID).unwrap();
+        let square = Polygon::new(
+            LineString::from(vec![
+                (248.0 / 1024.0, 248.0 / 1024.0),
+                (520.0 / 1024.0, 248.0 / 1024.0),
+                (520.0 / 1024.0, 520.0 / 1024.0),
+                (248.0 / 1024.0, 520.0 / 1024.0),
+            ]),
+            vec![],
+        );
+        let tiles = render(&layer, FeatureGeom::Polygons(std::slice::from_ref(&square)));
+        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "2/0/0", "2/0/1", "2/0/2", "2/1/0", "2/1/1", "2/1/2", "2/2/0", "2/2/1", "2/2/2"
+            ]
+        );
     }
 
     #[test]

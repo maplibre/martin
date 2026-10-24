@@ -1,9 +1,8 @@
 //! Tile addressing on the integer grid.
 //!
-//! A tile of side `extent` covers the closed integer square `[x·extent, x·extent + extent - 1]` on
-//! each axis, so the boundary between tiles `k-1` and `k` sits at `k·extent - 0.5` (between two
-//! integer coordinates). Integer vertices therefore never land exactly on a tile edge - every vertex
-//! belongs to exactly one tile.
+//! A tile of side `extent` owns the integer square `[x·extent, x·extent + extent - 1]` on each axis, so
+//! every vertex has exactly one owner. What a tile keeps is wider: its closed clip box
+//! `[x·extent - buffer, x·extent + extent + buffer]` shares the vertices on its edges with its neighbors.
 
 use geo_types::Coord;
 

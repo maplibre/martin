@@ -3,6 +3,7 @@
 pub mod project;
 mod render;
 mod simplify;
+mod touch;
 
 use geo_types::Coord;
 use martin_tile_utils::TileRect;
