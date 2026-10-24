@@ -299,6 +299,12 @@ every pair of rounded edges. Its area is what the exterior covers, minus what an
 lobes of a self-crossing exterior are kept, split at an added vertex where its edges cross, and a hole
 only takes out its part inside the exterior.
 
+Rounding the parts of a multipolygon one by one can make them touch or overlap: two parts under a unit
+apart round onto one edge. `Quantizer::multi_polygon` takes polygons that are each valid but may touch or
+overlap, as independently simplified parts can. A part whose rounded vertices stay clear of every other
+part's is rounded as `polygon` rounds it. Parts that come closer are rounded together, kept if none of
+their rounded edges meet, and otherwise merged into their union, as `ST_ReducePrecision` does in `PostGIS`.
+
 In the example below, the tip's two vertices are under a unit apart, so rounded one by one its edges
 would cross: instead the two tip vertices merge into one.
 
