@@ -17,6 +17,9 @@ const TILE_PIXELS: u16 = 256;
 /// The 0.28 mm pixel that OGC scale denominators are computed for.
 const STANDARD_PIXEL_METRES: f64 = 0.000_28;
 
+/// The OGC URI of longitude and latitude on WGS 84.
+pub(super) const CRS84: &str = "http://www.opengis.net/def/crs/OGC/1.3/CRS84";
+
 /// The built-in grids that are also in the OGC tile matrix set registry.
 const REGISTERED_GRIDS: [&str; 6] = [
     "WebMercatorQuad",
@@ -70,10 +73,10 @@ struct TileMatrix {
 }
 
 /// The OGC URI of the grid's CRS and the metres one of its units spans, for the CRSs that have one.
-fn crs(grid: &TileGrid) -> Option<(String, f64)> {
+pub(super) fn crs(grid: &TileGrid) -> Option<(String, f64)> {
     match (grid.crs_authority(), grid.crs_code()) {
         ("EPSG", "4326") | ("OGC", "CRS84") => Some((
-            "http://www.opengis.net/def/crs/OGC/1.3/CRS84".to_owned(),
+            CRS84.to_owned(),
             EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
         )),
         ("EPSG", code) => Some((format!("http://www.opengis.net/def/crs/EPSG/0/{code}"), 1.0)),
@@ -82,7 +85,7 @@ fn crs(grid: &TileGrid) -> Option<(String, f64)> {
 }
 
 /// The registry URI of a built-in grid the OGC registry defines.
-fn registered_uri(grid: &TileGrid) -> Option<String> {
+pub(super) fn registered_uri(grid: &TileGrid) -> Option<String> {
     REGISTERED_GRIDS
         .contains(&grid.id())
         .then(|| format!("http://www.opengis.net/def/tilematrixset/OGC/1.0/{}", grid.id()))

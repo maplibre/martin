@@ -12,6 +12,9 @@ pub struct Link {
     #[serde(rename = "type")]
     pub media_type: &'static str,
     pub title: &'static str,
+    /// Whether `href` is a URI template.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub templated: bool,
 }
 
 impl Link {
@@ -22,6 +25,7 @@ impl Link {
             rel,
             media_type: "application/json",
             title,
+            templated: false,
         }
     }
 }
