@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use serde::Serialize;
 
-use crate::{EARTH_CIRCUMFERENCE, MAX_ZOOM, TileRect};
+use crate::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileRect};
 
 /// Identifier of the built-in Web Mercator grid, [`WEB_MERCATOR_QUAD`].
 pub const WEB_MERCATOR_QUAD_ID: &str = "WebMercatorQuad";
@@ -169,6 +169,17 @@ pub enum TileGridError {
     InvalidMatrix(String, u32, u32),
 }
 
+/// The units and axis order of a coordinate reference system.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CrsAxes {
+    /// Metres in one unit of the CRS, at the equator for degrees.
+    pub metres_per_unit: f64,
+    /// The abbreviations of the axes, in the order the CRS gives coordinates.
+    pub ordered_axes: [&'static str; 2],
+    /// Whether the CRS gives the northing before the easting.
+    pub northing_first: bool,
+}
+
 impl TileGrid {
     /// A grid named `id` in the coordinate reference system `crs`, whose zoom-0 tile has its top-left corner at `origin` and side `extent_at_zoom0`, both in CRS units.
     ///
@@ -243,6 +254,28 @@ impl TileGrid {
     #[must_use]
     pub fn crs_code(&self) -> &str {
         self.crs.split_once(':').map_or("", |(_, c)| c)
+    }
+
+    /// The units and axis order of [`crs`](Self::crs), for the CRSs of the built-in grids.
+    #[must_use]
+    pub fn crs_axes(&self) -> Option<CrsAxes> {
+        let metres = |ordered_axes, northing_first| CrsAxes {
+            metres_per_unit: 1.0,
+            ordered_axes,
+            northing_first,
+        };
+        match (self.crs_authority(), self.crs_code()) {
+            ("EPSG", "4326") | ("OGC", "CRS84") => Some(CrsAxes {
+                metres_per_unit: EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
+                ordered_axes: ["Lon", "Lat"],
+                northing_first: false,
+            }),
+            ("EPSG", "3857") => Some(metres(["X", "Y"], false)),
+            ("EPSG", "3395" | "5041" | "5042") => Some(metres(["E", "N"], false)),
+            ("EPSG", "3035") => Some(metres(["Y", "X"], true)),
+            ("EPSG", "2193") => Some(metres(["N", "E"], true)),
+            _ => None,
+        }
     }
 
     /// Top-left corner of the zoom-0 tile, in CRS units.
@@ -364,6 +397,16 @@ mod tests {
         assert_eq!(mercator, ["WebMercatorQuad"]);
         let plan = TileGrid::new("floor", SIMPLE_CRS, [0.0, 1000.0], 1000.0).unwrap();
         assert!(!plan.wraps());
+    }
+
+    #[test]
+    fn every_built_in_grid_knows_the_units_and_axis_order_of_its_crs() {
+        let unknown: Vec<&str> = BUILT_IN_GRIDS
+            .iter()
+            .filter(|grid| grid.crs_axes().is_none())
+            .map(TileGrid::id)
+            .collect();
+        assert!(unknown.is_empty(), "{unknown:?}");
     }
 
     #[rstest]

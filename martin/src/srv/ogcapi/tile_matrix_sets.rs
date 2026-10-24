@@ -2,7 +2,7 @@ use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileGrid};
+use martin_tile_utils::{CrsAxes, MAX_ZOOM, TileGrid};
 use serde::Serialize;
 
 use super::error::OgcApiError;
@@ -66,39 +66,24 @@ struct TileMatrix {
 /// A CRS as OGC documents name it, with its units and axis order.
 pub(super) struct OgcCrs {
     pub uri: String,
-    metres_per_unit: f64,
-    ordered_axes: [&'static str; 2],
-    northing_first: bool,
+    axes: CrsAxes,
 }
 
 impl OgcCrs {
     /// An `[x, y]` point in the axis order of the CRS.
     fn point(&self, [x, y]: [f64; 2]) -> [f64; 2] {
-        if self.northing_first { [y, x] } else { [x, y] }
+        if self.axes.northing_first { [y, x] } else { [x, y] }
     }
 }
 
-/// The CRS of `grid`, for the CRSs of the built-in grids, whose units and axis order are known.
+/// The CRS of `grid`, for the CRSs whose units and axis order [`TileGrid::crs_axes`] knows.
 pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
-    let epsg = |code: &str, ordered_axes, northing_first| OgcCrs {
-        uri: format!("http://www.opengis.net/def/crs/EPSG/0/{code}"),
-        metres_per_unit: 1.0,
-        ordered_axes,
-        northing_first,
+    let axes = grid.crs_axes()?;
+    let uri = match grid.crs() {
+        "EPSG:4326" | "OGC:CRS84" => CRS84.to_owned(),
+        _ => format!("http://www.opengis.net/def/crs/EPSG/0/{}", grid.crs_code()),
     };
-    match (grid.crs_authority(), grid.crs_code()) {
-        ("EPSG", "4326") | ("OGC", "CRS84") => Some(OgcCrs {
-            uri: CRS84.to_owned(),
-            metres_per_unit: EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
-            ordered_axes: ["Lon", "Lat"],
-            northing_first: false,
-        }),
-        ("EPSG", code @ "3857") => Some(epsg(code, ["X", "Y"], false)),
-        ("EPSG", code @ ("3395" | "5041" | "5042")) => Some(epsg(code, ["E", "N"], false)),
-        ("EPSG", code @ "3035") => Some(epsg(code, ["Y", "X"], true)),
-        ("EPSG", code @ "2193") => Some(epsg(code, ["N", "E"], true)),
-        _ => None,
-    }
+    Some(OgcCrs { uri, axes })
 }
 
 /// The registry URI of a built-in grid the OGC registry defines.
@@ -116,7 +101,7 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
             let cell_size = grid.tile_side(zoom) / f64::from(TILE_PIXELS);
             TileMatrix {
                 id: zoom.to_string(),
-                scale_denominator: cell_size * crs.metres_per_unit / STANDARD_PIXEL_METRES,
+                scale_denominator: cell_size * crs.axes.metres_per_unit / STANDARD_PIXEL_METRES,
                 cell_size,
                 point_of_origin: crs.point(grid.origin()),
                 tile_width: TILE_PIXELS,
@@ -130,7 +115,7 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
         id: grid.id().to_owned(),
         uri: registered_uri(grid),
         crs: crs.uri,
-        ordered_axes: crs.ordered_axes,
+        ordered_axes: crs.axes.ordered_axes,
         tile_matrices,
     })
 }
