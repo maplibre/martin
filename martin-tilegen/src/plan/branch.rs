@@ -108,6 +108,7 @@ impl Plan {
     /// A column in `facts` with known values that a layer's expressions read gives that layer one path per value, and
     /// one for `null` unless the column is never `null`, naming what the layer makes of it wherever the value decides
     /// that, and the choices it decides get no paths of their own. A column that is never `null` gets no `null` paths.
+    /// Nothing in `facts` counts while a `jsonb` column may replace the columns it is about.
     ///
     /// # Errors
     ///
@@ -150,14 +151,20 @@ impl Plan {
             .tables
             .get(usize::from(table))
             .ok_or(TileGenError::UnknownTable(table))?;
+        let facts = if planned.defs.iter().any(|c| matches!(c, ColumnDef::Keys(_))) {
+            &[]
+        } else {
+            facts
+        };
         let known: Vec<KnownValues> = facts
             .iter()
             .filter_map(|f| {
-                let values: Vec<Literal> = (f.values.as_deref()?.iter())
+                let all = f.values.as_deref()?;
+                let values: Vec<Literal> = (all.iter())
                     .filter(|value| compared_as(&planned.defs, &f.column, value).is_some())
                     .cloned()
                     .collect();
-                (!values.is_empty()).then(|| KnownValues {
+                (all.is_empty() || !values.is_empty()).then(|| KnownValues {
                     column: f.column.clone(),
                     values,
                     nullable: !f.not_null,

@@ -7,11 +7,12 @@ use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::TableInfo;
 
-/// The columns of the table `info` reads, each with its name in the table, whether it is never `null`, the labels of
-/// its enum type, and the definitions of the valid `CHECK`s on it alone.
+/// The columns of the table `info` reads, each with its name in the table, its type, whether it is never `null`, the
+/// labels of its enum type, and the definitions of the valid `CHECK`s on it alone.
 const COLUMNS_SQL: &str = "
 SELECT a.attname::text,
        quote_ident(a.attname),
+       format_type(a.atttypid, NULL),
        a.attnotnull AND NOT EXISTS (
          SELECT 1 FROM pg_constraint n
          WHERE n.conrelid = a.attrelid AND n.contype = 'n' AND n.conkey = ARRAY[a.attnum] AND NOT n.convalidated
@@ -44,11 +45,16 @@ pub async fn table_facts(conn: &PooledConnection, info: &TableInfo) -> Result<Ve
             continue;
         };
         let quoted: &str = row.get(1);
-        let not_null: bool = row.get(2);
-        let labels: Option<Vec<String>> = row.get(3);
-        let checks: Vec<String> = row.get(4);
+        let type_name: &str = row.get(2);
+        let not_null: bool = row.get(3);
+        let labels: Option<Vec<String>> = row.get(4);
+        let checks: Vec<String> = row.get(5);
+        let text_cast = labels.is_some() || matches!(type_name, "text" | "character varying");
         let mut values = labels.map(|labels| labels.into_iter().map(Literal::String).collect::<Vec<_>>());
-        for allowed in checks.iter().filter_map(|check| check_values(check, quoted)) {
+        for allowed in checks
+            .iter()
+            .filter_map(|check| check_values(check, quoted, type_name, text_cast))
+        {
             values = Some(match values {
                 Some(values) => values.into_iter().filter(|v| allowed.contains(v)).collect(),
                 None => allowed,
@@ -65,14 +71,25 @@ pub async fn table_facts(conn: &PooledConnection, info: &TableInfo) -> Result<Ve
     Ok(out)
 }
 
-/// The values `CHECK` definition `check` allows column `quoted`, when it compares the column to one value or to an
-/// `ARRAY` of them, as `pg_get_constraintdef` prints `column = value` and `column IN (values)`.
-fn check_values(check: &str, quoted: &str) -> Option<Vec<Literal>> {
+/// The values `CHECK` definition `check` allows column `quoted` of type `type_name`, when it compares the column to
+/// one value or to an `ARRAY` of them, as `pg_get_constraintdef` prints `column = value` and `column IN (values)`.
+/// The column may be cast to its own type, to `text` when `text_cast` keeps its values apart, or to a wider integer.
+fn check_values(check: &str, quoted: &str, type_name: &str, text_cast: bool) -> Option<Vec<Literal>> {
     let body = unwrap_parens(check.strip_prefix("CHECK ")?);
     let (left, right) = body.split_once(" = ")?;
     let left = unwrap_parens(left);
     let column = match left.rsplit_once("::") {
-        Some((column, _)) => unwrap_parens(column),
+        Some((column, cast)) => {
+            let widens = match cast {
+                "text" => text_cast,
+                "bigint" | "numeric" => matches!(type_name, "smallint" | "integer" | "bigint"),
+                cast => cast == type_name,
+            };
+            if !widens {
+                return None;
+            }
+            unwrap_parens(column)
+        }
         None => left,
     };
     if column != quoted {
@@ -130,7 +147,7 @@ fn split_items(items: &str) -> Vec<&str> {
 }
 
 /// A constant as `PostgreSQL` prints it, e.g. `'a'::text`, `'-1'::integer`, `(2)::numeric` or `2`, read as the type
-/// of its cast.
+/// of its cast, or `None` for one it cannot read, e.g. `NULL::text`.
 fn literal(text: &str) -> Option<Literal> {
     let text = unwrap_parens(text);
     let (value, cast) = match text.strip_prefix('\'') {
@@ -151,7 +168,10 @@ fn literal(text: &str) -> Option<Literal> {
         Some("integer" | "bigint" | "smallint") => text.parse().ok().map(Literal::Int),
         Some("numeric" | "double precision" | "real") => text.parse().ok().map(Literal::Float),
         Some("boolean") => text.parse().ok().map(Literal::Bool),
-        Some(_) => Some(Literal::String(text.to_owned())),
+        Some(_) => match value {
+            Printed::Quoted(text) => Some(Literal::String(text)),
+            Printed::Bare(_) => None,
+        },
         None => match value {
             Printed::Quoted(text) => Some(Literal::String(text)),
             Printed::Bare(text) => (text.parse().ok().map(Literal::Bool))

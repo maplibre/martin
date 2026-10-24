@@ -722,7 +722,7 @@ fn a_choice_inside_an_expression_names_its_field_without_a_value() {
 }
 
 #[test]
-fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
+fn a_json_column_that_may_replace_a_known_column_keeps_its_choice_paths() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
             ColumnDef::Value("type".to_owned(), None),
@@ -740,22 +740,46 @@ fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
         not_null: true,
         values: Some(vec![Literal::String("stop".to_owned())]),
     }];
-    insta::assert_debug_snapshot!(plan.branches(0, &known).unwrap(), @r#"
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
     [
-        Branch {
-            layer: "devices",
-            path: "type 'stop' -> kept by `where: type == 'stop'`",
-            rows: Err(
-                Untranslatable {
-                    layer: "devices",
-                    expr: "the column's known values",
-                    reason: KeysMayReplaceColumns(
-                        "tags",
-                    ),
-                },
-            ),
-            shape: None,
-        },
+        "devices: kept by `where: type == 'stop'`",
+        "devices: dropped, `where: type == 'stop'` is false",
+        "devices: dropped, `type` is null in `where: type == 'stop'`",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_column_with_no_values_has_only_a_null_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("type == 'stop'".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "type".to_owned(),
+        not_null: false,
+        values: Some(Vec::new()),
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: type null -> dropped, `where: type == 'stop'` is false",
     ]
     "#);
 }

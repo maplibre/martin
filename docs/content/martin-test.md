@@ -79,6 +79,8 @@ Paths skip what the source or table rules out:
 | enum type, `CHECK (col IN (...))`, `CHECK (col = ...)` | one per value, `null` unless `NOT NULL` |
 | `id_column`                                            | no `null` path                          |
 
+None apply while a `jsonb` property column may replace the column.
+
 `martin test` only selects rows with an `id_column` of 0 or more, so rows without one are never a case.
 
 ## Spec file
