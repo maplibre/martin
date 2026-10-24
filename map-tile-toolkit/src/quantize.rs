@@ -3,6 +3,7 @@
 use core::cmp::Ordering;
 use core::ops::{Add, AddAssign, Neg, Range, Sub, SubAssign};
 use std::collections::HashMap;
+use std::iter::once;
 
 use geo_types::Coord;
 
@@ -37,6 +38,7 @@ type Pixel = Coord<i32>;
 pub struct Quantizer {
     fixed: Vec<Fixed>,
     fixed_ends: Vec<usize>,
+    fixed_polygon_ends: Vec<usize>,
     rounded_at: Vec<Option<usize>>,
     near_other_ring: Vec<bool>,
     vertices: Vec<Pixel>,
@@ -45,9 +47,113 @@ pub struct Quantizer {
     segs: Vec<Seg>,
     lines: Vec<(Fixed, Fixed)>,
     grid: Grid,
+    groups: PartGroups,
+    group: Option<Box<Self>>,
 }
 
-/// The polygons [`Quantizer::polygon`] or [`Quantizer::make_valid`] rounded one polygon into.
+/// Reusable working memory that sorts a multipolygon's parts into groups that may round onto each other.
+#[derive(Debug, Default, Clone)]
+struct PartGroups {
+    boxes: Vec<(Pixel, Pixel)>,
+    starts: Vec<i32>,
+    ends: Vec<i32>,
+    roots: Vec<usize>,
+    order: Vec<usize>,
+    active: Vec<usize>,
+    grouped: Vec<(usize, usize)>,
+}
+
+impl PartGroups {
+    /// Groups the polygons whose rings end at `ring_ends` in `fixed` and that end at `polygon_ends`,
+    /// as `(first part, part)` pairs sorted by both: parts are grouped when the pixels their vertices
+    /// round into span touching boxes, directly or through other parts.
+    ///
+    /// Sweeps along the axis on which fewer pairs of boxes overlap, so a column of islands costs no more
+    /// than a row of them.
+    fn group(&mut self, fixed: &[Fixed], ring_ends: &[usize], polygon_ends: &[usize]) -> &[(usize, usize)] {
+        let Self {
+            boxes,
+            starts,
+            ends,
+            roots,
+            order,
+            active,
+            grouped,
+        } = self;
+        boxes.clear();
+        for rings in spans(polygon_ends) {
+            let vertices = span(ring_ends, rings.start).start..ring_ends[rings.end - 1];
+            let (min, max) = bounds(fixed[vertices].iter().copied()).expect("a part keeps its exterior");
+            boxes.push((pixel(min), pixel(max)));
+        }
+        let along_x = sweep_checks(boxes, |(lo, hi)| (lo.x, hi.x), starts, ends);
+        let along_y = sweep_checks(boxes, |(lo, hi)| (lo.y, hi.y), starts, ends);
+        if along_y < along_x {
+            for (lo, hi) in boxes.iter_mut() {
+                (*lo, *hi) = (Coord { x: lo.y, y: lo.x }, Coord { x: hi.y, y: hi.x });
+            }
+        }
+        roots.clear();
+        roots.extend(0..boxes.len());
+        order.clear();
+        order.extend(0..boxes.len());
+        order.sort_unstable_by_key(|&p| boxes[p].0.x);
+        active.clear();
+        for &p in &*order {
+            let (lo, hi) = boxes[p];
+            active.retain(|&q| boxes[q].1.x >= lo.x);
+            for &q in &*active {
+                if boxes[q].0.y <= hi.y && lo.y <= boxes[q].1.y {
+                    let (a, b) = (root(roots, p), root(roots, q));
+                    roots[a.max(b)] = a.min(b);
+                }
+            }
+            active.push(p);
+        }
+        grouped.clear();
+        for p in 0..boxes.len() {
+            let r = root(roots, p);
+            grouped.push((r, p));
+        }
+        grouped.sort_unstable();
+        grouped
+    }
+}
+
+/// How many pairs of `boxes` a sweep along the axis whose range `axis` gives would check: for each box,
+/// those starting no later that do not end before it starts.
+fn sweep_checks(
+    boxes: &[(Pixel, Pixel)],
+    axis: fn(&(Pixel, Pixel)) -> (i32, i32),
+    starts: &mut Vec<i32>,
+    ends: &mut Vec<i32>,
+) -> usize {
+    starts.clear();
+    ends.clear();
+    for b in boxes {
+        let (start, end) = axis(b);
+        starts.push(start);
+        ends.push(end);
+    }
+    starts.sort_unstable();
+    ends.sort_unstable();
+    starts
+        .iter()
+        .enumerate()
+        .map(|(i, &start)| i - ends.partition_point(|&end| end < start))
+        .sum()
+}
+
+/// The root of `p` in the forest `roots`, halving the path to it.
+fn root(roots: &mut [usize], mut p: usize) -> usize {
+    while roots[p] != p {
+        roots[p] = roots[roots[p]];
+        p = roots[p];
+    }
+    p
+}
+
+/// The polygons [`Quantizer::polygon`], [`Quantizer::multi_polygon`] or [`Quantizer::make_valid`] rounded into.
 #[derive(Debug, Clone, Copy)]
 pub struct Quantized<'a> {
     quantizer: &'a Quantizer,
@@ -102,6 +208,11 @@ impl Winding {
     /// Whether the point is inside the exterior and outside every hole.
     fn inside(self) -> bool {
         self.exterior != 0 && self.holes == 0
+    }
+
+    /// Whether the point is inside more exteriors than holes: in some part of a valid multipolygon.
+    fn in_some_part(self) -> bool {
+        self.exterior + self.holes > 0
     }
 }
 
@@ -164,10 +275,68 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(rings, Self::rounding_kept_valid)?;
+        self.read(once(rings))?;
+        self.finish(Self::rounding_kept_valid, Winding::inside);
         debug_assert!(
             self.output_is_valid(),
             "Quantizer::polygon was given an invalid polygon"
+        );
+        Ok(Quantized { quantizer: self })
+    }
+
+    /// Rounds a multipolygon's `polygons`, each its rings, exterior first, in grid units, into valid
+    /// polygons.
+    ///
+    /// Each polygon must be valid on its own, as for [`Self::polygon`], but they may touch or overlap:
+    /// parts whose rounded rings meet or overlap merge into one polygon.
+    ///
+    /// # Errors
+    ///
+    /// [`TileError::Overflow`] if a coordinate is not finite or rounds outside the `i32` range.
+    pub fn multi_polygon<P>(&mut self, polygons: P) -> Result<Quantized<'_>, TileError>
+    where
+        P: IntoIterator,
+        P::Item: IntoIterator,
+        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
+    {
+        self.read(polygons)?;
+        let parts = self.fixed_polygon_ends.len();
+        let mut groups = std::mem::take(&mut self.groups);
+        let grouped = groups.group(&self.fixed, &self.fixed_ends, &self.fixed_polygon_ends);
+        if grouped
+            .first()
+            .is_none_or(|&(first, _)| grouped.iter().all(|g| g.0 == first))
+        {
+            self.finish_group(parts);
+        } else {
+            let mut group = self.group.take().unwrap_or_default();
+            self.vertices.clear();
+            self.ring_ends.clear();
+            self.polygon_ends.clear();
+            for members in grouped.chunk_by(|a, b| a.0 == b.0) {
+                group.fixed.clear();
+                group.fixed_ends.clear();
+                group.fixed_polygon_ends.clear();
+                for &(_, p) in members {
+                    for r in span(&self.fixed_polygon_ends, p) {
+                        group.fixed.extend_from_slice(&self.fixed[span(&self.fixed_ends, r)]);
+                        group.fixed_ends.push(group.fixed.len());
+                    }
+                    group.fixed_polygon_ends.push(group.fixed_ends.len());
+                }
+                group.finish_group(members.len());
+                let (vertex_offset, ring_offset) = (self.vertices.len(), self.ring_ends.len());
+                self.vertices.extend_from_slice(&group.vertices);
+                self.ring_ends.extend(group.ring_ends.iter().map(|e| e + vertex_offset));
+                self.polygon_ends
+                    .extend(group.polygon_ends.iter().map(|e| e + ring_offset));
+            }
+            self.group = Some(group);
+        }
+        self.groups = groups;
+        debug_assert!(
+            self.output_is_valid(),
+            "Quantizer::multi_polygon was given a polygon that is not valid on its own"
         );
         Ok(Quantized { quantizer: self })
     }
@@ -184,38 +353,63 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(rings, Self::rounded_is_valid)?;
+        self.read(once(rings))?;
+        self.finish(Self::rounded_is_valid, Winding::inside);
         debug_assert!(self.output_is_valid(), "Quantizer::make_valid gave an invalid polygon");
         Ok(Quantized { quantizer: self })
     }
 
-    /// Reads and rounds `rings`, keeping the rounded rings if `still_valid` holds and repairing them if not.
-    fn quantize<R>(&mut self, rings: R, still_valid: fn(&mut Self) -> bool) -> Result<(), TileError>
-    where
-        R: IntoIterator,
-        R::Item: IntoIterator<Item = Coord<f64>>,
-    {
-        self.read(rings)?;
+    /// Rounds the polygons read, keeping the rounded rings if `still_valid` holds and repairing them
+    /// into the area where `inside` holds if not.
+    fn finish(&mut self, still_valid: fn(&mut Self) -> bool, inside: fn(Winding) -> bool) {
         self.round();
         if !self.ring_ends.is_empty() {
             if still_valid(self) {
                 self.keep();
             } else {
-                self.repair();
+                self.repair(inside);
             }
+        }
+    }
+
+    /// Rounds a group of `parts` polygons read: one as [`Self::polygon`] does, more keeping the rounded
+    /// rings only if none of them meet, and their union if any do.
+    fn finish_group(&mut self, parts: usize) {
+        if parts == 1 {
+            self.finish(Self::rounding_kept_valid, Winding::inside);
+        } else {
+            self.finish(
+                |q| q.rounded_rings_apart() && q.output_is_valid(),
+                Winding::in_some_part,
+            );
+        }
+    }
+
+    /// Reads each of `polygons` with [`Self::read_polygon`].
+    fn read<P>(&mut self, polygons: P) -> Result<(), TileError>
+    where
+        P: IntoIterator,
+        P::Item: IntoIterator,
+        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
+    {
+        self.fixed.clear();
+        self.fixed_ends.clear();
+        self.fixed_polygon_ends.clear();
+        for rings in polygons {
+            self.read_polygon(rings)?;
         }
         Ok(())
     }
 
-    /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three
-    /// and turning the exterior positive and the holes negative.
-    fn read<R>(&mut self, rings: R) -> Result<(), TileError>
+    /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three,
+    /// and all of them when that is the exterior or there is none, and turning the exterior positive and
+    /// the holes negative.
+    fn read_polygon<R>(&mut self, rings: R) -> Result<(), TileError>
     where
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.fixed.clear();
-        self.fixed_ends.clear();
+        let first_ring = self.fixed_ends.len();
         for (i, ring) in rings.into_iter().enumerate() {
             let start = self.fixed.len();
             for c in ring {
@@ -239,6 +433,9 @@ impl Quantizer {
             }
             self.fixed_ends.push(self.fixed.len());
         }
+        if self.fixed_ends.len() > first_ring {
+            self.fixed_polygon_ends.push(self.fixed_ends.len());
+        }
         Ok(())
     }
 
@@ -248,49 +445,58 @@ impl Quantizer {
         is_valid(&vertices, &self.ring_ends, &self.polygon_ends)
     }
 
-    /// Rounds every vertex on its own, dropping the rings left with fewer than three, and all of them
-    /// when that is the exterior.
+    /// Rounds every vertex on its own, dropping the rings left with fewer than three, and a polygon's
+    /// rings when that is its exterior.
     fn round(&mut self) {
         self.vertices.clear();
         self.ring_ends.clear();
         self.polygon_ends.clear();
         self.rounded_at.clear();
-        for (i, ring) in rings_of(&self.fixed, &self.fixed_ends).enumerate() {
-            let start = self.vertices.len();
-            let from = self.rounded_at.len();
-            for &c in ring {
-                push_new(&mut self.vertices, start, pixel(c));
-                self.rounded_at.push(Some(self.vertices.len() - 1));
-            }
-            if drop_closing(&mut self.vertices, start) {
-                let last = Some(self.vertices.len());
-                for r in &mut self.rounded_at[from..] {
-                    if *r == last {
-                        *r = Some(start);
+        for rings in spans(&self.fixed_polygon_ends) {
+            let first_ring = self.ring_ends.len();
+            for r in rings.clone() {
+                let start = self.vertices.len();
+                let from = self.rounded_at.len();
+                for &c in &self.fixed[span(&self.fixed_ends, r)] {
+                    push_new(&mut self.vertices, start, pixel(c));
+                    self.rounded_at.push(Some(self.vertices.len() - 1));
+                }
+                if drop_closing(&mut self.vertices, start) {
+                    let last = Some(self.vertices.len());
+                    for at in &mut self.rounded_at[from..] {
+                        if *at == last {
+                            *at = Some(start);
+                        }
                     }
                 }
-            }
-            if self.vertices.len() - start < 3 {
-                self.vertices.truncate(start);
-                if i == 0 {
-                    return;
+                if self.vertices.len() - start < 3 {
+                    self.vertices.truncate(start);
+                    if r == rings.start {
+                        self.rounded_at.truncate(from);
+                        self.rounded_at.resize(self.fixed_ends[rings.end - 1], None);
+                        break;
+                    }
+                    self.rounded_at[from..].fill(None);
+                    continue;
                 }
-                self.rounded_at[from..].fill(None);
-                continue;
+                self.ring_ends.push(self.vertices.len());
             }
-            self.ring_ends.push(self.vertices.len());
+            if self.ring_ends.len() > first_ring {
+                self.polygon_ends.push(self.ring_ends.len());
+            }
         }
     }
 
-    /// Keeps the rounded rings as one polygon, the exterior turning positive and the holes negative.
+    /// Keeps the rounded rings as they are, each exterior turning positive and each hole negative.
     fn keep(&mut self) {
-        for (i, span) in spans(&self.ring_ends).enumerate() {
-            let ring = &mut self.vertices[span];
-            if (signed_area_2x(ring) > 0) != (i == 0) {
-                ring.reverse();
+        for rings in spans(&self.polygon_ends) {
+            for r in rings.clone() {
+                let ring = &mut self.vertices[span(&self.ring_ends, r)];
+                if (signed_area_2x(ring) > 0) != (r == rings.start) {
+                    ring.reverse();
+                }
             }
         }
-        self.polygon_ends.push(self.ring_ends.len());
     }
 
     /// Lists the rounded edges, and tells whether no ring folds back onto itself at a vertex.
@@ -372,9 +578,9 @@ impl Quantizer {
                 .all(|(r, near)| r[0].is_none() || near.contains(&false))
     }
 
-    /// Whether the rounded rings meet only where consecutive edges share a vertex, with every hole
-    /// inside the exterior and outside the other holes.
-    fn rounded_is_valid(&mut self) -> bool {
+    /// Whether the rounded rings meet only where consecutive edges share a vertex, listing their edges
+    /// in `lines`.
+    fn rounded_rings_apart(&mut self) -> bool {
         if !self.rounded_edges() {
             return false;
         }
@@ -382,12 +588,18 @@ impl Quantizer {
         self.lines.clear();
         self.lines.extend(segs.iter().map(|s| s.line()));
         let lines = &self.lines;
-        let planar = near_pairs(lines, &mut self.grid, |i, j| {
+        near_pairs(lines, &mut self.grid, |i, j| {
             adjacent(segs, i, j) || contact(lines[i], lines[j]) == Contact::Apart
-        });
-        if !planar {
+        })
+    }
+
+    /// Whether the rounded rings meet only where consecutive edges share a vertex, with every hole
+    /// inside the exterior and outside the other holes.
+    fn rounded_is_valid(&mut self) -> bool {
+        if !self.rounded_rings_apart() {
             return false;
         }
+        let (segs, lines) = (&self.segs, &self.lines);
         if self.ring_ends.len() == 1 {
             return true;
         }
@@ -408,22 +620,29 @@ impl Quantizer {
                 .all(|(q, &(hole, ring))| hole == q && ring == 0)
     }
 
-    /// Snap-rounds the polygon and rebuilds its area as valid polygons.
-    fn repair(&mut self) {
+    /// Snap-rounds the polygons and rebuilds the area where `inside` holds as valid polygons.
+    fn repair(&mut self, inside: fn(Winding) -> bool) {
         self.vertices.clear();
         self.ring_ends.clear();
         self.polygon_ends.clear();
         let mut edges = Vec::new();
-        for (i, ring) in rings_of(&self.fixed, &self.fixed_ends).enumerate() {
-            let winding = if i == 0 { Winding::EXTERIOR } else { Winding::HOLE };
-            for (k, &a) in ring.iter().enumerate() {
-                let b = ring[(k + 1) % ring.len()];
-                edges.push(FixedEdge { a, b, winding });
+        for rings in spans(&self.fixed_polygon_ends) {
+            for r in rings.clone() {
+                let ring = &self.fixed[span(&self.fixed_ends, r)];
+                let winding = if r == rings.start {
+                    Winding::EXTERIOR
+                } else {
+                    Winding::HOLE
+                };
+                for (k, &a) in ring.iter().enumerate() {
+                    let b = ring[(k + 1) % ring.len()];
+                    edges.push(FixedEdge { a, b, winding });
+                }
             }
         }
         let hot = hot_pixels(&edges);
         let net = net_edges(&edges, &hot);
-        let rings = trace(boundary(&net));
+        let rings = trace(boundary(&net, inside));
         self.assemble(rings);
     }
 
@@ -543,13 +762,29 @@ fn to_fixed(v: f64) -> Result<i64, TileError> {
     }
 }
 
-/// The pixel holding a fixed-point coordinate: the half-open square `[c - ½, c + ½)` around its center.
-#[expect(clippy::cast_possible_truncation, reason = "to_fixed keeps every pixel in i32")]
+/// The pixel holding a fixed-point coordinate: the nearest grid point, halves to the even one as `PostGIS`
+/// rounds. Along each axis, pixel `c` holds `[c - ½, c + ½]` when `c` is even and `(c - ½, c + ½)` when odd.
 fn pixel(c: Fixed) -> Pixel {
     Coord {
-        x: ((c.x + HALF) >> FRAC) as i32,
-        y: ((c.y + HALF) >> FRAC) as i32,
+        x: round_half_even(c.x),
+        y: round_half_even(c.y),
     }
+}
+
+/// The grid unit nearest the fixed-point `v`, halves to the even one.
+#[expect(clippy::cast_possible_truncation, reason = "to_fixed keeps every pixel in i32")]
+fn round_half_even(v: i64) -> i32 {
+    to_even(i128::from((v + HALF) >> FRAC), v & (ONE - 1) == HALF) as i32
+}
+
+/// `up`, a value rounded half up, moved down to its even neighbour when it was a `tie`.
+fn to_even(up: i128, tie: bool) -> i128 {
+    up - i128::from(tie && up & 1 == 1)
+}
+
+/// Whether pixel `c` leaves out both ends of its span along an axis, which odd pixels do.
+fn open_span(c: i32) -> bool {
+    c & 1 == 1
 }
 
 /// `p` with `i64` coordinates.
@@ -901,8 +1136,10 @@ fn crossing(p: Fixed, d: Fixed, q: Fixed, e: Fixed) -> Pixel {
     if den < 0 {
         (num, den) = (-num, -den);
     }
-    let at =
-        |p: i64, d: i64| ((i128::from(p + HALF) * den + num * i128::from(d)).div_euclid(den * i128::from(ONE))) as i32;
+    let at = |p: i64, d: i64| {
+        let (scaled, unit) = (i128::from(p + HALF) * den + num * i128::from(d), den * i128::from(ONE));
+        to_even(scaled.div_euclid(unit), scaled.rem_euclid(unit) == 0) as i32
+    };
     Coord {
         x: at(p.x, d.x),
         y: at(p.y, d.y),
@@ -938,31 +1175,40 @@ fn passes(p: Fixed, q: Fixed, h: Pixel) -> bool {
     };
     for (p0, d, c) in [(p.x, q.x - p.x, h.x), (p.y, q.y - p.y, h.y)] {
         let (min, max) = (i64::from(c) * ONE - HALF, i64::from(c) * ONE + HALF);
+        let open = open_span(c);
         let (from, to) = match d.cmp(&0) {
-            Ordering::Equal if (min..max).contains(&p0) => continue,
+            Ordering::Equal
+                if if open {
+                    min < p0 && p0 < max
+                } else {
+                    (min..=max).contains(&p0)
+                } =>
+            {
+                continue;
+            }
             Ordering::Equal => return false,
             Ordering::Greater => (
                 Bound {
                     n: (min - p0).into(),
                     d: d.into(),
-                    open: false,
+                    open,
                 },
                 Bound {
                     n: (max - p0).into(),
                     d: d.into(),
-                    open: true,
+                    open,
                 },
             ),
             Ordering::Less => (
                 Bound {
                     n: (p0 - max).into(),
                     d: (-d).into(),
-                    open: true,
+                    open,
                 },
                 Bound {
                     n: (p0 - min).into(),
                     d: (-d).into(),
-                    open: false,
+                    open,
                 },
             ),
         };
@@ -1080,8 +1326,8 @@ fn odd_runs(mut hits: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     odd
 }
 
-/// The edges between the area and the rest, each directed with the area on its left.
-fn boundary(net: &[NetEdge]) -> Vec<(Pixel, Pixel)> {
+/// The edges between the area where `inside` holds and the rest, each directed with the area on its left.
+fn boundary(net: &[NetEdge], inside: fn(Winding) -> bool) -> Vec<(Pixel, Pixel)> {
     let lines: Vec<(Fixed, Fixed)> = net.iter().map(|n| (widen(n.a), widen(n.b))).collect();
     let queries: Vec<Fixed> = lines.iter().map(|&(a, b)| a + b).collect();
     let mut above = vec![Winding::default(); net.len()];
@@ -1097,7 +1343,7 @@ fn boundary(net: &[NetEdge]) -> Vec<(Pixel, Pixel)> {
         } else {
             (w, w - n.winding)
         };
-        match (left.inside(), right.inside()) {
+        match (inside(left), inside(right)) {
             (true, false) => edges.push((n.a, n.b)),
             (false, true) => edges.push((n.b, n.a)),
             _ => {}

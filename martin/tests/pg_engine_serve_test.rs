@@ -92,6 +92,7 @@ async fn served_tiles_are_the_tiles_generate_writes() {
     };
     let mut info = info.clone();
     info.id_column = Some("gid".to_owned());
+    info.filter = Some("gid <> 14".to_owned());
     info.maxzoom = Some(4);
     info.layers = Some(Box::new(
         serde_saphyr::from_str(indoc! {"
@@ -147,6 +148,7 @@ async fn a_prefetch_block_holds_the_tiles_rendered_one_by_one() {
     };
     let mut info = info.clone();
     info.id_column = Some("gid".to_owned());
+    info.filter = Some("gid <> 14".to_owned());
     info.maxzoom = Some(3);
     info.layers = Some(Box::new(
         serde_saphyr::from_str(indoc! {"

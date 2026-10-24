@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [slice_equivalence, polygon_equivalence, point_equivalence, quantized_valid]
+        target: [slice_equivalence, polygon_equivalence, point_equivalence, quantized_valid, quantized_multi_valid]
     env:
       # Fail on a crash or assertion only, not on nightly-only lint drift.
       CARGO_BUILD_WARNINGS: warn

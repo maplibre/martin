@@ -18,6 +18,8 @@ use crate::config::file::postgres::resolver::scan_sql;
 
 #[derive(Clone, Debug)]
 pub struct ScanTable {
+    /// The id of the table source.
+    pub id: String,
     pub info: TableInfo,
     pub def: TableDef,
 }

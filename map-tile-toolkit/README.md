@@ -284,7 +284,8 @@ landing in `[0, 2^z · extent)`.
 
 Rounding a polygon's vertices one by one can make a valid polygon invalid: two edges closer than a unit
 can end up crossing, touching, or folding onto each other. `Quantizer::polygon` rounds one valid float
-polygon, already scaled to grid units, and gives zero or more valid integer polygons. If the rounded rings
+polygon, already scaled to grid units, and gives zero or more valid integer polygons. It rounds halves to
+even, as `PostGIS` does, so `0.5` and `-0.5` round to `0` and `1.5` to `2`. If the rounded rings
 are still valid, they are what it gives. Otherwise it snap-rounds the polygon: each edge bends through
 every grid point whose unit square it crosses, if a vertex or a crossing of two edges rounds to that
 point, so no two rounded edges cross. Then it rebuilds the area as valid polygons: two tip vertices merge
@@ -298,6 +299,12 @@ as it went in, and debug builds panic when it does. `Quantizer::make_valid` take
 every pair of rounded edges. Its area is what the exterior covers, minus what any hole covers. So both
 lobes of a self-crossing exterior are kept, split at an added vertex where its edges cross, and a hole
 only takes out its part inside the exterior.
+
+Rounding the parts of a multipolygon one by one can make them touch or overlap: two parts under a unit
+apart round onto one edge. `Quantizer::multi_polygon` takes polygons that are each valid but may touch or
+overlap, as independently simplified parts can. A part whose rounded vertices stay clear of every other
+part's is rounded as `polygon` rounds it. Parts that come closer are rounded together, kept if none of
+their rounded edges meet, and otherwise merged into their union, as `ST_ReducePrecision` does in `PostGIS`.
 
 In the example below, the tip's two vertices are under a unit apart, so rounded one by one its edges
 would cross: instead the two tip vertices merge into one.

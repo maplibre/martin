@@ -11,8 +11,8 @@ pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThresh
 use crate::phase1::render::{Renderer, SliceErrors};
 use crate::plan::{Evaluator, ExprTallies, Plan};
 use crate::sort::{Seq, SortBuffer, Sorter};
-use crate::source::{Crs, FeatureBatch, Geometry};
-use crate::{LayerSliceErrors, Summary, TileGenResult, TileOrder};
+use crate::source::{Crs, FeatureBatch, Geometry, WkbError};
+use crate::{LayerSliceErrors, Summary, TileGenError, TileGenResult, TileOrder};
 
 /// The stage types of phase 1, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]
@@ -66,8 +66,20 @@ impl<'a> RenderWorker<'a> {
             skipped,
         } = self;
         for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
-            project_geometry(batch.crs, &mut feature.geometry);
-            let Some(geom) = feature.geometry.feature_geom() else {
+            let drawable = project_geometry(batch.crs, &mut feature.geometry).map_err(|error| match feature.id {
+                Some(id) => TileGenError::FeatureWkb {
+                    table: batch.table,
+                    id,
+                    error,
+                },
+                None => TileGenError::RowWkb {
+                    table: batch.table,
+                    partition: batch.partition,
+                    row,
+                    error,
+                },
+            })?;
+            let Some(geom) = feature.geometry.feature_geom().filter(|_| drawable) else {
                 *skipped += 1;
                 continue;
             };
@@ -154,10 +166,10 @@ fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErro
         .collect()
 }
 
-/// Decodes and projects the geometry in place; one that fails to decode stays WKB.
-pub(crate) fn project_geometry(crs: Crs, geometry: &mut Geometry) {
-    if !geometry.decode_wkb() {
-        return;
+/// Decodes and projects the geometry in place; `Ok(false)` if it is empty and stays WKB.
+pub(crate) fn project_geometry(crs: Crs, geometry: &mut Geometry) -> Result<bool, WkbError> {
+    if !geometry.decode_wkb()? {
+        return Ok(false);
     }
     match geometry {
         Geometry::Point(point) => project_coords(crs, std::slice::from_mut(point)),
@@ -188,6 +200,7 @@ pub(crate) fn project_geometry(crs: Crs, geometry: &mut Geometry) {
         }
         Geometry::Wkb(_) => {}
     }
+    Ok(true)
 }
 
 /// Projects coordinates from `crs` into the renderer's unit square.

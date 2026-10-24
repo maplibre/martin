@@ -1,6 +1,7 @@
 //! `martin test`: specs of what the layers of table sources make of real rows, generated and checked.
 
 pub mod backend;
+mod catalog;
 pub mod file;
 pub mod memory;
 pub mod postgres;

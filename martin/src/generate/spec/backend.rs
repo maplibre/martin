@@ -1,7 +1,7 @@
 //! What `martin test` needs from a backend, and the tables it reads through one.
 
 use martin_tilegen::TileGenError;
-use martin_tilegen::plan::{Branch, ColumnValues, Condition, GeometryType, Plan, Shape, TableDef};
+use martin_tilegen::plan::{Branch, ColumnFacts, Condition, GeometryType, Plan, Shape, TableDef};
 use martin_tilegen::source::FeatureSource;
 
 use crate::generate::GenerateResult;
@@ -15,8 +15,8 @@ pub struct TestTable {
     pub source: String,
     /// The table, lowered for zooms 0 to the max zoom of the spec.
     pub def: TableDef,
-    /// The only values the source allows some columns.
-    pub known: Vec<ColumnValues>,
+    /// What the source and its table say about the values of some columns, one entry per column.
+    pub facts: Vec<ColumnFacts>,
     /// The column holding the key of each row, which a case selects its row by.
     pub key: Option<String>,
     /// The geometry type of every row, when the source declares a single one.
@@ -33,6 +33,19 @@ impl TestTable {
         Ok(Plan::new(vec![self.def.clone()]).map_err(TileGenError::from)?)
     }
 
+    /// Adds `fact` to what is known about its column: never `null` if either says so, and only the values both allow.
+    pub fn learn(&mut self, fact: ColumnFacts) {
+        let Some(known) = self.facts.iter_mut().find(|f| f.column == fact.column) else {
+            self.facts.push(fact);
+            return;
+        };
+        known.not_null |= fact.not_null;
+        known.values = match (known.values.take(), fact.values) {
+            (Some(known), Some(values)) => Some(known.into_iter().filter(|v| values.contains(v)).collect()),
+            (known, values) => known.or(values),
+        };
+    }
+
     /// Every path through the layers, without shapes for a table of points.
     ///
     /// # Errors
@@ -42,7 +55,7 @@ impl TestTable {
         let points = self.geometry == Some(GeometryType::Point);
         Ok(self
             .plan()?
-            .branches(0, &self.known)?
+            .branches(0, &self.facts)?
             .into_iter()
             .filter(|branch| !(points && branch.shape.is_some()))
             .collect())

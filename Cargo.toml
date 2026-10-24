@@ -131,7 +131,7 @@ geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.28"
+hotpath = "0.29"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -252,3 +252,7 @@ libduckdb-sys.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
+
+[patch.crates-io]
+# georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
+wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }
