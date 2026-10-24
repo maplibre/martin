@@ -147,6 +147,9 @@ pub enum MbtError {
     #[error("Invalid zoom value {0}={1}, expecting an integer between 0..{MAX_ZOOM}")]
     InvalidZoomValue(&'static str, String),
 
+    #[error("Metadata key {0} cannot be both set and deleted")]
+    MetadataSetAndDeleted(String),
+
     #[error(
         "A file {0} does not have an {AGG_TILES_HASH} metadata entry, probably because it was not created by this tool. Use `--force` to ignore this warning, or run this to update hash value: `mbtiles validate --agg-hash update {0}`"
     )]

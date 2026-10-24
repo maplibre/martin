@@ -31,7 +31,7 @@ pub struct GenerateConfig {
 #[derive(Clone, Debug, Default)]
 pub struct Summary {
     pub features: u64,
-    /// Features whose geometry the generator cannot render: geometry collections and empty geometries.
+    /// Features with an empty point or an empty geometry collection, which have nothing to draw.
     pub skipped: u64,
     pub tiles: u64,
     /// Layers with feature-zooms the slicer could not handle and skipped, in plan order.

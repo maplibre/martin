@@ -87,7 +87,11 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
         return Ok(None);
     }
     let def = TableDef { columns, layers };
-    Ok(Some(ScanTable { info, def }))
+    Ok(Some(ScanTable {
+        id: id.to_owned(),
+        info,
+        def,
+    }))
 }
 
 fn lower_layer(

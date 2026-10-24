@@ -11,9 +11,10 @@ use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
     Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType, apply_patch, pack,
-    unpack,
+    parse_key_value, unpack,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::Connection as _;
 use tilejson::Bounds;
 use tracing::{Instrument as _, error, info_span};
 use tracing_indicatif::IndicatifLayer;
@@ -110,6 +111,12 @@ enum Commands {
         /// Update the min and max zoom levels in the metadata table to match the tiles table.
         #[arg(long, value_enum, default_value_t=UpdateZoomType::default())]
         update_zoom: UpdateZoomType,
+        /// Set metadata values after the update, overriding computed ones. Must be set as `"key=value"` pairs. Can be specified multiple times.
+        #[arg(long, value_name = "KEY=VALUE", value_parser = parse_key_value)]
+        set_meta: Vec<(String, String)>,
+        /// Delete metadata values after the update, including computed ones. Can be specified multiple times.
+        #[arg(long, value_name = "KEY")]
+        delete_meta: Vec<String>,
     },
     /// Validate tile data if hash of tile data exists in file
     #[command(name = "validate", alias = "check", alias = "verify")]
@@ -338,10 +345,19 @@ async fn main_int() -> anyhow::Result<()> {
                 .instrument(info_span!("apply-patch"))
                 .await?;
         }
-        Commands::UpdateMetadata { file, update_zoom } => {
+        Commands::UpdateMetadata {
+            file,
+            update_zoom,
+            set_meta,
+            delete_meta,
+        } => {
             let mbt = Mbtiles::new(file.as_path())?;
             let mut conn = mbt.open().await?;
-            mbt.update_metadata(&mut conn, update_zoom).await?;
+            // one transaction, so a rejected edit leaves the file untouched
+            let mut tx = conn.begin().await?;
+            mbt.update_metadata(&mut *tx, update_zoom).await?;
+            mbt.edit_metadata(&mut *tx, &set_meta, &delete_meta).await?;
+            tx.commit().await?;
         }
         Commands::Validate {
             file,
@@ -531,7 +547,7 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate};
+    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, UpdateMetadata, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -784,6 +800,44 @@ mod tests {
                     value: None
                 }
             }
+        );
+    }
+
+    #[test]
+    fn meta_update_with_set_and_delete_arguments() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "meta-update",
+                "src_file",
+                "--set-meta",
+                "name=renamed",
+                "--set-meta",
+                "minzoom=3",
+                "--delete-meta",
+                "bounds",
+            ]),
+            Args {
+                command: UpdateMetadata {
+                    file: PathBuf::from("src_file"),
+                    update_zoom: UpdateZoomType::default(),
+                    set_meta: vec![
+                        ("name".to_owned(), "renamed".to_owned()),
+                        ("minzoom".to_owned(), "3".to_owned()),
+                    ],
+                    delete_meta: vec!["bounds".to_owned()],
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn meta_update_rejects_a_set_meta_without_value() {
+        assert_eq!(
+            Args::try_parse_from(["mbtiles", "meta-update", "src_file", "--set-meta", "name"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::ValueValidation
         );
     }
 

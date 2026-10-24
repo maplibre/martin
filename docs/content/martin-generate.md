@@ -36,7 +36,8 @@ expensive.
 The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it will pick `bulk` whenever
 it can.
 
-It renders points, lines and polygons. Geometry collections are skipped and counted.
+It renders points, lines and polygons, single or multi, and skips empty geometries.
+Any other geometry, such as a geometry collection, a triangle or a TIN, stops the run with an error.
 
 ## Usage
 
