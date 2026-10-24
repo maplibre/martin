@@ -39,6 +39,7 @@ async fn generated(builder: &PostgresAutoDiscoveryBuilder, info: TableInfo) -> B
     let options = LowerOptions {
         zooms: 0..=4,
         bounds: None,
+        encoder: None,
     };
     let table = lower_table("table_source", info, &options).unwrap().unwrap();
     let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
