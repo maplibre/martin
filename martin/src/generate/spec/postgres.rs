@@ -223,6 +223,7 @@ pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Op
     let options = LowerOptions {
         zooms: 0..=max_zoom,
         bounds: None,
+        encoder: None,
     };
     let Some(scan) = lower_table(id, info.clone(), &options)? else {
         return Ok(None);

@@ -33,6 +33,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
     let options = LowerOptions {
         zooms: 0..=0,
         bounds: None,
+        encoder: None,
     };
     let temp_schema: String = pool
         .get()

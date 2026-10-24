@@ -762,12 +762,26 @@ fn to_fixed(v: f64) -> Result<i64, TileError> {
     }
 }
 
-/// The pixel holding a fixed-point coordinate: the half-open square `[c - ½, c + ½)` around its center.
+/// The pixel holding a fixed-point coordinate: the nearest grid point, halves to the even one as `PostGIS`
+/// rounds. Along each axis, pixel `c` holds `[c - ½, c + ½]` when `c` is even and `(c - ½, c + ½)` when odd.
 #[expect(clippy::cast_possible_truncation, reason = "to_fixed keeps every pixel in i32")]
 fn pixel(c: Fixed) -> Pixel {
+    // A tie rounds down from an even unit and up from an odd one; branch-free, as a `match` mispredicts.
+    let unit = |v: i64| ((v + HALF - 1 + ((v >> FRAC) & 1)) >> FRAC) as i32;
     Coord {
-        x: ((c.x + HALF) >> FRAC) as i32,
-        y: ((c.y + HALF) >> FRAC) as i32,
+        x: unit(c.x),
+        y: unit(c.y),
+    }
+}
+
+/// `numerator / denominator` (`denominator > 0`) rounded to the nearest integer, halves to the even one.
+fn round_ratio(numerator: i128, denominator: i128) -> i128 {
+    let quotient = numerator.div_euclid(denominator);
+    let remainder = numerator.rem_euclid(denominator);
+    match (2 * remainder).cmp(&denominator) {
+        Ordering::Less => quotient,
+        Ordering::Greater => quotient + 1,
+        Ordering::Equal => quotient + quotient.rem_euclid(2),
     }
 }
 
@@ -1120,8 +1134,11 @@ fn crossing(p: Fixed, d: Fixed, q: Fixed, e: Fixed) -> Pixel {
     if den < 0 {
         (num, den) = (-num, -den);
     }
-    let at =
-        |p: i64, d: i64| ((i128::from(p + HALF) * den + num * i128::from(d)).div_euclid(den * i128::from(ONE))) as i32;
+    let at = |p: i64, d: i64| {
+        let numerator = i128::from(p) * den + num * i128::from(d);
+        let denominator = den * i128::from(ONE);
+        round_ratio(numerator, denominator) as i32
+    };
     Coord {
         x: at(p.x, d.x),
         y: at(p.y, d.y),
@@ -1157,31 +1174,39 @@ fn passes(p: Fixed, q: Fixed, h: Pixel) -> bool {
     };
     for (p0, d, c) in [(p.x, q.x - p.x, h.x), (p.y, q.y - p.y, h.y)] {
         let (min, max) = (i64::from(c) * ONE - HALF, i64::from(c) * ONE + HALF);
+        // Halves round to the even pixel, so an odd one leaves out both ends of its span.
+        let open = c % 2 != 0;
+        let inside = if open {
+            min < p0 && p0 < max
+        } else {
+            min <= p0 && p0 <= max
+        };
         let (from, to) = match d.cmp(&0) {
-            Ordering::Equal if (min..max).contains(&p0) => continue,
+            Ordering::Equal if inside => continue,
             Ordering::Equal => return false,
+
             Ordering::Greater => (
                 Bound {
                     n: (min - p0).into(),
                     d: d.into(),
-                    open: false,
+                    open,
                 },
                 Bound {
                     n: (max - p0).into(),
                     d: d.into(),
-                    open: true,
+                    open,
                 },
             ),
             Ordering::Less => (
                 Bound {
                     n: (p0 - max).into(),
                     d: (-d).into(),
-                    open: true,
+                    open,
                 },
                 Bound {
                     n: (p0 - min).into(),
                     d: (-d).into(),
-                    open: false,
+                    open,
                 },
             ),
         };

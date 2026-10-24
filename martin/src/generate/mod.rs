@@ -21,6 +21,7 @@ use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, TileGenResult,
     generate,
 };
+use mlt_core::encoder::EncoderConfig;
 use postgres_protocol::escape::escape_identifier;
 use tilejson::{Bounds, tilejson};
 #[cfg(unix)]
@@ -33,6 +34,7 @@ use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
+use crate::config::file::process::{MltProcessConfig, ProcessConfig};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
@@ -464,6 +466,12 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
     let mut tables: BTreeMap<String, (TableInfo, usize)> = BTreeMap::new();
     let mut functions = HashSet::new();
     let mut warnings = Vec::new();
+    let global = ProcessConfig {
+        convert_to_mlt: config.convert_to_mlt.clone(),
+        convert_to_mvt: config.convert_to_mvt.clone(),
+        ..ProcessConfig::default()
+    };
+    let mut connections = Vec::new();
     for pg in &config.postgres {
         let builder = PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids).await?;
         let (specs, pg_warnings) = builder.discover().await?;
@@ -479,6 +487,11 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
             }
         }
         pools.push(builder.pool().clone());
+        connections.push(ProcessConfig {
+            convert_to_mlt: pg.convert_to_mlt.clone(),
+            convert_to_mvt: pg.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        });
     }
     config.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
     let requested: Vec<String> = if options.sources.is_empty() {
@@ -490,6 +503,7 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
     let lower = LowerOptions {
         zooms: options.zooms.clone(),
         bounds: options.bbox,
+        encoder: None,
     };
     let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;
@@ -509,7 +523,23 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
             return Err(GenerateError::MultipleDatabases);
         }
-        scans.extend(lower_table(&id, info.clone(), &lower)?);
+        let per_table = ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        };
+        let encoder = match ProcessConfig::layered(&global, &connections[*pool_idx], &per_table).convert_to_mlt {
+            Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
+            _ => None,
+        };
+        scans.extend(lower_table(
+            &id,
+            info.clone(),
+            &LowerOptions {
+                encoder,
+                ..lower.clone()
+            },
+        )?);
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;
     if scans.is_empty() {
