@@ -30,7 +30,7 @@ use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, MbtilesBulkWriter, TileDedup, init_mbtiles_schema,
-    is_empty_database,
+    is_empty_database, parse_key_value,
 };
 use tilejson::Bounds;
 use tokio::runtime::Handle;
@@ -258,17 +258,6 @@ impl Default for CopyArgs {
             #[cfg(feature = "unstable-generate")]
             threads: None,
         }
-    }
-}
-
-fn parse_key_value(s: &str) -> Result<(String, String), String> {
-    let mut parts = s.splitn(2, '=');
-    let key = parts.next().ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
-    let value = parts.next().ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
-    if key.is_empty() || value.is_empty() {
-        Err(format!("Invalid key=value pair: {s}"))
-    } else {
-        Ok((key.to_owned(), value.to_owned()))
     }
 }
 

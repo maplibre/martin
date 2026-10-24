@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, temp_dir, tiles};
+use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, metadata, temp_dir, tiles};
 use rstest::rstest;
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -364,4 +364,45 @@ async fn copy_with_a_diff_file_takes_one_source() {
         .await;
 
     insta::assert_snapshot!(output, @"ERROR --diff-with-file and --apply-patch take exactly one source file, got 2");
+}
+
+#[tokio::test]
+async fn meta_update_set_meta_overrides_computed_values() {
+    let dir = temp_dir();
+    let file = mbtiles_fixture(dir.path(), "world_cities").await;
+
+    MbtilesCli::new("meta-update")
+        .arg(&file)
+        .arg("--set-meta")
+        .arg("minzoom=3")
+        .arg("--set-meta")
+        .arg("name=renamed")
+        .arg("--delete-meta")
+        .arg("bounds")
+        .run()
+        .await;
+
+    let meta = metadata(&file).await;
+    assert_eq!(meta.get("minzoom").map(String::as_str), Some("3"));
+    assert_eq!(meta.get("name").map(String::as_str), Some("renamed"));
+    assert!(!meta.contains_key("bounds"), "metadata: {meta:?}");
+}
+
+#[tokio::test]
+async fn meta_update_rejects_a_key_both_set_and_deleted() {
+    let dir = temp_dir();
+    let file = mbtiles_fixture(dir.path(), "world_cities").await;
+    let before = metadata(&file).await;
+
+    let output = MbtilesCli::new("meta-update")
+        .arg(&file)
+        .arg("--set-meta")
+        .arg("name=renamed")
+        .arg("--delete-meta")
+        .arg("name")
+        .run_failing()
+        .await;
+
+    assert!(output.contains("name"), "output:\n{output}");
+    assert_eq!(metadata(&file).await, before);
 }
