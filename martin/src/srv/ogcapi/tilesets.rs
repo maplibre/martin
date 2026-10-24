@@ -9,7 +9,7 @@ use tilejson::{Bounds, TileJSON};
 use super::collections::collection_source;
 use super::data_type::DataType;
 use super::error::OgcApiError;
-use super::link::{Link, ogc_url};
+use super::link::{Link, ogc_url, path_segment};
 use super::tile::media_type;
 use super::tile_matrix_sets::registered_uri;
 use crate::config::file::srv::SrvConfig;
@@ -110,12 +110,16 @@ fn grid_bounds(grid: &TileGrid, bounds: Bounds) -> Option<[f64; 4]> {
     }
 }
 
-/// The tiles of each zoom of the source that its bounds cover, or the whole grid where they can't be placed.
+/// The tiles of each zoom of the source that its bounds cover, every column where they cross the antimeridian, or the whole grid where they can't be placed.
 fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatrixLimits> {
-    let bounds = tilejson
+    let mut bounds = tilejson
         .bounds
         .and_then(|bounds| grid_bounds(grid, bounds))
         .unwrap_or_else(|| grid.bounds());
+    if bounds[0] > bounds[2] {
+        let whole = grid.bounds();
+        (bounds[0], bounds[2]) = (whole[0], whole[2]);
+    }
     let maxzoom = tilejson.maxzoom.unwrap_or(MAX_ZOOM).min(MAX_ZOOM);
     (tilejson.minzoom.unwrap_or(0)..=maxzoom)
         .map(|zoom| {
@@ -149,6 +153,7 @@ pub async fn get_tilesets(
     manager.wait_for_sources(&id).await;
     let ((source, process), crs) = collection_source(&manager, &id)?;
     let grid = source.tile_grid();
+    let tms = path_segment(grid.id());
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let tileset = TileSetItem {
         title: tilejson.name.unwrap_or_else(|| id.clone()),
@@ -157,12 +162,12 @@ pub async fn get_tilesets(
         tile_matrix_set_uri: registered_uri(grid),
         links: vec![
             Link::json(
-                ogc_url(&req, &srv_config, &format!("/collections/{id}/tiles/{}", grid.id())),
+                ogc_url(&req, &srv_config, &format!("/collections/{id}/tiles/{tms}")),
                 "self",
                 "Tileset metadata",
             ),
             Link::json(
-                ogc_url(&req, &srv_config, &format!("/tileMatrixSets/{}", grid.id())),
+                ogc_url(&req, &srv_config, &format!("/tileMatrixSets/{tms}")),
                 "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
                 "Tile matrix set definition",
             ),
@@ -198,6 +203,7 @@ pub async fn get_tileset(
     } = path.into_inner();
     manager.wait_for_sources(&id).await;
     let ((source, process), crs) = tileset_source(&manager, &id, &tms)?;
+    let tms = path_segment(&tms);
     let grid = source.tile_grid();
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let format = process.advertised_tile_info(source.get_tile_info()).format;

@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use actix_web::HttpRequest;
 use serde::Serialize;
 
@@ -28,6 +30,19 @@ impl Link {
             templated: false,
         }
     }
+}
+
+/// `segment` as one URL path segment, with everything but the unreserved characters of RFC 3986 percent-encoded.
+pub fn path_segment(segment: &str) -> String {
+    let mut encoded = String::new();
+    for byte in segment.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            write!(encoded, "%{byte:02X}").expect("writing to a String cannot fail");
+        }
+    }
+    encoded
 }
 
 /// The absolute URL of `path` under the OGC API, e.g. `/conformance`.
