@@ -50,3 +50,11 @@ Set metadata value by its name, or delete the key if no value is supplied. For e
 ```bash
 mbtiles meta-set my_file.mbtiles description "A vector tile dataset"
 ```
+
+## meta-update
+
+Update `minzoom`, `maxzoom` and `compression` to match the tiles in the file. Use `--set-meta` and `--delete-meta` to set or delete other values in the same step. They apply after the computed values, so they can override them. Both flags can be repeated, and a key cannot be both set and deleted. They change the stored values that `meta-get` returns. `meta-all` and Martin never report a `minzoom` above the lowest zoom that has tiles, or a `maxzoom` above the highest.
+
+```bash
+mbtiles meta-update my_file.mbtiles --set-meta minzoom=3 --delete-meta bounds
+```

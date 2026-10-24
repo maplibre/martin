@@ -1411,6 +1411,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#meta-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        meta-update
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1808,6 +1819,14 @@ For example, to get the <code>description</code> value from an mbtiles file:</p>
 <p>Set metadata value by its name, or delete the key if no value is supplied.
 For example, to set the <code>description</code> value to <code>A vector tile dataset</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mbtiles<span class="w"> </span>meta-set<span class="w"> </span>my_file.mbtiles<span class="w"> </span>description<span class="w"> </span><span class="s2">"A vector tile dataset"</span>
+</span></code></pre></div>
+<h2 id="meta-update">meta-update</h2>
+<p>Update <code>minzoom</code>, <code>maxzoom</code> and <code>compression</code> to match the tiles in the file.
+Use <code>--set-meta</code> and <code>--delete-meta</code> to set or delete other values in the same step.
+They apply after the computed values, so they can override them.
+Both flags can be repeated, and a key cannot be both set and deleted.
+They change the stored values that <code>meta-get</code> returns. <code>meta-all</code> and Martin never report a <code>minzoom</code> above the lowest zoom that has tiles, or a <code>maxzoom</code> above the highest.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>mbtiles<span class="w"> </span>meta-update<span class="w"> </span>my_file.mbtiles<span class="w"> </span>--set-meta<span class="w"> </span><span class="nv">minzoom</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>--delete-meta<span class="w"> </span>bounds
 </span></code></pre></div>
 
 
