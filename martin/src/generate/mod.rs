@@ -204,16 +204,20 @@ pub enum GenerateError {
     PoolTooSmall { pool_size: usize },
     #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
     CaseTooLarge { table: String, key: u64, tiles: usize },
-    #[error("Source `{source_id}`: {error}{}", count_hint(find.as_deref()))]
+    #[error(
+        "Source `{source_id}`: {error}\nCount the rows of each geometry type it cannot render with:\n  {count_sql}"
+    )]
     FeatureGeometry {
         source_id: String,
+        #[source]
         error: Box<TileGenError>,
-        find: Option<String>,
+        count_sql: String,
     },
     #[error("Row {key} of `{source_id}`: {error}")]
     CaseGeometry {
         source_id: String,
         key: u64,
+        #[source]
         error: WkbError,
     },
     #[error("Cannot decode a tile bulk mode wrote: {0}")]
@@ -349,7 +353,7 @@ fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) ->
     let GenerateError::TileGen(err) = err else {
         return err;
     };
-    let (TileGenError::FeatureWkb { table, error, .. } | TileGenError::RowWkb { table, error, .. }) = &err else {
+    let (TileGenError::FeatureWkb { table, .. } | TileGenError::RowWkb { table, .. }) = &err else {
         return GenerateError::TileGen(err);
     };
     let Some((source_id, sql)) = finders.get(usize::from(*table)) else {
@@ -357,16 +361,9 @@ fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) ->
     };
     GenerateError::FeatureGeometry {
         source_id: source_id.clone(),
-        find: matches!(error, WkbError::Unsupported { .. }).then(|| sql.clone()),
+        count_sql: sql.clone(),
         error: Box::new(err),
     }
-}
-
-/// The line naming `sql`, the query counting the rows of each geometry type bulk mode cannot render.
-fn count_hint(sql: Option<&str>) -> String {
-    sql.map_or_else(String::new, |sql| {
-        format!("\nCount the rows of each geometry type it cannot render with:\n  {sql}")
-    })
 }
 
 /// A query counting the rows of `info` by each geometry type bulk mode cannot render.
