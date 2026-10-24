@@ -42,6 +42,27 @@
           [
             24.0,
             12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/0",
+        "stroke": "#261fb5",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.0,
+            12.0
+          ],
+          [
+            24.0,
+            12.0
           ],
           [
             25.0,
@@ -51,6 +72,52 @@
       },
       "properties": {
         "role": "tile 0/0",
+        "stroke": "#261fb5",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            24.0,
+            12.0
+          ],
+          [
+            25.0,
+            40.0
+          ],
+          [
+            49.0,
+            25.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/1",
+        "stroke": "#261fb5",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            25.0,
+            40.0
+          ],
+          [
+            49.0,
+            25.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/0",
         "stroke": "#261fb5",
         "stroke-width": 2
       }

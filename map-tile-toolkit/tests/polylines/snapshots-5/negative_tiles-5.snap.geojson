@@ -71,6 +71,27 @@
           [
             -4.0,
             7.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -2/0",
+        "stroke": "#261fb5",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -20.0,
+            7.0
+          ],
+          [
+            -4.0,
+            7.0
           ],
           [
             2.0,

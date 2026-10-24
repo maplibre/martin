@@ -228,7 +228,7 @@ fn snapshot(kind: &str, stem: &str, buffer: u16, mut features: Vec<geojson::Feat
     let (e, b) = (EXTENT as i32, i32::from(buffer));
     for (&tile, &count) in tiles {
         let (x0, y0) = (tile.x * e - b, tile.y * e - b);
-        let (x1, y1) = (x0 + e - 1 + 2 * b, y0 + e - 1 + 2 * b);
+        let (x1, y1) = (x0 + e + 2 * b, y0 + e + 2 * b);
         let ring = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)].map(|(x, y)| Coord { x, y });
         let mut f = support::tile_polygon(&ring, &[], tile);
         f.set_property("geometries", json!(count));
