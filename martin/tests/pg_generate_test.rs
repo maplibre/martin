@@ -294,6 +294,7 @@ async fn one_table_feeds_two_layers() {
     let (builder, specs) = discover().await;
     let mut info = table_info(&specs, "table_source");
     info.id_column = Some("gid".to_owned());
+    info.filter = Some("gid <> 14".to_owned());
     info.layers = Some(Box::new(
         serde_saphyr::from_str(indoc! {"
             overview:

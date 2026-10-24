@@ -16,6 +16,7 @@ async fn a_miss_caches_the_rest_of_its_prefetch_block() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
