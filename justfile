@@ -765,7 +765,7 @@ test-ogc: fetch
     for method in results.iter("test-method"):
         if method.get("status") == "FAIL":
             print(f"FAIL {method.get('name')}: {(method.findtext('exception/message') or '').strip()}")
-    sys.exit(results.get("failed") != "0" or results.get("passed") == "0")
+    sys.exit(results.get("failed") != "0" or results.get("passed") != "13")
     EOF
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
