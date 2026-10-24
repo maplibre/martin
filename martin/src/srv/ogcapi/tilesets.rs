@@ -2,15 +2,14 @@ use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_tile_utils::{MAX_ZOOM, TileGrid, wgs84_to_webmercator};
+use martin_tile_utils::{MAX_ZOOM, TileGrid};
 use serde::{Deserialize, Serialize};
-use tilejson::{Bounds, TileJSON};
+use tilejson::TileJSON;
 
 use super::collections::collection_source;
 use super::data_type::DataType;
 use super::error::OgcApiError;
 use super::link::{Link, ogc_url, path_segment};
-use super::tile::media_type;
 use super::tile_matrix_sets::registered_uri;
 use crate::config::file::srv::SrvConfig;
 use crate::source::SourceEntry;
@@ -97,24 +96,11 @@ pub(super) fn tileset_source(
     Ok((entry, crs))
 }
 
-/// `bounds` in the CRS of `grid`, for the CRSs that need no projection library.
-fn grid_bounds(grid: &TileGrid, bounds: Bounds) -> Option<[f64; 4]> {
-    match (grid.crs_authority(), grid.crs_code()) {
-        ("EPSG", "3857") => {
-            let (left, bottom) = wgs84_to_webmercator(bounds.left, bounds.bottom);
-            let (right, top) = wgs84_to_webmercator(bounds.right, bounds.top);
-            Some([left, bottom, right, top])
-        }
-        ("EPSG", "4326") | ("OGC", "CRS84") => Some([bounds.left, bounds.bottom, bounds.right, bounds.top]),
-        _ => None,
-    }
-}
-
 /// The tiles of each zoom of the source that its bounds cover, every column where they cross the antimeridian, or the whole grid where they can't be placed.
 fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatrixLimits> {
     let mut bounds = tilejson
         .bounds
-        .and_then(|bounds| grid_bounds(grid, bounds))
+        .and_then(|bounds| grid.crs_bounds([bounds.left, bounds.bottom, bounds.right, bounds.top]))
         .unwrap_or_else(|| grid.bounds());
     if bounds[0] > bounds[2] {
         let whole = grid.bounds();
@@ -249,7 +235,7 @@ pub async fn get_tileset(
                     &format!("/collections/{segment}/tiles/{tms}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
                 ),
                 rel: "item",
-                media_type: media_type(format),
+                media_type: format.ogc_content_type(),
                 title: "Tiles",
                 templated: true,
             },

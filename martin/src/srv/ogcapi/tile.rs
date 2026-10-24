@@ -9,21 +9,6 @@ use crate::config::file::srv::SrvConfig;
 use crate::srv::tiles::content::serve_tile;
 use crate::tile_source_manager::TileSourceManager;
 
-/// The media type OGC API - Tiles names for tiles of `format`.
-pub(super) const fn media_type(format: Format) -> &'static str {
-    match format {
-        Format::Mvt => "application/vnd.mapbox-vector-tile",
-        Format::Gif
-        | Format::Jpeg
-        | Format::Json
-        | Format::Mlt
-        | Format::Png
-        | Format::Webp
-        | Format::Avif
-        | Format::Jxl => format.content_type(),
-    }
-}
-
 /// The path of a tile, its row and column in the OGC order.
 #[derive(Deserialize, Debug)]
 pub struct TilePath {
@@ -57,7 +42,7 @@ pub async fn get_tile(
     {
         response
             .headers_mut()
-            .insert(CONTENT_TYPE, HeaderValue::from_static(media_type(Format::Mvt)));
+            .insert(CONTENT_TYPE, HeaderValue::from_static(Format::Mvt.ogc_content_type()));
     }
     Ok(response)
 }
