@@ -357,12 +357,12 @@ impl TableQuerySql {
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
-                escape_identifier(id_column),
+                Some(escape_identifier(id_column)),
                 format!(", {}", escape_literal(id_column)),
                 escape_with_alias(&info.discovered.prop_mapping, id_column),
             )
         } else {
-            (String::new(), String::new(), String::new())
+            (None, String::new(), String::new())
         };
 
         let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
@@ -390,14 +390,11 @@ impl TableQuerySql {
             table: escape_identifier(&info.table),
             filter: row_filter(info, "AND")?,
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
-            order_clause: order_by.map_or(String::new(), |v| match v {
-                OrderByType::IdAsc => {
-                    format!("ORDER BY {escaped_id_column} ASC NULLS LAST")
-                }
-                OrderByType::IdDesc => {
-                    format!("ORDER BY {escaped_id_column} DESC NULLS LAST")
-                }
-            }),
+            order_clause: match (order_by, escaped_id_column) {
+                (Some(OrderByType::IdAsc), Some(id)) => format!("ORDER BY {id} ASC NULLS LAST"),
+                (Some(OrderByType::IdDesc), Some(id)) => format!("ORDER BY {id} DESC NULLS LAST"),
+                (None, _) | (Some(OrderByType::IdAsc | OrderByType::IdDesc), None) => String::new(),
+            },
             extent,
             buffer,
             clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
