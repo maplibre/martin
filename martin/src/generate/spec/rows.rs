@@ -394,7 +394,7 @@ fn each_row(
 /// The paths `feature` of `table` takes, its geometry in `crs`.
 fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, feature: &SourceFeature) -> GenerateResult<Vec<String>> {
     Ok(plan
-        .paths_of(0, &table.known, crs, feature)
+        .paths_of(0, &table.facts, crs, feature)
         .map_err(|err| match (err, feature.id) {
             (TileGenError::Wkb(error), Some(key)) => GenerateError::CaseGeometry {
                 source_id: table.source.clone(),

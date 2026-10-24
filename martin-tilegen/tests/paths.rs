@@ -2,7 +2,7 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ColumnValues, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
+    AttributesDef, ColumnDef, ColumnFacts, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
     ValueDef, ValueKind,
 };
 use martin_tilegen::props::{KeyId, Prop};
@@ -292,9 +292,13 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     insta::assert_debug_snapshot!(plan.branches(0, &known).unwrap(), @r#"
     [
@@ -372,9 +376,10 @@ fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned())],
+        not_null: true,
+        values: Some(vec![Literal::String("stop".to_owned())]),
     }];
     insta::assert_debug_snapshot!(plan.branches(0, &known).unwrap(), @r#"
     [
@@ -384,7 +389,7 @@ fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
             rows: Err(
                 Untranslatable {
                     layer: "devices",
-                    expr: "the source's filter",
+                    expr: "the column's known values",
                     reason: UnknownColumnType(
                         "type",
                     ),
@@ -417,9 +422,13 @@ fn a_known_column_the_layer_does_not_read_has_no_path() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     let branches: Vec<String> = plan
         .branches(0, &known)
@@ -445,9 +454,13 @@ fn a_known_column_in_a_where_has_no_null_path() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     let branches: Vec<String> = plan
         .branches(0, &known)
@@ -459,6 +472,137 @@ fn a_known_column_in_a_where_has_no_null_path() {
     [
         "devices: type 'stop' -> kept by `where: type == 'stop'`",
         "devices: type 'yield' -> dropped, `where: type == 'stop'` is false",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_column_that_may_be_null_has_a_null_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("type == 'stop'".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "type".to_owned(),
+        not_null: false,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: type 'stop' -> kept by `where: type == 'stop'`",
+        "devices: type 'yield' -> dropped, `where: type == 'stop'` is false",
+        "devices: type null -> dropped, `where: type == 'stop'` is false",
+    ]
+    "#);
+}
+
+#[test]
+fn a_null_path_names_a_where_that_fails_on_null() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("type.startsWith('s')".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "type".to_owned(),
+        not_null: false,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: type 'stop' -> kept by `where: type.startsWith('s')`",
+        "devices: type 'yield' -> dropped, `where: type.startsWith('s')` is false",
+        "devices: type null -> dropped, `where: type.startsWith('s')` fails",
+    ]
+    "#);
+}
+
+#[test]
+fn a_column_that_is_never_null_has_no_null_path_without_known_values() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("population".to_owned(), Some(ValueKind::Int))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("population > 1000".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "population".to_owned(),
+        not_null: true,
+        values: None,
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: kept by `where: population > 1000`",
+        "devices: dropped, `where: population > 1000` is false",
+    ]
+    "#);
+}
+
+#[test]
+fn a_feature_without_a_known_column_takes_its_null_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("type == 'stop'".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "type".to_owned(),
+        not_null: false,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
+    }];
+    let unknown = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
+        props: vec![],
+    };
+    let paths = plan.paths_of(0, &known, Crs::Wgs84, &unknown).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "devices: type null -> dropped, `where: type == 'stop'` is false",
     ]
     "#);
 }
@@ -482,9 +626,13 @@ fn a_value_that_decides_every_rule_names_the_rule_it_takes() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     let branches: Vec<String> = plan
         .branches(0, &known)
@@ -525,9 +673,10 @@ fn a_rule_the_values_cannot_decide_keeps_its_paths() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned())],
+        not_null: true,
+        values: Some(vec![Literal::String("stop".to_owned())]),
     }];
     let branches: Vec<String> = plan
         .branches(0, &known)
@@ -573,7 +722,7 @@ fn a_choice_inside_an_expression_names_its_field_without_a_value() {
 }
 
 #[test]
-fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
+fn a_json_column_that_may_replace_a_known_column_keeps_its_choice_paths() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![
             ColumnDef::Value("type".to_owned(), None),
@@ -586,26 +735,51 @@ fn a_value_path_cannot_select_rows_when_a_json_column_may_replace_the_column() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned())],
+        not_null: true,
+        values: Some(vec![Literal::String("stop".to_owned())]),
     }];
-    insta::assert_debug_snapshot!(plan.branches(0, &known).unwrap(), @r#"
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
     [
-        Branch {
-            layer: "devices",
-            path: "type 'stop' -> kept by `where: type == 'stop'`",
-            rows: Err(
-                Untranslatable {
-                    layer: "devices",
-                    expr: "the source's filter",
-                    reason: KeysMayReplaceColumns(
-                        "tags",
-                    ),
-                },
-            ),
-            shape: None,
-        },
+        "devices: kept by `where: type == 'stop'`",
+        "devices: dropped, `where: type == 'stop'` is false",
+        "devices: dropped, `type` is null in `where: type == 'stop'`",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_column_with_no_values_has_only_a_null_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Point),
+            filter: Some("type == 'stop'".to_owned()),
+            ..LayerDef::new("devices", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "type".to_owned(),
+        not_null: false,
+        values: Some(Vec::new()),
+    }];
+    let branches: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(branches, @r#"
+    [
+        "devices: type null -> dropped, `where: type == 'stop'` is false",
     ]
     "#);
 }
@@ -621,9 +795,10 @@ fn a_column_read_as_text_has_no_path_for_a_number() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "amount".to_owned(),
-        values: vec![Literal::Int(2)],
+        not_null: true,
+        values: Some(vec![Literal::Int(2)]),
     }];
     let branches: Vec<String> = plan
         .branches(0, &known)
@@ -650,9 +825,10 @@ fn a_float_column_compares_a_whole_number_as_a_float() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "height".to_owned(),
-        values: vec![Literal::Int(2)],
+        not_null: true,
+        values: Some(vec![Literal::Int(2)]),
     }];
     let branches = plan.branches(0, &known).unwrap();
     insta::assert_debug_snapshot!(branches.last().unwrap(), @r#"
@@ -703,9 +879,13 @@ fn a_stop_sign_takes_the_path_of_its_value() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     let stop = SourceFeature {
         id: Some(1),
@@ -739,9 +919,13 @@ fn a_value_the_filter_does_not_list_takes_no_path() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "type".to_owned(),
-        values: vec![Literal::String("stop".to_owned()), Literal::String("yield".to_owned())],
+        not_null: true,
+        values: Some(vec![
+            Literal::String("stop".to_owned()),
+            Literal::String("yield".to_owned()),
+        ]),
     }];
     let give_way = SourceFeature {
         id: Some(1),
@@ -764,9 +948,10 @@ fn an_integer_property_takes_the_path_of_its_known_integer_value() {
         }],
     }])
     .unwrap();
-    let known = [ColumnValues {
+    let known = [ColumnFacts {
         column: "lanes".to_owned(),
-        values: vec![Literal::Int(1), Literal::Int(2)],
+        not_null: true,
+        values: Some(vec![Literal::Int(1), Literal::Int(2)]),
     }];
     let two_lanes = SourceFeature {
         id: Some(1),

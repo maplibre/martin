@@ -10,7 +10,7 @@ use martin_core::tiles::postgres::{
     PooledConnection, PostgresPool, export_snapshot, open_scan_connection, open_snapshot_connection,
 };
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tilegen::plan::{ColumnValues, Condition, GeometryType, Literal, Shape, SizeBand};
+use martin_tilegen::plan::{ColumnFacts, Condition, GeometryType, Literal, Shape, SizeBand};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::resolver::{condition_sql, linear_geometry, scan_sql};
@@ -21,6 +21,7 @@ use crate::config::primitives::env::OsEnv;
 use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable};
+use crate::generate::spec::catalog::table_facts;
 use crate::generate::{GenerateError, GenerateResult};
 use crate::srv::RESERVED_KEYWORDS;
 
@@ -32,6 +33,8 @@ const PATH_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct Postgres {
     builder: PostgresAutoDiscoveryBuilder,
     tables: BTreeMap<String, TableInfo>,
+    /// What the catalog says about the columns of each source's table, as of the snapshot.
+    facts: BTreeMap<String, Vec<ColumnFacts>>,
     snapshot: Snapshot,
 }
 
@@ -69,7 +72,7 @@ impl Postgres {
             PostgresAutoDiscoveryBuilder::new(pg, IdResolver::new(RESERVED_KEYWORDS), config.cache.policy(), &grids)
                 .await?;
         let (specs, _) = builder.discover().await?;
-        let tables = specs
+        let tables: BTreeMap<String, TableInfo> = specs
             .into_iter()
             .filter_map(|(id, spec)| match spec {
                 SourceSpec::Table(info) if info.layers.is_some() => Some((id, info)),
@@ -82,10 +85,15 @@ impl Postgres {
         }
         let conn = open_scan_connection(builder.pool()).await?;
         let id = export_snapshot(&conn).await?;
+        let mut facts = BTreeMap::new();
+        for (source, info) in &tables {
+            facts.insert(source.clone(), table_facts(&conn, info).await?);
+        }
         let snapshot = Snapshot { conn: Some(conn), id };
         Ok(Self {
             builder,
             tables,
+            facts,
             snapshot,
         })
     }
@@ -161,7 +169,13 @@ impl TestBackend for Postgres {
     fn tables(&self, max_zoom: u8) -> GenerateResult<Vec<TestTable>> {
         let mut out = Vec::with_capacity(self.tables.len());
         for (id, info) in &self.tables {
-            out.extend(test_table(id, info, max_zoom)?);
+            let Some(mut table) = test_table(id, info, max_zoom)? else {
+                continue;
+            };
+            for fact in self.facts.get(id).into_iter().flatten() {
+                table.learn(fact.clone());
+            }
+            out.push(table);
         }
         Ok(out)
     }
@@ -199,7 +213,8 @@ impl TestBackend for Postgres {
 }
 
 /// Source `id` with table `info` as `martin test` reads it, at zooms 0 to `max_zoom`, or `None` when it has none of
-/// them. The values the source's `filter` allows a column are known values of the column.
+/// them. The values the source's `filter` allows a column are known values of the column, and the key column is never
+/// `null`, as `martin test` selects no row without a key.
 ///
 /// # Errors
 ///
@@ -212,17 +227,28 @@ pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Op
     let Some(scan) = lower_table(id, info.clone(), &options)? else {
         return Ok(None);
     };
-    Ok(Some(TestTable {
+    let mut table = TestTable {
         source: id.to_owned(),
         def: scan.def,
-        known: filter_values(info),
+        facts: Vec::new(),
         key: info.id_column.clone(),
         geometry: table_geometry(info),
-    }))
+    };
+    for fact in filter_values(info) {
+        table.learn(fact);
+    }
+    if let Some(key) = &info.id_column {
+        table.learn(ColumnFacts {
+            column: key.clone(),
+            not_null: true,
+            values: None,
+        });
+    }
+    Ok(Some(table))
 }
 
 /// The values of the columns the `filter` of `info` allows only some of, from the `IN` lists and `=` it ANDs.
-fn filter_values(info: &TableInfo) -> Vec<ColumnValues> {
+fn filter_values(info: &TableInfo) -> Vec<ColumnFacts> {
     let Some(expr) = info.filter.as_deref().and_then(|f| cql2::parse_text(f).ok()) else {
         return Vec::new();
     };
@@ -232,7 +258,7 @@ fn filter_values(info: &TableInfo) -> Vec<ColumnValues> {
 }
 
 /// The column values `expr` and the conditions it ANDs allow.
-fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnValues>) {
+fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnFacts>) {
     let cql2::Expr::Operation { op, args } = expr else {
         return;
     };
@@ -259,9 +285,10 @@ fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnValues>) {
         None
     };
     if let Some(values) = values {
-        out.push(ColumnValues {
+        out.push(ColumnFacts {
             column: property.clone(),
-            values,
+            not_null: true,
+            values: Some(values),
         });
     }
 }
