@@ -748,9 +748,11 @@ test-ogc: fetch
     sqlite3 "$work/world_cities.mbtiles" < tests/fixtures/mbtiles/world_cities.sql
     target/debug/martin --listen-addresses 127.0.0.1:3000 "$work/world_cities.mbtiles" &
     martin_pid=$!
-    trap 'kill "$martin_pid" 2> /dev/null || true; docker stop ogc-ets > /dev/null 2>&1 || true; rm -rf "$work"' EXIT
-    docker run --detach --rm --network host --name ogc-ets ogccite/ets-ogcapi-tiles10@sha256:af8e8ab4f8c131c71ca02a4b05419007657e49cef6c668ecfdbe02b58c002ffc > /dev/null
+    ets="ogc-ets-$$"
+    trap 'kill "$martin_pid" 2> /dev/null || true; docker stop "$ets" > /dev/null 2>&1 || true; rm -rf "$work"' EXIT
+    docker run --detach --rm --network host --name "$ets" ogccite/ets-ogcapi-tiles10@sha256:af8e8ab4f8c131c71ca02a4b05419007657e49cef6c668ecfdbe02b58c002ffc > /dev/null
     timeout 60 bash -c 'until curl -sf http://127.0.0.1:3000/health > /dev/null; do sleep 1; done'
+    kill -0 "$martin_pid"
     timeout 300 bash -c 'until curl -sf http://127.0.0.1:8080/teamengine/ > /dev/null; do sleep 2; done'
     iut=http://127.0.0.1:3000/ogc
     curl -sf -u ogctest:ogctest -H 'Accept: application/xml' -o target/ogc-results.xml \
@@ -763,7 +765,7 @@ test-ogc: fetch
     for method in results.iter("test-method"):
         if method.get("status") == "FAIL":
             print(f"FAIL {method.get('name')}: {(method.findtext('exception/message') or '').strip()}")
-    sys.exit(results.get("failed") != "0")
+    sys.exit(results.get("failed") != "0" or results.get("passed") == "0")
     EOF
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
