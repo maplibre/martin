@@ -154,6 +154,7 @@ pub async fn get_tilesets(
     let ((source, process), crs) = collection_source(&manager, &id)?;
     let grid = source.tile_grid();
     let tms = path_segment(grid.id());
+    let segment = path_segment(&id);
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let tileset = TileSetItem {
         title: tilejson.name.unwrap_or_else(|| id.clone()),
@@ -162,7 +163,7 @@ pub async fn get_tilesets(
         tile_matrix_set_uri: registered_uri(grid),
         links: vec![
             Link::json(
-                ogc_url(&req, &srv_config, &format!("/collections/{id}/tiles/{tms}")),
+                ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles/{tms}")),
                 "self",
                 "Tileset metadata",
             ),
@@ -176,7 +177,7 @@ pub async fn get_tilesets(
     Ok(HttpResponse::Ok().json(TileSets {
         tilesets: vec![tileset],
         links: vec![Link::json(
-            ogc_url(&req, &srv_config, &format!("/collections/{id}/tiles")),
+            ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles")),
             "self",
             "This document",
         )],
@@ -204,6 +205,7 @@ pub async fn get_tileset(
     manager.wait_for_sources(&id).await;
     let ((source, process), crs) = tileset_source(&manager, &id, &tms)?;
     let tms = path_segment(&tms);
+    let segment = path_segment(&id);
     let grid = source.tile_grid();
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let format = process.advertised_tile_info(source.get_tile_info()).format;
@@ -231,7 +233,7 @@ pub async fn get_tileset(
         layers,
         links: vec![
             Link::json(
-                ogc_url(&req, &srv_config, &format!("/collections/{id}/tiles/{tms}")),
+                ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles/{tms}")),
                 "self",
                 "This document",
             ),
@@ -244,7 +246,7 @@ pub async fn get_tileset(
                 href: ogc_url(
                     &req,
                     &srv_config,
-                    &format!("/collections/{id}/tiles/{tms}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
+                    &format!("/collections/{segment}/tiles/{tms}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
                 ),
                 rel: "item",
                 media_type: media_type(format),

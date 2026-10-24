@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::data_type::DataType;
 use super::error::OgcApiError;
-use super::link::{Link, ogc_url};
+use super::link::{Link, ogc_url, path_segment};
 use super::tile_matrix_sets::{CRS84, crs};
 use crate::config::file::srv::SrvConfig;
 use crate::source::SourceEntry;
@@ -64,6 +64,7 @@ fn collection(req: &HttpRequest, srv_config: &SrvConfig, id: &str, (source, proc
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let data_type = DataType::of(process.advertised_tile_info(source.get_tile_info()).format);
     let bounds = tilejson.bounds.unwrap_or_default();
+    let segment = path_segment(id);
     Collection {
         id: id.to_owned(),
         title: tilejson.name.unwrap_or_else(|| id.to_owned()),
@@ -76,12 +77,12 @@ fn collection(req: &HttpRequest, srv_config: &SrvConfig, id: &str, (source, proc
         },
         links: vec![
             Link::json(
-                ogc_url(req, srv_config, &format!("/collections/{id}")),
+                ogc_url(req, srv_config, &format!("/collections/{segment}")),
                 "self",
                 "This collection",
             ),
             Link::json(
-                ogc_url(req, srv_config, &format!("/collections/{id}/tiles")),
+                ogc_url(req, srv_config, &format!("/collections/{segment}/tiles")),
                 data_type.tilesets_rel(),
                 "Tilesets",
             ),
