@@ -39,6 +39,26 @@ pub enum TileGenError {
     Geometry(#[from] crate::GeometryError),
 
     #[error(transparent)]
+    Wkb(#[from] crate::source::WkbError),
+
+    #[error("feature {id}: {error}")]
+    FeatureWkb {
+        table: u16,
+        id: u64,
+        #[source]
+        error: crate::source::WkbError,
+    },
+
+    #[error("the feature in row {row} of source partition {partition}: {error}")]
+    RowWkb {
+        table: u16,
+        partition: u32,
+        row: u64,
+        #[source]
+        error: crate::source::WkbError,
+    },
+
+    #[error(transparent)]
     Plan(#[from] crate::plan::PlanError),
 
     #[error("a temp record is corrupt")]

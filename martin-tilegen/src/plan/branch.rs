@@ -121,7 +121,7 @@ impl Plan {
     ///
     /// # Errors
     ///
-    /// If the plan has no table `table`.
+    /// If the plan has no table `table`, or `feature` has a geometry a tile cannot hold.
     pub fn paths_of(
         &self,
         table: u16,
@@ -131,8 +131,8 @@ impl Plan {
     ) -> TileGenResult<Vec<Branch>> {
         let paths = self.paths(table, facts)?;
         let mut geometry = feature.geometry.clone();
-        project_geometry(crs, &mut geometry);
-        let Some(geom) = geometry.feature_geom() else {
+        let drawable = project_geometry(crs, &mut geometry)?;
+        let Some(geom) = geometry.feature_geom().filter(|_| drawable) else {
             return Ok(Vec::new());
         };
         let mut errors = vec![0; self.exprs.len()];

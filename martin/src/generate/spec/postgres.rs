@@ -188,6 +188,7 @@ impl TestBackend for Postgres {
             None => (self.info(&table.source)?.clone(), PgScanSource::PARTITION_BLOCKS),
         };
         let scan = vec![ScanTable {
+            id: table.source.clone(),
             info,
             def: table.def.clone(),
         }];

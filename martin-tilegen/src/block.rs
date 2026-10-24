@@ -16,7 +16,8 @@ use crate::{EncodedTile, Summary, TileFormat, TileGenResult, TileOrder};
 ///
 /// # Errors
 ///
-/// If a batch names a table the plan does not have, or a tile cannot be encoded.
+/// If a batch names a table the plan does not have, a feature has a geometry a tile cannot hold, or a tile
+/// cannot be encoded.
 pub fn render_block(
     plan: &Plan,
     batches: &mut [FeatureBatch],
