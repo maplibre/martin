@@ -437,9 +437,11 @@ impl Renderer {
         self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
-            self.vertices.push(Coord { x, y });
+            // Quadratic, as multipoints are usually small.
+            if !self.vertices.contains(&Coord { x, y }) {
+                self.vertices.push(Coord { x, y });
+            }
         }
-        dedup_vertices(&mut self.vertices);
         self.points.clear();
         for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
@@ -951,19 +953,6 @@ fn push_quantized(
         push_vertex(vertices, start, Coord { x, y });
     }
     Ok(vertices.len() - start)
-}
-
-/// Keeps the first of each repeated vertex, in order; quadratic, as multipoints are usually small.
-fn dedup_vertices(vertices: &mut Vec<Coord<i32>>) {
-    let mut kept = 0;
-    for i in 0..vertices.len() {
-        let vertex = vertices[i];
-        if !vertices[..kept].contains(&vertex) {
-            vertices[kept] = vertex;
-            kept += 1;
-        }
-    }
-    vertices.truncate(kept);
 }
 
 /// Appends `vertex` to the run from `start`, skipping a repeat and replacing a last vertex that lies between.
