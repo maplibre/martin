@@ -44,13 +44,15 @@ struct SpatialExtent {
     crs: &'static str,
 }
 
-/// The source behind collection `id` and the OGC URI of its CRS.
+/// The one source collection `id` resolves to, as tile requests resolve it, and the OGC URI of its CRS.
 pub(super) fn collection_source(manager: &TileSourceManager, id: &str) -> ActixResult<(SourceEntry, String)> {
     manager
         .tile_sources()
-        .get_source(id)
+        .get_sources(id, None)
         .ok()
-        .and_then(|entry| {
+        .and_then(|resolved| {
+            let mut sources = resolved.sources;
+            let entry = sources.pop().filter(|_| sources.is_empty())?;
             let crs = crs(entry.0.tile_grid())?.uri;
             Some((entry, crs))
         })
@@ -101,14 +103,12 @@ pub async fn get_collections(
     manager: Data<TileSourceManager>,
 ) -> HttpResponse {
     manager.wait_until_loaded().await;
-    let sources = manager.tile_sources();
-    let mut ids = sources.source_names();
+    let mut ids = manager.tile_sources().source_names();
     ids.sort();
     let collections = ids
         .iter()
         .filter_map(|id| {
-            let entry = sources.get_source(id).ok()?;
-            crs(entry.0.tile_grid())?;
+            let (entry, _) = collection_source(&manager, id).ok()?;
             Some(collection(&req, &srv_config, id, &entry))
         })
         .collect();

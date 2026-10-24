@@ -697,3 +697,70 @@ async fn unknown_collections_tilesets_and_tiles_are_not_found() {
     let body = read_body(response).await;
     insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Tile 2/2147483647/2147483647 is outside the WebMercatorQuad grid of cities");
 }
+
+#[actix_rt::test]
+async fn bounds_across_the_antimeridian_take_every_column() {
+    let script = format!(
+        "{}\nUPDATE metadata SET value = '170,-50,-170,-30' WHERE name = 'bounds';",
+        include_str!("../../tests/fixtures/mbtiles/world_cities.sql")
+    );
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_antimeridian", &script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            pacific: {file}
+    ", file = file.display()});
+
+    let request = TestRequest::get().uri("/ogc/collections/pacific/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tileset: serde_json::Value = read_body_json(response).await;
+    let mut limits = tileset["tileMatrixSetLimits"].as_array().unwrap().clone();
+    limits.truncate(3);
+    assert_yaml_snapshot!(limits, @r#"
+    - tileMatrix: "0"
+      minTileRow: 0
+      maxTileRow: 0
+      minTileCol: 0
+      maxTileCol: 0
+    - tileMatrix: "1"
+      minTileRow: 1
+      maxTileRow: 1
+      minTileCol: 0
+      maxTileCol: 1
+    - tileMatrix: "2"
+      minTileRow: 2
+      maxTileRow: 2
+      minTileCol: 0
+      maxTileCol: 3
+    "#);
+}
+
+#[actix_rt::test]
+async fn an_alias_over_a_source_is_the_collection_tiles_are_served_from() {
+    let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_alias", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {file}
+            cities_crs84:
+              path: {file}
+              tile_grid: WorldCRS84Quad
+        aliases:
+          cities: [cities_crs84]
+    ", file = file.display()});
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tilesets: serde_json::Value = read_body_json(response).await;
+    assert_eq!(
+        tilesets["tilesets"][0]["crs"],
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    );
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
