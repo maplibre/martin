@@ -48,9 +48,7 @@ Some source IDs are reserved for internal use.
 If you try to use them, they will be automatically renamed to a unique ID
 the same way as duplicate source IDs are handled, e.g. a `catalog` source will become `catalog.1`.
 
-Here are the reserved source IDs:
-`_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `refresh`,
-`reload`, `sprite`, `status`.
+Here are the reserved source IDs: `_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `ogc`, `refresh`, `reload`, `sprite`, `status`.
 
 ### Source TileJSON
 

@@ -95,6 +95,7 @@ default = [
     "lambda",
     "mbtiles",
     "metrics",
+    "ogcapi",
     "passthrough",
     "pmtiles",
     "postgres",
@@ -125,6 +126,7 @@ rendering = [
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
+ogcapi = ["_tiles"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
