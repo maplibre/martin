@@ -3,6 +3,7 @@
 use core::cmp::Ordering;
 use core::ops::{Add, AddAssign, Neg, Range, Sub, SubAssign};
 use std::collections::HashMap;
+use std::iter::once;
 
 use geo_types::Coord;
 
@@ -37,6 +38,7 @@ type Pixel = Coord<i32>;
 pub struct Quantizer {
     fixed: Vec<Fixed>,
     fixed_ends: Vec<usize>,
+    fixed_polygon_ends: Vec<usize>,
     rounded_at: Vec<Option<usize>>,
     near_other_ring: Vec<bool>,
     vertices: Vec<Pixel>,
@@ -47,7 +49,7 @@ pub struct Quantizer {
     grid: Grid,
 }
 
-/// The polygons [`Quantizer::polygon`] or [`Quantizer::make_valid`] rounded one polygon into.
+/// The polygons [`Quantizer::polygon`], [`Quantizer::multi_polygon`] or [`Quantizer::make_valid`] rounded into.
 #[derive(Debug, Clone, Copy)]
 pub struct Quantized<'a> {
     quantizer: &'a Quantizer,
@@ -102,6 +104,11 @@ impl Winding {
     /// Whether the point is inside the exterior and outside every hole.
     fn inside(self) -> bool {
         self.exterior != 0 && self.holes == 0
+    }
+
+    /// Whether the point is inside more exteriors than holes: in some part of a valid multipolygon.
+    fn in_some_part(self) -> bool {
+        self.exterior + self.holes > 0
     }
 }
 
@@ -164,10 +171,32 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(rings, Self::rounding_kept_valid)?;
+        self.quantize(once(rings), Self::rounding_kept_valid, Winding::in_some_part)?;
         debug_assert!(
             self.output_is_valid(),
             "Quantizer::polygon was given an invalid polygon"
+        );
+        Ok(Quantized { quantizer: self })
+    }
+
+    /// Rounds one valid multipolygon's `polygons`, each its rings, exterior first, in grid units, into
+    /// valid polygons.
+    ///
+    /// Parts that round onto each other merge into one polygon.
+    ///
+    /// # Errors
+    ///
+    /// [`TileError::Overflow`] if a coordinate is not finite or rounds outside the `i32` range.
+    pub fn multi_polygon<P>(&mut self, polygons: P) -> Result<Quantized<'_>, TileError>
+    where
+        P: IntoIterator,
+        P::Item: IntoIterator,
+        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
+    {
+        self.quantize(polygons, Self::rounding_kept_valid, Winding::in_some_part)?;
+        debug_assert!(
+            self.output_is_valid(),
+            "Quantizer::multi_polygon was given an invalid multipolygon"
         );
         Ok(Quantized { quantizer: self })
     }
@@ -184,38 +213,59 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(rings, Self::rounded_is_valid)?;
+        self.quantize(once(rings), Self::rounded_is_valid, Winding::inside)?;
         debug_assert!(self.output_is_valid(), "Quantizer::make_valid gave an invalid polygon");
         Ok(Quantized { quantizer: self })
     }
 
-    /// Reads and rounds `rings`, keeping the rounded rings if `still_valid` holds and repairing them if not.
-    fn quantize<R>(&mut self, rings: R, still_valid: fn(&mut Self) -> bool) -> Result<(), TileError>
+    /// Reads and rounds `polygons`, keeping the rounded rings if `still_valid` holds and repairing them
+    /// into the area where `inside` holds if not.
+    fn quantize<P>(
+        &mut self,
+        polygons: P,
+        still_valid: fn(&mut Self) -> bool,
+        inside: fn(Winding) -> bool,
+    ) -> Result<(), TileError>
     where
-        R: IntoIterator,
-        R::Item: IntoIterator<Item = Coord<f64>>,
+        P: IntoIterator,
+        P::Item: IntoIterator,
+        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.read(rings)?;
+        self.read(polygons)?;
         self.round();
         if !self.ring_ends.is_empty() {
             if still_valid(self) {
                 self.keep();
             } else {
-                self.repair();
+                self.repair(inside);
             }
         }
         Ok(())
     }
 
-    /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three
-    /// and turning the exterior positive and the holes negative.
-    fn read<R>(&mut self, rings: R) -> Result<(), TileError>
+    /// Reads each of `polygons` with [`Self::read_polygon`].
+    fn read<P>(&mut self, polygons: P) -> Result<(), TileError>
+    where
+        P: IntoIterator,
+        P::Item: IntoIterator,
+        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
+    {
+        self.fixed.clear();
+        self.fixed_ends.clear();
+        self.fixed_polygon_ends.clear();
+        for rings in polygons {
+            self.read_polygon(rings)?;
+        }
+        Ok(())
+    }
+
+    /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three,
+    /// and all of them when that is the exterior, and turning the exterior positive and the holes negative.
+    fn read_polygon<R>(&mut self, rings: R) -> Result<(), TileError>
     where
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.fixed.clear();
-        self.fixed_ends.clear();
         for (i, ring) in rings.into_iter().enumerate() {
             let start = self.fixed.len();
             for c in ring {
@@ -239,6 +289,7 @@ impl Quantizer {
             }
             self.fixed_ends.push(self.fixed.len());
         }
+        self.fixed_polygon_ends.push(self.fixed_ends.len());
         Ok(())
     }
 
@@ -248,49 +299,58 @@ impl Quantizer {
         is_valid(&vertices, &self.ring_ends, &self.polygon_ends)
     }
 
-    /// Rounds every vertex on its own, dropping the rings left with fewer than three, and all of them
-    /// when that is the exterior.
+    /// Rounds every vertex on its own, dropping the rings left with fewer than three, and a polygon's
+    /// rings when that is its exterior.
     fn round(&mut self) {
         self.vertices.clear();
         self.ring_ends.clear();
         self.polygon_ends.clear();
         self.rounded_at.clear();
-        for (i, ring) in rings_of(&self.fixed, &self.fixed_ends).enumerate() {
-            let start = self.vertices.len();
-            let from = self.rounded_at.len();
-            for &c in ring {
-                push_new(&mut self.vertices, start, pixel(c));
-                self.rounded_at.push(Some(self.vertices.len() - 1));
-            }
-            if drop_closing(&mut self.vertices, start) {
-                let last = Some(self.vertices.len());
-                for r in &mut self.rounded_at[from..] {
-                    if *r == last {
-                        *r = Some(start);
+        for rings in spans(&self.fixed_polygon_ends) {
+            let first_ring = self.ring_ends.len();
+            for r in rings.clone() {
+                let start = self.vertices.len();
+                let from = self.rounded_at.len();
+                for &c in &self.fixed[span(&self.fixed_ends, r)] {
+                    push_new(&mut self.vertices, start, pixel(c));
+                    self.rounded_at.push(Some(self.vertices.len() - 1));
+                }
+                if drop_closing(&mut self.vertices, start) {
+                    let last = Some(self.vertices.len());
+                    for at in &mut self.rounded_at[from..] {
+                        if *at == last {
+                            *at = Some(start);
+                        }
                     }
                 }
-            }
-            if self.vertices.len() - start < 3 {
-                self.vertices.truncate(start);
-                if i == 0 {
-                    return;
+                if self.vertices.len() - start < 3 {
+                    self.vertices.truncate(start);
+                    if r == rings.start {
+                        self.rounded_at.truncate(from);
+                        self.rounded_at.resize(self.fixed_ends[rings.end - 1], None);
+                        break;
+                    }
+                    self.rounded_at[from..].fill(None);
+                    continue;
                 }
-                self.rounded_at[from..].fill(None);
-                continue;
+                self.ring_ends.push(self.vertices.len());
             }
-            self.ring_ends.push(self.vertices.len());
+            if self.ring_ends.len() > first_ring {
+                self.polygon_ends.push(self.ring_ends.len());
+            }
         }
     }
 
-    /// Keeps the rounded rings as one polygon, the exterior turning positive and the holes negative.
+    /// Keeps the rounded rings as they are, each exterior turning positive and each hole negative.
     fn keep(&mut self) {
-        for (i, span) in spans(&self.ring_ends).enumerate() {
-            let ring = &mut self.vertices[span];
-            if (signed_area_2x(ring) > 0) != (i == 0) {
-                ring.reverse();
+        for rings in spans(&self.polygon_ends) {
+            for r in rings.clone() {
+                let ring = &mut self.vertices[span(&self.ring_ends, r)];
+                if (signed_area_2x(ring) > 0) != (r == rings.start) {
+                    ring.reverse();
+                }
             }
         }
-        self.polygon_ends.push(self.ring_ends.len());
     }
 
     /// Lists the rounded edges, and tells whether no ring folds back onto itself at a vertex.
@@ -408,22 +468,29 @@ impl Quantizer {
                 .all(|(q, &(hole, ring))| hole == q && ring == 0)
     }
 
-    /// Snap-rounds the polygon and rebuilds its area as valid polygons.
-    fn repair(&mut self) {
+    /// Snap-rounds the polygons and rebuilds the area where `inside` holds as valid polygons.
+    fn repair(&mut self, inside: fn(Winding) -> bool) {
         self.vertices.clear();
         self.ring_ends.clear();
         self.polygon_ends.clear();
         let mut edges = Vec::new();
-        for (i, ring) in rings_of(&self.fixed, &self.fixed_ends).enumerate() {
-            let winding = if i == 0 { Winding::EXTERIOR } else { Winding::HOLE };
-            for (k, &a) in ring.iter().enumerate() {
-                let b = ring[(k + 1) % ring.len()];
-                edges.push(FixedEdge { a, b, winding });
+        for rings in spans(&self.fixed_polygon_ends) {
+            for r in rings.clone() {
+                let ring = &self.fixed[span(&self.fixed_ends, r)];
+                let winding = if r == rings.start {
+                    Winding::EXTERIOR
+                } else {
+                    Winding::HOLE
+                };
+                for (k, &a) in ring.iter().enumerate() {
+                    let b = ring[(k + 1) % ring.len()];
+                    edges.push(FixedEdge { a, b, winding });
+                }
             }
         }
         let hot = hot_pixels(&edges);
         let net = net_edges(&edges, &hot);
-        let rings = trace(boundary(&net));
+        let rings = trace(boundary(&net, inside));
         self.assemble(rings);
     }
 
@@ -1080,8 +1147,8 @@ fn odd_runs(mut hits: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     odd
 }
 
-/// The edges between the area and the rest, each directed with the area on its left.
-fn boundary(net: &[NetEdge]) -> Vec<(Pixel, Pixel)> {
+/// The edges between the area where `inside` holds and the rest, each directed with the area on its left.
+fn boundary(net: &[NetEdge], inside: fn(Winding) -> bool) -> Vec<(Pixel, Pixel)> {
     let lines: Vec<(Fixed, Fixed)> = net.iter().map(|n| (widen(n.a), widen(n.b))).collect();
     let queries: Vec<Fixed> = lines.iter().map(|&(a, b)| a + b).collect();
     let mut above = vec![Winding::default(); net.len()];
@@ -1097,7 +1164,7 @@ fn boundary(net: &[NetEdge]) -> Vec<(Pixel, Pixel)> {
         } else {
             (w, w - n.winding)
         };
-        match (left.inside(), right.inside()) {
+        match (inside(left), inside(right)) {
             (true, false) => edges.push((n.a, n.b)),
             (false, true) => edges.push((n.b, n.a)),
             _ => {}

@@ -594,25 +594,26 @@ impl Renderer {
         self.vertices.clear();
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
-        for rings in self.simplifier.polygons(epsilon) {
-            let rings = rings.map(|ring| ring.map(|c| to_grid(c, shift, world)));
-            let quantized = self
-                .quantizer
-                .polygon(rings)
-                .map_err(|_overflow| GeometryError::CoordOverflow)?;
-            for polygon in quantized.polygons() {
-                let first_ring = self.parts.len();
-                for ring in polygon {
-                    let start = self.vertices.len();
-                    for &vertex in ring.iter().chain(ring.first()) {
-                        push_vertex(&mut self.vertices, start, vertex);
-                    }
-                    self.vertices.pop();
-                    trim_ring_seam(&mut self.vertices, start);
-                    self.parts.push(vertex_count(self.vertices.len() - start)?);
+        let polygons = self
+            .simplifier
+            .polygons(epsilon)
+            .map(|rings| rings.map(move |ring| ring.map(move |c| to_grid(c, shift, world))));
+        let quantized = self
+            .quantizer
+            .multi_polygon(polygons)
+            .map_err(|_overflow| GeometryError::CoordOverflow)?;
+        for polygon in quantized.polygons() {
+            let first_ring = self.parts.len();
+            for ring in polygon {
+                let start = self.vertices.len();
+                for &vertex in ring.iter().chain(ring.first()) {
+                    push_vertex(&mut self.vertices, start, vertex);
                 }
-                self.polys.push(len32(self.parts.len() - first_ring)?);
+                self.vertices.pop();
+                trim_ring_seam(&mut self.vertices, start);
+                self.parts.push(vertex_count(self.vertices.len() - start)?);
             }
+            self.polys.push(len32(self.parts.len() - first_ring)?);
         }
         let (polys, parts, vertices) = (
             std::mem::take(&mut self.polys),
@@ -1450,6 +1451,35 @@ mod tests {
         // Tiles 6..10 lie wholly inside the hole (0.3..0.7 of 16 tiles is 4.8..11.2).
         assert!(!tiles.contains(&(4, 7, 7)) && !tiles.contains(&(4, 8, 9)));
         assert!(tiles.contains(&(4, 2, 2)), "covered by the exterior");
+    }
+
+    #[test]
+    fn multipolygon_parts_that_round_onto_one_edge_merge_into_one_polygon() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let part = |x0: f64, x1: f64| {
+            let ring: LineString = [(x0, 10.0), (x1, 10.0), (x1, 90.0), (x0, 90.0), (x0, 10.0)]
+                .into_iter()
+                .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+                .collect();
+            Polygon::new(ring, vec![])
+        };
+        let polygons = [part(10.0, 50.0), part(50.02, 90.0)];
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.polygons, [1]);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90], [10, 90]]);
     }
 
     #[test]
