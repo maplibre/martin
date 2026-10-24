@@ -103,7 +103,8 @@ pub enum WkbError {
 }
 
 /// A WKB geometry type that is not a point, line or polygon, single or multi, named as WKT names it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "UPPERCASE")]
 #[non_exhaustive]
 #[expect(missing_docs)]
 pub enum UnsupportedGeometry {
@@ -140,27 +141,6 @@ impl UnsupportedGeometry {
     }
 }
 
-impl std::fmt::Display for UnsupportedGeometry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::GeometryCollection => "GEOMETRYCOLLECTION",
-            Self::CircularString => "CIRCULARSTRING",
-            Self::CompoundCurve => "COMPOUNDCURVE",
-            Self::CurvePolygon => "CURVEPOLYGON",
-            Self::MultiCurve => "MULTICURVE",
-            Self::MultiSurface => "MULTISURFACE",
-            Self::Curve => "CURVE",
-            Self::Surface => "SURFACE",
-            Self::PolyhedralSurface => "POLYHEDRALSURFACE",
-            Self::Tin => "TIN",
-            Self::Triangle => "TRIANGLE",
-        })
-    }
-}
-
-/// Why WKB shorter than its byte order and type code is malformed.
-const HEADER: &str = "a geometry starts with a 5-byte header of byte order and type code";
-
 /// The EWKB flags for Z, M and an SRID, set on the type code instead of the ISO dimension offsets.
 const EWKB_FLAGS: u32 = 0xE000_0000;
 
@@ -175,16 +155,13 @@ fn decode_wkb(bytes: &[u8]) -> Result<Option<Geometry>, WkbError> {
         len: bytes.len(),
         reason,
     };
-    match bytes.first() {
-        None => return Err(malformed(HEADER.to_owned())),
-        Some(0 | 1) => {}
-        Some(order) => {
-            return Err(malformed(format!(
-                "byte order {order} is neither 0 (big endian) nor 1 (little endian)"
-            )));
-        }
+    if let Some(order @ 2..) = bytes.first() {
+        return Err(malformed(format!(
+            "byte order {order} is neither 0 (big endian) nor 1 (little endian)"
+        )));
     }
-    let code = read_u32(bytes, 1).ok_or_else(|| malformed(HEADER.to_owned()))?;
+    let code = read_u32(bytes, 1)
+        .ok_or_else(|| malformed("a geometry starts with a 5-byte header of byte order and type code".to_owned()))?;
     let kind = (code & !EWKB_FLAGS) % 1000;
     if let Some(kind) = UnsupportedGeometry::of_code(kind) {
         let parts = if code & EWKB_SRID == 0 { 5 } else { 9 };

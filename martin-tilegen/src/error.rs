@@ -45,6 +45,7 @@ pub enum TileGenError {
     FeatureWkb {
         table: u16,
         id: u64,
+        #[source]
         error: crate::source::WkbError,
     },
 
@@ -53,6 +54,7 @@ pub enum TileGenError {
         table: u16,
         partition: u32,
         row: u64,
+        #[source]
         error: crate::source::WkbError,
     },
 
