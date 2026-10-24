@@ -70,19 +70,6 @@ Paths are the distinct, interesting cases this configuration can produce.
 
 A row on several paths is one case. `NO ROW`: no row takes the path.
 
-Paths skip what the source or table rules out:
-
-| Rule                                                   | Paths                                   |
-|--------------------------------------------------------|-----------------------------------------|
-| `filter` with `col IN (...)` or `col = ...`            | one per value, no `null` path           |
-| `NOT NULL`, `PRIMARY KEY`                              | no `null` path                          |
-| enum type, `CHECK (col IN (...))`, `CHECK (col = ...)` | one per value, `null` unless `NOT NULL` |
-| `id_column`                                            | no `null` path                          |
-
-None apply while a `jsonb` property column may replace the column.
-
-`martin test` only selects rows with an `id_column` of 0 or more, so rows without one are never a case.
-
 ## Spec file
 
 ```yaml title="roads.spec.yaml"
