@@ -27,6 +27,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/style/{style}`                              | [Style source](sources-styles/index.md)                            |
 | `/style/{style}/{z}/{x}/{y}.{ext}`            | [Rendered raster tiles](sources-styles/rendering.md) (Linux)       |
 | `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](sources-styles/rendering.md#static-images) (Linux) |
+| `/ogc`                                        | [OGC API - Tiles](ogc-api.md)                                      |
 | `/health`                                     | Martin server health check: returns 200 `OK`                       |
 | `/_/metrics`                                  | Martin server Prometheus metrics                                   |
 
