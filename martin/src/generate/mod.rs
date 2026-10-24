@@ -16,10 +16,12 @@ use std::time::{Duration, Instant};
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
 use martin_tilegen::plan::Untranslatable;
+use martin_tilegen::source::WkbError;
 use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, TileGenResult,
     generate,
 };
+use postgres_protocol::escape::escape_identifier;
 use tilejson::{Bounds, tilejson};
 #[cfg(unix)]
 use tokio::signal::unix::{Signal, SignalKind, signal};
@@ -29,6 +31,7 @@ use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
+use crate::config::file::postgres::resolver::linear_geometry;
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
@@ -201,6 +204,18 @@ pub enum GenerateError {
     PoolTooSmall { pool_size: usize },
     #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
     CaseTooLarge { table: String, key: u64, tiles: usize },
+    #[error("Source `{source_id}`: {error}{}", count_hint(find.as_deref()))]
+    FeatureGeometry {
+        source_id: String,
+        error: Box<TileGenError>,
+        find: Option<String>,
+    },
+    #[error("Row {key} of `{source_id}`: {error}")]
+    CaseGeometry {
+        source_id: String,
+        key: u64,
+        error: WkbError,
+    },
     #[error("Cannot decode a tile bulk mode wrote: {0}")]
     Decode(#[source] mlt_core::MltError),
     #[cfg(feature = "tui")]
@@ -265,6 +280,10 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.warn_unrecognized_keys();
 
     let (pool, scans) = select_sources(&config, &options).await?;
+    let geometry_finders: Vec<(String, String)> = scans
+        .iter()
+        .map(|scan| (scan.id.clone(), unsupported_geometry_sql(&scan.info)))
+        .collect();
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
@@ -287,7 +306,9 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
     };
     reporter.abort();
-    let summary = result.inspect_err(|_| remove_output(&output))?;
+    let summary = result
+        .map_err(|err| explain_feature_geometry(err, &geometry_finders))
+        .inspect_err(|_| remove_output(&output))?;
     info!(
         features = summary.features,
         tiles = summary.tiles,
@@ -320,6 +341,43 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         );
     }
     Ok(())
+}
+
+/// `err` naming the source of a feature whose geometry stopped the run, with `finders` by table:
+/// the source id and a query counting the rows of each geometry type it cannot render.
+fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) -> GenerateError {
+    let GenerateError::TileGen(err) = err else {
+        return err;
+    };
+    let TileGenError::FeatureWkb { table, error, .. } = &err else {
+        return GenerateError::TileGen(err);
+    };
+    let Some((source_id, sql)) = finders.get(usize::from(*table)) else {
+        return GenerateError::TileGen(err);
+    };
+    GenerateError::FeatureGeometry {
+        source_id: source_id.clone(),
+        find: matches!(error, WkbError::Unsupported { .. }).then(|| sql.clone()),
+        error: Box::new(err),
+    }
+}
+
+/// The line naming `sql`, the query counting the rows of each geometry type bulk mode cannot render.
+fn count_hint(sql: Option<&str>) -> String {
+    sql.map_or_else(String::new, |sql| {
+        format!("\nCount the rows of each geometry type it cannot render with:\n  {sql}")
+    })
+}
+
+/// A query counting the rows of `info` by each geometry type bulk mode cannot render.
+fn unsupported_geometry_sql(info: &TableInfo) -> String {
+    format!(
+        "SELECT ST_GeometryType(g), count(*) FROM (SELECT {} AS g FROM {}.{} WHERE {} IS NOT NULL) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1",
+        linear_geometry(info),
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table),
+        escape_identifier(&info.geometry_column),
+    )
 }
 
 /// Created before the run starts, so that a failure removes only a file this run created.
