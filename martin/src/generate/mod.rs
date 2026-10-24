@@ -349,7 +349,7 @@ fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) ->
     let GenerateError::TileGen(err) = err else {
         return err;
     };
-    let TileGenError::FeatureWkb { table, error, .. } = &err else {
+    let (TileGenError::FeatureWkb { table, error, .. } | TileGenError::RowWkb { table, error, .. }) = &err else {
         return GenerateError::TileGen(err);
     };
     let Some((source_id, sql)) = finders.get(usize::from(*table)) else {
