@@ -25,6 +25,7 @@ pub const WEB_MERCATOR_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE,
     matrix_at_zoom0: [1, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// Plain longitude and latitude (`EPSG:4326`), two tiles wide and one tall at zoom 0.
@@ -37,6 +38,7 @@ pub const WORLD_CRS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 180.0,
     matrix_at_zoom0: [2, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// The registry's other name for [`WORLD_CRS84_QUAD`], `EPSG:4326` in the axis order Martin always uses.
@@ -52,6 +54,7 @@ pub const WORLD_MERCATOR_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE,
     matrix_at_zoom0: [1, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// Europe on the equal-area ETRS89-LAEA projection (`EPSG:3035`).
@@ -64,6 +67,7 @@ pub const EUROPEAN_ETRS89_LAEA_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 4_500_000.0,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// New Zealand on NZTM2000 (`EPSG:2193`), with the zoom scales of [`WEB_MERCATOR_QUAD`] from its zoom 2 on.
@@ -76,6 +80,7 @@ pub const NZTM2000_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE / 4.0,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: false,
 };
 
 /// The Arctic on Universal Polar Stereographic North (`EPSG:5041`).
@@ -88,6 +93,7 @@ pub const UPS_ARCTIC_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 32_881_518.694_4,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// The Antarctic on Universal Polar Stereographic South (`EPSG:5042`).
@@ -100,6 +106,7 @@ pub const UPS_ANTARCTIC_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 32_881_518.694_4,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// Every built-in grid.
@@ -133,6 +140,8 @@ pub struct TileGrid {
     matrix_at_zoom0: [u32; 2],
     #[serde(skip)]
     wraps: bool,
+    #[serde(skip)]
+    in_ogc_registry: bool,
 }
 
 #[expect(
@@ -196,6 +205,7 @@ impl TileGrid {
             extent_at_zoom0,
             matrix_at_zoom0: [1, 1],
             wraps: false,
+            in_ogc_registry: false,
         })
     }
 
@@ -320,6 +330,12 @@ impl TileGrid {
     #[must_use]
     pub fn is_web_mercator(&self) -> bool {
         self.id == WEB_MERCATOR_QUAD_ID
+    }
+
+    /// Whether the OGC tile matrix set registry defines this grid.
+    #[must_use]
+    pub fn is_in_ogc_registry(&self) -> bool {
+        self.in_ogc_registry
     }
 }
 

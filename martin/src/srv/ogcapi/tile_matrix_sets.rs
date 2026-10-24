@@ -2,7 +2,7 @@ use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileGrid, WEB_MERCATOR_QUAD};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileGrid};
 use serde::Serialize;
 
 use super::error::OgcApiError;
@@ -19,16 +19,6 @@ const STANDARD_PIXEL_METRES: f64 = 0.000_28;
 
 /// The OGC URI of longitude and latitude on WGS 84.
 pub(super) const CRS84: &str = "http://www.opengis.net/def/crs/OGC/1.3/CRS84";
-
-/// The built-in grids that are also in the OGC tile matrix set registry.
-const REGISTERED_GRIDS: [&str; 6] = [
-    "WebMercatorQuad",
-    "WorldCRS84Quad",
-    "WorldMercatorWGS84Quad",
-    "EuropeanETRS89_LAEAQuad",
-    "UPSArcticWGS84Quad",
-    "UPSAntarcticWGS84Quad",
-];
 
 /// The tile matrix sets the OGC API serves.
 #[derive(Serialize, Debug)]
@@ -113,26 +103,8 @@ pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
 
 /// The registry URI of a built-in grid the OGC registry defines.
 fn registered_uri(grid: &TileGrid) -> Option<String> {
-    REGISTERED_GRIDS
-        .contains(&grid.id())
+    grid.is_in_ogc_registry()
         .then(|| format!("http://www.opengis.net/def/tilematrixset/OGC/1.0/{}", grid.id()))
-}
-
-/// The grids the served sources are on, Web Mercator always first.
-fn served_grids(manager: &TileSourceManager) -> Vec<TileGrid> {
-    let sources = manager.tile_sources();
-    let mut grids = vec![WEB_MERCATOR_QUAD];
-    for id in sources.source_names() {
-        let Ok((source, _)) = sources.get_source(&id) else {
-            continue;
-        };
-        let grid = source.tile_grid();
-        if !grids.iter().any(|served| served.id() == grid.id()) {
-            grids.push(grid.clone());
-        }
-    }
-    grids[1..].sort_by(|a, b| a.id().cmp(b.id()));
-    grids
 }
 
 /// The definition of `grid` for every zoom Martin serves, or `None` if its CRS isn't one [`crs`] knows.
@@ -177,7 +149,8 @@ pub async fn get_tile_matrix_sets(
     manager: Data<TileSourceManager>,
 ) -> HttpResponse {
     manager.wait_until_loaded().await;
-    let tile_matrix_sets = served_grids(&manager)
+    let tile_matrix_sets = manager
+        .served_grids()
         .iter()
         .filter_map(|grid| {
             Some(TileMatrixSetItem {
@@ -210,7 +183,8 @@ pub async fn get_tile_matrix_sets(
 pub async fn get_tile_matrix_set(path: Path<String>, manager: Data<TileSourceManager>) -> ActixResult<HttpResponse> {
     manager.wait_until_loaded().await;
     let id = path.into_inner();
-    served_grids(&manager)
+    manager
+        .served_grids()
         .iter()
         .find(|grid| grid.id() == id)
         .and_then(tile_matrix_set)
