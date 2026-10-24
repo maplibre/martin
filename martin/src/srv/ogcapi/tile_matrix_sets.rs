@@ -112,7 +112,7 @@ pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
 }
 
 /// The registry URI of a built-in grid the OGC registry defines.
-fn registered_uri(grid: &TileGrid) -> Option<String> {
+pub(super) fn registered_uri(grid: &TileGrid) -> Option<String> {
     REGISTERED_GRIDS
         .contains(&grid.id())
         .then(|| format!("http://www.opengis.net/def/tilematrixset/OGC/1.0/{}", grid.id()))

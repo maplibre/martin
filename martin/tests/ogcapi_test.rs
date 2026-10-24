@@ -1,6 +1,7 @@
 #![cfg(all(feature = "ogcapi", feature = "mbtiles"))]
 
 use actix_web::http::StatusCode;
+use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
@@ -31,9 +32,12 @@ macro_rules! create_app {
     }};
 }
 
-async fn config(test_name: &str) -> (String, (Mbtiles, SqliteConnection)) {
-    let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (mbt, conn, file) = temp_named_mbtiles(&format!("{test_name}_cities"), script).await;
+async fn config(test_name: &str) -> (String, [(Mbtiles, SqliteConnection); 2]) {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (cities_mbt, cities_conn, cities_file) = temp_named_mbtiles(&format!("{test_name}_cities"), cities).await;
+    let geography = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+    let (geography_mbt, geography_conn, geography_file) =
+        temp_named_mbtiles(&format!("{test_name}_geography"), geography).await;
     (
         formatdoc! {"
             tile_grids:
@@ -51,31 +55,33 @@ async fn config(test_name: &str) -> (String, (Mbtiles, SqliteConnection)) {
                 extent_at_zoom0: 40075016.68557849
             mbtiles:
               sources:
-                cities: {file}
+                cities: {cities}
                 cities_crs84:
-                  path: {file}
+                  path: {cities}
                   tile_grid: WorldCRS84Quad
                 cities_laea:
-                  path: {file}
+                  path: {cities}
                   tile_grid: EuropeanETRS89_LAEAQuad
                 cities_on_a_plan:
-                  path: {file}
+                  path: {cities}
                   tile_grid: FloorPlan
+                geography: {geography}
                 cities_in_feet:
-                  path: {file}
+                  path: {cities}
                   tile_grid: LongIslandFeet
                 cities_surveyed:
-                  path: {file}
+                  path: {cities}
                   tile_grid: local#survey
         ",
-            file = file.display()
+            cities = cities_file.display(),
+            geography = geography_file.display()
         },
-        (mbt, conn),
+        [(cities_mbt, cities_conn), (geography_mbt, geography_conn)],
     )
 }
 
 #[actix_rt::test]
-async fn the_landing_page_links_conformance_and_tile_matrix_sets() {
+async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
     let (config, _conn) = config("ogc_landing").await;
     let app = create_app!(&config);
 
@@ -98,6 +104,10 @@ async fn the_landing_page_links_conformance_and_tile_matrix_sets() {
         rel: conformance
         type: application/json
         title: Conformance classes
+      - href: "http://localhost:8080/ogc/collections"
+        rel: data
+        type: application/json
+        title: Collections
       - href: "http://localhost:8080/ogc/tileMatrixSets"
         rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes"
         type: application/json
@@ -133,12 +143,13 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
     - "https://tiles.example.com/maps/ogc"
     - "https://maplibre.org/martin/using/"
     - "https://tiles.example.com/maps/ogc/conformance"
+    - "https://tiles.example.com/maps/ogc/collections"
     - "https://tiles.example.com/maps/ogc/tileMatrixSets"
     "#);
 }
 
 #[actix_rt::test]
-async fn the_conformance_declaration_lists_common_and_tile_matrix_set_classes() {
+async fn the_conformance_declaration_lists_the_classes_served() {
     let (config, _conn) = config("ogc_conformance").await;
     let app = create_app!(&config);
 
@@ -150,6 +161,11 @@ async fn the_conformance_declaration_lists_common_and_tile_matrix_set_classes() 
       - "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core"
       - "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page"
       - "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json"
+      - "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core"
+      - "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset"
+      - "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list"
+      - "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets"
+      - "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/mvt"
       - "http://www.opengis.net/spec/tms/2.0/conf/tilematrixset"
       - "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset"
     "#);
@@ -338,4 +354,448 @@ async fn a_tile_matrix_set_without_an_ogc_definition_is_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = read_body(response).await;
     insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Tile matrix set NoSuchGrid does not exist");
+}
+
+#[actix_rt::test]
+async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() {
+    let (config, _conn) = config("ogc_collections").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/collections").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let collections: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(collections, @r#"
+    collections:
+      - id: cities
+        title: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+        extent:
+          spatial:
+            bbox:
+              - - -123.12359
+                - -37.818085
+                - 174.763027
+                - 59.352706
+            crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        links:
+          - href: "http://localhost:8080/ogc/collections/cities"
+            rel: self
+            type: application/json
+            title: This collection
+          - href: "http://localhost:8080/ogc/collections/cities/tiles"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector"
+            type: application/json
+            title: Tilesets
+      - id: cities_crs84
+        title: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+        extent:
+          spatial:
+            bbox:
+              - - -123.12359
+                - -37.818085
+                - 174.763027
+                - 59.352706
+            crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        links:
+          - href: "http://localhost:8080/ogc/collections/cities_crs84"
+            rel: self
+            type: application/json
+            title: This collection
+          - href: "http://localhost:8080/ogc/collections/cities_crs84/tiles"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector"
+            type: application/json
+            title: Tilesets
+      - id: cities_laea
+        title: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+        extent:
+          spatial:
+            bbox:
+              - - -123.12359
+                - -37.818085
+                - 174.763027
+                - 59.352706
+            crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        links:
+          - href: "http://localhost:8080/ogc/collections/cities_laea"
+            rel: self
+            type: application/json
+            title: This collection
+          - href: "http://localhost:8080/ogc/collections/cities_laea/tiles"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector"
+            type: application/json
+            title: Tilesets
+      - id: cities_surveyed
+        title: Major cities from Natural Earth data
+        description: Major cities from Natural Earth data
+        extent:
+          spatial:
+            bbox:
+              - - -123.12359
+                - -37.818085
+                - 174.763027
+                - 59.352706
+            crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        links:
+          - href: "http://localhost:8080/ogc/collections/cities_surveyed"
+            rel: self
+            type: application/json
+            title: This collection
+          - href: "http://localhost:8080/ogc/collections/cities_surveyed/tiles"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector"
+            type: application/json
+            title: Tilesets
+      - id: geography
+        title: Geography Class
+        description: "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+        extent:
+          spatial:
+            bbox:
+              - - -180
+                - -85.0511
+                - 180
+                - 85.0511
+            crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        links:
+          - href: "http://localhost:8080/ogc/collections/geography"
+            rel: self
+            type: application/json
+            title: This collection
+          - href: "http://localhost:8080/ogc/collections/geography/tiles"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map"
+            type: application/json
+            title: Tilesets
+    links:
+      - href: "http://localhost:8080/ogc/collections"
+        rel: self
+        type: application/json
+        title: This document
+    "#);
+}
+
+#[actix_rt::test]
+async fn a_collection_links_itself_and_its_tilesets() {
+    let (config, _conn) = config("ogc_collection").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/collections/geography").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let collection: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(collection, @r#"
+    id: geography
+    title: Geography Class
+    description: "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+    extent:
+      spatial:
+        bbox:
+          - - -180
+            - -85.0511
+            - 180
+            - 85.0511
+        crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    links:
+      - href: "http://localhost:8080/ogc/collections/geography"
+        rel: self
+        type: application/json
+        title: This collection
+      - href: "http://localhost:8080/ogc/collections/geography/tiles"
+        rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map"
+        type: application/json
+        title: Tilesets
+    "#);
+}
+
+#[actix_rt::test]
+async fn the_tilesets_of_a_collection_link_their_metadata_and_tile_matrix_set() {
+    let (config, _conn) = config("ogc_tilesets").await;
+    let app = create_app!(&config);
+
+    let response = call_service(
+        &app,
+        TestRequest::get().uri("/ogc/collections/cities/tiles").to_request(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tilesets: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(tilesets, @r#"
+    tilesets:
+      - title: Major cities from Natural Earth data
+        dataType: vector
+        crs: "http://www.opengis.net/def/crs/EPSG/0/3857"
+        tileMatrixSetURI: "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad"
+        links:
+          - href: "http://localhost:8080/ogc/collections/cities/tiles/WebMercatorQuad"
+            rel: self
+            type: application/json
+            title: Tileset metadata
+          - href: "http://localhost:8080/ogc/tileMatrixSets/WebMercatorQuad"
+            rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme"
+            type: application/json
+            title: Tile matrix set definition
+    links:
+      - href: "http://localhost:8080/ogc/collections/cities/tiles"
+        rel: self
+        type: application/json
+        title: This document
+    "#);
+}
+
+#[actix_rt::test]
+async fn the_tileset_metadata_carries_limits_layers_and_the_tile_template() {
+    let (config, _conn) = config("ogc_tileset").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tileset: serde_json::Value = read_body_json(response).await;
+    assert_yaml_snapshot!(tileset, @r#"
+    title: Major cities from Natural Earth data
+    dataType: vector
+    crs: "http://www.opengis.net/def/crs/EPSG/0/3857"
+    tileMatrixSetURI: "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad"
+    tileMatrixSetLimits:
+      - tileMatrix: "0"
+        minTileRow: 0
+        maxTileRow: 0
+        minTileCol: 0
+        maxTileCol: 0
+      - tileMatrix: "1"
+        minTileRow: 0
+        maxTileRow: 1
+        minTileCol: 0
+        maxTileCol: 1
+      - tileMatrix: "2"
+        minTileRow: 1
+        maxTileRow: 2
+        minTileCol: 0
+        maxTileCol: 3
+      - tileMatrix: "3"
+        minTileRow: 2
+        maxTileRow: 4
+        minTileCol: 1
+        maxTileCol: 7
+      - tileMatrix: "4"
+        minTileRow: 4
+        maxTileRow: 9
+        minTileCol: 2
+        maxTileCol: 15
+      - tileMatrix: "5"
+        minTileRow: 9
+        maxTileRow: 19
+        minTileCol: 5
+        maxTileCol: 31
+      - tileMatrix: "6"
+        minTileRow: 18
+        maxTileRow: 39
+        minTileCol: 10
+        maxTileCol: 63
+    layers:
+      - id: cities
+        dataType: vector
+        minTileMatrix: "0"
+        maxTileMatrix: "6"
+    links:
+      - href: "http://localhost:8080/ogc/collections/cities/tiles/WebMercatorQuad"
+        rel: self
+        type: application/json
+        title: This document
+      - href: "http://localhost:8080/ogc/tileMatrixSets/WebMercatorQuad"
+        rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme"
+        type: application/json
+        title: Tile matrix set definition
+      - href: "http://localhost:8080/ogc/collections/cities/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}"
+        rel: item
+        type: application/vnd.mapbox-vector-tile
+        title: Tiles
+        templated: true
+    "#);
+
+    let request = TestRequest::get().uri("/ogc/collections/geography/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut tileset: serde_json::Value = read_body_json(response).await;
+    tileset["tileMatrixSetLimits"].as_array_mut().unwrap().truncate(2);
+    assert_yaml_snapshot!(tileset, @r#"
+    title: Geography Class
+    dataType: map
+    crs: "http://www.opengis.net/def/crs/EPSG/0/3857"
+    tileMatrixSetURI: "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad"
+    tileMatrixSetLimits:
+      - tileMatrix: "0"
+        minTileRow: 0
+        maxTileRow: 0
+        minTileCol: 0
+        maxTileCol: 0
+      - tileMatrix: "1"
+        minTileRow: 0
+        maxTileRow: 1
+        minTileCol: 0
+        maxTileCol: 1
+    links:
+      - href: "http://localhost:8080/ogc/collections/geography/tiles/WebMercatorQuad"
+        rel: self
+        type: application/json
+        title: This document
+      - href: "http://localhost:8080/ogc/tileMatrixSets/WebMercatorQuad"
+        rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme"
+        type: application/json
+        title: Tile matrix set definition
+      - href: "http://localhost:8080/ogc/collections/geography/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}"
+        rel: item
+        type: image/png
+        title: Tiles
+        templated: true
+    "#);
+}
+
+#[actix_rt::test]
+async fn a_tile_is_addressed_by_matrix_then_row_then_column() {
+    let (config, _conn) = config("ogc_tile").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad/2/1/3");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.mapbox-vector-tile"
+    );
+    let ogc_tile = read_body(response).await;
+
+    let response = call_service(&app, TestRequest::get().uri("/cities/2/3/1").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let xyz_tile = read_body(response).await;
+    assert_eq!(ogc_tile, xyz_tile);
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad/2/3/1");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[actix_rt::test]
+async fn unknown_collections_tilesets_and_tiles_are_not_found() {
+    let (config, _conn) = config("ogc_not_found").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get().uri("/ogc/collections/cities_on_a_plan");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Collection cities_on_a_plan does not exist");
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WorldCRS84Quad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Collection cities has no tileset on tile matrix set WorldCRS84Quad");
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad/2/2147483647/2147483647");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Tile 2/2147483647/2147483647 is outside the WebMercatorQuad grid of cities");
+}
+
+#[actix_rt::test]
+async fn bounds_across_the_antimeridian_take_every_column() {
+    let script = format!(
+        "{}\nUPDATE metadata SET value = '170,-50,-170,-30' WHERE name = 'bounds';",
+        include_str!("../../tests/fixtures/mbtiles/world_cities.sql")
+    );
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_antimeridian", &script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            pacific: {file}
+    ", file = file.display()});
+
+    let request = TestRequest::get().uri("/ogc/collections/pacific/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tileset: serde_json::Value = read_body_json(response).await;
+    let mut limits = tileset["tileMatrixSetLimits"].as_array().unwrap().clone();
+    limits.truncate(3);
+    assert_yaml_snapshot!(limits, @r#"
+    - tileMatrix: "0"
+      minTileRow: 0
+      maxTileRow: 0
+      minTileCol: 0
+      maxTileCol: 0
+    - tileMatrix: "1"
+      minTileRow: 1
+      maxTileRow: 1
+      minTileCol: 0
+      maxTileCol: 1
+    - tileMatrix: "2"
+      minTileRow: 2
+      maxTileRow: 2
+      minTileCol: 0
+      maxTileCol: 3
+    "#);
+}
+
+#[actix_rt::test]
+async fn an_alias_over_a_source_is_the_collection_tiles_are_served_from() {
+    let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_alias", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {file}
+            cities_crs84:
+              path: {file}
+              tile_grid: WorldCRS84Quad
+        aliases:
+          cities: [cities_crs84]
+    ", file = file.display()});
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tilesets: serde_json::Value = read_body_json(response).await;
+    assert_eq!(
+        tilesets["tilesets"][0]["crs"],
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    );
+
+    let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[actix_rt::test]
+async fn a_collection_id_is_encoded_in_its_links() {
+    let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_encoded_id", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {file}
+        aliases:
+          \"city#roads\": [cities]
+    ", file = file.display()});
+
+    let response = call_service(
+        &app,
+        TestRequest::get().uri("/ogc/collections/city%23roads").to_request(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let collection: serde_json::Value = read_body_json(response).await;
+    let hrefs: Vec<&str> = collection["links"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|link| link["href"].as_str().unwrap())
+        .collect();
+    assert_yaml_snapshot!(hrefs, @r#"
+    - "http://localhost:8080/ogc/collections/city%23roads"
+    - "http://localhost:8080/ogc/collections/city%23roads/tiles"
+    "#);
+
+    let request = TestRequest::get().uri("/ogc/collections/city%23roads/tiles/WebMercatorQuad/2/1/3");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
 }
