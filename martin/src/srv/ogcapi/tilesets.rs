@@ -18,6 +18,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 /// The tilesets of a collection.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct TileSets {
     tilesets: Vec<TileSetItem>,
     links: Vec<Link>,
@@ -25,6 +26,7 @@ struct TileSets {
 
 /// A tileset in a list, linking to its metadata.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileSetItem {
     title: String,
@@ -37,6 +39,7 @@ struct TileSetItem {
 
 /// The metadata of a tileset.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileSet {
     title: String,
@@ -52,6 +55,7 @@ struct TileSet {
 
 /// The tiles of one zoom that hold data.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileMatrixLimits {
     tile_matrix: String,
@@ -63,6 +67,7 @@ struct TileMatrixLimits {
 
 /// A layer of a vector tileset.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct Layer {
     id: String,
@@ -75,6 +80,8 @@ struct Layer {
 
 /// The path of a tileset.
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct TileSetPath {
     collection_id: String,
     tile_matrix_set_id: String,
@@ -122,6 +129,18 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
 }
 
 /// The tilesets of one collection, one per tile matrix set it is served on.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/collections/{collection_id}/tiles",
+        params(("collection_id" = String, Path, description = "Collection ID, the ID of a source")),
+        responses(
+            (status = 200, description = "Tilesets of the collection", body = TileSets),
+            (status = 404, description = "No such collection"),
+        ),
+    )
+)]
 #[route(
     "/ogc/collections/{collection_id}/tiles",
     method = "GET",
@@ -171,6 +190,18 @@ pub async fn get_tilesets(
 }
 
 /// The metadata of one tileset, with the template of its tile URLs.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        params(TileSetPath),
+        responses(
+            (status = 200, description = "Tileset metadata with the tile URL template", body = TileSet),
+            (status = 404, description = "No such collection or tileset"),
+        ),
+    )
+)]
 #[route(
     "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
     method = "GET",

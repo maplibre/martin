@@ -15,6 +15,7 @@ use crate::tile_source_manager::TileSourceManager;
 
 /// The collections the OGC API serves.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct Collections {
     collections: Vec<Collection>,
     links: Vec<Link>,
@@ -22,6 +23,7 @@ struct Collections {
 
 /// A tile source as an OGC API collection.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct Collection {
     id: String,
     title: String,
@@ -33,12 +35,14 @@ struct Collection {
 
 /// Where a collection's data lies.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct Extent {
     spatial: SpatialExtent,
 }
 
 /// The bounding box of a collection, in longitude and latitude.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct SpatialExtent {
     bbox: [[f64; 4]; 1],
     crs: &'static str,
@@ -91,6 +95,16 @@ fn collection(req: &HttpRequest, srv_config: &SrvConfig, id: &str, (source, proc
 }
 
 /// Every tile source on a tile matrix set with an OGC definition, as a collection.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/collections",
+        responses(
+            (status = 200, description = "Every tile source on a tile matrix set with an OGC definition", body = Collections),
+        ),
+    )
+)]
 #[route(
     "/ogc/collections",
     method = "GET",
@@ -124,6 +138,18 @@ pub async fn get_collections(
 }
 
 /// One collection.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/collections/{collection_id}",
+        params(("collection_id" = String, Path, description = "Collection ID, the ID of a source")),
+        responses(
+            (status = 200, description = "Collection", body = Collection),
+            (status = 404, description = "No such collection"),
+        ),
+    )
+)]
 #[route(
     "/ogc/collections/{collection_id}",
     method = "GET",

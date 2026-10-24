@@ -3,6 +3,7 @@ use serde::Serialize;
 
 /// What a source's tiles hold, in the terms of OGC API - Tiles.
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum DataType {
     Map,

@@ -8,6 +8,7 @@ use crate::srv::server::path_prefix;
 
 /// A link from one OGC API resource to another.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 pub struct Link {
     pub href: String,
     pub rel: &'static str,

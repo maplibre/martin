@@ -19,12 +19,23 @@ const CONFORMS_TO: [&str; 10] = [
 
 /// The conformance declaration of the OGC API.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct Conformance {
     conforms_to: &'static [&'static str],
 }
 
 /// The conformance classes the OGC API implements.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/conformance",
+        responses(
+            (status = 200, description = "Conformance classes the OGC API implements", body = Conformance),
+        ),
+    )
+)]
 #[route(
     "/ogc/conformance",
     method = "GET",
