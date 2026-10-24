@@ -11,13 +11,13 @@ pub struct PixelRatio(u8);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum InvalidPixelRatio {
     /// Zero, negative, NaN or infinite.
-    #[error("pixel ratio must be a positive finite number")]
+    #[error("Scale factor must be a positive finite number")]
     NotPositive,
     /// Snaps below [`PixelRatio::MIN`].
-    #[error("pixel ratio must be at least {}", PixelRatio::MIN)]
+    #[error("Scale factor is below minimum allowed ({})", PixelRatio::MIN)]
     BelowMin,
     /// Snaps above [`PixelRatio::MAX`].
-    #[error("pixel ratio must be at most {}", PixelRatio::MAX)]
+    #[error("Scale factor exceeds maximum allowed ({})", PixelRatio::MAX)]
     AboveMax,
 }
 

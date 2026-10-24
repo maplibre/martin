@@ -21,7 +21,7 @@ use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
 #[cfg(target_os = "linux")]
 use martin_core::styles::RenderParams;
-use martin_core::styles::{InvalidPixelRatio, PixelRatio, StyleSources};
+use martin_core::styles::{PixelRatio, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
 #[cfg(target_os = "linux")]
@@ -182,15 +182,7 @@ impl SizeRequest {
             Box::new(
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
-                    .body(match err {
-                        InvalidPixelRatio::NotPositive => "Scale factor must be a positive finite number".to_owned(),
-                        InvalidPixelRatio::BelowMin => {
-                            format!("Scale factor is below minimum allowed ({})", PixelRatio::MIN)
-                        }
-                        InvalidPixelRatio::AboveMax => {
-                            format!("Scale factor exceeds maximum allowed ({})", PixelRatio::MAX)
-                        }
-                    }),
+                    .body(err.to_string()),
             )
         })
     }
