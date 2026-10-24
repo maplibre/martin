@@ -764,27 +764,24 @@ fn to_fixed(v: f64) -> Result<i64, TileError> {
 
 /// The pixel holding a fixed-point coordinate: the nearest grid point, halves to the even one as `PostGIS`
 /// rounds. Along each axis, pixel `c` holds `[c - ½, c + ½]` when `c` is even and `(c - ½, c + ½)` when odd.
+#[expect(clippy::cast_possible_truncation, reason = "to_fixed keeps every pixel in i32")]
 fn pixel(c: Fixed) -> Pixel {
+    // A tie rounds down from an even unit and up from an odd one; branch-free, as a `match` mispredicts.
+    let unit = |v: i64| ((v + HALF - 1 + ((v >> FRAC) & 1)) >> FRAC) as i32;
     Coord {
-        x: round_half_even(c.x),
-        y: round_half_even(c.y),
+        x: unit(c.x),
+        y: unit(c.y),
     }
 }
 
-/// The grid unit nearest the fixed-point `v`, halves to the even one.
-#[expect(clippy::cast_possible_truncation, reason = "to_fixed keeps every pixel in i32")]
-fn round_half_even(v: i64) -> i32 {
-    to_even(i128::from((v + HALF) >> FRAC), v & (ONE - 1) == HALF) as i32
-}
-
-/// `up`, a value rounded half up, moved down to its even neighbour when it was a `tie`.
-fn to_even(up: i128, tie: bool) -> i128 {
-    up - i128::from(tie && up & 1 == 1)
-}
-
-/// Whether pixel `c` leaves out both ends of its span along an axis, which odd pixels do.
-fn open_span(c: i32) -> bool {
-    c & 1 == 1
+/// `n / d` (`d > 0`) rounded to the nearest integer, halves to the even one.
+fn round_ratio(n: i128, d: i128) -> i128 {
+    let (q, r) = (n.div_euclid(d), n.rem_euclid(d));
+    match (2 * r).cmp(&d) {
+        Ordering::Less => q,
+        Ordering::Greater => q + 1,
+        Ordering::Equal => q + q.rem_euclid(2),
+    }
 }
 
 /// `p` with `i64` coordinates.
@@ -1136,10 +1133,7 @@ fn crossing(p: Fixed, d: Fixed, q: Fixed, e: Fixed) -> Pixel {
     if den < 0 {
         (num, den) = (-num, -den);
     }
-    let at = |p: i64, d: i64| {
-        let (scaled, unit) = (i128::from(p + HALF) * den + num * i128::from(d), den * i128::from(ONE));
-        to_even(scaled.div_euclid(unit), scaled.rem_euclid(unit) == 0) as i32
-    };
+    let at = |p: i64, d: i64| round_ratio(i128::from(p) * den + num * i128::from(d), den * i128::from(ONE)) as i32;
     Coord {
         x: at(p.x, d.x),
         y: at(p.y, d.y),
@@ -1175,18 +1169,17 @@ fn passes(p: Fixed, q: Fixed, h: Pixel) -> bool {
     };
     for (p0, d, c) in [(p.x, q.x - p.x, h.x), (p.y, q.y - p.y, h.y)] {
         let (min, max) = (i64::from(c) * ONE - HALF, i64::from(c) * ONE + HALF);
-        let open = open_span(c);
+        // Halves round to the even pixel, so an odd one leaves out both ends of its span.
+        let open = c % 2 != 0;
+        let inside = if open {
+            min < p0 && p0 < max
+        } else {
+            min <= p0 && p0 <= max
+        };
         let (from, to) = match d.cmp(&0) {
-            Ordering::Equal
-                if if open {
-                    min < p0 && p0 < max
-                } else {
-                    (min..=max).contains(&p0)
-                } =>
-            {
-                continue;
-            }
+            Ordering::Equal if inside => continue,
             Ordering::Equal => return false,
+
             Ordering::Greater => (
                 Bound {
                     n: (min - p0).into(),
