@@ -51,7 +51,7 @@ pub(super) fn collection_source(manager: &TileSourceManager, id: &str) -> ActixR
         .get_source(id)
         .ok()
         .and_then(|entry| {
-            let (crs, _) = crs(entry.0.tile_grid())?;
+            let crs = crs(entry.0.tile_grid())?.uri;
             Some((entry, crs))
         })
         .ok_or_else(|| map_error(&OgcApiError::UnknownCollection(id.to_owned())))

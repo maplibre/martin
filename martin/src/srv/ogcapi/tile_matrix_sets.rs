@@ -6,7 +6,7 @@ use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZO
 use serde::Serialize;
 
 use super::error::OgcApiError;
-use super::link::{Link, ogc_url};
+use super::link::{Link, ogc_url, path_segment};
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::map_error;
 use crate::tile_source_manager::TileSourceManager;
@@ -55,6 +55,7 @@ struct TileMatrixSet {
     #[serde(skip_serializing_if = "Option::is_none")]
     uri: Option<String>,
     crs: String,
+    ordered_axes: [&'static str; 2],
     tile_matrices: Vec<TileMatrix>,
 }
 
@@ -72,14 +73,40 @@ struct TileMatrix {
     matrix_height: u64,
 }
 
-/// The OGC URI of the grid's CRS and the metres one of its units spans, for the CRSs that have one.
-pub(super) fn crs(grid: &TileGrid) -> Option<(String, f64)> {
+/// A CRS as OGC documents name it, with its units and axis order.
+pub(super) struct OgcCrs {
+    pub uri: String,
+    metres_per_unit: f64,
+    ordered_axes: [&'static str; 2],
+    northing_first: bool,
+}
+
+impl OgcCrs {
+    /// An `[x, y]` point in the axis order of the CRS.
+    fn point(&self, [x, y]: [f64; 2]) -> [f64; 2] {
+        if self.northing_first { [y, x] } else { [x, y] }
+    }
+}
+
+/// The CRS of `grid`, for the CRSs of the built-in grids, whose units and axis order are known.
+pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
+    let epsg = |code: &str, ordered_axes, northing_first| OgcCrs {
+        uri: format!("http://www.opengis.net/def/crs/EPSG/0/{code}"),
+        metres_per_unit: 1.0,
+        ordered_axes,
+        northing_first,
+    };
     match (grid.crs_authority(), grid.crs_code()) {
-        ("EPSG", "4326") | ("OGC", "CRS84") => Some((
-            CRS84.to_owned(),
-            EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
-        )),
-        ("EPSG", code) => Some((format!("http://www.opengis.net/def/crs/EPSG/0/{code}"), 1.0)),
+        ("EPSG", "4326") | ("OGC", "CRS84") => Some(OgcCrs {
+            uri: CRS84.to_owned(),
+            metres_per_unit: EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
+            ordered_axes: ["Lon", "Lat"],
+            northing_first: false,
+        }),
+        ("EPSG", code @ "3857") => Some(epsg(code, ["X", "Y"], false)),
+        ("EPSG", code @ ("3395" | "5041" | "5042")) => Some(epsg(code, ["E", "N"], false)),
+        ("EPSG", code @ "3035") => Some(epsg(code, ["Y", "X"], true)),
+        ("EPSG", code @ "2193") => Some(epsg(code, ["N", "E"], true)),
         _ => None,
     }
 }
@@ -108,18 +135,18 @@ fn served_grids(manager: &TileSourceManager) -> Vec<TileGrid> {
     grids
 }
 
-/// The definition of `grid` for every zoom Martin serves, or `None` if its CRS has no OGC URI.
+/// The definition of `grid` for every zoom Martin serves, or `None` if its CRS isn't one [`crs`] knows.
 fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
-    let (crs, metres_per_unit) = crs(grid)?;
+    let crs = crs(grid)?;
     let [columns, rows] = grid.matrix_at_zoom0();
     let tile_matrices = (0..=MAX_ZOOM)
         .map(|zoom| {
             let cell_size = grid.tile_side(zoom) / f64::from(TILE_PIXELS);
             TileMatrix {
                 id: zoom.to_string(),
-                scale_denominator: cell_size * metres_per_unit / STANDARD_PIXEL_METRES,
+                scale_denominator: cell_size * crs.metres_per_unit / STANDARD_PIXEL_METRES,
                 cell_size,
-                point_of_origin: grid.origin(),
+                point_of_origin: crs.point(grid.origin()),
                 tile_width: TILE_PIXELS,
                 tile_height: TILE_PIXELS,
                 matrix_width: u64::from(columns) << zoom,
@@ -130,7 +157,8 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
     Some(TileMatrixSet {
         id: grid.id().to_owned(),
         uri: registered_uri(grid),
-        crs,
+        crs: crs.uri,
+        ordered_axes: crs.ordered_axes,
         tile_matrices,
     })
 }
@@ -152,13 +180,16 @@ pub async fn get_tile_matrix_sets(
     let tile_matrix_sets = served_grids(&manager)
         .iter()
         .filter_map(|grid| {
-            let (crs, _) = crs(grid)?;
             Some(TileMatrixSetItem {
                 id: grid.id().to_owned(),
                 uri: registered_uri(grid),
-                crs,
+                crs: crs(grid)?.uri,
                 links: vec![Link::json(
-                    ogc_url(&req, &srv_config, &format!("/tileMatrixSets/{}", grid.id())),
+                    ogc_url(
+                        &req,
+                        &srv_config,
+                        &format!("/tileMatrixSets/{}", path_segment(grid.id())),
+                    ),
                     "self",
                     "Tile matrix set definition",
                 )],
