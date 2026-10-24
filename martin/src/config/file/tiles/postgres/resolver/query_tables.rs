@@ -545,7 +545,7 @@ WHERE "__martin_geom" IS NOT NULL;
 }
 
 /// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.
-fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
+pub fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     use cql2::ToSqlAst as _;
     let Some(filter) = info.filter.as_deref() else {
         return Ok(String::new());
