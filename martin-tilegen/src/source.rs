@@ -3,8 +3,8 @@
 use bytes::Bytes;
 use geo_traits::to_geo::{ToGeoCoord as _, ToGeoGeometry as _, ToGeoLineString, ToGeoPolygon};
 use geo_traits::{
-    GeometryCollectionTrait as _, GeometryTrait as _, GeometryType, MultiLineStringTrait as _, MultiPointTrait as _,
-    MultiPolygonTrait as _, PointTrait as _,
+    GeometryCollectionTrait as _, GeometryTrait, GeometryType, LineStringTrait as _, MultiLineStringTrait as _,
+    MultiPointTrait as _, MultiPolygonTrait as _, PointTrait as _, PolygonTrait as _,
 };
 use geo_types::{Coord, Geometry as GeoGeometry, GeometryCollection, LineString, Polygon};
 use wkb::reader::Wkb;
@@ -124,7 +124,7 @@ fn decode_wkb(bytes: &[u8]) -> Result<Option<Geometry>, WkbError> {
         GeometryType::MultiPolygon(polygons) => Some(Geometry::Polygons(
             polygons.polygons().map(ToGeoPolygon::to_polygon).collect(),
         )),
-        GeometryType::GeometryCollection(collection) if collection.num_geometries() == 0 => None,
+        GeometryType::GeometryCollection(_) if is_empty(&wkb) => None,
         GeometryType::GeometryCollection(_) => return Err(WkbError::GeometryCollection),
         GeometryType::Point(_)
         | GeometryType::LineString(_)
@@ -133,6 +133,22 @@ fn decode_wkb(bytes: &[u8]) -> Result<Option<Geometry>, WkbError> {
         | GeometryType::Triangle(_)
         | GeometryType::Line(_) => wkb.try_to_geometry().and_then(|geometry| geometry.try_into().ok()),
     })
+}
+
+/// Whether `geometry` has no coordinates, as `ST_IsEmpty` decides: a collection is empty when all its parts are.
+fn is_empty(geometry: &impl GeometryTrait<T = f64>) -> bool {
+    match geometry.as_type() {
+        GeometryType::Point(point) => point.coord().is_none(),
+        GeometryType::LineString(line) => line.num_coords() == 0,
+        GeometryType::Polygon(polygon) => polygon.exterior().is_none_or(|ring| ring.num_coords() == 0),
+        GeometryType::MultiPoint(points) => points.points().all(|point| point.coord().is_none()),
+        GeometryType::MultiLineString(lines) => lines.line_strings().all(|line| line.num_coords() == 0),
+        GeometryType::MultiPolygon(polygons) => polygons
+            .polygons()
+            .all(|polygon| polygon.exterior().is_none_or(|ring| ring.num_coords() == 0)),
+        GeometryType::GeometryCollection(collection) => collection.geometries().all(|part| is_empty(&part)),
+        GeometryType::Rect(_) | GeometryType::Triangle(_) | GeometryType::Line(_) => false,
+    }
 }
 
 impl TryFrom<GeoGeometry<f64>> for Geometry {
@@ -333,6 +349,19 @@ mod tests {
     #[test]
     fn ewkb_empty_geometry_collection_with_srid_is_skipped() {
         assert!(!hex("0107000020110f000000000000").decode_wkb().unwrap());
+    }
+
+    #[test]
+    fn wkb_geometry_collection_of_empty_parts_is_skipped() {
+        let parts = vec![
+            wkt::Wkt::Point(Point::empty(Dimension::XY)),
+            wkt::Wkt::GeometryCollection(wkt::types::GeometryCollection::empty(Dimension::XY)),
+        ];
+        assert!(
+            !wkb(&wkt::types::GeometryCollection::new(parts, Dimension::XY))
+                .decode_wkb()
+                .unwrap()
+        );
     }
 
     #[test]
