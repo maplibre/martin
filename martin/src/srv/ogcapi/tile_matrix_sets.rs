@@ -2,7 +2,7 @@ use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileGrid, WEB_MERCATOR_QUAD};
+use martin_tile_utils::{CrsAxes, MAX_ZOOM, TileGrid};
 use serde::Serialize;
 
 use super::error::OgcApiError;
@@ -19,16 +19,6 @@ const STANDARD_PIXEL_METRES: f64 = 0.000_28;
 
 /// The OGC URI of longitude and latitude on WGS 84.
 pub(super) const CRS84: &str = "http://www.opengis.net/def/crs/OGC/1.3/CRS84";
-
-/// The built-in grids that are also in the OGC tile matrix set registry.
-const REGISTERED_GRIDS: [&str; 6] = [
-    "WebMercatorQuad",
-    "WorldCRS84Quad",
-    "WorldMercatorWGS84Quad",
-    "EuropeanETRS89_LAEAQuad",
-    "UPSArcticWGS84Quad",
-    "UPSAntarcticWGS84Quad",
-];
 
 /// The tile matrix sets the OGC API serves.
 #[derive(Serialize, Debug)]
@@ -76,63 +66,30 @@ struct TileMatrix {
 /// A CRS as OGC documents name it, with its units and axis order.
 pub(super) struct OgcCrs {
     pub uri: String,
-    metres_per_unit: f64,
-    ordered_axes: [&'static str; 2],
-    northing_first: bool,
+    axes: CrsAxes,
 }
 
 impl OgcCrs {
     /// An `[x, y]` point in the axis order of the CRS.
     fn point(&self, [x, y]: [f64; 2]) -> [f64; 2] {
-        if self.northing_first { [y, x] } else { [x, y] }
+        if self.axes.northing_first { [y, x] } else { [x, y] }
     }
 }
 
-/// The CRS of `grid`, for the CRSs of the built-in grids, whose units and axis order are known.
+/// The CRS of `grid`, for the CRSs whose units and axis order [`TileGrid::crs_axes`] knows.
 pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
-    let epsg = |code: &str, ordered_axes, northing_first| OgcCrs {
-        uri: format!("http://www.opengis.net/def/crs/EPSG/0/{code}"),
-        metres_per_unit: 1.0,
-        ordered_axes,
-        northing_first,
+    let axes = grid.crs_axes()?;
+    let uri = match grid.crs() {
+        "EPSG:4326" | "OGC:CRS84" => CRS84.to_owned(),
+        _ => format!("http://www.opengis.net/def/crs/EPSG/0/{}", grid.crs_code()),
     };
-    match (grid.crs_authority(), grid.crs_code()) {
-        ("EPSG", "4326") | ("OGC", "CRS84") => Some(OgcCrs {
-            uri: CRS84.to_owned(),
-            metres_per_unit: EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
-            ordered_axes: ["Lon", "Lat"],
-            northing_first: false,
-        }),
-        ("EPSG", code @ "3857") => Some(epsg(code, ["X", "Y"], false)),
-        ("EPSG", code @ ("3395" | "5041" | "5042")) => Some(epsg(code, ["E", "N"], false)),
-        ("EPSG", code @ "3035") => Some(epsg(code, ["Y", "X"], true)),
-        ("EPSG", code @ "2193") => Some(epsg(code, ["N", "E"], true)),
-        _ => None,
-    }
+    Some(OgcCrs { uri, axes })
 }
 
 /// The registry URI of a built-in grid the OGC registry defines.
 pub(super) fn registered_uri(grid: &TileGrid) -> Option<String> {
-    REGISTERED_GRIDS
-        .contains(&grid.id())
+    grid.is_in_ogc_registry()
         .then(|| format!("http://www.opengis.net/def/tilematrixset/OGC/1.0/{}", grid.id()))
-}
-
-/// The grids the served sources are on, Web Mercator always first.
-fn served_grids(manager: &TileSourceManager) -> Vec<TileGrid> {
-    let sources = manager.tile_sources();
-    let mut grids = vec![WEB_MERCATOR_QUAD];
-    for id in sources.source_names() {
-        let Ok((source, _)) = sources.get_source(&id) else {
-            continue;
-        };
-        let grid = source.tile_grid();
-        if !grids.iter().any(|served| served.id() == grid.id()) {
-            grids.push(grid.clone());
-        }
-    }
-    grids[1..].sort_by(|a, b| a.id().cmp(b.id()));
-    grids
 }
 
 /// The definition of `grid` for every zoom Martin serves, or `None` if its CRS isn't one [`crs`] knows.
@@ -144,7 +101,7 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
             let cell_size = grid.tile_side(zoom) / f64::from(TILE_PIXELS);
             TileMatrix {
                 id: zoom.to_string(),
-                scale_denominator: cell_size * crs.metres_per_unit / STANDARD_PIXEL_METRES,
+                scale_denominator: cell_size * crs.axes.metres_per_unit / STANDARD_PIXEL_METRES,
                 cell_size,
                 point_of_origin: crs.point(grid.origin()),
                 tile_width: TILE_PIXELS,
@@ -158,7 +115,7 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
         id: grid.id().to_owned(),
         uri: registered_uri(grid),
         crs: crs.uri,
-        ordered_axes: crs.ordered_axes,
+        ordered_axes: crs.axes.ordered_axes,
         tile_matrices,
     })
 }
@@ -177,7 +134,8 @@ pub async fn get_tile_matrix_sets(
     manager: Data<TileSourceManager>,
 ) -> HttpResponse {
     manager.wait_until_loaded().await;
-    let tile_matrix_sets = served_grids(&manager)
+    let tile_matrix_sets = manager
+        .served_grids()
         .iter()
         .filter_map(|grid| {
             Some(TileMatrixSetItem {
@@ -210,7 +168,8 @@ pub async fn get_tile_matrix_sets(
 pub async fn get_tile_matrix_set(path: Path<String>, manager: Data<TileSourceManager>) -> ActixResult<HttpResponse> {
     manager.wait_until_loaded().await;
     let id = path.into_inner();
-    served_grids(&manager)
+    manager
+        .served_grids()
         .iter()
         .find(|grid| grid.id() == id)
         .and_then(tile_matrix_set)
