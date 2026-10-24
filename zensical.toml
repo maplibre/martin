@@ -54,6 +54,7 @@ nav = [
       ]}
     ]},
     {"Available API Endpoints" = "using.md"},
+    {"OGC API - Tiles" = "ogc-api.md"},
     {"Configuration File" = [
       "config-file/index.md",
       {"Tile sources" = [
@@ -465,6 +466,7 @@ Configuration = [
 ]
 "API and Usage" = [
   { "using.md" = "HTTP API endpoints served by Martin" },
+  { "ogc-api.md" = "Serving tiles through the OGC API - Tiles standard" },
   { "using-guides/index.md" = "Overview of the available guides" },
   { "recipe-basemap-selfhosted.md" = "Self-hosting a fully styled basemap from scratch" },
   { "using-with-renderer/index.md" = "Using Martin with map renderers" },
