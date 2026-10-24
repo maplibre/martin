@@ -45,6 +45,10 @@ use render_pool::RenderPools;
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 
 #[cfg(feature = "rendering")]
+mod pixel_ratio;
+#[cfg(feature = "rendering")]
+pub use pixel_ratio::{InvalidPixelRatio, PixelRatio};
+#[cfg(feature = "rendering")]
 mod tile_size;
 #[cfg(feature = "rendering")]
 pub use tile_size::{InvalidTileSize, TileSize};

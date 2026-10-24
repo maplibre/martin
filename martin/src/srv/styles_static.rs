@@ -21,7 +21,7 @@ use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
 #[cfg(target_os = "linux")]
 use martin_core::styles::RenderParams;
-use martin_core::styles::StyleSources;
+use martin_core::styles::{InvalidPixelRatio, PixelRatio, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
 #[cfg(target_os = "linux")]
@@ -158,10 +158,10 @@ struct SizeRequest {
 
 const MAX_WIDTH: u32 = 2048;
 const MAX_HEIGHT: u32 = 2048;
-const MAX_SCALE: u8 = 4;
 
 impl SizeRequest {
-    fn validate(self) -> Result<Self, Box<HttpResponse>> {
+    /// Checks the bounds and returns the scale snapped to a [`PixelRatio`].
+    fn validate(self) -> Result<PixelRatio, Box<HttpResponse>> {
         if self.width == 0 || self.height == 0 {
             return Err(Box::new(
                 HttpResponse::BadRequest()
@@ -178,21 +178,21 @@ impl SizeRequest {
                     )),
             ));
         }
-        if !self.scale.is_finite() || self.scale <= 0.0 {
-            return Err(Box::new(
+        PixelRatio::try_from(self.scale).map_err(|err| {
+            Box::new(
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
-                    .body("Scale factor must be a positive finite number"),
-            ));
-        }
-        if self.scale > f32::from(MAX_SCALE) {
-            return Err(Box::new(
-                HttpResponse::BadRequest()
-                    .content_type(ContentType::plaintext())
-                    .body(format!("Scale factor exceeds maximum allowed ({MAX_SCALE})")),
-            ));
-        }
-        Ok(self)
+                    .body(match err {
+                        InvalidPixelRatio::NotPositive => "Scale factor must be a positive finite number".to_owned(),
+                        InvalidPixelRatio::BelowMin => {
+                            format!("Scale factor is below minimum allowed ({})", PixelRatio::MIN)
+                        }
+                        InvalidPixelRatio::AboveMax => {
+                            format!("Scale factor exceeds maximum allowed ({})", PixelRatio::MAX)
+                        }
+                    }),
+            )
+        })
     }
 }
 
@@ -371,8 +371,9 @@ async fn handle_static_request(
             .body("No such style exists");
     };
 
-    let size = match path.size.validate() {
-        Ok(size) => size,
+    let size = path.size;
+    let pixel_ratio = match size.validate() {
+        Ok(pixel_ratio) => pixel_ratio,
         Err(resp) => return *resp,
     };
 
@@ -389,12 +390,12 @@ async fn handle_static_request(
         zoom = %camera.zoom,
         w = %size.width,
         h = %size.height,
-        scale = %size.scale,
+        scale = %pixel_ratio,
         "Rendering static image"
     );
 
     #[cfg(target_os = "linux")]
-    let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
+    let response = match render_with_overlays(styles, style_path, &camera, size, pixel_ratio, overlays).await {
         Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
         Err(resp) => *resp,
     };
@@ -486,6 +487,7 @@ async fn render_with_overlays(
     style_path: std::path::PathBuf,
     camera: &Camera,
     size: SizeRequest,
+    pixel_ratio: PixelRatio,
     overlays: Arc<OverlaySpec>,
 ) -> Result<martin_core::styles::StaticImage, Box<HttpResponse>> {
     use martin_core::styles::StyleError;
@@ -493,7 +495,7 @@ async fn render_with_overlays(
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
     let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom)
-        .with_size(size.width, size.height, size.scale)
+        .with_size(size.width, size.height, pixel_ratio)
         .with_orientation(camera.bearing, camera.pitch)
         .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| {
@@ -612,6 +614,9 @@ mod tests {
     #[case::webp("400x300.webp")]
     #[case::scale_no_x_suffix("512x512@3.png")]
     #[case::fractional_scale("100x100@1.5x.png")]
+    #[case::min_scale("100x100@0.5x.png")]
+    #[case::scale_rounding_up_to_min("100x100@0.45x.png")]
+    #[case::scale_rounding_down_to_max("100x100@4.04x.png")]
     #[actix_rt::test]
     async fn valid_size_fmt_reaches_renderer(#[case] size: &str) {
         let (styles, _f) = one_style();
@@ -639,6 +644,9 @@ mod tests {
     #[case::oversize_height("100x9999.png", "Image dimensions exceed maximum")]
     #[case::oversize_scale("100x100@9x.png", "Scale factor exceeds maximum")]
     #[case::just_over_max_scale("100x100@4.4x.png", "Scale factor exceeds maximum")]
+    #[case::rounding_over_max_scale("100x100@4.06x.png", "Scale factor exceeds maximum allowed (4)")]
+    #[case::under_min_scale("100x100@0.2x.png", "Scale factor is below minimum allowed (0.5)")]
+    #[case::rounding_under_min_scale("100x100@0.44x.png", "Scale factor is below minimum")]
     #[case::zero_scale("100x100@0x.png", "Scale factor must be a positive finite number")]
     #[case::negative_scale("100x100@-2x.png", "Scale factor must be a positive finite number")]
     #[case::nan_scale("100x100@nanx.png", "Scale factor must be a positive finite number")]

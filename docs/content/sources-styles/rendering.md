@@ -160,7 +160,8 @@ The `{camera}` segment chooses what the image looks at:
 `{size}.{ext}` follows the `WIDTHxHEIGHT[@{scale}x].{ext}` pattern, e.g.
 `800x600.png`, `400x300@2x.jpg`.
 Allowed extensions are `png`, `jpg`, and `webp`.
-Width and height are capped at 2048 px each; scale is capped at `4x`.
+Width and height are capped at 2048 px each.
+The scale is rounded to the nearest `0.1` and must then lie between `0.5x` and `4x`, otherwise the request is answered with `400 Bad Request`.
 
 ### Overlay body (`POST`)
 

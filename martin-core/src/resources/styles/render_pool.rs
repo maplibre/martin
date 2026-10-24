@@ -11,15 +11,16 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::{StyleError, TileSize};
+use crate::resources::styles::{PixelRatio, StyleError, TileSize};
 
 /// Parameters for a free-camera (static) map render.
 ///
 /// ```no_run
 /// # use std::path::PathBuf;
-/// # use martin_core::styles::RenderParams;
+/// # use martin_core::styles::{PixelRatio, RenderParams};
+/// let retina = PixelRatio::try_from(2.0).expect("in range");
 /// RenderParams::new(PathBuf::from("style.json"), 0.0, 0.0, 2.0)
-///     .with_size(800, 600, 2.0)
+///     .with_size(800, 600, retina)
 ///     .with_orientation(45.0, 30.0);
 /// ```
 #[derive(Debug, Clone)]
@@ -38,7 +39,7 @@ pub struct RenderParams {
     height: u32,
     /// Pixel density ratio (1.0 = standard, 2.0 = retina). Multiplies the
     /// renderer's internal output by `pixel_ratio`.
-    pixel_ratio: f32,
+    pixel_ratio: PixelRatio,
     /// Bearing in degrees, clockwise from north (0 = north-up).
     bearing: f64,
     /// Pitch in degrees away from straight-down (0 = flat top-down view).
@@ -60,7 +61,7 @@ impl RenderParams {
             zoom,
             width: 512,
             height: 512,
-            pixel_ratio: 1.0,
+            pixel_ratio: PixelRatio::ONE,
             bearing: 0.0,
             pitch: 0.0,
             overlays: Arc::new(OverlaySpec::default()),
@@ -69,7 +70,7 @@ impl RenderParams {
 
     /// Override output dimensions and pixel density.
     #[must_use]
-    pub const fn with_size(mut self, width: u32, height: u32, pixel_ratio: f32) -> Self {
+    pub const fn with_size(mut self, width: u32, height: u32, pixel_ratio: PixelRatio) -> Self {
         self.width = width;
         self.height = height;
         self.pixel_ratio = pixel_ratio;
@@ -539,17 +540,17 @@ struct StaticRenderer {
     renderer: ImageRenderer<Static>,
     width: u32,
     height: u32,
-    pixel_ratio: f32,
+    pixel_ratio: PixelRatio,
     loaded_style: Option<PathBuf>,
 }
 
 impl StaticRenderer {
-    fn new(width: u32, height: u32, pixel_ratio: f32, ambient_cache_bytes: Option<u64>) -> Self {
+    fn new(width: u32, height: u32, pixel_ratio: PixelRatio, ambient_cache_bytes: Option<u64>) -> Self {
         let w = NonZeroU32::new(width).unwrap_or(NonZeroU32::MIN);
         let h = NonZeroU32::new(height).unwrap_or(NonZeroU32::MIN);
         Self {
             renderer: renderer_builder(ambient_cache_bytes)
-                .with_pixel_ratio(pixel_ratio)
+                .with_pixel_ratio(pixel_ratio.as_f32())
                 .with_size(w, h)
                 .build_static_renderer(),
             width,
@@ -561,9 +562,7 @@ impl StaticRenderer {
 
     /// Whether this renderer's build-time geometry matches `params`.
     fn matches(&self, params: &RenderParams) -> bool {
-        self.width == params.width
-            && self.height == params.height
-            && self.pixel_ratio.to_bits() == params.pixel_ratio.to_bits()
+        self.width == params.width && self.height == params.height && self.pixel_ratio == params.pixel_ratio
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
@@ -698,14 +697,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn static_worker_does_not_reuse_a_renderer_for_a_nearby_pixel_ratio() {
+    async fn static_worker_renders_each_pixel_ratio_step_at_its_own_size() {
         let style_file = write_style();
         let pool = RenderPool::new(NonZeroUsize::new(1), || StaticWorker::new(None)).expect("spawn render pool");
 
-        // 1 + 1/128 is exact in f32 and within the old 0.01 tolerance.
-        for (pixel_ratio, px) in [(1.0, 1024), (1.007_812_5, 1032), (1.0, 1024)] {
+        // @1.04x snaps to @1x and reuses its renderer; @1.1x is the next step and gets its own.
+        for (ratio, px) in [(1.0, 1000), (1.04, 1000), (1.1, 1100), (1.0, 1000)] {
+            let pixel_ratio = PixelRatio::try_from(ratio).expect("in range");
             let params =
-                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(1024, 1024, pixel_ratio);
+                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(1000, 1000, pixel_ratio);
             let image = pool.render(params).await.expect("render");
             let img = image.as_image();
             assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
@@ -832,7 +832,7 @@ mod tests {
         let pool = RenderPool::new(NonZeroUsize::new(1), StaticWorker::default).expect("spawn render pool");
         let style = style_file.path().to_path_buf();
 
-        let params = RenderParams::new(style, 0.0, 0.0, 2.0).with_size(256, 384, 1.0);
+        let params = RenderParams::new(style, 0.0, 0.0, 2.0).with_size(256, 384, PixelRatio::ONE);
         let image = pool.render(params).await.expect("render");
 
         let img = image.as_image();
