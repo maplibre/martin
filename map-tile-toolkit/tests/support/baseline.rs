@@ -22,11 +22,11 @@ use map_tile_toolkit::TileId;
 /// A point in `f64` tile space.
 pub type Pt = [f64; 2];
 
-/// Tile `t`'s buffered span on one axis: `[t·extent - buffer, (t+1)·extent - 1 + buffer]`.
+/// Tile `t`'s buffered span on one axis: `[t·extent - buffer, (t+1)·extent + buffer]`.
 #[must_use]
 pub fn tile_span(t: i32, extent: u32, buffer: u16) -> (f64, f64) {
     let lo = f64::from(t) * f64::from(extent) - f64::from(buffer);
-    (lo, lo + f64::from(extent) - 1.0 + 2.0 * f64::from(buffer))
+    (lo, lo + f64::from(extent) + 2.0 * f64::from(buffer))
 }
 
 /// A tile's buffered box as a `geo` rectangle.

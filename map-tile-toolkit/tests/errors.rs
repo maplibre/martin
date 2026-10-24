@@ -39,10 +39,14 @@ fn invalid_extent() {
     assert_eq!(all(0, 0).err(), Some(TileError::InvalidExtent));
     assert_eq!(all(u32::MAX, 0).err(), Some(TileError::InvalidExtent));
     all(1, 0).unwrap();
-    // `extent + buffer` must fit `i32`, or no tile's box could.
-    all(i32::MAX as u32, 0).unwrap();
-    assert_eq!(all(i32::MAX as u32, u16::MAX).err(), Some(TileError::InvalidExtent));
-    all(i32::MAX as u32 - u32::from(u16::MAX), u16::MAX).unwrap();
+    // `extent + buffer` must stay below `i32::MAX`, or no tile's box, grown a unit for polygon corners, could fit.
+    all(i32::MAX as u32 - 1, 0).unwrap();
+    assert_eq!(all(i32::MAX as u32, 0).err(), Some(TileError::InvalidExtent));
+    assert_eq!(
+        all(i32::MAX as u32 - u32::from(u16::MAX), u16::MAX).err(),
+        Some(TileError::InvalidExtent)
+    );
+    all(i32::MAX as u32 - u32::from(u16::MAX) - 1, u16::MAX).unwrap();
 }
 
 #[test]
@@ -115,27 +119,14 @@ fn spanning_many_tiles_is_lazy() {
     let first: Vec<_> = s.line(&long).expect("lazy").take(3).collect();
     assert_eq!(first.len(), 3);
     // Only the touched tiles are visited, not how far the line reaches: a diagonal across 100 000
-    // tiles (a 7·10⁹-tile bounding box) touches under 200 000.
+    // tiles (a 7·10⁹-tile bounding box) touches under 250 000.
     let s = all(10, 1).expect("valid config");
     let tiles: BTreeSet<TileId> = slices(&s, &line(vec![(0, 0), (1_000_000, 700_010)]))
         .expect("a long diagonal")
         .into_iter()
         .map(|(t, _)| t)
         .collect();
-    assert!(tiles.len() > 100_000 && tiles.len() < 200_000, "{}", tiles.len());
-}
-
-#[test]
-fn unbuffered_gap_rows_are_skipped() {
-    // With `buffer == 0`, a segment from x = 0 to x = 1 (extent 1) runs between the closed columns
-    // 0 and 1 in every interior row, touching only its two endpoint tiles. The walk jumps over the
-    // 2^26 rows in between instead of visiting them one by one.
-    let s = all(1, 0).expect("valid config");
-    let got = slices(&s, &line(vec![(0, 0), (1, 1 << 26)])).expect("slice");
-    let tiles: Vec<TileId> = got.iter().map(|(t, _)| *t).collect();
-    assert_eq!(tiles, [TileId::new(0, 0), TileId::new(1, 1 << 26)]);
-    let got = slices(&s, &line(vec![(0, 0), (1, 1000)])).expect("slice");
-    assert_eq!(got.len(), 2, "only the endpoint tiles are touched");
+    assert!(tiles.len() > 100_000 && tiles.len() < 250_000, "{}", tiles.len());
 }
 
 #[test]
@@ -152,7 +143,7 @@ fn coordinate_overflow_errors() {
 fn long_polylines_are_accepted() {
     // A polyline has no vertex limit.
     let s = all(1_000_000, 0).expect("valid config");
-    let coords: Vec<Coord<i32>> = (0..200_000).map(|i| Coord { x: i % 8, y: 0 }).collect();
+    let coords: Vec<Coord<i32>> = (0..200_000).map(|i| Coord { x: 1 + i % 8, y: 1 }).collect();
     let runs: Vec<usize> = slices(&s, &coords)
         .expect("200 000 vertices")
         .iter()
@@ -233,7 +224,7 @@ fn polygons_spanning_many_tiles_are_lazy() {
     }
 
     // Only the tiles an edge touches cost anything, never its bounding box: the large triangle's
-    // diagonal spans a 5781² = 33 419 961-tile box but touches only ~17 000 tiles, and covered tiles
+    // edges span a 5781² = 33 419 961-tile box but touch only ~40 000 tiles, and covered tiles
     // come as runs: the small triangle alone fills ~180 000 tiles.
     let small = poly(vec![(0, 0), (600, 600), (0, 600)]);
     let large = poly(vec![(0, 0), (5780, 5780), (0, 5780)]);
@@ -250,18 +241,7 @@ fn polygons_spanning_many_tiles_are_lazy() {
     let (items, err) = poly_items(&mut s, &large);
     assert_eq!(err, None);
     let pieces = items.iter().filter(|i| matches!(i, Item::Piece(..))).count();
-    assert!(pieces < 40_000, "{pieces}");
-}
-
-#[test]
-fn polygon_slivers_between_unbuffered_tiles_yield_little() {
-    // A sliver whose two long edges run between the closed columns 0 and 1 (extent 1, buffer 0):
-    // they touch tiles only near their ends, and no tile lies inside it.
-    let mut s = all(1, 0).expect("valid config");
-    let (items, err) = poly_items(&mut s, &poly(vec![(0, 0), (1, 1 << 16), (0, 1)]));
-    assert_eq!(err, None);
-    assert!(items.iter().all(|i| matches!(i, Item::Piece(..))));
-    assert!(items.len() <= 4, "{items:?}");
+    assert!(pieces < 50_000, "{pieces}");
 }
 
 #[test]

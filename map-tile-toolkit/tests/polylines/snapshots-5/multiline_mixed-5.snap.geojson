@@ -84,6 +84,27 @@
         ]
       },
       "properties": {
+        "role": "tile -1/0",
+        "stroke": "#261fb5",
+        "stroke-width": 2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5.0,
+            10.0
+          ],
+          [
+            64.0,
+            10.0
+          ]
+        ]
+      },
+      "properties": {
         "role": "tile 0/0",
         "stroke": "#261fb5",
         "stroke-width": 2
@@ -101,6 +122,10 @@
           [
             40.0,
             22.0
+          ],
+          [
+            12.0,
+            44.0
           ]
         ]
       },
