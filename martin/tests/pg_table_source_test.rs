@@ -270,6 +270,24 @@ async fn tables_tile_ok() {
 }
 
 #[actix_rt::test]
+async fn tables_order_by_without_an_id_column_ok() {
+    let mock = mock_sources(
+        mock_pgcfg(indoc! {"
+            connection_string: $DATABASE_URL
+            order_by: id-asc
+        "})
+        .await,
+    )
+    .await;
+    let tile = source(&mock, "table_source")
+        .get_tile(TileCoord::new_unchecked(0, 0, 0), None)
+        .await
+        .unwrap();
+
+    assert!(!tile.is_empty());
+}
+
+#[actix_rt::test]
 async fn tables_srid_ok() {
     let mock = mock_sources(
         mock_pgcfg(indoc! {"
