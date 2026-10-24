@@ -27,6 +27,9 @@ pub enum RenderLayerError {
 
     #[error("buffer {buffer} is not below half the extent {extent} or above 65535")]
     InvalidBuffer { buffer: u32, extent: u32 },
+
+    #[error("extent {extent} is not a power of two from 64 to 2097152")]
+    InvalidExtent { extent: u32 },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -112,6 +115,10 @@ impl RenderLayer {
         let max_zoom = *zooms.end();
         if zooms.is_empty() {
             return Err(RenderLayerError::EmptyZooms);
+        }
+        // Even, so halves round to the same neighbor in every tile's frame as in tile mode.
+        if !grid.extent.is_power_of_two() || !(1 << 6..=1 << 21).contains(&grid.extent) {
+            return Err(RenderLayerError::InvalidExtent { extent: grid.extent });
         }
         let fits = u64::from(grid.extent)
             .checked_shl(u32::from(max_zoom))
@@ -1672,6 +1679,81 @@ mod tests {
             },
         )
         .unwrap_err();
+    }
+
+    #[test]
+    fn accepts_extent_64() {
+        RenderLayer::new(0, 0..=0, LayerGrid { extent: 64, buffer: 0 }).unwrap();
+    }
+
+    #[test]
+    fn accepts_extent_2097152() {
+        RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 2_097_152,
+                buffer: 0,
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn rejects_an_odd_extent() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4095,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4095 is not a power of two from 64 to 2097152"
+        );
+    }
+
+    #[test]
+    fn rejects_an_even_extent_that_is_not_a_power_of_two() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4000,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4000 is not a power of two from 64 to 2097152"
+        );
+    }
+
+    #[test]
+    fn rejects_extent_32() {
+        let error = RenderLayer::new(0, 0..=0, LayerGrid { extent: 32, buffer: 0 }).unwrap_err();
+        assert_eq!(error.to_string(), "extent 32 is not a power of two from 64 to 2097152");
+    }
+
+    #[test]
+    fn rejects_extent_4194304() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4_194_304,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4194304 is not a power of two from 64 to 2097152"
+        );
     }
 
     #[test]
