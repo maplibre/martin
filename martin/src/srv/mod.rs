@@ -42,6 +42,9 @@ pub use crate::srv::tiles::content::{AcceptedFormats, DynTileSource, TileRequest
 #[cfg(feature = "_tiles")]
 pub use crate::srv::tiles::metadata::merge_tilejson;
 
+#[cfg(feature = "ogcapi")]
+mod ogcapi;
+
 #[cfg(feature = "resources")]
 mod sprites;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
