@@ -17,7 +17,7 @@ The OGC API is part of the default build, through the `ogcapi` feature.
 | `/ogc/conformance`                                                                         | The conformance classes Martin implements    |
 | `/ogc/tileMatrixSets`                                                                      | The tile matrix sets of the served sources   |
 | `/ogc/tileMatrixSets/{tileMatrixSetId}`                                                    | One tile matrix set                          |
-| `/ogc/collections`                                                                         | Every tile source, as a collection           |
+| `/ogc/collections`                                                                         | Sources in a supported CRS, as collections   |
 | `/ogc/collections/{collectionId}`                                                          | One collection                               |
 | `/ogc/collections/{collectionId}/tiles`                                                    | The tilesets of a collection                 |
 | `/ogc/collections/{collectionId}/tiles/{tileMatrixSetId}`                                  | Tileset metadata, with the tile URL template |
@@ -25,7 +25,7 @@ The OGC API is part of the default build, through the `ogcapi` feature.
 
 ## Collections
 
-Each tile source is a collection, and its source ID is the collection ID.
+Each tile source in a supported CRS is a collection, and its source ID is the collection ID.
 A collection's extent is the bounds of its source.
 Raster sources are map tilesets and vector sources are vector tilesets.
 A source is listed when its grid uses one of the CRSs of the built-in grids, which are EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
