@@ -403,3 +403,6 @@ postgres:
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
   yet.
+
+[`martin test`](martin-test.md) checks what the layers make of real rows of the database, and keeps it in
+a spec file.
