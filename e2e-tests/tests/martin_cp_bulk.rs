@@ -1052,6 +1052,98 @@ async fn sort_by_sets_the_draw_order() {
 }
 
 #[tokio::test]
+async fn encodes_with_the_configured_convert_to_mlt_settings() {
+    let dir = temp_dir();
+    let default_config = dir.path().join("default.yaml");
+    fs::write(
+        &default_config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let tessellated_config = dir.path().join("tessellated.yaml");
+    fs::write(
+        &tessellated_config,
+        indoc! {"
+            convert_to_mlt:
+              tessellate: true
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let default_output = dir.path().join("default.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&default_config)
+        .arg("--output-file")
+        .arg(&default_output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let tessellated_output = dir.path().join("tessellated.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&tessellated_config)
+        .arg("--output-file")
+        .arg(&tessellated_output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let listings = format!(
+        "default:\n{}\ntessellated:\n{}",
+        tile_listing(&default_output).await,
+        tile_listing(&tessellated_output).await
+    );
+    insta::assert_snapshot!(listings, @"
+    default:
+    0/0/0 412 bytes
+    1/0/0 190 bytes
+    1/0/1 212 bytes
+    1/1/0 206 bytes
+    1/1/1 478 bytes
+    tessellated:
+    0/0/0 548 bytes
+    1/0/0 280 bytes
+    1/0/1 302 bytes
+    1/1/0 296 bytes
+    1/1/1 637 bytes
+    ");
+}
+
+#[tokio::test]
 async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::bulk()
