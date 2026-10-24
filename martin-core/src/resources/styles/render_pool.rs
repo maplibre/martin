@@ -563,7 +563,7 @@ impl StaticRenderer {
     fn matches(&self, params: &RenderParams) -> bool {
         self.width == params.width
             && self.height == params.height
-            && (self.pixel_ratio - params.pixel_ratio).abs() <= 0.01
+            && self.pixel_ratio.to_bits() == params.pixel_ratio.to_bits()
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
@@ -692,6 +692,21 @@ mod tests {
                 })
                 .await
                 .expect("render");
+            let img = image.as_image();
+            assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
+        }
+    }
+
+    #[tokio::test]
+    async fn static_worker_does_not_reuse_a_renderer_for_a_nearby_pixel_ratio() {
+        let style_file = write_style();
+        let pool = RenderPool::new(NonZeroUsize::new(1), || StaticWorker::new(None)).expect("spawn render pool");
+
+        // 1 + 1/128 is exact in f32 and within the old 0.01 tolerance.
+        for (pixel_ratio, px) in [(1.0, 1024), (1.007_812_5, 1032), (1.0, 1024)] {
+            let params =
+                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(1024, 1024, pixel_ratio);
+            let image = pool.render(params).await.expect("render");
             let img = image.as_image();
             assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
