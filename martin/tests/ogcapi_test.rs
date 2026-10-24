@@ -701,6 +701,12 @@ async fn the_tileset_metadata_carries_limits_layers_and_the_tile_template() {
       ]
     }
     "#);
+}
+
+#[actix_rt::test]
+async fn a_map_tileset_has_no_layers() {
+    let (config, _conn) = config("ogc_map_tileset").await;
+    let app = create_app!(&config);
 
     let request = TestRequest::get().uri("/ogc/collections/geography/tiles/WebMercatorQuad");
     let response = call_service(&app, request.to_request()).await;
@@ -785,8 +791,8 @@ async fn a_tile_is_addressed_by_matrix_then_row_then_column() {
 }
 
 #[actix_rt::test]
-async fn unknown_collections_tilesets_and_tiles_are_not_found() {
-    let (config, _conn) = config("ogc_not_found").await;
+async fn a_source_without_an_ogc_crs_is_not_a_collection() {
+    let (config, _conn) = config("ogc_not_a_collection").await;
     let app = create_app!(&config);
 
     let request = TestRequest::get().uri("/ogc/collections/cities_on_a_plan");
@@ -794,12 +800,24 @@ async fn unknown_collections_tilesets_and_tiles_are_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = read_body(response).await;
     insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Collection cities_on_a_plan does not exist");
+}
+
+#[actix_rt::test]
+async fn a_collection_has_no_tileset_on_another_tile_matrix_set() {
+    let (config, _conn) = config("ogc_no_such_tileset").await;
+    let app = create_app!(&config);
 
     let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WorldCRS84Quad");
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = read_body(response).await;
     insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Collection cities has no tileset on tile matrix set WorldCRS84Quad");
+}
+
+#[actix_rt::test]
+async fn a_tile_outside_the_grid_is_not_found() {
+    let (config, _conn) = config("ogc_tile_outside_the_grid").await;
+    let app = create_app!(&config);
 
     let request = TestRequest::get().uri("/ogc/collections/cities/tiles/WebMercatorQuad/2/2147483647/2147483647");
     let response = call_service(&app, request.to_request()).await;
