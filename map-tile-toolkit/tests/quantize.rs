@@ -59,6 +59,31 @@ fn parts_that_round_onto_one_edge_merge() {
 }
 
 #[test]
+fn parts_that_cross_far_from_any_vertex_merge_into_their_union() {
+    let across = [(0.0, 4.0), (20.0, 4.0), (20.0, 6.0), (0.0, 6.0)];
+    let down = [(9.0, -10.0), (11.0, -10.0), (11.0, 20.0), (9.0, 20.0)];
+    assert_snapshot!(multi_polygon(&[&[&across], &[&down]]), @"(0 4, 9 4, 9 -10, 11 -10, 11 4, 20 4, 20 6, 11 6, 11 20, 9 20, 9 6, 0 6)");
+}
+
+#[test]
+fn parts_that_touch_at_two_points_and_overlap_between_them_merge() {
+    let wide = [(105.0, 105.0), (105.0, 106.0), (-32.0, 106.0), (0.0, 39.0)];
+    let narrow = [(0.0, 0.0), (0.0, 62.0), (-32.0, 106.0)];
+    assert_snapshot!(multi_polygon(&[&[&wide], &[&narrow]]), @"(-32 106, 0 0, 0 39, 105 105, 105 106)");
+}
+
+#[test]
+fn far_part_stays_as_it_is_while_two_near_parts_merge() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let far = [(40.2, 0.1), (49.7, 0.4), (49.6, 9.5), (40.4, 9.8)];
+    let right = [(10.02, 0.0), (20.0, 0.0), (20.0, 10.0), (10.02, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[&left], &[&far], &[&right]]), @"
+    (0 0, 10 0, 20 0, 20 10, 10 10, 0 10)
+    (40 0, 50 0, 50 10, 40 10)
+    ");
+}
+
+#[test]
 fn part_vertex_that_rounds_into_another_part_merges() {
     let upper = [(0.0, 0.0), (10.0, 3.0), (0.0, 3.0)];
     let lower = [(2.0, 0.0), (10.0, 0.0), (5.45, 1.55)];

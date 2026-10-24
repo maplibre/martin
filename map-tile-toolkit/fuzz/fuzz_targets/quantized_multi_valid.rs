@@ -1,9 +1,10 @@
-//! Fuzz `Quantizer::multi_polygon`: a valid float multipolygon must round into valid polygons, even
-//! where its parts round onto each other.
+//! Fuzz `Quantizer::multi_polygon`: float polygons that are each valid must round into valid polygons,
+//! even where they overlap or round onto each other.
 //!
 //! Each coordinate is an `i16` divided by `1 + scale % 2048`, so vertices land between grid points and
 //! parts can be closer together than a unit.
-//! Its rounded area must differ from its float area by at most its perimeter plus one.
+//! If they form a valid multipolygon, its rounded area must differ from its float area by at most its
+//! perimeter plus one.
 
 #![no_main]
 
@@ -63,7 +64,7 @@ fuzz_target!(|input: Input| {
     let float = MultiPolygon::new(polygons.iter().map(|rings| polygon(rings, |c| c)).collect());
     let ring_area = |r: &LineString<f64>| Polygon::new(r.clone(), vec![]).unsigned_area();
     let rings = || float.iter().flat_map(|p| std::iter::once(p.exterior()).chain(p.interiors()));
-    if !rings().all(|r| ring_area(r) > 0.0) || float.check_validation().is_err() {
+    if !rings().all(|r| ring_area(r) > 0.0) || float.iter().any(|p| p.check_validation().is_err()) {
         return;
     }
 
@@ -77,6 +78,9 @@ fuzz_target!(|input: Input| {
         panic!("quantizer gave an invalid multipolygon: {e}\nfloat: {float:?}\nquantized: {multi:?}");
     }
 
+    if float.check_validation().is_err() {
+        return;
+    }
     let before = float.unsigned_area();
     let after = multi.unsigned_area();
     let perimeter: f64 = rings().map(|r| r.length(&Euclidean)).sum();

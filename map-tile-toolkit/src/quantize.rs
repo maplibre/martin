@@ -47,6 +47,72 @@ pub struct Quantizer {
     segs: Vec<Seg>,
     lines: Vec<(Fixed, Fixed)>,
     grid: Grid,
+    groups: PartGroups,
+    group: Option<Box<Self>>,
+}
+
+/// Reusable working memory that sorts a multipolygon's parts into groups that may round onto each other.
+#[derive(Debug, Default, Clone)]
+struct PartGroups {
+    boxes: Vec<(Pixel, Pixel)>,
+    roots: Vec<usize>,
+    order: Vec<usize>,
+    active: Vec<usize>,
+    grouped: Vec<(usize, usize)>,
+}
+
+impl PartGroups {
+    /// Groups the polygons whose rings end at `ring_ends` in `fixed` and that end at `polygon_ends`,
+    /// as `(first part, part)` pairs sorted by both: parts are grouped when the pixels their vertices
+    /// round into span touching boxes, directly or through other parts.
+    fn group(&mut self, fixed: &[Fixed], ring_ends: &[usize], polygon_ends: &[usize]) -> &[(usize, usize)] {
+        let Self {
+            boxes,
+            roots,
+            order,
+            active,
+            grouped,
+        } = self;
+        boxes.clear();
+        for rings in spans(polygon_ends) {
+            let vertices = span(ring_ends, rings.start).start..ring_ends[rings.end - 1];
+            let (min, max) = bounds(fixed[vertices].iter().copied()).expect("a part keeps its exterior");
+            boxes.push((pixel(min), pixel(max)));
+        }
+        roots.clear();
+        roots.extend(0..boxes.len());
+        order.clear();
+        order.extend(0..boxes.len());
+        order.sort_unstable_by_key(|&p| boxes[p].0.x);
+        active.clear();
+        for &p in &*order {
+            let (lo, hi) = boxes[p];
+            active.retain(|&q| boxes[q].1.x >= lo.x);
+            for &q in &*active {
+                if boxes[q].0.y <= hi.y && lo.y <= boxes[q].1.y {
+                    let (a, b) = (root(roots, p), root(roots, q));
+                    roots[a.max(b)] = a.min(b);
+                }
+            }
+            active.push(p);
+        }
+        grouped.clear();
+        for p in 0..boxes.len() {
+            let r = root(roots, p);
+            grouped.push((r, p));
+        }
+        grouped.sort_unstable();
+        grouped
+    }
+}
+
+/// The root of `p` in the forest `roots`, halving the path to it.
+fn root(roots: &mut [usize], mut p: usize) -> usize {
+    while roots[p] != p {
+        roots[p] = roots[roots[p]];
+        p = roots[p];
+    }
+    p
 }
 
 /// The polygons [`Quantizer::polygon`], [`Quantizer::multi_polygon`] or [`Quantizer::make_valid`] rounded into.
@@ -171,7 +237,8 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(once(rings), Self::rounding_kept_valid, Winding::in_some_part)?;
+        self.read(once(rings))?;
+        self.finish(Self::rounding_kept_valid, Winding::inside);
         debug_assert!(
             self.output_is_valid(),
             "Quantizer::polygon was given an invalid polygon"
@@ -179,10 +246,11 @@ impl Quantizer {
         Ok(Quantized { quantizer: self })
     }
 
-    /// Rounds one valid multipolygon's `polygons`, each its rings, exterior first, in grid units, into
-    /// valid polygons.
+    /// Rounds a multipolygon's `polygons`, each its rings, exterior first, in grid units, into valid
+    /// polygons.
     ///
-    /// Parts that round onto each other merge into one polygon.
+    /// Each polygon must be valid on its own, as for [`Self::polygon`], but they may touch or overlap:
+    /// parts that do, or that round onto each other, merge into one polygon.
     ///
     /// # Errors
     ///
@@ -193,10 +261,44 @@ impl Quantizer {
         P::Item: IntoIterator,
         <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(polygons, Self::rounding_kept_valid, Winding::in_some_part)?;
+        self.read(polygons)?;
+        let parts = self.fixed_polygon_ends.len();
+        let mut groups = std::mem::take(&mut self.groups);
+        let grouped = groups.group(&self.fixed, &self.fixed_ends, &self.fixed_polygon_ends);
+        if grouped
+            .first()
+            .is_none_or(|&(first, _)| grouped.iter().all(|g| g.0 == first))
+        {
+            self.finish_group(parts);
+        } else {
+            let mut group = self.group.take().unwrap_or_default();
+            self.vertices.clear();
+            self.ring_ends.clear();
+            self.polygon_ends.clear();
+            for members in grouped.chunk_by(|a, b| a.0 == b.0) {
+                group.fixed.clear();
+                group.fixed_ends.clear();
+                group.fixed_polygon_ends.clear();
+                for &(_, p) in members {
+                    for r in span(&self.fixed_polygon_ends, p) {
+                        group.fixed.extend_from_slice(&self.fixed[span(&self.fixed_ends, r)]);
+                        group.fixed_ends.push(group.fixed.len());
+                    }
+                    group.fixed_polygon_ends.push(group.fixed_ends.len());
+                }
+                group.finish_group(members.len());
+                let (vertex_offset, ring_offset) = (self.vertices.len(), self.ring_ends.len());
+                self.vertices.extend_from_slice(&group.vertices);
+                self.ring_ends.extend(group.ring_ends.iter().map(|e| e + vertex_offset));
+                self.polygon_ends
+                    .extend(group.polygon_ends.iter().map(|e| e + ring_offset));
+            }
+            self.group = Some(group);
+        }
+        self.groups = groups;
         debug_assert!(
             self.output_is_valid(),
-            "Quantizer::multi_polygon was given an invalid multipolygon"
+            "Quantizer::multi_polygon was given a polygon that is not valid on its own"
         );
         Ok(Quantized { quantizer: self })
     }
@@ -213,25 +315,15 @@ impl Quantizer {
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
-        self.quantize(once(rings), Self::rounded_is_valid, Winding::inside)?;
+        self.read(once(rings))?;
+        self.finish(Self::rounded_is_valid, Winding::inside);
         debug_assert!(self.output_is_valid(), "Quantizer::make_valid gave an invalid polygon");
         Ok(Quantized { quantizer: self })
     }
 
-    /// Reads and rounds `polygons`, keeping the rounded rings if `still_valid` holds and repairing them
+    /// Rounds the polygons read, keeping the rounded rings if `still_valid` holds and repairing them
     /// into the area where `inside` holds if not.
-    fn quantize<P>(
-        &mut self,
-        polygons: P,
-        still_valid: fn(&mut Self) -> bool,
-        inside: fn(Winding) -> bool,
-    ) -> Result<(), TileError>
-    where
-        P: IntoIterator,
-        P::Item: IntoIterator,
-        <P::Item as IntoIterator>::Item: IntoIterator<Item = Coord<f64>>,
-    {
-        self.read(polygons)?;
+    fn finish(&mut self, still_valid: fn(&mut Self) -> bool, inside: fn(Winding) -> bool) {
         self.round();
         if !self.ring_ends.is_empty() {
             if still_valid(self) {
@@ -240,7 +332,19 @@ impl Quantizer {
                 self.repair(inside);
             }
         }
-        Ok(())
+    }
+
+    /// Rounds a group of `parts` polygons read: one as [`Self::polygon`] does, more keeping the rounded
+    /// rings only if none of them meet, and their union if any do.
+    fn finish_group(&mut self, parts: usize) {
+        if parts == 1 {
+            self.finish(Self::rounding_kept_valid, Winding::inside);
+        } else {
+            self.finish(
+                |q| q.rounded_rings_apart() && q.output_is_valid(),
+                Winding::in_some_part,
+            );
+        }
     }
 
     /// Reads each of `polygons` with [`Self::read_polygon`].
@@ -432,9 +536,9 @@ impl Quantizer {
                 .all(|(r, near)| r[0].is_none() || near.contains(&false))
     }
 
-    /// Whether the rounded rings meet only where consecutive edges share a vertex, with every hole
-    /// inside the exterior and outside the other holes.
-    fn rounded_is_valid(&mut self) -> bool {
+    /// Whether the rounded rings meet only where consecutive edges share a vertex, listing their edges
+    /// in `lines`.
+    fn rounded_rings_apart(&mut self) -> bool {
         if !self.rounded_edges() {
             return false;
         }
@@ -442,12 +546,18 @@ impl Quantizer {
         self.lines.clear();
         self.lines.extend(segs.iter().map(|s| s.line()));
         let lines = &self.lines;
-        let planar = near_pairs(lines, &mut self.grid, |i, j| {
+        near_pairs(lines, &mut self.grid, |i, j| {
             adjacent(segs, i, j) || contact(lines[i], lines[j]) == Contact::Apart
-        });
-        if !planar {
+        })
+    }
+
+    /// Whether the rounded rings meet only where consecutive edges share a vertex, with every hole
+    /// inside the exterior and outside the other holes.
+    fn rounded_is_valid(&mut self) -> bool {
+        if !self.rounded_rings_apart() {
             return false;
         }
+        let (segs, lines) = (&self.segs, &self.lines);
         if self.ring_ends.len() == 1 {
             return true;
         }
