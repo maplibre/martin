@@ -84,7 +84,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
     let mut evaluator = plan.evaluator();
     let mut by_plan = BTreeSet::new();
     for mut feature in features {
-        if feature.geometry.decode_wkb() != Ok(true) {
+        if !matches!(feature.geometry.decode_wkb(), Ok(true)) {
             continue;
         }
         let geom = feature.geometry.feature_geom().expect("undecoded geometry");

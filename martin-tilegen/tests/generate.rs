@@ -916,7 +916,7 @@ fn a_triangle_fails_the_generation_whatever_the_thread_count() {
     assert_eq!(errors[0], errors[1]);
     insta::assert_snapshot!(
         errors[0],
-        @"feature 301: a TRIANGLE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        @"feature 301: cannot read the WKB: General error: WKB type code out of range. Got: 17"
     );
 }
 
@@ -930,6 +930,6 @@ fn malformed_wkb_of_a_feature_without_id_fails_the_generation_naming_its_row() {
     assert_eq!(errors[0], errors[1]);
     insta::assert_snapshot!(
         errors[0],
-        @"the feature in row 41 of source partition 3: malformed WKB (0 bytes): a geometry starts with a 5-byte header of byte order and type code"
+        @"the feature in row 41 of source partition 3: cannot read the WKB: failed to fill whole buffer"
     );
 }

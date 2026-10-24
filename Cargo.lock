@@ -6027,7 +6027,6 @@ dependencies = [
  "rstest",
  "rustix 1.1.5",
  "serde_json",
- "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
  "tilejson",
@@ -11764,8 +11763,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 [[package]]
 name = "wkb"
 version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04ab2f2845abe967a213998446345a1a6fc9a8f318cd88f668a8e507861d13bc"
+source = "git+https://github.com/CommanderStorm/wkb?rev=b5e52669e3c1b488a7846c8d02369e3758ce6e8c#b5e52669e3c1b488a7846c8d02369e3758ce6e8c"
 dependencies = [
  "byteorder",
  "geo-traits",
