@@ -439,7 +439,7 @@ fn prop_value<S: AsRef<str>>(prop: &Prop<S>) -> Value {
 /// `geometry` as WKT, or `None` when it cannot be decoded.
 fn wkt(geometry: &Geometry) -> Option<String> {
     let mut geometry = geometry.clone();
-    if !geometry.decode_wkb() {
+    if !geometry.decode_wkb().ok()? {
         return None;
     }
     let geometry: geo_types::Geometry<f64> = match geometry {

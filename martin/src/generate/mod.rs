@@ -25,7 +25,7 @@ use tilejson::{Bounds, tilejson};
 use tokio::signal::unix::{Signal, SignalKind, signal};
 #[cfg(windows)]
 use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
@@ -296,9 +296,9 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         "Generated tiles"
     );
     if summary.skipped > 0 {
-        warn!(
+        debug!(
             features.skipped = summary.skipped,
-            "Skipped features with geometry collections or empty geometries, which tiles cannot hold"
+            "Skipped features with empty geometries"
         );
     }
     for failed in &summary.slice_errors {

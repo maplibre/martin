@@ -890,12 +890,46 @@ fn a_failing_render_fails_the_generation_whatever_the_thread_count() {
 }
 
 #[test]
-fn skipped_features_are_counted_whatever_the_thread_count() {
+fn empty_geometries_are_skipped_and_counted_whatever_the_thread_count() {
     let mut source = source();
     source.batches[1].features[0].geometry = Geometry::Wkb(vec![1, 7, 0, 0, 0, 0, 0, 0, 0].into());
-    source.batches[4].features[0].geometry = Geometry::Wkb(Vec::new().into());
+    let mut empty_point = vec![1, 1, 0, 0, 0];
+    empty_point.extend_from_slice(&f64::NAN.to_le_bytes());
+    empty_point.extend_from_slice(&f64::NAN.to_le_bytes());
+    source.batches[4].features[0].geometry = Geometry::Wkb(empty_point.into());
     for threads in [1, 4] {
         let summary = generate_into_discard(&source, threads).unwrap();
         assert_eq!((summary.features, summary.skipped), (120, 2), "{threads} threads");
     }
+}
+
+#[test]
+fn a_triangle_fails_the_generation_whatever_the_thread_count() {
+    let mut source = source();
+    let mut triangle = vec![1, 17, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0];
+    for (x, y) in [(0.0, 0.0), (4.0, 0.0), (0.0, 3.0), (0.0, 0.0)] {
+        triangle.extend_from_slice(&f64::to_le_bytes(x));
+        triangle.extend_from_slice(&f64::to_le_bytes(y));
+    }
+    source.batches[3].features[1].geometry = Geometry::Wkb(triangle.into());
+    let errors = [1, 4].map(|threads| generate_into_discard(&source, threads).unwrap_err().to_string());
+    assert_eq!(errors[0], errors[1]);
+    insta::assert_snapshot!(
+        errors[0],
+        @"feature 301: a TRIANGLE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+    );
+}
+
+#[test]
+fn malformed_wkb_of_a_feature_without_id_fails_the_generation_naming_its_row() {
+    let mut source = source();
+    source.batches[3].first_row = 40;
+    source.batches[3].features[1].id = None;
+    source.batches[3].features[1].geometry = Geometry::Wkb(Vec::new().into());
+    let errors = [1, 4].map(|threads| generate_into_discard(&source, threads).unwrap_err().to_string());
+    assert_eq!(errors[0], errors[1]);
+    insta::assert_snapshot!(
+        errors[0],
+        @"the feature in row 41 of source partition 3: malformed WKB (0 bytes): a geometry starts with a 5-byte header of byte order and type code"
+    );
 }

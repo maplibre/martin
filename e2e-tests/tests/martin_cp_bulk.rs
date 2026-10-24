@@ -31,6 +31,7 @@ async fn generates_a_valid_tileset() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -106,6 +107,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -631,6 +633,7 @@ async fn one_table_feeds_several_layers() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -693,6 +696,7 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -873,6 +877,7 @@ async fn layer_rules_override_settings_per_feature() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -995,6 +1000,7 @@ async fn sort_by_sets_the_draw_order() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -1361,6 +1367,7 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -1388,9 +1395,43 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
     insta::assert_snapshot!(log, @r#"
     WARN Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom
     WARN Tile source resolution warning warning=Source typo: Unable to configure source typo because schema 'ghost_schema' does not exist. Available schemas: "Quotes' \ \' \" and Space.Dot., MixedCase, autodetect, public, schema_a, schema_b, topology
-    WARN Skipped features with geometry collections or empty geometries, which tiles cannot hold features.skipped=1
     "#);
     assert!(output.exists());
+}
+
+#[tokio::test]
+async fn aborts_on_a_geometry_collection_naming_the_feature() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR feature 14: a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)");
+    assert!(!output.exists());
 }
 
 #[tokio::test]

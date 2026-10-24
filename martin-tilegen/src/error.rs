@@ -39,6 +39,18 @@ pub enum TileGenError {
     Geometry(#[from] crate::GeometryError),
 
     #[error(transparent)]
+    Wkb(#[from] crate::source::WkbError),
+
+    #[error("{}: {error}", feature_name(*.id, *.partition, *.row))]
+    FeatureWkb {
+        table: u16,
+        id: Option<u64>,
+        partition: u32,
+        row: u64,
+        error: crate::source::WkbError,
+    },
+
+    #[error(transparent)]
     Plan(#[from] crate::plan::PlanError),
 
     #[error("a temp record is corrupt")]
@@ -83,5 +95,13 @@ impl From<SourceError> for TileGenError {
         } else {
             Self::Source(err)
         }
+    }
+}
+
+/// Feature `id`, or the feature in `row` of `partition` when it has no id.
+fn feature_name(id: Option<u64>, partition: u32, row: u64) -> String {
+    match id {
+        Some(id) => format!("feature {id}"),
+        None => format!("the feature in row {row} of source partition {partition}"),
     }
 }

@@ -55,19 +55,22 @@ pub enum Geometry {
 }
 
 impl Geometry {
-    /// Decodes [`Geometry::Wkb`] in place, dropping the empty points of a multipoint; `false` if it is
-    /// invalid, an empty point or a geometry collection.
-    #[must_use]
-    pub fn decode_wkb(&mut self) -> bool {
+    /// Decodes [`Geometry::Wkb`] in place, dropping the empty points of a multipoint; `Ok(false)` if it is
+    /// an empty point or an empty geometry collection, which have nothing to draw.
+    ///
+    /// # Errors
+    ///
+    /// If the WKB is malformed or holds a geometry a tile cannot, such as a geometry collection or a triangle.
+    pub fn decode_wkb(&mut self) -> Result<bool, WkbError> {
         let Self::Wkb(bytes) = self else {
-            return true;
+            return Ok(true);
         };
-        match decode_wkb(bytes) {
+        match decode_wkb(bytes)? {
             Some(geometry) => {
                 *self = geometry;
-                true
+                Ok(true)
             }
-            None => false,
+            None => Ok(false),
         }
     }
 
@@ -86,30 +89,155 @@ impl Geometry {
     }
 }
 
-/// Converts each part of a multi-geometry on its own, so one empty point does not fail the whole multipoint.
-fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
-    let wkb = Wkb::try_new(bytes).ok()?;
-    Some(match wkb.as_type() {
-        GeometryType::MultiPoint(points) => Geometry::Points(
+/// Why a WKB geometry cannot be the geometry of a feature.
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WkbError {
+    /// A well-formed geometry of a type tiles cannot hold.
+    #[error("a {kind} cannot go into a tile, which holds only points, lines and polygons (single or multi)")]
+    Unsupported { kind: UnsupportedGeometry },
+
+    /// The bytes are not one WKB geometry.
+    #[error("malformed WKB ({len} bytes): {reason}")]
+    Malformed { len: usize, reason: String },
+}
+
+/// A WKB geometry type that is not a point, line or polygon, single or multi, named as WKT names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[expect(missing_docs)]
+pub enum UnsupportedGeometry {
+    GeometryCollection,
+    CircularString,
+    CompoundCurve,
+    CurvePolygon,
+    MultiCurve,
+    MultiSurface,
+    Curve,
+    Surface,
+    PolyhedralSurface,
+    Tin,
+    Triangle,
+}
+
+impl UnsupportedGeometry {
+    /// The type of an ISO WKB type code without its dimension, `None` for the six supported ones and unknown codes.
+    fn of_code(code: u32) -> Option<Self> {
+        Some(match code {
+            7 => Self::GeometryCollection,
+            8 => Self::CircularString,
+            9 => Self::CompoundCurve,
+            10 => Self::CurvePolygon,
+            11 => Self::MultiCurve,
+            12 => Self::MultiSurface,
+            13 => Self::Curve,
+            14 => Self::Surface,
+            15 => Self::PolyhedralSurface,
+            16 => Self::Tin,
+            17 => Self::Triangle,
+            _ => return None,
+        })
+    }
+}
+
+impl std::fmt::Display for UnsupportedGeometry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::GeometryCollection => "GEOMETRYCOLLECTION",
+            Self::CircularString => "CIRCULARSTRING",
+            Self::CompoundCurve => "COMPOUNDCURVE",
+            Self::CurvePolygon => "CURVEPOLYGON",
+            Self::MultiCurve => "MULTICURVE",
+            Self::MultiSurface => "MULTISURFACE",
+            Self::Curve => "CURVE",
+            Self::Surface => "SURFACE",
+            Self::PolyhedralSurface => "POLYHEDRALSURFACE",
+            Self::Tin => "TIN",
+            Self::Triangle => "TRIANGLE",
+        })
+    }
+}
+
+/// Why WKB shorter than its byte order and type code is malformed.
+const HEADER: &str = "a geometry starts with a 5-byte header of byte order and type code";
+
+/// The EWKB flags for Z, M and an SRID, set on the type code instead of the ISO dimension offsets.
+const EWKB_FLAGS: u32 = 0xE000_0000;
+
+/// The EWKB flag of a type code followed by an SRID.
+const EWKB_SRID: u32 = 0x2000_0000;
+
+/// Checks the type code itself, since the `wkb` crate reads it as `code & 0x7` and so takes a TRIANGLE (17)
+/// for a point; georust/wkb#104. Converts each part of a multi-geometry on its own, so one empty point does
+/// not fail the whole multipoint.
+fn decode_wkb(bytes: &[u8]) -> Result<Option<Geometry>, WkbError> {
+    let malformed = |reason: String| WkbError::Malformed {
+        len: bytes.len(),
+        reason,
+    };
+    match bytes.first() {
+        None => return Err(malformed(HEADER.to_owned())),
+        Some(0 | 1) => {}
+        Some(order) => {
+            return Err(malformed(format!(
+                "byte order {order} is neither 0 (big endian) nor 1 (little endian)"
+            )));
+        }
+    }
+    let code = read_u32(bytes, 1).ok_or_else(|| malformed(HEADER.to_owned()))?;
+    let kind = (code & !EWKB_FLAGS) % 1000;
+    if let Some(kind) = UnsupportedGeometry::of_code(kind) {
+        let parts = if code & EWKB_SRID == 0 { 5 } else { 9 };
+        return match (kind, read_u32(bytes, parts)) {
+            (UnsupportedGeometry::GeometryCollection, Some(0)) => Ok(None),
+            _ => Err(WkbError::Unsupported { kind }),
+        };
+    }
+    if !(1..=6).contains(&kind) {
+        return Err(malformed(format!("type code {code} names no WKB geometry type")));
+    }
+    let wkb = Wkb::try_new(bytes).map_err(|err| {
+        if let wkb::error::WkbError::General(reason) = err {
+            malformed(reason)
+        } else {
+            malformed(err.to_string())
+        }
+    })?;
+    let end = wkb.buf().len();
+    if end < bytes.len() {
+        return Err(malformed(format!("the geometry ends after byte {end}")));
+    }
+    Ok(match wkb.as_type() {
+        GeometryType::MultiPoint(points) => Some(Geometry::Points(
             points
                 .points()
                 .filter_map(|p| p.coord())
                 .map(|c| c.to_coord())
                 .collect(),
-        ),
-        GeometryType::MultiLineString(lines) => {
-            Geometry::Lines(lines.line_strings().map(ToGeoLineString::to_line_string).collect())
-        }
-        GeometryType::MultiPolygon(polygons) => {
-            Geometry::Polygons(polygons.polygons().map(ToGeoPolygon::to_polygon).collect())
-        }
+        )),
+        GeometryType::MultiLineString(lines) => Some(Geometry::Lines(
+            lines.line_strings().map(ToGeoLineString::to_line_string).collect(),
+        )),
+        GeometryType::MultiPolygon(polygons) => Some(Geometry::Polygons(
+            polygons.polygons().map(ToGeoPolygon::to_polygon).collect(),
+        )),
         GeometryType::Point(_)
         | GeometryType::LineString(_)
         | GeometryType::Polygon(_)
         | GeometryType::GeometryCollection(_)
         | GeometryType::Rect(_)
         | GeometryType::Triangle(_)
-        | GeometryType::Line(_) => wkb.try_to_geometry()?.try_into().ok()?,
+        | GeometryType::Line(_) => wkb.try_to_geometry().and_then(|geometry| geometry.try_into().ok()),
+    })
+}
+
+/// The `u32` at `offset` in the byte order of the WKB's first byte, `None` past the end of `bytes`.
+fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+    let word: [u8; 4] = bytes.get(offset..offset + 4)?.try_into().ok()?;
+    Some(if bytes[0] == 0 {
+        u32::from_be_bytes(word)
+    } else {
+        u32::from_le_bytes(word)
     })
 }
 
@@ -253,33 +381,17 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn wkb_decodes_points_and_lines_and_skips_collections() {
-        let point = [&[1, 1, 0, 0, 0][..], &1.5f64.to_le_bytes(), &(-2.0f64).to_le_bytes()].concat();
-        let mut geometry = Geometry::Wkb(Bytes::from(point));
-        assert!(geometry.decode_wkb());
-        assert_eq!(geometry, Geometry::Point(Coord { x: 1.5, y: -2.0 }));
-
-        let line = [
-            &[1, 2, 0, 0, 0, 2, 0, 0, 0][..],
-            &0f64.to_le_bytes(),
-            &0f64.to_le_bytes(),
-            &3f64.to_le_bytes(),
-            &4f64.to_le_bytes(),
-        ]
-        .concat();
-        let mut geometry = Geometry::Wkb(Bytes::from(line));
-        assert!(geometry.decode_wkb());
-        assert_eq!(geometry, Geometry::Line(LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])));
-
-        let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
-        assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());
-        assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
-    }
-
     fn wkb(geometry: &impl GeometryTrait<T = f64>) -> Geometry {
         let mut bytes = Vec::new();
         wkb::writer::write_geometry(&mut bytes, geometry, &wkb::writer::WriteOptions::default()).unwrap();
+        Geometry::Wkb(Bytes::from(bytes))
+    }
+
+    fn hex(text: &str) -> Geometry {
+        let bytes = (0..text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(text.get(i..i + 2).unwrap(), 16).unwrap())
+            .collect::<Vec<u8>>();
         Geometry::Wkb(Bytes::from(bytes))
     }
 
@@ -287,34 +399,131 @@ mod tests {
         Point::from_coord(wkt::types::Coord { x, y, z: None, m: None })
     }
 
+    fn decode_error(mut geometry: Geometry) -> String {
+        geometry.decode_wkb().unwrap_err().to_string()
+    }
+
+    #[test]
+    fn wkb_point_decodes() {
+        let mut geometry = hex("0101000000000000000000f03f0000000000000040");
+        assert_eq!(geometry.decode_wkb(), Ok(true));
+        assert_eq!(geometry, Geometry::Point(Coord { x: 1.0, y: 2.0 }));
+    }
+
+    #[test]
+    fn big_endian_wkb_line_decodes() {
+        let mut geometry = hex("000000000200000002000000000000000000000000000000003ff00000000000003ff0000000000000");
+        assert_eq!(geometry.decode_wkb(), Ok(true));
+        assert_eq!(geometry, Geometry::Line(LineString::from(vec![(0.0, 0.0), (1.0, 1.0)])));
+    }
+
     #[test]
     fn wkb_multipoint_keeps_its_real_points() {
         let points = vec![point(1., 2.), Point::empty(Dimension::XY), point(3., 4.)];
         let mut geometry = wkb(&MultiPoint::new(points, Dimension::XY));
-        assert!(geometry.decode_wkb());
+        assert_eq!(geometry.decode_wkb(), Ok(true));
         let expected = Geometry::try_from(GeoGeometry::from(wkt! { MULTIPOINT(1. 2., 3. 4.) })).unwrap();
         assert_eq!(geometry, expected);
     }
 
     #[test]
     fn wkb_empty_point_is_skipped() {
-        assert!(!wkb(&Point::<f64>::empty(Dimension::XY)).decode_wkb());
+        assert_eq!(wkb(&Point::<f64>::empty(Dimension::XY)).decode_wkb(), Ok(false));
     }
 
     #[test]
-    #[ignore = "wkb reads the type code as `code & 0x7`, so a TRIANGLE (17) decodes as a point; georust/wkb#104"]
-    fn wkb_decodes_a_triangle_as_a_polygon() {
-        let ring = [(0.0, 0.0), (4.0, 0.0), (0.0, 3.0), (0.0, 0.0)];
-        let mut triangle = vec![1, 17, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0];
-        for (x, y) in ring {
-            triangle.extend_from_slice(&f64::to_le_bytes(x));
-            triangle.extend_from_slice(&f64::to_le_bytes(y));
-        }
-        let mut geometry = Geometry::Wkb(Bytes::from(triangle));
-        assert!(geometry.decode_wkb());
-        assert_eq!(
-            geometry,
-            Geometry::Polygon(Polygon::new(LineString::from(ring.to_vec()), vec![]))
+    fn wkb_empty_geometry_collection_is_skipped() {
+        assert_eq!(hex("010700000000000000").decode_wkb(), Ok(false));
+    }
+
+    #[test]
+    fn ewkb_empty_geometry_collection_with_srid_is_skipped() {
+        assert_eq!(hex("0107000020110f000000000000").decode_wkb(), Ok(false));
+    }
+
+    #[test]
+    fn wkb_geometry_collection_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("0107000000010000000101000000000000000000f03f000000000000f03f")),
+            @"a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)"
         );
+    }
+
+    #[test]
+    fn wkb_triangle_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("0111000000010000000400000000000000000000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f03f00000000000000000000000000000000")),
+            @"a TRIANGLE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn iso_wkb_triangle_z_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("01f9030000010000000400000000000000000000000000000000000000000000000000f03f000000000000f03f0000000000000000000000000000f03f0000000000000000000000000000f03f000000000000f03f00000000000000000000000000000000000000000000f03f")),
+            @"a TRIANGLE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn ewkb_triangle_with_srid_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("0111000020e6100000010000000400000000000000000000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f03f00000000000000000000000000000000")),
+            @"a TRIANGLE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn wkb_tin_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("0110000000010000000111000000010000000400000000000000000000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f03f00000000000000000000000000000000")),
+            @"a TIN cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn wkb_polyhedral_surface_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("010f000000010000000103000000010000000400000000000000000000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f03f00000000000000000000000000000000")),
+            @"a POLYHEDRALSURFACE cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn wkb_circular_string_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("01080000000300000000000000000000000000000000000000000000000000f03f000000000000f03f00000000000000400000000000000000")),
+            @"a CIRCULARSTRING cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn no_bytes_are_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("")), @"malformed WKB (0 bytes): a geometry starts with a 5-byte header of byte order and type code");
+    }
+
+    #[test]
+    fn unknown_byte_order_is_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("0201000000000000000000f03f0000000000000040")), @"malformed WKB (21 bytes): byte order 2 is neither 0 (big endian) nor 1 (little endian)");
+    }
+
+    #[test]
+    fn cut_header_is_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("010100")), @"malformed WKB (3 bytes): a geometry starts with a 5-byte header of byte order and type code");
+    }
+
+    #[test]
+    fn unknown_type_code_is_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("0163000000")), @"malformed WKB (5 bytes): type code 99 names no WKB geometry type");
+    }
+
+    #[test]
+    fn cut_point_is_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("0101000000000000000000f03f")), @"malformed WKB (13 bytes): Invalid buffer length for Point: geometry would end at byte 21, but buffer length is 13.");
+    }
+
+    #[test]
+    fn bytes_after_the_geometry_are_malformed_wkb() {
+        insta::assert_snapshot!(decode_error(hex("0101000000000000000000f03f0000000000000040ff")), @"malformed WKB (22 bytes): the geometry ends after byte 21");
     }
 }
