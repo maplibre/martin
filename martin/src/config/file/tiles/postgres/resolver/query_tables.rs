@@ -393,7 +393,7 @@ impl TableQuerySql {
             order_clause: match (order_by, escaped_id_column) {
                 (Some(OrderByType::IdAsc), Some(id)) => format!("ORDER BY {id} ASC NULLS LAST"),
                 (Some(OrderByType::IdDesc), Some(id)) => format!("ORDER BY {id} DESC NULLS LAST"),
-                _ => String::new(),
+                (None, _) => String::new(),
             },
             extent,
             buffer,
