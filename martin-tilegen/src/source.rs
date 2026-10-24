@@ -1,7 +1,11 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
 use bytes::Bytes;
-use geo_traits::to_geo::ToGeoGeometry as _;
+use geo_traits::to_geo::{ToGeoCoord as _, ToGeoGeometry as _, ToGeoLineString, ToGeoPolygon};
+use geo_traits::{
+    GeometryTrait as _, GeometryType, MultiLineStringTrait as _, MultiPointTrait as _, MultiPolygonTrait as _,
+    PointTrait as _,
+};
 use geo_types::{Coord, Geometry as GeoGeometry, GeometryCollection, LineString, Polygon};
 use wkb::reader::Wkb;
 
@@ -51,7 +55,8 @@ pub enum Geometry {
 }
 
 impl Geometry {
-    /// Decodes [`Geometry::Wkb`] in place; `false` if it is invalid, empty or a geometry collection.
+    /// Decodes [`Geometry::Wkb`] in place, dropping the empty points of a multipoint; `false` if it is
+    /// invalid, an empty point or a geometry collection.
     #[must_use]
     pub fn decode_wkb(&mut self) -> bool {
         let Self::Wkb(bytes) = self else {
@@ -81,8 +86,31 @@ impl Geometry {
     }
 }
 
+/// Converts each part of a multi-geometry on its own, so one empty point does not fail the whole multipoint.
 fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
-    Wkb::try_new(bytes).ok()?.try_to_geometry()?.try_into().ok()
+    let wkb = Wkb::try_new(bytes).ok()?;
+    Some(match wkb.as_type() {
+        GeometryType::MultiPoint(points) => Geometry::Points(
+            points
+                .points()
+                .filter_map(|p| p.coord())
+                .map(|c| c.to_coord())
+                .collect(),
+        ),
+        GeometryType::MultiLineString(lines) => {
+            Geometry::Lines(lines.line_strings().map(ToGeoLineString::to_line_string).collect())
+        }
+        GeometryType::MultiPolygon(polygons) => {
+            Geometry::Polygons(polygons.polygons().map(ToGeoPolygon::to_polygon).collect())
+        }
+        GeometryType::Point(_)
+        | GeometryType::LineString(_)
+        | GeometryType::Polygon(_)
+        | GeometryType::GeometryCollection(_)
+        | GeometryType::Rect(_)
+        | GeometryType::Triangle(_)
+        | GeometryType::Line(_) => wkb.try_to_geometry()?.try_into().ok()?,
+    })
 }
 
 impl TryFrom<GeoGeometry<f64>> for Geometry {
@@ -219,6 +247,10 @@ impl FeatureSource for MemorySource {
 
 #[cfg(test)]
 mod tests {
+    use geo_traits::GeometryTrait;
+    use geo_types::wkt;
+    use wkt::types::{Dimension, MultiPoint, Point};
+
     use super::*;
 
     #[test]
@@ -243,6 +275,30 @@ mod tests {
         let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
         assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());
         assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
+    }
+
+    fn wkb(geometry: &impl GeometryTrait<T = f64>) -> Geometry {
+        let mut bytes = Vec::new();
+        wkb::writer::write_geometry(&mut bytes, geometry, &wkb::writer::WriteOptions::default()).unwrap();
+        Geometry::Wkb(Bytes::from(bytes))
+    }
+
+    fn point(x: f64, y: f64) -> Point<f64> {
+        Point::from_coord(wkt::types::Coord { x, y, z: None, m: None })
+    }
+
+    #[test]
+    fn wkb_multipoint_keeps_its_real_points() {
+        let points = vec![point(1., 2.), Point::empty(Dimension::XY), point(3., 4.)];
+        let mut geometry = wkb(&MultiPoint::new(points, Dimension::XY));
+        assert!(geometry.decode_wkb());
+        let expected = Geometry::try_from(GeoGeometry::from(wkt! { MULTIPOINT(1. 2., 3. 4.) })).unwrap();
+        assert_eq!(geometry, expected);
+    }
+
+    #[test]
+    fn wkb_empty_point_is_skipped() {
+        assert!(!wkb(&Point::<f64>::empty(Dimension::XY)).decode_wkb());
     }
 
     #[test]

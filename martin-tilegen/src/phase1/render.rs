@@ -421,8 +421,8 @@ impl Renderer {
         }
     }
 
-    /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
-    /// a point reaches (unclipped, all the points).
+    /// Quantizes the points at `zoom`, keeping one of those rounding onto the same vertex, and pushes one
+    /// piece per tile, including neighbors whose buffer a point reaches (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -434,11 +434,16 @@ impl Renderer {
         let grid = ctx.layer.grid;
         let (extent, buffer) = (to_i32(grid.extent)?, to_i32(grid.buffer)?);
         let world = scale(zoom) * f64::from(grid.extent);
-        self.points.clear();
         self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
-            self.vertices.push(Coord { x, y });
+            // Quadratic, as multipoints are usually small.
+            if !self.vertices.contains(&Coord { x, y }) {
+                self.vertices.push(Coord { x, y });
+            }
+        }
+        self.points.clear();
+        for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
             let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
@@ -1132,6 +1137,31 @@ mod tests {
         assert_eq!(names, ["1/0/0", "1/0/1", "1/1/0", "1/1/1"]);
         let local: Vec<_> = tiles.iter().map(|t| t.2.vertices[0]).collect();
         assert_eq!(local, [[257, 256], [257, 0], [1, 256], [1, 0]]);
+    }
+
+    #[test]
+    fn points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let points = [
+            coord! { x: 0.5, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+            coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+        ];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128], [64, 128]]);
+    }
+
+    #[test]
+    fn unclipped_points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let points = [coord! { x: 0.5, y: 0.5 }, coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 }];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128]]);
     }
 
     #[test]

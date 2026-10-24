@@ -6034,6 +6034,7 @@ dependencies = [
  "tracing",
  "wincode",
  "wkb",
+ "wkt 0.14.0",
  "xxhash-rust",
 ]
 
