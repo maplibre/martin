@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.2](https://github.com/maplibre/martin/compare/mbtiles-v0.21.1...mbtiles-v0.21.2) - 2026-10-24
+
+### Added
+
+- *(mbtiles)* set and delete metadata in meta-update ([#3755](https://github.com/maplibre/martin/pull/3755))
+- *(martin)* `martin test generate` and `run` over real rows ([#3686](https://github.com/maplibre/martin/pull/3686))
+
 ## [0.21.1](https://github.com/maplibre/martin/compare/mbtiles-v0.21.0...mbtiles-v0.21.1) - 2026-10-22
 
 ### Added
