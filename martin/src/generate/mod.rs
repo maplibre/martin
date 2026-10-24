@@ -31,7 +31,7 @@ use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
-use crate::config::file::postgres::resolver::linear_geometry;
+use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
@@ -286,8 +286,8 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     let (pool, scans) = select_sources(&config, &options).await?;
     let geometry_finders: Vec<(String, String)> = scans
         .iter()
-        .map(|scan| (scan.id.clone(), unsupported_geometry_sql(&scan.info)))
-        .collect();
+        .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
+        .collect::<GenerateResult<_>>()?;
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
@@ -366,15 +366,16 @@ fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) ->
     }
 }
 
-/// A query counting the rows of `info` by each geometry type bulk mode cannot render.
-fn unsupported_geometry_sql(info: &TableInfo) -> String {
-    format!(
-        "SELECT ST_GeometryType(g), count(*) FROM (SELECT {} AS g FROM {}.{} WHERE {} IS NOT NULL) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1",
+/// A query counting the rows of `info` that pass its filter, by each geometry type bulk mode cannot render.
+fn unsupported_geometry_sql(info: &TableInfo) -> GenerateResult<String> {
+    Ok(format!(
+        "SELECT ST_GeometryType(g), count(*) FROM (SELECT {} AS g FROM {}.{} WHERE {} IS NOT NULL{}) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1",
         linear_geometry(info),
         escape_identifier(&info.schema),
         escape_identifier(&info.table),
         escape_identifier(&info.geometry_column),
-    )
+        row_filter(info, "AND")?,
+    ))
 }
 
 /// Created before the run starts, so that a failure removes only a file this run created.

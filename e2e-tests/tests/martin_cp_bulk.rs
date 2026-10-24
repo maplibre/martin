@@ -1413,6 +1413,7 @@ async fn aborts_on_a_geometry_collection_naming_the_source_and_a_query_counting_
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid >= 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -1433,7 +1434,7 @@ async fn aborts_on_a_geometry_collection_naming_the_source_and_a_query_counting_
     insta::assert_snapshot!(log, @r#"
     ERROR Source `table_source`: feature 14: a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)
     Count the rows of each geometry type it cannot render with:
-      SELECT ST_GeometryType(g), count(*) FROM (SELECT ST_CurveToLine("geom"::geometry) AS g FROM "public"."table_source" WHERE "geom" IS NOT NULL) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1
+      SELECT ST_GeometryType(g), count(*) FROM (SELECT ST_CurveToLine("geom"::geometry) AS g FROM "public"."table_source" WHERE "geom" IS NOT NULL AND (gid >= 14)) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1
     "#);
     assert!(!output.exists());
 }
