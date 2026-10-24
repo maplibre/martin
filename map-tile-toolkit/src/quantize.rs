@@ -774,13 +774,14 @@ fn pixel(c: Fixed) -> Pixel {
     }
 }
 
-/// `n / d` (`d > 0`) rounded to the nearest integer, halves to the even one.
-fn round_ratio(n: i128, d: i128) -> i128 {
-    let (q, r) = (n.div_euclid(d), n.rem_euclid(d));
-    match (2 * r).cmp(&d) {
-        Ordering::Less => q,
-        Ordering::Greater => q + 1,
-        Ordering::Equal => q + q.rem_euclid(2),
+/// `numerator / denominator` (`denominator > 0`) rounded to the nearest integer, halves to the even one.
+fn round_ratio(numerator: i128, denominator: i128) -> i128 {
+    let quotient = numerator.div_euclid(denominator);
+    let remainder = numerator.rem_euclid(denominator);
+    match (2 * remainder).cmp(&denominator) {
+        Ordering::Less => quotient,
+        Ordering::Greater => quotient + 1,
+        Ordering::Equal => quotient + quotient.rem_euclid(2),
     }
 }
 
@@ -1133,7 +1134,11 @@ fn crossing(p: Fixed, d: Fixed, q: Fixed, e: Fixed) -> Pixel {
     if den < 0 {
         (num, den) = (-num, -den);
     }
-    let at = |p: i64, d: i64| round_ratio(i128::from(p) * den + num * i128::from(d), den * i128::from(ONE)) as i32;
+    let at = |p: i64, d: i64| {
+        let numerator = i128::from(p) * den + num * i128::from(d);
+        let denominator = den * i128::from(ONE);
+        round_ratio(numerator, denominator) as i32
+    };
     Coord {
         x: at(p.x, d.x),
         y: at(p.y, d.y),
