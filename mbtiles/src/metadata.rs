@@ -9,7 +9,7 @@ use sqlx::{AssertSqlSafe, SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::{info, warn};
 
-use crate::MbtError::InvalidZoomValue;
+use crate::MbtError::{InvalidZoomValue, MetadataSetAndDeleted};
 use crate::errors::MbtResult;
 use crate::{Mbtiles, compute_min_max_zoom};
 
@@ -120,6 +120,26 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         query!("DELETE FROM metadata WHERE name=?", key).execute(conn).await?;
+        Ok(())
+    }
+
+    /// Deletes the `delete` keys, then sets the `set` pairs.
+    /// A key in both is rejected before anything is written.
+    pub async fn edit_metadata<T>(&self, conn: &mut T, set: &[(String, String)], delete: &[String]) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if let Some(key) = delete.iter().find(|key| set.iter().any(|(k, _)| k == *key)) {
+            return Err(MetadataSetAndDeleted(key.clone()));
+        }
+        for key in delete {
+            info!(metadata.name = %key, "Deleting metadata");
+            self.delete_metadata_value(&mut *conn, key).await?;
+        }
+        for (key, value) in set {
+            info!(metadata.name = %key, metadata.value = %value, "Setting metadata");
+            self.set_metadata_value(&mut *conn, key, value).await?;
+        }
         Ok(())
     }
 
@@ -368,6 +388,14 @@ fn reconcile_zoom_levels(tj: &mut TileJSON, tile_min: u8, tile_max: u8) {
             layer.minzoom = Some(minzoom);
             layer.maxzoom = Some(maxzoom);
         }
+    }
+}
+
+/// Parse a `key=value` pair as given to `--set-meta`. The value may itself contain `=`.
+pub fn parse_key_value(s: &str) -> Result<(String, String), String> {
+    match s.split_once('=') {
+        Some((key, value)) if !key.is_empty() && !value.is_empty() => Ok((key.to_owned(), value.to_owned())),
+        _ => Err(format!("Invalid key=value pair: {s}")),
     }
 }
 
@@ -660,5 +688,39 @@ mod tests {
             None,
             "JPEG tiles use internal compression; the compression metadata key should be absent"
         );
+    }
+
+    #[actix_rt::test]
+    async fn edit_metadata_deletes_and_sets() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        let set = [
+            ("name".to_owned(), "renamed".to_owned()),
+            ("maxzoom".to_owned(), "3".to_owned()),
+        ];
+        mbt.edit_metadata(&mut conn, &set, &["bounds".to_owned()])
+            .await
+            .unwrap();
+
+        let name = mbt.get_metadata_value(&mut conn, "name").await.unwrap();
+        assert_eq!(name.as_deref(), Some("renamed"));
+        let maxzoom = mbt.get_metadata_value(&mut conn, "maxzoom").await.unwrap();
+        assert_eq!(maxzoom.as_deref(), Some("3"));
+        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(), None);
+    }
+
+    #[actix_rt::test]
+    async fn edit_metadata_rejects_a_key_both_set_and_deleted() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        let set = [("name".to_owned(), "renamed".to_owned())];
+        let delete = ["bounds".to_owned(), "name".to_owned()];
+        let err = mbt.edit_metadata(&mut conn, &set, &delete).await.unwrap_err();
+
+        assert!(matches!(&err, MetadataSetAndDeleted(key) if key == "name"), "{err:?}");
+        // nothing is written when the edit is rejected
+        assert!(mbt.get_metadata_value(&mut conn, "bounds").await.unwrap().is_some());
     }
 }
