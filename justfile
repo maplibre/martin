@@ -380,7 +380,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')

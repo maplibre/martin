@@ -27,7 +27,14 @@ toolkit-slice:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "${HOTPATH_OUTPUT_DIR:-}" ]; then export HOTPATH_OUTPUT_PATH="$HOTPATH_OUTPUT_DIR/toolkit-slice.json"; fi
-    HOTPATH_BENCHMARK=toolkit-slice just toolkit::hotpath big-all-multi 5000 hotpath-alloc,hotpath-cloud
+    features=hotpath-alloc,hotpath-cloud
+    # With HOTPATH_CALLGRIND_OUT_FILE set (x86_64 Linux), run under Valgrind's Callgrind and report
+    # instruction counts instead of timing. The runner wraps only the built example, not cargo.
+    if [ -n "${HOTPATH_CALLGRIND_OUT_FILE:-}" ]; then
+        export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="valgrind -q --tool=callgrind --instr-atstart=no --callgrind-out-file=$HOTPATH_CALLGRIND_OUT_FILE"
+        features+=,hotpath-callgrind
+    fi
+    HOTPATH_BENCHMARK=toolkit-slice just toolkit::hotpath big-all-multi 5000 "$features"
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':

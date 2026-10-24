@@ -16,3 +16,10 @@ judged = false
 min_percent_change = 50
 metrics = ["avg", "total"]
 min_calls = 1
+
+[functions.icount]
+judged = true
+fail_check = false
+min_percent_change = 3
+metrics = ["avg", "total"]
+min_calls = 1
