@@ -84,6 +84,17 @@ fn far_part_stays_as_it_is_while_two_near_parts_merge() {
 }
 
 #[test]
+fn far_part_stays_as_it_is_while_two_near_parts_stacked_in_a_column_merge() {
+    let bottom = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let far = [(0.1, 40.2), (9.8, 40.4), (9.5, 49.6), (0.4, 49.7)];
+    let top = [(0.0, 10.02), (10.0, 10.02), (10.0, 20.0), (0.0, 20.0)];
+    assert_snapshot!(multi_polygon(&[&[&bottom], &[&far], &[&top]]), @"
+    (0 0, 10 0, 10 10, 10 20, 0 20, 0 10)
+    (0 40, 10 40, 10 50, 0 50)
+    ");
+}
+
+#[test]
 fn part_vertex_that_rounds_into_another_part_merges() {
     let upper = [(0.0, 0.0), (10.0, 3.0), (0.0, 3.0)];
     let lower = [(2.0, 0.0), (10.0, 0.0), (5.45, 1.55)];
@@ -116,6 +127,16 @@ fn part_that_rounds_to_a_line_is_dropped_and_the_others_kept() {
     let exterior = [(0.2, 2.1), (9.7, 2.4), (9.6, 11.5), (0.4, 11.8)];
     let hole = [(3.2, 5.1), (3.4, 8.7), (6.6, 8.8), (6.9, 5.3)];
     assert_snapshot!(multi_polygon(&[&[&line], &[&exterior, &hole]]), @"(0 2, 10 2, 10 12, 0 12), (3 5, 3 9, 7 9, 7 5)");
+}
+
+#[test]
+fn part_without_rings_is_dropped_and_the_others_kept() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let right = [(20.0, 0.0), (30.0, 0.0), (30.0, 10.0), (20.0, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[], &[&left], &[], &[&right]]), @"
+    (0 0, 10 0, 10 10, 0 10)
+    (20 0, 30 0, 30 10, 20 10)
+    ");
 }
 
 #[test]

@@ -55,6 +55,8 @@ pub struct Quantizer {
 #[derive(Debug, Default, Clone)]
 struct PartGroups {
     boxes: Vec<(Pixel, Pixel)>,
+    starts: Vec<i32>,
+    ends: Vec<i32>,
     roots: Vec<usize>,
     order: Vec<usize>,
     active: Vec<usize>,
@@ -65,9 +67,14 @@ impl PartGroups {
     /// Groups the polygons whose rings end at `ring_ends` in `fixed` and that end at `polygon_ends`,
     /// as `(first part, part)` pairs sorted by both: parts are grouped when the pixels their vertices
     /// round into span touching boxes, directly or through other parts.
+    ///
+    /// Sweeps along the axis on which fewer pairs of boxes overlap, so a column of islands costs no more
+    /// than a row of them.
     fn group(&mut self, fixed: &[Fixed], ring_ends: &[usize], polygon_ends: &[usize]) -> &[(usize, usize)] {
         let Self {
             boxes,
+            starts,
+            ends,
             roots,
             order,
             active,
@@ -78,6 +85,13 @@ impl PartGroups {
             let vertices = span(ring_ends, rings.start).start..ring_ends[rings.end - 1];
             let (min, max) = bounds(fixed[vertices].iter().copied()).expect("a part keeps its exterior");
             boxes.push((pixel(min), pixel(max)));
+        }
+        let along_x = sweep_checks(boxes, |(lo, hi)| (lo.x, hi.x), starts, ends);
+        let along_y = sweep_checks(boxes, |(lo, hi)| (lo.y, hi.y), starts, ends);
+        if along_y < along_x {
+            for (lo, hi) in boxes.iter_mut() {
+                (*lo, *hi) = (Coord { x: lo.y, y: lo.x }, Coord { x: hi.y, y: hi.x });
+            }
         }
         roots.clear();
         roots.extend(0..boxes.len());
@@ -104,6 +118,30 @@ impl PartGroups {
         grouped.sort_unstable();
         grouped
     }
+}
+
+/// How many pairs of `boxes` a sweep along the axis whose range `axis` gives would check: for each box,
+/// those starting no later that do not end before it starts.
+fn sweep_checks(
+    boxes: &[(Pixel, Pixel)],
+    axis: fn(&(Pixel, Pixel)) -> (i32, i32),
+    starts: &mut Vec<i32>,
+    ends: &mut Vec<i32>,
+) -> usize {
+    starts.clear();
+    ends.clear();
+    for b in boxes {
+        let (start, end) = axis(b);
+        starts.push(start);
+        ends.push(end);
+    }
+    starts.sort_unstable();
+    ends.sort_unstable();
+    starts
+        .iter()
+        .enumerate()
+        .map(|(i, &start)| i - ends.partition_point(|&end| end < start))
+        .sum()
 }
 
 /// The root of `p` in the forest `roots`, halving the path to it.
@@ -250,7 +288,7 @@ impl Quantizer {
     /// polygons.
     ///
     /// Each polygon must be valid on its own, as for [`Self::polygon`], but they may touch or overlap:
-    /// parts that do, or that round onto each other, merge into one polygon.
+    /// parts whose rounded rings meet or overlap merge into one polygon.
     ///
     /// # Errors
     ///
@@ -364,12 +402,14 @@ impl Quantizer {
     }
 
     /// Reads `rings` into fixed point without repeated vertices, dropping rings with fewer than three,
-    /// and all of them when that is the exterior, and turning the exterior positive and the holes negative.
+    /// and all of them when that is the exterior or there is none, and turning the exterior positive and
+    /// the holes negative.
     fn read_polygon<R>(&mut self, rings: R) -> Result<(), TileError>
     where
         R: IntoIterator,
         R::Item: IntoIterator<Item = Coord<f64>>,
     {
+        let first_ring = self.fixed_ends.len();
         for (i, ring) in rings.into_iter().enumerate() {
             let start = self.fixed.len();
             for c in ring {
@@ -393,7 +433,9 @@ impl Quantizer {
             }
             self.fixed_ends.push(self.fixed.len());
         }
-        self.fixed_polygon_ends.push(self.fixed_ends.len());
+        if self.fixed_ends.len() > first_ring {
+            self.fixed_polygon_ends.push(self.fixed_ends.len());
+        }
         Ok(())
     }
 
