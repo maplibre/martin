@@ -36,6 +36,20 @@ impl Tone {
             Self::Bold => "1",
         }
     }
+
+    /// The terminal UI color of this tone.
+    #[cfg(feature = "tui")]
+    #[must_use]
+    pub const fn color(self) -> ratatui::style::Color {
+        use ratatui::style::Color;
+        match self {
+            Self::Green => Color::Green,
+            Self::Red => Color::Red,
+            Self::Yellow => Color::Yellow,
+            Self::Cyan => Color::Cyan,
+            Self::Bold => Color::Reset,
+        }
+    }
 }
 
 /// How the status column shows a status, and how the summary counts it.
@@ -266,11 +280,10 @@ impl Reporter {
                 shown = group.last().map_or(shown, |op| op.old_range().end);
                 for op in &group {
                     for change in diff.iter_changes(op) {
-                        let line = format!("{}{}", sign(change.tag()), change.value().trim_end_matches('\n'));
-                        match change.tag() {
-                            ChangeTag::Delete => writeln!(f, "{}", self.paint(Tone::Red, &line))?,
-                            ChangeTag::Insert => writeln!(f, "{}", self.paint(Tone::Green, &line))?,
-                            ChangeTag::Equal => writeln!(f, "{line}")?,
+                        let line = DiffLine(&change).to_string();
+                        match diff_tone(change.tag()) {
+                            Some(tone) => writeln!(f, "{}", self.paint(tone, &line))?,
+                            None => writeln!(f, "{line}")?,
                         }
                     }
                 }
@@ -280,12 +293,26 @@ impl Reporter {
     }
 }
 
-/// The diff sign of a line.
+/// A line of a diff with its sign.
+pub struct DiffLine<'a>(pub &'a similar::Change<&'a str>);
+
+impl Display for DiffLine<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let sign = match self.0.tag() {
+            ChangeTag::Delete => '-',
+            ChangeTag::Insert => '+',
+            ChangeTag::Equal => ' ',
+        };
+        write!(f, "{sign}{}", self.0.value().trim_end_matches('\n'))
+    }
+}
+
+/// The tone of a removed or added diff line.
 #[must_use]
-pub const fn sign(tag: ChangeTag) -> char {
+pub const fn diff_tone(tag: ChangeTag) -> Option<Tone> {
     match tag {
-        ChangeTag::Delete => '-',
-        ChangeTag::Insert => '+',
-        ChangeTag::Equal => ' ',
+        ChangeTag::Delete => Some(Tone::Red),
+        ChangeTag::Insert => Some(Tone::Green),
+        ChangeTag::Equal => None,
     }
 }

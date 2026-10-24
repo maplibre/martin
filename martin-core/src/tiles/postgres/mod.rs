@@ -37,7 +37,8 @@ pub use deadpool_postgres::Object as PooledConnection;
 
 #[cfg(feature = "unstable-generate")]
 pub use crate::tiles::postgres::scan::{
-    ScanLayout, heap_blocks, open_scan_connection, open_scan_connections, scan_features,
+    ScanLayout, export_snapshot, heap_blocks, open_scan_connection, open_scan_connections, open_snapshot_connection,
+    scan_features,
 };
 
 mod tile_wkb;

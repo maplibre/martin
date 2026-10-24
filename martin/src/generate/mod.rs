@@ -195,10 +195,17 @@ pub enum GenerateError {
     ParseSpec(PathBuf, #[source] Box<serde_saphyr::Error>),
     #[error("Cannot write spec file {}: {}", .0.display(), .1)]
     WriteSpec(PathBuf, #[source] std::io::Error),
+    #[error(
+        "`martin test` holds one connection open for its snapshot and reads through another, but `pool_size` is {pool_size}; set it to at least 2"
+    )]
+    PoolTooSmall { pool_size: usize },
     #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
     CaseTooLarge { table: String, key: u64, tiles: usize },
     #[error("Cannot decode a tile bulk mode wrote: {0}")]
     Decode(#[source] mlt_core::MltError),
+    #[cfg(feature = "tui")]
+    #[error("The review terminal failed: {0}")]
+    Review(#[source] std::io::Error),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }

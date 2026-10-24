@@ -2,7 +2,8 @@
 //! or by integer id for views, read over several connections that share one snapshot.
 
 use martin_core::tiles::postgres::{
-    PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, scan_features,
+    PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, open_snapshot_connection,
+    scan_features,
 };
 use martin_tile_utils::{bbox_to_xyz, xyz_to_bbox};
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
@@ -28,6 +29,8 @@ pub struct PgScanSource {
     pool: PostgresPool,
     plan: Plan,
     scans: Vec<Scan>,
+    /// The snapshot of another transaction to read, instead of one of its own.
+    snapshot: Option<String>,
 }
 
 struct Scan {
@@ -108,7 +111,18 @@ impl PgScanSource {
             pool,
             plan,
             scans,
+            snapshot: None,
         })
+    }
+
+    /// Reads the snapshot `snapshot`, exported by a transaction that stays open while this source is read and holds
+    /// one connection of the same pool, which no reader of this source can take.
+    #[must_use]
+    pub fn at_snapshot(self, snapshot: String) -> Self {
+        Self {
+            snapshot: Some(snapshot),
+            ..self
+        }
     }
 
     #[must_use]
@@ -116,10 +130,30 @@ impl PgScanSource {
         &self.plan
     }
 
-    /// Opens up to `count` readers that share one snapshot, no more than the pool holds.
+    /// Opens up to `count` readers that share one snapshot, no more than the pool has room for.
+    ///
+    /// # Errors
+    ///
+    /// If the exporting transaction of the snapshot holds the pool's only connection, or a reader cannot open.
     fn open_scan_readers(&self, count: usize) -> SourceResult<Vec<ScanReader<'_>>> {
-        let count = count.min(self.pool.max_size()).max(1);
-        let conns = self.runtime.block_on(open_scan_connections(&self.pool, count))?;
+        let pool_size = self.pool.max_size();
+        let room = pool_size.saturating_sub(usize::from(self.snapshot.is_some()));
+        if room == 0 {
+            return Err(SourceError::Other(Box::new(NoRoomForReader { pool_size })));
+        }
+        let count = count.clamp(1, room);
+        let conns = self.runtime.block_on(async {
+            match &self.snapshot {
+                Some(snapshot) => {
+                    let mut conns = Vec::with_capacity(count);
+                    for _ in 0..count {
+                        conns.push(open_snapshot_connection(&self.pool, snapshot).await?);
+                    }
+                    Ok(conns)
+                }
+                None => open_scan_connections(&self.pool, count).await,
+            }
+        })?;
         Ok(conns
             .into_iter()
             .map(|conn| ScanReader {
@@ -153,6 +187,15 @@ impl FeatureSource for PgScanSource {
             .map(|reader| Box::new(reader) as Box<dyn FeatureReader + '_>)
             .collect())
     }
+}
+
+/// The exporting transaction of a snapshot holds the only connection of the pool, so no reader can open.
+#[derive(Debug, thiserror::Error)]
+#[error(
+    "The transaction that exported the snapshot holds the only connection of a pool of {pool_size}; set `pool_size` to at least 2"
+)]
+struct NoRoomForReader {
+    pool_size: usize,
 }
 
 struct ScanReader<'a> {
