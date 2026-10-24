@@ -37,8 +37,10 @@ An alias of several sources is not a collection.
 
 An OGC tile URL names the row before the column.
 So `/ogc/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}` serves the same tile as `/{id}/{z}/{x}/{y}`.
-MVT tiles are sent as `application/vnd.mapbox-vector-tile`.
 Compression, caching and empty tiles work as they do on `/{sourceID}/{z}/{x}/{y}`.
+
+!!! important "Behavioral Differences for OGC compliance"
+    This endpoint sends MVT tiles as `application/vnd.mapbox-vector-tile` instead of `application/x-protobuf` like our regular endpoint, to be OGC compliant.
 
 ## Tile matrix sets
 
