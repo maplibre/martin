@@ -67,7 +67,7 @@ Every feature is offered to each layer, which may take it or not. Inside each ti
 | `rules` | Different zooms, simplification and attributes for some features | [Rules](<#rules>) |
 | `sort_by` | The draw order of the layer's features in each tile | [Draw order](<#draw-order>) |
 
-`extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`. `buffer` must be less than half the `extent`. With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
+`extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`. `extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`. With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
 
 ## Properties
 

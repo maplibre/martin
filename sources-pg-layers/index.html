@@ -2595,7 +2595,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 </tbody>
 </table>
 <p><code>extent</code>, <code>buffer</code> and <code>clip_geom</code> default to the table source's, then to 4096, 64 and <code>true</code>.
-<code>buffer</code> must be less than half the <code>extent</code>.
+<code>extent</code> must be a power of two from 64 to 2097152, and <code>buffer</code> less than half the <code>extent</code>.
 With <code>clip_geom: false</code>, every tile a line or polygon reaches holds all of it, not just its part there.</p>
 <h2 id="properties">Properties</h2>
 <p>A layer can only use the table source's <code>properties</code>, both as attributes and in expressions. An
