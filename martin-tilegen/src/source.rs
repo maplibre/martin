@@ -247,6 +247,10 @@ impl FeatureSource for MemorySource {
 
 #[cfg(test)]
 mod tests {
+    use geo_traits::GeometryTrait;
+    use geo_types::wkt;
+    use wkt::types::{Dimension, MultiPoint, Point};
+
     use super::*;
 
     #[test]
@@ -273,26 +277,28 @@ mod tests {
         assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
     }
 
+    fn wkb(geometry: &impl GeometryTrait<T = f64>) -> Geometry {
+        let mut bytes = Vec::new();
+        wkb::writer::write_geometry(&mut bytes, geometry, &wkb::writer::WriteOptions::default()).unwrap();
+        Geometry::Wkb(Bytes::from(bytes))
+    }
+
+    fn point(x: f64, y: f64) -> Point<f64> {
+        Point::from_coord(wkt::types::Coord { x, y, z: None, m: None })
+    }
+
     #[test]
     fn wkb_multipoint_keeps_its_real_points() {
-        let mut multipoint = vec![1, 4, 0, 0, 0, 3, 0, 0, 0];
-        for (x, y) in [(1.0, 2.0), (f64::NAN, f64::NAN), (3.0, 4.0)] {
-            multipoint.extend_from_slice(&[1, 1, 0, 0, 0]);
-            multipoint.extend_from_slice(&f64::to_le_bytes(x));
-            multipoint.extend_from_slice(&f64::to_le_bytes(y));
-        }
-        let mut geometry = Geometry::Wkb(Bytes::from(multipoint));
+        let points = vec![point(1., 2.), Point::empty(Dimension::XY), point(3., 4.)];
+        let mut geometry = wkb(&MultiPoint::new(points, Dimension::XY));
         assert!(geometry.decode_wkb());
-        assert_eq!(
-            geometry,
-            Geometry::Points(vec![Coord { x: 1.0, y: 2.0 }, Coord { x: 3.0, y: 4.0 }])
-        );
+        let expected = Geometry::try_from(GeoGeometry::from(wkt! { MULTIPOINT(1. 2., 3. 4.) })).unwrap();
+        assert_eq!(geometry, expected);
     }
 
     #[test]
     fn wkb_empty_point_is_skipped() {
-        let empty = [&[1, 1, 0, 0, 0][..], &f64::NAN.to_le_bytes(), &f64::NAN.to_le_bytes()].concat();
-        assert!(!Geometry::Wkb(Bytes::from(empty)).decode_wkb());
+        assert!(!wkb(&Point::<f64>::empty(Dimension::XY)).decode_wkb());
     }
 
     #[test]
