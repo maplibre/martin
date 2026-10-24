@@ -170,7 +170,7 @@ fn two_tip_vertices_that_would_cross_merge_into_one() {
 #[test]
 fn sliver_that_rounds_onto_itself_keeps_its_area_off_the_fold() {
     let exterior = [(-32.0, -0.25), (3148.25, 12.25), (-490.25, -0.25), (14.5, 0.0)];
-    assert_snapshot!(quantize(&[&exterior]), @"(-490 0, -32 0, 15 0, 3148 12)");
+    assert_snapshot!(quantize(&[&exterior]), @"(-490 0, -32 0, 14 0, 3148 12)");
 }
 
 #[test]
@@ -204,6 +204,21 @@ fn self_crossing_exterior_keeps_both_lobes() {
     (0 0, 5 5, 0 10)
     (5 5, 10 0, 10 10)
     ");
+}
+
+#[test]
+fn self_crossing_exterior_crossing_halfway_between_units_rounds_to_the_even_unit() {
+    let exterior = [(1.0, 1.0), (4.0, 4.0), (4.0, 1.0), (1.0, 4.0)];
+    assert_snapshot!(make_valid(&[&exterior]), @"
+    (1 1, 2 2, 1 4)
+    (2 2, 4 1, 4 4)
+    ");
+}
+
+#[test]
+fn vertices_halfway_between_units_round_to_the_even_unit() {
+    let exterior = [(0.5, -0.5), (3.5, -0.5), (3.5, 2.5), (-1.5, 2.5)];
+    assert_snapshot!(quantize(&[&exterior]), @"(0 0, 4 0, 4 2, -2 2)");
 }
 
 #[test]
