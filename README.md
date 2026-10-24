@@ -7,6 +7,7 @@
 [![crates.io version](https://img.shields.io/crates/v/martin.svg)](https://crates.io/crates/martin)
 [![CI build](https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg)](https://github.com/maplibre/martin/actions)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
+[![hotpath-cloud](https://img.shields.io/endpoint?url=https://hotpath.rs/badge-cloud.json)](https://hotpath.rs/app/repos/maplibre/martin)
 
 Martin is a tile server and a set of tools able to generate vector tiles on the fly
 from large `PostgreSQL` databases and `GeoJSON` files, and serve tiles from `PMTiles` and `MBTiles` files.
