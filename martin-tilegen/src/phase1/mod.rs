@@ -66,14 +66,19 @@ impl<'a> RenderWorker<'a> {
             skipped,
         } = self;
         for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
-            let drawable =
-                project_geometry(batch.crs, &mut feature.geometry).map_err(|error| TileGenError::FeatureWkb {
+            let drawable = project_geometry(batch.crs, &mut feature.geometry).map_err(|error| match feature.id {
+                Some(id) => TileGenError::FeatureWkb {
                     table: batch.table,
-                    id: feature.id,
+                    id,
+                    error,
+                },
+                None => TileGenError::RowWkb {
+                    table: batch.table,
                     partition: batch.partition,
                     row,
                     error,
-                })?;
+                },
+            })?;
             let Some(geom) = feature.geometry.feature_geom().filter(|_| drawable) else {
                 *skipped += 1;
                 continue;

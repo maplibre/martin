@@ -41,10 +41,16 @@ pub enum TileGenError {
     #[error(transparent)]
     Wkb(#[from] crate::source::WkbError),
 
-    #[error("{}: {error}", feature_name(*.id, *.partition, *.row))]
+    #[error("feature {id}: {error}")]
     FeatureWkb {
         table: u16,
-        id: Option<u64>,
+        id: u64,
+        error: crate::source::WkbError,
+    },
+
+    #[error("the feature in row {row} of source partition {partition}: {error}")]
+    RowWkb {
+        table: u16,
         partition: u32,
         row: u64,
         error: crate::source::WkbError,
@@ -95,13 +101,5 @@ impl From<SourceError> for TileGenError {
         } else {
             Self::Source(err)
         }
-    }
-}
-
-/// Feature `id`, or the feature in `row` of `partition` when it has no id.
-fn feature_name(id: Option<u64>, partition: u32, row: u64) -> String {
-    match id {
-        Some(id) => format!("feature {id}"),
-        None => format!("the feature in row {row} of source partition {partition}"),
     }
 }
