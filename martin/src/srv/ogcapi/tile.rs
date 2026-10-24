@@ -27,6 +27,7 @@ pub struct TilePath {
     utoipa::path(
         get,
         path = "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        operation_id = "get_ogc_tile",
         params(TilePath),
         responses(
             (status = 200, description = "Encoded vector or raster tile"),
