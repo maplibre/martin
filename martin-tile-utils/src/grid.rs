@@ -272,8 +272,7 @@ impl TileGrid {
             }),
             ("EPSG", "3857") => Some(metres(["X", "Y"], false)),
             ("EPSG", "3395" | "5041" | "5042") => Some(metres(["E", "N"], false)),
-            ("EPSG", "3035") => Some(metres(["Y", "X"], true)),
-            ("EPSG", "2193") => Some(metres(["N", "E"], true)),
+            ("EPSG", "3035" | "2193") => Some(metres(["Y", "X"], true)),
             _ => None,
         }
     }
@@ -397,16 +396,6 @@ mod tests {
         assert_eq!(mercator, ["WebMercatorQuad"]);
         let plan = TileGrid::new("floor", SIMPLE_CRS, [0.0, 1000.0], 1000.0).unwrap();
         assert!(!plan.wraps());
-    }
-
-    #[test]
-    fn every_built_in_grid_knows_the_units_and_axis_order_of_its_crs() {
-        let unknown: Vec<&str> = BUILT_IN_GRIDS
-            .iter()
-            .filter(|grid| grid.crs_axes().is_none())
-            .map(TileGrid::id)
-            .collect();
-        assert!(unknown.is_empty(), "{unknown:?}");
     }
 
     #[rstest]

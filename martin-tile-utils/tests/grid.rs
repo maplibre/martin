@@ -9,6 +9,12 @@ use serde_json::Value;
 /// The registry prints between 13 and 17 significant digits.
 const REGISTRY_ROUNDING: f64 = 1e-12;
 
+/// The registry prints the UPS scale denominators and cell sizes to 10 significant digits.
+const SCALE_ROUNDING: f64 = 1e-9;
+
+/// The 0.28 mm pixel the registry computes scale denominators for.
+const STANDARD_PIXEL_METRES: f64 = 0.000_28;
+
 /// The zoom-0 tile of a tile matrix set document, as Martin would define the grid.
 struct Registered {
     id: String,
@@ -16,6 +22,9 @@ struct Registered {
     origin: [f64; 2],
     extent_at_zoom0: f64,
     matrix_at_zoom0: [u64; 2],
+    ordered_axes: [String; 2],
+    northing_first: bool,
+    metres_per_unit: f64,
 }
 
 fn registered(id: &str) -> Registered {
@@ -28,13 +37,16 @@ fn registered(id: &str) -> Registered {
     let zoom0 = &doc["tileMatrices"][0];
     assert_eq!(zoom0["id"], "0", "{id}");
     assert_eq!(zoom0["tileWidth"], zoom0["tileHeight"], "{id}");
+    let ordered_axes = [0, 1].map(|axis| doc["orderedAxes"][axis].as_str().unwrap().to_owned());
+    let northing_first = matches!(ordered_axes[0].as_str(), "Y" | "N" | "Lat");
     let mut origin = [
         zoom0["pointOfOrigin"][0].as_f64().unwrap(),
         zoom0["pointOfOrigin"][1].as_f64().unwrap(),
     ];
-    if matches!(doc["orderedAxes"][0].as_str().unwrap(), "Y" | "N" | "Lat") {
+    if northing_first {
         origin.reverse();
     }
+    let cell_size = zoom0["cellSize"].as_f64().unwrap();
     let code = doc["crs"].as_str().unwrap().rsplit(['/', ':']).next().unwrap();
     Registered {
         id: doc["id"].as_str().unwrap().to_owned(),
@@ -43,11 +55,14 @@ fn registered(id: &str) -> Registered {
             code => format!("EPSG:{code}"),
         },
         origin,
-        extent_at_zoom0: zoom0["cellSize"].as_f64().unwrap() * zoom0["tileWidth"].as_f64().unwrap(),
+        extent_at_zoom0: cell_size * zoom0["tileWidth"].as_f64().unwrap(),
         matrix_at_zoom0: [
             zoom0["matrixWidth"].as_u64().unwrap(),
             zoom0["matrixHeight"].as_u64().unwrap(),
         ],
+        ordered_axes,
+        northing_first,
+        metres_per_unit: zoom0["scaleDenominator"].as_f64().unwrap() * STANDARD_PIXEL_METRES / cell_size,
     }
 }
 
@@ -84,6 +99,20 @@ fn every_built_in_grid_is_its_registry_document() {
         let registered = registered(grid.id());
         assert_eq!(registered.id, grid.id());
         assert_same_grid(grid, &registered);
+        let axes = grid.crs_axes().unwrap();
+        assert_eq!(axes.ordered_axes, registered.ordered_axes, "{}", grid.id());
+        assert_eq!(axes.northing_first, registered.northing_first, "{}", grid.id());
+        assert!(
+            relative_eq!(
+                axes.metres_per_unit,
+                registered.metres_per_unit,
+                max_relative = SCALE_ROUNDING
+            ),
+            "{}: {} metres per unit, the registry has {}",
+            grid.id(),
+            axes.metres_per_unit,
+            registered.metres_per_unit
+        );
     }
 }
 
