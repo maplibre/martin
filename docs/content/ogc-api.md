@@ -28,7 +28,10 @@ The OGC API is part of the default build, through the `ogcapi` feature.
 Each tile source is a collection, and its source ID is the collection ID.
 A collection's extent is the bounds of its source.
 Raster sources are map tilesets and vector sources are vector tilesets.
-A source on a grid whose CRS has no OGC URI, such as a `simple` grid, is not listed.
+A source is listed when its grid uses one of the CRSs of the built-in grids, which are EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
+Martin knows the units and axis order of those, so a grid in another CRS, such as a `simple` grid, is not listed.
+When an alias has a source's ID, the collection is the source the alias serves, as it is for tiles.
+An alias of several sources is not a collection.
 
 ## Tiles
 
@@ -41,6 +44,7 @@ Compression, caching and empty tiles work as they do on `/{sourceID}/{z}/{x}/{y}
 
 The tile matrix sets are the [tile grids](tile-grids.md) of the served sources, and Web Mercator is always listed.
 A grid from the OGC registry carries its registry URI.
+Each origin is given in the axis order of its CRS.
 
 ## Conformance
 
