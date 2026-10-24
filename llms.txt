@@ -78,6 +78,7 @@ patches and validates MBTiles archives.
 
 - [Bulk Tile Generation](<https://maplibre.org/martin/martin-cp/index.md>): Generating tiles in bulk with martin-cp
 - [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>): Generating a whole tileset in bulk mode
+- [Testing Layers](<https://maplibre.org/martin/martin-test/index.md>): Checking what table source layers make of real rows with martin test
 - [Working with MBTiles archives](<https://maplibre.org/martin/mbtiles/index.md>): Working with MBTiles archives using the mbtiles CLI
 - [MBTiles Schemas](<https://maplibre.org/martin/mbtiles-schema/index.md>): The flat, flat-with-hash and normalized MBTiles schemas
 - [Accessing Metadata](<https://maplibre.org/martin/mbtiles-meta/index.md>): Reading and writing MBTiles metadata

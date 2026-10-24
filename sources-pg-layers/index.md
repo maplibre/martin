@@ -336,3 +336,5 @@ postgres:
 
 - **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, or `layer_id` together with `layers`. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet.
+
+[`martin test`](<https://maplibre.org/martin/martin-test/index.md>) checks what the layers make of real rows of the database, and keeps it in a spec file.
