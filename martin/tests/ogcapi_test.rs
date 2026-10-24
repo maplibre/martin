@@ -899,6 +899,78 @@ async fn bounds_across_the_antimeridian_take_every_column() {
 }
 
 #[actix_rt::test]
+async fn bounds_with_the_bottom_above_the_top_take_the_whole_grid() {
+    let script = format!(
+        "{}\nUPDATE metadata SET value = '-10,50,10,30' WHERE name = 'bounds';",
+        include_str!("../../tests/fixtures/mbtiles/world_cities.sql")
+    );
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_inverted_latitude", &script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            upside_down: {file}
+    ", file = file.display()});
+
+    let request = TestRequest::get().uri("/ogc/collections/upside_down/tiles/WebMercatorQuad");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let tileset: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(tileset["tileMatrixSetLimits"], @r#"
+    [
+      {
+        "tileMatrix": "0",
+        "minTileRow": 0,
+        "maxTileRow": 0,
+        "minTileCol": 0,
+        "maxTileCol": 0
+      },
+      {
+        "tileMatrix": "1",
+        "minTileRow": 0,
+        "maxTileRow": 1,
+        "minTileCol": 0,
+        "maxTileCol": 1
+      },
+      {
+        "tileMatrix": "2",
+        "minTileRow": 0,
+        "maxTileRow": 3,
+        "minTileCol": 0,
+        "maxTileCol": 3
+      },
+      {
+        "tileMatrix": "3",
+        "minTileRow": 0,
+        "maxTileRow": 7,
+        "minTileCol": 0,
+        "maxTileCol": 7
+      },
+      {
+        "tileMatrix": "4",
+        "minTileRow": 0,
+        "maxTileRow": 15,
+        "minTileCol": 0,
+        "maxTileCol": 15
+      },
+      {
+        "tileMatrix": "5",
+        "minTileRow": 0,
+        "maxTileRow": 31,
+        "minTileCol": 0,
+        "maxTileCol": 31
+      },
+      {
+        "tileMatrix": "6",
+        "minTileRow": 0,
+        "maxTileRow": 63,
+        "minTileCol": 0,
+        "maxTileCol": 63
+      }
+    ]
+    "#);
+}
+
+#[actix_rt::test]
 async fn an_alias_over_a_source_is_the_collection_tiles_are_served_from() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("ogc_alias", script).await;

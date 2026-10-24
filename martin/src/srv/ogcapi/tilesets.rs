@@ -108,6 +108,7 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
     let mut bounds = tilejson
         .bounds
         .and_then(|bounds| grid.crs_bounds([bounds.left, bounds.bottom, bounds.right, bounds.top]))
+        .filter(|[_, bottom, _, top]| bottom <= top)
         .unwrap_or_else(|| grid.bounds());
     if bounds[0] > bounds[2] {
         let whole = grid.bounds();
