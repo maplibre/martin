@@ -764,3 +764,38 @@ async fn an_alias_over_a_source_is_the_collection_tiles_are_served_from() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
+
+#[actix_rt::test]
+async fn a_collection_id_is_encoded_in_its_links() {
+    let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, file) = temp_named_mbtiles("ogc_encoded_id", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {file}
+        aliases:
+          \"city#roads\": [cities]
+    ", file = file.display()});
+
+    let response = call_service(
+        &app,
+        TestRequest::get().uri("/ogc/collections/city%23roads").to_request(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let collection: serde_json::Value = read_body_json(response).await;
+    let hrefs: Vec<&str> = collection["links"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|link| link["href"].as_str().unwrap())
+        .collect();
+    assert_yaml_snapshot!(hrefs, @r#"
+    - "http://localhost:8080/ogc/collections/city%23roads"
+    - "http://localhost:8080/ogc/collections/city%23roads/tiles"
+    "#);
+
+    let request = TestRequest::get().uri("/ogc/collections/city%23roads/tiles/WebMercatorQuad/2/1/3");
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+}
