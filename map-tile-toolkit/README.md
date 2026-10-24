@@ -284,7 +284,8 @@ landing in `[0, 2^z · extent)`.
 
 Rounding a polygon's vertices one by one can make a valid polygon invalid: two edges closer than a unit
 can end up crossing, touching, or folding onto each other. `Quantizer::polygon` rounds one valid float
-polygon, already scaled to grid units, and gives zero or more valid integer polygons. If the rounded rings
+polygon, already scaled to grid units, and gives zero or more valid integer polygons. It rounds halves to
+even, as `PostGIS` does, so `0.5` and `-0.5` round to `0` and `1.5` to `2`. If the rounded rings
 are still valid, they are what it gives. Otherwise it snap-rounds the polygon: each edge bends through
 every grid point whose unit square it crosses, if a vertex or a crossing of two edges rounds to that
 point, so no two rounded edges cross. Then it rebuilds the area as valid polygons: two tip vertices merge
