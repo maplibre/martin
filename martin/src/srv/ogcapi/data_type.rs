@@ -6,15 +6,16 @@ use serde::Serialize;
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum DataType {
-    Map,
+    #[serde(rename = "map")]
+    Raster,
     Vector,
 }
 
 impl DataType {
-    /// Images are maps, everything else carries vector features.
+    /// Images are raster tiles, everything else carries vector features.
     pub fn of(format: Format) -> Self {
         if Format::IMAGE_FORMATS.contains(&format) {
-            Self::Map
+            Self::Raster
         } else {
             Self::Vector
         }
@@ -23,7 +24,7 @@ impl DataType {
     /// The link relation from a collection to its tilesets of this type.
     pub const fn tilesets_rel(self) -> &'static str {
         match self {
-            Self::Map => "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+            Self::Raster => "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
             Self::Vector => "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
         }
     }

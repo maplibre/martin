@@ -239,7 +239,7 @@ pub async fn get_tileset(
                 max_tile_matrix: layer.maxzoom.map(|zoom| zoom.to_string()),
             })
             .collect(),
-        DataType::Map => Vec::new(),
+        DataType::Raster => Vec::new(),
     };
     Ok(HttpResponse::Ok().json(TileSet {
         tile_matrix_set_limits: tile_matrix_set_limits(grid, &tilejson),
