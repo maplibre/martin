@@ -54,13 +54,18 @@
           [
             62.0,
             54.0
+          ],
+          [
+            62.0,
+            55.0
           ]
         ]
       },
       "properties": {
         "role": "tile 2/1",
         "indices": [
-          0
+          0,
+          1
         ],
         "marker-color": "#b5211f",
         "marker-size": "small"
@@ -98,6 +103,10 @@
           [
             62.0,
             79.0
+          ],
+          [
+            62.0,
+            80.0
           ]
         ]
       },
@@ -110,7 +119,8 @@
           3,
           4,
           5,
-          6
+          6,
+          7
         ],
         "marker-color": "#261fb5",
         "marker-size": "small"

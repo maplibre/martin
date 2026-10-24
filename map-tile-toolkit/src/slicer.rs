@@ -78,11 +78,11 @@ pub enum ClipMode {
 /// Slices one geometry at a time into per-tile pieces on an integer grid, lazily.
 ///
 /// Coordinates are integers in tile space: a vertex belongs to tile `x.div_euclid(extent)`, whose own
-/// area is `[0, extent)` in its local frame (`x - tile·extent`); every tile's clip box grows `buffer`
-/// on each side. Slices come in that local frame, so a vertex outside the tile's own area - in its
-/// buffer, a polygon's synthetic corner one unit past the buffer, or a line's first vertex beyond the
-/// box - lies outside `[0, extent)`. Project, simplify, and scale float source data into this space
-/// before slicing.
+/// area is `[0, extent)` in its local frame (`x - tile·extent`); every tile's clip box is the closed
+/// `[-buffer, extent + buffer]`, so a vertex on its edge is kept, as `ST_AsMVTGeom` keeps it. Slices
+/// come in that local frame, so a vertex outside the tile's own area - in its buffer, a polygon's
+/// synthetic corner one unit past the buffer, or a line's first vertex beyond the box - lies outside
+/// `[0, extent)`. Project, simplify, and scale float source data into this space before slicing.
 ///
 /// Generic over the [`Vertex`] type `V` (defaults to [`Coord<i32>`]): plain coordinates or
 /// payload-carrying vertices (e.g. a per-vertex M value via [`Measured`](crate::Measured)), whose
@@ -225,7 +225,7 @@ impl<V: Vertex> Slicer<V> {
     }
 
     /// Slice a point into every tile whose buffered box holds it: its own tile, plus up to three
-    /// neighbors when it lies within `buffer` of an edge. Yields one [`PointSlice`] per tile. For a
+    /// neighbors when it lies within their closed boxes. Yields one [`PointSlice`] per tile. For a
     /// multi-point, call this for each of its points. The [`ClipMode`] does not apply.
     ///
     /// # Errors
@@ -245,11 +245,11 @@ impl<V: Vertex> Slicer<V> {
     pub fn tile_point(&self, tile: TileId, point: V) -> Result<Option<V>, TileError> {
         let (extent, buffer) = (i64::from(self.grid.extent()), i64::from(self.grid.buffer()));
         let p = point.position();
-        // Per axis: the tile's buffered box `[base - buffer, base + extent - 1 + buffer]`, which must fit
+        // Per axis: the tile's buffered box `[base - buffer, base + extent + buffer]`, which must fit
         // `i32` (what `Grid::tile_buffered_bounds` checks), and the point's offset from its base.
         let axis = |tile: i32, v: i32| {
             let base = i64::from(tile) * extent;
-            let (lo, hi) = (base - buffer, base + extent - 1 + buffer);
+            let (lo, hi) = (base - buffer, base + extent + buffer);
             if lo < i64::from(i32::MIN) || hi > i64::from(i32::MAX) {
                 return Err(TileError::Overflow);
             }
@@ -827,7 +827,7 @@ impl<'a, V: Vertex> Iterator for TileLines<'a, V> {
 
 impl<V: Vertex> FusedIterator for TileLines<'_, V> {}
 
-/// One axis of a point's tiles: its own, and the neighbor within `buffer` of an edge (the buffer is
+/// One axis of a point's tiles: its own, and the neighbor whose closed box reaches it (the buffer is
 /// under half a tile, so at most one per axis). The point lies `rem` past its own tile's origin; the
 /// tile at offset `d` from its own (`-1`, `0` or `1`) has the point `rem - d · extent` past its
 /// origin.
@@ -843,17 +843,17 @@ struct AxisTiles {
 }
 
 impl AxisTiles {
-    /// One division. A neighbor needs `buffer > 0`, so `extent >= 3` and the neighbor's index stays in
-    /// `i32`; the offsets fit because [`Slicer::point`] proved the neighbor's whole buffered box does.
+    /// One division. The neighbor's index stays in `i32`, and the offsets fit, because
+    /// [`Slicer::point`] proved the neighbor's whole buffered box does.
     fn new(v: i32, extent: i32, buffer: i32) -> Self {
         // Floor division with one `/` and `%` (`div_euclid` + `rem_euclid` would divide twice).
         let (mut tile, mut rem) = (v / extent, v % extent);
         if rem < 0 {
             (tile, rem) = (tile - 1, rem + extent);
         }
-        // In the first `buffer` units of its tile the point is in the previous tile's buffer, in the
-        // last `buffer` units in the next one's (with `buffer == 0` neither).
-        let (before, after) = (rem < buffer, rem >= extent - buffer);
+        // The previous tile's closed box reaches `buffer + 1` units into this one, the next tile's `buffer`.
+        let (before, after) = (rem <= buffer, rem >= extent - buffer);
+
         Self {
             tile,
             rem,

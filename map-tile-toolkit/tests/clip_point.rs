@@ -8,7 +8,7 @@
 //! 2. [`Slicer::tile_point`] - one tile at a time, across the tile span the points could reach
 //!    (padded by one tile).
 //! 3. An independent oracle: a tile holds a point iff its closed buffered box
-//!    `[t·extent - buffer, (t+1)·extent + buffer - 1]` holds it on both axes.
+//!    `[t·extent - buffer, (t+1)·extent + buffer]` holds it on both axes.
 //!
 //! The result is snapshotted as a `FeatureCollection` of two kinds of `MultiPoint` features, sorted by
 //! `role`: one with every input point (yellow), and, per tile, one with that tile's copies in global
@@ -17,7 +17,7 @@
 //! `just bless`.
 //!
 //! Every fixture is snapshotted at two buffer sizes: `points/snapshots/` (buffer 0, each point in
-//! exactly one tile) and `points/snapshots-5/` (buffer 5, near-edge points also in the neighbors).
+//! one tile unless on its edge) and `points/snapshots-5/` (buffer 5, near-edge points also in the neighbors).
 
 #![allow(clippy::pedantic, reason = "test/inspection tool")]
 
@@ -86,7 +86,7 @@ fn slice_tile(
 /// box bounds - independent of the slicer's per-point tile arithmetic.
 fn oracle(features: &[Vec<Coord<i32>>], buffer: u16, lo: TileId, hi: TileId) -> Tiles {
     let (e, b) = (EXTENT as i32, i32::from(buffer));
-    let holds = |t: i32, v: i32| t * e - b <= v && v < (t + 1) * e + b;
+    let holds = |t: i32, v: i32| t * e - b <= v && v <= (t + 1) * e + b;
     let mut out = Tiles::new();
     for y in lo.y..=hi.y {
         for x in lo.x..=hi.x {

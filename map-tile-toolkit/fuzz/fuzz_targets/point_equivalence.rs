@@ -8,8 +8,8 @@
 //!    overflow checks, so unchecked arithmetic surfaces here as a crash.
 //! 2. When `Slicer::point` returns no error, then for each of the nine tiles around the point's own,
 //!    `Slicer::tile_point` holds the point exactly when `point` yielded that tile (with the same local
-//!    position), and `point` yields nothing else: its own tile always, and a neighbor only within
-//!    `buffer` of the shared edge.
+//!    position), and `point` yields nothing else: its own tile always, and a neighbor only when its
+//!    closed box `[-buffer, extent + buffer]` holds the point.
 //!
 //! Coordinates start as `i8`, then are scaled by a power of two and moved by an offset, so the tile
 //! math also runs on large values and near the `i32` limits.
@@ -68,7 +68,7 @@ fuzz_target!(|input: Input| {
             assert_eq!(local + origin, point, "local position");
             for v in [local.x, local.y] {
                 assert!(
-                    i64::from(v) >= -b && i64::from(v) < e + b,
+                    i64::from(v) >= -b && i64::from(v) <= e + b,
                     "{local:?} outside the buffered box"
                 );
             }

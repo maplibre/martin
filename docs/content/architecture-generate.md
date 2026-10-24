@@ -114,10 +114,11 @@ A render worker takes each feature through every layer its source feeds:
    a line or polygon is simplified, and dropped once it is smaller than the minimum size, which also
    ends the lower zooms, since a feature only shrinks with the zoom. Points are rendered at every zoom.
 3. The geometry is sliced into the tiles it touches, keeping its own vertices. No new vertices are cut at
-   tile edges. A polygon ring that leaves a tile is closed by corners just outside the tile's buffer,
-   where renderers clip it away. A feature that keeps clear of every neighbor tile's buffer, as most do
-   at most zooms, skips the slicer entirely. With `clip_geom: false`, every tile a line or polygon
-   reaches gets the whole geometry instead.
+   tile edges. As in tile mode, a tile keeps what lies on the edge of its buffer too, except a clipped
+   line or polygon that only touches it from outside. A polygon ring that leaves a tile is closed by
+   corners just outside the tile's buffer, where renderers clip it away. A feature that keeps clear of
+   every neighbor tile's buffer, as most do at most zooms, skips the slicer entirely. With
+   `clip_geom: false`, every tile a line or polygon reaches gets the whole geometry instead.
 4. Each piece is stored as a record. Its vertices are stored as offsets from the previous vertex, which
    usually fit in one or two bytes.
 
