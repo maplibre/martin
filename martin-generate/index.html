@@ -2111,7 +2111,8 @@ and cheap to scale out, for example in Kubernetes, while scaling PostgreSQL is m
 expensive.</p>
 <p>The default <code>--mode auto</code> still picks <code>tile</code>. Once bulk mode covers enough, it will pick <code>bulk</code> whenever
 it can.</p>
-<p>It renders points, lines and polygons. Geometry collections are skipped and counted.</p>
+<p>It renders points, lines and polygons, single or multi, and skips empty geometries.
+Any other geometry, such as a geometry collection, a triangle or a TIN, stops the run with an error.</p>
 <h2 id="usage">Usage</h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>cp<span class="w"> </span>--mode<span class="w"> </span>bulk<span class="w">                   </span><span class="se">\</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">          </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span><span class="se">\</span>
