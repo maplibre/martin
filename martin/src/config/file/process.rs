@@ -319,6 +319,9 @@ pub struct MltEncoderConfig {
     pub allow_fastpfor: Option<bool>,
     /// Allow string grouping into shared dictionaries.
     pub allow_shared_dict: Option<bool>,
+    /// Allow second-order deltas of integer and vertex streams, v2 wire only.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub allow_delta2: Option<bool>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -339,6 +342,8 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_fsst,
             allow_fastpfor,
             allow_shared_dict,
+            #[cfg(feature = "unstable-mlt-v2")]
+            allow_delta2,
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
             unrecognized: _unrecognized,
@@ -365,6 +370,10 @@ impl From<MltEncoderConfig> for EncoderConfig {
         }
         if let Some(v) = allow_shared_dict {
             cfg = cfg.with_shared_dict(v);
+        }
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let Some(v) = allow_delta2 {
+            cfg = cfg.with_delta2(v);
         }
         cfg
     }
