@@ -1343,3 +1343,50 @@ async fn a_map_tile_outside_the_grid_is_not_found() {
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }
+
+#[tokio::test]
+async fn the_dataset_map_tilesets_are_forbidden_without_rendering() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering: false
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let list = martin.get("/ogc/map/tiles").await;
+    assert_eq!(list.status(), 403);
+    insta::assert_snapshot!(list.text(), @"Rendering is disabled");
+    let tileset = martin.get("/ogc/map/tiles/WebMercatorQuad").await;
+    assert_eq!(tileset.status(), 403);
+    insta::assert_snapshot!(tileset.text(), @"Rendering is disabled");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn the_style_map_tilesets_are_forbidden_without_rendering() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering: false
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let list = martin.get("/ogc/styles/maplibre_demo/map/tiles").await;
+    assert_eq!(list.status(), 403);
+    insta::assert_snapshot!(list.text(), @"Rendering is disabled");
+    let tileset = martin.get("/ogc/styles/maplibre_demo/map/tiles/WebMercatorQuad").await;
+    assert_eq!(tileset.status(), 403);
+    insta::assert_snapshot!(tileset.text(), @"Rendering is disabled");
+    martin.stop().await;
+}

@@ -5,7 +5,7 @@ use actix_web::http::header::{HeaderValue, VARY};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_core::styles::{RenderStyle, StyleSources, TileSize};
+use martin_core::styles::{RenderStyle, StyleError, StyleSources, TileSize};
 use martin_tile_utils::{MAX_ZOOM, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID};
 use serde::Deserialize;
 use tilejson::TileJSON;
@@ -15,7 +15,7 @@ use super::data_type::DataType;
 use super::error::OgcApiError;
 use super::generated_style::{Drawn, generated_style};
 use super::link::path_segment;
-use super::map::{MapFormat, Viewport, WEB_MERCATOR, dataset_collections, own_tiles_url, render_failure};
+use super::map::{MapFormat, Viewport, WEB_MERCATOR, dataset_collections, own_tiles_url, render_failure, renders_maps};
 use super::tilesets::{Tiled, tile_matrix_set_limits};
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::map_error;
@@ -118,6 +118,9 @@ fn dataset_style(req: &HttpRequest, srv_config: &SrvConfig, manager: &TileSource
     wrap = "Compress::default()"
 )]
 pub async fn get_dataset_map_tilesets(req: HttpRequest, srv_config: Data<SrvConfig>) -> HttpResponse {
+    if !renders_maps(&req) {
+        return render_failure(&StyleError::RenderingIsDisabled);
+    }
     let tiled = map_tiled("/map/tiles".to_owned(), "Map of all collections".to_owned());
     HttpResponse::Ok().json(tiled.list(&req, &srv_config))
 }
@@ -136,6 +139,9 @@ pub async fn get_dataset_map_tileset(
     srv_config: Data<SrvConfig>,
     manager: Data<TileSourceManager>,
 ) -> ActixResult<HttpResponse> {
+    if !renders_maps(&req) {
+        return Ok(render_failure(&StyleError::RenderingIsDisabled));
+    }
     web_mercator_only(&path)?;
     manager.wait_until_loaded().await;
     let (_, [left, bottom, right, top]) = dataset_style(&req, &srv_config, &manager);
@@ -181,6 +187,9 @@ pub async fn get_style_map_tilesets(
     srv_config: Data<SrvConfig>,
     styles: Data<StyleSources>,
 ) -> ActixResult<HttpResponse> {
+    if !renders_maps(&req) {
+        return Ok(render_failure(&StyleError::RenderingIsDisabled));
+    }
     let style_id = path.into_inner();
     if styles.style_json_path(&style_id).is_none() {
         return Err(map_error(&OgcApiError::UnknownStyle { style: style_id }));
@@ -203,6 +212,9 @@ pub async fn get_style_map_tileset(
     srv_config: Data<SrvConfig>,
     styles: Data<StyleSources>,
 ) -> ActixResult<HttpResponse> {
+    if !renders_maps(&req) {
+        return Ok(render_failure(&StyleError::RenderingIsDisabled));
+    }
     let (style_id, tile_matrix_set) = path.into_inner();
     web_mercator_only(&tile_matrix_set)?;
     if styles.style_json_path(&style_id).is_none() {
