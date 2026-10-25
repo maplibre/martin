@@ -16,7 +16,7 @@ use super::generated_style::{Drawn, drawable, generated_style};
 use crate::config::file::srv::SrvConfig;
 use crate::source::SourceEntry;
 use crate::srv::server::map_error;
-use crate::srv::styles_rendering::{ImageFormatRequest, encode_scaled_image_response};
+use crate::srv::styles_rendering::{ImageFormatRequest, encode_response, encode_scaled_image_response};
 use crate::tile_source_manager::TileSourceManager;
 
 /// The OGC URI of web mercator, the CRS every map is rendered in.
@@ -409,7 +409,7 @@ impl MapFormat {
             Self::Png => encode_scaled_image_response(image, size, ImageFormatRequest::Png, None, quality).await,
             Self::Jpeg => encode_scaled_image_response(image, size, ImageFormatRequest::Jpeg, None, quality).await,
             Self::Tiff => {
-                let encoded = tokio::task::spawn_blocking(move || match size {
+                encode_response(GEOTIFF, move || match size {
                     Some((width, height)) => geotiff(
                         &image::imageops::resize(
                             image.as_image(),
@@ -422,17 +422,6 @@ impl MapFormat {
                     None => geotiff(image.as_image(), &viewport),
                 })
                 .await
-                .map_err(|e| e.to_string())
-                .and_then(|tiff| tiff.map_err(|e| e.to_string()));
-                match encoded {
-                    Ok(tiff) => HttpResponse::Ok().content_type(GEOTIFF).body(tiff),
-                    Err(e) => {
-                        error!(error = %e, "Failed to encode a map as GeoTIFF");
-                        HttpResponse::InternalServerError()
-                            .content_type(ContentType::plaintext())
-                            .body("Failed to encode the map")
-                    }
-                }
             }
         }
     }
@@ -446,15 +435,16 @@ const WEB_MERCATOR_GEO_KEYS: [u16; 16] = [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1,
 
 /// `image` as a deflated `GeoTIFF` placed at the area of `viewport`.
 fn geotiff(image: &image::RgbaImage, viewport: &Viewport) -> tiff::TiffResult<Vec<u8>> {
-    use tiff::encoder::colortype::RGBA8;
+    use tiff::encoder::colortype::RGB8;
     use tiff::encoder::{Compression, DeflateLevel, TiffEncoder};
-    use tiff::tags::Tag;
+    use tiff::tags::{ExtraSamples, Tag};
 
     let [min_x, _, max_x, max_y] = viewport.bounds;
     let pixel = (max_x - min_x) / f64::from(image.width());
     let mut tiff = std::io::Cursor::new(Vec::new());
     let mut encoder = TiffEncoder::new(&mut tiff)?.with_compression(Compression::Deflate(DeflateLevel::default()));
-    let mut tiff_image = encoder.new_image::<RGBA8>(image.width(), image.height())?;
+    let mut tiff_image = encoder.new_image::<RGB8>(image.width(), image.height())?;
+    tiff_image.extra_samples(&[ExtraSamples::UnassociatedAlpha])?;
     tiff_image
         .encoder()
         .write_tag(Tag::ModelPixelScaleTag, &[pixel, pixel, 0.0][..])?;

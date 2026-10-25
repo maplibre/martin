@@ -141,10 +141,12 @@ async fn a_style_map_is_a_geotiff_placed_at_its_area() {
     assert_eq!(response.status(), 200, "{}", response.text());
     let mut geotiff = tiff::decoder::Decoder::new(std::io::Cursor::new(response.body())).expect("a TIFF");
     insta::assert_snapshot!(format!(
-        "{}\nContent-Bbox: {}\n{:?}\nModelPixelScale: {:?}\nModelTiepoint: {:?}\nGeoKeyDirectory: {:?}",
+        "{}\nContent-Bbox: {}\n{:?}\n{:?}\nExtraSamples: {:?}\nModelPixelScale: {:?}\nModelTiepoint: {:?}\nGeoKeyDirectory: {:?}",
         response.header("content-type").expect("a Content-Type header"),
         response.header("content-bbox").expect("a Content-Bbox header"),
         geotiff.dimensions().expect("dimensions"),
+        geotiff.colortype().expect("a color type"),
+        geotiff.get_tag_u16_vec(tiff::tags::Tag::ExtraSamples).expect("extra samples"),
         geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelPixelScaleTag).expect("a pixel scale"),
         geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelTiepointTag).expect("a tie point"),
         geotiff.get_tag_u16_vec(tiff::tags::Tag::GeoKeyDirectoryTag).expect("geo keys"),
@@ -152,10 +154,43 @@ async fn a_style_map_is_a_geotiff_placed_at_its_area() {
     image/tiff; application=geotiff
     Content-Bbox: -1113194.9079327364,4161173.2173294662,3339584.7237982084,8402445.81655319
     (400, 381)
+    RGBA(8)
+    ExtraSamples: [2]
     ModelPixelScale: [11131.949079327362, 11131.949079327362, 0.0]
     ModelTiepoint: [0.0, 0.0, 0.0, -1113194.9079327364, 8402445.81655319, 0.0]
     GeoKeyDirectory: [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857]
     ");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_skips_tiff_when_accept_refuses_it() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?width=256",
+            &[("Accept", "image/tiff;q=0, image/png")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.header("content-type"), Some("image/png"));
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
