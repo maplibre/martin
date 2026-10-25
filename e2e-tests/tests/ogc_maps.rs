@@ -832,7 +832,7 @@ async fn a_dataset_map_draws_every_raster_collection() {
     insta::assert_snapshot!(map_description(&response), @"
     Png (512, 510)
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
@@ -862,6 +862,94 @@ async fn a_dataset_map_draws_only_the_collections_asked_for() {
     let response = martin.get("/ogc/map?collections=toner&width=512").await;
     assert_eq!(response.status(), 200, "{}", response.text());
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_a_later_collection_over_an_earlier_one() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/map?collections=toner,naip&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_image_matches(fixture("ogc_maps/naip_over_toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_an_earlier_collection_under_a_later_one() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/map?collections=naip,toner&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_image_matches(fixture("ogc_maps/toner_over_naip.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_of_more_collections_than_a_composite_tile_is_a_bad_request() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let collections = vec!["toner"; 129].join(",");
+    let response = martin.get(&format!("/ogc/map?collections={collections}")).await;
+    assert_eq!(response.status(), 400);
+    insta::assert_snapshot!(response.text(), @"Requested 129 source ids, but at most 128 are allowed per request");
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }
@@ -967,6 +1055,12 @@ async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
           "rel": "service-desc",
           "title": "The OpenAPI definition of this API",
           "type": "application/vnd.oai.openapi+json;version=3.0"
+        },
+        {
+          "href": "http://[ADDR]/ogc/api?f=html",
+          "rel": "service-doc",
+          "title": "The OpenAPI definition of this API, as HTML",
+          "type": "text/html"
         },
         {
           "href": "https://maplibre.org/martin/using/",

@@ -15,7 +15,8 @@ use super::error::OgcApiError;
 use super::generated_style::{Drawn, drawable, generated_style};
 use super::link::{Link, path_segment};
 use crate::config::file::srv::SrvConfig;
-use crate::source::SourceEntry;
+use crate::source::{MAX_SOURCE_IDS_PER_REQUEST, SourceEntry};
+use crate::srv::error::TileError;
 use crate::srv::server::map_error;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_response, encode_scaled_image_response};
 use crate::tile_source_manager::TileSourceManager;
@@ -118,7 +119,13 @@ pub struct MapQuery {
     /// Scale of the map.
     #[serde(rename = "scale-denominator")]
     scale_denominator: Option<f64>,
-    /// Comma-separated IDs or URLs of the collections a dataset map draws, all of them when not given.
+}
+
+/// The collection selection of a dataset map request.
+#[derive(Deserialize, Debug, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+pub struct CollectionsQuery {
+    /// Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once.
     collections: Option<String>,
 }
 
@@ -606,7 +613,7 @@ pub async fn get_collection_map(
     .await
 }
 
-/// The collections a dataset map draws in order: those `collections` names, or every collection with a map.
+/// The collections a dataset map draws in order: those `collections` names, each once, or every collection with a map.
 fn dataset_collections(
     manager: &TileSourceManager,
     collections: Option<&str>,
@@ -622,20 +629,23 @@ fn dataset_collections(
     let Some(collections) = collections else {
         return Ok(ids.iter().filter_map(|id| Some((id.clone(), drawn(id)?))).collect());
     };
-    collections
-        .split(',')
-        .map(|item| {
-            let item = item.trim();
-            let id = match item.trim_end_matches('/').rsplit_once("/collections/") {
-                Some((_, segment)) => ids.iter().find(|id| path_segment(id) == segment),
-                None => ids.iter().find(|id| *id == item),
-            };
+    let mut drawn_collections: Vec<(String, SourceEntry)> = Vec::new();
+    for item in collections.split(',') {
+        let item = item.trim();
+        let id = match item.trim_end_matches('/').rsplit_once("/collections/") {
+            Some((_, segment)) => ids.iter().find(|id| path_segment(id) == segment),
+            None => ids.iter().find(|id| *id == item),
+        };
+        let (id, entry) =
             id.and_then(|id| Some((id.clone(), drawn(id)?)))
                 .ok_or_else(|| OgcApiError::UnknownMapCollection {
                     collection: item.to_owned(),
-                })
-        })
-        .collect()
+                })?;
+        if drawn_collections.iter().all(|(drawn_id, _)| *drawn_id != id) {
+            drawn_collections.push((id, entry));
+        }
+    }
+    Ok(drawn_collections)
 }
 
 /// The collections of the dataset drawn as one map, in the order `collections` names them.
@@ -645,7 +655,7 @@ fn dataset_collections(
         get,
         path = "/ogc/map",
         operation_id = "get_ogc_dataset_map",
-        params(MapQuery),
+        params(MapQuery, CollectionsQuery),
         responses(
             (status = 200, description = "Map of the dataset", content(("image/png"), ("image/jpeg"), ("image/tiff"))),
             (status = 400, description = "Invalid map parameters, or a collection that can't be drawn"),
@@ -656,12 +666,23 @@ fn dataset_collections(
 pub async fn get_dataset_map(
     req: HttpRequest,
     query: Query<MapQuery>,
+    selection: Query<CollectionsQuery>,
     srv_config: Data<SrvConfig>,
     manager: Data<TileSourceManager>,
     styles: Data<StyleSources>,
 ) -> actix_web::Result<HttpResponse> {
     manager.wait_until_loaded().await;
-    let collections = dataset_collections(&manager, query.collections.as_deref()).map_err(|e| map_error(&e))?;
+    if let Some(collections) = &selection.collections {
+        let requested = collections.split(',').count();
+        if requested > MAX_SOURCE_IDS_PER_REQUEST {
+            return Err(TileError::TooManySources {
+                requested,
+                max: MAX_SOURCE_IDS_PER_REQUEST,
+            }
+            .into());
+        }
+    }
+    let collections = dataset_collections(&manager, selection.collections.as_deref()).map_err(|e| map_error(&e))?;
     let described: Vec<_> = collections
         .iter()
         .map(|(id, (source, process))| (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone())))
