@@ -1059,93 +1059,7 @@ async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
 
     let response = martin.get("/ogc").await;
     assert_eq!(response.status(), 200);
-    insta::assert_json_snapshot!(martin.redacted_json(&response), @r#"
-    {
-      "description": "The tiles Martin serves, as an OGC API",
-      "extent": {
-        "spatial": {
-          "bbox": [
-            [
-              -123.12359,
-              -37.818085,
-              174.763027,
-              59.352706
-            ]
-          ],
-          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
-        }
-      },
-      "links": [
-        {
-          "href": "http://[ADDR]/ogc",
-          "rel": "self",
-          "title": "This document",
-          "type": "application/json"
-        },
-        {
-          "href": "http://[ADDR]/ogc/api",
-          "rel": "service-desc",
-          "title": "The OpenAPI definition of this API",
-          "type": "application/vnd.oai.openapi+json;version=3.1"
-        },
-        {
-          "href": "http://[ADDR]/ogc/api",
-          "rel": "service-doc",
-          "title": "The OpenAPI definition of this API, as HTML",
-          "type": "text/html"
-        },
-        {
-          "href": "https://maplibre.org/martin/using/",
-          "rel": "service-doc",
-          "title": "The Martin HTTP API",
-          "type": "text/html"
-        },
-        {
-          "href": "http://[ADDR]/ogc/conformance",
-          "rel": "conformance",
-          "title": "Conformance classes",
-          "type": "application/json"
-        },
-        {
-          "href": "http://[ADDR]/ogc/collections",
-          "rel": "data",
-          "title": "Collections",
-          "type": "application/json"
-        },
-        {
-          "href": "http://[ADDR]/ogc/tileMatrixSets",
-          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
-          "title": "Tile matrix sets",
-          "type": "application/json"
-        },
-        {
-          "href": "http://[ADDR]/ogc/styles",
-          "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
-          "title": "Styles",
-          "type": "application/json"
-        },
-        {
-          "href": "http://[ADDR]/ogc/map",
-          "rel": "https://www.opengis.net/def/rel/ogc/1.0/map",
-          "title": "Map of all collections",
-          "type": "image/png"
-        },
-        {
-          "href": "http://[ADDR]/ogc/map",
-          "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
-          "title": "Map of all collections",
-          "type": "image/png"
-        },
-        {
-          "href": "http://[ADDR]/ogc/map/tiles",
-          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
-          "title": "Map tilesets of all collections",
-          "type": "application/json"
-        }
-      ],
-      "title": "Martin"
-    }
-    "#);
+    insta::assert_json_snapshot!(martin.redacted_json(&response));
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }
@@ -1172,7 +1086,12 @@ async fn a_style_map_tile_is_256_pixels() {
         .get("/ogc/styles/maplibre_demo/map/tiles/WebMercatorQuad/2/1/2")
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.image_size(), (256, 256));
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
     assert_image_matches(fixture("ogc_maps/maplibre_demo_tile_2_1_2.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -1197,39 +1116,7 @@ async fn the_dataset_map_tileset_templates_its_tiles() {
 
     let response = martin.get("/ogc/map/tiles/WebMercatorQuad").await;
     assert_eq!(response.status(), 200);
-    let tileset = martin.redacted_json(&response);
-    insta::assert_json_snapshot!(tileset["links"], @r#"
-    [
-      {
-        "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad",
-        "rel": "self",
-        "title": "This document",
-        "type": "application/json"
-      },
-      {
-        "href": "http://[ADDR]/ogc/tileMatrixSets/WebMercatorQuad",
-        "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
-        "title": "Tile matrix set definition",
-        "type": "application/json"
-      },
-      {
-        "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}",
-        "rel": "item",
-        "templated": true,
-        "title": "Tiles",
-        "type": "image/png"
-      }
-    ]
-    "#);
-    insta::assert_json_snapshot!(tileset["tileMatrixSetLimits"][2], @r#"
-    {
-      "maxTileCol": 3,
-      "maxTileRow": 3,
-      "minTileCol": 0,
-      "minTileRow": 0,
-      "tileMatrix": "2"
-    }
-    "#);
+    insta::assert_json_snapshot!(martin.redacted_json(&response));
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }
@@ -1258,7 +1145,12 @@ async fn a_dataset_map_tile_draws_the_collections_in_id_order() {
 
     let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.image_size(), (256, 256));
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
     assert_image_matches(fixture("ogc_maps/dataset_tile_naip_over_basemap.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -1288,7 +1180,12 @@ async fn a_dataset_map_tile_draws_a_collection_later_in_id_order_on_top() {
 
     let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.image_size(), (256, 256));
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
     assert_image_matches(fixture("ogc_maps/dataset_tile_toner_over_naip.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
