@@ -15,6 +15,7 @@ use tracing::{debug, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
@@ -91,10 +92,12 @@ impl MbtSource {
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path))?;
 
+        let mut tilejson = meta.tilejson;
+        cap_zoom_range(&id, &mut tilejson);
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
-            tilejson: meta.tilejson,
+            tilejson,
             tile_info,
             cache_zoom,
         })

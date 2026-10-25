@@ -190,6 +190,25 @@ async fn mbt_get_tilejson() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
+async fn mbt_tilejson_caps_the_maxzoom_of_a_file_without_tiles() {
+    let script = "CREATE TABLE metadata (name text, value text);
+        INSERT INTO metadata VALUES ('name', 'empty'), ('format', 'pbf'), ('maxzoom', '40');
+        CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);";
+    let (_mbt, _conn, file) = temp_named_mbtiles("mbt_tilejson_caps_empty", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            empty: {file}
+    ", file = file.display()});
+
+    let response = call_service(&app, test_get("/empty").to_request()).await;
+    let response = assert_response(response).await;
+    let body: TileJSON = read_body_json(response).await;
+    assert_eq!(body.maxzoom, Some(30));
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_tilejson_gzip() {
     let (config, _conns) = config("mbt_get_tilejson_gzip").await;
     let app = create_app!(&config);

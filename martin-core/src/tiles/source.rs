@@ -128,6 +128,7 @@ pub trait Source: Send + Sync + Debug {
 /// Caps the zoom range a source declares at [`MAX_ZOOM`](martin_tile_utils::MAX_ZOOM), the highest zoom a tile can be requested at.
 #[cfg(any(
     feature = "cog",
+    feature = "mbtiles",
     feature = "passthrough",
     feature = "pmtiles",
     feature = "postgres",
