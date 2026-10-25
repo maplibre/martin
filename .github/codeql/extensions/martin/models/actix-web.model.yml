@@ -1,0 +1,7 @@
+extensions:
+  - addsTo:
+      pack: codeql/rust-all
+      extensible: neutralModel
+    data:
+      # Works around CodeQL's generated actix-web model, which makes `connection_info` an allocation and log sink. Delete once CodeQL fixes it.
+      - ["<actix_web::request::HttpRequest>::connection_info", "sink", "manual"]
