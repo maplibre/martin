@@ -121,3 +121,10 @@ services:
     platform: linux/x86_64
     network_mode: host
     restart: 'no'
+
+  ogc-ets-maps:
+    # The OGC API - Maps conformance suite on port 8081, for `just test-ogc-maps`
+    build: tests/ogc-ets-maps
+    platform: linux/x86_64
+    network_mode: host
+    restart: 'no'

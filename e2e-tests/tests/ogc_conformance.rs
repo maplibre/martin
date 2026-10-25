@@ -1,10 +1,7 @@
 //! The OGC API - Tiles conformance suite, run by its own test engine against a served `world_cities`.
 #![cfg(feature = "test-ogc")]
 
-use std::time::Duration;
-
-use backon::{ConstantBuilder, Retryable as _};
-use martin_e2e_tests::{Martin, mbtiles_fixture, temp_dir};
+use martin_e2e_tests::{Martin, TeamEngine, mbtiles_fixture, temp_dir};
 
 /// The test engine that `just test-ogc` starts from docker compose.
 const TEAM_ENGINE: &str = "http://127.0.0.1:8080/teamengine";
@@ -14,41 +11,29 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
     let dir = temp_dir();
     let mbtiles = mbtiles_fixture(dir.path(), "world_cities").await;
     let mut martin = Martin::builder().arg(&mbtiles).start().await.expect("martin starts");
-    let client = reqwest::Client::new();
-    wait_for_team_engine(&client).await;
+    let team_engine = TeamEngine::ready(TEAM_ENGINE).await;
 
     let iut = format!("http://{}/ogc", martin.addr());
     let tiles = format!("{iut}/collections/world_cities/tiles/WebMercatorQuad/{{tileMatrix}}/{{tileRow}}/{{tileCol}}");
-    let run = reqwest::Url::parse_with_params(
-        &format!("{TEAM_ENGINE}/rest/suites/ogcapi-tiles-1.0/run"),
-        [
-            ("iut", iut.as_str()),
-            (
-                "tilematrixsetdefinitionuri",
-                "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad",
-            ),
-            ("urltemplatefortiles", tiles.as_str()),
-            ("tilematrix", "2"),
-            ("mintilerow", "1"),
-            ("maxtilerow", "2"),
-            ("mintilecol", "3"),
-            ("maxtilecol", "3"),
-        ],
-    )
-    .expect("a suite URL");
-    let report = client
-        .get(run)
-        .basic_auth("ogctest", Some("ogctest"))
-        .header("Accept", "application/xml")
-        .timeout(Duration::from_mins(5))
-        .send()
-        .await
-        .and_then(reqwest::Response::error_for_status)
-        .expect("the suite runs")
-        .text()
-        .await
-        .expect("the suite reports");
-    insta::assert_snapshot!(martin.redact(&outcomes(&report)), @"
+    let report = team_engine
+        .run(
+            "ogcapi-tiles-1.0",
+            &[
+                ("iut", iut.as_str()),
+                (
+                    "tilematrixsetdefinitionuri",
+                    "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad",
+                ),
+                ("urltemplatefortiles", tiles.as_str()),
+                ("tilematrix", "2"),
+                ("mintilerow", "1"),
+                ("maxtilerow", "2"),
+                ("mintilecol", "3"),
+                ("maxtilecol", "3"),
+            ],
+        )
+        .await;
+    insta::assert_snapshot!(martin.redact(&report), @"
     PASS geospatialResourceTilesetsLinksCheck
     PASS geospatialResourceTilesetsRetrieval
     PASS validateConformanceOperationAndResponse
@@ -70,48 +55,4 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
     martin.assert_log_contains(
         r#"ERROR error="Tile 2/2147483647/2147483647 is outside the WebMercatorQuad grid of world_cities""#,
     );
-}
-
-/// Waits for the test engine to answer, retrying every two seconds up to 75 times.
-async fn wait_for_team_engine(client: &reqwest::Client) {
-    (|| async {
-        client
-            .get(format!("{TEAM_ENGINE}/"))
-            .timeout(Duration::from_secs(2))
-            .send()
-            .await?
-            .error_for_status()
-    })
-    .retry(
-        ConstantBuilder::new()
-            .with_delay(Duration::from_secs(2))
-            .with_max_times(75),
-    )
-    .sleep(tokio::time::sleep)
-    .await
-    .expect("the test engine answers");
-}
-
-/// One line per test in the report, with its status and the reason for anything but a pass.
-fn outcomes(report: &str) -> String {
-    let report = roxmltree::Document::parse(report).expect("a TestNG report");
-    let mut lines: Vec<String> = report
-        .descendants()
-        .filter(|node| node.has_tag_name("test-method") && node.attribute("is-config") != Some("true"))
-        .map(|test| {
-            let status = test.attribute("status").expect("a status");
-            let name = test.attribute("name").expect("a name");
-            let reason = test
-                .descendants()
-                .find(|node| node.has_tag_name("message"))
-                .and_then(|message| message.text())
-                .map(str::trim);
-            match (status, reason) {
-                ("PASS", _) | (_, None) => format!("{status} {name}"),
-                (_, Some(reason)) => format!("{status} {name}: {reason}"),
-            }
-        })
-        .collect();
-    lines.sort();
-    lines.join("\n")
 }
