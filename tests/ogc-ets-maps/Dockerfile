@@ -15,9 +15,12 @@ RUN mkdir -p /out/teamengine /out/lib /out/te_base/scripts \
  && rm -r /out/te_base/scripts/note
 
 FROM tomcat:10.1-jre17@sha256:f09917708e4be97d2ab9fa837182785b4dc0e704f9fab47885bea6fdd008a56e
-COPY --from=build /out/teamengine /usr/local/tomcat/webapps/teamengine
+RUN useradd --system --create-home --home-dir /home/ets ets \
+ && sed -i -e 's/port="8080"/port="8081"/' -e 's/port="8005"/port="-1"/' /usr/local/tomcat/conf/server.xml \
+ && chown -R ets /usr/local/tomcat/logs /usr/local/tomcat/temp /usr/local/tomcat/work /usr/local/tomcat/webapps
+COPY --from=build --chown=ets /out/teamengine /usr/local/tomcat/webapps/teamengine
 COPY --from=build /out/lib /usr/local/tomcat/lib
-COPY --from=build /out/te_base /root/te_base
-RUN sed -i -e 's/port="8080"/port="8081"/' -e 's/port="8005"/port="-1"/' /usr/local/tomcat/conf/server.xml
-ENV JAVA_OPTS="-Xms1024m -Xmx2048m -DTE_BASE=/root/te_base"
+COPY --from=build --chown=ets /out/te_base /home/ets/te_base
+USER ets
+ENV JAVA_OPTS="-Xms1024m -Xmx2048m -DTE_BASE=/home/ets/te_base"
 CMD ["catalina.sh", "run"]
