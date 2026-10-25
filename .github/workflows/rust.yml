@@ -219,7 +219,7 @@ jobs:
     with:
       target: aarch64-unknown-linux-musl
       os: ubuntu-latest
-      musl: true
+      zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
@@ -227,7 +227,7 @@ jobs:
     with:
       target: x86_64-unknown-linux-musl
       os: ubuntu-latest
-      musl: true
+      zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl-legacycpu:
@@ -236,8 +236,37 @@ jobs:
     with:
       target: x86_64-unknown-linux-musl
       os: ubuntu-latest
-      musl: true
+      zig: true
       legacy_cpu: true
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+
+  # Cross-compiled on Linux, so no FreeBSD VM has to build anything; test-freebsd runs what they produce.
+  build-x86_64-unknown-freebsd:
+    if: inputs.run-release-builds
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-freebsd
+      os: ubuntu-latest
+      zig: true
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+
+  build-x86_64-unknown-freebsd-legacycpu:
+    if: inputs.run-release-builds
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-freebsd
+      os: ubuntu-latest
+      zig: true
+      legacy_cpu: true
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+
+  build-aarch64-unknown-freebsd:
+    if: inputs.run-release-builds
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-freebsd
+      os: ubuntu-latest
+      zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   docker-legacycpu:
@@ -641,6 +670,41 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
       - run: just test-lambda target/martin
+
+  test-freebsd:
+    name: Test the ${{ matrix.build }} binaries on FreeBSD ${{ matrix.release }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    needs: [ build-x86_64-unknown-freebsd, build-x86_64-unknown-freebsd-legacycpu, build-aarch64-unknown-freebsd ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The binaries link against the FreeBSD 14.0 libc, so the lanes cover the oldest supported release and the newest.
+          - { build: x86_64-unknown-freebsd, arch: x86_64, release: '14.4' }
+          - { build: x86_64-unknown-freebsd-legacycpu, arch: x86_64, release: '15.1' }
+          - { build: aarch64-unknown-freebsd, arch: aarch64, release: '15.1' }
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Download build artifact build-${{ matrix.build }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: 'build-${{ matrix.build }}', path: 'target_releases/' }
+      - name: Mark the downloaded binaries as executable
+        run: chmod +x target_releases/martin target_releases/mbtiles
+      - uses: $/.github/actions/setup-rust
+        with: { toolchain: none }
+      # Nothing is built or installed in the VM: compiling the tests there ran out of memory (#2711).
+      - name: Start FreeBSD ${{ matrix.release }}
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: ${{ matrix.release }}
+          arch: ${{ matrix.arch }}
+          sync: 'no'
+      - run: just test-freebsd-binaries
 
   test-windows:
     name: Test on windows-latest
