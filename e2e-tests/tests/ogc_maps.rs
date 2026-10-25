@@ -115,6 +115,82 @@ async fn a_style_map_centers_on_a_point_at_a_scale() {
 }
 
 #[tokio::test]
+async fn a_style_map_is_a_geotiff_placed_at_its_area() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?bbox=-10,35,30,60&width=400",
+            &[("Accept", "image/tiff")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    let mut geotiff = tiff::decoder::Decoder::new(std::io::Cursor::new(response.body())).expect("a TIFF");
+    insta::assert_snapshot!(format!(
+        "{}\nContent-Bbox: {}\n{:?}\nModelPixelScale: {:?}\nModelTiepoint: {:?}\nGeoKeyDirectory: {:?}",
+        response.header("content-type").expect("a Content-Type header"),
+        response.header("content-bbox").expect("a Content-Bbox header"),
+        geotiff.dimensions().expect("dimensions"),
+        geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelPixelScaleTag).expect("a pixel scale"),
+        geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelTiepointTag).expect("a tie point"),
+        geotiff.get_tag_u16_vec(tiff::tags::Tag::GeoKeyDirectoryTag).expect("geo keys"),
+    ), @"
+    image/tiff; application=geotiff
+    Content-Bbox: -1113194.9079327364,4161173.2173294662,3339584.7237982084,8402445.81655319
+    (400, 381)
+    ModelPixelScale: [11131.949079327362, 11131.949079327362, 0.0]
+    ModelTiepoint: [0.0, 0.0, 0.0, -1113194.9079327364, 8402445.81655319, 0.0]
+    GeoKeyDirectory: [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857]
+    ");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_png_has_an_alpha_channel() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/styles/maplibre_demo/map?width=256").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    let png = png::Decoder::new(std::io::Cursor::new(response.body()))
+        .read_info()
+        .expect("a PNG");
+    assert_eq!(png.info().color_type, png::ColorType::Rgba);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
 async fn a_style_map_is_a_jpeg_when_accept_asks_for_one() {
     let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
@@ -510,7 +586,8 @@ async fn the_conformance_declares_maps_when_rendering() {
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
-        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg"
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff"
       ]
     }
     "#);

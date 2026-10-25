@@ -42,7 +42,7 @@ async fn the_ogc_api_passes_the_maps_conformance_suite() {
             &[("iut", iut.as_str()), ("tile_matrix_set", "WebMercatorQuad")],
         )
         .await;
-    insta::assert_snapshot!(martin.redact(&report), @r#"
+    insta::assert_snapshot!(martin.redact(&report), @"
     FAIL verifyCollectionsParameter: A.11 verifyCollectionsParameter failed:
     [Req11/param-defined] The OpenAPI document does not declare 'collections' as an optional query parameter for the map operation path.
     [Req11/single-id] Expected HTTP 200 for collections='png' but got HTTP 404.
@@ -51,19 +51,17 @@ async fn the_ogc_api_passes_the_maps_conformance_suite() {
     FAIL verifyDatasetMapLinkFromLandingPage: Landing page must include a dataset map link with rel 'https://www.opengis.net/def/rel/ogc/1.0/map', legacy rel 'http://www.opengis.net/def/rel/ogc/1.0/map', or compact rel 'ogc-rel:map'. expected object to not be null
     FAIL verifyLandingPageExtentCrs: Landing page JSON response must include an 'extent' object. expected [true] but found [false]
     FAIL verifyMapResponse: Test Skipped: No map resources found in the collections to verify. Please check the target server. expected [true] but found [false]
-    FAIL verifyMapRetrievalOperation: Cannot invoke "java.util.List.iterator()" because "contentTypeList" is null
-    FAIL verifyPngContent: PNG content verification failed with 1 error(s):
-      1. [Part C] PNG image does not support alpha channel. The PNG format SHALL support alpha channel for partial transparency when required
-    FAIL verifyTiffContent: TIFF content verification failed with 1 error(s):
-      1. [Part A] Expected HTTP 200 but got 406 for TIFF map request to http://[ADDR]/ogc/collections/png/map
     PASS verifyCollectionDescriptionCrs
     PASS verifyCollectionDescriptionLinks
     PASS verifyCollectionMapOperation
     PASS verifyCorsSupport
     PASS verifyJpegContent
     PASS verifyMapConformanceSuccess
+    PASS verifyMapRetrievalOperation
+    PASS verifyPngContent
     PASS verifyStyledMapLinks
     PASS verifyStyledMapOperation
+    PASS verifyTiffContent
     PASS verifyTilesParameters
     PASS verifyTilesetsLink
     SKIP verifyApiOperationIdentifiers: Server does not declare conformance class https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/api-operations. Skipping A.62 tests.
@@ -73,7 +71,7 @@ async fn the_ogc_api_passes_the_maps_conformance_suite() {
     SKIP verifyTransparentDefinition: Test Skipped: SUT does not declare conformance to: /conf/background
     SKIP verifyVoidColorDefinition: Test Skipped: SUT does not declare conformance to: /conf/background
     SKIP verifyVoidTransparentDefinition: Test Skipped: SUT does not declare conformance to: /conf/background
-    "#);
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
