@@ -222,6 +222,12 @@ fn vertices_halfway_between_units_round_to_the_even_unit() {
 }
 
 #[test]
+fn vertices_just_off_a_half_round_to_the_nearer_unit() {
+    let exterior = [(0.0, 0.0), (3.4999, 0.0), (3.4999, 2.5001), (0.0, 2.5001)];
+    assert_snapshot!(quantize(&[&exterior]), @"(0 0, 3 0, 3 3, 0 3)");
+}
+
+#[test]
 fn overlapping_holes_take_out_their_union() {
     let exterior = [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)];
     let hole_a = [(2.0, 2.0), (12.0, 2.0), (12.0, 12.0), (2.0, 12.0)];
