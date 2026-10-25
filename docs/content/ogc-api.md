@@ -7,60 +7,86 @@ tags:
 
 # OGC API - Tiles
 
-Martin serves its tile sources through [OGC API - Tiles](https://docs.ogc.org/is/20-057/20-057.html) under `/ogc`.
-A client that speaks the standard finds every source and its tiles from the landing page, without knowing Martin's own URLs.
-The OGC API is part of the default build, through the `ogcapi` feature.
+Martin also serves your tiles through the [OGC API - Tiles](https://docs.ogc.org/is/20-057/20-057.html) standard, under `/ogc`.
+You get exactly the same tiles as from the regular [Martin endpoints](using.md), just at different URLs and with OGC metadata instead of TileJSON.
 
-| URL                                                                                        | Description                                  |
-|--------------------------------------------------------------------------------------------|----------------------------------------------|
-| `/ogc`                                                                                     | Landing page                                 |
-| `/ogc/conformance`                                                                         | The conformance classes Martin implements    |
-| `/ogc/tileMatrixSets`                                                                      | The tile matrix sets of the served sources   |
-| `/ogc/tileMatrixSets/{tileMatrixSetId}`                                                    | One tile matrix set                          |
-| `/ogc/collections`                                                                         | Sources in a supported CRS, as collections   |
-| `/ogc/collections/{collectionId}`                                                          | One collection                               |
-| `/ogc/collections/{collectionId}/tiles`                                                    | The tilesets of a collection                 |
-| `/ogc/collections/{collectionId}/tiles/{tileMatrixSetId}`                                  | Tileset metadata, with the tile URL template |
-| `/ogc/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}` | A tile                                       |
+!!! tip "Do you need this?"
+    Probably not.
+    Map libraries like MapLibre work best with the regular endpoints.
+    Use `/ogc` when a tool only speaks OGC API - Tiles, like GDAL's [OGC API driver](#reading-martin-with-gdal).
 
-## Collections
+The OGC API is included in the default build, as the `ogcapi` feature.
 
-Each tile source in a supported CRS is a collection, and its source ID is the collection ID.
-A collection's extent is the bounds of its source.
-Raster sources are map tilesets and vector sources are vector tilesets.
-A source is listed when its grid uses one of the CRSs of the built-in grids, which are EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
-Martin knows the units and axis order of those, so a grid in another CRS, such as a `simple` grid, is not listed.
-When an alias has a source's ID, the collection is the source the alias serves, as it is for tiles.
-An alias of several sources is not a collection.
+## How a client finds a tile
 
-## Tiles
+An OGC client doesn't need to know how Martin's URLs look.
+You give it the landing page, `/ogc`, and it follows links from there, picking each one by its `rel`, until it has a URL template for the tiles.
 
-An OGC tile URL names the row before the column.
-So `/ogc/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}` serves the same tile as `/{id}/{z}/{x}/{y}`.
-Compression, caching and empty tiles work as they do on `/{sourceID}/{z}/{x}/{y}`.
+--8<-- "images/ogc/walk.svg"
 
-!!! important "Behavioral Differences for OGC compliance"
-    This endpoint sends MVT tiles as `application/vnd.mapbox-vector-tile` instead of `application/x-protobuf` like our regular endpoint, to be OGC compliant.
+That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
+
+## Tile URLs
+
+The thing that trips people up: OGC puts the row before the column.
+An OGC tile URL ends in `{z}/{y}/{x}`, not `{z}/{x}/{y}`.
+
+--8<-- "images/ogc/tile-url.svg"
+
+The tile matrix set in the URL has to be the source's [tile grid](tile-grids.md).
+For most sources that's `WebMercatorQuad`, and anything else gets a `404`.
+
+Compression, caching and empty tiles behave just like on the regular tile endpoint.
+
+## Compared to the Martin endpoints
+
+|                     | Martin endpoints                                 | OGC API                                                           |
+|---------------------|--------------------------------------------------|-------------------------------------------------------------------|
+| list of sources     | [`/catalog`](using.md#catalog)                   | `/ogc/collections`                                                |
+| source metadata     | [TileJSON](using.md#source-tilejson)             | tileset, at `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}` |
+| tile                | `/{sourceID}/{z}/{x}/{y}`                        | `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}/{z}/{y}/{x}` |
+| MVT content type    | `application/x-protobuf`                         | `application/vnd.mapbox-vector-tile`, as the standard requires    |
+| composite sources   | [`/{source1},…,{sourceN}`](sources-composite.md) | not available                                                     |
+| grids in other CRSs | served                                           | not listed, see [below](#which-sources-show-up)                   |
+
+## Which sources show up
+
+Every tile source shows up as a collection, with its source ID as the collection ID.
+Vector sources get a vector tileset, raster sources a map tileset.
+
+There are two exceptions:
+
+- **Sources on an unusual grid.**
+  The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the [built-in grids](tile-grids.md#built-in-grids): EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
+  A source on a `simple` grid, or on a custom grid in another CRS, won't be listed.
+- **Composite sources and aliases.**
+  A collection is always a single source, so `/a,b` has no OGC counterpart and [aliases](sources-composite.md#source-aliases) aren't listed under their own name.
+  If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does.
+  If that alias combines several sources, the source drops out of the list.
 
 ## Tile matrix sets
 
-The tile matrix sets are the [tile grids](tile-grids.md) of the served sources, and Web Mercator is always listed.
-A grid from the OGC registry carries its registry URI.
-Each origin is given in the axis order of its CRS.
+"Tile matrix set" is OGC's name for a [tile grid](tile-grids.md).
+`/ogc/tileMatrixSets` lists the grids your sources use, plus `WebMercatorQuad`, which is always there.
+Each one links to its full definition in the [Two Dimensional Tile Matrix Set 2.0](https://docs.ogc.org/is/17-083r4/17-083r4.html) JSON format: the origin, cell size and number of rows and columns at every zoom.
+
+Grids from the OGC registry also carry their official registry `uri`.
+Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 means northing first.
 
 ## Conformance
 
-`/ogc/conformance` declares these classes.
+`/ogc/conformance` lists which parts of the standards Martin implements:
 
 - OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
 
-The OGC conformance test suite runs against Martin in CI.
+We run the official OGC test suite against Martin in CI.
 
 ## Reading Martin with GDAL
 
-GDAL's OGC API driver reads Martin's vector tiles, with one layer per zoom level.
+GDAL's OGC API driver can read Martin's vector tiles.
+It shows each zoom level as a separate layer:
 
 ```bash
 ogrinfo OGCAPI:http://localhost:3000/ogc/collections/world_cities -oo API=TILES
