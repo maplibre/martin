@@ -5965,6 +5965,7 @@ name = "martin-e2e-tests"
 version = "0.0.0"
 dependencies = [
  "approx",
+ "backon",
  "brotli 9.0.0",
  "flate2",
  "geojson 1.0.0",
@@ -5983,6 +5984,7 @@ dependencies = [
  "pretty_assertions",
  "regex",
  "reqwest 0.13.5",
+ "roxmltree",
  "rstest",
  "serde-saphyr",
  "serde_json",
