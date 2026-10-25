@@ -6,6 +6,7 @@ use tracing::{instrument, trace};
 use crate::CacheZoomRange;
 use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
 use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -25,11 +26,12 @@ impl DuckDBSource {
     pub fn new(
         id: String,
         info: DuckDBSqlInfo,
-        tilejson: TileJSON,
+        mut tilejson: TileJSON,
         pool: DuckDBPool,
         tile_info: TileInfo,
         cache_zoom: CacheZoomRange,
     ) -> Self {
+        cap_zoom_range(&id, &mut tilejson);
         Self {
             id,
             info,

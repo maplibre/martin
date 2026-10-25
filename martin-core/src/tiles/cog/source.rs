@@ -13,6 +13,7 @@ use tracing::instrument;
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Where the tiles of a [`CogSource`] come from.
@@ -96,6 +97,7 @@ impl CogSource {
         location: String,
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, CogError> {
+        cap_zoom_range(&id, &mut tilejson);
         let format = match tile_format {
             TileFormat::Jpeg => Format::Jpeg,
             TileFormat::Webp => Format::Webp,

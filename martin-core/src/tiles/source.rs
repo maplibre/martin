@@ -125,5 +125,23 @@ pub trait Source: Send + Sync + Debug {
     }
 }
 
+/// Caps the zoom range a source declares at [`MAX_ZOOM`](martin_tile_utils::MAX_ZOOM), the highest zoom a tile can be requested at.
+#[cfg(any(
+    feature = "cog",
+    feature = "passthrough",
+    feature = "pmtiles",
+    feature = "postgres",
+    feature = "unstable-duckdb"
+))]
+pub(crate) fn cap_zoom_range(id: &str, tilejson: &mut TileJSON) {
+    use martin_tile_utils::MAX_ZOOM;
+    for zoom in [&mut tilejson.minzoom, &mut tilejson.maxzoom].into_iter().flatten() {
+        if *zoom > MAX_ZOOM {
+            tracing::warn!(source.id = %id, zoom = *zoom, "Capping a zoom above {MAX_ZOOM}, the highest zoom Martin serves");
+            *zoom = MAX_ZOOM;
+        }
+    }
+}
+
 /// A shared handle to any tile source the server can serve.
 pub type BoxedSource = std::sync::Arc<crate::tiles::AnySource>;
