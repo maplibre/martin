@@ -400,9 +400,9 @@ pub async fn get_spritesheet(
         .await?;
     let mut builder = SpritesheetBuilder::new();
     if as_sdf {
-        builder.make_sdf();
+        builder = builder.make_sdf();
     }
-    builder.sprites(sprites.into_iter().collect());
+    builder = builder.sprites(sprites.into_iter().collect());
 
     // TODO: decide if this is needed and/or configurable
     // builder.make_unique();
