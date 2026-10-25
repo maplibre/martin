@@ -93,7 +93,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The `OpenAPI` 3.0 definition of the OGC API. */
+        /** The `OpenAPI` 3.0 definition of the OGC API, as JSON or as an HTML page showing it. */
         get: operations["get_api"];
         put?: never;
         post?: never;
@@ -937,21 +937,32 @@ export interface operations {
     };
     get_api: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Encoding of the definition, `json` or `html`; `html` when not given and the client accepts HTML. */
+                f?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description OpenAPI 3.0 definition of the OGC API */
+            /** @description OpenAPI 3.0 definition of the OGC API, or an HTML page showing it */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/vnd.oai.openapi+json;version=3.0": unknown;
+                    "text/html": unknown;
                 };
+            };
+            /** @description Unsupported encoding */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

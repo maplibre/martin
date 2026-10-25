@@ -1,23 +1,56 @@
 use actix_middleware_etag::Etag;
+use actix_web::http::header::ACCEPT;
 use actix_web::middleware::Compress;
-use actix_web::web::Data;
-use actix_web::{HttpRequest, HttpResponse, route};
+use actix_web::web::{Data, Query};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
+use super::error::OgcApiError;
 use super::link::ogc_url;
 use crate::config::file::srv::SrvConfig;
+use crate::srv::server::map_error;
 
 /// Media type of an `OpenAPI` 3.0 definition in JSON.
 pub(super) const OPENAPI_JSON: &str = "application/vnd.oai.openapi+json;version=3.0";
 
-/// The `OpenAPI` 3.0 definition of the OGC API.
+/// Swagger UI showing the definition this page is served next to, as `?f=json`.
+const API_HTML: &str = r##"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Martin OGC API</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+<script>SwaggerUIBundle({ url: "?f=json", dom_id: "#swagger-ui" });</script>
+</body>
+</html>
+"##;
+
+/// The query of an API definition request.
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+pub struct ApiQuery {
+    /// Encoding of the definition, `json` or `html`; `html` when not given and the client accepts HTML.
+    f: Option<String>,
+}
+
+/// The `OpenAPI` 3.0 definition of the OGC API, as JSON or as an HTML page showing it.
 #[cfg_attr(
     feature = "unstable-schemas",
     utoipa::path(
         get,
         path = "/ogc/api",
+        params(ApiQuery),
         responses(
-            (status = 200, description = "OpenAPI 3.0 definition of the OGC API", content_type = "application/vnd.oai.openapi+json;version=3.0"),
+            (status = 200, description = "OpenAPI 3.0 definition of the OGC API, or an HTML page showing it", content(
+                ("application/vnd.oai.openapi+json;version=3.0"),
+                ("text/html"),
+            )),
+            (status = 400, description = "Unsupported encoding"),
         ),
     )
 )]
@@ -28,10 +61,34 @@ pub(super) const OPENAPI_JSON: &str = "application/vnd.oai.openapi+json;version=
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-pub async fn get_api(req: HttpRequest, srv_config: Data<SrvConfig>) -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type(OPENAPI_JSON)
-        .json(definition(&ogc_url(&req, &srv_config, "")))
+pub async fn get_api(
+    req: HttpRequest,
+    query: Query<ApiQuery>,
+    srv_config: Data<SrvConfig>,
+) -> ActixResult<HttpResponse> {
+    let html = match query.into_inner().f.as_deref() {
+        Some("json") => false,
+        Some("html") => true,
+        Some(encoding) => {
+            return Err(map_error(&OgcApiError::UnsupportedApiEncoding {
+                encoding: encoding.to_owned(),
+            }));
+        }
+        None => req
+            .headers()
+            .get(ACCEPT)
+            .and_then(|accept| accept.to_str().ok())
+            .is_some_and(|accept| accept.contains("text/html")),
+    };
+    Ok(if html {
+        HttpResponse::Ok()
+            .content_type("text/html; charset=utf-8")
+            .body(API_HTML)
+    } else {
+        HttpResponse::Ok()
+            .content_type(OPENAPI_JSON)
+            .json(definition(&ogc_url(&req, &srv_config, "")))
+    })
 }
 
 /// The `OpenAPI` definition of the OGC API served at `server`.
@@ -81,6 +138,8 @@ fn get(operation_id: &str, summary: &str, parameters: &[&str], media_types: &[&s
 fn schema(media_type: &str) -> Value {
     if media_type.contains("json") {
         json!({ "type": "object" })
+    } else if media_type.starts_with("text/") {
+        json!({ "type": "string" })
     } else {
         json!({ "type": "string", "format": "binary" })
     }
@@ -98,7 +157,15 @@ fn tiles_paths() -> Map<String, Value> {
     ];
     let paths = [
         ("/", get("getLandingPage", "Landing page", &[], &json)),
-        ("/api", get("getApi", "This API definition", &[], &[OPENAPI_JSON])),
+        (
+            "/api",
+            get(
+                "getApi",
+                "This API definition",
+                &["apiEncoding"],
+                &[OPENAPI_JSON, "text/html"],
+            ),
+        ),
         ("/conformance", get("getConformance", "Conformance classes", &[], &json)),
         ("/collections", get("getCollections", "Collections", &[], &json)),
         (
@@ -125,12 +192,7 @@ fn tiles_paths() -> Map<String, Value> {
         ),
         (
             "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}",
-            get(
-                "collection.getTile",
-                "Tile of a collection",
-                &["collectionId", "tileMatrixSetId", "tileMatrix", "tileRow", "tileCol"],
-                &tiles,
-            ),
+            tile_operation(&tiles),
         ),
         (
             "/tileMatrixSets",
@@ -149,6 +211,21 @@ fn tiles_paths() -> Map<String, Value> {
     paths.into_iter().map(|(path, item)| (path.to_owned(), item)).collect()
 }
 
+/// The tile operation, which also answers empty tiles, unchanged tiles and unacceptable formats.
+fn tile_operation(media_types: &[&str]) -> Value {
+    let mut operation = get(
+        "collection.getTile",
+        "Tile of a collection",
+        &["collectionId", "tileMatrixSetId", "tileMatrix", "tileRow", "tileCol"],
+        media_types,
+    );
+    let responses = &mut operation["get"]["responses"];
+    responses["204"] = json!({ "description": "Source returned an empty tile" });
+    responses["304"] = json!({ "description": "ETag matched If-None-Match" });
+    responses["406"] = json!({ "description": "No supported tile format in Accept header" });
+    operation
+}
+
 /// The paths of OGC API - Styles.
 #[cfg(feature = "resources")]
 fn styles_paths() -> Map<String, Value> {
@@ -160,7 +237,7 @@ fn styles_paths() -> Map<String, Value> {
                 "getStyle",
                 "MapLibre style",
                 &["styleId", "styleEncoding"],
-                &["application/vnd.mapbox.style+json"],
+                &["application/json"],
             ),
         ),
     ];
@@ -184,7 +261,14 @@ fn parameters() -> Value {
             "in": "query",
             "required": false,
             "description": "Style encoding",
-            "schema": { "type": "string", "enum": ["mapbox"] },
+            "schema": { "type": "string", "enum": ["json"] },
+        },
+        "apiEncoding": {
+            "name": "f",
+            "in": "query",
+            "required": false,
+            "description": "Encoding of the API definition",
+            "schema": { "type": "string", "enum": ["json", "html"] },
         },
     })
 }

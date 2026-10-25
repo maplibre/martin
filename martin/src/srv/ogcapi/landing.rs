@@ -48,6 +48,13 @@ pub async fn get_landing_page(req: HttpRequest, srv_config: Data<SrvConfig>) -> 
             templated: false,
         },
         Link {
+            href: ogc_url(&req, &srv_config, "/api?f=html"),
+            rel: "service-doc",
+            media_type: "text/html",
+            title: "The OpenAPI definition of this API, as HTML",
+            templated: false,
+        },
+        Link {
             href: "https://maplibre.org/martin/using/".to_owned(),
             rel: "service-doc",
             media_type: "text/html",

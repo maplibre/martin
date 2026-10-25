@@ -27,6 +27,7 @@ You give it the landing page, `/ogc`, and it follows links from there, picking e
 That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
 
 The landing page also links `/ogc/api`, an [OpenAPI 3.0](https://spec.openapis.org/oas/v3.0.3) definition of every OGC endpoint, for clients that generate requests from it.
+Browsers, and `?f=html`, get it as a [Swagger UI](https://swagger.io/tools/swagger-ui/) page instead, which loads Swagger UI from the jsDelivr CDN.
 
 ## Tile URLs
 

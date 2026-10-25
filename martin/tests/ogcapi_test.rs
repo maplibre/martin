@@ -107,6 +107,12 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
           "title": "The OpenAPI definition of this API"
         },
         {
+          "href": "http://localhost:8080/ogc/api?f=html",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -165,6 +171,18 @@ async fn the_landing_page_links_no_styles_without_resources() {
           "rel": "self",
           "type": "application/json",
           "title": "This document"
+        },
+        {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "http://localhost:8080/ogc/api?f=html",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
         },
         {
           "href": "https://maplibre.org/martin/using/",
@@ -230,6 +248,12 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
           "rel": "service-desc",
           "type": "application/vnd.oai.openapi+json;version=3.0",
           "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/api?f=html",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
         },
         {
           "href": "https://maplibre.org/martin/using/",
@@ -298,6 +322,12 @@ async fn the_proxied_links_have_no_styles_without_resources() {
           "title": "The OpenAPI definition of this API"
         },
         {
+          "href": "https://tiles.example.com/maps/ogc/api?f=html",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -363,6 +393,114 @@ async fn the_api_definition_names_an_operation_for_each_path() {
     "#);
 }
 
+#[cfg(not(feature = "resources"))]
+#[actix_rt::test]
+async fn the_api_definition_has_no_styles_without_resources() {
+    let (config, _conn) = config("ogc_api_definition").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.0"
+    );
+    let definition: serde_json::Value = read_body_json(response).await;
+    let operations: serde_json::Map<String, serde_json::Value> = definition["paths"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(path, item)| (path.clone(), item["get"]["operationId"].clone()))
+        .collect();
+    assert_json_snapshot!(operations, @r#"
+    {
+      "/": "getLandingPage",
+      "/api": "getApi",
+      "/conformance": "getConformance",
+      "/collections": "getCollections",
+      "/collections/{collectionId}": "getCollection",
+      "/collections/{collectionId}/tiles": "collection.getTileSetsList",
+      "/collections/{collectionId}/tiles/{tileMatrixSetId}": "collection.getTileSet",
+      "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": "collection.getTile",
+      "/tileMatrixSets": "getTileMatrixSetsList",
+      "/tileMatrixSets/{tileMatrixSetId}": "getTileMatrixSet"
+    }
+    "#);
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_a_swagger_ui_page_with_f_html() {
+    let (config, _conn) = config("ogc_api_html").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api?f=html").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "text/html; charset=utf-8"
+    );
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @r##"
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Martin OGC API</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+    </head>
+    <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+    <script>SwaggerUIBundle({ url: "?f=json", dom_id: "#swagger-ui" });</script>
+    </body>
+    </html>
+    "##);
+}
+
+#[actix_rt::test]
+async fn browsers_get_the_api_definition_as_html() {
+    let (config, _conn) = config("ogc_api_browser").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "text/html; charset=utf-8"
+    );
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_json_with_f_json_even_for_browsers() {
+    let (config, _conn) = config("ogc_api_f_json").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get()
+        .uri("/ogc/api?f=json")
+        .insert_header(("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.0"
+    );
+}
+
+#[actix_rt::test]
+async fn an_api_definition_in_another_encoding_is_a_bad_request() {
+    let (config, _conn) = config("ogc_api_yaml").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api?f=yaml").to_request()).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"API definition encoding yaml is not supported, only json and html are");
+}
+
+#[cfg(feature = "resources")]
 #[actix_rt::test]
 async fn the_conformance_declaration_lists_the_classes_served() {
     let (config, _conn) = config("ogc_conformance").await;
@@ -408,7 +546,9 @@ async fn the_conformance_declaration_has_no_styles_without_resources() {
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
+        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",
