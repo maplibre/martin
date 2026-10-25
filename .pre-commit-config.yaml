@@ -38,7 +38,7 @@ repos:
       - id: remove-tabs
 
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v10.3.0
+    rev: v10.4.0
     hooks:
       - id: cspell
         # scoped to the docs; `cspell.json` holds the config and `.cspell/project-words.txt` the domain vocabulary
