@@ -4842,7 +4842,7 @@ dependencies = [
  "pest_derive",
  "regex",
  "serde",
- "similar",
+ "similar 2.7.0",
  "strip-ansi-escapes",
  "tempfile",
  "toml_edit",
@@ -5844,7 +5844,7 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "serde_with",
- "similar",
+ "similar 3.2.1",
  "smallvec",
  "static-files 0.2.5",
  "strum 0.28.0",
@@ -9252,6 +9252,15 @@ name = "similar"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
+name = "similar"
+version = "3.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2f8bec09ae8fae0f4f265a4559a9334be3929d8504e9b536df0a41302bd1733"
+dependencies = [
+ "bstr",
+]
 
 [[package]]
 name = "simplecss"
