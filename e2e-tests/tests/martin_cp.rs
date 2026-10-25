@@ -171,6 +171,99 @@ async fn copies_the_only_source_when_none_is_named() {
 }
 
 #[tokio::test]
+async fn deletes_metadata_after_computing_it() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--delete-meta")
+        .arg("description")
+        .arg("--delete-meta")
+        .arg("minzoom")
+        .arg("--delete-meta")
+        .arg("agg_tiles_hash")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(!metadata.contains("description ="), "{metadata}");
+    assert!(!metadata.contains("minzoom ="), "{metadata}");
+    assert!(!metadata.contains("agg_tiles_hash ="), "{metadata}");
+    assert!(metadata.contains("maxzoom = 0"), "{metadata}");
+}
+
+#[tokio::test]
+async fn keeps_an_agg_tiles_hash_set_by_set_meta() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("agg_tiles_hash=ABC")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(metadata.contains("agg_tiles_hash = ABC"), "{metadata}");
+}
+
+#[tokio::test]
+async fn hashes_with_the_hash_algorithm_set_by_set_meta() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("hash_algorithm=xxh64")
+        .run()
+        .await;
+
+    validate(&output).await;
+}
+
+#[tokio::test]
+async fn refuses_a_key_both_set_and_deleted_before_copying() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("name=x")
+        .arg("--delete-meta")
+        .arg("name")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Metadata key name cannot be both set and deleted");
+    assert!(!output.exists(), "the copy started before the conflict was found");
+}
+
+#[tokio::test]
 async fn falls_back_to_the_source_bounds_without_a_bbox() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;

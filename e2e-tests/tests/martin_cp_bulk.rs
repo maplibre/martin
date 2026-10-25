@@ -537,13 +537,15 @@ async fn refuses_options_only_tile_mode_reads() {
         .arg("--skip-agg-tiles-hash")
         .arg("--set-meta")
         .arg("name=x")
+        .arg("--delete-meta")
+        .arg("bounds")
         .arg("--save-config")
         .arg("saved.yaml")
         .arg("--max-feature-count")
         .arg("10")
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config`, `--max-feature-count`");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`, `--save-config`, `--max-feature-count`");
 }
 
 #[tokio::test]

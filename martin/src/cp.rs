@@ -29,8 +29,8 @@ use martin_tile_utils::{Format, TileCoord, TileData, TileGrid, TileInfo, TileRec
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
-    CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, MbtilesBulkWriter, TileDedup, init_mbtiles_schema,
-    is_empty_database, parse_key_value,
+    AGG_TILES_HASH, CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, MbtilesBulkWriter, TileDedup,
+    check_metadata_edit, init_mbtiles_schema, is_empty_database, parse_key_value,
 };
 use tilejson::Bounds;
 use tokio::runtime::Handle;
@@ -171,6 +171,9 @@ pub struct CopyArgs {
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
+    /// Delete metadata values after the copy, including computed ones. Can be specified multiple times.
+    #[arg(long, value_name = "KEY")]
+    pub delete_meta: Vec<String>,
     /// Bulk mode: memory for sorting, e.g. `512MB` or `2GiB`, split over the threads. A bare number is in MB. [DEFAULT: 2GiB]
     #[cfg(feature = "unstable-generate")]
     #[arg(long, value_parser = crate::config::args::parse_byte_size)]
@@ -251,6 +254,7 @@ impl Default for CopyArgs {
             zoom_levels: Vec::new(),
             skip_agg_tiles_hash: true,
             set_meta: Vec::new(),
+            delete_meta: Vec::new(),
             #[cfg(feature = "unstable-generate")]
             memory: None,
             #[cfg(feature = "unstable-generate")]
@@ -266,7 +270,7 @@ pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     match copy_args.copy.mode {
         CopyMode::Tile | CopyMode::Auto => Box::pin(copy_tiles(copy_args)).await,
         #[cfg(feature = "unstable-generate")]
-        CopyMode::Bulk => Ok(crate::generate::start(copy_args).await.map_err(Box::new)?),
+        CopyMode::Bulk => Ok(Box::pin(crate::generate::start(copy_args)).await.map_err(Box::new)?),
     }
 }
 
@@ -315,7 +319,7 @@ async fn copy_tiles(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-/// Refuses the options that only bulk mode reads, and a copy without zooms.
+/// Refuses the options that only bulk mode reads, a copy without zooms, and a key both set and deleted.
 fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
     #[cfg(feature = "unstable-generate")]
     {
@@ -334,6 +338,7 @@ fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
     if args.max_zoom.is_none() && args.zoom_levels.is_empty() {
         return Err(MartinCpError::NoZooms);
     }
+    check_metadata_edit(&args.set_meta, &args.delete_meta)?;
     Ok(())
 }
 
@@ -839,11 +844,11 @@ where
 
     // 7. Finalise the output file
     mbt.update_metadata(&mut conn, GrowOnly).await?;
-    for (key, value) in args.set_meta {
-        info!(metadata.name = %key, metadata.value = %value, "Setting metadata");
-        mbt.set_metadata_value(&mut conn, &key, value).await?;
-    }
-    if !args.skip_agg_tiles_hash {
+    // Before the hash, so it uses an edited `hash_algorithm`.
+    mbt.edit_metadata(&mut conn, &args.set_meta, &args.delete_meta).await?;
+    let hash_edited = args.delete_meta.iter().any(|key| key == AGG_TILES_HASH)
+        || args.set_meta.iter().any(|(key, _)| key == AGG_TILES_HASH);
+    if !args.skip_agg_tiles_hash && !hash_edited {
         if progress.did_copy_tiles() {
             info!("Computing agg_tiles_hash value...");
             mbt.update_agg_tiles_hash(&mut conn).await?;

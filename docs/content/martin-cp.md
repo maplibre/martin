@@ -30,6 +30,9 @@ cargo build --package martin --bin martin --features=unstable-duckdb
 After copying, `martin cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified.
 This allows the MBTiles file to be [validated](mbtiles-validation.md#aggregate-content-validation) using `mbtiles validate` command.
 
+`--set-meta KEY=VALUE` and `--delete-meta KEY` edit the metadata after the copy, so they can override the computed values.
+A key that is both set and deleted is an error, and nothing is copied.
+
 ## Usage
 
 This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](mbtiles-schema.md#normalized) schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.
