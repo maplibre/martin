@@ -2349,8 +2349,8 @@ serving, such as caching, are ignored.</p>
 <p>The tile server's <a href="../run-with-cli/">configuration and PostgreSQL arguments</a> also apply, such as
 <code>--config</code> and <code>--pool-size</code>. A configuration file and connection strings cannot be combined.</p>
 <p>Bulk mode refuses the <code>martin cp</code> options it does not read: <code>--url-query</code>, <code>--mbtiles-type</code>,
-<code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--save-config</code> and
-<code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
+<code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--delete-meta</code>,
+<code>--save-config</code> and <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
 <p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below <code>--min-zoom</code> do not count.

@@ -107,7 +107,7 @@ Of a [table source](<https://maplibre.org/martin/sources-pg-tables/index.md>), b
 
 The tile server's [configuration and PostgreSQL arguments](<https://maplibre.org/martin/run-with-cli/index.md>) also apply, such as `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
-Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`, `--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world. Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count. For a small box, raise `--min-zoom` to keep the scan close to it.
 

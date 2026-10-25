@@ -18,6 +18,8 @@ cargo build --package martin --bin martin --features=unstable-duckdb
 
 After copying, `martin cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified. This allows the MBTiles file to be [validated](<https://maplibre.org/martin/mbtiles-validation/#aggregate-content-validation>) using `mbtiles validate` command.
 
+`--set-meta KEY=VALUE` and `--delete-meta KEY` edit the metadata after the copy, so they can override the computed values. A key that is both set and deleted is an error, and nothing is copied.
+
 ## Usage
 
 This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](<https://maplibre.org/martin/mbtiles-schema/#normalized>) schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.
@@ -164,6 +166,9 @@ Options:
 
       --set-meta <KEY=VALUE>
           Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times
+
+      --delete-meta <KEY>
+          Delete metadata values after the copy, including computed ones. Can be specified multiple times
 
   -c, --config <CONFIG>
           Path to config file. If set, no tile source-related parameters are allowed

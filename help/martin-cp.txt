@@ -74,6 +74,9 @@ Options:
       --set-meta <KEY=VALUE>
           Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times
 
+      --delete-meta <KEY>
+          Delete metadata values after the copy, including computed ones. Can be specified multiple times
+
   -c, --config <CONFIG>
           Path to config file. If set, no tile source-related parameters are allowed
 

@@ -2190,6 +2190,8 @@ To use them, build <code>martin</code> with the feature and list the source in t
 </span></code></pre></div>
 <p>After copying, <code>martin cp</code> will update the <code>agg_tiles_hash</code> metadata value unless <code>--skip-agg-tiles-hash</code> is specified.
 This allows the MBTiles file to be <a href="../mbtiles-validation/#aggregate-content-validation">validated</a> using <code>mbtiles validate</code> command.</p>
+<p><code>--set-meta KEY=VALUE</code> and <code>--delete-meta KEY</code> edit the metadata after the copy, so they can override the computed values.
+A key that is both set and deleted is an error, and nothing is copied.</p>
 <h2 id="usage">Usage</h2>
 <p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="../mbtiles-schema/#normalized">normalized</a> schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>cp<span class="w">  </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w">                         </span><span class="se">\</span>
@@ -2332,65 +2334,68 @@ The tiles describe the same features as that conversion would:</p>
 </span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>      --set-meta &lt;KEY=VALUE&gt;
 </span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>          Set additional metadata values. Must be set as "key=value" pairs. Can be specified multiple times
 </span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>
-</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>  -c, --config &lt;CONFIG&gt;
-</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          Path to config file. If set, no tile source-related parameters are allowed
+</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>      --delete-meta &lt;KEY&gt;
+</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          Delete metadata values after the copy, including computed ones. Can be specified multiple times
 </span><span id="__span-2-79"><a id="__codelineno-2-79" name="__codelineno-2-79" href="#__codelineno-2-79"></a>
-</span><span id="__span-2-80"><a id="__codelineno-2-80" name="__codelineno-2-80" href="#__codelineno-2-80"></a>      --save-config &lt;SAVE_CONFIG&gt;
-</span><span id="__span-2-81"><a id="__codelineno-2-81" name="__codelineno-2-81" href="#__codelineno-2-81"></a>          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
+</span><span id="__span-2-80"><a id="__codelineno-2-80" name="__codelineno-2-80" href="#__codelineno-2-80"></a>  -c, --config &lt;CONFIG&gt;
+</span><span id="__span-2-81"><a id="__codelineno-2-81" name="__codelineno-2-81" href="#__codelineno-2-81"></a>          Path to config file. If set, no tile source-related parameters are allowed
 </span><span id="__span-2-82"><a id="__codelineno-2-82" name="__codelineno-2-82" href="#__codelineno-2-82"></a>
-</span><span id="__span-2-83"><a id="__codelineno-2-83" name="__codelineno-2-83" href="#__codelineno-2-83"></a>      --on-invalid &lt;ON_INVALID&gt;
-</span><span id="__span-2-84"><a id="__codelineno-2-84" name="__codelineno-2-84" href="#__codelineno-2-84"></a>          Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+</span><span id="__span-2-83"><a id="__codelineno-2-83" name="__codelineno-2-83" href="#__codelineno-2-83"></a>      --save-config &lt;SAVE_CONFIG&gt;
+</span><span id="__span-2-84"><a id="__codelineno-2-84" name="__codelineno-2-84" href="#__codelineno-2-84"></a>          Save resulting config to a file or use "-" to print to stdout. By default, only print if sources are auto-detected
 </span><span id="__span-2-85"><a id="__codelineno-2-85" name="__codelineno-2-85" href="#__codelineno-2-85"></a>
-</span><span id="__span-2-86"><a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a>          Possible values:
-</span><span id="__span-2-87"><a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>          - warn:  Log warning messages, abort if the error is critical
-</span><span id="__span-2-88"><a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>          - abort: Log warnings as errors, abort startup
-</span><span id="__span-2-89"><a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>
-</span><span id="__span-2-90"><a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>      --no-tui
-</span><span id="__span-2-91"><a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>          Print the log stream instead of the live dashboard an interactive terminal gets by default
+</span><span id="__span-2-86"><a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a>      --on-invalid &lt;ON_INVALID&gt;
+</span><span id="__span-2-87"><a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>          Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+</span><span id="__span-2-88"><a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>
+</span><span id="__span-2-89"><a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>          Possible values:
+</span><span id="__span-2-90"><a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>          - warn:  Log warning messages, abort if the error is critical
+</span><span id="__span-2-91"><a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>          - abort: Log warnings as errors, abort startup
 </span><span id="__span-2-92"><a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>
-</span><span id="__span-2-93"><a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>  -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
-</span><span id="__span-2-94"><a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>          Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
+</span><span id="__span-2-93"><a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>      --no-tui
+</span><span id="__span-2-94"><a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>          Print the log stream instead of the live dashboard an interactive terminal gets by default
 </span><span id="__span-2-95"><a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>
-</span><span id="__span-2-96"><a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>          Possible values:
-</span><span id="__span-2-97"><a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>          - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
-</span><span id="__span-2-98"><a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>          - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes
-</span><span id="__span-2-99"><a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>          - skip:  Skip bounds calculation. The bounds will be set to the whole world
-</span><span id="__span-2-100"><a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>
-</span><span id="__span-2-101"><a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>      --ca-root-file &lt;CA_ROOT_FILE&gt;
-</span><span id="__span-2-102"><a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>          Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
+</span><span id="__span-2-96"><a id="__codelineno-2-96" name="__codelineno-2-96" href="#__codelineno-2-96"></a>  -b, --auto-bounds &lt;AUTO_BOUNDS&gt;
+</span><span id="__span-2-97"><a id="__codelineno-2-97" name="__codelineno-2-97" href="#__codelineno-2-97"></a>          Specify how bounds should be computed for the spatial PG tables. [DEFAULT: quick]
+</span><span id="__span-2-98"><a id="__codelineno-2-98" name="__codelineno-2-98" href="#__codelineno-2-98"></a>
+</span><span id="__span-2-99"><a id="__codelineno-2-99" name="__codelineno-2-99" href="#__codelineno-2-99"></a>          Possible values:
+</span><span id="__span-2-100"><a id="__codelineno-2-100" name="__codelineno-2-100" href="#__codelineno-2-100"></a>          - quick: Compute table geometry bounds, but abort if it takes longer than 5 seconds
+</span><span id="__span-2-101"><a id="__codelineno-2-101" name="__codelineno-2-101" href="#__codelineno-2-101"></a>          - calc:  Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes
+</span><span id="__span-2-102"><a id="__codelineno-2-102" name="__codelineno-2-102" href="#__codelineno-2-102"></a>          - skip:  Skip bounds calculation. The bounds will be set to the whole world
 </span><span id="__span-2-103"><a id="__codelineno-2-103" name="__codelineno-2-103" href="#__codelineno-2-103"></a>
-</span><span id="__span-2-104"><a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>  -d, --default-srid &lt;DEFAULT_SRID&gt;
-</span><span id="__span-2-105"><a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>          If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
+</span><span id="__span-2-104"><a id="__codelineno-2-104" name="__codelineno-2-104" href="#__codelineno-2-104"></a>      --ca-root-file &lt;CA_ROOT_FILE&gt;
+</span><span id="__span-2-105"><a id="__codelineno-2-105" name="__codelineno-2-105" href="#__codelineno-2-105"></a>          Loads trusted root certificates from a file. The file should contain a sequence of PEM-formatted CA certificates
 </span><span id="__span-2-106"><a id="__codelineno-2-106" name="__codelineno-2-106" href="#__codelineno-2-106"></a>
-</span><span id="__span-2-107"><a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>  -p, --pool-size &lt;POOL_SIZE&gt;
-</span><span id="__span-2-108"><a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>          Maximum Postgres connections pool size [DEFAULT: 20]
+</span><span id="__span-2-107"><a id="__codelineno-2-107" name="__codelineno-2-107" href="#__codelineno-2-107"></a>  -d, --default-srid &lt;DEFAULT_SRID&gt;
+</span><span id="__span-2-108"><a id="__codelineno-2-108" name="__codelineno-2-108" href="#__codelineno-2-108"></a>          If a spatial PG table has SRID 0, then this default SRID will be used as a fallback
 </span><span id="__span-2-109"><a id="__codelineno-2-109" name="__codelineno-2-109" href="#__codelineno-2-109"></a>
-</span><span id="__span-2-110"><a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>      --pg-retry-timeout &lt;PG_RETRY_TIMEOUT&gt;
-</span><span id="__span-2-111"><a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>          How long the first PostgreSQL connection is retried before startup fails, a duration like 30s or infinite. [DEFAULT: 30s]
+</span><span id="__span-2-110"><a id="__codelineno-2-110" name="__codelineno-2-110" href="#__codelineno-2-110"></a>  -p, --pool-size &lt;POOL_SIZE&gt;
+</span><span id="__span-2-111"><a id="__codelineno-2-111" name="__codelineno-2-111" href="#__codelineno-2-111"></a>          Maximum Postgres connections pool size [DEFAULT: 20]
 </span><span id="__span-2-112"><a id="__codelineno-2-112" name="__codelineno-2-112" href="#__codelineno-2-112"></a>
-</span><span id="__span-2-113"><a id="__codelineno-2-113" name="__codelineno-2-113" href="#__codelineno-2-113"></a>  -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
-</span><span id="__span-2-114"><a id="__codelineno-2-114" name="__codelineno-2-114" href="#__codelineno-2-114"></a>          Limit the number of geo features per tile.
+</span><span id="__span-2-113"><a id="__codelineno-2-113" name="__codelineno-2-113" href="#__codelineno-2-113"></a>      --pg-retry-timeout &lt;PG_RETRY_TIMEOUT&gt;
+</span><span id="__span-2-114"><a id="__codelineno-2-114" name="__codelineno-2-114" href="#__codelineno-2-114"></a>          How long the first PostgreSQL connection is retried before startup fails, a duration like 30s or infinite. [DEFAULT: 30s]
 </span><span id="__span-2-115"><a id="__codelineno-2-115" name="__codelineno-2-115" href="#__codelineno-2-115"></a>
-</span><span id="__span-2-116"><a id="__codelineno-2-116" name="__codelineno-2-116" href="#__codelineno-2-116"></a>          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost
-</span><span id="__span-2-117"><a id="__codelineno-2-117" name="__codelineno-2-117" href="#__codelineno-2-117"></a>          of not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
+</span><span id="__span-2-116"><a id="__codelineno-2-116" name="__codelineno-2-116" href="#__codelineno-2-116"></a>  -m, --max-feature-count &lt;MAX_FEATURE_COUNT&gt;
+</span><span id="__span-2-117"><a id="__codelineno-2-117" name="__codelineno-2-117" href="#__codelineno-2-117"></a>          Limit the number of geo features per tile.
 </span><span id="__span-2-118"><a id="__codelineno-2-118" name="__codelineno-2-118" href="#__codelineno-2-118"></a>
-</span><span id="__span-2-119"><a id="__codelineno-2-119" name="__codelineno-2-119" href="#__codelineno-2-119"></a>          Can be either a positive integer or unlimited if omitted.
-</span><span id="__span-2-120"><a id="__codelineno-2-120" name="__codelineno-2-120" href="#__codelineno-2-120"></a>
-</span><span id="__span-2-121"><a id="__codelineno-2-121" name="__codelineno-2-121" href="#__codelineno-2-121"></a>      --ssl-cert &lt;SSL_CERT&gt;
-</span><span id="__span-2-122"><a id="__codelineno-2-122" name="__codelineno-2-122" href="#__codelineno-2-122"></a>          A file with a client SSL certificate
+</span><span id="__span-2-119"><a id="__codelineno-2-119" name="__codelineno-2-119" href="#__codelineno-2-119"></a>          If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete. This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost
+</span><span id="__span-2-120"><a id="__codelineno-2-120" name="__codelineno-2-120" href="#__codelineno-2-120"></a>          of not returning all data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at Null Island.
+</span><span id="__span-2-121"><a id="__codelineno-2-121" name="__codelineno-2-121" href="#__codelineno-2-121"></a>
+</span><span id="__span-2-122"><a id="__codelineno-2-122" name="__codelineno-2-122" href="#__codelineno-2-122"></a>          Can be either a positive integer or unlimited if omitted.
 </span><span id="__span-2-123"><a id="__codelineno-2-123" name="__codelineno-2-123" href="#__codelineno-2-123"></a>
-</span><span id="__span-2-124"><a id="__codelineno-2-124" name="__codelineno-2-124" href="#__codelineno-2-124"></a>      --ssl-key &lt;SSL_KEY&gt;
-</span><span id="__span-2-125"><a id="__codelineno-2-125" name="__codelineno-2-125" href="#__codelineno-2-125"></a>          A file with the key for the client SSL certificate
+</span><span id="__span-2-124"><a id="__codelineno-2-124" name="__codelineno-2-124" href="#__codelineno-2-124"></a>      --ssl-cert &lt;SSL_CERT&gt;
+</span><span id="__span-2-125"><a id="__codelineno-2-125" name="__codelineno-2-125" href="#__codelineno-2-125"></a>          A file with a client SSL certificate
 </span><span id="__span-2-126"><a id="__codelineno-2-126" name="__codelineno-2-126" href="#__codelineno-2-126"></a>
-</span><span id="__span-2-127"><a id="__codelineno-2-127" name="__codelineno-2-127" href="#__codelineno-2-127"></a>  -h, --help
-</span><span id="__span-2-128"><a id="__codelineno-2-128" name="__codelineno-2-128" href="#__codelineno-2-128"></a>          Print help (see a summary with '-h')
+</span><span id="__span-2-127"><a id="__codelineno-2-127" name="__codelineno-2-127" href="#__codelineno-2-127"></a>      --ssl-key &lt;SSL_KEY&gt;
+</span><span id="__span-2-128"><a id="__codelineno-2-128" name="__codelineno-2-128" href="#__codelineno-2-128"></a>          A file with the key for the client SSL certificate
 </span><span id="__span-2-129"><a id="__codelineno-2-129" name="__codelineno-2-129" href="#__codelineno-2-129"></a>
-</span><span id="__span-2-130"><a id="__codelineno-2-130" name="__codelineno-2-130" href="#__codelineno-2-130"></a>  -V, --version
-</span><span id="__span-2-131"><a id="__codelineno-2-131" name="__codelineno-2-131" href="#__codelineno-2-131"></a>          Print version
+</span><span id="__span-2-130"><a id="__codelineno-2-130" name="__codelineno-2-130" href="#__codelineno-2-130"></a>  -h, --help
+</span><span id="__span-2-131"><a id="__codelineno-2-131" name="__codelineno-2-131" href="#__codelineno-2-131"></a>          Print help (see a summary with '-h')
 </span><span id="__span-2-132"><a id="__codelineno-2-132" name="__codelineno-2-132" href="#__codelineno-2-132"></a>
-</span><span id="__span-2-133"><a id="__codelineno-2-133" name="__codelineno-2-133" href="#__codelineno-2-133"></a>Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.
-</span><span id="__span-2-134"><a id="__codelineno-2-134" name="__codelineno-2-134" href="#__codelineno-2-134"></a>Use RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.
-</span><span id="__span-2-135"><a id="__codelineno-2-135" name="__codelineno-2-135" href="#__codelineno-2-135"></a>See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.
+</span><span id="__span-2-133"><a id="__codelineno-2-133" name="__codelineno-2-133" href="#__codelineno-2-133"></a>  -V, --version
+</span><span id="__span-2-134"><a id="__codelineno-2-134" name="__codelineno-2-134" href="#__codelineno-2-134"></a>          Print version
+</span><span id="__span-2-135"><a id="__codelineno-2-135" name="__codelineno-2-135" href="#__codelineno-2-135"></a>
+</span><span id="__span-2-136"><a id="__codelineno-2-136" name="__codelineno-2-136" href="#__codelineno-2-136"></a>Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.
+</span><span id="__span-2-137"><a id="__codelineno-2-137" name="__codelineno-2-137" href="#__codelineno-2-137"></a>Use RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.
+</span><span id="__span-2-138"><a id="__codelineno-2-138" name="__codelineno-2-138" href="#__codelineno-2-138"></a>See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.
 </span></code></pre></div>
 
 
