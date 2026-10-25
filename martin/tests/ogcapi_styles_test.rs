@@ -46,9 +46,9 @@ async fn the_styles_list_links_each_style_in_the_maplibre_format() {
           "title": "MapLibre",
           "links": [
             {
-              "href": "http://localhost:8080/ogc/styles/maplibre_demo?f=mapbox",
+              "href": "http://localhost:8080/ogc/styles/maplibre_demo",
               "rel": "stylesheet",
-              "type": "application/vnd.mapbox.style+json",
+              "type": "application/json",
               "title": "MapLibre style"
             }
           ]
@@ -58,9 +58,9 @@ async fn the_styles_list_links_each_style_in_the_maplibre_format() {
           "title": "Relative URLs Test",
           "links": [
             {
-              "href": "http://localhost:8080/ogc/styles/relative_urls?f=mapbox",
+              "href": "http://localhost:8080/ogc/styles/relative_urls",
               "rel": "stylesheet",
-              "type": "application/vnd.mapbox.style+json",
+              "type": "application/json",
               "title": "MapLibre style"
             }
           ]
@@ -86,13 +86,10 @@ async fn a_style_is_served_as_a_maplibre_style() {
             maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "});
 
-    let request = TestRequest::get().uri("/ogc/styles/maplibre_demo?f=mapbox");
+    let request = TestRequest::get().uri("/ogc/styles/maplibre_demo?f=json");
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.mapbox.style+json"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
 }
 
 #[actix_rt::test]
@@ -135,7 +132,7 @@ async fn a_style_in_another_encoding_is_a_bad_request() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let body = read_body(response).await;
-    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Style encoding sld10 is not supported, only mapbox is");
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Style encoding sld10 is not supported, only json is");
 }
 
 #[actix_rt::test]

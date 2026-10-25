@@ -979,7 +979,7 @@ export interface operations {
     get_style: {
         parameters: {
             query?: {
-                /** @description Style encoding, only `mapbox` is supported. */
+                /** @description Style encoding, only `json` is supported. */
                 f?: string | null;
             };
             header?: never;
@@ -997,7 +997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/vnd.mapbox.style+json": unknown;
+                    "application/json": unknown;
                 };
             };
             /** @description Unsupported style encoding, or the style file is malformed */

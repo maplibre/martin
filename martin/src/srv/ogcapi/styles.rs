@@ -12,11 +12,8 @@ use crate::maplibre_style::Style;
 use crate::srv::server::map_error;
 use crate::srv::styles::absolute_style;
 
-/// Media type of a style in the `MapLibre` (Mapbox) style format.
-const MAPLIBRE_STYLE: &str = "application/vnd.mapbox.style+json";
-
 /// The value of `f` that selects the `MapLibre` style encoding.
-const MAPLIBRE_STYLE_FORMAT: &str = "mapbox";
+const MAPLIBRE_STYLE_FORMAT: &str = "json";
 
 /// The styles the OGC API serves.
 #[derive(Serialize, Debug)]
@@ -40,7 +37,7 @@ struct StyleDescription {
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
 pub struct StyleQuery {
-    /// Style encoding, only `mapbox` is supported.
+    /// Style encoding, only `json` is supported.
     f: Option<String>,
 }
 
@@ -60,13 +57,9 @@ async fn style_description(
         id: id.to_owned(),
         title,
         links: vec![Link {
-            href: ogc_url(
-                req,
-                srv_config,
-                &format!("/styles/{}?f={MAPLIBRE_STYLE_FORMAT}", path_segment(id)),
-            ),
+            href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
             rel: "stylesheet",
-            media_type: MAPLIBRE_STYLE,
+            media_type: "application/json",
             title: "MapLibre style",
             templated: false,
         }],
@@ -114,7 +107,7 @@ pub async fn get_styles(req: HttpRequest, srv_config: Data<SrvConfig>, styles: D
         path = "/ogc/styles/{style_id}",
         params(("style_id" = String, Path, description = "Style ID"), StyleQuery),
         responses(
-            (status = 200, description = "MapLibre style", content_type = "application/vnd.mapbox.style+json"),
+            (status = 200, description = "MapLibre style", content_type = "application/json"),
             (status = 400, description = "Unsupported style encoding, or the style file is malformed"),
             (status = 404, description = "No such style"),
         ),
@@ -139,7 +132,7 @@ pub async fn get_style(
         return Err(map_error(&OgcApiError::UnsupportedStyleEncoding { encoding: format }));
     }
     Ok(match absolute_style(&req, &srv_config, &styles, &id).await {
-        Ok(style) => HttpResponse::Ok().content_type(MAPLIBRE_STYLE).json(style),
+        Ok(style) => HttpResponse::Ok().json(style),
         Err(unavailable) => unavailable.response(),
     })
 }

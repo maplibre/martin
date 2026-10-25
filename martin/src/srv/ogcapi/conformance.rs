@@ -19,10 +19,9 @@ const TILES_CONFORMS_TO: [&str; 10] = [
 
 /// The conformance classes of OGC API - Styles this API implements.
 #[cfg(feature = "resources")]
-const STYLES_CONFORMS_TO: [&str; 3] = [
+const STYLES_CONFORMS_TO: [&str; 2] = [
     "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
     "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
-    "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/mapbox-style",
 ];
 
 /// The conformance declaration of the OGC API.

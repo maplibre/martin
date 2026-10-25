@@ -16,9 +16,9 @@ pub enum OgcApiError {
         tile_matrix_set: String,
     },
 
-    /// A style was asked for in an encoding other than `mapbox`.
+    /// A style was asked for in an encoding other than `json`.
     #[cfg(feature = "resources")]
-    #[error("Style encoding {encoding} is not supported, only mapbox is")]
+    #[error("Style encoding {encoding} is not supported, only json is")]
     UnsupportedStyleEncoding { encoding: String },
 }
 

@@ -1115,7 +1115,7 @@
             }
           },
           {
-            "description": "Style encoding, only `mapbox` is supported.",
+            "description": "Style encoding, only `json` is supported.",
             "in": "query",
             "name": "f",
             "required": false,
@@ -1127,7 +1127,7 @@
         "responses": {
           "200": {
             "content": {
-              "application/vnd.mapbox.style+json": {}
+              "application/json": {}
             },
             "description": "MapLibre style"
           },
