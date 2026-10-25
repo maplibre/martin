@@ -1458,6 +1458,35 @@ mod tests {
     }
 
     #[test]
+    fn simplification_keeps_the_first_of_two_equally_far_vertices() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line = LineString::from(vec![
+            (100.0 / 256.0, 100.0 / 256.0),
+            (110.0 / 256.0, 103.0 / 256.0),
+            (120.0 / 256.0, 103.0 / 256.0),
+            (130.0 / 256.0, 100.0 / 256.0),
+        ]);
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold {
+                    below_max_zoom: 2.0,
+                    at_max_zoom: 2.0,
+                },
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[100, 100], [110, 103], [130, 100]]);
+    }
+
+    #[test]
     fn features_past_the_antimeridian_move_into_the_world() {
         let layer = RenderLayer::new(0, 2..=2, GRID).unwrap();
         let tiles = render(
