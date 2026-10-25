@@ -147,10 +147,17 @@ jobs:
         path: ${{ runner.temp }}/codeql-cargo-target
         key: codeql-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: codeql-rust-${{ runner.os }}-
+    - name: List every Rust feature except hotpath's profiling ones
+      if: matrix.language == 'rust'
+      id: rust-features
+      run: |
+        list=$(cargo metadata --no-deps --format-version 1 | jq -r '[.packages[] | .name as $p | .features | keys[] | select(contains("hotpath") | not) | "\($p)/\(.)"] | join(",")')
+        echo "list=$list" >> "$GITHUB_OUTPUT"
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       env:
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ runner.temp }}/codeql-cargo-target
+        CODEQL_EXTRACTOR_RUST_OPTION_CARGO_FEATURES: ${{ steps.rust-features.outputs.list }}
       with:
         category: "/language:${{matrix.language}}"
     - name: Save the Rust extractor's cargo cache
