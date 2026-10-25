@@ -6,6 +6,12 @@
 >
 > If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](<https://raw.githubusercontent.com/maplibre/martin/main/schemas/openapi.json>).
 
+> [!TIP]
+>
+> **OGC compliant API endpoints**
+>
+> Martin also serves its tiles through [OGC API - Tiles](<https://maplibre.org/martin/ogc-api/index.md>) under `/ogc`, for clients that need an OGC compliant API. We only recommend them if OGC compliance is a requirement, because they are more complicated to use than the endpoints below.
+
 Martin data is available via these HTTP `GET` endpoints:
 
 | URL | Description |
@@ -23,6 +29,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/style/{style}` | [Style source](<https://maplibre.org/martin/sources-styles/index.md>) |
 | `/style/{style}/{z}/{x}/{y}.{ext}` | [Rendered raster tiles](<https://maplibre.org/martin/sources-styles/rendering/index.md>) (Linux) |
 | `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](<https://maplibre.org/martin/sources-styles/rendering/#static-images>) (Linux) |
+| `/ogc`, `/ogc/...` | [OGC API - Tiles](<https://maplibre.org/martin/ogc-api/index.md>) |
 | `/health` | Martin server health check: returns 200 `OK` |
 | `/_/metrics` | Martin server Prometheus metrics |
 

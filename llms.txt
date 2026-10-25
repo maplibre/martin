@@ -61,6 +61,7 @@ patches and validates MBTiles archives.
 ## API and Usage
 
 - [Available API Endpoints](<https://maplibre.org/martin/using/index.md>): HTTP API endpoints served by Martin
+- [OGC API - Tiles](<https://maplibre.org/martin/ogc-api/index.md>): Serving tiles through the OGC API - Tiles standard
 - [Guides](<https://maplibre.org/martin/using-guides/index.md>): Overview of the available guides
 - [Self-hosting a basemap from scratch](<https://maplibre.org/martin/recipe-basemap-selfhosted/index.md>): Self-hosting a fully styled basemap from scratch
 - [Map renderer specific](<https://maplibre.org/martin/using-with-renderer/index.md>): Using Martin with map renderers
