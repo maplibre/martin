@@ -92,13 +92,13 @@ With [rendering](sources-styles/rendering.md) enabled, Martin also renders maps 
 `/ogc/styles/{styleID}/map` is a style rendered as one image.
 `/ogc/collections/{sourceID}/map` is a raster source as one image.
 Only raster sources on `WebMercatorQuad` have such a map, and their collections link it; vector data is drawn through a style.
-Each collection also gives its `storageCrs`, the CRS of its grid, with its bounds in that CRS.
+Each collection also gives its `storageCrs`, the CRS of its grid, with its bounds in that CRS when Martin can convert them.
 A map is in the format the `Accept` header weighs highest, ignoring `q=0`: PNG (also for `*/*` or no header) or JPEG.
 
 | Parameter           | Meaning                                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------------------|
 | `width`, `height`   | size in pixels, up to 2048; with one, the other follows the area; with neither, the longer side is 1024     |
-| `bbox`              | area as its lower left and upper right corners, in the axis order of `bbox-crs`; by default the bounds of a collection map's collection, or the whole world |
+| `bbox`              | area as corners in `bbox-crs` axis order; defaults to a collection's bounds, or the world for a style       |
 | `bbox-crs`          | CRS of `bbox`: CRS84 (default), EPSG:4326 or EPSG:3857                                                      |
 | `center`            | point as `x,y` to center the map on, instead of `bbox`                                                      |
 | `center-crs`        | CRS of `center`, as for `bbox-crs`                                                                          |

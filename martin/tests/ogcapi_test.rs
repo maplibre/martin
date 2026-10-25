@@ -858,15 +858,7 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
                   59.352706
                 ]
               ],
-              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
-              "storageCrsBbox": [
-                [
-                  1000000.0,
-                  2000000.0,
-                  5500000.0,
-                  6500000.0
-                ]
-              ]
+              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
             }
           },
           "crs": [

@@ -86,8 +86,10 @@ fn collection(
     let bounds = tilejson.bounds.unwrap_or_default();
     let bbox = [bounds.left, bounds.bottom, bounds.right, bounds.top];
     let grid = source.tile_grid();
-    let storage_bbox = grid.crs_bounds(bbox).unwrap_or_else(|| grid.bounds());
-    let storage_crs_bbox = crs(grid).map(|storage| [storage.bbox(storage_bbox)]);
+    let storage_crs_bbox = grid
+        .crs_bounds(bbox)
+        .zip(crs(grid))
+        .map(|(storage_bbox, storage)| [storage.bbox(storage_bbox)]);
     let segment = path_segment(id);
     #[cfg_attr(
         not(all(feature = "rendering", target_os = "linux")),
