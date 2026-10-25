@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, route};
 use serde::Serialize;
 
 /// The conformance classes of OGC API - Common, OGC API - Tiles and the Tile Matrix Set standard this API implements.
-const CONFORMS_TO: [&str; 10] = [
+const TILES_CONFORMS_TO: [&str; 10] = [
     "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
     "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
     "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
@@ -17,12 +17,20 @@ const CONFORMS_TO: [&str; 10] = [
     "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset",
 ];
 
+/// The conformance classes of OGC API - Styles this API implements.
+#[cfg(feature = "resources")]
+const STYLES_CONFORMS_TO: [&str; 3] = [
+    "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
+    "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
+    "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/mapbox-style",
+];
+
 /// The conformance declaration of the OGC API.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct Conformance {
-    conforms_to: &'static [&'static str],
+    conforms_to: Vec<&'static str>,
 }
 
 /// The conformance classes the OGC API implements.
@@ -44,7 +52,9 @@ struct Conformance {
     wrap = "Compress::default()"
 )]
 pub async fn get_conformance() -> HttpResponse {
-    HttpResponse::Ok().json(Conformance {
-        conforms_to: &CONFORMS_TO,
-    })
+    #[cfg_attr(not(feature = "resources"), expect(unused_mut, reason = "only styles add classes"))]
+    let mut conforms_to = TILES_CONFORMS_TO.to_vec();
+    #[cfg(feature = "resources")]
+    conforms_to.extend(STYLES_CONFORMS_TO);
+    HttpResponse::Ok().json(Conformance { conforms_to })
 }

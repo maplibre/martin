@@ -15,6 +15,11 @@ pub enum OgcApiError {
         collection: String,
         tile_matrix_set: String,
     },
+
+    /// A style was asked for in an encoding other than `mapbox`.
+    #[cfg(feature = "resources")]
+    #[error("Style encoding {encoding} is not supported, only mapbox is")]
+    UnsupportedStyleEncoding { encoding: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -23,6 +28,8 @@ impl martin_core::Classify for OgcApiError {
             Self::UnknownTileMatrixSet(_) | Self::UnknownCollection(_) | Self::UnknownTileset { .. } => {
                 martin_core::ErrorKind::NotFound
             }
+            #[cfg(feature = "resources")]
+            Self::UnsupportedStyleEncoding { .. } => martin_core::ErrorKind::InvalidInput,
         }
     }
 }

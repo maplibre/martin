@@ -68,6 +68,12 @@ struct MartinRenderingOpenApi;
 ))]
 struct MartinOgcApiOpenApi;
 
+/// The OGC API - Styles routes.
+#[cfg(all(feature = "ogcapi", feature = "resources"))]
+#[derive(OpenApi)]
+#[openapi(paths(crate::srv::ogcapi::get_styles, crate::srv::ogcapi::get_style))]
+struct MartinOgcApiStylesOpenApi;
+
 /// `OpenAPI` document as JSON.
 #[must_use]
 pub fn openapi_spec() -> serde_json::Value {
@@ -76,6 +82,8 @@ pub fn openapi_spec() -> serde_json::Value {
     let openapi = openapi.merge_from(MartinRenderingOpenApi::openapi());
     #[cfg(feature = "ogcapi")]
     let openapi = openapi.merge_from(MartinOgcApiOpenApi::openapi());
+    #[cfg(all(feature = "ogcapi", feature = "resources"))]
+    let openapi = openapi.merge_from(MartinOgcApiStylesOpenApi::openapi());
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
 

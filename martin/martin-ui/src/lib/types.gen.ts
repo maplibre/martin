@@ -188,6 +188,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/styles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every style Martin serves. */
+        get: operations["get_styles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One style in the `MapLibre` style format. */
+        get: operations["get_style"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/tileMatrixSets": {
         parameters: {
             query?: never;
@@ -494,11 +528,22 @@ export interface components {
             bbox: number[][];
             crs: string;
         };
+        /** @description A style in the list, linking to its stylesheets. */
+        StyleDescription: {
+            id: string;
+            links: components["schemas"]["Link"][];
+            title?: string | null;
+        };
         /**
          * @description What kind of layers a `MapLibre` style draws.
          * @enum {string}
          */
         StyleKind: "vector" | "raster" | "hybrid";
+        /** @description The styles the OGC API serves. */
+        Styles: {
+            links: components["schemas"]["Link"][];
+            styles: components["schemas"]["StyleDescription"][];
+        };
         /** @description One zoom level of a tile matrix set. */
         TileMatrix: {
             /** Format: double */
@@ -588,7 +633,9 @@ export type LandingPage = components['schemas']['LandingPage'];
 export type Layer = components['schemas']['Layer'];
 export type Link = components['schemas']['Link'];
 export type SpatialExtent = components['schemas']['SpatialExtent'];
+export type StyleDescription = components['schemas']['StyleDescription'];
 export type StyleKind = components['schemas']['StyleKind'];
+export type Styles = components['schemas']['Styles'];
 export type TileMatrix = components['schemas']['TileMatrix'];
 export type TileMatrixLimits = components['schemas']['TileMatrixLimits'];
 export type TileMatrixSet = components['schemas']['TileMatrixSet'];
@@ -906,6 +953,66 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Conformance"];
                 };
+            };
+        };
+    };
+    get_styles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every style Martin serves */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Styles"];
+                };
+            };
+        };
+    };
+    get_style: {
+        parameters: {
+            query?: {
+                /** @description Style encoding, only `mapbox` is supported. */
+                f?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MapLibre style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.mapbox.style+json": unknown;
+                };
+            };
+            /** @description Unsupported style encoding, or the style file is malformed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

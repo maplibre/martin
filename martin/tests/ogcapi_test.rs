@@ -122,6 +122,12 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
           "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
           "type": "application/json",
           "title": "Tile matrix sets"
+        },
+        {
+          "href": "http://localhost:8080/ogc/styles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
+          "type": "application/json",
+          "title": "Styles"
         }
       ]
     }
@@ -158,7 +164,8 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
       "https://maplibre.org/martin/using/",
       "https://tiles.example.com/maps/ogc/conformance",
       "https://tiles.example.com/maps/ogc/collections",
-      "https://tiles.example.com/maps/ogc/tileMatrixSets"
+      "https://tiles.example.com/maps/ogc/tileMatrixSets",
+      "https://tiles.example.com/maps/ogc/styles"
     ]
     "#);
 }
@@ -183,7 +190,10 @@ async fn the_conformance_declaration_lists_the_classes_served() {
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/mvt",
         "http://www.opengis.net/spec/tms/2.0/conf/tilematrixset",
-        "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset"
+        "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset",
+        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
+        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/mapbox-style"
       ]
     }
     "#);

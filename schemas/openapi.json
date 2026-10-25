@@ -351,10 +351,48 @@
         "required": ["bbox", "crs"],
         "type": "object"
       },
+      "StyleDescription": {
+        "description": "A style in the list, linking to its stylesheets.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["id", "links"],
+        "type": "object"
+      },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
         "enum": ["vector", "raster", "hybrid"],
         "type": "string"
+      },
+      "Styles": {
+        "description": "The styles the OGC API serves.",
+        "properties": {
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "styles": {
+            "items": {
+              "$ref": "#/components/schemas/StyleDescription"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["styles", "links"],
+        "type": "object"
       },
       "TileMatrix": {
         "description": "One zoom level of a tile matrix set.",
@@ -1041,6 +1079,66 @@
           }
         },
         "summary": "The conformance classes the OGC API implements.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/styles": {
+      "get": {
+        "operationId": "get_styles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Styles"
+                }
+              }
+            },
+            "description": "Every style Martin serves"
+          }
+        },
+        "summary": "Every style Martin serves.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/styles/{style_id}": {
+      "get": {
+        "operationId": "get_style",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Style encoding, only `mapbox` is supported.",
+            "in": "query",
+            "name": "f",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.mapbox.style+json": {}
+            },
+            "description": "MapLibre style"
+          },
+          "400": {
+            "description": "Unsupported style encoding, or the style file is malformed"
+          },
+          "404": {
+            "description": "No such style"
+          }
+        },
+        "summary": "One style in the `MapLibre` style format.",
         "tags": ["crate::srv::ogcapi"]
       }
     },
