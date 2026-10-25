@@ -2,7 +2,9 @@
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
-On x86\_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer). Older CPUs can use the static `x86_64-unknown-linux-musl-legacycpu` tarball or the `:latest-legacycpu` / `:<version>-legacycpu` Docker image (`linux/amd64` only, no rendering), or [build Martin from source](<https://maplibre.org/martin/development/index.md>).
+On x86\_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer). Older CPUs can use the static `x86_64-unknown-linux-musl-legacycpu` tarball or the `:latest-legacycpu` / `:<version>-legacycpu` Docker image (`linux/amd64` only, no rendering), the `x86_64-unknown-freebsd-legacycpu` tarball on FreeBSD, or [build Martin from source](<https://maplibre.org/martin/development/index.md>).
+
+The FreeBSD binaries need FreeBSD 14.0 or newer.
 
 ### Docker
 
@@ -31,6 +33,7 @@ You can download martin from [GitHub releases page](<https://github.com/maplibre
 | Linux | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz>) (gnu)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu-full.tar.gz>) (gnu, full)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz>) (musl)<br>[.deb](<https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb>) | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz>) (gnu)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu-full.tar.gz>) (gnu, full)<br>[.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz>) (musl) |
 | macOS |  | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz>) |
 | Windows | [.zip](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip>) |  |
+| FreeBSD | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-freebsd.tar.gz>) | [.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-freebsd.tar.gz>) |
 
 > [!NOTE]
 >
