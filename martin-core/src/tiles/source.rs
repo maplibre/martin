@@ -125,7 +125,7 @@ pub trait Source: Send + Sync + Debug {
     }
 }
 
-/// Caps the zoom ranges a source and its vector layers declare at [`MAX_ZOOM`](martin_tile_utils::MAX_ZOOM), the highest zoom a tile can be requested at.
+/// Caps every zoom a source's `TileJSON` declares at [`MAX_ZOOM`](martin_tile_utils::MAX_ZOOM), the highest zoom a tile can be requested at.
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -138,10 +138,12 @@ pub(crate) fn cap_zoom_range(id: &str, tilejson: &mut TileJSON) {
     use martin_tile_utils::MAX_ZOOM;
     let layers = tilejson.vector_layers.iter_mut().flatten();
     let layer_zooms = layers.flat_map(|layer| [&mut layer.minzoom, &mut layer.maxzoom]);
-    let zooms = [&mut tilejson.minzoom, &mut tilejson.maxzoom]
+    let zooms = [&mut tilejson.minzoom, &mut tilejson.maxzoom, &mut tilejson.fillzoom]
         .into_iter()
-        .chain(layer_zooms);
-    for zoom in zooms.flatten() {
+        .chain(layer_zooms)
+        .flatten();
+    let center_zoom = tilejson.center.iter_mut().map(|center| &mut center.zoom);
+    for zoom in zooms.chain(center_zoom) {
         if *zoom > MAX_ZOOM {
             tracing::warn!(source.id = %id, zoom = *zoom, "Capping a zoom above {MAX_ZOOM}, the highest zoom Martin serves");
             *zoom = MAX_ZOOM;
