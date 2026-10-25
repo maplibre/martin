@@ -100,6 +100,12 @@ fn with_ogc_style_alias(mut openapi: utoipa::openapi::OpenApi) -> utoipa::openap
     openapi
 }
 
+/// The OGC API - Maps routes.
+#[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
+#[derive(OpenApi)]
+#[openapi(paths(crate::srv::ogcapi::get_style_map))]
+struct MartinOgcApiMapsOpenApi;
+
 /// `openapi` with each path marked, as `x-martin-feature`, as served only by a build with `feature`.
 #[cfg(any(feature = "resources", feature = "rendering"))]
 fn served_with(feature: &str, mut openapi: utoipa::openapi::OpenApi) -> utoipa::openapi::OpenApi {
@@ -122,6 +128,8 @@ pub fn openapi_spec() -> serde_json::Value {
     #[cfg(all(feature = "ogcapi", feature = "resources"))]
     let openapi =
         with_ogc_style_alias(openapi.merge_from(served_with("resources", MartinOgcApiStylesOpenApi::openapi())));
+    #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
+    let openapi = openapi.merge_from(served_with("rendering", MartinOgcApiMapsOpenApi::openapi()));
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
 

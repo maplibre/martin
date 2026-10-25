@@ -15,6 +15,31 @@ pub enum OgcApiError {
         collection: String,
         tile_matrix_set: String,
     },
+
+    /// No style has this id.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Style {style} does not exist")]
+    UnknownStyle { style: String },
+
+    /// A map parameter has a value that can't be used.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Parameter {parameter} has the invalid value {value}")]
+    InvalidMapParameter { parameter: &'static str, value: String },
+
+    /// Map parameters that can't be used together.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Parameters {parameters} can't be used together")]
+    ConflictingMapParameters { parameters: &'static str },
+
+    /// A CRS other than CRS84, EPSG:4326 and EPSG:3857 was given for a map parameter.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("CRS {crs} is not supported, only CRS84, EPSG:4326 and EPSG:3857 are")]
+    UnsupportedCrs { crs: String },
+
+    /// A map was asked for in a format other than PNG and JPEG.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Map format {format} is not supported, only png and jpeg are")]
+    UnsupportedMapFormat { format: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -23,6 +48,13 @@ impl martin_core::Classify for OgcApiError {
             Self::UnknownTileMatrixSet(_) | Self::UnknownCollection(_) | Self::UnknownTileset { .. } => {
                 martin_core::ErrorKind::NotFound
             }
+            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            Self::UnknownStyle { .. } => martin_core::ErrorKind::NotFound,
+            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            Self::InvalidMapParameter { .. }
+            | Self::ConflictingMapParameters { .. }
+            | Self::UnsupportedCrs { .. }
+            | Self::UnsupportedMapFormat { .. } => martin_core::ErrorKind::InvalidInput,
         }
     }
 }

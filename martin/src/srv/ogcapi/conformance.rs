@@ -1,6 +1,6 @@
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
-use actix_web::{HttpResponse, route};
+use actix_web::{HttpRequest, HttpResponse, route};
 use serde::Serialize;
 
 /// The conformance classes of OGC API - Common, OGC API - Tiles and the Tile Matrix Set standard this API implements.
@@ -51,10 +51,20 @@ struct Conformance {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-pub async fn get_conformance() -> HttpResponse {
+pub async fn get_conformance(
+    #[cfg_attr(
+        not(all(feature = "rendering", target_os = "linux")),
+        expect(unused_variables, reason = "only maps depend on the request")
+    )]
+    req: HttpRequest,
+) -> HttpResponse {
     #[cfg_attr(not(feature = "resources"), expect(unused_mut, reason = "only styles add classes"))]
     let mut conforms_to = TILES_CONFORMS_TO.to_vec();
     #[cfg(feature = "resources")]
     conforms_to.extend(STYLES_CONFORMS_TO);
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if super::map::renders_maps(&req) {
+        conforms_to.extend(super::map::MAPS_CONFORMS_TO);
+    }
     HttpResponse::Ok().json(Conformance { conforms_to })
 }

@@ -751,7 +751,7 @@ test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
 [linux]
 test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
     cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
-    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps_conformance
+    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps --test ogc_maps_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
