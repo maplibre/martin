@@ -740,33 +740,9 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
 
 # Run the OGC API - Tiles conformance suite (Docker) against the world_cities fixture
 [linux]
-test-ogc: fetch
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo build --package martin --no-default-features --features ogcapi,mbtiles
-    work="$(mktemp -d)"
-    sqlite3 "$work/world_cities.mbtiles" < tests/fixtures/mbtiles/world_cities.sql
-    target/debug/martin --listen-addresses 127.0.0.1:3000 "$work/world_cities.mbtiles" &
-    martin_pid=$!
-    ets="ogc-ets-$$"
-    trap 'kill "$martin_pid" 2> /dev/null || true; docker stop "$ets" > /dev/null 2>&1 || true; rm -rf "$work"' EXIT
-    docker run --detach --rm --network host --name "$ets" ogccite/ets-ogcapi-tiles10@sha256:af8e8ab4f8c131c71ca02a4b05419007657e49cef6c668ecfdbe02b58c002ffc > /dev/null
-    timeout 60 bash -c 'until curl -sf http://127.0.0.1:3000/health > /dev/null; do sleep 1; done'
-    kill -0 "$martin_pid"
-    timeout 300 bash -c 'until curl -sf http://127.0.0.1:8080/teamengine/ > /dev/null; do sleep 2; done'
-    iut=http://127.0.0.1:3000/ogc
-    curl -sf -u ogctest:ogctest -H 'Accept: application/xml' -o target/ogc-results.xml \
-        "http://127.0.0.1:8080/teamengine/rest/suites/ogcapi-tiles-1.0/run?iut=$iut&tilematrixsetdefinitionuri=http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad&urltemplatefortiles=$iut/collections/world_cities/tiles/WebMercatorQuad/%7BtileMatrix%7D/%7BtileRow%7D/%7BtileCol%7D&tilematrix=2&mintilerow=1&maxtilerow=2&mintilecol=3&maxtilecol=3"
-    python3 - target/ogc-results.xml <<'EOF'
-    import sys
-    import xml.etree.ElementTree as ET
-    results = ET.parse(sys.argv[1]).getroot()
-    print(" ".join(f"{key}={results.get(key)}" for key in ("total", "passed", "failed", "skipped")))
-    for method in results.iter("test-method"):
-        if method.get("status") == "FAIL":
-            print(f"FAIL {method.get('name')}: {(method.findtext('exception/message') or '').strip()}")
-    sys.exit(results.get("failed") != "0" or results.get("passed") != "13")
-    EOF
+test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
+    cargo build --package martin
+    cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')

@@ -147,16 +147,24 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    needs:
-      - lint-rust
+    needs: [ build-x86_64-unknown-linux-gnu ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just', cache: true }
-      - name: Run the OGC conformance suite
-        run: just test-ogc
+        with: { tools: 'just,nextest', cache: true }
+      - name: Start the OGC conformance suite
+        run: just docker-up ogc-ets
+      - name: Download build artifact build-x86_64-unknown-linux-gnu
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
+      - name: Mark the downloaded binary as executable
+        run: chmod +x target_releases/martin
+      - name: Run the OGC conformance suite against the built binary
+        run: cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
+        env:
+          MARTIN_BIN: target_releases/martin
   lint-rust:
     name: Lint the Rust code
     permissions:
