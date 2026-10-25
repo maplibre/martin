@@ -27,7 +27,7 @@ mod mbtiles;
 pub use crate::mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 
 mod metadata;
-pub use crate::metadata::{Metadata, anonymous_mbtiles, parse_key_value, temp_named_mbtiles};
+pub use crate::metadata::{Metadata, anonymous_mbtiles, check_metadata_edit, parse_key_value, temp_named_mbtiles};
 
 mod pack;
 pub use crate::pack::{PackCompression, TileScheme, pack, unpack};
