@@ -22,6 +22,7 @@ pub(super) const CRS84: &str = "http://www.opengis.net/def/crs/OGC/1.3/CRS84";
 
 /// The tile matrix sets the OGC API serves.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileMatrixSets {
     tile_matrix_sets: Vec<TileMatrixSetItem>,
@@ -29,6 +30,7 @@ struct TileMatrixSets {
 
 /// One tile matrix set in the list, linking to its definition.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 struct TileMatrixSetItem {
     id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,6 +41,7 @@ struct TileMatrixSetItem {
 
 /// A tile matrix set in the JSON encoding of OGC Two Dimensional Tile Matrix Set 2.0.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileMatrixSet {
     id: String,
@@ -51,6 +54,7 @@ struct TileMatrixSet {
 
 /// One zoom level of a tile matrix set.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 struct TileMatrix {
     id: String,
@@ -87,7 +91,7 @@ pub(super) fn crs(grid: &TileGrid) -> Option<OgcCrs> {
 }
 
 /// The registry URI of a built-in grid the OGC registry defines.
-fn registered_uri(grid: &TileGrid) -> Option<String> {
+pub(super) fn registered_uri(grid: &TileGrid) -> Option<String> {
     grid.is_in_ogc_registry()
         .then(|| format!("http://www.opengis.net/def/tilematrixset/OGC/1.0/{}", grid.id()))
 }
@@ -121,6 +125,16 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
 }
 
 /// The tile matrix sets of the served sources.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/tileMatrixSets",
+        responses(
+            (status = 200, description = "Tile matrix sets of the served sources", body = TileMatrixSets),
+        ),
+    )
+)]
 #[route(
     "/ogc/tileMatrixSets",
     method = "GET",
@@ -158,6 +172,18 @@ pub async fn get_tile_matrix_sets(
 }
 
 /// The definition of one tile matrix set.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/tileMatrixSets/{tile_matrix_set_id}",
+        params(("tile_matrix_set_id" = String, Path, description = "Tile matrix set ID")),
+        responses(
+            (status = 200, description = "Tile matrix set definition", body = TileMatrixSet),
+            (status = 404, description = "No served grid with this ID has an OGC definition"),
+        ),
+    )
+)]
 #[route(
     "/ogc/tileMatrixSets/{tile_matrix_set_id}",
     method = "GET",

@@ -177,7 +177,12 @@ fn register_services(
     cfg.service(ogcapi::get_landing_page)
         .service(ogcapi::get_conformance)
         .service(ogcapi::get_tile_matrix_sets)
-        .service(ogcapi::get_tile_matrix_set);
+        .service(ogcapi::get_tile_matrix_set)
+        .service(ogcapi::get_collections)
+        .service(ogcapi::get_collection)
+        .service(ogcapi::get_tilesets)
+        .service(ogcapi::get_tileset)
+        .service(ogcapi::get_tile);
 
     #[cfg(feature = "_tiles")]
     {

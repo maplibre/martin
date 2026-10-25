@@ -102,6 +102,17 @@ impl Format {
         }
     }
 
+    /// The media type OGC API - Tiles names for this format.
+    #[must_use]
+    pub const fn ogc_content_type(self) -> &'static str {
+        match self {
+            Self::Mvt => "application/vnd.mapbox-vector-tile",
+            Self::Gif | Self::Jpeg | Self::Json | Self::Mlt | Self::Png | Self::Webp | Self::Avif | Self::Jxl => {
+                self.content_type()
+            }
+        }
+    }
+
     /// Parse a content type string back to a `Format`.
     #[must_use]
     pub fn from_content_type(supertype: &str, subtype: &str) -> Option<Self> {

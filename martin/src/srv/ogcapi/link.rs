@@ -8,12 +8,16 @@ use crate::srv::server::path_prefix;
 
 /// A link from one OGC API resource to another.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 pub struct Link {
     pub href: String,
     pub rel: &'static str,
     #[serde(rename = "type")]
     pub media_type: &'static str,
     pub title: &'static str,
+    /// Whether `href` is a URI template.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub templated: bool,
 }
 
 impl Link {
@@ -24,6 +28,7 @@ impl Link {
             rel,
             media_type: "application/json",
             title,
+            templated: false,
         }
     }
 }

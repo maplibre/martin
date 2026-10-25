@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use serde::Serialize;
 
-use crate::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileRect};
+use crate::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileRect, wgs84_to_webmercator};
 
 /// Identifier of the built-in Web Mercator grid, [`WEB_MERCATOR_QUAD`].
 pub const WEB_MERCATOR_QUAD_ID: &str = "WebMercatorQuad";
@@ -277,6 +277,20 @@ impl TileGrid {
         }
     }
 
+    /// `wgs84` bounds in the CRS of this grid, for the CRSs that need no projection library.
+    #[must_use]
+    pub fn crs_bounds(&self, [left, bottom, right, top]: [f64; 4]) -> Option<[f64; 4]> {
+        match (self.crs_authority(), self.crs_code()) {
+            ("EPSG", "3857") => {
+                let (left, bottom) = wgs84_to_webmercator(left, bottom);
+                let (right, top) = wgs84_to_webmercator(right, top);
+                Some([left, bottom, right, top])
+            }
+            ("EPSG", "4326") | ("OGC", "CRS84") => Some([left, bottom, right, top]),
+            _ => None,
+        }
+    }
+
     /// Top-left corner of the zoom-0 tile, in CRS units.
     #[must_use]
     pub fn origin(&self) -> [f64; 2] {
@@ -440,8 +454,8 @@ mod tests {
     #[test]
     fn a_tile_range_follows_the_mercator_helper() {
         let (min_x, min_y, max_x, max_y) = crate::bbox_to_xyz(-10.0, -10.0, 10.0, 10.0, 4);
-        let bounds = crate::wgs84_to_webmercator(-10.0, -10.0);
-        let upper = crate::wgs84_to_webmercator(10.0, 10.0);
+        let bounds = wgs84_to_webmercator(-10.0, -10.0);
+        let upper = wgs84_to_webmercator(10.0, 10.0);
         assert_eq!(
             WEB_MERCATOR_QUAD.tile_range([bounds.0, bounds.1, upper.0, upper.1], 4),
             TileRect::new(4, min_x, min_y, max_x, max_y)

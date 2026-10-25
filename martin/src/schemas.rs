@@ -52,12 +52,30 @@ pub struct MartinOpenApi;
 ))]
 struct MartinRenderingOpenApi;
 
+/// The OGC API - Tiles routes.
+#[cfg(feature = "ogcapi")]
+#[derive(OpenApi)]
+#[openapi(paths(
+    crate::srv::ogcapi::get_landing_page,
+    crate::srv::ogcapi::get_conformance,
+    crate::srv::ogcapi::get_tile_matrix_sets,
+    crate::srv::ogcapi::get_tile_matrix_set,
+    crate::srv::ogcapi::get_collections,
+    crate::srv::ogcapi::get_collection,
+    crate::srv::ogcapi::get_tilesets,
+    crate::srv::ogcapi::get_tileset,
+    crate::srv::ogcapi::get_tile,
+))]
+struct MartinOgcApiOpenApi;
+
 /// `OpenAPI` document as JSON.
 #[must_use]
 pub fn openapi_spec() -> serde_json::Value {
     let openapi = MartinOpenApi::openapi();
     #[cfg(feature = "rendering")]
     let openapi = openapi.merge_from(MartinRenderingOpenApi::openapi());
+    #[cfg(feature = "ogcapi")]
+    let openapi = openapi.merge_from(MartinOgcApiOpenApi::openapi());
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
 

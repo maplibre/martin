@@ -95,17 +95,28 @@ pub async fn get_tile(
     path: Path<TileRequest>,
     manager: Data<TileSourceManager>,
 ) -> ActixResult<HttpResponse> {
+    let xyz = TileCoord::new_unchecked(path.z, path.x, path.y);
+    serve_tile(&req, &srv_config, &manager, &path.source_ids, xyz).await
+}
+
+/// The response to a request for tile `xyz` of `source_ids`, as every tile route answers it.
+pub async fn serve_tile(
+    req: &HttpRequest,
+    srv_config: &SrvConfig,
+    manager: &TileSourceManager,
+    source_ids: &str,
+    xyz: TileCoord,
+) -> ActixResult<HttpResponse> {
     let headers = TileRequestHeaders {
         accepted_formats: parse_accept(req.get_header::<Accept>())?,
         accept_enc: req.get_header::<AcceptEncoding>(),
         if_none_match: req.get_header::<IfNoneMatch>(),
         preferred_enc: srv_config.preferred_encoding,
     };
-    manager.wait_for_sources(&path.source_ids).await;
-    let src = DynTileSource::new(&manager, &path.source_ids, Some(path.z), req.query_string(), headers)?;
+    manager.wait_for_sources(source_ids).await;
+    let src = DynTileSource::new(manager, source_ids, Some(xyz.z()), req.query_string(), headers)?;
 
-    src.get_http_response(TileCoord::new_unchecked(path.z, path.x, path.y))
-        .await
+    src.get_http_response(xyz).await
 }
 
 /// `"{tag}"` as a header value, built with a single allocation.
