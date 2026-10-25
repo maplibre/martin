@@ -1,8 +1,11 @@
+use std::cmp::Reverse;
+use std::num::NonZeroU8;
 use std::path::PathBuf;
 
-use actix_web::http::header::{ACCEPT, ContentType, HeaderValue};
+use actix_web::error::ErrorNotAcceptable;
+use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality};
 use actix_web::web::{Data, Path, Query};
-use actix_web::{HttpRequest, HttpResponse, route};
+use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, route};
 use martin_core::styles::{RenderParams, StyleError, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, webmercator_to_wgs84, wgs84_to_webmercator};
 use serde::Deserialize;
@@ -10,7 +13,7 @@ use tracing::error;
 
 use super::error::OgcApiError;
 use crate::srv::server::map_error;
-use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
+use crate::srv::styles_rendering::{ImageFormatRequest, encode_scaled_image_response};
 
 /// The OGC URI of web mercator, the CRS every map is rendered in.
 pub(super) const WEB_MERCATOR: &str = "http://www.opengis.net/def/crs/EPSG/0/3857";
@@ -95,6 +98,23 @@ struct Viewport {
 impl Viewport {
     /// The viewport `query` asks for, showing `default_bounds` in longitude and latitude unless it asks for another area.
     fn of(query: &MapQuery, default_bounds: [f64; 4]) -> Result<Self, OgcApiError> {
+        let viewport = Self::requested(query, default_bounds)?;
+        let [min_x, min_y, max_x, max_y] = viewport.bounds;
+        if !(min_x < max_x && min_y < max_y) {
+            return Err(OgcApiError::InvalidMapParameter {
+                parameter: "scale-denominator",
+                value: format!("{:?}", query.scale_denominator.unwrap_or_default()),
+            });
+        }
+        let (render_width, render_height) = viewport.render_size();
+        if render_width > MAX_SIDE || render_height > MAX_SIDE {
+            return Err(OgcApiError::MapAreaTooLarge);
+        }
+        Ok(viewport)
+    }
+
+    /// The viewport `query` asks for, before checking that it can be rendered.
+    fn requested(query: &MapQuery, default_bounds: [f64; 4]) -> Result<Self, OgcApiError> {
         for (parameter, side) in [("width", query.width), ("height", query.height)] {
             if let Some(side) = side
                 && !(1..=MAX_SIDE).contains(&side)
@@ -166,9 +186,8 @@ impl Viewport {
         Ok(Self::around(center, resolution, width, height))
     }
 
-    /// A viewport of `width` by `height` pixels of `resolution` metres around `center`, never wider than the renderer's zoom 0.
+    /// A viewport of `width` by `height` pixels of `resolution` metres around `center`.
     fn around(center: [f64; 2], resolution: f64, width: u32, height: u32) -> Self {
-        let resolution = resolution.min(EARTH_CIRCUMFERENCE / RENDER_WORLD_PIXELS);
         let half_width = f64::from(width) * resolution / 2.0;
         let half_height = f64::from(height) * resolution / 2.0;
         Self {
@@ -183,11 +202,26 @@ impl Viewport {
         }
     }
 
-    /// Longitude and latitude of the center, and the renderer's zoom.
+    /// The size to render at: the map's own, or larger by as much as its metres per pixel exceed the renderer's zoom 0.
+    fn render_size(&self) -> (u32, u32) {
+        let [min_x, _, max_x, _] = self.bounds;
+        let resolution = (max_x - min_x) / f64::from(self.width);
+        let scale = (resolution * RENDER_WORLD_PIXELS / EARTH_CIRCUMFERENCE).max(1.0);
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "saturates, and callers check the result against MAX_SIDE"
+        )]
+        let scaled = |side: u32| (f64::from(side) * scale).round() as u32;
+        (scaled(self.width), scaled(self.height))
+    }
+
+    /// Longitude and latitude of the center, and the renderer's zoom at the render size.
     fn camera(&self) -> (f64, f64, f64) {
         let [min_x, min_y, max_x, max_y] = self.bounds;
         let (lon, lat) = webmercator_to_wgs84(f64::midpoint(min_x, max_x), f64::midpoint(min_y, max_y));
-        let resolution = (max_x - min_x) / f64::from(self.width);
+        let (render_width, _) = self.render_size();
+        let resolution = (max_x - min_x) / f64::from(render_width);
         (
             lon,
             lat,
@@ -307,30 +341,35 @@ fn crs_of(crs: Option<&str>) -> Result<Crs, OgcApiError> {
     }
 }
 
-/// The image format `f` names, or the first one `req` accepts, PNG by default.
-fn format_of(req: &HttpRequest, f: Option<&str>) -> Result<ImageFormatRequest, OgcApiError> {
+/// The image format `f` names, or the one `req` accepts most, PNG when it accepts any.
+///
+/// Like tiles, `Accept` entries with `q=0` are skipped and a header that accepts no map format is a 406.
+fn format_of(req: &HttpRequest, f: Option<&str>) -> actix_web::Result<ImageFormatRequest> {
     if let Some(f) = f {
         return match f {
             "png" | "image/png" => Ok(ImageFormatRequest::Png),
             "jpeg" | "jpg" | "image/jpeg" => Ok(ImageFormatRequest::Jpeg),
-            _ => Err(OgcApiError::UnsupportedMapFormat { format: f.to_owned() }),
+            _ => Err(map_error(&OgcApiError::UnsupportedMapFormat { format: f.to_owned() })),
         };
     }
-    let accept = req
-        .headers()
-        .get(ACCEPT)
-        .and_then(|accept| accept.to_str().ok())
-        .unwrap_or_default();
-    let jpeg_first = accept
-        .split(',')
-        .map(|media_type| media_type.split(';').next().unwrap_or_default().trim())
-        .find(|media_type| matches!(*media_type, "image/png" | "image/jpeg" | "image/*" | "*/*"))
-        == Some("image/jpeg");
-    Ok(if jpeg_first {
-        ImageFormatRequest::Jpeg
-    } else {
-        ImageFormatRequest::Png
-    })
+    let Some(Accept(mut accepted)) = req.get_header::<Accept>() else {
+        return Ok(ImageFormatRequest::Png);
+    };
+    if accepted.is_empty() {
+        return Ok(ImageFormatRequest::Png);
+    }
+    accepted.retain(|item| item.quality != Quality::ZERO);
+    accepted.sort_by_key(|item| Reverse(item.quality));
+    accepted
+        .iter()
+        .find_map(
+            |item| match (item.item.type_().as_str(), item.item.subtype().as_str()) {
+                ("image", "png" | "*") | ("*", "*") => Some(ImageFormatRequest::Png),
+                ("image", "jpeg") => Some(ImageFormatRequest::Jpeg),
+                _ => None,
+            },
+        )
+        .ok_or_else(|| ErrorNotAcceptable("Accept header does not contain any supported map format"))
 }
 
 /// The map of the style at `style_path` that `query` asks for, showing `default_bounds` unless it asks for another area.
@@ -341,10 +380,11 @@ pub(super) async fn render_map(
     query: &MapQuery,
     default_bounds: [f64; 4],
 ) -> actix_web::Result<HttpResponse> {
-    let format = format_of(req, query.f.as_deref()).map_err(|e| map_error(&e))?;
+    let format = format_of(req, query.f.as_deref())?;
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
-    let params = RenderParams::new(style_path, lat, lon, zoom).with_size(viewport.width, viewport.height, 1.0);
+    let (render_width, render_height) = viewport.render_size();
+    let params = RenderParams::new(style_path, lat, lon, zoom).with_size(render_width, render_height, NonZeroU8::MIN);
     let image = match styles.render_static(params).await {
         Ok(image) => image,
         Err(StyleError::RenderingIsDisabled) => {
@@ -359,7 +399,9 @@ pub(super) async fn render_map(
                 .body("Failed to render the map"));
         }
     };
-    let mut response = encode_image_response(image, format, styles.png_max_colors()).await;
+    let size = ((render_width, render_height) != (viewport.width, viewport.height))
+        .then_some((viewport.width, viewport.height));
+    let mut response = encode_scaled_image_response(image, size, format, styles.png_max_colors(), styles.image_quality()).await;
     if response.status().is_success() {
         let headers = response.headers_mut();
         headers.insert(
@@ -386,6 +428,7 @@ pub(super) async fn render_map(
             (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such style"),
+            (status = 406, description = "No supported map format in Accept header"),
         ),
     )
 )]

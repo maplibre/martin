@@ -137,6 +137,176 @@ async fn a_style_map_is_a_jpeg_when_asked_for() {
 }
 
 #[tokio::test]
+async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/styles/maplibre_demo/map?width=256").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    ");
+    assert_image_matches(fixture("ogc_maps/small_world.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_skips_the_formats_accept_refuses() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?width=256",
+            &[("Accept", "image/jpeg;q=0, image/png")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.header("content-type"), Some("image/png"));
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_is_the_format_accept_weighs_highest() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?width=256",
+            &[("Accept", "image/png;q=0.5, image/jpeg")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.header("content-type"), Some("image/jpeg"));
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_in_no_format_accept_allows_is_not_acceptable() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map",
+            &[("Accept", "image/png;q=0, application/json")],
+        )
+        .await;
+    assert_eq!(response.status(), 406);
+    insta::assert_snapshot!(response.text(), @"Accept header does not contain any supported map format");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_scale_too_small_to_show_any_area_is_a_bad_request() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/styles/maplibre_demo/map?center=13.4,52.5&scale-denominator=1e-300")
+        .await;
+    assert_eq!(response.status(), 400);
+    insta::assert_snapshot!(response.text(), @"Parameter scale-denominator has the invalid value 1e-300");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get(
+            "/ogc/styles/maplibre_demo/map?bbox=-100000000,-100000000,100000000,100000000&bbox-crs=EPSG:3857&width=256",
+        )
+        .await;
+    assert_eq!(response.status(), 400);
+    insta::assert_snapshot!(response.text(), @"The map area is too large, at most four times the world's width and height can be drawn");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
 async fn a_bbox_with_a_scale_denominator_and_a_width_is_a_bad_request() {
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -237,10 +407,10 @@ async fn the_styles_link_their_maps() {
           "id": "maplibre_demo",
           "links": [
             {
-              "href": "http://[ADDR]/ogc/styles/maplibre_demo?f=mapbox",
+              "href": "http://[ADDR]/ogc/styles/maplibre_demo",
               "rel": "stylesheet",
               "title": "MapLibre style",
-              "type": "application/vnd.mapbox.style+json"
+              "type": "application/json"
             },
             {
               "href": "http://[ADDR]/ogc/styles/maplibre_demo/map",
@@ -292,7 +462,6 @@ async fn the_conformance_declares_maps_when_rendering() {
         "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset",
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
-        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/mapbox-style",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
