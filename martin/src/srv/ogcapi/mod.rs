@@ -10,6 +10,8 @@ mod landing;
 mod link;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod map;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod map_tiles;
 mod openapi;
 #[cfg(feature = "resources")]
 mod styles;
@@ -24,6 +26,11 @@ pub use landing::get_landing_page;
 pub use map::{__path_get_collection_map, __path_get_dataset_map, __path_get_style_map};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use map::{get_collection_map, get_dataset_map, get_style_map};
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use map_tiles::{
+    get_dataset_map_tile, get_dataset_map_tileset, get_dataset_map_tilesets, get_style_map_tile, get_style_map_tileset,
+    get_style_map_tilesets,
+};
 pub use openapi::get_api;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use styles::__path_get_styles;

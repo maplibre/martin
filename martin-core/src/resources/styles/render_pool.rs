@@ -179,13 +179,27 @@ impl RenderPools {
         y: u32,
         pixel_ratio: NonZeroU8,
     ) -> Result<Image, StyleError> {
+        self.render_tile_of_size(style, z, x, y, self.tile_size, pixel_ratio)
+            .await
+    }
+
+    /// Render a slippy tile of `tile_size` instead of the pool's [`TileSize`], at `pixel_ratio` times its pixels.
+    pub async fn render_tile_of_size(
+        &self,
+        style: impl Into<RenderStyle>,
+        z: u8,
+        x: u32,
+        y: u32,
+        tile_size: TileSize,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
         self.tile
             .render(TileRequest {
                 style: style.into(),
                 z,
                 x,
                 y,
-                tile_size: self.tile_size,
+                tile_size,
                 pixel_ratio,
             })
             .await

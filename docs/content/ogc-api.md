@@ -110,6 +110,10 @@ Maps are always in web mercator, which the `Content-Crs` header states.
 The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
 PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
 
+The map of all collections and the map of each style also come as map tiles on `WebMercatorQuad`, 256 pixels square, under `/ogc/map/tiles` and `/ogc/styles/{styleID}/map/tiles`.
+Their tilesets link the tile URL template, and `Accept` picks the format as for maps.
+Raster collections need no map tiles of their own: their tilesets under `/ogc/collections/{sourceID}/tiles` already are map tiles.
+
 ## Conformance
 
 `/ogc/conformance` lists which parts of the standards Martin implements:
@@ -118,7 +122,7 @@ PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
 - OGC API - Styles core and global styles, when Martin is built with styles
-- OGC API - Maps core, dataset map, collection map, collections selection, styled map, PNG, JPEG and TIFF, when rendering is enabled
+- OGC API - Maps core, dataset map, collection map, collections selection, styled map, map tilesets, PNG, JPEG and TIFF, when rendering is enabled
 
 We run the official OGC test suite against Martin in CI.
 

@@ -189,7 +189,13 @@ fn register_services(
     #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
     cfg.service(ogcapi::get_style_map)
         .service(ogcapi::get_collection_map)
-        .service(ogcapi::get_dataset_map);
+        .service(ogcapi::get_dataset_map)
+        .service(ogcapi::get_dataset_map_tilesets)
+        .service(ogcapi::get_dataset_map_tileset)
+        .service(ogcapi::get_dataset_map_tile)
+        .service(ogcapi::get_style_map_tilesets)
+        .service(ogcapi::get_style_map_tileset)
+        .service(ogcapi::get_style_map_tile);
 
     #[cfg(feature = "_tiles")]
     {

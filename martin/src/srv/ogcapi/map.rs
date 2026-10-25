@@ -6,7 +6,7 @@ use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality, VARY};
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, route};
 use martin_core::styles::{ImageQualities, RenderParams, RenderStyle, StyleError, StyleSources};
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, webmercator_to_wgs84, wgs84_to_webmercator};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, TileGrid, webmercator_to_wgs84, wgs84_to_webmercator};
 use serde::Deserialize;
 use tracing::error;
 
@@ -55,7 +55,7 @@ const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
 pub(super) const WORLD: [f64; 4] = [-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE];
 
 /// The conformance classes of OGC API - Maps this API implements when it renders maps.
-pub(super) const MAPS_CONFORMS_TO: [&str; 8] = [
+pub(super) const MAPS_CONFORMS_TO: [&str; 9] = [
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/dataset-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
@@ -64,6 +64,7 @@ pub(super) const MAPS_CONFORMS_TO: [&str; 8] = [
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff",
+    "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tilesets",
 ];
 
 /// Whether `req` reaches a server that renders maps, built with rendering and with it enabled.
@@ -89,7 +90,7 @@ pub(super) fn can_draw((source, process): &SourceEntry) -> bool {
 }
 
 /// The URL Martin serves tiles under, over the connection `req` came in on, for the renderer to fetch them from.
-fn own_tiles_url(req: &HttpRequest, srv_config: &SrvConfig) -> String {
+pub(super) fn own_tiles_url(req: &HttpRequest, srv_config: &SrvConfig) -> String {
     let prefix = srv_config
         .route_prefix
         .as_deref()
@@ -131,7 +132,7 @@ pub struct CollectionsQuery {
 
 /// The area of a map in web mercator metres and its size in pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct Viewport {
+pub(super) struct Viewport {
     /// `[minx, miny, maxx, maxy]` in web mercator metres.
     bounds: [f64; 4],
     /// Width in pixels.
@@ -141,6 +142,19 @@ struct Viewport {
 }
 
 impl Viewport {
+    /// The area of tile `z`/`x`/`y` of `grid`, `pixels` wide and high.
+    pub(super) fn tile(grid: &TileGrid, z: u8, x: u32, y: u32, pixels: u32) -> Self {
+        let side = grid.tile_side(z);
+        let [origin_x, origin_y] = grid.origin();
+        let min_x = origin_x + f64::from(x) * side;
+        let max_y = origin_y - f64::from(y) * side;
+        Self {
+            bounds: [min_x, max_y - side, min_x + side, max_y],
+            width: pixels,
+            height: pixels,
+        }
+    }
+
     /// The viewport `query` asks for, showing `default_bounds` in longitude and latitude unless it asks for another area.
     fn of(query: &MapQuery, default_bounds: [f64; 4]) -> Result<Self, OgcApiError> {
         let viewport = Self::requested(query, default_bounds)?;
@@ -388,7 +402,7 @@ fn crs_of(crs: Option<&str>) -> Result<Crs, OgcApiError> {
 
 /// Image format of a map.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MapFormat {
+pub(super) enum MapFormat {
     /// PNG with an alpha channel.
     Png,
     /// JPEG, without transparency.
@@ -401,7 +415,7 @@ impl MapFormat {
     /// The format `req` accepts most, PNG when it accepts any.
     ///
     /// Like tiles, `Accept` entries with `q=0` are skipped and a header that accepts no map format is a 406.
-    fn of(req: &HttpRequest) -> actix_web::Result<Self> {
+    pub(super) fn of(req: &HttpRequest) -> actix_web::Result<Self> {
         let Some(Accept(mut accepted)) = req.get_header::<Accept>() else {
             return Ok(Self::Png);
         };
@@ -424,7 +438,7 @@ impl MapFormat {
     }
 
     /// `image` of `viewport`, scaled down to `size` when given, encoded in this format at `quality`, in a response with its media type.
-    async fn response(
+    pub(super) async fn response(
         self,
         image: martin_core::styles::StaticImage,
         viewport: Viewport,
@@ -484,6 +498,19 @@ fn geotiff(image: &image::RgbaImage, viewport: &Viewport) -> tiff::TiffResult<Ve
     Ok(tiff.into_inner())
 }
 
+/// The response telling the client a map could not be rendered because of `error`.
+pub(super) fn render_failure(error: &StyleError) -> HttpResponse {
+    if matches!(error, StyleError::RenderingIsDisabled) {
+        return HttpResponse::Forbidden()
+            .content_type(ContentType::plaintext())
+            .body("Rendering is disabled");
+    }
+    error!(error = %error, "Failed to render a map");
+    HttpResponse::InternalServerError()
+        .content_type(ContentType::plaintext())
+        .body("Failed to render the map")
+}
+
 /// The map of `style` that `query` asks for, showing `default_bounds` unless it asks for another area.
 pub(super) async fn render_map(
     req: &HttpRequest,
@@ -499,17 +526,7 @@ pub(super) async fn render_map(
     let params = RenderParams::new(style, lat, lon, zoom).with_size(render_width, render_height, NonZeroU8::MIN);
     let image = match styles.render_static(params).await {
         Ok(image) => image,
-        Err(StyleError::RenderingIsDisabled) => {
-            return Ok(HttpResponse::Forbidden()
-                .content_type(ContentType::plaintext())
-                .body("Rendering is disabled"));
-        }
-        Err(e) => {
-            error!(error = %e, "Failed to render a map");
-            return Ok(HttpResponse::InternalServerError()
-                .content_type(ContentType::plaintext())
-                .body("Failed to render the map"));
-        }
+        Err(e) => return Ok(render_failure(&e)),
     };
     let size = ((render_width, render_height) != (viewport.width, viewport.height))
         .then_some((viewport.width, viewport.height));
@@ -614,7 +631,7 @@ pub async fn get_collection_map(
 }
 
 /// The collections a dataset map draws in order: those `collections` names, each once, or every collection with a map.
-fn dataset_collections(
+pub(super) fn dataset_collections(
     manager: &TileSourceManager,
     collections: Option<&str>,
 ) -> Result<Vec<(String, SourceEntry)>, OgcApiError> {

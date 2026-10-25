@@ -759,7 +759,7 @@
         "type": "object"
       },
       "TileSets": {
-        "description": "The tilesets of a collection.",
+        "description": "The tilesets of a collection, map or style.",
         "properties": {
           "links": {
             "items": {

@@ -825,7 +825,7 @@ export interface components {
             tileMatrixSetURI?: string | null;
             title: string;
         };
-        /** @description The tilesets of a collection. */
+        /** @description The tilesets of a collection, map or style. */
         TileSets: {
             links: components["schemas"]["Link"][];
             tilesets: components["schemas"]["TileSetItem"][];

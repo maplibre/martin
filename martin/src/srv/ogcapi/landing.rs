@@ -94,6 +94,11 @@ pub async fn get_landing_page(
             &ogc_url(&req, &srv_config, "/map"),
             "Map of all collections",
         ));
+        links.push(Link::json(
+            ogc_url(&req, &srv_config, "/map/tiles"),
+            super::data_type::DataType::Raster.tilesets_rel(),
+            "Map tilesets of all collections",
+        ));
     }
     HttpResponse::Ok().json(LandingPage {
         title: "Martin",

@@ -562,6 +562,12 @@ async fn the_styles_link_their_maps() {
               "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
               "title": "Map of the style",
               "type": "image/png"
+            },
+            {
+              "href": "http://[ADDR]/ogc/styles/maplibre_demo/map/tiles",
+              "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+              "title": "Map tilesets of the style",
+              "type": "application/json"
             }
           ],
           "title": "MapLibre"
@@ -635,7 +641,8 @@ async fn the_conformance_declares_maps_when_rendering() {
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
-        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff"
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tilesets"
       ]
     }
     "#);
@@ -1128,11 +1135,151 @@ async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
           "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
           "title": "Map of all collections",
           "type": "image/png"
+        },
+        {
+          "href": "http://[ADDR]/ogc/map/tiles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+          "title": "Map tilesets of all collections",
+          "type": "application/json"
         }
       ],
       "title": "Martin"
     }
     "#);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_style_map_tile_is_256_pixels() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/styles/maplibre_demo/map/tiles/WebMercatorQuad/2/1/2")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.image_size(), (256, 256));
+    assert_image_matches(fixture("ogc_maps/maplibre_demo_tile_2_1_2.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn the_dataset_map_tileset_templates_its_tiles() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad").await;
+    assert_eq!(response.status(), 200);
+    let tileset = martin.redacted_json(&response);
+    insta::assert_json_snapshot!(tileset["links"], @r#"
+    [
+      {
+        "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad",
+        "rel": "self",
+        "title": "This document",
+        "type": "application/json"
+      },
+      {
+        "href": "http://[ADDR]/ogc/tileMatrixSets/WebMercatorQuad",
+        "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
+        "title": "Tile matrix set definition",
+        "type": "application/json"
+      },
+      {
+        "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}",
+        "rel": "item",
+        "templated": true,
+        "title": "Tiles",
+        "type": "image/png"
+      }
+    ]
+    "#);
+    insta::assert_json_snapshot!(tileset["tileMatrixSetLimits"][2], @r#"
+    {
+      "maxTileCol": 3,
+      "maxTileRow": 3,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "2"
+    }
+    "#);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn map_tiles_are_only_on_web_mercator_quad() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WorldCRS84Quad/0/0/0").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Maps are only tiled on WebMercatorQuad, not on WorldCRS84Quad");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_map_tile_outside_the_grid_is_not_found() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/1/2/0").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Map tile 1/2/0 is outside WebMercatorQuad");
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }
