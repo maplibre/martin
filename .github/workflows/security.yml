@@ -75,10 +75,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+      - uses: rustsec/audit-check@858dc40f52ca2b8570b7a997c1c4e35c6fc9a432 # v2.0.0-3-g858dc40 (Node 24, unreleased)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0192,RUSTSEC-2026-0206,RUSTSEC-2026-0253
+          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0192,RUSTSEC-2026-0206,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
           # RUSTSEC-2025-0141 = bincode unmaintained, is done
@@ -88,6 +88,7 @@ jobs:
           # RUSTSEC-2026-0192 = ttf-parser unmaintained; pinned by spreet 0.13.1 (latest) -> resvg 0.43, newer resvg moved to skrifa
           # RUSTSEC-2026-0206 = rustybuzz unmaintained; same spreet 0.13.1 -> resvg 0.43 pin
           # RUSTSEC-2026-0253 = lru@0.7.8 pop() panic safety; pulled in by tracing-log's interest-cache, whose keys never panic on drop
+          # RUSTSEC-2025-0075,0080,0081,0090,0098,0100 = unic-* unmaintained; pinned by pyo3-stub-gen 0.23.1 (latest) -> rustpython-parser 0.4, only in cog-tiles-py
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 90
