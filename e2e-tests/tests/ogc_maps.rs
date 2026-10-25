@@ -831,6 +831,7 @@ async fn a_dataset_map_draws_every_raster_collection() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (512, 510)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
     ");
@@ -861,6 +862,12 @@ async fn a_dataset_map_draws_only_the_collections_asked_for() {
 
     let response = martin.get("/ogc/map?collections=toner&width=512").await;
     assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -892,6 +899,12 @@ async fn a_dataset_map_draws_a_later_collection_over_an_earlier_one() {
         .get("/ogc/map?collections=toner,naip&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 843)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -13508675.867509153,5155438.341398502,-13507829.83937912,5156831.313495407
+    ");
     assert_image_matches(fixture("ogc_maps/naip_over_toner.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -923,6 +936,12 @@ async fn a_dataset_map_draws_an_earlier_collection_under_a_later_one() {
         .get("/ogc/map?collections=naip,toner&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 843)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -13508675.867509153,5155438.341398502,-13507829.83937912,5156831.313495407
+    ");
     assert_image_matches(fixture("ogc_maps/toner_over_naip.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -977,6 +996,12 @@ async fn a_dataset_map_takes_collections_by_url() {
     let url = format!("http://{}/ogc/collections/toner", martin.addr());
     let response = martin.get(&format!("/ogc/map?collections={url}&width=512")).await;
     assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
