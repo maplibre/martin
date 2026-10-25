@@ -72,12 +72,12 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
     );
 }
 
-/// Waits for the test engine to answer, retrying every two seconds up to 150 times.
+/// Waits for the test engine to answer, retrying every two seconds up to 75 times.
 async fn wait_for_team_engine(client: &reqwest::Client) {
     (|| async {
         client
             .get(format!("{TEAM_ENGINE}/"))
-            .timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(2))
             .send()
             .await?
             .error_for_status()
@@ -85,7 +85,7 @@ async fn wait_for_team_engine(client: &reqwest::Client) {
     .retry(
         ConstantBuilder::new()
             .with_delay(Duration::from_secs(2))
-            .with_max_times(150),
+            .with_max_times(75),
     )
     .sleep(tokio::time::sleep)
     .await
