@@ -112,8 +112,8 @@ async fn a_sheet_is_served_as_png() {
 #[case::another_source("/sprite/src2.png", (15, 15))]
 #[case::composite("/sprite/src1,src2.png", (50, 31))]
 #[case::high_dpi("/sprite/src1@2x.png", (72, 62))]
-#[case::sdf("/sdf_sprite/src1.png", (48, 43))]
-#[case::sdf_composite("/sdf_sprite/src1,src2.png", (48, 47))]
+#[case::sdf("/sdf_sprite/src1.png", (60, 55))]
+#[case::sdf_composite("/sdf_sprite/src1,src2.png", (60, 59))]
 #[tokio::test]
 async fn a_sheet_is_packed_to_fit_every_icon(#[case] path: &str, #[case] size: (u32, u32)) {
     let mut martin = Martin::builder()
@@ -177,26 +177,26 @@ async fn an_sdf_index_flags_every_icon() {
     insta::assert_json_snapshot!(response.json(), @r#"
     {
       "another_bicycle": {
-        "height": 21,
+        "height": 27,
         "pixelRatio": 1,
         "sdf": true,
-        "width": 21,
-        "x": 26,
-        "y": 22
+        "width": 27,
+        "x": 32,
+        "y": 28
       },
       "bear": {
-        "height": 22,
+        "height": 28,
         "pixelRatio": 1,
         "sdf": true,
-        "width": 22,
-        "x": 26,
+        "width": 28,
+        "x": 32,
         "y": 0
       },
       "sub/circle": {
-        "height": 26,
+        "height": 32,
         "pixelRatio": 1,
         "sdf": true,
-        "width": 26,
+        "width": 32,
         "x": 0,
         "y": 0
       }
