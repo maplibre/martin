@@ -6,6 +6,7 @@ mod data_type;
 mod error;
 mod landing;
 mod link;
+mod openapi;
 #[cfg(feature = "resources")]
 mod styles;
 mod tile;
@@ -15,6 +16,7 @@ mod tilesets;
 pub use collections::{get_collection, get_collections};
 pub use conformance::get_conformance;
 pub use landing::get_landing_page;
+pub use openapi::get_api;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use styles::__path_get_styles;
 #[cfg(feature = "resources")]
@@ -27,6 +29,7 @@ pub use {
     collections::{__path_get_collection, __path_get_collections},
     conformance::__path_get_conformance,
     landing::__path_get_landing_page,
+    openapi::__path_get_api,
     tile::__path_get_tile,
     tile_matrix_sets::{__path_get_tile_matrix_set, __path_get_tile_matrix_sets},
     tilesets::{__path_get_tileset, __path_get_tilesets},

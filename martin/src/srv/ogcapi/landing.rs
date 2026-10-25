@@ -5,6 +5,7 @@ use actix_web::{HttpRequest, HttpResponse, route};
 use serde::Serialize;
 
 use super::link::{Link, ogc_url};
+use super::openapi::OPENAPI_JSON;
 use crate::config::file::srv::SrvConfig;
 
 /// The entry point of the OGC API.
@@ -39,6 +40,13 @@ pub async fn get_landing_page(req: HttpRequest, srv_config: Data<SrvConfig>) -> 
     #[cfg_attr(not(feature = "resources"), expect(unused_mut, reason = "only styles add links"))]
     let mut links = vec![
         Link::json(ogc_url(&req, &srv_config, ""), "self", "This document"),
+        Link {
+            href: ogc_url(&req, &srv_config, "/api"),
+            rel: "service-desc",
+            media_type: OPENAPI_JSON,
+            title: "The OpenAPI definition of this API",
+            templated: false,
+        },
         Link {
             href: "https://maplibre.org/martin/using/".to_owned(),
             rel: "service-doc",

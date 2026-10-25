@@ -101,6 +101,12 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
           "title": "This document"
         },
         {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -220,6 +226,12 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
           "title": "This document"
         },
         {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -280,6 +292,12 @@ async fn the_proxied_links_have_no_styles_without_resources() {
           "title": "This document"
         },
         {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -310,6 +328,42 @@ async fn the_proxied_links_have_no_styles_without_resources() {
 
 #[cfg(feature = "resources")]
 #[actix_rt::test]
+async fn the_api_definition_names_an_operation_for_each_path() {
+    let (config, _conn) = config("ogc_api_definition").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.0"
+    );
+    let definition: serde_json::Value = read_body_json(response).await;
+    let operations: serde_json::Map<String, serde_json::Value> = definition["paths"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(path, item)| (path.clone(), item["get"]["operationId"].clone()))
+        .collect();
+    assert_json_snapshot!(operations, @r#"
+    {
+      "/": "getLandingPage",
+      "/api": "getApi",
+      "/conformance": "getConformance",
+      "/collections": "getCollections",
+      "/collections/{collectionId}": "getCollection",
+      "/collections/{collectionId}/tiles": "collection.getTileSetsList",
+      "/collections/{collectionId}/tiles/{tileMatrixSetId}": "collection.getTileSet",
+      "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": "collection.getTile",
+      "/tileMatrixSets": "getTileMatrixSetsList",
+      "/tileMatrixSets/{tileMatrixSetId}": "getTileMatrixSet",
+      "/styles": "getStyles",
+      "/styles/{styleId}": "getStyle"
+    }
+    "#);
+}
+
+#[actix_rt::test]
 async fn the_conformance_declaration_lists_the_classes_served() {
     let (config, _conn) = config("ogc_conformance").await;
     let app = create_app!(&config);
@@ -323,7 +377,9 @@ async fn the_conformance_declaration_lists_the_classes_served() {
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
+        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",

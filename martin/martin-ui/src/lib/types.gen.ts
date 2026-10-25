@@ -86,6 +86,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/api": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The `OpenAPI` 3.0 definition of the OGC API. */
+        get: operations["get_api"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/collections": {
         parameters: {
             query?: never;
@@ -914,6 +931,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LandingPage"];
+                };
+            };
+        };
+    };
+    get_api: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI 3.0 definition of the OGC API */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.oai.openapi+json;version=3.0": unknown;
                 };
             };
         };

@@ -57,6 +57,7 @@ struct MartinRenderingOpenApi;
 #[derive(OpenApi)]
 #[openapi(paths(
     crate::srv::ogcapi::get_landing_page,
+    crate::srv::ogcapi::get_api,
     crate::srv::ogcapi::get_conformance,
     crate::srv::ogcapi::get_tile_matrix_sets,
     crate::srv::ogcapi::get_tile_matrix_set,

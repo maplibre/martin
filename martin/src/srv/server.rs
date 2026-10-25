@@ -175,6 +175,7 @@ fn register_services(
     // Register the OGC API BEFORE the tile routes, whose `/{source_ids}` would take `/ogc`
     #[cfg(feature = "ogcapi")]
     cfg.service(ogcapi::get_landing_page)
+        .service(ogcapi::get_api)
         .service(ogcapi::get_conformance)
         .service(ogcapi::get_tile_matrix_sets)
         .service(ogcapi::get_tile_matrix_set)

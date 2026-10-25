@@ -995,6 +995,21 @@
         "tags": ["crate::srv::ogcapi"]
       }
     },
+    "/ogc/api": {
+      "get": {
+        "operationId": "get_api",
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.oai.openapi+json;version=3.0": {}
+            },
+            "description": "OpenAPI 3.0 definition of the OGC API"
+          }
+        },
+        "summary": "The `OpenAPI` 3.0 definition of the OGC API.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
     "/ogc/collections": {
       "get": {
         "operationId": "getCollectionsList",
