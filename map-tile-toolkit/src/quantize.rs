@@ -754,7 +754,10 @@ fn to_fixed(v: f64) -> Result<i64, TileError> {
     const ROUND: f64 = 6_755_399_441_055_744.0;
     let scaled = v * ONE as f64;
     let mut f = (scaled + ROUND) - ROUND;
-    #[expect(clippy::float_cmp, reason = "exact on purpose: only a rounded `f` may move off a half")]
+    #[expect(
+        clippy::float_cmp,
+        reason = "exact on purpose: only a rounded `f` may move off a half"
+    )]
     let rounded_onto_a_half = f != scaled && f.rem_euclid(ONE as f64) == HALF as f64;
     if rounded_onto_a_half {
         f += (scaled - f).signum();
