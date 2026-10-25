@@ -28,8 +28,8 @@ permissions:
 jobs:
   benchmark:
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'bench')
-    # toolkit-slice runs under Callgrind, and instruction counts only compare within one
-    # Valgrind build and Rust toolchain, so the image, the package and the toolchain are pinned.
+    # toolkit-slice runs in merged mode (natively, then under Callgrind), and instruction counts only
+    # compare within one Valgrind build and Rust toolchain, so the image, the package and the toolchain are pinned.
     runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
@@ -111,8 +111,10 @@ jobs:
           just bench-hotpath all --features hotpath-cloud
 
       # A run outside Valgrind, or with an unreadable Callgrind dump, reports no instruction counts
-      - name: Check toolkit-slice instruction counts
-        run: jq -e '.functions_icount.data | length > 0' /tmp/hotpath/toolkit-slice.json > /dev/null
+      - name: Check toolkit-slice merged report
+        run: |
+          jq -e '.meta.run == "merged" and (.functions_icount.data | length > 0) and (.functions_timing.data | length > 0)' \
+            /tmp/hotpath/toolkit-slice.json > /dev/null
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'pull_request'
