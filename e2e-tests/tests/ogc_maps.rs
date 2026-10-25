@@ -1235,6 +1235,66 @@ async fn the_dataset_map_tileset_templates_its_tiles() {
 }
 
 #[tokio::test]
+async fn a_dataset_map_tile_draws_the_collections_in_id_order() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                basemap: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.image_size(), (256, 256));
+    assert_image_matches(fixture("ogc_maps/dataset_tile_naip_over_basemap.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_tile_draws_a_collection_later_in_id_order_on_top() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    assert_eq!(response.image_size(), (256, 256));
+    assert_image_matches(fixture("ogc_maps/dataset_tile_toner_over_naip.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
 async fn map_tiles_are_only_on_web_mercator_quad() {
     let dir = temp_dir();
     let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
