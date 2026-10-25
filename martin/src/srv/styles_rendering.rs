@@ -80,6 +80,7 @@ enum EncodeError {
     Palette(#[from] png_palette::PngPaletteError),
     #[error("Failed to encode a lossy WebP: {0:?}")]
     Webp(webp::WebPEncodingError),
+    #[cfg(feature = "ogcapi")]
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
@@ -127,7 +128,7 @@ pub(super) async fn encode_scaled_image_response(
 }
 
 /// Run `encode` under the limit image encodes share, and answer its bytes as `content_type`.
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "ogcapi", target_os = "linux"))]
 pub(super) async fn encode_response<E: std::error::Error + Send + Sync + 'static>(
     content_type: &'static str,
     encode: impl FnOnce() -> Result<Vec<u8>, E> + Send + 'static,
