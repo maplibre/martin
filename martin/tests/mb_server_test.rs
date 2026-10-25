@@ -190,10 +190,11 @@ async fn mbt_get_tilejson() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_tilejson_caps_the_maxzoom_of_a_file_without_tiles() {
-    let script = "CREATE TABLE metadata (name text, value text);
-        INSERT INTO metadata VALUES ('name', 'empty'), ('format', 'pbf'), ('maxzoom', '40');
-        CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);";
+async fn mbt_tilejson_caps_the_zooms_of_a_file_without_tiles() {
+    let script = r#"CREATE TABLE metadata (name text, value text);
+        INSERT INTO metadata VALUES ('name', 'empty'), ('format', 'pbf'), ('minzoom', '35'), ('maxzoom', '40'),
+            ('json', '{"vector_layers":[{"id":"roads","fields":{},"minzoom":35,"maxzoom":40}]}');
+        CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);"#;
     let (_mbt, _conn, file) = temp_named_mbtiles("mbt_tilejson_caps_empty", script).await;
     let app = create_app!(&formatdoc! {"
         mbtiles:
@@ -204,7 +205,11 @@ async fn mbt_tilejson_caps_the_maxzoom_of_a_file_without_tiles() {
     let response = call_service(&app, test_get("/empty").to_request()).await;
     let response = assert_response(response).await;
     let body: TileJSON = read_body_json(response).await;
-    assert_eq!(body.maxzoom, Some(30));
+    let layer = &body.vector_layers.expect("the file declares a layer")[0];
+    assert_eq!(
+        [body.minzoom, body.maxzoom, layer.minzoom, layer.maxzoom],
+        [Some(30), Some(30), Some(30), Some(30)]
+    );
 }
 
 #[actix_rt::test]
