@@ -563,6 +563,7 @@ async fn a_raster_collection_map_draws_its_tiles() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (512, 510)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
     ");
