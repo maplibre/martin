@@ -190,7 +190,12 @@ async fn a_style_map_skips_tiff_when_accept_refuses_it() {
         )
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.header("content-type"), Some("image/png"));
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -219,7 +224,7 @@ async fn a_style_map_png_has_an_alpha_channel() {
     let png = png::Decoder::new(std::io::Cursor::new(response.body()))
         .read_info()
         .expect("a PNG");
-    assert_eq!(png.info().color_type, png::ColorType::Rgba);
+    insta::assert_snapshot!(format!("{:?} {:?}", png.info().color_type, png.info().bit_depth), @"Rgba Eight");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
