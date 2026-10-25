@@ -229,7 +229,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
-vt100 = "0.16.2"
+vt100 = "0.17.0"
 walkdir = "2.5.0"
 wincode = "0.6.2"
 wiremock = "0.6"
