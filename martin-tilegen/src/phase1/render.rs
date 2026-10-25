@@ -235,25 +235,26 @@ impl RenderLayer {
         let (Some(lo), Some(hi)) = (vertices.iter().map(|c| c.x).min(), vertices.iter().map(|c| c.x).max()) else {
             return Ok(None);
         };
-        self.reachable_between(zoom, i64::from(lo), i64::from(hi))
+        let columns = tiles_meeting(f64::from(lo), f64::from(hi), self.grid)?;
+        self.window(zoom, columns, (i32::MIN, i32::MAX))
     }
 
-    /// [`Self::reachable`] for a feature whose x coordinates in the zoom grid lie from `lo` to `hi`.
-    fn reachable_between(
+    /// The tiles this layer keeps within the tile `columns` and `rows` of `zoom`, as [`Self::reachable`].
+    fn window(
         &self,
         zoom: u8,
-        lo: i64,
-        hi: i64,
+        (first, last): (i32, i32),
+        (top, bottom): (i32, i32),
     ) -> TileGenResult<Option<(map_tile_toolkit::TileId, map_tile_toolkit::TileId)>> {
-        let (extent, buffer) = (to_i32(self.grid.extent)?, to_i32(self.grid.buffer)?);
         let (xs, ys) = self.tile_bounds(zoom);
-        if xs.is_empty() || ys.is_empty() {
+        let (top, bottom) = (
+            i64::from(ys.start).max(i64::from(top)),
+            (i64::from(ys.end) - 1).min(i64::from(bottom)),
+        );
+        if xs.is_empty() || top > bottom {
             return Ok(None);
         }
-        let (first, last) = (
-            (lo - i64::from(buffer) - 1).div_euclid(i64::from(extent)),
-            (hi + i64::from(buffer)).div_euclid(i64::from(extent)),
-        );
+        let (first, last) = (i64::from(first), i64::from(last));
         let side = 1i64 << zoom;
         let (mut min, mut max) = (i64::MAX, i64::MIN);
         for world in first.div_euclid(side)..=last.div_euclid(side) {
@@ -266,12 +267,12 @@ impl RenderLayer {
         if min > max {
             return Ok(None);
         }
-        let tile = |x: i64, y: u32| -> TileGenResult<map_tile_toolkit::TileId> {
+        let tile = |x: i64, y: i64| -> TileGenResult<map_tile_toolkit::TileId> {
             let x = i32::try_from(x).map_err(|_overflow| GeometryError::CoordOverflow)?;
             let y = i32::try_from(y).map_err(|_overflow| GeometryError::CoordOverflow)?;
             Ok(map_tile_toolkit::TileId::new(x, y))
         };
-        Ok(Some((tile(min, ys.start)?, tile(max, ys.end - 1)?)))
+        Ok(Some((tile(min, top)?, tile(max, bottom)?)))
     }
 
     /// The RDP tolerance at `zoom` in Web Mercator units.
@@ -330,12 +331,8 @@ pub struct Renderer {
     /// line run or polygon ring with its tile, its vertices tile-local in `sliced_vertices`.
     sliced: Vec<SlicedPart>,
     sliced_vertices: Vec<Vertex>,
-    /// The tiles one point reaches, or unclipped, those any line or polygon of the feature reaches at one zoom.
+    /// The tiles whose buffered box one point, or an unclipped feature's source, intersects at one zoom.
     reached: Vec<map_tile_toolkit::TileId>,
-    /// Unclipped, the tiles a polygon reaches once rounded.
-    covered: Vec<map_tile_toolkit::TileId>,
-    /// Unclipped, the tiles a rounded polygon's edges meet.
-    rounded_edges: Vec<map_tile_toolkit::TileId>,
     /// Each tile a point reaches, with the index of its rounded vertex in `vertices`.
     points: Vec<(i32, i32, usize)>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
@@ -397,9 +394,8 @@ impl Renderer {
                 let Some(bbox) = points.iter().map(BoundingRect::bounding_rect).reduce(union) else {
                     return Ok(());
                 };
-                let shift = world_shift(bbox);
                 for zoom in zooms.rev() {
-                    let result = self.render_points(&ctx, zoom, points, shift, out);
+                    let result = self.render_points(&ctx, zoom, points, bbox, out);
                     self.skip_unrenderable(&ctx, zoom, result)?;
                 }
             }
@@ -471,23 +467,22 @@ impl Renderer {
     }
 
     /// Quantizes the points at `zoom`, keeping one of those rounding onto the same vertex, and pushes one
-    /// piece per tile whose buffered box, edges included, holds a point before rounding (unclipped, all
-    /// the points).
+    /// piece per tile whose buffered box a point intersects before rounding (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
         zoom: u8,
         points: &[Coord<f64>],
-        shift: f64,
+        bbox: Rect<f64>,
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
         let grid = ctx.layer.grid;
-        let extent = to_i32(grid.extent)?;
-        let world = scale(zoom) * f64::from(grid.extent);
-        let anywhere = (
-            map_tile_toolkit::TileId::new(i32::MIN, i32::MIN),
-            map_tile_toolkit::TileId::new(i32::MAX, i32::MAX),
-        );
+        let (shift, world) = (world_shift(bbox), scale(zoom) * f64::from(grid.extent));
+        let (lo, hi) = (to_grid(bbox.min(), shift, world), to_grid(bbox.max(), shift, world));
+        let (columns, rows) = (tiles_meeting(lo.x, hi.x, grid)?, tiles_meeting(lo.y, hi.y, grid)?);
+        let Some(window) = ctx.layer.window(zoom, columns, rows)? else {
+            return Ok(());
+        };
         self.vertices.clear();
         self.points.clear();
         for &c in points {
@@ -503,19 +498,16 @@ impl Renderer {
                 });
             let at = to_grid(c, shift, world);
             self.reached.clear();
-            push_tiles_meeting(at, at, grid, anywhere, &mut self.reached)?;
+            push_segment_tiles(at, at, grid, window, &mut self.reached)?;
             self.points.extend(self.reached.iter().map(|t| (t.x, t.y, index)));
         }
         self.points.sort_unstable();
         self.points.dedup();
         for group in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
             let (tx, ty, _) = group[0];
-            let origin = Coord {
-                x: tx * extent,
-                y: ty * extent,
-            };
+            let origin = tile_origin((tx, ty), grid)?;
             self.piece.clear();
-            let local = |c: Coord<i32>| [c.x - origin.x, c.y - origin.y];
+            let local = |c: Coord<i32>| [c.x - origin.0, c.y - origin.1];
             if ctx.layer.clip_mode == ClipMode::Unclipped {
                 self.piece.vertices.extend(self.vertices.iter().map(|&c| local(c)));
             } else {
@@ -608,8 +600,8 @@ impl Renderer {
         self.push_sliced(ctx, zoom, PieceKind::Lines, out)
     }
 
-    /// Unclipped: pushes the whole quantized `feature` to each tile whose buffered box, edges included, its
-    /// source meets before it is simplified and rounded, as tile mode selects features by their source.
+    /// Unclipped: pushes the whole quantized `feature` to each tile whose buffered box its source intersects,
+    /// the test tile mode makes with `ST_Intersects` before it simplifies and rounds.
     fn push_unclipped(
         &mut self,
         ctx: &Ctx<'_>,
@@ -623,12 +615,13 @@ impl Renderer {
         }
         let grid = ctx.layer.grid;
         let (shift, world) = (world_shift(bbox), scale(zoom) * f64::from(grid.extent));
-        let bbox = Rect::new(to_grid(bbox.min(), shift, world), to_grid(bbox.max(), shift, world));
-        if let Some(tile) = sole_tile_holding(bbox, grid)? {
-            return self.push_whole(ctx, zoom, tile, feature, out);
+        let (lo, hi) = (to_grid(bbox.min(), shift, world), to_grid(bbox.max(), shift, world));
+        let (columns, rows) = (tiles_meeting(lo.x, hi.x, grid)?, tiles_meeting(lo.y, hi.y, grid)?);
+        // The bounding box intersects one tile's buffered box alone, so the feature does too.
+        if columns.0 == columns.1 && rows.0 == rows.1 {
+            return self.push_whole(ctx, zoom, (columns.0, rows.0), feature, out);
         }
-        let (lo, hi) = (whole(bbox.min().x.floor())?, whole(bbox.max().x.ceil())?);
-        let Some(window) = ctx.layer.reachable_between(zoom, i64::from(lo), i64::from(hi))? else {
+        let Some(window) = ctx.layer.window(zoom, columns, rows)? else {
             return Ok(());
         };
         self.reached.clear();
@@ -636,72 +629,43 @@ impl Renderer {
             let path = path.0.iter().map(|&c| to_grid(c, shift, world));
             push_path_tiles(path, grid, window, &mut self.reached)?;
         }
-        if !feature.0.is_empty() {
-            self.add_covered(ctx, (shift, world), window, feature)?;
+        if let FeatureGeom::Polygons(_) = ctx.feature.geom {
+            self.add_covered(ctx.feature.geom, grid, (shift, world), window);
         }
         self.push_reached(ctx, zoom, feature, out)
     }
 
-    /// Adds to [`Self::reached`] the tiles the polygon `feature` covers without a source edge meeting them:
-    /// those it covers once rounded with no rounded edge there either, and those whose center the source holds.
+    /// Adds to [`Self::reached`], which holds the tiles the polygons' edges intersect, the other tiles of `window`
+    /// they cover: a run of tiles in a row with no edge in it lies all inside or all outside, so its first center
+    /// decides.
     fn add_covered(
         &mut self,
-        ctx: &Ctx<'_>,
+        geom: FeatureGeom<'_>,
+        grid: LayerGrid,
         (shift, world): (f64, f64),
         (min, max): (map_tile_toolkit::TileId, map_tile_toolkit::TileId),
-        (polys, parts, vertices): Rings<'_>,
-    ) -> TileGenResult<()> {
-        let mut rings = Vec::with_capacity(parts.len());
-        let mut rest = vertices;
-        for &len in parts {
-            let (ring, tail) = rest.split_at(len as usize);
-            rings.push(ring);
-            rest = tail;
-        }
-        self.rounded_edges.clear();
-        for ring in &rings {
-            let closed = ring.iter().chain(ring.first()).map(|c| Coord {
-                x: f64::from(c.x),
-                y: f64::from(c.y),
-            });
-            push_path_tiles(closed, ctx.layer.grid, (min, max), &mut self.rounded_edges)?;
-        }
-        let pos = self.slicer_index(ctx.layer)?;
-        let slicer = &mut self.slicers[pos].1;
-        self.covered.clear();
-        let mut rest = rings.as_slice();
-        for &count in polys {
-            let (polygon_rings, tail) = rest.split_at(count as usize);
-            rest = tail;
-            let mut pieces = slicer
-                .polygon(polygon_rings)
-                .map_err(GeometryError::from)?
-                .within(min, max);
-            while let Some(slice) = pieces.next() {
-                if let PolygonSlice::Piece(piece) = slice.map_err(GeometryError::from)? {
-                    self.covered.push(piece.tile());
+    ) {
+        self.reached.sort_unstable();
+        self.reached.dedup();
+        let edges = self.reached.len();
+        let extent = f64::from(grid.extent);
+        for row in min.y..=max.y {
+            let mut inside = None;
+            for column in min.x..=max.x {
+                let tile = map_tile_toolkit::TileId::new(column, row);
+                if self.reached[..edges].binary_search(&tile).is_ok() {
+                    inside = None;
+                    continue;
+                }
+                let center = Coord {
+                    x: (f64::from(column) + 0.5) * extent / world - shift,
+                    y: (f64::from(row) + 0.5) * extent / world,
+                };
+                if *inside.get_or_insert_with(|| geom.holds(center)) {
+                    self.reached.push(tile);
                 }
             }
         }
-        for tiles in [&mut self.reached, &mut self.covered, &mut self.rounded_edges] {
-            tiles.sort_unstable();
-            tiles.dedup();
-        }
-        let extent = f64::from(ctx.layer.grid.extent);
-        let center = |t: map_tile_toolkit::TileId| Coord {
-            x: (f64::from(t.x) + 0.5) * extent / world - shift,
-            y: (f64::from(t.y) + 0.5) * extent / world,
-        };
-        let sourced = self.reached.len();
-        for &tile in &self.covered {
-            if self.reached[..sourced].binary_search(&tile).is_ok() {
-                continue;
-            }
-            if self.rounded_edges.binary_search(&tile).is_err() || ctx.feature.geom.holds(center(tile)) {
-                self.reached.push(tile);
-            }
-        }
-        Ok(())
     }
 
     /// Pushes the whole feature to each tile in [`Self::reached`].
@@ -809,8 +773,7 @@ impl Renderer {
         feature: Rings<'_>,
         out: &mut SortBuffer<'_>,
     ) -> TileGenResult<()> {
-        let extent = to_i32(ctx.layer.grid.extent)?;
-        self.piece.set_whole(feature, (tx * extent, ty * extent));
+        self.piece.set_whole(feature, tile_origin((tx, ty), ctx.layer.grid)?);
         let geom = if feature.0.is_empty() {
             self.piece.lines()
         } else {
@@ -1085,22 +1048,24 @@ fn sole_tile(vertices: &[Coord<i32>], grid: LayerGrid) -> TileGenResult<Option<(
     Ok(sole.then_some(tile))
 }
 
-/// The tile holding `bbox` in the zoom grid clear of every neighbor's buffer, as [`sole_tile`] for unrounded
-/// coordinates.
-fn sole_tile_holding(bbox: Rect<f64>, grid: LayerGrid) -> Result<Option<(i32, i32)>, GeometryError> {
+/// The first and last tile along one axis whose buffered span, ends included, intersects `lo..=hi` in the zoom
+/// grid. The span ends are whole units, so `lo` rounds up and `hi` down to whole units first, exactly.
+fn tiles_meeting(lo: f64, hi: f64, grid: LayerGrid) -> Result<(i32, i32), GeometryError> {
     let (extent, buffer) = (f64::from(grid.extent), f64::from(grid.buffer));
-    let tile = |lo: f64, hi: f64| {
-        let t = (lo / extent).floor();
-        (lo > t * extent + buffer && hi < (t + 1.0) * extent - buffer).then_some(t)
-    };
-    match (tile(bbox.min().x, bbox.max().x), tile(bbox.min().y, bbox.max().y)) {
-        (Some(x), Some(y)) => Ok(Some((whole(x)?, whole(y)?))),
-        _ => Ok(None),
-    }
+    let first = ((lo.ceil() - buffer - 1.0) / extent).floor();
+    let last = ((hi.floor() + buffer) / extent).floor();
+    Ok((whole(first)?, whole(last)?))
 }
 
-/// Pushes each tile within `window` whose buffered box, edges included, meets the path through `coords`
-/// in the zoom grid, or its one vertex.
+/// The zoom-grid corner of tile `(tx, ty)` that its tile-local frame starts from.
+fn tile_origin((tx, ty): (i32, i32), grid: LayerGrid) -> Result<(i32, i32), GeometryError> {
+    let extent = to_i32(grid.extent)?;
+    let origin = |t: i32| t.checked_mul(extent).ok_or(GeometryError::CoordOverflow);
+    Ok((origin(tx)?, origin(ty)?))
+}
+
+/// Pushes each tile within `window` whose buffered box intersects the path through `coords` in the zoom grid,
+/// or its one vertex.
 fn push_path_tiles(
     mut coords: impl Iterator<Item = Coord<f64>>,
     grid: LayerGrid,
@@ -1112,7 +1077,7 @@ fn push_path_tiles(
     };
     let mut b = coords.next().unwrap_or(a);
     loop {
-        push_tiles_meeting(a, b, grid, window, tiles)?;
+        push_segment_tiles(a, b, grid, window, tiles)?;
         let Some(next) = coords.next() else {
             return Ok(());
         };
@@ -1120,9 +1085,9 @@ fn push_path_tiles(
     }
 }
 
-/// Pushes each tile within `min..=max` whose buffered box, edges included, meets the segment from `a` to `b`
-/// in the zoom grid.
-fn push_tiles_meeting(
+/// Pushes each tile within `min..=max` whose buffered box intersects the segment from `a` to `b` in the zoom
+/// grid: per column, the rows that the part of the segment between the column's buffered sides spans.
+fn push_segment_tiles(
     a: Coord<f64>,
     b: Coord<f64>,
     grid: LayerGrid,
@@ -1131,7 +1096,7 @@ fn push_tiles_meeting(
 ) -> Result<(), GeometryError> {
     let (extent, buffer) = (f64::from(grid.extent), f64::from(grid.buffer));
     let (x0, x1) = (a.x.min(b.x), a.x.max(b.x));
-    let (first, last) = spans_meeting(x0, x1, extent, buffer)?;
+    let (first, last) = tiles_meeting(x0, x1, grid)?;
     for column in first.max(min.x)..=last.min(max.x) {
         let left = f64::from(column) * extent - buffer;
         let right = left + extent + 2.0 * buffer;
@@ -1146,23 +1111,10 @@ fn push_tiles_meeting(
         let (y0, y1) = ends
             .chain(crossings)
             .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| (lo.min(y), hi.max(y)));
-        let (top, bottom) = spans_meeting(y0, y1, extent, buffer)?;
+        let (top, bottom) = tiles_meeting(y0, y1, grid)?;
         tiles.extend((top.max(min.y)..=bottom.min(max.y)).map(|row| map_tile_toolkit::TileId::new(column, row)));
     }
     Ok(())
-}
-
-/// The first and last tile along one axis whose buffered span, ends included, meets `lo..=hi`.
-fn spans_meeting(lo: f64, hi: f64, extent: f64, buffer: f64) -> Result<(i32, i32), GeometryError> {
-    let mut first = ((lo - buffer) / extent).ceil() - 1.0;
-    if (first + 1.0) * extent + buffer < lo {
-        first += 1.0;
-    }
-    let mut last = ((hi + buffer) / extent).floor();
-    if last * extent - buffer > hi {
-        last -= 1.0;
-    }
-    Ok((whole(first)?, whole(last)?))
 }
 
 /// `v`, a whole number, as `i32`.
@@ -1601,6 +1553,46 @@ mod tests {
                 "2/0/0", "2/0/1", "2/0/2", "2/1/0", "2/1/1", "2/1/2", "2/2/0", "2/2/1", "2/2/2"
             ]
         );
+    }
+
+    #[test]
+    fn unclipped_polygon_reaches_a_tile_only_a_simplified_away_bulge_covers() {
+        let layer = RenderLayer::new(0, 4..=4, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let bulging = Polygon::new(
+            LineString::from(vec![
+                (100.0 / 4096.0, 1000.0 / 4096.0),
+                (100.0 / 4096.0, 100.0 / 4096.0),
+                (3500.0 / 4096.0, 100.0 / 4096.0),
+                (3500.0 / 4096.0, 1000.0 / 4096.0),
+                (1800.0 / 4096.0, 1400.0 / 4096.0),
+            ]),
+            vec![],
+        );
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(std::slice::from_ref(&bulging)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 4..=4,
+                simplify: PixelThreshold {
+                    below_max_zoom: 450.0,
+                    at_max_zoom: 450.0,
+                },
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles[0].2.vertices.len(), 4);
+        let column_6: Vec<_> = tiles
+            .iter()
+            .map(|t| t.0.as_str())
+            .filter(|name| name.starts_with("4/6/"))
+            .collect();
+        assert_eq!(column_6, ["4/6/0", "4/6/1", "4/6/2", "4/6/3", "4/6/4", "4/6/5"]);
     }
 
     #[test]
