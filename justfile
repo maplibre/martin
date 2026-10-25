@@ -741,7 +741,7 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
 # Run the OGC API - Tiles conformance suite (Docker) against the world_cities fixture
 [linux]
 test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
-    cargo build --package martin
+    cargo build --package martin --no-default-features --features ogcapi,mbtiles
     cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)

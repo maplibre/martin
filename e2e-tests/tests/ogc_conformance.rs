@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use backon::{ConstantBuilder, Retryable as _};
 use martin_e2e_tests::{Martin, mbtiles_fixture, temp_dir};
 
 /// The test engine that `just test-ogc` starts from docker compose.
@@ -71,23 +72,24 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
     );
 }
 
-/// Waits up to five minutes for the test engine to answer.
+/// Waits for the test engine to answer, retrying every two seconds up to 150 times.
 async fn wait_for_team_engine(client: &reqwest::Client) {
-    let answered = tokio::time::timeout(Duration::from_mins(5), async {
-        loop {
-            let response = client
-                .get(format!("{TEAM_ENGINE}/"))
-                .timeout(Duration::from_secs(5))
-                .send()
-                .await;
-            if response.is_ok_and(|response| response.status().is_success()) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_secs(2)).await;
-        }
+    (|| async {
+        client
+            .get(format!("{TEAM_ENGINE}/"))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await?
+            .error_for_status()
     })
-    .await;
-    assert!(answered.is_ok(), "the test engine did not answer at {TEAM_ENGINE}");
+    .retry(
+        ConstantBuilder::new()
+            .with_delay(Duration::from_secs(2))
+            .with_max_times(150),
+    )
+    .sleep(tokio::time::sleep)
+    .await
+    .expect("the test engine answers");
 }
 
 /// One line per test in the report, with its status and the reason for anything but a pass.
