@@ -39,6 +39,7 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
         .get(run)
         .basic_auth("ogctest", Some("ogctest"))
         .header("Accept", "application/xml")
+        .timeout(Duration::from_mins(5))
         .send()
         .await
         .and_then(reqwest::Response::error_for_status)
@@ -72,16 +73,21 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
 
 /// Waits up to five minutes for the test engine to answer.
 async fn wait_for_team_engine(client: &reqwest::Client) {
-    let mut answered = false;
-    for _ in 0..150 {
-        let response = client.get(format!("{TEAM_ENGINE}/")).send().await;
-        answered = response.is_ok_and(|response| response.status().is_success());
-        if answered {
-            break;
+    let answered = tokio::time::timeout(Duration::from_mins(5), async {
+        loop {
+            let response = client
+                .get(format!("{TEAM_ENGINE}/"))
+                .timeout(Duration::from_secs(5))
+                .send()
+                .await;
+            if response.is_ok_and(|response| response.status().is_success()) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
-        tokio::time::sleep(Duration::from_secs(2)).await;
-    }
-    assert!(answered, "the test engine did not answer at {TEAM_ENGINE}");
+    })
+    .await;
+    assert!(answered.is_ok(), "the test engine did not answer at {TEAM_ENGINE}");
 }
 
 /// One line per test in the report, with its status and the reason for anything but a pass.
