@@ -90,6 +90,8 @@ async fn a_style_is_served_as_a_maplibre_style() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
+    let style: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(style);
 }
 
 #[actix_rt::test]
@@ -146,4 +148,6 @@ async fn an_unknown_style_is_not_found() {
     let request = TestRequest::get().uri("/ogc/styles/unknown");
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"No such style exists");
 }

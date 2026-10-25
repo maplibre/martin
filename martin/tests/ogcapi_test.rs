@@ -208,21 +208,49 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     let landing: serde_json::Value = read_body_json(response).await;
-    let hrefs: Vec<&str> = landing["links"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|link| link["href"].as_str().unwrap())
-        .collect();
-    assert_json_snapshot!(hrefs, @r#"
-    [
-      "https://tiles.example.com/maps/ogc",
-      "https://maplibre.org/martin/using/",
-      "https://tiles.example.com/maps/ogc/conformance",
-      "https://tiles.example.com/maps/ogc/collections",
-      "https://tiles.example.com/maps/ogc/tileMatrixSets",
-      "https://tiles.example.com/maps/ogc/styles"
-    ]
+    assert_json_snapshot!(landing, @r#"
+    {
+      "title": "Martin",
+      "description": "The tiles Martin serves, as an OGC API",
+      "links": [
+        {
+          "href": "https://tiles.example.com/maps/ogc",
+          "rel": "self",
+          "type": "application/json",
+          "title": "This document"
+        },
+        {
+          "href": "https://maplibre.org/martin/using/",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The Martin HTTP API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/conformance",
+          "rel": "conformance",
+          "type": "application/json",
+          "title": "Conformance classes"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/collections",
+          "rel": "data",
+          "type": "application/json",
+          "title": "Collections"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/tileMatrixSets",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "type": "application/json",
+          "title": "Tile matrix sets"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/styles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
+          "type": "application/json",
+          "title": "Styles"
+        }
+      ]
+    }
     "#);
 }
 
@@ -240,20 +268,43 @@ async fn the_proxied_links_have_no_styles_without_resources() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     let landing: serde_json::Value = read_body_json(response).await;
-    let hrefs: Vec<&str> = landing["links"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|link| link["href"].as_str().unwrap())
-        .collect();
-    assert_json_snapshot!(hrefs, @r#"
-    [
-      "https://tiles.example.com/maps/ogc",
-      "https://maplibre.org/martin/using/",
-      "https://tiles.example.com/maps/ogc/conformance",
-      "https://tiles.example.com/maps/ogc/collections",
-      "https://tiles.example.com/maps/ogc/tileMatrixSets"
-    ]
+    assert_json_snapshot!(landing, @r#"
+    {
+      "title": "Martin",
+      "description": "The tiles Martin serves, as an OGC API",
+      "links": [
+        {
+          "href": "https://tiles.example.com/maps/ogc",
+          "rel": "self",
+          "type": "application/json",
+          "title": "This document"
+        },
+        {
+          "href": "https://maplibre.org/martin/using/",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The Martin HTTP API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/conformance",
+          "rel": "conformance",
+          "type": "application/json",
+          "title": "Conformance classes"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/collections",
+          "rel": "data",
+          "type": "application/json",
+          "title": "Collections"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/tileMatrixSets",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "type": "application/json",
+          "title": "Tile matrix sets"
+        }
+      ]
+    }
     "#);
 }
 
