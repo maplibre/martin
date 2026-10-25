@@ -160,6 +160,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      artifact-metadata: write
       packages: write
       code-quality: write
       pull-requests: read
