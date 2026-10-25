@@ -118,9 +118,9 @@ repos:
     rev: "v2.6.3"  # tag is auto-updated by renovate and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.5.15" ]
+        additional_dependencies: [ "@biomejs/biome@2.6.3" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.5.15" ]
+        additional_dependencies: [ "@biomejs/biome@2.6.3" ]
 
   - repo: local
     hooks:
