@@ -50,6 +50,12 @@
       groupName: 'aws crates',
     },
     {
+      // numpy and pyo3-stub-gen each pin one pyo3 minor, which links a single libpython, so they move together.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['/^pyo3/', 'numpy'],
+      groupName: 'pyo3 crates',
+    },
+    {
       // Maintained by us, so no need to wait for the ecosystem to catch up.
       matchManagers: ['cargo'],
       matchPackageNames: ['maplibre_native', 'mlt-core'],
