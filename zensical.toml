@@ -53,8 +53,10 @@ nav = [
           {"Apache" = "run-with-apache.md"}
       ]}
     ]},
-    {"Available API Endpoints" = "using.md"},
-    {"OGC API - Tiles" = "ogc-api.md"},
+    {"Available API Endpoints" = [
+      "using.md",
+      {"OGC API - Tiles" = "ogc-api.md"}
+    ]},
     {"Configuration File" = [
       "config-file/index.md",
       {"Tile sources" = [
