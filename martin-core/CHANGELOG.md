@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1](https://github.com/maplibre/martin/compare/martin-core-v0.14.0...martin-core-v0.14.1) - 2026-10-25
+
+### Added
+
+- *(martin)* review `martin test generate` cases in the terminal ([#3688](https://github.com/maplibre/martin/pull/3688))
+
 ## [0.14.0](https://github.com/maplibre/martin/compare/martin-core-v0.13.0...martin-core-v0.14.0) - 2026-10-22
 
 ### Added

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.3.4...map-tile-toolkit-v0.4.0) - 2026-10-25
+
+### Fixed
+
+- *(tilegen)* bulk mode keeps what lies on a tile's buffer edge, as tile mode does ([#3767](https://github.com/maplibre/martin/pull/3767))
+- *(tilegen)* bulk mode rounds halves to even, as tile mode does ([#3766](https://github.com/maplibre/martin/pull/3766))
+- *(tilegen)* MultiPolygon parts that round onto each other merge instead of overlapping ([#3752](https://github.com/maplibre/martin/pull/3752))
+
+### Other
+
+- *(toolkit)* round halves to even with one remainder match ([#3769](https://github.com/maplibre/martin/pull/3769))
+- Use callgrind mode for hotpath benchmark ([#3760](https://github.com/maplibre/martin/pull/3760))
+- *(toolkit)* share Quantizer's edge tests and ring helpers ([#3723](https://github.com/maplibre/martin/pull/3723))
+
 ## [0.3.4](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.3.3...map-tile-toolkit-v0.3.4) - 2026-10-22
 
 ### Added

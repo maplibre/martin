@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.5](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.4...martin-v2.0.0-beta.5) - 2026-10-25
+
+### Added
+
+- *(ogcapi)* serve collections, tilesets and tiles over the OGC API ([#3764](https://github.com/maplibre/martin/pull/3764))
+- *(ogcapi)* serve an OGC API landing page, conformance and tile matrix sets ([#3763](https://github.com/maplibre/martin/pull/3763))
+- *(martin)* name the source and a query counting unrenderable rows when bulk mode stops on a geometry ([#3757](https://github.com/maplibre/martin/pull/3757))
+- *(mbtiles)* set and delete metadata in meta-update ([#3755](https://github.com/maplibre/martin/pull/3755))
+- *(martin)* review `martin test generate` cases in the terminal ([#3688](https://github.com/maplibre/martin/pull/3688))
+- *(martin)* `martin test generate` and `run` over real rows ([#3686](https://github.com/maplibre/martin/pull/3686))
+- *(martin)* `martin test` paths for lines crossing a tile edge or shorter than a tile unit ([#3697](https://github.com/maplibre/martin/pull/3697))
+- *(martin)* a `martin test` path per value the source's filter allows ([#3696](https://github.com/maplibre/martin/pull/3696))
+- *(tilegen)* list the paths a feature can take through a layer ([#3685](https://github.com/maplibre/martin/pull/3685))
+
+### Fixed
+
+- *(martin)* bulk mode encodes MLT with the configured `convert_to_mlt` settings ([#3761](https://github.com/maplibre/martin/pull/3761))
+- *(pg)* serve tables without an id column when `order_by` is set ([#3762](https://github.com/maplibre/martin/pull/3762))
+- *(tilegen)* `martin test` has no paths that `NOT NULL`, enum labels, a `CHECK` or the key rule out ([#3749](https://github.com/maplibre/martin/pull/3749))
+- *(tilegen)* stop on geometries a tile cannot hold, naming the feature ([#3756](https://github.com/maplibre/martin/pull/3756))
+- *(rendering)* hold the encode permit until the encode finishes ([#3750](https://github.com/maplibre/martin/pull/3750))
+- *(config)* point file source setting errors at the bad value ([#3748](https://github.com/maplibre/martin/pull/3748))
+- *(duckdb)* plan auto-publish without the database ([#3692](https://github.com/maplibre/martin/pull/3692))
+
+### Other
+
+- Use callgrind mode for hotpath benchmark ([#3760](https://github.com/maplibre/martin/pull/3760))
+- *(generate)* run the pushdown and engine-serve PG tests, cover untested bulk paths ([#3739](https://github.com/maplibre/martin/pull/3739))
+
 ## [2.0.0-beta.4](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.3...martin-v2.0.0-beta.4) - 2026-10-22
 
 > [!NOTE]
