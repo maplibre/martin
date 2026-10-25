@@ -746,13 +746,22 @@ fn rings_of<'a, T>(verts: &'a [T], ends: &'a [usize]) -> impl Iterator<Item = &'
     spans(ends).map(|span| &verts[span])
 }
 
-/// `v` in fixed point, if its pixel fits `i32`.
+/// `v` in fixed point, if its pixel fits `i32`, never on a half `v` is not on.
 #[expect(clippy::cast_possible_truncation, reason = "range-checked before the cast")]
 #[expect(clippy::cast_precision_loss, reason = "ONE and HALF are small powers of two")]
 fn to_fixed(v: f64) -> Result<i64, TileError> {
     /// Adding and taking away `1.5 · 2^52` rounds anything below `2^51` to a whole number, ties to even.
     const ROUND: f64 = 6_755_399_441_055_744.0;
-    let f = (v * ONE as f64 + ROUND) - ROUND;
+    let scaled = v * ONE as f64;
+    let mut f = (scaled + ROUND) - ROUND;
+    #[expect(
+        clippy::float_cmp,
+        reason = "exact on purpose: only a rounded `f` may move off a half"
+    )]
+    let rounded_onto_a_half = f != scaled && f.rem_euclid(ONE as f64) == HALF as f64;
+    if rounded_onto_a_half {
+        f += (scaled - f).signum();
+    }
     let lo = f64::from(i32::MIN) * ONE as f64 - HALF as f64;
     let hi = (f64::from(i32::MAX) + 1.0) * ONE as f64 - HALF as f64;
     if f >= lo && f < hi {
