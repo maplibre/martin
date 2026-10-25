@@ -114,7 +114,7 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
         let whole = grid.bounds();
         (bounds[0], bounds[2]) = (whole[0], whole[2]);
     }
-    let maxzoom = tilejson.maxzoom.unwrap_or(MAX_ZOOM).min(MAX_ZOOM);
+    let maxzoom = tilejson.maxzoom.unwrap_or(MAX_ZOOM);
     (tilejson.minzoom.unwrap_or(0)..=maxzoom)
         .map(|zoom| {
             let rect = grid.tile_range(bounds, zoom);

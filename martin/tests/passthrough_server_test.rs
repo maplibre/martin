@@ -4,10 +4,11 @@
 //! against a mock upstream tile server ([`wiremock`]).
 
 use actix_web::http::header::{ACCEPT, ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH};
-use actix_web::test::{TestRequest, call_service, read_body};
+use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
 use martin::srv::Catalog;
 use martin_tile_utils::encode_gzip;
+use tilejson::TileJSON;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -97,6 +98,24 @@ async fn mvt_passes_through_unchanged() {
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body, mvt.as_slice());
+}
+
+#[actix_rt::test]
+async fn a_maxzoom_above_30_is_capped_in_the_tilejson() {
+    let server = MockServer::start().await;
+    let url = format!("{}/{{z}}/{{x}}/{{y}}.pbf", server.uri());
+    let app = create_app!(&formatdoc! {"
+        passthrough:
+          sources:
+            proxy:
+              url: \"{url}\"
+              maxzoom: 40
+    "});
+
+    let response = call_service(&app, TestRequest::get().uri("/proxy").to_request()).await;
+    let response = assert_response(response).await;
+    let tilejson: TileJSON = read_body_json(response).await;
+    assert_eq!(tilejson.maxzoom, Some(30));
 }
 
 #[actix_rt::test]

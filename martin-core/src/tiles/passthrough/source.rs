@@ -11,6 +11,7 @@ use tilejson::{Bounds, TileJSON, tilejson};
 use crate::CacheZoomRange;
 use crate::tiles::passthrough::PassthroughError;
 use crate::tiles::passthrough::url::{UrlTemplate, derive_format, is_template, select_url, substitute};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
@@ -189,7 +190,7 @@ impl PassthroughSource {
     ) -> Result<Self, PassthroughError> {
         let client = build_client(&transport)?;
 
-        let (urls, tilejson, tile_info) = match &upstream {
+        let (urls, mut tilejson, tile_info) = match &upstream {
             Upstream::Templates(set) => {
                 let urls: Vec<String> = set.urls().iter().map(|t| t.as_str().to_owned()).collect();
                 let tilejson = build_template_tilejson(&urls, set.meta());
@@ -207,6 +208,7 @@ impl PassthroughSource {
             }
         };
 
+        cap_zoom_range(&id, &mut tilejson);
         Ok(Self {
             id,
             client,
