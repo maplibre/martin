@@ -153,6 +153,14 @@ You will need its build dependencies first (`just install-dependencies`).
 cargo install martin --locked --features rendering
 ```
 
+For FIPS 140-3 compliant TLS, add the `fips` feature.
+It makes rustls use the FIPS-validated AWS-LC module (`aws-lc-fips-sys`), which needs CMake and Go to build,
+and Martin refuses to start if that provider is not in FIPS mode.
+
+```bash
+cargo install martin --locked --features fips
+```
+
 #### Platform-Specific Build Notes
 
 ##### Windows
