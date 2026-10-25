@@ -4,14 +4,15 @@
 use indoc::formatdoc;
 use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture};
 
-/// The image format and size of a map, and the CRS and area its headers state.
+/// The image format and size of a map, and the type, CRS and area its headers state, `-` for a missing header.
 fn map_description(response: &TestResponse) -> String {
     format!(
-        "{:?} {:?}\nContent-Crs: {}\nContent-Bbox: {}",
+        "{:?} {:?}\nContent-Type: {}\nContent-Crs: {}\nContent-Bbox: {}",
         response.image_format(),
         response.image_size(),
-        response.header("content-crs").expect("a Content-Crs header"),
-        response.header("content-bbox").expect("a Content-Bbox header"),
+        response.header("content-type").unwrap_or("-"),
+        response.header("content-crs").unwrap_or("-"),
+        response.header("content-bbox").unwrap_or("-"),
     )
 }
 
@@ -37,6 +38,7 @@ async fn a_style_map_shows_the_whole_world_by_default() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (1024, 1024)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
     ");
@@ -69,6 +71,7 @@ async fn a_style_map_frames_the_bbox_it_is_asked_for() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (800, 761)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -1113273.8151968666,4163881.144064294,3339663.6310623386,8399737.889818363
     ");
@@ -102,6 +105,7 @@ async fn a_style_map_centers_on_a_point_at_a_scale() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (512, 256)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -2092318.823370133,5099041.723891589,5075681.176629866,8683041.723891588
     ");
@@ -130,7 +134,12 @@ async fn a_style_map_is_a_jpeg_when_asked_for() {
 
     let response = martin.get("/ogc/styles/maplibre_demo/map?f=jpeg&width=256").await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.header("content-type"), Some("image/jpeg"));
+    insta::assert_snapshot!(map_description(&response), @"
+    Jpeg (256, 256)
+    Content-Type: image/jpeg
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -158,6 +167,7 @@ async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Png (256, 256)
+    Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
     ");
@@ -192,7 +202,12 @@ async fn a_style_map_skips_the_formats_accept_refuses() {
         )
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.header("content-type"), Some("image/png"));
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -223,7 +238,12 @@ async fn a_style_map_is_the_format_accept_weighs_highest() {
         )
         .await;
     assert_eq!(response.status(), 200, "{}", response.text());
-    assert_eq!(response.header("content-type"), Some("image/jpeg"));
+    insta::assert_snapshot!(map_description(&response), @"
+    Jpeg (256, 256)
+    Content-Type: image/jpeg
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
