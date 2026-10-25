@@ -564,7 +564,7 @@ async fn a_raster_collection_map_draws_its_tiles() {
     insta::assert_snapshot!(map_description(&response), @"
     Png (512, 510)
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
@@ -572,28 +572,28 @@ async fn a_raster_collection_map_draws_its_tiles() {
 }
 
 #[tokio::test]
-async fn a_collection_on_another_grid_has_no_map() {
+async fn a_raster_collection_on_another_grid_has_no_map() {
     let dir = temp_dir();
-    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let geography = mbtiles_fixture(dir.path(), "geography-class-png").await;
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
             mbtiles:
               sources:
-                world_cities:
-                  path: {world_cities}
+                geography:
+                  path: {geography}
                   tile_grid: WorldCRS84Quad
             styles:
               rendering:
                 enabled: true
                 workers: 1
-        ", world_cities = world_cities.display()})
+        ", geography = geography.display()})
         .start()
         .await
         .expect("martin starts");
 
-    let response = martin.get("/ogc/collections/world_cities/map").await;
+    let response = martin.get("/ogc/collections/geography/map").await;
     assert_eq!(response.status(), 404);
-    insta::assert_snapshot!(response.text(), @"Collection world_cities has no map");
+    insta::assert_snapshot!(response.text(), @"Collection geography has no map");
     martin.stop().await;
     martin.take_log_lines("[Render]");
 }

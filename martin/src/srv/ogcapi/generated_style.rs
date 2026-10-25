@@ -28,7 +28,7 @@ pub(super) fn generated_style(tiles: &str, collections: &[Drawn]) -> Value {
         let mut definition = json!({
             "type": "raster",
             "tiles": [format!("{tiles}/{}/{{z}}/{{x}}/{{y}}", super::link::path_segment(collection.id))],
-            "tileSize": 256,
+            "tileSize": collection.tilejson.other.get("tileSize").and_then(Value::as_u64).unwrap_or(256),
             "minzoom": collection.tilejson.minzoom.unwrap_or(0),
             "maxzoom": collection.tilejson.maxzoom.unwrap_or(22),
         });

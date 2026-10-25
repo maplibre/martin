@@ -471,6 +471,7 @@ pub async fn get_style_map(
             (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such collection, or it can't be drawn as a map"),
+            (status = 406, description = "No supported map format in Accept header"),
         ),
     )
 )]
