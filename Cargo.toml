@@ -248,6 +248,10 @@ insta.opt-level = 3
 similar.opt-level = 3
 # very large debug bundles
 libduckdb-sys.debug = false
+# See https://doc.rust-lang.org/cargo/reference/profiles.html#build-dependencies
+proc-macro2.debug = false
+quote.debug = false
+unicode-ident.debug = false
 
 [profile.release]
 # Make release binaries a bit smaller
