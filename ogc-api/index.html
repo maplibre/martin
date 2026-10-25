@@ -334,8 +334,6 @@
       
         
       
-        
-      
     
     
     
@@ -606,8 +604,6 @@
   
     
     
-      
-        
       
         
       
@@ -1077,6 +1073,70 @@
                   
   
   
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Available API Endpoints
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_2_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Available API Endpoints
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
   
   
     <li class="md-nav__item">
@@ -1089,7 +1149,7 @@
   <span class="md-ellipsis">
     
   
-  Available API Endpoints
+  Martin Endpoints
 
     
   </span>
@@ -1172,10 +1232,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#collections" class="md-nav__link">
+  <a href="#how-a-client-finds-a-tile" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Collections
+        How a client finds a tile
       </span>
     </span>
   </a>
@@ -1183,10 +1243,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tiles" class="md-nav__link">
+  <a href="#tile-urls" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Tiles
+        Tile URLs
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compared-to-the-martin-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Compared to the Martin endpoints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-sources-show-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which sources show up
       </span>
     </span>
   </a>
@@ -1229,6 +1311,15 @@
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -1278,7 +1369,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1301,15 +1392,15 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
         
-          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
-            <label class="md-nav__title" for="__nav_2_5">
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2_4">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -1872,6 +1963,96 @@
 
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../run/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Usage
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../using/" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Available API Endpoints
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 <a id="__skip" tabindex="-1"></a>
@@ -1888,85 +2069,99 @@
 
 
 <h1 id="ogc-api-tiles">OGC API - Tiles</h1>
-<p>Martin serves its tile sources through <a href="https://docs.ogc.org/is/20-057/20-057.html">OGC API - Tiles</a> under <code>/ogc</code>.
-A client that speaks the standard finds every source and its tiles from the landing page, without knowing Martin's own URLs.
-The OGC API is part of the default build, through the <code>ogcapi</code> feature.</p>
+<p>Martin also serves your tiles through the <a href="https://docs.ogc.org/is/20-057/20-057.html">OGC API - Tiles</a> standard, under <code>/ogc</code>.
+You get exactly the same tiles as from the regular <a href="../using/">Martin endpoints</a>, just at different URLs and with OGC metadata instead of TileJSON.</p>
+<div class="admonition tip">
+<p class="admonition-title">Do you need this?</p>
+<p>Probably not.
+Map libraries like MapLibre work best with the regular endpoints.
+Use <code>/ogc</code> when a tool only speaks OGC API - Tiles, like GDAL's <a href="#reading-martin-with-gdal">OGC API driver</a>.</p>
+</div>
+<p>The OGC API is included in the default build, as the <code>ogcapi</code> feature.</p>
+<h2 id="how-a-client-finds-a-tile">How a client finds a tile</h2>
+<p>An OGC client doesn't need to know how Martin's URLs look.
+You give it the landing page, <code>/ogc</code>, and it follows links from there, picking each one by its <code>rel</code>, until it has a URL template for the tiles.</p>
+<p><svg id="ogc-walk" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 468" width="100%" role="img" aria-label="A client starts at /ogc and follows links: data to /ogc/collections, tilesets-vector to the tilesets of world_cities, self to the WebMercatorQuad tileset, and item to the tile URL template"><title>A client starts at /ogc and follows links: data to /ogc/collections, tilesets-vector to the tilesets of world_cities, self to the WebMercatorQuad tileset, and item to the tile URL template</title><style>#ogc-walk{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#ogc-walk .fg{fill:var(--md-default-fg-color,#000000de)}#ogc-walk .muted{fill:var(--md-default-fg-color--light,#0000008a)}#ogc-walk .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#ogc-walk .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#ogc-walk .head{fill:var(--md-default-fg-color--light,#0000008a)}#ogc-walk text{dominant-baseline:central}#ogc-walk .t{font-weight:600}#ogc-walk .s{font-size:11px}#ogc-walk .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}#ogc-walk .box{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#ogc-walk .hi{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#ogc-walk .sel{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.3;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#ogc-walk .acc{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#ogc-walk .ghost{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5;stroke-dasharray:4 3}#ogc-walk .apron{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5;stroke-dasharray:5 3}#ogc-walk .accline{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:2}#ogc-walk .accdot{fill:var(--md-accent-fg-color,#7c4dff)}#ogc-walk .accarrow{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:1.5}#ogc-walk .acchead{fill:var(--md-accent-fg-color,#7c4dff)}</style><rect class="hi" x="40" y="20" width="520" height="52" rx="4"/><text class="fg mono t" x="54" y="38" text-anchor="start">GET /ogc</text><text class="muted s" x="54" y="57" text-anchor="start">landing page</text><path class="arrow" d="M70 72 L70 114"/><path class="head" d="M70 114 L66 106 L74 106 Z"/><text class="muted mono" x="82" y="93.0" text-anchor="start">rel: data</text><rect class="hi" x="40" y="114" width="520" height="52" rx="4"/><text class="fg mono t" x="54" y="132" text-anchor="start">GET /ogc/collections</text><text class="muted s" x="54" y="151" text-anchor="start">one collection per source</text><path class="arrow" d="M70 166 L70 208"/><path class="head" d="M70 208 L66 200 L74 200 Z"/><text class="muted mono" x="82" y="187.0" text-anchor="start">rel: ...tilesets-vector</text><rect class="hi" x="40" y="208" width="520" height="52" rx="4"/><text class="fg mono t" x="54" y="226" text-anchor="start">GET /ogc/collections/world_cities/tiles</text><text class="muted s" x="54" y="245" text-anchor="start">world_cities has one tileset, on its own grid</text><path class="arrow" d="M70 260 L70 302"/><path class="head" d="M70 302 L66 294 L74 294 Z"/><text class="muted mono" x="82" y="281.0" text-anchor="start">rel: self</text><rect class="hi" x="40" y="302" width="520" height="52" rx="4"/><text class="fg mono t" x="54" y="320" text-anchor="start">GET /ogc/collections/world_cities/tiles/WebMercatorQuad</text><text class="muted s" x="54" y="339" text-anchor="start">zoom range, layers and the tile URL template</text><path class="arrow" d="M70 354 L70 396"/><path class="head" d="M70 396 L66 388 L74 388 Z"/><text class="muted mono" x="82" y="375.0" text-anchor="start">rel: item, fill in {tileMatrix}/{tileRow}/{tileCol}</text><rect class="sel" x="40" y="396" width="520" height="52" rx="4"/><text class="fg mono t" x="54" y="414" text-anchor="start">GET /ogc/collections/world_cities/tiles/WebMercatorQuad/2/1/3</text><text class="muted s" x="54" y="433" text-anchor="start">a tile</text><rect class="ghost" x="650" y="14" width="270" height="30" rx="4"/><text class="fg mono" x="662" y="29" text-anchor="start">/ogc/conformance</text><rect class="ghost" x="650" y="54" width="270" height="30" rx="4"/><text class="fg mono" x="662" y="69" text-anchor="start">/ogc/tileMatrixSets</text><path class="arrow" d="M560 46 L600 46 L600 29 L648 29"/><path class="head" d="M648 29 L640 25 L640 33 Z"/><path class="arrow" d="M600 46 L600 69 L648 69"/><path class="head" d="M648 69 L640 65 L640 73 Z"/><text class="muted s" x="785.0" y="102" text-anchor="middle">also linked from the landing page</text><rect class="ghost" x="650" y="313" width="270" height="30" rx="4"/><text class="fg mono" x="662" y="328" text-anchor="start">/ogc/tileMatrixSets/WebMercatorQuad</text><path class="arrow" d="M560 328 L648 328"/><path class="head" d="M648 328 L640 324 L640 332 Z"/><text class="muted s" x="785.0" y="360" text-anchor="middle">the grid definition</text></svg></p>
+<p>That's four requests before the first tile, where a MapLibre map with TileJSON needs one.</p>
+<h2 id="tile-urls">Tile URLs</h2>
+<p>The thing that trips people up: OGC puts the row before the column.
+An OGC tile URL ends in <code>{z}/{y}/{x}</code>, not <code>{z}/{x}/{y}</code>.</p>
+<p><svg id="ogc-tile-url" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 230" width="100%" role="img" aria-label="The Martin tile /world_cities/2/3/1 is the OGC tile /ogc/collections/world_cities/tiles/WebMercatorQuad/2/1/3: tileMatrix is z, tileRow is y and tileCol is x, so x and y swap places"><title>The Martin tile /world_cities/2/3/1 is the OGC tile /ogc/collections/world_cities/tiles/WebMercatorQuad/2/1/3: tileMatrix is z, tileRow is y and tileCol is x, so x and y swap places</title><style>#ogc-tile-url{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#ogc-tile-url .fg{fill:var(--md-default-fg-color,#000000de)}#ogc-tile-url .muted{fill:var(--md-default-fg-color--light,#0000008a)}#ogc-tile-url .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#ogc-tile-url .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#ogc-tile-url .head{fill:var(--md-default-fg-color--light,#0000008a)}#ogc-tile-url text{dominant-baseline:central}#ogc-tile-url .t{font-weight:600}#ogc-tile-url .s{font-size:11px}#ogc-tile-url .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}#ogc-tile-url .box{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#ogc-tile-url .hi{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#ogc-tile-url .sel{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.3;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#ogc-tile-url .acc{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#ogc-tile-url .ghost{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5;stroke-dasharray:4 3}#ogc-tile-url .apron{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5;stroke-dasharray:5 3}#ogc-tile-url .accline{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:2}#ogc-tile-url .accdot{fill:var(--md-accent-fg-color,#7c4dff)}#ogc-tile-url .accarrow{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:1.5}#ogc-tile-url .acchead{fill:var(--md-accent-fg-color,#7c4dff)}#ogc-tile-url .ybox{fill:#f4511e;fill-opacity:.12;stroke:#f4511e;stroke-width:1.5}#ogc-tile-url .yline{stroke:#f4511e;fill:none;stroke-width:2}#ogc-tile-url .yarrow{stroke:#f4511e;fill:none;stroke-width:1.5}#ogc-tile-url .yhead,#ogc-tile-url .yt{fill:#f4511e}#ogc-tile-url .acct{fill:var(--md-accent-fg-color,#7c4dff)}#ogc-tile-url .pick{fill:var(--md-default-fg-color--light,#0000008a);fill-opacity:.45;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}</style><text class="fg t" x="40" y="16" text-anchor="start">Martin endpoint</text><text class="fg t" x="40" y="136" text-anchor="start">OGC API</text><text class="fg mono" x="40" y="53" text-anchor="start">/</text><rect class="box" x="52" y="30" width="130" height="46" rx="4"/><text class="muted s" x="117.0" y="44" text-anchor="middle">sourceID</text><text class="fg mono t" x="117.0" y="62" text-anchor="middle">world_cities</text><text class="fg mono" x="191" y="53" text-anchor="start">/</text><rect class="box" x="200" y="30" width="56" height="46" rx="4"/><text class="muted s" x="228.0" y="44" text-anchor="middle">z</text><text class="fg mono t" x="228.0" y="62" text-anchor="middle">2</text><text class="fg mono" x="265" y="53" text-anchor="start">/</text><rect class="acc" x="274" y="30" width="56" height="46" rx="4"/><text class="muted s" x="302.0" y="44" text-anchor="middle">x</text><text class="fg mono t" x="302.0" y="62" text-anchor="middle">3</text><text class="fg mono" x="339" y="53" text-anchor="start">/</text><rect class="ybox" x="348" y="30" width="56" height="46" rx="4"/><text class="muted s" x="376.0" y="44" text-anchor="middle">y</text><text class="fg mono t" x="376.0" y="62" text-anchor="middle">1</text><text class="fg mono" x="40" y="173" text-anchor="start">/ogc/collections/</text><rect class="box" x="168" y="150" width="130" height="46" rx="4"/><text class="muted s" x="233.0" y="164" text-anchor="middle">collectionId</text><text class="fg mono t" x="233.0" y="182" text-anchor="middle">world_cities</text><text class="fg mono" x="304" y="173" text-anchor="start">/tiles/WebMercatorQuad/</text><rect class="box" x="480" y="150" width="90" height="46" rx="4"/><text class="muted s" x="525.0" y="164" text-anchor="middle">tileMatrix</text><text class="fg mono t" x="525.0" y="182" text-anchor="middle">2</text><text class="fg mono" x="578" y="173" text-anchor="start">/</text><rect class="ybox" x="588" y="150" width="90" height="46" rx="4"/><text class="muted s" x="633.0" y="164" text-anchor="middle">tileRow</text><text class="fg mono t" x="633.0" y="182" text-anchor="middle">1</text><text class="fg mono" x="686" y="173" text-anchor="start">/</text><rect class="acc" x="696" y="150" width="90" height="46" rx="4"/><text class="muted s" x="741.0" y="164" text-anchor="middle">tileCol</text><text class="fg mono t" x="741.0" y="182" text-anchor="middle">3</text><path class="arrow" d="M117.0 76 C117.0 116 233.0 110 233.0 150"/><path class="arrow" d="M228.0 76 C228.0 116 525.0 110 525.0 150"/><path class="accline" d="M302.0 76 C302.0 116 741.0 110 741.0 150"/><path class="yline" d="M376.0 76 C376.0 116 633.0 110 633.0 150"/><text class="muted s" x="694" y="216" text-anchor="middle">x and y swap places</text><rect class="box" x="830" y="40" width="30" height="30" rx="0"/><rect class="box" x="860" y="40" width="30" height="30" rx="0"/><rect class="box" x="890" y="40" width="30" height="30" rx="0"/><rect class="box" x="920" y="40" width="30" height="30" rx="0"/><rect class="box" x="830" y="70" width="30" height="30" rx="0"/><rect class="box" x="860" y="70" width="30" height="30" rx="0"/><rect class="box" x="890" y="70" width="30" height="30" rx="0"/><rect class="pick" x="920" y="70" width="30" height="30" rx="0"/><rect class="box" x="830" y="100" width="30" height="30" rx="0"/><rect class="box" x="860" y="100" width="30" height="30" rx="0"/><rect class="box" x="890" y="100" width="30" height="30" rx="0"/><rect class="box" x="920" y="100" width="30" height="30" rx="0"/><rect class="box" x="830" y="130" width="30" height="30" rx="0"/><rect class="box" x="860" y="130" width="30" height="30" rx="0"/><rect class="box" x="890" y="130" width="30" height="30" rx="0"/><rect class="box" x="920" y="130" width="30" height="30" rx="0"/><text class="muted s" x="890" y="26" text-anchor="middle">zoom 2</text><path class="accarrow" d="M830 176 L950 176"/><path class="acchead" d="M950 176 L942 172 L942 180 Z"/><text class="acct s" x="890" y="192" text-anchor="middle">x = tileCol</text><path class="yarrow" d="M814 40 L814 160"/><path class="yhead" d="M814 160 L810 152 L818 152 Z"/><text class="yt s" x="804" y="100" text-anchor="middle" transform="rotate(-90 804 100)">y = tileRow</text></svg></p>
+<p>The tile matrix set in the URL has to be the source's <a href="../tile-grids/">tile grid</a>.
+For most sources that's <code>WebMercatorQuad</code>, and anything else gets a <code>404</code>.</p>
+<p>Compression, caching and empty tiles behave just like on the regular tile endpoint.</p>
+<h2 id="compared-to-the-martin-endpoints">Compared to the Martin endpoints</h2>
 <table>
 <thead>
 <tr>
-<th>URL</th>
-<th>Description</th>
+<th></th>
+<th>Martin endpoints</th>
+<th>OGC API</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>/ogc</code></td>
-<td>Landing page</td>
-</tr>
-<tr>
-<td><code>/ogc/conformance</code></td>
-<td>The conformance classes Martin implements</td>
-</tr>
-<tr>
-<td><code>/ogc/tileMatrixSets</code></td>
-<td>The tile matrix sets of the served sources</td>
-</tr>
-<tr>
-<td><code>/ogc/tileMatrixSets/{tileMatrixSetId}</code></td>
-<td>One tile matrix set</td>
-</tr>
-<tr>
+<td>list of sources</td>
+<td><a href="../using/#catalog"><code>/catalog</code></a></td>
 <td><code>/ogc/collections</code></td>
-<td>Sources in a supported CRS, as collections</td>
 </tr>
 <tr>
-<td><code>/ogc/collections/{collectionId}</code></td>
-<td>One collection</td>
+<td>source metadata</td>
+<td><a href="../using/#source-tilejson">TileJSON</a></td>
+<td>tileset, at <code>/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}</code></td>
 </tr>
 <tr>
-<td><code>/ogc/collections/{collectionId}/tiles</code></td>
-<td>The tilesets of a collection</td>
+<td>tile</td>
+<td><code>/{sourceID}/{z}/{x}/{y}</code></td>
+<td><code>/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}/{z}/{y}/{x}</code></td>
 </tr>
 <tr>
-<td><code>/ogc/collections/{collectionId}/tiles/{tileMatrixSetId}</code></td>
-<td>Tileset metadata, with the tile URL template</td>
+<td>MVT content type</td>
+<td><code>application/x-protobuf</code></td>
+<td><code>application/vnd.mapbox-vector-tile</code>, as the standard requires</td>
 </tr>
 <tr>
-<td><code>/ogc/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}</code></td>
-<td>A tile</td>
+<td>composite sources</td>
+<td><a href="../sources-composite/"><code>/{source1},…,{sourceN}</code></a></td>
+<td>not available</td>
+</tr>
+<tr>
+<td>grids in other CRSs</td>
+<td>served</td>
+<td>not listed, see <a href="#which-sources-show-up">below</a></td>
 </tr>
 </tbody>
 </table>
-<h2 id="collections">Collections</h2>
-<p>Each tile source in a supported CRS is a collection, and its source ID is the collection ID.
-A collection's extent is the bounds of its source.
-Raster sources are map tilesets and vector sources are vector tilesets.
-A source is listed when its grid uses one of the CRSs of the built-in grids, which are EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
-Martin knows the units and axis order of those, so a grid in another CRS, such as a <code>simple</code> grid, is not listed.
-When an alias has a source's ID, the collection is the source the alias serves, as it is for tiles.
-An alias of several sources is not a collection.</p>
-<h2 id="tiles">Tiles</h2>
-<p>An OGC tile URL names the row before the column.
-So <code>/ogc/collections/{id}/tiles/WebMercatorQuad/{z}/{y}/{x}</code> serves the same tile as <code>/{id}/{z}/{x}/{y}</code>.
-Compression, caching and empty tiles work as they do on <code>/{sourceID}/{z}/{x}/{y}</code>.</p>
-<div class="admonition important">
-<p class="admonition-title">Behavioral Differences for OGC compliance</p>
-<p>This endpoint sends MVT tiles as <code>application/vnd.mapbox-vector-tile</code> instead of <code>application/x-protobuf</code> like our regular endpoint, to be OGC compliant.</p>
-</div>
+<h2 id="which-sources-show-up">Which sources show up</h2>
+<p>Every tile source shows up as a collection, with its source ID as the collection ID.
+Vector sources get a vector tileset, raster sources a map tileset.</p>
+<p>There are two exceptions:</p>
+<ul>
+<li><strong>Sources on an unusual grid.</strong>
+  The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the <a href="../tile-grids/#built-in-grids">built-in grids</a>: EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042.
+  A source on a <code>simple</code> grid, or on a custom grid in another CRS, won't be listed.</li>
+<li><strong>Composite sources and aliases.</strong>
+  A collection is always a single source, so <code>/a,b</code> has no OGC counterpart and <a href="../sources-composite/#source-aliases">aliases</a> aren't listed under their own name.
+  If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does.
+  If that alias combines several sources, the source drops out of the list.</li>
+</ul>
 <h2 id="tile-matrix-sets">Tile matrix sets</h2>
-<p>The tile matrix sets are the <a href="../tile-grids/">tile grids</a> of the served sources, and Web Mercator is always listed.
-A grid from the OGC registry carries its registry URI.
-Each origin is given in the axis order of its CRS.</p>
+<p>"Tile matrix set" is OGC's name for a <a href="../tile-grids/">tile grid</a>.
+<code>/ogc/tileMatrixSets</code> lists the grids your sources use, plus <code>WebMercatorQuad</code>, which is always there.
+Each one links to its full definition in the <a href="https://docs.ogc.org/is/17-083r4/17-083r4.html">Two Dimensional Tile Matrix Set 2.0</a> JSON format: the origin, cell size and number of rows and columns at every zoom.</p>
+<p>Grids from the OGC registry also carry their official registry <code>uri</code>.
+Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 means northing first.</p>
 <h2 id="conformance">Conformance</h2>
-<p><code>/ogc/conformance</code> declares these classes.</p>
+<p><code>/ogc/conformance</code> lists which parts of the standards Martin implements:</p>
 <ul>
 <li>OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles</li>
 <li>OGC API - Common core, landing page and JSON</li>
 <li>Two Dimensional Tile Matrix Set 2.0 and its JSON encoding</li>
 </ul>
-<p>The OGC conformance test suite runs against Martin in CI.</p>
+<p>We run the official OGC test suite against Martin in CI.</p>
 <h2 id="reading-martin-with-gdal">Reading Martin with GDAL</h2>
-<p>GDAL's OGC API driver reads Martin's vector tiles, with one layer per zoom level.</p>
+<p>GDAL's OGC API driver can read Martin's vector tiles.
+It shows each zoom level as a separate layer:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ogrinfo<span class="w"> </span>OGCAPI:http://localhost:3000/ogc/collections/world_cities<span class="w"> </span>-oo<span class="w"> </span><span class="nv">API</span><span class="o">=</span>TILES
 </span></code></pre></div>
 
@@ -2022,7 +2217,7 @@ Each origin is given in the axis order of its CRS.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../using/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Available API Endpoints">
+          <a href="../using/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Martin Endpoints">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -2032,7 +2227,7 @@ Each origin is given in the axis order of its CRS.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Available API Endpoints
+                Martin Endpoints
               </div>
             </div>
           </a>
