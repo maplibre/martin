@@ -358,9 +358,14 @@ async fn the_proxied_links_have_no_styles_without_resources() {
 
 #[cfg(feature = "resources")]
 #[actix_rt::test]
-async fn the_api_definition_names_an_operation_for_each_path() {
-    let (config, _conn) = config("ogc_api_definition").await;
-    let app = create_app!(&config);
+async fn the_api_definition_describes_every_path() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_definition", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -369,35 +374,19 @@ async fn the_api_definition_names_an_operation_for_each_path() {
         "application/vnd.oai.openapi+json;version=3.0"
     );
     let definition: serde_json::Value = read_body_json(response).await;
-    let operations: serde_json::Map<String, serde_json::Value> = definition["paths"]
-        .as_object()
-        .unwrap()
-        .iter()
-        .map(|(path, item)| (path.clone(), item["get"]["operationId"].clone()))
-        .collect();
-    assert_json_snapshot!(operations, @r#"
-    {
-      "/": "getLandingPage",
-      "/api": "getApi",
-      "/conformance": "getConformance",
-      "/collections": "getCollections",
-      "/collections/{collectionId}": "getCollection",
-      "/collections/{collectionId}/tiles": "collection.getTileSetsList",
-      "/collections/{collectionId}/tiles/{tileMatrixSetId}": "collection.getTileSet",
-      "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": "collection.getTile",
-      "/tileMatrixSets": "getTileMatrixSetsList",
-      "/tileMatrixSets/{tileMatrixSetId}": "getTileMatrixSet",
-      "/styles": "getStyles",
-      "/styles/{styleId}": "getStyle"
-    }
-    "#);
+    assert_json_snapshot!(definition, {".info.version" => "[version]"});
 }
 
 #[cfg(not(feature = "resources"))]
 #[actix_rt::test]
-async fn the_api_definition_has_no_styles_without_resources() {
-    let (config, _conn) = config("ogc_api_definition").await;
-    let app = create_app!(&config);
+async fn the_api_definition_describes_no_styles_without_resources() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_definition_no_styles", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -406,32 +395,18 @@ async fn the_api_definition_has_no_styles_without_resources() {
         "application/vnd.oai.openapi+json;version=3.0"
     );
     let definition: serde_json::Value = read_body_json(response).await;
-    let operations: serde_json::Map<String, serde_json::Value> = definition["paths"]
-        .as_object()
-        .unwrap()
-        .iter()
-        .map(|(path, item)| (path.clone(), item["get"]["operationId"].clone()))
-        .collect();
-    assert_json_snapshot!(operations, @r#"
-    {
-      "/": "getLandingPage",
-      "/api": "getApi",
-      "/conformance": "getConformance",
-      "/collections": "getCollections",
-      "/collections/{collectionId}": "getCollection",
-      "/collections/{collectionId}/tiles": "collection.getTileSetsList",
-      "/collections/{collectionId}/tiles/{tileMatrixSetId}": "collection.getTileSet",
-      "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}": "collection.getTile",
-      "/tileMatrixSets": "getTileMatrixSetsList",
-      "/tileMatrixSets/{tileMatrixSetId}": "getTileMatrixSet"
-    }
-    "#);
+    assert_json_snapshot!(definition, {".info.version" => "[version]"});
 }
 
 #[actix_rt::test]
 async fn the_api_definition_is_a_swagger_ui_page_with_f_html() {
-    let (config, _conn) = config("ogc_api_html").await;
-    let app = create_app!(&config);
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_html", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let response = call_service(&app, TestRequest::get().uri("/ogc/api?f=html").to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -459,8 +434,13 @@ async fn the_api_definition_is_a_swagger_ui_page_with_f_html() {
 
 #[actix_rt::test]
 async fn browsers_get_the_api_definition_as_html() {
-    let (config, _conn) = config("ogc_api_browser").await;
-    let app = create_app!(&config);
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_browser", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let request = TestRequest::get()
         .uri("/ogc/api")
@@ -471,12 +451,33 @@ async fn browsers_get_the_api_definition_as_html() {
         response.headers().get(CONTENT_TYPE).unwrap(),
         "text/html; charset=utf-8"
     );
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @r##"
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Martin OGC API</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+    </head>
+    <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+    <script>SwaggerUIBundle({ url: "?f=json", dom_id: "#swagger-ui" });</script>
+    </body>
+    </html>
+    "##);
 }
 
 #[actix_rt::test]
 async fn the_api_definition_is_json_with_f_json_even_for_browsers() {
-    let (config, _conn) = config("ogc_api_f_json").await;
-    let app = create_app!(&config);
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_f_json", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let request = TestRequest::get()
         .uri("/ogc/api?f=json")
@@ -491,8 +492,13 @@ async fn the_api_definition_is_json_with_f_json_even_for_browsers() {
 
 #[actix_rt::test]
 async fn an_api_definition_in_another_encoding_is_a_bad_request() {
-    let (config, _conn) = config("ogc_api_yaml").await;
-    let app = create_app!(&config);
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_yaml", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
 
     let response = call_service(&app, TestRequest::get().uri("/ogc/api?f=yaml").to_request()).await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
