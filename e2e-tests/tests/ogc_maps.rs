@@ -2,7 +2,7 @@
 #![cfg(all(feature = "test-ogc-maps", target_os = "linux"))]
 
 use indoc::formatdoc;
-use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture};
+use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture, mbtiles_fixture, temp_dir};
 
 /// The image format and size of a map, and the type, CRS and area its headers state, `-` for a missing header.
 fn map_description(response: &TestResponse) -> String {
@@ -507,10 +507,164 @@ async fn the_conformance_declares_maps_when_rendering() {
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg"
       ]
+    }
+    "#);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_vector_collection_has_no_map() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/world_cities/map").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Collection world_cities has no map");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_raster_collection_map_draws_its_tiles() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/toner/map?width=512").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    ");
+    assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_collection_on_another_grid_has_no_map() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities:
+                  path: {world_cities}
+                  tile_grid: WorldCRS84Quad
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/world_cities/map").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Collection world_cities has no map");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_raster_collection_gives_its_storage_crs_and_links_its_map() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/toner").await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r#"
+    {
+      "crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/3857"
+      ],
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0,
+              180.0,
+              85.0
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+          "storageCrsBbox": [
+            [
+              -20037508.34278925,
+              -19971868.88040858,
+              20037508.34278925,
+              19971868.88040858
+            ]
+          ]
+        }
+      },
+      "id": "toner",
+      "links": [
+        {
+          "href": "http://[ADDR]/ogc/collections/toner",
+          "rel": "self",
+          "title": "This collection",
+          "type": "application/json"
+        },
+        {
+          "href": "http://[ADDR]/ogc/collections/toner/tiles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+          "title": "Tilesets",
+          "type": "application/json"
+        },
+        {
+          "href": "http://[ADDR]/ogc/collections/toner/map",
+          "rel": "https://www.opengis.net/def/rel/ogc/1.0/map",
+          "title": "Map of the collection",
+          "type": "image/png"
+        }
+      ],
+      "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+      "title": "toner"
     }
     "#);
     martin.stop().await;

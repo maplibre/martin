@@ -546,10 +546,14 @@ export interface components {
         };
         /** @description A tile source as an OGC API collection. */
         Collection: {
+            /** @description The CRSs the collection is served in, only the CRS of its grid. */
+            crs: string[];
             description?: string | null;
             extent: components["schemas"]["Extent"];
             id: string;
             links: components["schemas"]["Link"][];
+            /** @description The CRS of the collection's grid. */
+            storageCrs: string;
             title: string;
         };
         /** @description The collections the OGC API serves. */
@@ -613,10 +617,12 @@ export interface components {
             title: string;
             type: string;
         };
-        /** @description The bounding box of a collection, in longitude and latitude. */
+        /** @description The bounding box of a collection, in longitude and latitude and in the CRS of its grid. */
         SpatialExtent: {
             bbox: number[][];
             crs: string;
+            /** @description `bbox` in the CRS of the collection's grid, in its axis order. */
+            storageCrsBbox?: number[][] | null;
         };
         /**
          * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as

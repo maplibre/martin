@@ -4,6 +4,8 @@ mod collections;
 mod conformance;
 mod data_type;
 mod error;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod generated_style;
 mod landing;
 mod link;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -19,9 +21,9 @@ pub use collections::{get_collection, get_collections};
 pub use conformance::get_conformance;
 pub use landing::get_landing_page;
 #[cfg(all(feature = "rendering", target_os = "linux", feature = "unstable-schemas"))]
-pub use map::__path_get_style_map;
+pub use map::{__path_get_collection_map, __path_get_style_map};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use map::get_style_map;
+pub use map::{get_collection_map, get_style_map};
 pub use openapi::get_api;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
 pub use styles::__path_get_styles;

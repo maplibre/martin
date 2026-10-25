@@ -40,6 +40,11 @@ pub enum OgcApiError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("CRS {crs} is not supported, only CRS84, EPSG:4326 and EPSG:3857 are")]
     UnsupportedCrs { crs: String },
+
+    /// The collection has no map, as its grid isn't web mercator or its tiles aren't images.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Collection {collection} has no map")]
+    NoCollectionMap { collection: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -49,7 +54,7 @@ impl martin_core::Classify for OgcApiError {
                 martin_core::ErrorKind::NotFound
             }
             #[cfg(all(feature = "rendering", target_os = "linux"))]
-            Self::UnknownStyle { .. } => martin_core::ErrorKind::NotFound,
+            Self::UnknownStyle { .. } | Self::NoCollectionMap { .. } => martin_core::ErrorKind::NotFound,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::InvalidMapParameter { .. }
             | Self::ConflictingMapParameters { .. }

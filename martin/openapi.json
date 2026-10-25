@@ -203,6 +203,13 @@
       "Collection": {
         "description": "A tile source as an OGC API collection.",
         "properties": {
+          "crs": {
+            "description": "The CRSs the collection is served in, only the CRS of its grid.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "description": {
             "type": ["string", "null"]
           },
@@ -218,11 +225,15 @@
             },
             "type": "array"
           },
+          "storageCrs": {
+            "description": "The CRS of the collection's grid.",
+            "type": "string"
+          },
           "title": {
             "type": "string"
           }
         },
-        "required": ["id", "title", "extent", "links"],
+        "required": ["id", "title", "extent", "crs", "storageCrs", "links"],
         "type": "object"
       },
       "Collections": {
@@ -349,7 +360,7 @@
         "type": "object"
       },
       "SpatialExtent": {
-        "description": "The bounding box of a collection, in longitude and latitude.",
+        "description": "The bounding box of a collection, in longitude and latitude and in the CRS of its grid.",
         "properties": {
           "bbox": {
             "items": {
@@ -363,6 +374,17 @@
           },
           "crs": {
             "type": "string"
+          },
+          "storageCrsBbox": {
+            "description": "`bbox` in the CRS of the collection's grid, in its axis order.",
+            "items": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": ["array", "null"]
           }
         },
         "required": ["bbox", "crs"],
