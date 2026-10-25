@@ -75,6 +75,7 @@ impl GenerateOptions {
             ("--concurrency", args.concurrency.is_some()),
             ("--skip-agg-tiles-hash", args.skip_agg_tiles_hash),
             ("--set-meta", !args.set_meta.is_empty()),
+            ("--delete-meta", !args.delete_meta.is_empty()),
             ("--save-config", meta.save_config.is_some()),
             (
                 "--max-feature-count",

@@ -129,9 +129,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        if let Some(key) = delete.iter().find(|key| set.iter().any(|(k, _)| k == *key)) {
-            return Err(MetadataSetAndDeleted(key.clone()));
-        }
+        check_metadata_edit(set, delete)?;
         for key in delete {
             info!(metadata.name = %key, "Deleting metadata");
             self.delete_metadata_value(&mut *conn, key).await?;
@@ -388,6 +386,15 @@ fn reconcile_zoom_levels(tj: &mut TileJSON, tile_min: u8, tile_max: u8) {
             layer.minzoom = Some(minzoom);
             layer.maxzoom = Some(maxzoom);
         }
+    }
+}
+
+/// Rejects a key that is both set and deleted, as [`Mbtiles::edit_metadata`] does.
+/// Lets a caller fail before doing work that ends with that call.
+pub fn check_metadata_edit(set: &[(String, String)], delete: &[String]) -> MbtResult<()> {
+    match delete.iter().find(|key| set.iter().any(|(k, _)| k == *key)) {
+        Some(key) => Err(MetadataSetAndDeleted(key.clone())),
+        None => Ok(()),
     }
 }
 

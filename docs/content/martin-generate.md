@@ -129,8 +129,8 @@ The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
 Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`,
-`--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config` and
-`--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+`--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`,
+`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
