@@ -587,7 +587,7 @@ export interface components {
          * @enum {string}
          */
         DataType: "map" | "vector";
-        /** @description Where a collection's data lies. */
+        /** @description Where a collection's or the dataset's data lies. */
         Extent: {
             spatial: components["schemas"]["SpatialExtent"];
         };
@@ -615,6 +615,8 @@ export interface components {
         /** @description The entry point of the OGC API. */
         LandingPage: {
             description: string;
+            /** @description Where the data of all collections lies. */
+            extent: components["schemas"]["Extent"];
             links: components["schemas"]["Link"][];
             title: string;
         };
@@ -634,7 +636,7 @@ export interface components {
             title: string;
             type: string;
         };
-        /** @description The bounding box of a collection, in longitude and latitude and in the CRS of its grid. */
+        /** @description The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid. */
         SpatialExtent: {
             bbox: number[][];
             crs: string;

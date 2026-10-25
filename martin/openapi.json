@@ -274,7 +274,7 @@
         "type": "string"
       },
       "Extent": {
-        "description": "Where a collection's data lies.",
+        "description": "Where a collection's or the dataset's data lies.",
         "properties": {
           "spatial": {
             "$ref": "#/components/schemas/SpatialExtent"
@@ -304,6 +304,10 @@
           "description": {
             "type": "string"
           },
+          "extent": {
+            "$ref": "#/components/schemas/Extent",
+            "description": "Where the data of all collections lies."
+          },
           "links": {
             "items": {
               "$ref": "#/components/schemas/Link"
@@ -314,7 +318,7 @@
             "type": "string"
           }
         },
-        "required": ["title", "description", "links"],
+        "required": ["title", "description", "extent", "links"],
         "type": "object"
       },
       "Layer": {
@@ -360,7 +364,7 @@
         "type": "object"
       },
       "SpatialExtent": {
-        "description": "The bounding box of a collection, in longitude and latitude and in the CRS of its grid.",
+        "description": "The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid.",
         "properties": {
           "bbox": {
             "items": {

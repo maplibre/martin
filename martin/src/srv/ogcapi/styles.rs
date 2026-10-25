@@ -52,13 +52,10 @@ async fn style_description(
     }];
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     if super::map::renders_maps(req) {
-        links.push(Link {
-            href: ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),
-            rel: super::map::MAP_REL,
-            media_type: "image/png",
-            title: "Map of the style",
-            templated: false,
-        });
+        links.extend(super::map::map_links(
+            &ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),
+            "Map of the style",
+        ));
     }
     StyleDescription {
         id: id.to_owned(),
