@@ -2382,7 +2382,7 @@ For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
 <h3 id="mvt-quirks">MVT quirks</h3>
-<p>Each <code>--mvt-quirk</code> changes how MVT tiles are encoded:</p>
+<p>Each <code>--mvt-quirk</code> changes how MVT tiles are encoded, so it needs <code>--format mvt</code>:</p>
 <table>
 <thead>
 <tr>
@@ -2394,6 +2394,10 @@ For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <tr>
 <td><code>keep-unused-keys</code></td>
 <td>Each layer lists every key the config gives it, used or not, in config order, as <code>ST_AsMVT</code> does. Other keys, such as those of a JSON column, follow in the order features first use them.</td>
+</tr>
+<tr>
+<td><code>preserve-ring-start</code></td>
+<td>A polygon ring keeps its source start. By default, a ring in a tile that gets its whole polygon starts where <code>ST_AsMVTGeom</code>'s wagyu starts it.</td>
 </tr>
 </tbody>
 </table>

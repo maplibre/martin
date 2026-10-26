@@ -6412,11 +6412,12 @@ A failed or interrupted run removes the output file. Temporary files are always 
 
 ### MVT quirks
 
-Each `--mvt-quirk` changes how MVT tiles are encoded:
+Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`:
 
 | Quirk | Effect |
 | --- | --- |
 | `keep-unused-keys` | Each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does. Other keys, such as those of a JSON column, follow in the order features first use them. |
+| `preserve-ring-start` | A polygon ring keeps its source start. By default, a ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it. |
 
 ## Sizing a run
 
