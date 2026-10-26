@@ -392,14 +392,27 @@ pub fn parse_base_path(path: &str) -> ConfigFileResult<String> {
     Err(ConfigFileError::InvalidBasePath(path.to_owned()))
 }
 
+/// Installs the process-wide rustls crypto provider.
+///
+/// With the `fips` feature, this is the FIPS 140-3 validated AWS-LC module,
+/// and startup fails if the installed provider is not FIPS-compliant.
 pub fn init_aws_lc_tls() {
+    #[cfg(not(feature = "fips"))]
     use rustls::crypto::aws_lc_rs;
 
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
-        aws_lc_rs::default_provider()
-            .install_default()
-            .expect("Unable to init rustls");
+        #[cfg(feature = "fips")]
+        let provider = rustls::crypto::default_fips_provider();
+        #[cfg(not(feature = "fips"))]
+        let provider = aws_lc_rs::default_provider();
+
+        provider.install_default().expect("Unable to init rustls");
+
+        #[cfg(feature = "fips")]
+        rustls::crypto::CryptoProvider::get_default()
+            .filter(|p| p.fips())
+            .expect("rustls crypto provider is not in FIPS mode");
     });
     *INIT_TLS;
 }
