@@ -17,6 +17,10 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest>=8", "PyYAML>=6"]
 
+[dependency-groups]
+# `maturin develop` / `maturin build` from the dev venv; bound matches [build-system].
+dev = ["maturin>=1.7,<2.0"]
+
 [tool.maturin]
 # The compiled extension module is `martin_py`; see `[lib] name` in Cargo.toml.
 features = ["pyo3/extension-module"]
