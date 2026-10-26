@@ -1079,7 +1079,7 @@ async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
           "href": "http://[ADDR]/ogc/api",
           "rel": "service-desc",
           "title": "The OpenAPI definition of this API",
-          "type": "application/vnd.oai.openapi+json;version=3.0"
+          "type": "application/vnd.oai.openapi+json;version=3.1"
         },
         {
           "href": "http://[ADDR]/ogc/api?f=html",

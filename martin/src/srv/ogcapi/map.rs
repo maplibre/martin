@@ -654,10 +654,10 @@ fn dataset_collections(
     utoipa::path(
         get,
         path = "/ogc/map",
-        operation_id = "get_ogc_dataset_map",
+        operation_id = "ogc.dataset.getMap",
         params(MapQuery, CollectionsQuery),
         responses(
-            (status = 200, description = "Map of the dataset", content(("image/png"), ("image/jpeg"), ("image/tiff"))),
+            (status = 200, description = "Map of the dataset", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
             (status = 400, description = "Invalid map parameters, or a collection that can't be drawn"),
         ),
     )

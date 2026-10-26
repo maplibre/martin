@@ -1360,6 +1360,115 @@
         "tags": ["crate::srv::ogcapi"]
       }
     },
+    "/ogc/map": {
+      "get": {
+        "operationId": "ogc.dataset.getMap",
+        "parameters": [
+          {
+            "description": "Image format, `png`, `jpeg` or `tiff`.",
+            "in": "query",
+            "name": "f",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Width of the map in pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Height of the map in pixels.",
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Area to show as `minx,miny,maxx,maxy` in `bbox-crs`.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `bbox`, `CRS84` when not given.",
+            "in": "query",
+            "name": "bbox-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Point to center the map on as `x,y` in `center-crs`.",
+            "in": "query",
+            "name": "center",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `center`, `CRS84` when not given.",
+            "in": "query",
+            "name": "center-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Scale of the map.",
+            "in": "query",
+            "name": "scale-denominator",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": ["number", "null"]
+            }
+          },
+          {
+            "description": "Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once.",
+            "in": "query",
+            "name": "collections",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map of the dataset"
+          },
+          "400": {
+            "description": "Invalid map parameters, or a collection that can't be drawn"
+          }
+        },
+        "summary": "The collections of the dataset drawn as one map, in the order `collections` names them.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
     "/ogc/styles": {
       "get": {
         "operationId": "ogc.dataset.getStyles",
