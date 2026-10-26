@@ -24,10 +24,15 @@ crate-type = ["cdylib", "rlib"]
 # but it's a slow first build. Add `postgres`/`mbtiles`/etc. here if bindings
 # for those source kinds are needed too.
 martin = { workspace = true, features = ["pmtiles", "processing", "unstable-duckdb"] }
+futures.workspace = true
 martin-tile-utils.workspace = true
 pyo3.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing-subscriber = { workspace = true, features = ["ansi", "env-filter", "fmt"] }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

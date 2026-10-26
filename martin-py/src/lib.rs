@@ -10,18 +10,57 @@
 //! Sources are loaded once from a Martin config file when [`TileServer`] is
 //! constructed, exactly like the `martin` binary does at startup.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use martin::TileSourceManager;
 use martin::config::file::{Config, read_config};
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::srv::{DynTileSource, RESERVED_KEYWORDS, TileRequestHeaders, merge_tilejson};
+use martin::{StartupResult, TileSourceManager};
 use martin_tile_utils::TileCoord;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use tokio::runtime::Runtime;
+
+/// Read, finalize and resolve the Martin config file at `config_path` into its tile sources.
+///
+/// The startup sequence [`TileServer::new`] runs under `block_on`, kept free of `PyO3`
+/// and of any runtime so it can be awaited directly, e.g. from a `#[tokio::test]`.
+pub async fn load_tile_manager(config_path: &Path) -> StartupResult<TileSourceManager> {
+    let mut config: Config = read_config(config_path, &OsEnv)?;
+    config.finalize().await?;
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+    Ok(config.resolve(&resolver).await?.tile_manager)
+}
+
+/// Set to anything but empty or `0` to have [`TileServer::new`] poll the config load
+/// on the calling thread instead of through `Runtime::block_on` (a debugging aid).
+const POLL_DIRECTLY_ENV: &str = "MARTIN_PY_POLL_DIRECTLY";
+
+fn poll_directly() -> bool {
+    std::env::var(POLL_DIRECTLY_ENV).is_ok_and(|value| !value.is_empty() && value != "0")
+}
+
+/// Run [`load_tile_manager`] to completion from synchronous code.
+///
+/// With `poll_directly`, the runtime is only entered, so Tokio I/O, timers and spawned
+/// tasks still have one to register with, while the future itself is polled right here
+/// by a minimal executor: a debugger stepping through the load stays on this thread
+/// instead of disappearing into Tokio's scheduler.
+fn load_tile_manager_blocking(
+    rt: &Runtime,
+    config_path: &Path,
+    poll_directly: bool,
+) -> StartupResult<TileSourceManager> {
+    let load = load_tile_manager(config_path);
+    if poll_directly {
+        let _guard = rt.enter();
+        futures::executor::block_on(load)
+    } else {
+        rt.block_on(load)
+    }
+}
 
 /// An in-process handle onto the tile sources declared by a Martin config file.
 ///
@@ -48,21 +87,8 @@ impl TileServer {
     )]
     fn new(config_path: PathBuf) -> PyResult<Self> {
         let rt = Runtime::new().map_err(|e| PyRuntimeError::new_err(format!("{e:?}")))?;
-        let manager = rt.block_on(async {
-            let env = OsEnv;
-            let mut config: Config = read_config(&config_path, &env)
-                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-            config
-                .finalize()
-                .await
-                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-            let resolver = IdResolver::new(RESERVED_KEYWORDS);
-            let state = config
-                .resolve(&resolver)
-                .await
-                .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-            Ok::<_, PyErr>(state.tile_manager)
-        })?;
+        let manager = load_tile_manager_blocking(&rt, &config_path, poll_directly())
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
         Ok(Self { manager, rt })
     }
 
@@ -149,9 +175,107 @@ impl TileServer {
     }
 }
 
+/// Install a stderr `tracing` subscriber so Martin's `debug!`/`info!` events are visible.
+///
+/// Filtered by `RUST_LOG` (e.g. `martin=debug,martin_core=debug`), defaulting to `info`.
+/// `RUST_LOG` is read once, when Python first imports `martin_py`. Uses `try_init` so a
+/// subscriber installed elsewhere (re-import, embedding host, tests) is left alone.
+fn init_tracing() {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
+}
+
 /// `PyO3` module exposing Martin's tile endpoints; imported in Python as `martin_py`.
 #[pymodule]
 fn martin_py(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    init_tracing();
     m.add_class::<TileServer>()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn fixture(relative: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests/fixtures")
+            .join(relative)
+    }
+
+    fn write_config(dir: &tempfile::TempDir, yaml: &str) -> PathBuf {
+        let path = dir.path().join("martin-config.yaml");
+        std::fs::write(&path, yaml).unwrap();
+        path
+    }
+
+    #[tokio::test]
+    async fn loads_the_sources_a_config_declares() {
+        let dir = tempfile::tempdir().unwrap();
+        let geojson = fixture("geojson/feature_collection_1.geojson");
+        let config = write_config(
+            &dir,
+            &format!(
+                "geojson:\n  sources:\n    geojson_a: {}\n",
+                geojson.display()
+            ),
+        );
+
+        let manager = load_tile_manager(&config).await.unwrap();
+
+        assert_eq!(manager.tile_sources().source_names(), vec!["geojson_a"]);
+    }
+
+    #[test]
+    fn blocking_load_works_through_block_on_and_polled_directly() {
+        let dir = tempfile::tempdir().unwrap();
+        let geojson = fixture("geojson/feature_collection_1.geojson");
+        let config = write_config(
+            &dir,
+            &format!(
+                "geojson:\n  sources:\n    geojson_a: {}\n",
+                geojson.display()
+            ),
+        );
+        let rt = Runtime::new().unwrap();
+
+        for poll_directly in [false, true] {
+            let manager = load_tile_manager_blocking(&rt, &config, poll_directly).unwrap();
+            assert_eq!(
+                manager.tile_sources().source_names(),
+                vec!["geojson_a"],
+                "poll_directly={poll_directly}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_missing_config_file_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let result = load_tile_manager(&dir.path().join("absent.yaml")).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_source_pointing_at_a_missing_file_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = write_config(
+            &dir,
+            "geojson:\n  sources:\n    gone: /nonexistent/nothing.geojson\n",
+        );
+
+        let Err(error) = load_tile_manager(&config).await else {
+            panic!("a source pointing at a missing file must not load");
+        };
+
+        assert!(!error.to_string().is_empty());
+    }
 }
