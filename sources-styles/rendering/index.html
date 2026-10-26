@@ -2462,7 +2462,7 @@ You get it by either:</p>
 </span></code></pre></div>
 <p>Renders run on a dedicated thread pool.
 <code>rendering: true</code> sizes it from the logical CPU count, clamped to <code>2..=8</code>.
-The long form sets the number of render threads explicitly, how many <a href="#renderers-per-worker">renderers</a> each keeps, the <a href="#tile-size">tile size</a>, the highest <a href="#pixel-ratio">pixel ratio</a> tiles are served at, and the size of the <a href="#ambient-cache">ambient cache</a>:</p>
+The long form sets the number of render threads explicitly, how many <a href="#renderers-per-worker">renderers</a> each keeps, the <a href="#tile-size">tile size</a>, the <a href="#pixel-ratio">pixel ratios</a> tiles and static images are served at, and the size of the <a href="#ambient-cache">ambient cache</a>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">styles</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2471,8 +2471,8 @@ The long form sets the number of render threads explicitly, how many <a href="#r
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="nt">renderers_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="c1"># Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="nt">tile_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">512</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="c1"># Highest @{n}x pixel ratio served for XYZ tiles [default: 4]</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="nt">max_pixel_ratio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="c1"># Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="nt">pixel_ratios</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2</span><span class="p p-Indicator">]</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="c1"># MB of MapLibre Native's cache of fetched tiles, glyphs and sprites, 0 to disable [default: 50 MiB]</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">ambient_cache_size_mb</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="c1"># Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]</span>
@@ -2507,14 +2507,16 @@ Any other value fails at startup.</p>
 <h3 id="pixel-ratio">Pixel ratio</h3>
 <p>For high-density (retina) screens, add <code>@{n}x</code> after the row to draw the same tile at <code>n</code> times the pixels:
 <code>/style/&lt;style_id&gt;/{z}/{x}/{y}@2x.png</code> is twice <code>tile_size</code> wide and high (1024×1024 px with the default 512), <code>@3x</code> three times.
-<code>n</code> is a whole number from 1 up to <code>max_pixel_ratio</code> (4 unless configured): <code>@5x</code> is answered with <code>400 Bad Request</code>, and a malformed suffix such as <code>@0x</code> or <code>@1.5x</code> with <code>404 Not Found</code>.</p>
+<code>n</code> must be listed in <code>pixel_ratios</code> (<code>[1, 2]</code> unless configured, each 1 to 4): an unlisted ratio such as <code>@3x</code> is answered with <code>400 Bad Request</code>, and a malformed suffix such as <code>@0x</code> or <code>@1.5x</code> with <code>404 Not Found</code>.
+A tile without a suffix counts as <code>@1x</code>, so <code>pixel_ratios: [2]</code> also refuses it.
+Every listed ratio needs renderers of its own, so list only the ratios your clients ask for.</p>
 <p>In Leaflet, this is the <code>{r}</code>-placeholder (<code>/style/&lt;style_id&gt;/{z}/{x}/{y}{r}.png</code>), which means that on a retina screen, you get the crisp map your users expect.</p>
 <h3 id="renderers-per-worker">Renderers per worker</h3>
 <p>Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to <code>renderers_per_worker</code> (8 unless configured).
 Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
 With <code>tile_size: 256</code>, the zoom 0 tile takes one more renderer per pixel ratio.</p>
 <p>Reloading styles costs CPU on every request that misses, so set <code>renderers_per_worker</code> to at least the number of styles times the pixel ratios you serve.
-Each renderer holds its own memory: lower <code>renderers_per_worker</code> or <code>max_pixel_ratio</code> to reduce memory usage.</p>
+Each renderer holds its own memory: lower <code>renderers_per_worker</code> or list fewer <code>pixel_ratios</code> to reduce memory usage.</p>
 <h3 id="ambient-cache">Ambient cache</h3>
 <p>MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the network in a cache of its own, in memory and shared by all of them, up to <code>ambient_cache_size_mb</code> MB (MapLibre Native's default of 50 MiB unless configured).
 Every fetched resource is compressed and stored there, and every fetch looks it up first.
@@ -2554,7 +2556,8 @@ A bounding box always renders north up and flat.</p>
 <p><code>{size}.{ext}</code> follows the <code>WIDTHxHEIGHT[@{scale}x].{ext}</code> pattern, e.g.
 <code>800x600.png</code>, <code>400x300@2x.jpg</code>.
 Allowed extensions are <code>png</code>, <code>jpg</code>, and <code>webp</code>.
-Width and height are capped at 2048 px each; scale is capped at <code>4x</code>.</p>
+Width and height are capped at 2048 px each.
+The scale is a whole number listed in <a href="#pixel-ratio"><code>pixel_ratios</code></a> (<code>1</code> if omitted): an unlisted scale is answered with <code>400 Bad Request</code>, and a fractional or zero scale such as <code>@1.5x</code> or <code>@0x</code> with <code>404 Not Found</code>.</p>
 <h3 id="overlay-body-post">Overlay body (<code>POST</code>)</h3>
 <p>The overlay body is a GeoJSON <code>FeatureCollection</code>. Each feature carries its
 style on <code>properties</code> using
