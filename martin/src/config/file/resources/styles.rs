@@ -1,5 +1,5 @@
 #[cfg(feature = "rendering")]
-use std::num::{NonZeroU8, NonZeroUsize};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::{env, mem};
 
@@ -7,7 +7,7 @@ use std::{env, mem};
 use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
 #[cfg(feature = "rendering")]
-use martin_core::styles::TileSize;
+use martin_core::styles::{PixelRatios, TileSize};
 use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -67,10 +67,11 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &50))]
     pub ambient_cache_size_mb: Option<u64>,
 
-    /// Highest `@{n}x` pixel ratio the tile endpoint serves. \[default: 4\]
+    /// Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.
+    /// \[default: \[1, 2\]\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4))]
-    pub max_pixel_ratio: Option<NonZeroU8>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &[1, 2, 3]))]
+    pub pixel_ratios: Option<PixelRatios>,
     /// Encode rendered PNGs as indexed (palette) images, which is the default.
     /// `false` keeps full-colour RGBA.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
@@ -195,7 +196,7 @@ impl StyleConfig {
                         o.ambient_cache_bytes(),
                     )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
-                results.set_max_pixel_ratio(o.max_pixel_ratio);
+                results.set_pixel_ratios(o.pixel_ratios.unwrap_or_default());
                 results.set_png_max_colors(o.png_max_colors());
             }
         }
@@ -392,27 +393,30 @@ mod tests {
 
     #[cfg(feature = "rendering")]
     #[test]
-    fn renderer_config_parses_max_pixel_ratio() {
+    fn renderer_config_parses_pixel_ratios() {
         let yaml = indoc! {"
             rendering:
               enabled: true
-              max_pixel_ratio: 2
+              pixel_ratios: [3, 1, 3]
         "};
-        let cfg: InnerStyleConfig = serde_saphyr::from_str(yaml).expect("rendering with max_pixel_ratio must parse");
+        let cfg: InnerStyleConfig = serde_saphyr::from_str(yaml).expect("rendering with pixel_ratios must parse");
         let OptBoolObj::Object(renderer) = cfg.rendering else {
             panic!("expected Object variant, got {:?}", cfg.rendering);
         };
-        assert_eq!(renderer.max_pixel_ratio, NonZeroU8::new(2));
+        assert_eq!(renderer.pixel_ratios.map(Vec::from), Some(vec![1, 3]));
     }
 
     #[cfg(feature = "rendering")]
     #[rstest::rstest]
-    #[case::zero("0")]
-    #[case::above_u8("256")]
-    #[case::negative("-1")]
-    fn renderer_config_rejects_invalid_max_pixel_ratio(#[case] value: &str) {
-        let yaml = format!("rendering:\n  enabled: true\n  max_pixel_ratio: {value}\n");
-        serde_saphyr::from_str::<InnerStyleConfig>(&yaml).expect_err("max_pixel_ratio must be an integer in 1..=255");
+    #[case::empty("[]", "at least one")]
+    #[case::zero("[1, 0]", "must be 1 to 4, got 0")]
+    #[case::above_max("[5]", "must be 1 to 4, got 5")]
+    #[case::fractional("[1.5]", "")]
+    #[case::not_a_list("2", "")]
+    fn renderer_config_rejects_invalid_pixel_ratios(#[case] value: &str, #[case] reason: &str) {
+        let yaml = format!("rendering:\n  enabled: true\n  pixel_ratios: {value}\n");
+        let err = serde_saphyr::from_str::<InnerStyleConfig>(&yaml).expect_err("pixel_ratios must be rejected");
+        assert!(err.to_string().contains(reason), "{err}");
     }
 
     #[cfg(feature = "rendering")]

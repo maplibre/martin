@@ -39,6 +39,7 @@ epsg
 ETRS
 extfile
 fastpfor
+fips
 fontawesome
 fontstack
 foss
@@ -132,6 +133,7 @@ reprojects
 rescan
 rgba
 rustaceanvim
+rustls
 saphyr
 schemafile
 serde
