@@ -342,10 +342,17 @@ pub struct Renderer {
     pub slice_errors: Vec<SliceErrors>,
     /// Whether polygon rings start where `ST_AsMVTGeom`'s wagyu starts them, see [`Renderer::with_wagyu_ring_starts`].
     wagyu_ring_starts: bool,
-    /// How many rings each polygon of the feature has before quantizing, for pairing them with the quantized ones.
-    source_polys: Vec<u32>,
-    /// Whether each ring of the feature has a positive area before quantizing, in the zoom grid.
-    source_positive: Vec<bool>,
+    /// The feature's rings before quantizing, sorted by bounding box, for finding the one a quantized ring came from.
+    source_rings: Vec<SourceRing>,
+}
+
+/// A ring before quantizing, as a quantized ring is matched with it.
+#[derive(Clone, Copy, Debug)]
+struct SourceRing {
+    /// `[min_x, min_y, max_x, max_y]` of its vertices rounded to the zoom grid, as the quantized ring's are.
+    bbox: [i32; 4],
+    /// Whether it winds positive in the zoom grid.
+    positive: bool,
 }
 
 #[derive(Debug, Default)]
@@ -767,7 +774,9 @@ impl Renderer {
             sole_tile(&self.vertices, ctx.layer.grid)?
         };
         if self.wagyu_ring_starts && (unclipped || sole.is_some()) {
-            self.start_rings_like_wagyu(epsilon, shift, world)?;
+            self.start_rings_like_wagyu(None, epsilon, shift, world)?;
+        } else if self.wagyu_ring_starts && self.polys.len() > 1 {
+            self.start_rings_like_wagyu(Some(ctx.layer.grid), epsilon, shift, world)?;
         }
         let (polys, parts, vertices) = (
             std::mem::take(&mut self.polys),
@@ -786,28 +795,71 @@ impl Renderer {
         result
     }
 
-    /// Rotates each quantized ring to where wagyu starts it, read in its source direction while the rings pair up with the source's.
-    fn start_rings_like_wagyu(&mut self, epsilon: f64, shift: f64, world: f64) -> TileGenResult<()> {
-        self.source_polys.clear();
-        self.source_positive.clear();
-        for rings in self.simplifier.polygons(epsilon) {
-            let first_ring = self.source_positive.len();
-            for ring in rings {
-                let area = signed_area_2x_f64(ring.map(|c| to_grid(c, shift, world)));
-                self.source_positive.push(area > 0.0);
+    /// Rotates each quantized ring to where wagyu starts it, read in its source direction: the rings of every polygon,
+    /// or with a `grid`, of each polygon that [`sole_tile`] puts whole in one tile, as the slicer leaves those unchanged.
+    fn start_rings_like_wagyu(
+        &mut self,
+        grid: Option<LayerGrid>,
+        epsilon: f64,
+        shift: f64,
+        world: f64,
+    ) -> TileGenResult<()> {
+        let mut indexed = false;
+        let (mut first_ring, mut start) = (0, 0);
+        for p in 0..self.polys.len() {
+            let rings = first_ring..first_ring + self.polys[p] as usize;
+            let len: usize = self.parts[rings.clone()].iter().map(|&n| n as usize).sum();
+            let whole = match grid {
+                None => true,
+                Some(grid) => sole_tile(&self.vertices[start..start + len], grid)?.is_some(),
+            };
+            if whole && !indexed {
+                self.index_source_rings(epsilon, shift, world);
+                indexed = true;
             }
-            self.source_polys.push(len32(self.source_positive.len() - first_ring)?);
-        }
-        let paired = self.polys == self.source_polys;
-        let mut start = 0;
-        for (i, &len) in self.parts.iter().enumerate() {
-            let ring = &mut self.vertices[start..start + len as usize];
-            start += len as usize;
-            let reversed = paired && (signed_area_2x(ring) > 0) != self.source_positive[i];
-            let first = wagyu_start(ring, reversed);
-            ring.rotate_left(first);
+            for r in rings {
+                let end = start + self.parts[r] as usize;
+                if whole {
+                    let ring = &mut self.vertices[start..end];
+                    let reversed = self
+                        .source_rings
+                        .binary_search_by_key(&ring_bbox(ring), |source| source.bbox)
+                        .is_ok_and(|i| (signed_area_2x(ring) > 0) != self.source_rings[i].positive);
+                    let first = wagyu_start(ring, reversed);
+                    ring.rotate_left(first);
+                }
+                start = end;
+            }
+            first_ring += self.polys[p] as usize;
         }
         Ok(())
+    }
+
+    /// Fills [`Self::source_rings`] with the feature's rings at `epsilon`, in the zoom grid of `shift` and `world`.
+    fn index_source_rings(&mut self, epsilon: f64, shift: f64, world: f64) {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "the quantizer rounded these into `i32` already"
+        )]
+        let unit = |v: f64| v.round_ties_even() as i32;
+        self.source_rings.clear();
+        for rings in self.simplifier.polygons(epsilon) {
+            for ring in rings {
+                let (mut lo, mut hi) = (
+                    Coord::from((f64::INFINITY, f64::INFINITY)),
+                    Coord::from((f64::NEG_INFINITY, f64::NEG_INFINITY)),
+                );
+                let area = signed_area_2x_f64(ring.map(|c| to_grid(c, shift, world)).inspect(|c| {
+                    (lo.x, lo.y) = (lo.x.min(c.x), lo.y.min(c.y));
+                    (hi.x, hi.y) = (hi.x.max(c.x), hi.y.max(c.y));
+                }));
+                self.source_rings.push(SourceRing {
+                    bbox: [unit(lo.x), unit(lo.y), unit(hi.x), unit(hi.y)],
+                    positive: area > 0.0,
+                });
+            }
+        }
+        self.source_rings.sort_unstable_by_key(|source| source.bbox);
     }
 
     /// A feature in one tile is that tile's piece, unchanged but for the tile-local frame.
@@ -1248,6 +1300,14 @@ fn to_grid(c: Coord<f64>, shift: f64, world: f64) -> Coord<f64> {
         x: (c.x + shift) * world,
         y: c.y * world,
     }
+}
+
+/// `[min_x, min_y, max_x, max_y]` of `ring`.
+fn ring_bbox(ring: &[Coord<i32>]) -> [i32; 4] {
+    ring.iter()
+        .fold([i32::MAX, i32::MAX, i32::MIN, i32::MIN], |[x0, y0, x1, y1], c| {
+            [x0.min(c.x), y0.min(c.y), x1.max(c.x), y1.max(c.y)]
+        })
 }
 
 /// Twice the signed area of `ring`, measured about its first vertex like [`signed_area_2x`].
@@ -2177,6 +2237,71 @@ mod tests {
         );
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
+    fn wagyu_ring_starts_keep_the_source_direction_when_a_hole_rounds_away() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let ring: LineString = [(10.0, 90.0), (90.0, 90.0), (90.0, 10.0), (10.0, 10.0), (10.0, 90.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let hole: LineString = [(50.0, 50.0), (50.0, 50.3), (50.3, 50.3), (50.3, 50.0), (50.0, 50.0)]
+            .into_iter()
+            .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+            .collect();
+        let polygons = [Polygon::new(ring, vec![hole])];
+        let records = render_with(
+            Renderer::default().with_wagyu_ring_starts(true),
+            TileOrder::Tms,
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].2.parts, [4]);
+        assert_eq!(records[0].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
+    fn wagyu_ring_starts_apply_to_each_polygon_a_tile_gets_whole_when_the_feature_spans_tiles() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let polygons: Vec<_> = [0.0, 256.0]
+            .into_iter()
+            .map(|offset| {
+                let ring: LineString = [(10.0, 90.0), (90.0, 90.0), (90.0, 10.0), (10.0, 10.0), (10.0, 90.0)]
+                    .into_iter()
+                    .map(|(x, y)| coord! { x: (x + offset) / 512.0, y: (y + offset) / 512.0 })
+                    .collect();
+                Polygon::new(ring, vec![])
+            })
+            .collect();
+        let records = render_with(
+            Renderer::default().with_wagyu_ring_starts(true),
+            TileOrder::Tms,
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 1..=1,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
+        assert_eq!(records[1].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
     }
 
     #[test]

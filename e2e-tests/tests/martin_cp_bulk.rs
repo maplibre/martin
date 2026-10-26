@@ -659,6 +659,20 @@ async fn refuses_mlt2() {
 }
 
 #[tokio::test]
+async fn refuses_mvt_quirks_without_mvt() {
+    let dir = temp_dir();
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--mvt-quirk")
+        .arg("keep-unused-keys")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mvt-quirk` only changes MVT tiles; add `--format mvt`");
+}
+
+#[tokio::test]
 async fn contiguous_zoom_levels_are_a_zoom_range() {
     let dir = temp_dir();
     let (levels, range) = (dir.path().join("levels.mbtiles"), dir.path().join("range.mbtiles"));

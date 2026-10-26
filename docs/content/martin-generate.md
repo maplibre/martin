@@ -146,7 +146,7 @@ A failed or interrupted run removes the output file. Temporary files are always 
 
 ### MVT quirks
 
-Each `--mvt-quirk` changes how MVT tiles are encoded:
+Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`:
 
 | Quirk                 | Effect                                                                                                                                                                                     |
 |-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

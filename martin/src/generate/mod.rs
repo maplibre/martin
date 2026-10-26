@@ -96,6 +96,9 @@ impl GenerateOptions {
             #[cfg(feature = "unstable-mlt-v2")]
             Some(CopyFormat::MltV2) => return Err(GenerateError::MltV2),
         };
+        if !args.mvt_quirks.is_empty() && !matches!(format, TileFormat::Mvt) {
+            return Err(GenerateError::MvtQuirkWithoutMvt);
+        }
         let encoding = args
             .encoding
             .as_deref()
@@ -169,6 +172,8 @@ pub enum GenerateError {
     #[cfg(feature = "unstable-mlt-v2")]
     #[error("`--mode bulk` cannot write `--format mlt2` yet")]
     MltV2,
+    #[error("`--mvt-quirk` only changes MVT tiles; add `--format mvt`")]
+    MvtQuirkWithoutMvt,
     #[error("unknown encoding `{0}`; `--mode bulk` takes one of gzip, zlib, br, zstd or none")]
     BadEncoding(String),
     #[error("No table source matches `{0}`. Available table sources: {1}")]
