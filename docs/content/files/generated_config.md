@@ -121,6 +121,46 @@ cors:
   # '*' will use the requests `ORIGIN` header
   origin:
     - https://example.org
+# Publish `DuckDB` / `GeoParquet` sources (unstable)
+duckdb:
+  # Bounds behavior for auto-generated `TileJSON` bounds.
+  auto_bounds: quick
+  # Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # Optional `DuckDB` memory limit in megabytes for each connection.
+  memory_limit_mb: null
+  # Connection pool size used by `DuckDB` sources unless overridden per-source.
+  pool_size: 0
+  # Ordered source definitions.
+  sources: []
+  # Optional `DuckDB` execution thread count for each connection.
+  threads: null
 # Optional endpoints, each off unless enabled here.
 endpoints:
   # Serve `DELETE /cache/{source_id}`, which drops that source's cached tiles. [default: false]
