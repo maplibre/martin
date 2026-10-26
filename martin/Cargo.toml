@@ -146,6 +146,7 @@ postgres = [
     "dep:postgis",
     "dep:postgres-protocol",
     "dep:xxhash-rust",
+    "dep:indexmap",
     "_tiles",
 ]
 processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
@@ -169,7 +170,13 @@ unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
 _file_kinds = []
-unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
+unstable-schemas = [
+    "dep:schemars",
+    "schemars/indexmap2",
+    "dep:utoipa",
+    "martin-core/unstable-schemas",
+    "default",
+]
 unstable-duckdb = [
     "dep:cql2",
     "martin-core/unstable-duckdb",

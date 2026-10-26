@@ -371,6 +371,7 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
     use std::path::Path;
 
+    use indexmap::IndexMap;
     use indoc::indoc;
     use tilejson::Bounds;
 
@@ -780,7 +781,7 @@ mod tests {
                             clip_geom: Some(false),
                             filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),
-                            properties: Some(BTreeMap::from([("gid".to_owned(), "int4".to_owned())])),
+                            properties: Some(IndexMap::from([("gid".to_owned(), "int4".to_owned())])),
                             ..Default::default()
                         },
                     )])),

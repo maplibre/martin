@@ -504,13 +504,13 @@ mod tests {
         TableDef {
             columns: [
                 Value(
-                    "class",
+                    "name",
                     Some(
                         String,
                     ),
                 ),
                 Value(
-                    "name",
+                    "class",
                     Some(
                         String,
                     ),

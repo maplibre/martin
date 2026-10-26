@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
+use indexmap::IndexMap;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
@@ -128,7 +129,7 @@ pub struct TableInfo {
     /// Keys and values are the names and descriptions of attributes available in this layer.
     /// Each value (description) must be a string that describes the underlying data.
     /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
-    pub properties: Option<BTreeMap<String, String>>,
+    pub properties: Option<IndexMap<String, String>>,
 
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
@@ -155,7 +156,7 @@ pub struct TableInfo {
     /// What discovery found out about the table, which the config never sets
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub discovered: DiscoveredTable,
+    pub discovered: Box<DiscoveredTable>,
 }
 
 #[cfg(feature = "unstable-generate")]
@@ -237,7 +238,12 @@ impl PostgresInfo for TableInfo {
 
         let layer = VectorLayer {
             id,
-            fields: self.properties.clone().unwrap_or_default(),
+            fields: self
+                .properties
+                .iter()
+                .flatten()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
             description: None,
             maxzoom: None,
             minzoom: None,
@@ -309,10 +315,10 @@ impl TableInfo {
             table: self.table.clone(),
             geometry_column: self.geometry_column.clone(),
             // These values are not serialized, so copy auto-detected values from the database
-            discovered: DiscoveredTable {
+            discovered: Box::new(DiscoveredTable {
                 prop_mapping: HashMap::new(),
-                ..self.discovered.clone()
-            },
+                ..(*self.discovered).clone()
+            }),
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
             // Without one in the config, the column's type decides whether arcs are linearized
@@ -333,7 +339,7 @@ impl TableInfo {
             _ => {}
         }
 
-        let empty = BTreeMap::new();
+        let empty = IndexMap::new();
         let props = self.properties.as_ref().unwrap_or(&empty);
 
         if let Some(id_column) = &cfg_inf.id_column {

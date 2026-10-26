@@ -132,6 +132,15 @@ impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for H
     }
 }
 
+#[cfg(any(feature = "postgres", feature = "unstable-generate"))]
+impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for indexmap::IndexMap<K, V, S> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (key, value) in self {
+            value.collect_unrecognized(&format!("{path}{}.", key.as_ref()), out);
+        }
+    }
+}
+
 impl<K: AsRef<str>, V: CollectUnrecognizedKeys> CollectUnrecognizedKeys for BTreeMap<K, V> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         for (key, value) in self {
