@@ -27,7 +27,7 @@ pub fn render_block(
 ) -> TileGenResult<(Vec<EncodedTile>, Summary)> {
     let order = TileOrder::Tms;
     let sorter = Sorter::in_memory();
-    let mut worker = RenderWorker::new(plan, &sorter, order, Some(block));
+    let mut worker = RenderWorker::new(plan, &sorter, order, Some(block), false);
     for batch in batches {
         worker.render_batch(batch)?;
     }

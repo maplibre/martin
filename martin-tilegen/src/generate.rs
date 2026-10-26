@@ -26,6 +26,8 @@ pub struct GenerateConfig {
     pub batch_tiles: usize,
     /// Encode batches in flight.
     pub window: usize,
+    /// MVT only: a polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it.
+    pub mvt_first_vertex_like_wagyu: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -74,7 +76,16 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let order = sink.tile_order();
 
     let sorter = Sorter::new(config.sort.clone())?;
-    let totals = render_all(source, &sorter, plan, order, config.threads, progress)?;
+    let wagyu_ring_starts = config.mvt_first_vertex_like_wagyu && matches!(config.format, TileFormat::Mvt);
+    let totals = render_all(
+        source,
+        &sorter,
+        plan,
+        order,
+        config.threads,
+        wagyu_ring_starts,
+        progress,
+    )?;
     progress.writing.store(true, Ordering::Relaxed);
 
     let (encoding, batches) =
@@ -127,6 +138,7 @@ fn render_all<S: FeatureSource>(
     plan: &Plan,
     order: TileOrder,
     threads: usize,
+    wagyu_ring_starts: bool,
     progress: &Progress,
 ) -> TileGenResult<RenderTotals> {
     let threads = threads.max(1);
@@ -166,7 +178,7 @@ fn render_all<S: FeatureSource>(
             .map(|i| {
                 let rx = rx.clone();
                 spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
-                    let mut worker = RenderWorker::new(plan, sorter, order, None);
+                    let mut worker = RenderWorker::new(plan, sorter, order, None, wagyu_ring_starts);
                     for mut batch in rx {
                         if failed.load(Ordering::Relaxed) {
                             break;

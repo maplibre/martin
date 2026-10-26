@@ -186,6 +186,10 @@ pub struct CopyArgs {
     #[cfg(feature = "unstable-generate")]
     #[arg(long)]
     pub threads: Option<NonZeroUsize>,
+    /// Bulk mode, MVT only: a polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it.
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long)]
+    pub mvt_first_vertex_like_wagyu: bool,
 }
 
 /// How `martin cp` produces the tiles it writes.
@@ -261,6 +265,8 @@ impl Default for CopyArgs {
             temp_dir: Vec::new(),
             #[cfg(feature = "unstable-generate")]
             threads: None,
+            #[cfg(feature = "unstable-generate")]
+            mvt_first_vertex_like_wagyu: false,
         }
     }
 }
@@ -327,6 +333,7 @@ fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
             ("--memory", args.memory.is_some()),
             ("--temp-dir", !args.temp_dir.is_empty()),
             ("--threads", args.threads.is_some()),
+            ("--mvt-first-vertex-like-wagyu", args.mvt_first_vertex_like_wagyu),
         ]
         .into_iter()
         .filter_map(|(option, used)| used.then_some(option))

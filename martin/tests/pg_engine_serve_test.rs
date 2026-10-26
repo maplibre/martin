@@ -60,6 +60,7 @@ async fn generated(builder: &PostgresAutoDiscoveryBuilder, info: TableInfo) -> B
             encoding: Encoding::Gzip,
             batch_tiles: 16,
             window: 4,
+            mvt_first_vertex_like_wagyu: false,
         };
         generate(
             &source,

@@ -198,6 +198,7 @@ fn run(source: &impl FeatureSource, plan: &Plan, format: TileFormat, temp: &std:
         encoding: Encoding::Uncompressed,
         batch_tiles: 256,
         window: 16,
+        mvt_first_vertex_like_wagyu: false,
     };
     let metadata = tilejson::tilejson! { tiles: vec![] };
     generate(source, plan, NullSink, &config, metadata, &Progress::default())
