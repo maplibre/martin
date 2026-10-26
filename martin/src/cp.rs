@@ -277,6 +277,7 @@ impl Default for CopyArgs {
             temp_dir: Vec::new(),
             #[cfg(feature = "unstable-generate")]
             threads: None,
+            #[cfg(feature = "unstable-generate")]
             mvt_quirks: Vec::new(),
         }
     }
