@@ -160,6 +160,11 @@ impl KeyNames {
         self.names.resolve(&id.spur())
     }
 
+    /// The names declared up front, in declaration order.
+    pub fn declared(&self) -> impl Iterator<Item = &str> {
+        (0..self.known).map(|id| self.name(KeyId::new(id)))
+    }
+
     /// Whether `id` was declared up front rather than found while reading.
     #[must_use]
     pub fn is_declared(&self, id: KeyId) -> bool {

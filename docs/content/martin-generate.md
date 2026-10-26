@@ -111,26 +111,28 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 
 ## Options
 
-| Option          | Default                                                           | Meaning                                                                                               |
-|-----------------|-------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
-| `--output-file` |                                                                   | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty                                  |
-| `--source`      | all sources                                                       | Comma-separated source ids                                                                            |
-| `--format`      | `mlt`                                                             | `mlt` or `mvt`                                                                                        |
-| `--encoding`    | `gzip` for MBtiles or MVT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
-| `--min-zoom`    | `0`                                                               | Lowest zoom, raised by a source's `minzoom`                                                           |
-| `--max-zoom`    | `14`                                                              | Highest zoom, lowered by a source's `maxzoom`                                                         |
-| `--zoom-levels` |                                                                   | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7`                |
-| `--bbox`        | whole world                                                       | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
-| `--memory`      | `2GiB`                                                            | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                    |
-| `--temp-dir`    | system temp dir                                                   | Where sorted runs go, repeatable to spread them over several disks                                    |
-| `--threads`     | CPU count                                                         | Worker threads                                                                                        |
+| Option                | Default                                                           | Meaning                                                                                               |
+|-----------------------|-------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `--output-file`       |                                                                   | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty                                  |
+| `--source`            | all sources                                                       | Comma-separated source ids                                                                            |
+| `--format`            | `mlt`                                                             | `mlt` or `mvt`                                                                                        |
+| `--encoding`          | `gzip` for MBtiles or MVT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
+| `--min-zoom`          | `0`                                                               | Lowest zoom, raised by a source's `minzoom`                                                           |
+| `--max-zoom`          | `14`                                                              | Highest zoom, lowered by a source's `maxzoom`                                                         |
+| `--zoom-levels`       |                                                                   | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7`                |
+| `--bbox`              | whole world                                                       | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
+| `--memory`            | `2GiB`                                                            | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                    |
+| `--temp-dir`          | system temp dir                                                   | Where sorted runs go, repeatable to spread them over several disks                                    |
+| `--threads`           | CPU count                                                         | Worker threads                                                                                        |
+| `--mvt-declared-keys` | off                                                               | MVT: each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does |
 
 The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also apply, such as
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
 Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`,
 `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`,
-`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads`
+and `--mvt-declared-keys`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.

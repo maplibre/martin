@@ -186,6 +186,10 @@ pub struct CopyArgs {
     #[cfg(feature = "unstable-generate")]
     #[arg(long)]
     pub threads: Option<NonZeroUsize>,
+    /// Bulk mode, MVT only: every layer lists all its declared keys in declaration order, used or not, as `ST_AsMVT` does.
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long)]
+    pub mvt_declared_keys: bool,
 }
 
 /// How `martin cp` produces the tiles it writes.
@@ -261,6 +265,8 @@ impl Default for CopyArgs {
             temp_dir: Vec::new(),
             #[cfg(feature = "unstable-generate")]
             threads: None,
+            #[cfg(feature = "unstable-generate")]
+            mvt_declared_keys: false,
         }
     }
 }
@@ -327,6 +333,7 @@ fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
             ("--memory", args.memory.is_some()),
             ("--temp-dir", !args.temp_dir.is_empty()),
             ("--threads", args.threads.is_some()),
+            ("--mvt-declared-keys", args.mvt_declared_keys),
         ]
         .into_iter()
         .filter_map(|(option, used)| used.then_some(option))

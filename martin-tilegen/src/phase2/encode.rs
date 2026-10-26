@@ -46,6 +46,8 @@ pub struct EncodeSettings<'a> {
     pub format: TileFormat,
     pub encoding: Encoding,
     pub order: TileOrder,
+    /// MVT only: every layer lists all its declared keys in declaration order, used or not.
+    pub mvt_declared_keys: bool,
 }
 
 /// Dedup keys for tiles likely to repeat, shared by all encoders. A key is only handed out for bytes
@@ -227,7 +229,12 @@ impl TileEncoder {
             features.push((layer, count));
             match settings.format {
                 TileFormat::Mlt => mlt.extend(assembled.layer.encode(info.encoder)?),
-                TileFormat::Mvt => mvt = assembled.layer.write_mvt(mvt)?,
+                TileFormat::Mvt => {
+                    if settings.mvt_declared_keys {
+                        mvt.preset_keys(names.declared());
+                    }
+                    mvt = assembled.layer.write_mvt(mvt)?;
+                }
             }
         }
         let data = match settings.format {
@@ -300,6 +307,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -324,6 +332,7 @@ mod tests {
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -346,6 +355,7 @@ mod tests {
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Hilbert,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -365,6 +375,7 @@ mod tests {
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let err = TileEncoder::default()
@@ -389,6 +400,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -416,6 +428,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
         let dedup = DedupIndex::default();
 
@@ -444,6 +457,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -470,6 +484,7 @@ mod tests {
             format: TileFormat::Mvt,
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -483,6 +498,39 @@ mod tests {
         assert_eq!(decoded[0].name(), "roads");
         assert_eq!(decoded[0].feature_count(), 1);
         assert_eq!(decoded[0].keys(), ["kind"]);
+    }
+
+    #[test]
+    fn mvt_declared_keys_lists_unused_keys_in_declaration_order() {
+        let interner = KeyInterner::new(["name", "class", "surface"]);
+        let mut tile = TileRecords::new(0);
+        tile.push_record(
+            0,
+            Seq::new(0, 1).unwrap(),
+            &feature(
+                1,
+                &[("lanes", PropValueRef::I64(2)), ("class", PropValueRef::Str("primary"))],
+                &interner,
+            ),
+        );
+        let keys = [interner.freeze()];
+        let layers = [layer("roads")];
+        let settings = EncodeSettings {
+            layers: &layers,
+            keys: &keys,
+            format: TileFormat::Mvt,
+            encoding: Encoding::Uncompressed,
+            order: TileOrder::Tms,
+            mvt_declared_keys: true,
+        };
+
+        let tiles = TileEncoder::default()
+            .encode_batch(&settings, &DedupIndex::default(), vec![tile])
+            .unwrap();
+
+        let mvt = MvtReaderRef::new(&tiles[0].data).unwrap();
+        let decoded: Vec<_> = mvt.layers().collect();
+        assert_eq!(decoded[0].keys(), ["name", "class", "surface", "lanes"]);
     }
 
     #[test]
@@ -511,6 +559,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -551,6 +600,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let mut encoder = TileEncoder::default();
@@ -604,6 +654,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
 
         let tiles = TileEncoder::default()
@@ -645,6 +696,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
         let mut encoder = TileEncoder::default();
 
@@ -680,6 +732,7 @@ mod tests {
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
+            mvt_declared_keys: false,
         };
         let mut encoder = TileEncoder::default();
 

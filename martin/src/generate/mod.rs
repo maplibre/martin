@@ -63,6 +63,7 @@ struct GenerateOptions {
     memory: u64,
     temp_dirs: Vec<PathBuf>,
     threads: usize,
+    mvt_declared_keys: bool,
 }
 
 impl GenerateOptions {
@@ -131,6 +132,7 @@ impl GenerateOptions {
                 args.temp_dir
             },
             threads,
+            mvt_declared_keys: args.mvt_declared_keys,
         })
     }
 }
@@ -442,6 +444,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         encoding: options.encoding,
         batch_tiles: 256,
         window: threads * 4,
+        mvt_declared_keys: options.mvt_declared_keys,
     }
 }
 
