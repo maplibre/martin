@@ -3264,8 +3264,9 @@ dependencies = [
 
 [[package]]
 name = "fast-mvt"
-version = "0.7.0"
-source = "git+https://github.com/nyurik/fast-mvt?rev=3962ec6ff1cfa4e608afca173c9794306f970438#3962ec6ff1cfa4e608afca173c9794306f970438"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4dd28eb5048f310a33f947a615fbbca7ea47fc92e3a0820fc2a5925b475a8531"
 dependencies = [
  "buffa",
  "foldhash 0.2.0",
