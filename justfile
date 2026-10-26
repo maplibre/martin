@@ -98,7 +98,9 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    cargo build --quiet --features unstable-schemas --bin gen-schemas
+    # `rendering` only builds on Linux, the platform CI regenerates on, so the
+    # spec covers the static-render routes a `-full` release build serves.
+    cargo build --quiet --features unstable-schemas{{ if os() == "linux" { ",rendering" } else { "" } }} --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is

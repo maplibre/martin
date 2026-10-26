@@ -662,6 +662,10 @@
           "default": [],
           "description": "A list of file paths"
         },
+        "rendering": {
+          "$ref": "#/$defs/OptBoolObj4",
+          "description": "Allows static, server side, style rendering"
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -1351,6 +1355,32 @@
       ],
       "description": "A serde helper to store a boolean as an object."
     },
+    "OptBoolObj4": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/RendererConfig",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj5": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PngPaletteConfig",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
     "OrderByType": {
       "oneOf": [
         {
@@ -1537,6 +1567,20 @@
         }
       ],
       "description": "A passthrough source value: either a bare upstream URL (or list of URLs) or a full\nconfiguration object."
+    },
+    "PngPaletteConfig": {
+      "properties": {
+        "max_colors": {
+          "default": 128,
+          "description": "Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it\nclosely, up to this many colours. Defaults to 128.",
+          "examples": [128],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
     },
     "PostgresCfgPublish": {
       "properties": {
@@ -1735,6 +1779,59 @@
       "enum": ["brotli", "gzip"],
       "type": "string"
     },
+    "RendererConfig": {
+      "properties": {
+        "ambient_cache_size_mb": {
+          "description": "Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the network (0 to disable).\nDisable it when every source of the styles is served by Martin itself.",
+          "examples": [50],
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "max_pixel_ratio": {
+          "description": "Highest `@{n}x` pixel ratio the tile endpoint serves. \\[default: 4\\]",
+          "examples": [4],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "png_palette": {
+          "$ref": "#/$defs/OptBoolObj5",
+          "description": "Encode rendered PNGs as indexed (palette) images, which is the default.\n`false` keeps full-colour RGBA."
+        },
+        "renderers_per_worker": {
+          "description": "Renderers each tile worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used is dropped. \\[default: 8\\]",
+          "examples": [16],
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "tile_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TileSize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.\n\\[default: 512\\]",
+          "examples": [256]
+        },
+        "workers": {
+          "description": "Number of render worker threads. Unset picks a platform default.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["enabled"],
+      "type": "object"
+    },
     "TableInfo": {
       "properties": {
         "bounds": {
@@ -1915,6 +2012,11 @@
       },
       "required": ["crs", "origin", "extent_at_zoom0"],
       "type": "object"
+    },
+    "TileSize": {
+      "description": "Size of a rendered XYZ tile in logical pixels.",
+      "enum": [256, 512],
+      "type": "integer"
     },
     "WebUiMode": {
       "oneOf": [

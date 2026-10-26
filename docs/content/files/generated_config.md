@@ -602,6 +602,28 @@ styles:
   collections: []
   # A list of file paths
   paths: []
+  # Allows static, server side, style rendering
+  rendering:
+    # Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the network (0 to disable).
+    # Disable it when every source of the styles is served by Martin itself.
+    ambient_cache_size_mb: 50
+    enabled: false
+    # Highest `@{n}x` pixel ratio the tile endpoint serves. [default: 4]
+    max_pixel_ratio: 4
+    # Encode rendered PNGs as indexed (palette) images, which is the default.
+    # `false` keeps full-colour RGBA.
+    png_palette:
+      # Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
+      # closely, up to this many colours. Defaults to 128.
+      max_colors: 128
+    # Renderers each tile worker keeps loaded, one per style and pixel ratio.
+    # Beyond this, the least recently used is dropped. [default: 8]
+    renderers_per_worker: 16
+    # Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.
+    # [default: 512]
+    tile_size: 256
+    # Number of render worker threads. Unset picks a platform default.
+    workers: null
   # A map of source IDs to file paths or config objects
   sources: {}
 # Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
