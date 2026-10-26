@@ -14,6 +14,7 @@ mod martin_test_generate;
 mod mbtiles;
 mod pmtiles;
 mod statics;
+mod team_engine;
 
 use std::ffi::OsString;
 use std::fs::{self, File};
@@ -38,6 +39,7 @@ pub use crate::mbtiles::{
 };
 pub use crate::pmtiles::{LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles};
 pub use crate::statics::StaticFiles;
+pub use crate::team_engine::TeamEngine;
 
 /// A temporary directory for a test to build its fixtures and outputs in.
 #[must_use]

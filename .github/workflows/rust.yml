@@ -165,6 +165,22 @@ jobs:
         run: cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
         env:
           MARTIN_BIN: target_releases/martin
+  test-ogc-maps:
+    name: OGC API - Maps conformance
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { tools: 'just,nextest', rendering: true, cache: true }
+      - name: Run the OGC API - Maps conformance suite
+        run: just test-ogc-maps
   lint-rust:
     name: Lint the Rust code
     permissions:

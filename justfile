@@ -744,6 +744,12 @@ test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
     cargo build --package martin --no-default-features --features ogcapi,mbtiles
     cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
 
+# Run the OGC API - Maps conformance suite (Docker, built from source) against a rendered style
+[linux]
+test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
+    cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
+    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps_conformance
+
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
