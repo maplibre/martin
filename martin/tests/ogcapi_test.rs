@@ -80,8 +80,69 @@ async fn config(test_name: &str) -> (String, [(Mbtiles, SqliteConnection); 2]) {
     )
 }
 
+#[cfg(feature = "resources")]
 #[actix_rt::test]
 async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
+    let (config, _conn) = config("ogc_landing").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let landing: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(landing, @r#"
+    {
+      "title": "Martin",
+      "description": "The tiles Martin serves, as an OGC API",
+      "links": [
+        {
+          "href": "http://localhost:8080/ogc",
+          "rel": "self",
+          "type": "application/json",
+          "title": "This document"
+        },
+        {
+          "href": "https://maplibre.org/martin/using/",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The Martin HTTP API"
+        },
+        {
+          "href": "http://localhost:8080/ogc/conformance",
+          "rel": "conformance",
+          "type": "application/json",
+          "title": "Conformance classes"
+        },
+        {
+          "href": "http://localhost:8080/ogc/collections",
+          "rel": "data",
+          "type": "application/json",
+          "title": "Collections"
+        },
+        {
+          "href": "http://localhost:8080/ogc/tileMatrixSets",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "type": "application/json",
+          "title": "Tile matrix sets"
+        },
+        {
+          "href": "http://localhost:8080/ogc/styles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
+          "type": "application/json",
+          "title": "Styles"
+        }
+      ]
+    }
+    "#);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let with_slash: serde_json::Value = read_body_json(response).await;
+    assert_eq!(with_slash, landing);
+}
+
+#[cfg(not(feature = "resources"))]
+#[actix_rt::test]
+async fn the_landing_page_links_no_styles_without_resources() {
     let (config, _conn) = config("ogc_landing").await;
     let app = create_app!(&config);
 
@@ -133,6 +194,7 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
     assert_eq!(with_slash, landing);
 }
 
+#[cfg(feature = "resources")]
 #[actix_rt::test]
 async fn the_links_follow_the_proxy_in_front_of_martin() {
     let (config, _conn) = config("ogc_proxy").await;
@@ -146,25 +208,138 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     let landing: serde_json::Value = read_body_json(response).await;
-    let hrefs: Vec<&str> = landing["links"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|link| link["href"].as_str().unwrap())
-        .collect();
-    assert_json_snapshot!(hrefs, @r#"
-    [
-      "https://tiles.example.com/maps/ogc",
-      "https://maplibre.org/martin/using/",
-      "https://tiles.example.com/maps/ogc/conformance",
-      "https://tiles.example.com/maps/ogc/collections",
-      "https://tiles.example.com/maps/ogc/tileMatrixSets"
-    ]
+    assert_json_snapshot!(landing, @r#"
+    {
+      "title": "Martin",
+      "description": "The tiles Martin serves, as an OGC API",
+      "links": [
+        {
+          "href": "https://tiles.example.com/maps/ogc",
+          "rel": "self",
+          "type": "application/json",
+          "title": "This document"
+        },
+        {
+          "href": "https://maplibre.org/martin/using/",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The Martin HTTP API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/conformance",
+          "rel": "conformance",
+          "type": "application/json",
+          "title": "Conformance classes"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/collections",
+          "rel": "data",
+          "type": "application/json",
+          "title": "Collections"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/tileMatrixSets",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "type": "application/json",
+          "title": "Tile matrix sets"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/styles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
+          "type": "application/json",
+          "title": "Styles"
+        }
+      ]
+    }
     "#);
 }
 
+#[cfg(not(feature = "resources"))]
+#[actix_rt::test]
+async fn the_proxied_links_have_no_styles_without_resources() {
+    let (config, _conn) = config("ogc_proxy").await;
+    let app = create_app!(&config);
+
+    let request = TestRequest::get()
+        .uri("/ogc")
+        .insert_header(("X-Forwarded-Host", "tiles.example.com"))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Prefix", "/maps"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let landing: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(landing, @r#"
+    {
+      "title": "Martin",
+      "description": "The tiles Martin serves, as an OGC API",
+      "links": [
+        {
+          "href": "https://tiles.example.com/maps/ogc",
+          "rel": "self",
+          "type": "application/json",
+          "title": "This document"
+        },
+        {
+          "href": "https://maplibre.org/martin/using/",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The Martin HTTP API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/conformance",
+          "rel": "conformance",
+          "type": "application/json",
+          "title": "Conformance classes"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/collections",
+          "rel": "data",
+          "type": "application/json",
+          "title": "Collections"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/tileMatrixSets",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "type": "application/json",
+          "title": "Tile matrix sets"
+        }
+      ]
+    }
+    "#);
+}
+
+#[cfg(feature = "resources")]
 #[actix_rt::test]
 async fn the_conformance_declaration_lists_the_classes_served() {
+    let (config, _conn) = config("ogc_conformance").await;
+    let app = create_app!(&config);
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/conformance").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let conformance: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(conformance, @r#"
+    {
+      "conformsTo": [
+        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
+        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/mvt",
+        "http://www.opengis.net/spec/tms/2.0/conf/tilematrixset",
+        "http://www.opengis.net/spec/tms/2.0/conf/json-tilematrixset",
+        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
+        "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles"
+      ]
+    }
+    "#);
+}
+
+#[cfg(not(feature = "resources"))]
+#[actix_rt::test]
+async fn the_conformance_declaration_has_no_styles_without_resources() {
     let (config, _conn) = config("ogc_conformance").await;
     let app = create_app!(&config);
 

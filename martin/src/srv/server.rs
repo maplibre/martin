@@ -183,6 +183,8 @@ fn register_services(
         .service(ogcapi::get_tilesets)
         .service(ogcapi::get_tileset)
         .service(ogcapi::get_tile);
+    #[cfg(all(feature = "ogcapi", feature = "resources"))]
+    cfg.service(ogcapi::get_styles).service(ogcapi::get_style);
 
     #[cfg(feature = "_tiles")]
     {

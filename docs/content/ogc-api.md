@@ -48,6 +48,7 @@ Compression, caching and empty tiles behave just like on the regular tile endpoi
 | MVT content type    | `application/x-protobuf`                         | `application/vnd.mapbox-vector-tile`, as the standard requires    |
 | composite sources   | [`/{source1},…,{sourceN}`](sources-composite.md) | not available                                                     |
 | grids in other CRSs | served                                           | not listed, see [below](#which-sources-show-up)                   |
+| style               | [`/style/{styleID}`](sources-styles/index.md)    | `/ogc/styles/{styleID}`, see [Styles](#styles)                    |
 
 ## Which sources show up
 
@@ -73,6 +74,15 @@ Each one links to its full definition in the [Two Dimensional Tile Matrix Set 2.
 Grids from the OGC registry also carry their official registry `uri`.
 Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 means northing first.
 
+## Styles
+
+`/ogc/styles` lists your [styles](sources-styles/index.md) through [OGC API - Styles](https://docs.ogc.org/DRAFTS/20-009.html), each titled after its `name`.
+`/ogc/styles/{styleID}` serves the same MapLibre style as `/style/{styleID}`, as `application/json`.
+That is the only encoding Martin has, so `?f=json` is the only `f` it accepts.
+Martin does not declare the draft's `mapbox-style` class, which names the Mapbox media type.
+
+OGC API - Styles is still a draft, so this part may change with it.
+
 ## Conformance
 
 `/ogc/conformance` lists which parts of the standards Martin implements:
@@ -80,6 +90,7 @@ Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 me
 - OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
+- OGC API - Styles core and global styles, when Martin is built with styles
 
 We run the official OGC test suite against Martin in CI.
 
