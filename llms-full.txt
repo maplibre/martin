@@ -4748,11 +4748,15 @@ styles:
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
+        # Quality per format: WebP 1 to 100 or `lossless`, JPEG 1 to 100 [default: 80 each]
+        quality:
+            webp: 80
+            jpeg: 80
 ```
 
 ## Indexed (palette) PNG
 
-Rendered PNG tiles and static images are indexed (palette) PNGs. For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference. JPEG and WebP are not affected.
+Rendered PNG tiles and static images are indexed (palette) PNGs. For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference. JPEG and WebP are not affected, they follow the [quality](<#quality>) setting.
 
 Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128). Encoding a tile this way takes a few milliseconds of CPU.
 
@@ -4773,11 +4777,37 @@ styles:
         png_palette: false
 ```
 
+## Quality
+
+Rendered WebP and JPEG tiles and static images are lossy at quality 80. Each format has its own `quality`, as the two degrade differently at the same number. Both are optional, and any value outside the ones below fails at startup. PNG is not affected, see [indexed PNG](<#indexed-palette-png>).
+
+- **`webp`** is 1 to 100, or `lossless`. Lossy WebP is encoded with [libwebp](<https://developers.google.com/speed/webp>). At quality 80, map tiles are about a sixth of the size of lossless WebP, with no visible difference. The alpha channel stays lossless.
+- **`jpeg`** is 1 to 100. JPEG has no lossless mode.
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        quality:
+            webp: 90
+            jpeg: 90
+```
+
+Lossless WebP keeps every pixel, for example for imagery or styles with smooth gradients:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        quality:
+            webp: lossless
+```
+
 ## Rendered XYZ tiles
 
 We support generating a rasterized image for an XYZ tile of a given style.
 
-After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
 ### Tile size
 
