@@ -48,23 +48,18 @@ async fn the_ogc_api_passes_the_maps_conformance_suite() {
     [Req11/single-id] Expected HTTP 200 for collections='png' but got HTTP 404.
     [Req11/multi-id] Expected HTTP 200 for collections='png,toner' but got HTTP 404.
     [Req11/full-url-id] Expected HTTP 200 for full URL form collections='http://[ADDR]/ogc/collections/png' but got HTTP 404.
-    FAIL verifyCorsSupport: CORS verification failed with 4 error(s):
-      1. GET collection-map resource 'http://[ADDR]/ogc/collections/png/map' did not return a valid Access-Control-Allow-Origin header for origin https://example.com. Actual value: null
-      2. GET collection-tilesets-map resource 'http://[ADDR]/ogc/collections/png/tiles' did not return a valid Access-Control-Allow-Origin header for origin https://example.com. Actual value: null
-      3. GET collection-map resource 'http://[ADDR]/ogc/collections/toner/map' did not return a valid Access-Control-Allow-Origin header for origin https://example.com. Actual value: null
-      4. GET collection-tilesets-map resource 'http://[ADDR]/ogc/collections/toner/tiles' did not return a valid Access-Control-Allow-Origin header for origin https://example.com. Actual value: null
     FAIL verifyDatasetMapLinkFromLandingPage: Landing page must include a dataset map link with rel 'https://www.opengis.net/def/rel/ogc/1.0/map', legacy rel 'http://www.opengis.net/def/rel/ogc/1.0/map', or compact rel 'ogc-rel:map'. expected object to not be null
     FAIL verifyLandingPageExtentCrs: Landing page JSON response must include an 'extent' object. expected [true] but found [false]
     FAIL verifyMapResponse: Test Skipped: No map resources found in the collections to verify. Please check the target server. expected [true] but found [false]
     FAIL verifyMapRetrievalOperation: Cannot invoke "java.util.List.iterator()" because "contentTypeList" is null
     FAIL verifyPngContent: PNG content verification failed with 1 error(s):
       1. [Part C] PNG image does not support alpha channel. The PNG format SHALL support alpha channel for partial transparency when required
-    FAIL verifyTiffContent: TIFF content verification failed with 2 error(s):
-      1. [Part A] Expected Content-Type containing 'image/tiff' but got 'image/png'
-      2. [Part A] Response body does not have a valid TIFF file signature
+    FAIL verifyTiffContent: TIFF content verification failed with 1 error(s):
+      1. [Part A] Expected HTTP 200 but got 406 for TIFF map request to http://[ADDR]/ogc/collections/png/map
     PASS verifyCollectionDescriptionCrs
     PASS verifyCollectionDescriptionLinks
     PASS verifyCollectionMapOperation
+    PASS verifyCorsSupport
     PASS verifyJpegContent
     PASS verifyMapConformanceSuccess
     PASS verifyStyledMapLinks
