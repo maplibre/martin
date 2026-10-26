@@ -56,8 +56,10 @@ styles:
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
-        # Quality of WebP and JPEG images, 1 to 100, or `lossless` [default: 80]
-        quality: 80
+        # Quality per format: WebP 1 to 100 or `lossless`, JPEG 1 to 100 [default: 80 each]
+        quality:
+            webp: 80
+            jpeg: 80
 ```
 
 ## Indexed (palette) PNG
@@ -89,24 +91,26 @@ styles:
 ## Quality
 
 Rendered WebP and JPEG tiles and static images are lossy at quality 80.
-`quality` is 1 to 100, or `lossless`. Any other value fails at startup.
+Each format has its own `quality`, as the two degrade differently at the same number.
+Both are optional, and any value outside the ones below fails at startup.
 PNG is not affected, see [indexed PNG](#indexed-palette-png).
 
-- **WebP** is encoded lossy with [libwebp](https://developers.google.com/speed/webp).
+- **`webp`** is 1 to 100, or `lossless`. Lossy WebP is encoded with [libwebp](https://developers.google.com/speed/webp).
   At quality 80, map tiles are about a sixth of the size of lossless WebP, with no visible difference.
   The alpha channel stays lossless.
-  `lossless` keeps every pixel.
-- **JPEG** has no lossless mode, so `lossless` encodes it at quality 100.
+- **`jpeg`** is 1 to 100. JPEG has no lossless mode.
 
 !!! note
     Up to 2.0.0-beta.4, rendered WebP was lossless and JPEG was encoded at quality 75.
-    Set `quality: lossless` to keep lossless WebP.
+    Set `quality: { webp: lossless, jpeg: 75 }` to keep that output.
 
 ```yaml
 styles:
     rendering:
         enabled: true
-        quality: 90
+        quality:
+            webp: 90
+            jpeg: 90
 ```
 
 Lossless WebP keeps every pixel, for example for imagery or styles with smooth gradients:
@@ -115,7 +119,8 @@ Lossless WebP keeps every pixel, for example for imagery or styles with smooth g
 styles:
     rendering:
         enabled: true
-        quality: lossless
+        quality:
+            webp: lossless
 ```
 
 ## Rendered XYZ tiles

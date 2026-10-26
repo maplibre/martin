@@ -203,4 +203,8 @@ impl_empty_collect_unrecognized!(MacroIdFormat);
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
 #[cfg(feature = "rendering")]
-impl_empty_collect_unrecognized!(martin_core::styles::TileSize);
+impl_empty_collect_unrecognized!(
+    martin_core::styles::TileSize,
+    martin_core::styles::ImageQuality,
+    martin_core::styles::LossyQuality
+);

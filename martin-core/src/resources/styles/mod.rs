@@ -47,7 +47,7 @@ pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 #[cfg(feature = "rendering")]
 mod image_quality;
 #[cfg(feature = "rendering")]
-pub use image_quality::{DEFAULT_IMAGE_QUALITY, ImageQuality, LossyQuality};
+pub use image_quality::{ImageQualities, ImageQuality, LossyQuality};
 #[cfg(feature = "rendering")]
 mod tile_size;
 #[cfg(feature = "rendering")]
@@ -107,7 +107,7 @@ pub struct StyleSources {
     png_max_colors: Option<u16>,
     /// Quality rendered WebP and JPEG images are encoded at.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    image_quality: ImageQuality,
+    image_quality: ImageQualities,
 }
 
 /// Highest tile pixel ratio served when none is configured.
@@ -289,14 +289,14 @@ impl StyleSources {
 
     /// Encode rendered WebP and JPEG images at `quality`.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub fn set_image_quality(&mut self, quality: ImageQuality) {
+    pub fn set_image_quality(&mut self, quality: ImageQualities) {
         self.image_quality = quality;
     }
 
     /// Quality rendered WebP and JPEG images are encoded at.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[must_use]
-    pub fn image_quality(&self) -> ImageQuality {
+    pub fn image_quality(&self) -> ImageQualities {
         self.image_quality
     }
 }

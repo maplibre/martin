@@ -5,7 +5,8 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Quality of a lossy encode, 1 (smallest) to 100 (best).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
 pub struct LossyQuality(NonZeroU8);
 
 impl LossyQuality {
@@ -25,15 +26,27 @@ impl LossyQuality {
     }
 }
 
-/// Quality rendered images are encoded at, unless configured otherwise.
-pub const DEFAULT_IMAGE_QUALITY: ImageQuality = ImageQuality::Lossy(LossyQuality::new(80).expect("80 is a quality"));
+impl Default for LossyQuality {
+    fn default() -> Self {
+        Self::new(80).expect("80 is a quality")
+    }
+}
 
-/// How lossy rendered images are encoded.
+/// Quality rendered images are encoded at, per format.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct ImageQualities {
+    /// Quality of WebP images.
+    pub webp: ImageQuality,
+    /// Quality of JPEG images, which have no lossless mode.
+    pub jpeg: LossyQuality,
+}
+
+/// How lossy a rendered WebP is encoded.
 ///
 /// Deserializes from a number 1 to 100 or the string `lossless`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageQuality {
-    /// Keep every pixel, where the format can.
+    /// Keep every pixel.
     Lossless,
     /// Lossy at this quality.
     Lossy(LossyQuality),
@@ -41,7 +54,7 @@ pub enum ImageQuality {
 
 impl Default for ImageQuality {
     fn default() -> Self {
-        DEFAULT_IMAGE_QUALITY
+        Self::Lossy(LossyQuality::default())
     }
 }
 
@@ -49,8 +62,38 @@ impl Serialize for ImageQuality {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::Lossless => serializer.serialize_str("lossless"),
-            Self::Lossy(quality) => serializer.serialize_u8(quality.get()),
+            Self::Lossy(quality) => quality.serialize(serializer),
         }
+    }
+}
+
+/// The quality `quality` is, or an error naming the `allowed` values.
+fn lossy<E: de::Error>(quality: u64, allowed: &str) -> Result<LossyQuality, E> {
+    u8::try_from(quality)
+        .ok()
+        .and_then(LossyQuality::new)
+        .ok_or_else(|| E::custom(format_args!("quality must be {allowed}, not {quality}")))
+}
+
+const WEBP_QUALITIES: &str = r#"1 to 100 or "lossless""#;
+
+impl<'de> Deserialize<'de> for LossyQuality {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct LossyVisitor;
+
+        impl Visitor<'_> for LossyVisitor {
+            type Value = LossyQuality;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a quality from 1 to 100")
+            }
+
+            fn visit_u64<E: de::Error>(self, quality: u64) -> Result<LossyQuality, E> {
+                lossy(quality, "1 to 100")
+            }
+        }
+
+        deserializer.deserialize_any(LossyVisitor)
     }
 }
 
@@ -66,27 +109,37 @@ impl<'de> Deserialize<'de> for ImageQuality {
             }
 
             fn visit_u64<E: de::Error>(self, quality: u64) -> Result<ImageQuality, E> {
-                u8::try_from(quality)
-                    .ok()
-                    .and_then(LossyQuality::new)
-                    .map(ImageQuality::Lossy)
-                    .ok_or_else(|| invalid(quality))
+                lossy(quality, WEBP_QUALITIES).map(ImageQuality::Lossy)
             }
 
             fn visit_str<E: de::Error>(self, quality: &str) -> Result<ImageQuality, E> {
                 if quality == "lossless" {
                     Ok(ImageQuality::Lossless)
                 } else {
-                    Err(invalid(format_args!("\"{quality}\"")))
+                    Err(E::custom(format_args!(
+                        r#"quality must be {WEBP_QUALITIES}, not "{quality}""#
+                    )))
                 }
             }
         }
 
-        fn invalid<E: de::Error>(quality: impl fmt::Display) -> E {
-            E::custom(format_args!(r#"quality must be 1 to 100 or "lossless", not {quality}"#))
-        }
-
         deserializer.deserialize_any(QualityVisitor)
+    }
+}
+
+#[cfg(feature = "unstable-schemas")]
+impl schemars::JsonSchema for LossyQuality {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("LossyQuality")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "Lossy quality from 1 to 100.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+        })
     }
 }
 

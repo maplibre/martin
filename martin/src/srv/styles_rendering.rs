@@ -20,7 +20,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, routes};
 use image::codecs::jpeg::JpegEncoder;
 use image::{ImageFormat, RgbaImage};
-use martin_core::styles::{ImageQuality, StyleSources};
+use martin_core::styles::{ImageQualities, ImageQuality, StyleSources};
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
 use tokio::sync::Semaphore;
@@ -84,13 +84,13 @@ enum EncodeError {
 
 /// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
 /// A PNG is indexed with at most `png_max_colors` colours if set, and RGBA otherwise.
-/// A WebP and a JPEG are encoded at `quality`.
+/// A WebP and a JPEG are encoded at their `quality`.
 #[cfg(target_os = "linux")]
 pub(super) async fn encode_image_response(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
-    quality: ImageQuality,
+    quality: ImageQualities,
 ) -> HttpResponse {
     match encode_off_worker(&ENCODE_PERMITS, move || {
         encode_image(image.as_image(), format, png_max_colors, quality)
@@ -129,17 +129,16 @@ async fn encode_off_worker(
 }
 
 /// Encode `img` into `format`, as an indexed PNG with at most `png_max_colors` colours if set,
-/// and as a WebP or JPEG at `quality`.
-/// JPEG has no alpha channel, so the alpha is dropped, and no lossless mode, so `lossless`
-/// encodes it at quality 100.
+/// and as a WebP or JPEG at its `quality`.
+/// JPEG has no alpha channel, so the alpha is dropped.
 fn encode_image(
     img: &RgbaImage,
     format: ImageFormatRequest,
     png_max_colors: Option<u16>,
-    quality: ImageQuality,
+    quality: ImageQualities,
 ) -> Result<Vec<u8>, EncodeError> {
     let mut output = Cursor::new(Vec::new());
-    match (format, png_max_colors, quality) {
+    match (format, png_max_colors, quality.webp) {
         (ImageFormatRequest::Png, Some(max_colors), _) => return Ok(png_palette::encode(img, max_colors)?),
         (ImageFormatRequest::Webp, _, ImageQuality::Lossy(quality)) => {
             // libwebp keeps the alpha channel lossless next to the lossy colours.
@@ -148,13 +147,9 @@ fn encode_image(
                 .map_err(EncodeError::Webp)?;
             return Ok(webp.to_vec());
         }
-        (ImageFormatRequest::Jpeg, _, quality) => {
-            let quality = match quality {
-                ImageQuality::Lossless => 100,
-                ImageQuality::Lossy(quality) => quality.get(),
-            };
+        (ImageFormatRequest::Jpeg, _, _) => {
             // Drops the alpha channel while it encodes, without an RGB copy of the image.
-            JpegEncoder::new_with_quality(&mut output, quality).encode_image(img)?;
+            JpegEncoder::new_with_quality(&mut output, quality.jpeg.get()).encode_image(img)?;
         }
         // An RGBA PNG or a lossless WebP.
         _ => img.write_to(&mut output, format.image_format())?,
@@ -311,8 +306,15 @@ mod tests {
 
     use super::*;
 
-    fn lossy(quality: u8) -> ImageQuality {
-        ImageQuality::Lossy(LossyQuality::new(quality).expect("a quality from 1 to 100"))
+    fn lossy(quality: u8) -> LossyQuality {
+        LossyQuality::new(quality).expect("a quality from 1 to 100")
+    }
+
+    fn webp_at(webp: ImageQuality) -> ImageQualities {
+        ImageQualities {
+            webp,
+            ..ImageQualities::default()
+        }
     }
 
     fn translucent_image() -> RgbaImage {
@@ -326,7 +328,7 @@ mod tests {
     fn a_lossless_encode_keeps_every_pixel(#[case] format: ImageFormatRequest) {
         let image = translucent_image();
 
-        let encoded = encode_image(&image, format, None, ImageQuality::Lossless).expect("encodes");
+        let encoded = encode_image(&image, format, None, webp_at(ImageQuality::Lossless)).expect("encodes");
 
         let decoded = image::load_from_memory_with_format(&encoded, format.image_format()).expect("decodes");
         assert_eq!(decoded.to_rgba8(), image);
@@ -365,7 +367,7 @@ mod tests {
             &translucent_image(),
             ImageFormatRequest::Jpeg,
             None,
-            ImageQuality::default(),
+            ImageQualities::default(),
         )
         .expect("encodes");
 
@@ -382,7 +384,7 @@ mod tests {
     }
 
     fn webp(img: &RgbaImage, quality: ImageQuality) -> Vec<u8> {
-        encode_image(img, ImageFormatRequest::Webp, None, quality).expect("encodes")
+        encode_image(img, ImageFormatRequest::Webp, None, webp_at(quality)).expect("encodes")
     }
 
     fn decode_webp(bytes: &[u8]) -> RgbaImage {
@@ -423,24 +425,27 @@ mod tests {
             &RgbaImage::new(0, 0),
             ImageFormatRequest::Webp,
             None,
-            ImageQuality::default(),
+            ImageQualities::default(),
         )
         .expect_err("nothing to encode");
         assert!(matches!(err, EncodeError::Webp(_)), "{err}");
     }
 
     #[test]
-    fn a_jpeg_follows_the_quality() {
+    fn a_jpeg_follows_its_own_quality() {
         let tile = rendered_tile();
-        let jpeg = |quality| {
-            encode_image(&tile, ImageFormatRequest::Jpeg, None, quality)
+        let jpeg = |webp, jpeg| {
+            encode_image(&tile, ImageFormatRequest::Jpeg, None, ImageQualities { webp, jpeg })
                 .expect("encodes")
                 .len()
         };
 
-        assert!(jpeg(lossy(10)) < jpeg(ImageQuality::default()));
-        assert!(jpeg(ImageQuality::default()) < jpeg(lossy(100)));
-        // JPEG has no lossless mode.
-        assert_eq!(jpeg(ImageQuality::Lossless), jpeg(lossy(100)));
+        assert!(jpeg(ImageQuality::default(), lossy(10)) < jpeg(ImageQuality::default(), lossy(80)));
+        assert!(jpeg(ImageQuality::default(), lossy(80)) < jpeg(ImageQuality::default(), lossy(100)));
+        assert_eq!(
+            jpeg(ImageQuality::Lossless, lossy(80)),
+            jpeg(ImageQuality::Lossy(lossy(10)), lossy(80)),
+            "the WebP quality does not change a JPEG"
+        );
     }
 }

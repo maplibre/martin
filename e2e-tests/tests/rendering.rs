@@ -1161,7 +1161,7 @@ async fn rendered_webps_are_lossy_by_default() {
 }
 
 #[tokio::test]
-async fn a_lossless_quality_keeps_webps_lossless() {
+async fn a_lossless_webp_quality_keeps_webps_lossless() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -1173,7 +1173,8 @@ async fn a_lossless_quality_keeps_webps_lossless() {
               rendering:
                 enabled: true
                 workers: 2
-                quality: lossless
+                quality:
+                  webp: lossless
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
@@ -1208,7 +1209,9 @@ async fn a_lower_quality_serves_smaller_images() {
                   rendering:
                     enabled: true
                     workers: 2
-                    quality: {quality}
+                    quality:
+                      webp: {quality}
+                      jpeg: {quality}
                   sources:
                     maplibre_demo: {maplibre_demo}
                     maptiler_basic: {maptiler_basic}
@@ -1249,7 +1252,7 @@ async fn a_lower_quality_serves_smaller_images() {
 }
 
 #[tokio::test]
-async fn a_quality_outside_1_to_100_fails_startup() {
+async fn a_webp_quality_outside_1_to_100_fails_startup() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maplibre_demo = maplibre_demo.display();
@@ -1260,7 +1263,8 @@ async fn a_quality_outside_1_to_100_fails_startup() {
               rendering:
                 enabled: true
                 workers: 2
-                quality: 0
+                quality:
+                  webp: 0
               sources:
                 maplibre_demo: {maplibre_demo}
         "})
@@ -1276,11 +1280,11 @@ async fn a_quality_outside_1_to_100_fails_startup() {
         ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
 
           × quality must be 1 to 100 or "lossless", not 0
-           ╭─[[CONFIG]:5:14]
-         4 │     workers: 2
-         5 │     quality: 0
-           ·              ─
-         6 │   sources:
+           ╭─[[CONFIG]:6:13]
+         5 │     quality:
+         6 │       webp: 0
+           ·             ─
+         7 │   sources:
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
