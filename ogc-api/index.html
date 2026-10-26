@@ -1287,6 +1287,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#styles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Styles
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#conformance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2130,6 +2141,11 @@ For most sources that's <code>WebMercatorQuad</code>, and anything else gets a <
 <td>served</td>
 <td>not listed, see <a href="#which-sources-show-up">below</a></td>
 </tr>
+<tr>
+<td>style</td>
+<td><a href="../sources-styles/"><code>/style/{styleID}</code></a></td>
+<td><code>/ogc/styles/{styleID}</code>, see <a href="#styles">Styles</a></td>
+</tr>
 </tbody>
 </table>
 <h2 id="which-sources-show-up">Which sources show up</h2>
@@ -2151,12 +2167,19 @@ Vector sources get a vector tileset, raster sources a map tileset.</p>
 Each one links to its full definition in the <a href="https://docs.ogc.org/is/17-083r4/17-083r4.html">Two Dimensional Tile Matrix Set 2.0</a> JSON format: the origin, cell size and number of rows and columns at every zoom.</p>
 <p>Grids from the OGC registry also carry their official registry <code>uri</code>.
 Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 means northing first.</p>
+<h2 id="styles">Styles</h2>
+<p><code>/ogc/styles</code> lists your <a href="../sources-styles/">styles</a> through <a href="https://docs.ogc.org/DRAFTS/20-009.html">OGC API - Styles</a>, each titled after its <code>name</code>.
+<code>/ogc/styles/{styleID}</code> serves the same MapLibre style as <code>/style/{styleID}</code>, as <code>application/json</code>.
+That is the only encoding Martin has, so <code>?f=json</code> is the only <code>f</code> it accepts.
+Martin does not declare the draft's <code>mapbox-style</code> class, which names the Mapbox media type.</p>
+<p>OGC API - Styles is still a draft, so this part may change with it.</p>
 <h2 id="conformance">Conformance</h2>
 <p><code>/ogc/conformance</code> lists which parts of the standards Martin implements:</p>
 <ul>
 <li>OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles</li>
 <li>OGC API - Common core, landing page and JSON</li>
 <li>Two Dimensional Tile Matrix Set 2.0 and its JSON encoding</li>
+<li>OGC API - Styles core and global styles, when Martin is built with styles</li>
 </ul>
 <p>We run the official OGC test suite against Martin in CI.</p>
 <h2 id="reading-martin-with-gdal">Reading Martin with GDAL</h2>
