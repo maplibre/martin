@@ -1081,6 +1081,7 @@ export interface operations {
                 content: {
                     "image/png": unknown;
                     "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
                 };
             };
             /** @description Invalid map parameters */
@@ -1329,6 +1330,7 @@ export interface operations {
                 content: {
                     "image/png": unknown;
                     "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
                 };
             };
             /** @description Invalid map parameters */

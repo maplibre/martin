@@ -513,7 +513,7 @@ pub(super) async fn render_map(
         operation_id = "ogc.dataset.style.getMap",
         params(("style_id" = String, Path, description = "Style ID"), MapQuery),
         responses(
-            (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"))),
+            (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such style"),
             (status = 406, description = "No supported map format in Accept header"),
@@ -543,7 +543,7 @@ pub async fn get_style_map(
         operation_id = "ogc.collection.getMap",
         params(("collection_id" = String, Path, description = "Collection ID, the ID of a source"), MapQuery),
         responses(
-            (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"))),
+            (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such collection, or it can't be drawn as a map"),
             (status = 406, description = "No supported map format in Accept header"),
