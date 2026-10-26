@@ -239,6 +239,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/map/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tilesets of all collections drawn together. */
+        get: operations["ogc.dataset.map.getTileSetsList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/map/tiles/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tileset of all collections drawn together, on `WebMercatorQuad`. */
+        get: operations["ogc.dataset.map.getTileSet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A map tile of all collections drawn together. */
+        get: operations["ogc.dataset.map.getTile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/styles": {
         parameters: {
             query?: never;
@@ -282,6 +333,57 @@ export interface paths {
         };
         /** A style rendered as a map. */
         get: operations["ogc.dataset.style.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tilesets of a style. */
+        get: operations["ogc.dataset.style.map.getTileSetsList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tileset of a style on `WebMercatorQuad`. */
+        get: operations["ogc.dataset.style.map.getTileSet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A map tile of a style. */
+        get: operations["ogc.dataset.style.map.getTile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1304,6 +1406,107 @@ export interface operations {
             };
         };
     };
+    "ogc.dataset.map.getTileSetsList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tilesets of all collections drawn together */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSets"];
+                };
+            };
+        };
+    };
+    "ogc.dataset.map.getTileSet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tile matrix set ID, only `WebMercatorQuad` */
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tileset metadata with the tile URL template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSet"];
+                };
+            };
+            /** @description No such tileset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.map.getTile": {
+        parameters: {
+            query?: {
+                /** @description Image format, `png`, `jpeg` or `tiff`. */
+                f?: string | null;
+            };
+            header?: never;
+            path: {
+                tile_matrix_set_id: string;
+                tile_matrix: number;
+                tile_row: number;
+                tile_col: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tile of all collections drawn together */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description Unsupported image format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such tileset or tile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported image format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     "ogc.dataset.getStyles": {
         parameters: {
             query?: never;
@@ -1413,6 +1616,120 @@ export interface operations {
                 content?: never;
             };
             /** @description No supported map format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTileSetsList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tilesets of the style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSets"];
+                };
+            };
+            /** @description No such style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTileSet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+                /** @description Tile matrix set ID, only `WebMercatorQuad` */
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tileset metadata with the tile URL template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSet"];
+                };
+            };
+            /** @description No such style or tileset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTile": {
+        parameters: {
+            query?: {
+                /** @description Image format, `png`, `jpeg` or `tiff`. */
+                f?: string | null;
+            };
+            header?: never;
+            path: {
+                style_id: string;
+                tile_matrix_set_id: string;
+                tile_matrix: number;
+                tile_row: number;
+                tile_col: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tile of the style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description Unsupported image format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such style, tileset or tile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported image format in Accept header */
             406: {
                 headers: {
                     [name: string]: unknown;

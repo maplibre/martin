@@ -26,6 +26,11 @@ pub use landing::get_landing_page;
 pub use map::{__path_get_collection_map, __path_get_dataset_map, __path_get_style_map};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use map::{get_collection_map, get_dataset_map, get_style_map};
+#[cfg(all(feature = "rendering", target_os = "linux", feature = "unstable-schemas"))]
+pub use map_tiles::{
+    __path_get_dataset_map_tile, __path_get_dataset_map_tileset, __path_get_dataset_map_tilesets,
+    __path_get_style_map_tile, __path_get_style_map_tileset, __path_get_style_map_tilesets,
+};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use map_tiles::{
     get_dataset_map_tile, get_dataset_map_tileset, get_dataset_map_tilesets, get_style_map_tile, get_style_map_tileset,

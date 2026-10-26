@@ -26,6 +26,8 @@ const MAP_TILE_PIXELS: u32 = 256;
 
 /// The path of a map tile of the dataset.
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct DatasetMapTilePath {
     tile_matrix_set_id: String,
     tile_matrix: u8,
@@ -35,6 +37,8 @@ pub struct DatasetMapTilePath {
 
 /// The path of a map tile of a style.
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct StyleMapTilePath {
     style_id: String,
     tile_matrix_set_id: String,
@@ -110,6 +114,17 @@ fn dataset_style(req: &HttpRequest, srv_config: &SrvConfig, manager: &TileSource
 }
 
 /// The map tilesets of all collections drawn together.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/map/tiles",
+        operation_id = "ogc.dataset.map.getTileSetsList",
+        responses(
+            (status = 200, description = "Map tilesets of all collections drawn together", body = super::tilesets::TileSets),
+        ),
+    )
+)]
 #[route(
     "/ogc/map/tiles",
     method = "GET",
@@ -126,6 +141,19 @@ pub async fn get_dataset_map_tilesets(req: HttpRequest, srv_config: Data<SrvConf
 }
 
 /// The map tileset of all collections drawn together, on `WebMercatorQuad`.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/map/tiles/{tile_matrix_set_id}",
+        operation_id = "ogc.dataset.map.getTileSet",
+        params(("tile_matrix_set_id" = String, Path, description = "Tile matrix set ID, only `WebMercatorQuad`")),
+        responses(
+            (status = 200, description = "Map tileset metadata with the tile URL template", body = super::tilesets::TileSet),
+            (status = 404, description = "No such tileset"),
+        ),
+    )
+)]
 #[route(
     "/ogc/map/tiles/{tile_matrix_set_id}",
     method = "GET",
@@ -155,6 +183,21 @@ pub async fn get_dataset_map_tileset(
 }
 
 /// A map tile of all collections drawn together.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        operation_id = "ogc.dataset.map.getTile",
+        params(DatasetMapTilePath, MapTileQuery),
+        responses(
+            (status = 200, description = "Map tile of all collections drawn together", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
+            (status = 400, description = "Unsupported image format"),
+            (status = 404, description = "No such tileset or tile"),
+            (status = 406, description = "No supported image format in Accept header"),
+        ),
+    )
+)]
 #[route(
     "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
     method = "GET",
@@ -174,6 +217,19 @@ pub async fn get_dataset_map_tile(
 }
 
 /// The map tilesets of a style.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/styles/{style_id}/map/tiles",
+        operation_id = "ogc.dataset.style.map.getTileSetsList",
+        params(("style_id" = String, Path, description = "Style ID")),
+        responses(
+            (status = 200, description = "Map tilesets of the style", body = super::tilesets::TileSets),
+            (status = 404, description = "No such style"),
+        ),
+    )
+)]
 #[route(
     "/ogc/styles/{style_id}/map/tiles",
     method = "GET",
@@ -199,6 +255,19 @@ pub async fn get_style_map_tilesets(
 }
 
 /// The map tileset of a style on `WebMercatorQuad`.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}",
+        operation_id = "ogc.dataset.style.map.getTileSet",
+        params(("style_id" = String, Path, description = "Style ID"), ("tile_matrix_set_id" = String, Path, description = "Tile matrix set ID, only `WebMercatorQuad`")),
+        responses(
+            (status = 200, description = "Map tileset metadata with the tile URL template", body = super::tilesets::TileSet),
+            (status = 404, description = "No such style or tileset"),
+        ),
+    )
+)]
 #[route(
     "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}",
     method = "GET",
@@ -226,6 +295,21 @@ pub async fn get_style_map_tileset(
 }
 
 /// A map tile of a style.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        operation_id = "ogc.dataset.style.map.getTile",
+        params(StyleMapTilePath, MapTileQuery),
+        responses(
+            (status = 200, description = "Map tile of the style", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
+            (status = 400, description = "Unsupported image format"),
+            (status = 404, description = "No such style, tileset or tile"),
+            (status = 406, description = "No supported image format in Accept header"),
+        ),
+    )
+)]
 #[route(
     "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
     method = "GET",

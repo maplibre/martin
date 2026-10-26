@@ -107,6 +107,12 @@ fn with_ogc_style_alias(mut openapi: utoipa::openapi::OpenApi) -> utoipa::openap
     crate::srv::ogcapi::get_style_map,
     crate::srv::ogcapi::get_collection_map,
     crate::srv::ogcapi::get_dataset_map,
+    crate::srv::ogcapi::get_dataset_map_tilesets,
+    crate::srv::ogcapi::get_dataset_map_tileset,
+    crate::srv::ogcapi::get_dataset_map_tile,
+    crate::srv::ogcapi::get_style_map_tilesets,
+    crate::srv::ogcapi::get_style_map_tileset,
+    crate::srv::ogcapi::get_style_map_tile,
 ))]
 struct MartinOgcApiMapsOpenApi;
 
