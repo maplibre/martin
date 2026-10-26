@@ -427,7 +427,7 @@ impl TableRules {
             let column = if props.contains_key(requested) {
                 requested.clone()
             } else {
-                match find_kv_ignore_case(props, requested) {
+                match find_kv_ignore_case(props.keys(), requested) {
                     Ok(Some(found)) => {
                         report(IdColumnOutcome::CaseInsensitive {
                             requested: requested.clone(),
@@ -454,7 +454,7 @@ impl TableRules {
                 });
                 continue;
             }
-            props.remove(&column);
+            props.shift_remove(&column);
             info.id_column = Some(column);
             return;
         }
@@ -543,7 +543,7 @@ fn resolve<'a, T>(map: &'a BTreeMap<String, T>, key: &str) -> Option<(&'a String
     if let Some(found) = map.get_key_value(key) {
         return Some(found);
     }
-    let key = find_kv_ignore_case(map, key).ok()??;
+    let key = find_kv_ignore_case(map.keys(), key).ok()??;
     map.get_key_value(key)
 }
 

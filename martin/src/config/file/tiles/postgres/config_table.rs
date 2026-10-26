@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
+use indexmap::IndexMap;
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
@@ -128,7 +129,7 @@ pub struct TableInfo {
     /// Keys and values are the names and descriptions of attributes available in this layer.
     /// Each value (description) must be a string that describes the underlying data.
     /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
-    pub properties: Option<BTreeMap<String, String>>,
+    pub properties: Option<IndexMap<String, String>>,
 
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert_to_mlt`.
@@ -237,7 +238,12 @@ impl PostgresInfo for TableInfo {
 
         let layer = VectorLayer {
             id,
-            fields: self.properties.clone().unwrap_or_default(),
+            fields: self
+                .properties
+                .iter()
+                .flatten()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
             description: None,
             maxzoom: None,
             minzoom: None,
@@ -333,8 +339,8 @@ impl TableInfo {
             _ => {}
         }
 
-        let empty = BTreeMap::new();
-        let props = self.properties.as_ref().unwrap_or(&empty);
+        let props: BTreeMap<String, &String> = self.properties.iter().flatten().map(|(k, v)| (k.clone(), v)).collect();
+        let props = &props;
 
         if let Some(id_column) = &cfg_inf.id_column {
             let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;

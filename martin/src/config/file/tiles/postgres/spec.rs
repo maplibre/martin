@@ -9,6 +9,10 @@ use crate::config::file::postgres::{FunctionInfo, TableInfo};
 
 /// A resolved tile-source description: catalog metadata merged with config and the id already resolved, ready to be instantiated into a running source.
 #[derive(Clone, Debug)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "few specs live at once; boxing would touch every match"
+)]
 pub enum SourceSpec {
     /// A table source. Its SQL query and bounds are deferred to instantiate.
     Table(TableInfo),
@@ -40,7 +44,10 @@ impl SourceSpec {
                 info.clip_geom.hash(&mut hasher);
                 info.filter.hash(&mut hasher);
                 info.geometry_type.hash(&mut hasher);
-                info.properties.hash(&mut hasher);
+                info.properties
+                    .as_ref()
+                    .map(|p| p.iter().collect::<Vec<_>>())
+                    .hash(&mut hasher);
                 hash_tilejson(info.discovered.tilejson.as_ref(), &mut hasher);
 
                 let mut prop_mapping: Vec<_> = info.discovered.prop_mapping.iter().collect();
@@ -77,7 +84,6 @@ fn hash_tilejson(tilejson: Option<&serde_json::Value>, hasher: &mut Xxh3) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use std::num::NonZeroU32;
 
     use rstest::rstest;
@@ -119,7 +125,7 @@ mod tests {
             buffer: Some(64),
             clip_geom: Some(true),
             geometry_type: Some("LINESTRING".to_owned()),
-            properties: Some(BTreeMap::from([("name".to_owned(), "text".to_owned())])),
+            properties: Some(indexmap::IndexMap::from([("name".to_owned(), "text".to_owned())])),
             discovered: DiscoveredTable {
                 tilejson: Some(serde_json::json!({ "attribution": "abc" })),
                 ..Default::default()
@@ -155,7 +161,7 @@ mod tests {
     #[case::filter(|t: &mut TableInfo|t.filter = Some("gid > 2".to_owned()))]
     #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_owned()))]
     #[case::properties(|t: &mut TableInfo|{
-        t.properties = Some(BTreeMap::from([("kind".to_owned(), "text".to_owned())]));
+        t.properties = Some(indexmap::IndexMap::from([("kind".to_owned(), "text".to_owned())]));
     })]
     #[case::prop_mapping(|t: &mut TableInfo|{
         t.discovered

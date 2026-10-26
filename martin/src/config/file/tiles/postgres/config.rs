@@ -780,7 +780,7 @@ mod tests {
                             clip_geom: Some(false),
                             filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),
-                            properties: Some(BTreeMap::from([("gid".to_owned(), "int4".to_owned())])),
+                            properties: Some(indexmap::IndexMap::from([("gid".to_owned(), "int4".to_owned())])),
                             ..Default::default()
                         },
                     )])),

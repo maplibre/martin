@@ -94,10 +94,12 @@ pub async fn query_available_tables(
             geometry_column: row.get("geom"),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
-            properties: Some(
-                serde_json::from_value(row.get("properties"))
-                    .expect("properties column should be a valid JSON object with string values"),
-            ),
+            properties: Some({
+                let mut props: indexmap::IndexMap<String, String> = serde_json::from_value(row.get("properties"))
+                    .expect("properties column should be a valid JSON object with string values");
+                props.sort_keys();
+                props
+            }),
             discovered: DiscoveredTable {
                 geometry_index: row.get("geom_idx"),
                 relkind: row
