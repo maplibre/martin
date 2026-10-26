@@ -61,6 +61,7 @@ async fn generated(builder: &PostgresAutoDiscoveryBuilder, info: TableInfo) -> B
             batch_tiles: 16,
             window: 4,
             mvt_first_vertex_like_wagyu: false,
+            mvt_keep_unused_keys: false,
         };
         generate(
             &source,

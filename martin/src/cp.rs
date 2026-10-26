@@ -190,6 +190,10 @@ pub struct CopyArgs {
     #[cfg(feature = "unstable-generate")]
     #[arg(long)]
     pub mvt_first_vertex_like_wagyu: bool,
+    /// Bulk mode, MVT only: a way to encode MVT tiles other than the default. Can be specified multiple times.
+    #[cfg(feature = "unstable-generate")]
+    #[arg(long = "mvt-quirk", value_name = "QUIRK")]
+    pub mvt_quirks: Vec<MvtQuirk>,
 }
 
 /// How `martin cp` produces the tiles it writes.
@@ -240,6 +244,16 @@ impl CopyFormat {
     }
 }
 
+/// A way bulk mode can encode MVT tiles other than its default.
+#[cfg(feature = "unstable-generate")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MvtQuirk {
+    /// Each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does,
+    /// then other keys, such as those of a JSON column, in the order features first use them.
+    KeepUnusedKeys,
+}
+
 impl Default for CopyArgs {
     fn default() -> Self {
         Self {
@@ -267,6 +281,7 @@ impl Default for CopyArgs {
             threads: None,
             #[cfg(feature = "unstable-generate")]
             mvt_first_vertex_like_wagyu: false,
+            mvt_quirks: Vec::new(),
         }
     }
 }
@@ -334,6 +349,7 @@ fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
             ("--temp-dir", !args.temp_dir.is_empty()),
             ("--threads", args.threads.is_some()),
             ("--mvt-first-vertex-like-wagyu", args.mvt_first_vertex_like_wagyu),
+            ("--mvt-quirk", !args.mvt_quirks.is_empty()),
         ]
         .into_iter()
         .filter_map(|(option, used)| used.then_some(option))

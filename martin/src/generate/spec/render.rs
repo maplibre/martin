@@ -72,6 +72,7 @@ pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: Ro
             batch_tiles: 64,
             window: 4,
             mvt_first_vertex_like_wagyu: false,
+            mvt_keep_unused_keys: false,
         };
         generate(
             &scan,

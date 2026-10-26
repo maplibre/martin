@@ -28,6 +28,9 @@ pub struct GenerateConfig {
     pub window: usize,
     /// MVT only: a polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it.
     pub mvt_first_vertex_like_wagyu: bool,
+    /// MVT only: each layer lists every key it declares, used or not, in declaration order, as `ST_AsMVT` does,
+    /// then the other keys in the order features first use them.
+    pub mvt_keep_unused_keys: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -88,8 +91,15 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     )?;
     progress.writing.store(true, Ordering::Relaxed);
 
-    let (encoding, batches) =
-        TileEncoding::start(plan, sorter, config.format, config.encoding, order, config.batch_tiles)?;
+    let (encoding, batches) = TileEncoding::start(
+        plan,
+        sorter,
+        config.format,
+        config.encoding,
+        order,
+        config.batch_tiles,
+        config.mvt_keep_unused_keys,
+    )?;
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
