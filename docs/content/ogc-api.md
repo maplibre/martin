@@ -90,7 +90,7 @@ OGC API - Styles is still a draft, so this part may change with it.
 - OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
-- OGC API - Styles core, global styles and Mapbox styles, when Martin is built with styles
+- OGC API - Styles core and global styles, when Martin is built with styles
 
 We run the official OGC test suite against Martin in CI.
 
