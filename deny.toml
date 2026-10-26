@@ -35,6 +35,8 @@ exceptions = [
     { crate = "target-lexicon", allow = ["Apache-2.0 WITH LLVM-exception"] },
     # cog-tiles-py -> pyo3-stub-gen -> rustpython-parser, only used to write the Python stub
     { crate = "unicode_names2", allow = ["Unicode-DFS-2016"] },
+    # martin `fips` feature -> rustls -> aws-lc-rs; the FIPS-validated AWS-LC module keeps the OpenSSL licence
+    { crate = "aws-lc-fips-sys", allow = ["OpenSSL"] },
 ]
 
 [licenses.private]
