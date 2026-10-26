@@ -173,6 +173,7 @@ usize
 utoipa
 valgrind
 varchar
+wagyu
 webui
 workspaced
 worktrees
