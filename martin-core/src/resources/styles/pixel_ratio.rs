@@ -1,68 +1,121 @@
 use std::fmt;
+use std::num::NonZeroU8;
 
-/// Pixel ratio of a static render, snapped to steps of 0.1 within [`Self::MIN`]..=[`Self::MAX`].
+use serde::{Deserialize, Serialize};
+
+/// The whole-number pixel ratios (`@{n}x`) rendered tiles and static images are served at.
 ///
-/// Stored as whole tenths so two ratios compare exactly: requests that snap to the same
-/// step share a renderer, so arbitrary scales like `@1.001x` cannot each force a rebuild.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PixelRatio(u8);
+/// Each ratio needs renderers of its own, so only the listed ones are served.
+/// Defaults to `@1x` and `@2x`, the ratios map clients ask for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "Vec<u8>", into = "Vec<u8>")]
+pub struct PixelRatios(
+    /// Bit `n - 1` is set if `@{n}x` is served.
+    u8,
+);
 
-/// A pixel ratio that is not finite and positive, or snaps outside [`PixelRatio::MIN`]..=[`PixelRatio::MAX`].
+/// A pixel ratio list that is empty or holds a ratio outside `1..=`[`PixelRatios::MAX`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum InvalidPixelRatio {
-    /// Zero, negative, NaN or infinite.
-    #[error("Scale factor must be a positive finite number")]
-    NotPositive,
-    /// Snaps below [`PixelRatio::MIN`].
-    #[error("Scale factor is below minimum allowed ({})", PixelRatio::MIN)]
-    BelowMin,
-    /// Snaps above [`PixelRatio::MAX`].
-    #[error("Scale factor exceeds maximum allowed ({})", PixelRatio::MAX)]
-    AboveMax,
+pub enum InvalidPixelRatios {
+    /// No ratio is listed.
+    #[error("pixel_ratios must list at least one pixel ratio")]
+    Empty,
+    /// A ratio outside `1..=`[`PixelRatios::MAX`].
+    #[error("pixel ratio must be 1 to {max}, got {0}", max = PixelRatios::MAX)]
+    OutOfRange(u8),
 }
 
-impl PixelRatio {
-    /// `@1x`, the standard density.
-    pub const ONE: Self = Self(10);
-    /// Lowest ratio served, `@0.5x`.
-    pub const MIN: Self = Self(5);
-    /// Highest ratio served, `@4x`.
-    pub const MAX: Self = Self(40);
-
-    /// The ratio as the renderer takes it.
-    #[must_use]
-    pub fn as_f32(self) -> f32 {
-        f32::from(self.0) / 10.0
-    }
+/// A request for a pixel ratio that is not configured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("Pixel ratio @{requested}x is not served, only {served}")]
+pub struct PixelRatioNotServed {
+    requested: NonZeroU8,
+    served: PixelRatios,
 }
 
-impl TryFrom<f32> for PixelRatio {
-    type Error = InvalidPixelRatio;
+impl PixelRatios {
+    /// Highest pixel ratio that can be configured.
+    pub const MAX: u8 = 4;
 
-    /// Rounds `ratio` to the nearest 0.1, then checks the bounds.
-    fn try_from(ratio: f32) -> Result<Self, Self::Error> {
-        if !ratio.is_finite() || ratio <= 0.0 {
-            return Err(InvalidPixelRatio::NotPositive);
-        }
-        let tenths = (ratio * 10.0).round();
-        if tenths < f32::from(Self::MIN.0) {
-            Err(InvalidPixelRatio::BelowMin)
-        } else if tenths > f32::from(Self::MAX.0) {
-            Err(InvalidPixelRatio::AboveMax)
+    /// Returns `Ok` if `@{ratio}x` is served.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PixelRatioNotServed`] if it is not.
+    pub fn check(self, ratio: NonZeroU8) -> Result<(), PixelRatioNotServed> {
+        if ratio.get() <= Self::MAX && self.0 & (1 << (ratio.get() - 1)) != 0 {
+            Ok(())
         } else {
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "a whole number within MIN..=MAX"
-            )]
-            Ok(Self(tenths as u8))
+            Err(PixelRatioNotServed {
+                requested: ratio,
+                served: self,
+            })
+        }
+    }
+
+    fn iter(self) -> impl Iterator<Item = u8> {
+        (1..=Self::MAX).filter(move |ratio| self.0 & (1 << (ratio - 1)) != 0)
+    }
+}
+
+impl Default for PixelRatios {
+    fn default() -> Self {
+        Self(0b11)
+    }
+}
+
+impl TryFrom<Vec<u8>> for PixelRatios {
+    type Error = InvalidPixelRatios;
+
+    /// Collects `ratios`; a ratio listed twice is served once.
+    fn try_from(ratios: Vec<u8>) -> Result<Self, Self::Error> {
+        let mut mask = 0;
+        for ratio in ratios {
+            if !(1..=Self::MAX).contains(&ratio) {
+                return Err(InvalidPixelRatios::OutOfRange(ratio));
+            }
+            mask |= 1 << (ratio - 1);
+        }
+        if mask == 0 {
+            Err(InvalidPixelRatios::Empty)
+        } else {
+            Ok(Self(mask))
         }
     }
 }
 
-impl fmt::Display for PixelRatio {
+impl From<PixelRatios> for Vec<u8> {
+    fn from(ratios: PixelRatios) -> Self {
+        ratios.iter().collect()
+    }
+}
+
+/// Lists the ratios as `@1x, @2x`.
+impl fmt::Display for PixelRatios {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_f32().fmt(f)
+        for (i, ratio) in self.iter().enumerate() {
+            if i > 0 {
+                f.write_str(", ")?;
+            }
+            write!(f, "@{ratio}x")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "unstable-schemas")]
+impl schemars::JsonSchema for PixelRatios {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("PixelRatios")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "Whole-number pixel ratios (`@{n}x`) that are served.",
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": Self::MAX },
+            "minItems": 1
+        })
     }
 }
 
@@ -72,46 +125,44 @@ mod tests {
 
     use super::*;
 
-    #[rstest]
-    #[case::one(1.0, 1.0)]
-    #[case::retina(2.0, 2.0)]
-    #[case::down_to_the_step(1.04, 1.0)]
-    #[case::up_to_the_step(1.06, 1.1)]
-    #[case::float_jitter(1.250_000_1, 1.3)]
-    #[case::one_point_one(1.1, 1.1)]
-    #[case::min(0.5, 0.5)]
-    #[case::rounds_up_to_min(0.45, 0.5)]
-    #[case::max(4.0, 4.0)]
-    #[case::rounds_down_to_max(4.04, 4.0)]
-    fn a_ratio_snaps_to_tenths(#[case] ratio: f32, #[case] snapped: f32) {
-        let pixel_ratio = PixelRatio::try_from(ratio).expect("in range");
-        assert_eq!(pixel_ratio.as_f32().to_bits(), snapped.to_bits(), "{ratio}");
+    fn ratio(n: u8) -> NonZeroU8 {
+        NonZeroU8::new(n).expect("non-zero")
     }
 
     #[test]
-    fn ratios_that_snap_to_the_same_step_are_equal() {
-        assert_eq!(PixelRatio::try_from(1.04), Ok(PixelRatio::ONE));
-        assert_eq!(PixelRatio::try_from(0.96), Ok(PixelRatio::ONE));
-        assert_ne!(PixelRatio::try_from(1.06), Ok(PixelRatio::ONE));
+    fn the_default_serves_1x_and_2x() {
+        let ratios = PixelRatios::default();
+        assert_eq!(Vec::from(ratios), [1, 2]);
+        assert_eq!(ratios.to_string(), "@1x, @2x");
     }
 
     #[rstest]
-    #[case::zero(0.0, InvalidPixelRatio::NotPositive)]
-    #[case::negative_zero(-0.0, InvalidPixelRatio::NotPositive)]
-    #[case::negative(-2.0, InvalidPixelRatio::NotPositive)]
-    #[case::nan(f32::NAN, InvalidPixelRatio::NotPositive)]
-    #[case::infinite(f32::INFINITY, InvalidPixelRatio::NotPositive)]
-    #[case::tiny(0.05, InvalidPixelRatio::BelowMin)]
-    #[case::just_below_min(0.44, InvalidPixelRatio::BelowMin)]
-    #[case::just_above_max(4.06, InvalidPixelRatio::AboveMax)]
-    #[case::huge(f32::MAX, InvalidPixelRatio::AboveMax)]
-    fn an_out_of_range_ratio_is_rejected(#[case] ratio: f32, #[case] err: InvalidPixelRatio) {
-        assert_eq!(PixelRatio::try_from(ratio), Err(err));
+    #[case::one(vec![1], &[1])]
+    #[case::not_contiguous(vec![4, 1], &[1, 4])]
+    #[case::duplicates(vec![2, 2, 1], &[1, 2])]
+    #[case::all(vec![1, 2, 3, 4], &[1, 2, 3, 4])]
+    fn a_list_converts(#[case] list: Vec<u8>, #[case] served: &[u8]) {
+        let ratios = PixelRatios::try_from(list).expect("valid");
+        assert_eq!(Vec::from(ratios), served);
+        for n in 1..=u8::MAX {
+            assert_eq!(ratios.check(ratio(n)).is_ok(), served.contains(&n), "@{n}x");
+        }
+    }
+
+    #[rstest]
+    #[case::empty(vec![], InvalidPixelRatios::Empty)]
+    #[case::zero(vec![1, 0], InvalidPixelRatios::OutOfRange(0))]
+    #[case::above_max(vec![5], InvalidPixelRatios::OutOfRange(5))]
+    #[case::shift_overflow(vec![9], InvalidPixelRatios::OutOfRange(9))]
+    fn an_invalid_list_is_rejected(#[case] list: Vec<u8>, #[case] err: InvalidPixelRatios) {
+        assert_eq!(PixelRatios::try_from(list), Err(err));
     }
 
     #[test]
-    fn it_displays_as_a_decimal() {
-        assert_eq!(PixelRatio::try_from(1.1).expect("in range").to_string(), "1.1");
-        assert_eq!(PixelRatio::ONE.to_string(), "1");
+    fn an_unserved_ratio_names_the_served_ones() {
+        let ratios = PixelRatios::try_from(vec![1, 3]).expect("valid");
+        assert_eq!(ratios.check(ratio(3)), Ok(()));
+        let err = ratios.check(ratio(2)).expect_err("@2x is not served");
+        assert_eq!(err.to_string(), "Pixel ratio @2x is not served, only @1x, @3x");
     }
 }
