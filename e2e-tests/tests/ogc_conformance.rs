@@ -34,8 +34,6 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
         )
         .await;
     insta::assert_snapshot!(martin.redact(&report), @"
-    PASS apiDefinitionOperationIdValidation
-    PASS apiDefinitionValidation
     PASS geospatialResourceTilesetsLinksCheck
     PASS geospatialResourceTilesetsRetrieval
     PASS validateConformanceOperationAndResponse
@@ -49,6 +47,8 @@ async fn the_ogc_api_passes_the_tiles_conformance_suite() {
     PASS validateTilesetsListResponse
     PASS verifyErrorResponses
     PASS verifyMinimalConformance
+    SKIP apiDefinitionOperationIdValidation: Skipped because the API definition could not be retrieved
+    SKIP apiDefinitionValidation: Skipped because the API definition could not be retrieved
     SKIP landingPageRetrieval: Skipped because Conformance Class http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/dataset-tilesets is not implemented.
     ");
     martin.stop().await;

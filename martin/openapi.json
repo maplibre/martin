@@ -955,7 +955,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/health": {
       "get": {
@@ -997,7 +998,7 @@
     },
     "/ogc/api": {
       "get": {
-        "operationId": "get_api",
+        "operationId": "getAPI",
         "parameters": [
           {
             "description": "Encoding of the definition, `json` or `html`; `html` when not given and the client accepts HTML.",
@@ -1012,16 +1013,16 @@
         "responses": {
           "200": {
             "content": {
-              "application/vnd.oai.openapi+json;version=3.0": {},
+              "application/vnd.oai.openapi+json;version=3.1": {},
               "text/html": {}
             },
-            "description": "OpenAPI 3.0 definition of the OGC API, or an HTML page showing it"
+            "description": "OpenAPI 3.1 definition of the paths this server answers, or an HTML page showing it"
           },
           "400": {
             "description": "Unsupported encoding"
           }
         },
-        "summary": "The `OpenAPI` 3.0 definition of the OGC API, as JSON or as an HTML page showing it.",
+        "summary": "Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it.",
         "tags": ["crate::srv::ogcapi"]
       }
     },
@@ -1258,7 +1259,8 @@
         },
         "summary": "Every style Martin serves.",
         "tags": ["crate::srv::ogcapi"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/ogc/styles/{style_id}": {
       "get": {
@@ -1289,7 +1291,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/ogc/tileMatrixSets": {
       "get": {
@@ -1368,7 +1371,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/sdf_sprite/{source_ids}.png": {
       "get": {
@@ -1395,7 +1399,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/sprite/{source_ids}.json": {
       "get": {
@@ -1422,7 +1427,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/sprite/{source_ids}.png": {
       "get": {
@@ -1449,7 +1455,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/style/{style_id}": {
       "get": {
@@ -1479,7 +1486,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "resources"
     },
     "/style/{style_id}/{z}/{x}/{y}.{format}": {
       "get": {
@@ -1553,7 +1561,8 @@
           }
         },
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "rendering"
     },
     "/style/{style_id}/static/{camera}/{size}.{format}": {
       "get": {
@@ -1699,7 +1708,8 @@
         },
         "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
         "tags": ["crate::srv"]
-      }
+      },
+      "x-martin-feature": "rendering"
     }
   }
 }

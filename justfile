@@ -108,12 +108,13 @@ gen-schemas: fetch
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
-    "$gen" --target openapi     > schemas/openapi.json
+    # Inside the crate, which embeds it to serve at `/ogc/api`.
+    "$gen" --target openapi     > martin/openapi.json
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
-    # written `schemas/openapi.json`. Kept after the cargo runs so the spec
+    # written `martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
+    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -122,8 +123,8 @@ gen-schemas: fetch
 test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
-        echo "schemas/config.json or schemas/openapi.json missing - run 'just gen-schemas' first" >&2
+    if [[ ! -f schemas/config.json || ! -f martin/openapi.json ]]; then
+        echo "schemas/config.json or martin/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 
@@ -134,7 +135,7 @@ test-schemas:
 
     echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
     uvx --from openapi-spec-validator openapi-spec-validator \
-        schemas/openapi.json
+        martin/openapi.json
     echo "::endgroup::"
 
     echo "::group::Validate real config fixtures against the config schema"

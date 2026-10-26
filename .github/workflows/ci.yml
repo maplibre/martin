@@ -125,6 +125,7 @@ jobs:
             schemas:
               - *shared
               - 'schemas/**'
+              - 'martin/openapi.json'
               - 'docs/content/files/generated_config.md'
               - 'e2e-tests/tests/snapshots/save_config__*'
             actions:

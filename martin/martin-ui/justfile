@@ -30,7 +30,7 @@ build:
 clean:
     rm -rf dist node_modules
 
-# Regenerate `src/lib/types.gen.ts` from `schemas/openapi.json`.
+# Regenerate `src/lib/types.gen.ts` from `martin/openapi.json`.
 # Called from the root `gen-schemas` recipe after the spec is written -
 # kept in this module so all Node tooling stays behind `mod ui`.
 gen-ui-types: _npm-install

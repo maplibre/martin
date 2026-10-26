@@ -3,6 +3,8 @@
 
 use schemars::schema_for;
 use utoipa::OpenApi;
+#[cfg(any(feature = "resources", feature = "rendering"))]
+use utoipa::openapi::extensions::ExtensionsBuilder;
 
 use crate::config::file::Config;
 
@@ -31,15 +33,22 @@ pub fn config_json_schema() -> serde_json::Value {
         crate::srv::get_source_info,
         crate::srv::get_tile,
         crate::srv::purge_source,
-        crate::srv::get_sprite_png,
-        crate::srv::get_sprite_sdf_png,
-        crate::srv::get_sprite_json,
-        crate::srv::get_sprite_sdf_json,
-        crate::srv::get_font,
-        crate::srv::get_style_json,
     )
 )]
 pub struct MartinOpenApi;
+
+/// Font, sprite and style routes.
+#[cfg(feature = "resources")]
+#[derive(OpenApi)]
+#[openapi(paths(
+    crate::srv::get_sprite_png,
+    crate::srv::get_sprite_sdf_png,
+    crate::srv::get_sprite_json,
+    crate::srv::get_sprite_sdf_json,
+    crate::srv::get_font,
+    crate::srv::get_style_json,
+))]
+struct MartinResourcesOpenApi;
 
 /// Style-rendering routes - in their own derive so the rest of the API can
 /// generate schemas without pulling in the `rendering` feature's C++ build.
@@ -91,16 +100,28 @@ fn with_ogc_style_alias(mut openapi: utoipa::openapi::OpenApi) -> utoipa::openap
     openapi
 }
 
+/// `openapi` with each path marked, as `x-martin-feature`, as served only by a build with `feature`.
+#[cfg(any(feature = "resources", feature = "rendering"))]
+fn served_with(feature: &str, mut openapi: utoipa::openapi::OpenApi) -> utoipa::openapi::OpenApi {
+    for item in openapi.paths.paths.values_mut() {
+        item.extensions = Some(ExtensionsBuilder::new().add("x-martin-feature", feature).build());
+    }
+    openapi
+}
+
 /// `OpenAPI` document as JSON.
 #[must_use]
 pub fn openapi_spec() -> serde_json::Value {
     let openapi = MartinOpenApi::openapi();
+    #[cfg(feature = "resources")]
+    let openapi = openapi.merge_from(served_with("resources", MartinResourcesOpenApi::openapi()));
     #[cfg(feature = "rendering")]
-    let openapi = openapi.merge_from(MartinRenderingOpenApi::openapi());
+    let openapi = openapi.merge_from(served_with("rendering", MartinRenderingOpenApi::openapi()));
     #[cfg(feature = "ogcapi")]
     let openapi = openapi.merge_from(MartinOgcApiOpenApi::openapi());
     #[cfg(all(feature = "ogcapi", feature = "resources"))]
-    let openapi = with_ogc_style_alias(openapi.merge_from(MartinOgcApiStylesOpenApi::openapi()));
+    let openapi =
+        with_ogc_style_alias(openapi.merge_from(served_with("resources", MartinOgcApiStylesOpenApi::openapi())));
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
 

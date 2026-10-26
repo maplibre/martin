@@ -4,15 +4,18 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Data, Query};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use serde::Deserialize;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 use super::error::OgcApiError;
-use super::link::ogc_url;
+use super::link::server_url;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::map_error;
 
-/// Media type of an `OpenAPI` 3.0 definition in JSON.
-pub(super) const OPENAPI_JSON: &str = "application/vnd.oai.openapi+json;version=3.0";
+/// Media type of an `OpenAPI` 3.1 definition in JSON.
+pub(super) const OPENAPI_JSON: &str = "application/vnd.oai.openapi+json;version=3.1";
+
+/// Martin's `OpenAPI` definition, as `just gen-schemas` writes it.
+const DEFINITION: &str = include_str!("../../../openapi.json");
 
 /// Swagger UI showing the definition this page is served next to, as `?f=json`.
 const API_HTML: &str = r##"<!doctype html>
@@ -38,16 +41,17 @@ pub struct ApiQuery {
     f: Option<String>,
 }
 
-/// The `OpenAPI` 3.0 definition of the OGC API, as JSON or as an HTML page showing it.
+/// Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it.
 #[cfg_attr(
     feature = "unstable-schemas",
     utoipa::path(
         get,
         path = "/ogc/api",
+        operation_id = "getAPI",
         params(ApiQuery),
         responses(
-            (status = 200, description = "OpenAPI 3.0 definition of the OGC API, or an HTML page showing it", content(
-                ("application/vnd.oai.openapi+json;version=3.0"),
+            (status = 200, description = "OpenAPI 3.1 definition of the paths this server answers, or an HTML page showing it", content(
+                ("application/vnd.oai.openapi+json;version=3.1"),
                 ("text/html"),
             )),
             (status = 400, description = "Unsupported encoding"),
@@ -87,188 +91,42 @@ pub async fn get_api(
     } else {
         HttpResponse::Ok()
             .content_type(OPENAPI_JSON)
-            .json(definition(&ogc_url(&req, &srv_config, "")))
+            .json(definition(&req, &srv_config))
     })
 }
 
-/// The `OpenAPI` definition of the OGC API served at `server`.
-fn definition(server: &str) -> Value {
-    #[cfg_attr(not(feature = "resources"), expect(unused_mut, reason = "only styles add paths"))]
-    let mut paths = tiles_paths();
-    #[cfg(feature = "resources")]
-    paths.extend(styles_paths());
-    json!({
-        "openapi": "3.0.3",
-        "info": {
-            "title": "Martin",
-            "description": "The tiles Martin serves, as an OGC API",
-            "version": env!("CARGO_PKG_VERSION"),
-        },
-        "servers": [{ "url": server }],
-        "paths": paths,
-        "components": { "parameters": parameters() },
-    })
+/// Martin's `OpenAPI` definition, served from `req`'s server and without the paths it does not answer.
+fn definition(req: &HttpRequest, srv_config: &SrvConfig) -> Value {
+    let mut definition: Value = serde_json::from_str(DEFINITION).expect("martin/openapi.json is JSON");
+    definition["servers"] = json!([{ "url": server_url(req, srv_config) }]);
+    if let Some(paths) = definition["paths"].as_object_mut() {
+        paths.retain(|_, item| {
+            item.get("x-martin-feature")
+                .and_then(Value::as_str)
+                .is_none_or(|feature| serves(req, feature))
+        });
+    }
+    definition
 }
 
-/// A `GET` operation answering `200` with `media_type`, after the `parameters` in `components`.
-fn get(operation_id: &str, summary: &str, parameters: &[&str], media_types: &[&str]) -> Value {
-    let parameters: Vec<Value> = parameters
-        .iter()
-        .map(|name| json!({ "$ref": format!("#/components/parameters/{name}") }))
-        .collect();
-    let content: Map<String, Value> = media_types
-        .iter()
-        .map(|media_type| ((*media_type).to_owned(), json!({ "schema": schema(media_type) })))
-        .collect();
-    json!({
-        "get": {
-            "operationId": operation_id,
-            "summary": summary,
-            "parameters": parameters,
-            "responses": {
-                "200": { "description": summary, "content": content },
-                "400": { "description": "Invalid parameters" },
-                "404": { "description": "No such resource" },
-            },
-        },
-    })
-}
-
-/// The schema of a response in `media_type`.
-fn schema(media_type: &str) -> Value {
-    if media_type.contains("json") {
-        json!({ "type": "object" })
-    } else if media_type.starts_with("text/") {
-        json!({ "type": "string" })
-    } else {
-        json!({ "type": "string", "format": "binary" })
+/// Whether the server answering `req` serves the paths `x-martin-feature` marks with `feature`.
+fn serves(req: &HttpRequest, feature: &str) -> bool {
+    match feature {
+        "resources" => cfg!(feature = "resources"),
+        "rendering" => renders_styles(req),
+        _ => true,
     }
 }
 
-/// The paths of OGC API - Common and OGC API - Tiles.
-fn tiles_paths() -> Map<String, Value> {
-    let json = ["application/json"];
-    let tiles = [
-        "application/vnd.mapbox-vector-tile",
-        "image/png",
-        "image/jpeg",
-        "image/webp",
-        "image/avif",
-    ];
-    let paths = [
-        ("/", get("getLandingPage", "Landing page", &[], &json)),
-        (
-            "/api",
-            get(
-                "getApi",
-                "This API definition",
-                &["apiEncoding"],
-                &[OPENAPI_JSON, "text/html"],
-            ),
-        ),
-        ("/conformance", get("getConformance", "Conformance classes", &[], &json)),
-        ("/collections", get("getCollections", "Collections", &[], &json)),
-        (
-            "/collections/{collectionId}",
-            get("getCollection", "Collection", &["collectionId"], &json),
-        ),
-        (
-            "/collections/{collectionId}/tiles",
-            get(
-                "collection.getTileSetsList",
-                "Tilesets of a collection",
-                &["collectionId"],
-                &json,
-            ),
-        ),
-        (
-            "/collections/{collectionId}/tiles/{tileMatrixSetId}",
-            get(
-                "collection.getTileSet",
-                "Tileset of a collection",
-                &["collectionId", "tileMatrixSetId"],
-                &json,
-            ),
-        ),
-        (
-            "/collections/{collectionId}/tiles/{tileMatrixSetId}/{tileMatrix}/{tileRow}/{tileCol}",
-            tile_operation(&tiles),
-        ),
-        (
-            "/tileMatrixSets",
-            get("getTileMatrixSetsList", "Tile matrix sets", &[], &json),
-        ),
-        (
-            "/tileMatrixSets/{tileMatrixSetId}",
-            get(
-                "getTileMatrixSet",
-                "Tile matrix set definition",
-                &["tileMatrixSetId"],
-                &json,
-            ),
-        ),
-    ];
-    paths.into_iter().map(|(path, item)| (path.to_owned(), item)).collect()
+/// Whether the server answering `req` renders styles, built with rendering and with it enabled.
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+fn renders_styles(req: &HttpRequest) -> bool {
+    req.app_data::<Data<martin_core::styles::StyleSources>>()
+        .is_some_and(|styles| styles.is_rendering_enabled())
 }
 
-/// The tile operation, which also answers empty tiles, unchanged tiles and unacceptable formats.
-fn tile_operation(media_types: &[&str]) -> Value {
-    let mut operation = get(
-        "collection.getTile",
-        "Tile of a collection",
-        &["collectionId", "tileMatrixSetId", "tileMatrix", "tileRow", "tileCol"],
-        media_types,
-    );
-    let responses = &mut operation["get"]["responses"];
-    responses["204"] = json!({ "description": "Source returned an empty tile" });
-    responses["304"] = json!({ "description": "ETag matched If-None-Match" });
-    responses["406"] = json!({ "description": "No supported tile format in Accept header" });
-    operation
-}
-
-/// The paths of OGC API - Styles.
-#[cfg(feature = "resources")]
-fn styles_paths() -> Map<String, Value> {
-    let paths = [
-        ("/styles", get("getStyles", "Styles", &[], &["application/json"])),
-        (
-            "/styles/{styleId}",
-            get(
-                "getStyle",
-                "MapLibre style",
-                &["styleId", "styleEncoding"],
-                &["application/json"],
-            ),
-        ),
-    ];
-    paths.into_iter().map(|(path, item)| (path.to_owned(), item)).collect()
-}
-
-/// The parameters the paths refer to.
-fn parameters() -> Value {
-    let path_parameter = |name: &str, description: &str, schema: Value| json!({ "name": name, "in": "path", "required": true, "description": description, "schema": schema });
-    let string = json!({ "type": "string" });
-    let integer = json!({ "type": "integer", "minimum": 0 });
-    json!({
-        "collectionId": path_parameter("collectionId", "ID of a collection, the ID of a source", string.clone()),
-        "tileMatrixSetId": path_parameter("tileMatrixSetId", "ID of a tile matrix set", string.clone()),
-        "tileMatrix": path_parameter("tileMatrix", "Zoom level of the tile", string.clone()),
-        "tileRow": path_parameter("tileRow", "Row of the tile", integer.clone()),
-        "tileCol": path_parameter("tileCol", "Column of the tile", integer),
-        "styleId": path_parameter("styleId", "ID of a style", string),
-        "styleEncoding": {
-            "name": "f",
-            "in": "query",
-            "required": false,
-            "description": "Style encoding",
-            "schema": { "type": "string", "enum": ["json"] },
-        },
-        "apiEncoding": {
-            "name": "f",
-            "in": "query",
-            "required": false,
-            "description": "Encoding of the API definition",
-            "schema": { "type": "string", "enum": ["json", "html"] },
-        },
-    })
+/// Whether the server answering `req` renders styles, which a build without rendering never does.
+#[cfg(not(all(feature = "rendering", target_os = "linux")))]
+fn renders_styles(_req: &HttpRequest) -> bool {
+    false
 }

@@ -103,7 +103,7 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
         {
           "href": "http://localhost:8080/ogc/api",
           "rel": "service-desc",
-          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
           "title": "The OpenAPI definition of this API"
         },
         {
@@ -175,7 +175,7 @@ async fn the_landing_page_links_no_styles_without_resources() {
         {
           "href": "http://localhost:8080/ogc/api",
           "rel": "service-desc",
-          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
           "title": "The OpenAPI definition of this API"
         },
         {
@@ -246,7 +246,7 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
         {
           "href": "https://tiles.example.com/maps/ogc/api",
           "rel": "service-desc",
-          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
           "title": "The OpenAPI definition of this API"
         },
         {
@@ -318,7 +318,7 @@ async fn the_proxied_links_have_no_styles_without_resources() {
         {
           "href": "https://tiles.example.com/maps/ogc/api",
           "rel": "service-desc",
-          "type": "application/vnd.oai.openapi+json;version=3.0",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
           "title": "The OpenAPI definition of this API"
         },
         {
@@ -358,7 +358,7 @@ async fn the_proxied_links_have_no_styles_without_resources() {
 
 #[cfg(feature = "resources")]
 #[actix_rt::test]
-async fn the_api_definition_describes_every_path() {
+async fn the_api_definition_describes_the_paths_served() {
     let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_definition", cities).await;
     let app = create_app!(&formatdoc! {"
@@ -371,10 +371,44 @@ async fn the_api_definition_describes_every_path() {
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.oai.openapi+json;version=3.0"
+        "application/vnd.oai.openapi+json;version=3.1"
     );
     let definition: serde_json::Value = read_body_json(response).await;
-    assert_json_snapshot!(definition, {".info.version" => "[version]"});
+    let paths: Vec<&String> = definition["paths"].as_object().unwrap().keys().collect();
+    assert_json_snapshot!(serde_json::json!({ "servers": definition["servers"], "paths": paths }), @r#"
+    {
+      "servers": [
+        {
+          "url": "http://localhost:8080"
+        }
+      ],
+      "paths": [
+        "/{source_ids}",
+        "/{source_ids}/{z}/{x}/{y}",
+        "/cache/{source_id}",
+        "/catalog",
+        "/font/{fontstack}/{start}-{end}",
+        "/health",
+        "/ogc",
+        "/ogc/api",
+        "/ogc/collections",
+        "/ogc/collections/{collection_id}",
+        "/ogc/collections/{collection_id}/tiles",
+        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/ogc/conformance",
+        "/ogc/styles",
+        "/ogc/styles/{style_id}",
+        "/ogc/tileMatrixSets",
+        "/ogc/tileMatrixSets/{tile_matrix_set_id}",
+        "/sdf_sprite/{source_ids}.json",
+        "/sdf_sprite/{source_ids}.png",
+        "/sprite/{source_ids}.json",
+        "/sprite/{source_ids}.png",
+        "/style/{style_id}"
+      ]
+    }
+    "#);
 }
 
 #[cfg(not(feature = "resources"))]
@@ -392,10 +426,63 @@ async fn the_api_definition_describes_no_styles_without_resources() {
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.oai.openapi+json;version=3.0"
+        "application/vnd.oai.openapi+json;version=3.1"
     );
     let definition: serde_json::Value = read_body_json(response).await;
-    assert_json_snapshot!(definition, {".info.version" => "[version]"});
+    let paths: Vec<&String> = definition["paths"].as_object().unwrap().keys().collect();
+    assert_json_snapshot!(serde_json::json!({ "servers": definition["servers"], "paths": paths }), @r#"
+    {
+      "servers": [
+        {
+          "url": "http://localhost:8080"
+        }
+      ],
+      "paths": [
+        "/{source_ids}",
+        "/{source_ids}/{z}/{x}/{y}",
+        "/cache/{source_id}",
+        "/catalog",
+        "/health",
+        "/ogc",
+        "/ogc/api",
+        "/ogc/collections",
+        "/ogc/collections/{collection_id}",
+        "/ogc/collections/{collection_id}/tiles",
+        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/ogc/conformance",
+        "/ogc/tileMatrixSets",
+        "/ogc/tileMatrixSets/{tile_matrix_set_id}"
+      ]
+    }
+    "#);
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_served_from_the_proxy_in_front_of_martin() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_proxy", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("X-Forwarded-Host", "tiles.example.com"))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Prefix", "/maps"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let definition: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(definition["servers"], @r#"
+    [
+      {
+        "url": "https://tiles.example.com/maps"
+      }
+    ]
+    "#);
 }
 
 #[actix_rt::test]
@@ -486,7 +573,7 @@ async fn the_api_definition_is_json_with_f_json_even_for_browsers() {
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.oai.openapi+json;version=3.0"
+        "application/vnd.oai.openapi+json;version=3.1"
     );
 }
 
@@ -521,9 +608,7 @@ async fn the_conformance_declaration_lists_the_classes_served() {
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
-        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
-        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",
@@ -552,9 +637,7 @@ async fn the_conformance_declaration_has_no_styles_without_resources() {
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
-        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
-        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",

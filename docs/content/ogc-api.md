@@ -26,8 +26,9 @@ You give it the landing page, `/ogc`, and it follows links from there, picking e
 
 That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
 
-The landing page also links `/ogc/api`, an [OpenAPI 3.0](https://spec.openapis.org/oas/v3.0.3) definition of every OGC endpoint, for clients that generate requests from it.
+The landing page also links `/ogc/api`, Martin's [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.1) definition, for clients that generate requests from it.
 Browsers, and `?f=html`, get it as a [Swagger UI](https://swagger.io/tools/swagger-ui/) page instead, which loads Swagger UI from the jsDelivr CDN.
+OGC API's OpenAPI conformance classes ask for OpenAPI 3.0, so Martin does not declare them.
 
 ## Tile URLs
 
@@ -89,8 +90,8 @@ OGC API - Styles is still a draft, so this part may change with it.
 
 `/ogc/conformance` lists which parts of the standards Martin implements:
 
-- OGC API - Tiles core, tileset, tilesets list, geodata tilesets, Mapbox Vector Tiles and OpenAPI 3.0
-- OGC API - Common core, landing page, JSON and OpenAPI 3.0
+- OGC API - Tiles core, tileset, tilesets list, geodata tilesets and Mapbox Vector Tiles
+- OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
 - OGC API - Styles core and global styles, when Martin is built with styles
 

@@ -46,13 +46,13 @@ pub fn path_segment(segment: &str) -> String {
     encoded
 }
 
+/// The absolute URL Martin answers `req` at, e.g. `https://tiles.example.com/maps`.
+pub fn server_url(req: &HttpRequest, srv_config: &SrvConfig) -> String {
+    let info = req.connection_info();
+    format!("{}://{}{}", info.scheme(), info.host(), path_prefix(req, srv_config))
+}
+
 /// The absolute URL of `path` under the OGC API, e.g. `/conformance`.
 pub fn ogc_url(req: &HttpRequest, srv_config: &SrvConfig, path: &str) -> String {
-    let info = req.connection_info();
-    format!(
-        "{}://{}{}/ogc{path}",
-        info.scheme(),
-        info.host(),
-        path_prefix(req, srv_config)
-    )
+    format!("{}/ogc{path}", server_url(req, srv_config))
 }

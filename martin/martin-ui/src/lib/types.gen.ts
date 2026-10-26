@@ -93,8 +93,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The `OpenAPI` 3.0 definition of the OGC API, as JSON or as an HTML page showing it. */
-        get: operations["get_api"];
+        /** Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it. */
+        get: operations["getAPI"];
         put?: never;
         post?: never;
         delete?: never;
@@ -935,7 +935,7 @@ export interface operations {
             };
         };
     };
-    get_api: {
+    getAPI: {
         parameters: {
             query?: {
                 /** @description Encoding of the definition, `json` or `html`; `html` when not given and the client accepts HTML. */
@@ -947,13 +947,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OpenAPI 3.0 definition of the OGC API, or an HTML page showing it */
+            /** @description OpenAPI 3.1 definition of the paths this server answers, or an HTML page showing it */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/vnd.oai.openapi+json;version=3.0": unknown;
+                    "application/vnd.oai.openapi+json;version=3.1": unknown;
                     "text/html": unknown;
                 };
             };
