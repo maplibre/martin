@@ -3,7 +3,7 @@ use std::num::NonZeroU8;
 use std::path::PathBuf;
 
 use actix_web::error::ErrorNotAcceptable;
-use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality};
+use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality, VARY};
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, route};
 use martin_core::styles::{RenderParams, StyleError, StyleSources};
@@ -63,8 +63,6 @@ pub(super) fn renders_maps(req: &HttpRequest) -> bool {
 #[derive(Deserialize, Debug, Default)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
 pub struct MapQuery {
-    /// Image format, `png` or `jpeg`.
-    f: Option<String>,
     /// Width of the map in pixels.
     width: Option<u32>,
     /// Height of the map in pixels.
@@ -341,17 +339,10 @@ fn crs_of(crs: Option<&str>) -> Result<Crs, OgcApiError> {
     }
 }
 
-/// The image format `f` names, or the one `req` accepts most, PNG when it accepts any.
+/// The image format `req` accepts most, PNG when it accepts any.
 ///
 /// Like tiles, `Accept` entries with `q=0` are skipped and a header that accepts no map format is a 406.
-fn format_of(req: &HttpRequest, f: Option<&str>) -> actix_web::Result<ImageFormatRequest> {
-    if let Some(f) = f {
-        return match f {
-            "png" | "image/png" => Ok(ImageFormatRequest::Png),
-            "jpeg" | "jpg" | "image/jpeg" => Ok(ImageFormatRequest::Jpeg),
-            _ => Err(map_error(&OgcApiError::UnsupportedMapFormat { format: f.to_owned() })),
-        };
-    }
+fn format_of(req: &HttpRequest) -> actix_web::Result<ImageFormatRequest> {
     let Some(Accept(mut accepted)) = req.get_header::<Accept>() else {
         return Ok(ImageFormatRequest::Png);
     };
@@ -380,7 +371,7 @@ pub(super) async fn render_map(
     query: &MapQuery,
     default_bounds: [f64; 4],
 ) -> actix_web::Result<HttpResponse> {
-    let format = format_of(req, query.f.as_deref())?;
+    let format = format_of(req)?;
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
     let (render_width, render_height) = viewport.render_size();
@@ -401,7 +392,9 @@ pub(super) async fn render_map(
     };
     let size = ((render_width, render_height) != (viewport.width, viewport.height))
         .then_some((viewport.width, viewport.height));
-    let mut response = encode_scaled_image_response(image, size, format, styles.png_max_colors(), styles.image_quality()).await;
+    let mut response =
+        encode_scaled_image_response(image, size, format, styles.png_max_colors(), styles.image_quality()).await;
+    response.headers_mut().append(VARY, HeaderValue::from_static("accept"));
     if response.status().is_success() {
         let headers = response.headers_mut();
         headers.insert(

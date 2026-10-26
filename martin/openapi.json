@@ -1294,15 +1294,6 @@
             }
           },
           {
-            "description": "Image format, `png` or `jpeg`.",
-            "in": "query",
-            "name": "f",
-            "required": false,
-            "schema": {
-              "type": ["string", "null"]
-            }
-          },
-          {
             "description": "Width of the map in pixels.",
             "in": "query",
             "name": "width",

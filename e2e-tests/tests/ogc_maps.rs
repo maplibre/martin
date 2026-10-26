@@ -115,7 +115,7 @@ async fn a_style_map_centers_on_a_point_at_a_scale() {
 }
 
 #[tokio::test]
-async fn a_style_map_is_a_jpeg_when_asked_for() {
+async fn a_style_map_is_a_jpeg_when_accept_asks_for_one() {
     let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maplibre_demo = maplibre_demo.display();
@@ -132,7 +132,9 @@ async fn a_style_map_is_a_jpeg_when_asked_for() {
         .await
         .expect("martin starts");
 
-    let response = martin.get("/ogc/styles/maplibre_demo/map?f=jpeg&width=256").await;
+    let response = martin
+        .get_with_headers("/ogc/styles/maplibre_demo/map?width=256", &[("Accept", "image/jpeg")])
+        .await;
     assert_eq!(response.status(), 200, "{}", response.text());
     insta::assert_snapshot!(map_description(&response), @"
     Jpeg (256, 256)
@@ -140,6 +142,7 @@ async fn a_style_map_is_a_jpeg_when_asked_for() {
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
     ");
+    insta::assert_snapshot!(response.header("vary").unwrap_or("-"), @"accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -463,7 +466,7 @@ async fn the_api_definition_describes_the_style_map_when_rendering() {
         .await
         .expect("martin starts");
 
-    let response = martin.get("/ogc/api?f=json").await;
+    let response = martin.get("/ogc/api").await;
     assert_eq!(response.status(), 200);
     let definition = response.json();
     insta::assert_json_snapshot!(definition["paths"]["/styles/{style_id}/map"]["get"]["operationId"], @r#""ogc.dataset.style.getMap""#);

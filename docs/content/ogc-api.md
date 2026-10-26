@@ -90,10 +90,10 @@ OGC API - Styles is still a draft, so this part may change with it.
 
 With [rendering](sources-styles/rendering.md) enabled, Martin also renders maps through [OGC API - Maps](https://docs.ogc.org/is/20-058/20-058.html).
 `/ogc/styles/{styleID}/map` is a style rendered as one image.
+It is the format the `Accept` header weighs highest, ignoring `q=0`: PNG (also for `*/*` or no header) or JPEG.
 
 | Parameter           | Meaning                                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------------------|
-| `f`                 | `png` (default) or `jpeg`                                                                                   |
 | `width`, `height`   | size in pixels, up to 2048; with one, the other follows the area; with neither, the longer side is 1024     |
 | `bbox`              | area as its lower left and upper right corners, in the axis order of `bbox-crs`; the whole world by default |
 | `bbox-crs`          | CRS of `bbox`: CRS84 (default), EPSG:4326 or EPSG:3857                                                      |

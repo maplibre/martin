@@ -40,11 +40,6 @@ pub enum OgcApiError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("CRS {crs} is not supported, only CRS84, EPSG:4326 and EPSG:3857 are")]
     UnsupportedCrs { crs: String },
-
-    /// A map was asked for in a format other than PNG and JPEG.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
-    #[error("Map format {format} is not supported, only png and jpeg are")]
-    UnsupportedMapFormat { format: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -59,8 +54,7 @@ impl martin_core::Classify for OgcApiError {
             Self::InvalidMapParameter { .. }
             | Self::ConflictingMapParameters { .. }
             | Self::MapAreaTooLarge
-            | Self::UnsupportedCrs { .. }
-            | Self::UnsupportedMapFormat { .. } => martin_core::ErrorKind::InvalidInput,
+            | Self::UnsupportedCrs { .. } => martin_core::ErrorKind::InvalidInput,
         }
     }
 }
