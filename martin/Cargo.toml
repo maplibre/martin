@@ -123,6 +123,7 @@ rendering = [
     "dep:png",
     "dep:quantizr",
 ]
+fips = ["rustls/fips"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
