@@ -54,6 +54,17 @@ pub enum DuckDBPoolManagerError {
         target: Box<DuckDBPoolTarget>,
     },
 
+    /// The source's `DuckDB` secret could not be created.
+    /// The statement is not included: it carries the credentials.
+    #[error("Unable to create DuckDB secret for {target}: {source}")]
+    CreateSecret {
+        /// Underlying `DuckDB` error.
+        #[source]
+        source: Box<DuckdbError>,
+        /// Source target.
+        target: Box<DuckDBPoolTarget>,
+    },
+
     /// Thread count cannot be represented as a `DuckDB` setting value.
     #[error("Unable to apply DuckDB setting threads={0}: value is too large")]
     InvalidThreadCount(usize),

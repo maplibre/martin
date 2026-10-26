@@ -11,7 +11,7 @@ use url::Url;
 
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError;
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError::{
-    ApplySetting, HealthCheck, InvalidThreadCount, LoadExtension, Open,
+    ApplySetting, CreateSecret, HealthCheck, InvalidThreadCount, LoadExtension, Open,
 };
 use crate::tiles::duckdb::{DuckDBError, DuckDBResult};
 
@@ -58,16 +58,19 @@ impl DuckDBPool {
     }
 
     /// Creates an in-memory pool for a remote `GeoParquet` source.
+    ///
+    /// When `secret` is set, every connection creates it before reading `url`.
     pub fn new_remote_geoparquet(
         id: String,
         url: Url,
+        secret: Option<DuckDBSecret>,
         pool_size: usize,
         threads: Option<NonZeroUsize>,
         memory_limit_mb: Option<NonZeroUsize>,
     ) -> DuckDBResult<Self> {
         Self::build(
             id,
-            DuckDBPoolTarget::GeoParquetRemote { url },
+            DuckDBPoolTarget::GeoParquetRemote { url, secret },
             pool_size,
             threads,
             memory_limit_mb,
@@ -118,7 +121,10 @@ impl DuckDBPool {
 pub enum DuckDBPoolTarget {
     DatabaseFile { path: PathBuf },
     GeoParquetLocal { path: PathBuf },
-    GeoParquetRemote { url: Url },
+    GeoParquetRemote {
+        url: Url,
+        secret: Option<DuckDBSecret>,
+    },
 }
 
 impl Display for DuckDBPoolTarget {
@@ -127,8 +133,84 @@ impl Display for DuckDBPoolTarget {
             Self::DatabaseFile { path } | Self::GeoParquetLocal { path } => {
                 Display::fmt(&path.display(), formatter)
             }
-            Self::GeoParquetRemote { url } => Display::fmt(url, formatter),
+            Self::GeoParquetRemote { url, .. } => Display::fmt(url, formatter),
         }
+    }
+}
+
+/// A `DuckDB` [secret](https://duckdb.org/docs/stable/configuration/secrets_manager) that a
+/// remote pool creates on each of its connections, e.g. S3 credentials and endpoint.
+///
+/// Parameter names are `&'static str` so only code can choose them; values are always quoted.
+/// `Debug` prints parameter names only, never their values.
+#[derive(Clone, PartialEq, Eq)]
+pub struct DuckDBSecret {
+    secret_type: &'static str,
+    params: Vec<(&'static str, DuckDBSecretValue)>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum DuckDBSecretValue {
+    Str(String),
+    Bool(bool),
+}
+
+impl DuckDBSecret {
+    /// Starts a secret of the given `TYPE`, e.g. `s3`.
+    #[must_use]
+    pub fn new(secret_type: &'static str) -> Self {
+        Self {
+            secret_type,
+            params: Vec::new(),
+        }
+    }
+
+    /// Adds a string parameter, e.g. `("KEY_ID", "...")`.
+    #[must_use]
+    pub fn with_str(mut self, name: &'static str, value: impl Into<String>) -> Self {
+        self.params.push((name, DuckDBSecretValue::Str(value.into())));
+        self
+    }
+
+    /// Adds a boolean parameter, e.g. `("USE_SSL", false)`.
+    #[must_use]
+    pub fn with_bool(mut self, name: &'static str, value: bool) -> Self {
+        self.params.push((name, DuckDBSecretValue::Bool(value)));
+        self
+    }
+
+    /// Names of the parameters set so far, in insertion order.
+    pub fn param_names(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.params.iter().map(|(name, _)| *name)
+    }
+
+    fn create_statement(&self) -> String {
+        let mut sql = format!("CREATE OR REPLACE SECRET martin (TYPE {}", self.secret_type);
+        for (name, value) in &self.params {
+            sql.push_str(", ");
+            sql.push_str(name);
+            sql.push(' ');
+            match value {
+                DuckDBSecretValue::Str(value) => {
+                    sql.push('\'');
+                    sql.push_str(&value.replace('\'', "''"));
+                    sql.push('\'');
+                }
+                DuckDBSecretValue::Bool(value) => sql.push_str(if *value { "true" } else { "false" }),
+            }
+        }
+        sql.push(')');
+        sql
+    }
+}
+
+impl fmt::Debug for DuckDBSecret {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DuckDBSecret")
+            .field("secret_type", &self.secret_type)
+            .field("params", &self.param_names().collect::<Vec<_>>())
+            .finish()
     }
 }
 
@@ -224,8 +306,17 @@ impl DuckDBPoolManager {
         };
 
         self.load_extension(&conn, "spatial")?;
-        if matches!(self.target, DuckDBPoolTarget::GeoParquetRemote { .. }) {
+        if let DuckDBPoolTarget::GeoParquetRemote { secret, .. } = &self.target {
             self.load_extension(&conn, "httpfs")?;
+            if let Some(secret) = secret {
+                // The secret lives in this connection's in-memory catalog only, so it needs no
+                // SCOPE: nothing else reads through this connection.
+                conn.execute_batch(&secret.create_statement())
+                    .map_err(|source| CreateSecret {
+                        source: source.into(),
+                        target: self.target.clone().into(),
+                    })?;
+            }
         }
 
         Ok(conn)
