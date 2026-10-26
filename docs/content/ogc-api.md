@@ -27,7 +27,7 @@ You give it the landing page, `/ogc`, and it follows links from there, picking e
 That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
 
 The landing page also links `/ogc/api`, the OGC API part of Martin's [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.1) definition, for clients that generate requests from it.
-Browsers, and `?f=html`, get it as a [Swagger UI](https://swagger.io/tools/swagger-ui/) page instead, which loads Swagger UI from the jsDelivr CDN.
+Clients that weigh HTML above JSON in `Accept`, as browsers do, get it as a [Swagger UI](https://swagger.io/tools/swagger-ui/) page instead, which loads Swagger UI from the jsDelivr CDN.
 OGC API's OpenAPI conformance classes ask for OpenAPI 3.0, so Martin does not declare them.
 
 ## Tile URLs

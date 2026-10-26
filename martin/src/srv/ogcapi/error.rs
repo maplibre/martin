@@ -15,10 +15,6 @@ pub enum OgcApiError {
         collection: String,
         tile_matrix_set: String,
     },
-
-    /// The API definition was asked for in an encoding other than `json` or `html`.
-    #[error("API definition encoding {encoding} is not supported, only json and html are")]
-    UnsupportedApiEncoding { encoding: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -27,7 +23,6 @@ impl martin_core::Classify for OgcApiError {
             Self::UnknownTileMatrixSet(_) | Self::UnknownCollection(_) | Self::UnknownTileset { .. } => {
                 martin_core::ErrorKind::NotFound
             }
-            Self::UnsupportedApiEncoding { .. } => martin_core::ErrorKind::InvalidInput,
         }
     }
 }

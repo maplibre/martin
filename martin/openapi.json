@@ -999,17 +999,6 @@
     "/ogc/api": {
       "get": {
         "operationId": "getAPI",
-        "parameters": [
-          {
-            "description": "Encoding of the definition, `json` or `html`; `html` when not given and the client accepts HTML.",
-            "in": "query",
-            "name": "f",
-            "required": false,
-            "schema": {
-              "type": ["string", "null"]
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -1017,12 +1006,9 @@
               "text/html": {}
             },
             "description": "OpenAPI 3.1 definition of the OGC API paths this server answers, or an HTML page showing it"
-          },
-          "400": {
-            "description": "Unsupported encoding"
           }
         },
-        "summary": "The OGC API part of Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it.",
+        "summary": "The OGC API part of Martin's `OpenAPI` 3.1 definition, as JSON or, for clients preferring HTML, as a page showing it.",
         "tags": ["crate::srv::ogcapi"]
       }
     },

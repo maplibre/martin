@@ -48,7 +48,7 @@ pub async fn get_landing_page(req: HttpRequest, srv_config: Data<SrvConfig>) -> 
             templated: false,
         },
         Link {
-            href: ogc_url(&req, &srv_config, "/api?f=html"),
+            href: ogc_url(&req, &srv_config, "/api"),
             rel: "service-doc",
             media_type: "text/html",
             title: "The OpenAPI definition of this API, as HTML",
