@@ -38,7 +38,7 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), the highest [pixel ratio](#pixel-ratio) tiles are served at, and the size of the [ambient cache](#ambient-cache):
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), the [pixel ratios](#pixel-ratio) tiles and static images are served at, and the size of the [ambient cache](#ambient-cache):
 
 ```yaml
 styles:
@@ -49,8 +49,8 @@ styles:
         renderers_per_worker: 8
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512
-        # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
-        max_pixel_ratio: 4
+        # Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]
+        pixel_ratios: [1, 2]
         # MB of MapLibre Native's cache of fetched tiles, glyphs and sprites, 0 to disable [default: 50 MiB]
         ambient_cache_size_mb: 0
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
@@ -135,7 +135,9 @@ Any other value fails at startup.
 
 For high-density (retina) screens, add `@{n}x` after the row to draw the same tile at `n` times the pixels:
 `/style/<style_id>/{z}/{x}/{y}@2x.png` is twice `tile_size` wide and high (1024×1024 px with the default 512), `@3x` three times.
-`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured): `@5x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
+`n` must be listed in `pixel_ratios` (`[1, 2]` unless configured, each 1 to 4): an unlisted ratio such as `@3x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
+A tile without a suffix counts as `@1x`, so `pixel_ratios: [2]` also refuses it.
+Every listed ratio needs renderers of its own, so list only the ratios your clients ask for.
 
 In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
 
@@ -146,7 +148,7 @@ Beyond that, the least recently used one is dropped, and loaded again the next t
 With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
-Each renderer holds its own memory: lower `renderers_per_worker` or `max_pixel_ratio` to reduce memory usage.
+Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
 
 ### Ambient cache
 
@@ -195,7 +197,8 @@ The `{camera}` segment chooses what the image looks at:
 `{size}.{ext}` follows the `WIDTHxHEIGHT[@{scale}x].{ext}` pattern, e.g.
 `800x600.png`, `400x300@2x.jpg`.
 Allowed extensions are `png`, `jpg`, and `webp`.
-Width and height are capped at 2048 px each; scale is capped at `4x`.
+Width and height are capped at 2048 px each.
+The scale is a whole number listed in [`pixel_ratios`](#pixel-ratio) (`1` if omitted): an unlisted scale is answered with `400 Bad Request`, and a fractional or zero scale such as `@1.5x` or `@0x` with `404 Not Found`.
 
 ### Overlay body (`POST`)
 

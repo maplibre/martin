@@ -33,7 +33,7 @@ pub fn render_block(
     }
     let totals = worker.finish()?;
 
-    let (encoding, batches) = TileEncoding::start(plan, sorter, format, encoding, order, BATCH_TILES)?;
+    let (encoding, batches) = TileEncoding::start(plan, sorter, format, encoding, order, BATCH_TILES, false)?;
     let mut encoder = TileEncoder::default();
     let mut tiles = Vec::new();
     for batch in batches {

@@ -205,6 +205,7 @@ impl_empty_collect_unrecognized!(WebUiMode);
 #[cfg(feature = "rendering")]
 impl_empty_collect_unrecognized!(
     martin_core::styles::TileSize,
+    martin_core::styles::PixelRatios,
     martin_core::styles::ImageQuality,
     martin_core::styles::LossyQuality
 );

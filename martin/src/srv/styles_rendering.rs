@@ -181,7 +181,7 @@ struct StyleRenderRequest {
         params(StyleRenderRequest),
         responses(
             (status = 200, description = "Server-side rendered style tile (PNG/JPEG/WebP)"),
-            (status = 400, description = "Invalid tile coordinates, or a pixel ratio above `max_pixel_ratio`"),
+            (status = 400, description = "Invalid tile coordinates, or a pixel ratio not listed in `pixel_ratios`"),
             (status = 403, description = "Rendering is disabled"),
             (status = 404, description = "No matching style"),
             (status = 500, description = "Renderer or encoder failure"),
@@ -200,11 +200,10 @@ pub async fn get_rendered_tile_style(path: Path<StyleRenderRequest>, styles: Dat
             .body("No such style exists");
     };
     let pixel_ratio = path.pixel_ratio.unwrap_or(NonZeroU8::MIN);
-    let max_pixel_ratio = styles.max_pixel_ratio();
-    if pixel_ratio > max_pixel_ratio {
+    if let Err(err) = styles.pixel_ratios().check(pixel_ratio) {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
-            .body(format!("Pixel ratio above @{max_pixel_ratio}x is not served"));
+            .body(err.to_string());
     }
     let Some(zxy) = TileCoord::new_checked(path.z, path.x, path.y) else {
         return HttpResponse::BadRequest()

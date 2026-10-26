@@ -124,13 +124,15 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 | `--memory`      | `2GiB`                                                            | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                    |
 | `--temp-dir`    | system temp dir                                                   | Where sorted runs go, repeatable to spread them over several disks                                    |
 | `--threads`     | CPU count                                                         | Worker threads                                                                                        |
+| `--mvt-quirk`   |                                                                   | MVT: a [quirk](#mvt-quirks) to encode with, repeatable                                                |
 
 The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also apply, such as
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
 Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`,
 `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`,
-`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir` and `--threads`.
+`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads`
+and `--mvt-quirk`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
@@ -141,6 +143,14 @@ The highest zoom is 27. The tile grid can lower it further, since `extent × 2^z
 `2^30`. With the default extent of 4096, that is zoom 18.
 
 A failed or interrupted run removes the output file. Temporary files are always removed.
+
+### MVT quirks
+
+Each `--mvt-quirk` changes how MVT tiles are encoded:
+
+| Quirk              | Effect                                                                                                                                                                                     |
+|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `keep-unused-keys` | Each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does. Other keys, such as those of a JSON column, follow in the order features first use them. |
 
 ## Sizing a run
 

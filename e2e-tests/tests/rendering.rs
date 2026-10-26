@@ -363,7 +363,8 @@ async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
 }
 
 #[rstest]
-#[case::above_the_default_max("/style/maplibre_demo/0/0/0@5x.png", "Pixel ratio above @4x is not served")]
+#[case::not_in_the_default("/style/maplibre_demo/0/0/0@3x.png", "Pixel ratio @3x is not served, only @1x, @2x")]
+#[case::above_the_max("/style/maplibre_demo/0/0/0@5x.png", "Pixel ratio @5x is not served, only @1x, @2x")]
 #[case::outside_the_zoom("/style/maplibre_demo/0/4000/4000@2x.png", "Invalid tile coordinates for zoom level")]
 #[tokio::test]
 async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(#[case] path: &str, #[case] reason: &str) {
@@ -413,6 +414,7 @@ async fn a_pixel_ratio_multiplies_the_tile_size(#[case] path: &str, #[case] size
               rendering:
                 enabled: true
                 workers: 2
+                pixel_ratios: [1, 2, 3, 4]
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
@@ -442,6 +444,7 @@ async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size
               rendering:
                 enabled: true
                 workers: 2
+                pixel_ratios: [1, 2, 3]
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
@@ -476,7 +479,7 @@ async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size
 }
 
 #[tokio::test]
-async fn a_configured_max_pixel_ratio_caps_the_tiles() {
+async fn configured_pixel_ratios_limit_the_tiles() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -488,7 +491,7 @@ async fn a_configured_max_pixel_ratio_caps_the_tiles() {
               rendering:
                 enabled: true
                 workers: 2
-                max_pixel_ratio: 2
+                pixel_ratios: [1, 3]
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
@@ -497,19 +500,19 @@ async fn a_configured_max_pixel_ratio_caps_the_tiles() {
         .await
         .expect("failed to start martin");
 
+    let three_x = martin.get("/style/maplibre_demo/5/15/15@3x.png").await;
+    assert_eq!(three_x.status(), 200);
+    assert_eq!(three_x.image_size(), (1536, 1536));
     let two_x = martin.get("/style/maplibre_demo/0/0/0@2x.png").await;
-    assert_eq!(two_x.status(), 200);
-    assert_eq!(two_x.image_size(), (1024, 1024));
-    let three_x = martin.get("/style/maplibre_demo/0/0/0@3x.png").await;
-    assert_eq!(three_x.status(), 400);
-    assert_eq!(three_x.text(), "Pixel ratio above @2x is not served");
+    assert_eq!(two_x.status(), 400);
+    assert_eq!(two_x.text(), "Pixel ratio @2x is not served, only @1x, @3x");
 
     stop_and_take_rendering_log(&mut martin).await;
     cassette.assert_no_misses();
 }
 
 #[tokio::test]
-async fn a_zero_max_pixel_ratio_fails_startup() {
+async fn a_pixel_ratio_above_4_fails_startup() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -521,21 +524,21 @@ async fn a_zero_max_pixel_ratio_fails_startup() {
               rendering:
                 enabled: true
                 workers: 2
-                max_pixel_ratio: 0
+                pixel_ratios: [1, 5]
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
         "})
         .start()
         .await
-        .expect_err("martin must reject max_pixel_ratio: 0");
+        .expect_err("martin must reject pixel_ratios: [1, 5]");
     let StartError::EarlyExit { status, log } = error else {
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
     assert!(
-        log.contains("max_pixel_ratio"),
-        "log must name the invalid option; log:\n{log}"
+        log.contains("pixel ratio must be 1 to 4, got 5"),
+        "log must name the invalid value; log:\n{log}"
     );
 }
 
@@ -560,6 +563,7 @@ async fn a_configured_tile_size_sizes_the_tiles(#[case] path: &str, #[case] size
                 enabled: true
                 workers: 2
                 tile_size: 256
+                pixel_ratios: [1, 2, 3]
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}
