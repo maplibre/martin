@@ -123,7 +123,6 @@ rendering = [
     "dep:png",
     "dep:quantizr",
 ]
-# FIPS 140-3 TLS through the validated AWS-LC module (aws-lc-fips-sys); needs CMake and Go to build
 fips = ["rustls/fips"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
