@@ -122,6 +122,7 @@ rendering = [
     "dep:image",
     "dep:png",
     "dep:quantizr",
+    "dep:webp",
 ]
 fips = ["rustls/fips"]
 lambda = ["dep:lambda-web"]
@@ -281,6 +282,7 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 url.workspace = true
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+webp = { workspace = true, optional = true }
 wkt = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
 

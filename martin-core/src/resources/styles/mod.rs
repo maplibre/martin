@@ -43,6 +43,10 @@ use render_pool::RenderPools;
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 
 #[cfg(feature = "rendering")]
+mod image_quality;
+#[cfg(feature = "rendering")]
+pub use image_quality::{ImageQualities, ImageQuality, LossyQuality};
+#[cfg(feature = "rendering")]
 mod pixel_ratio;
 #[cfg(feature = "rendering")]
 pub use pixel_ratio::{InvalidPixelRatios, PixelRatioNotServed, PixelRatios};
@@ -103,6 +107,9 @@ pub struct StyleSources {
     /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     png_max_colors: Option<u16>,
+    /// Quality rendered WebP and JPEG images are encoded at.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    image_quality: ImageQualities,
 }
 
 /// Style source file.
@@ -276,6 +283,19 @@ impl StyleSources {
     #[must_use]
     pub fn png_max_colors(&self) -> Option<u16> {
         self.png_max_colors
+    }
+
+    /// Encode rendered WebP and JPEG images at `quality`.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_image_quality(&mut self, quality: ImageQualities) {
+        self.image_quality = quality;
+    }
+
+    /// Quality rendered WebP and JPEG images are encoded at.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn image_quality(&self) -> ImageQualities {
+        self.image_quality
     }
 }
 
