@@ -379,33 +379,22 @@ async fn the_api_definition_describes_the_paths_served() {
     {
       "servers": [
         {
-          "url": "http://localhost:8080"
+          "url": "http://localhost:8080/ogc"
         }
       ],
       "paths": [
-        "/{source_ids}",
-        "/{source_ids}/{z}/{x}/{y}",
-        "/cache/{source_id}",
-        "/catalog",
-        "/font/{fontstack}/{start}-{end}",
-        "/health",
-        "/ogc",
-        "/ogc/api",
-        "/ogc/collections",
-        "/ogc/collections/{collection_id}",
-        "/ogc/collections/{collection_id}/tiles",
-        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
-        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
-        "/ogc/conformance",
-        "/ogc/styles",
-        "/ogc/styles/{style_id}",
-        "/ogc/tileMatrixSets",
-        "/ogc/tileMatrixSets/{tile_matrix_set_id}",
-        "/sdf_sprite/{source_ids}.json",
-        "/sdf_sprite/{source_ids}.png",
-        "/sprite/{source_ids}.json",
-        "/sprite/{source_ids}.png",
-        "/style/{style_id}"
+        "/",
+        "/api",
+        "/collections",
+        "/collections/{collection_id}",
+        "/collections/{collection_id}/tiles",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/conformance",
+        "/styles",
+        "/styles/{style_id}",
+        "/tileMatrixSets",
+        "/tileMatrixSets/{tile_matrix_set_id}"
       ]
     }
     "#);
@@ -434,25 +423,20 @@ async fn the_api_definition_describes_no_styles_without_resources() {
     {
       "servers": [
         {
-          "url": "http://localhost:8080"
+          "url": "http://localhost:8080/ogc"
         }
       ],
       "paths": [
-        "/{source_ids}",
-        "/{source_ids}/{z}/{x}/{y}",
-        "/cache/{source_id}",
-        "/catalog",
-        "/health",
-        "/ogc",
-        "/ogc/api",
-        "/ogc/collections",
-        "/ogc/collections/{collection_id}",
-        "/ogc/collections/{collection_id}/tiles",
-        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
-        "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
-        "/ogc/conformance",
-        "/ogc/tileMatrixSets",
-        "/ogc/tileMatrixSets/{tile_matrix_set_id}"
+        "/",
+        "/api",
+        "/collections",
+        "/collections/{collection_id}",
+        "/collections/{collection_id}/tiles",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/conformance",
+        "/tileMatrixSets",
+        "/tileMatrixSets/{tile_matrix_set_id}"
       ]
     }
     "#);
@@ -479,7 +463,7 @@ async fn the_api_definition_is_served_from_the_proxy_in_front_of_martin() {
     assert_json_snapshot!(definition["servers"], @r#"
     [
       {
-        "url": "https://tiles.example.com/maps"
+        "url": "https://tiles.example.com/maps/ogc"
       }
     ]
     "#);

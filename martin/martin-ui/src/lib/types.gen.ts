@@ -93,7 +93,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it. */
+        /** The OGC API part of Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it. */
         get: operations["getAPI"];
         put?: never;
         post?: never;
@@ -947,7 +947,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OpenAPI 3.1 definition of the paths this server answers, or an HTML page showing it */
+            /** @description OpenAPI 3.1 definition of the OGC API paths this server answers, or an HTML page showing it */
             200: {
                 headers: {
                     [name: string]: unknown;

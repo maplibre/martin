@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::error::OgcApiError;
-use super::link::server_url;
+use super::link::ogc_url;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::map_error;
 
@@ -41,7 +41,7 @@ pub struct ApiQuery {
     f: Option<String>,
 }
 
-/// Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it.
+/// The OGC API part of Martin's `OpenAPI` 3.1 definition, as JSON or as an HTML page showing it.
 #[cfg_attr(
     feature = "unstable-schemas",
     utoipa::path(
@@ -50,7 +50,7 @@ pub struct ApiQuery {
         operation_id = "getAPI",
         params(ApiQuery),
         responses(
-            (status = 200, description = "OpenAPI 3.1 definition of the paths this server answers, or an HTML page showing it", content(
+            (status = 200, description = "OpenAPI 3.1 definition of the OGC API paths this server answers, or an HTML page showing it", content(
                 ("application/vnd.oai.openapi+json;version=3.1"),
                 ("text/html"),
             )),
@@ -95,16 +95,24 @@ pub async fn get_api(
     })
 }
 
-/// Martin's `OpenAPI` definition, served from `req`'s server and without the paths it does not answer.
+/// The OGC API paths of Martin's `OpenAPI` definition that `req`'s server serves, relative to its landing page.
 fn definition(req: &HttpRequest, srv_config: &SrvConfig) -> Value {
     let mut definition: Value = serde_json::from_str(DEFINITION).expect("martin/openapi.json is JSON");
-    definition["servers"] = json!([{ "url": server_url(req, srv_config) }]);
+    definition["servers"] = json!([{ "url": ogc_url(req, srv_config, "") }]);
     if let Some(paths) = definition["paths"].as_object_mut() {
-        paths.retain(|_, item| {
-            item.get("x-martin-feature")
-                .and_then(Value::as_str)
-                .is_none_or(|feature| serves(req, feature))
-        });
+        *paths = std::mem::take(paths)
+            .into_iter()
+            .filter(|(_, item)| {
+                item.get("x-martin-feature")
+                    .and_then(Value::as_str)
+                    .is_none_or(|feature| serves(req, feature))
+            })
+            .filter_map(|(path, item)| match path.strip_prefix("/ogc")? {
+                "" => Some(("/".to_owned(), item)),
+                ogc_path if ogc_path.starts_with('/') => Some((ogc_path.to_owned(), item)),
+                _ => None,
+            })
+            .collect();
     }
     definition
 }
