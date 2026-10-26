@@ -38,6 +38,7 @@ struct Conformance {
     utoipa::path(
         get,
         path = "/ogc/conformance",
+        operation_id = "getConformance",
         responses(
             (status = 200, description = "Conformance classes the OGC API implements", body = Conformance),
         ),

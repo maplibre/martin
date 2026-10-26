@@ -22,6 +22,7 @@ struct LandingPage {
     utoipa::path(
         get,
         path = "/ogc",
+        operation_id = "getLandingPage",
         responses(
             (status = 200, description = "OGC API landing page", body = LandingPage),
         ),

@@ -978,7 +978,7 @@
     },
     "/ogc": {
       "get": {
-        "operationId": "get_landing_page",
+        "operationId": "getLandingPage",
         "responses": {
           "200": {
             "content": {
@@ -997,7 +997,7 @@
     },
     "/ogc/collections": {
       "get": {
-        "operationId": "get_collections",
+        "operationId": "getCollectionsList",
         "responses": {
           "200": {
             "content": {
@@ -1016,7 +1016,7 @@
     },
     "/ogc/collections/{collection_id}": {
       "get": {
-        "operationId": "get_collection",
+        "operationId": "getCollection",
         "parameters": [
           {
             "description": "Collection ID, the ID of a source",
@@ -1049,7 +1049,7 @@
     },
     "/ogc/collections/{collection_id}/tiles": {
       "get": {
-        "operationId": "get_tilesets",
+        "operationId": "ogc.collection.vector.getTileSetsList",
         "parameters": [
           {
             "description": "Collection ID, the ID of a source",
@@ -1082,7 +1082,7 @@
     },
     "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}": {
       "get": {
-        "operationId": "get_tileset",
+        "operationId": "ogc.collection.vector.getTileSet",
         "parameters": [
           {
             "in": "path",
@@ -1122,7 +1122,7 @@
     },
     "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
       "get": {
-        "operationId": "get_ogc_tile",
+        "operationId": "ogc.collection.vector.getTile",
         "parameters": [
           {
             "in": "path",
@@ -1194,7 +1194,7 @@
     },
     "/ogc/conformance": {
       "get": {
-        "operationId": "get_conformance",
+        "operationId": "getConformance",
         "responses": {
           "200": {
             "content": {
@@ -1273,7 +1273,7 @@
     },
     "/ogc/tileMatrixSets": {
       "get": {
-        "operationId": "get_tile_matrix_sets",
+        "operationId": "getTileMatrixSetsList",
         "responses": {
           "200": {
             "content": {
@@ -1292,7 +1292,7 @@
     },
     "/ogc/tileMatrixSets/{tile_matrix_set_id}": {
       "get": {
-        "operationId": "get_tile_matrix_set",
+        "operationId": "getTileMatrixSet",
         "parameters": [
           {
             "description": "Tile matrix set ID",

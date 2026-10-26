@@ -135,6 +135,7 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
     utoipa::path(
         get,
         path = "/ogc/collections/{collection_id}/tiles",
+        operation_id = "ogc.collection.vector.getTileSetsList",
         params(("collection_id" = String, Path, description = "Collection ID, the ID of a source")),
         responses(
             (status = 200, description = "Tilesets of the collection", body = TileSets),
@@ -196,6 +197,7 @@ pub async fn get_tilesets(
     utoipa::path(
         get,
         path = "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        operation_id = "ogc.collection.vector.getTileSet",
         params(TileSetPath),
         responses(
             (status = 200, description = "Tileset metadata with the tile URL template", body = TileSet),

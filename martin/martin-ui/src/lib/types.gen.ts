@@ -77,7 +77,7 @@ export interface paths {
             cookie?: never;
         };
         /** The OGC API landing page, at `/ogc` and `/ogc/`. */
-        get: operations["get_landing_page"];
+        get: operations["getLandingPage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -94,7 +94,7 @@ export interface paths {
             cookie?: never;
         };
         /** Every tile source on a tile matrix set with an OGC definition, as a collection. */
-        get: operations["get_collections"];
+        get: operations["getCollectionsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -111,7 +111,7 @@ export interface paths {
             cookie?: never;
         };
         /** One collection. */
-        get: operations["get_collection"];
+        get: operations["getCollection"];
         put?: never;
         post?: never;
         delete?: never;
@@ -128,7 +128,7 @@ export interface paths {
             cookie?: never;
         };
         /** The tilesets of one collection, one per tile matrix set it is served on. */
-        get: operations["get_tilesets"];
+        get: operations["ogc.collection.vector.getTileSetsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -145,7 +145,7 @@ export interface paths {
             cookie?: never;
         };
         /** The metadata of one tileset, with the template of its tile URLs. */
-        get: operations["get_tileset"];
+        get: operations["ogc.collection.vector.getTileSet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -162,7 +162,7 @@ export interface paths {
             cookie?: never;
         };
         /** One tile of a collection, answered as the `/{source_ids}/{z}/{x}/{y}` route answers it. */
-        get: operations["get_ogc_tile"];
+        get: operations["ogc.collection.vector.getTile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -179,7 +179,7 @@ export interface paths {
             cookie?: never;
         };
         /** The conformance classes the OGC API implements. */
-        get: operations["get_conformance"];
+        get: operations["getConformance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -230,7 +230,7 @@ export interface paths {
             cookie?: never;
         };
         /** The tile matrix sets of the served sources. */
-        get: operations["get_tile_matrix_sets"];
+        get: operations["getTileMatrixSetsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -247,7 +247,7 @@ export interface paths {
             cookie?: never;
         };
         /** The definition of one tile matrix set. */
-        get: operations["get_tile_matrix_set"];
+        get: operations["getTileMatrixSet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -898,7 +898,7 @@ export interface operations {
             };
         };
     };
-    get_landing_page: {
+    getLandingPage: {
         parameters: {
             query?: never;
             header?: never;
@@ -918,7 +918,7 @@ export interface operations {
             };
         };
     };
-    get_collections: {
+    getCollectionsList: {
         parameters: {
             query?: never;
             header?: never;
@@ -938,7 +938,7 @@ export interface operations {
             };
         };
     };
-    get_collection: {
+    getCollection: {
         parameters: {
             query?: never;
             header?: never;
@@ -968,7 +968,7 @@ export interface operations {
             };
         };
     };
-    get_tilesets: {
+    "ogc.collection.vector.getTileSetsList": {
         parameters: {
             query?: never;
             header?: never;
@@ -998,7 +998,7 @@ export interface operations {
             };
         };
     };
-    get_tileset: {
+    "ogc.collection.vector.getTileSet": {
         parameters: {
             query?: never;
             header?: never;
@@ -1028,7 +1028,7 @@ export interface operations {
             };
         };
     };
-    get_ogc_tile: {
+    "ogc.collection.vector.getTile": {
         parameters: {
             query?: never;
             header?: never;
@@ -1080,7 +1080,7 @@ export interface operations {
             };
         };
     };
-    get_conformance: {
+    getConformance: {
         parameters: {
             query?: never;
             header?: never;
@@ -1160,7 +1160,7 @@ export interface operations {
             };
         };
     };
-    get_tile_matrix_sets: {
+    getTileMatrixSetsList: {
         parameters: {
             query?: never;
             header?: never;
@@ -1180,7 +1180,7 @@ export interface operations {
             };
         };
     };
-    get_tile_matrix_set: {
+    getTileMatrixSet: {
         parameters: {
             query?: never;
             header?: never;
