@@ -282,7 +282,7 @@ async fn spreads_jsonb_keys_over_properties_as_martin_serves_them() {
     insta::assert_snapshot!(mlt_dump(&generated), @r#"
     layer array_props extent 4096
       id=Some(1) geom=POINT(2048 2048) props=[kind=Str(Some("a")), label=Str(Some("one")), rank=I32(Some(1)), score=F64(Some(1.5)), tags=Str(Some("{1,2,3}"))]
-      id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("two")), rank=I32(Some(-2)), score=F64(Some(3.0)), tags=Str(None)]
+      id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("from the document")), rank=I32(Some(-2)), score=F64(Some(3.0)), tags=Str(None)]
     "#);
     assert_eq!(mlt_dump(&generated), mlt_dump(&served));
 }
