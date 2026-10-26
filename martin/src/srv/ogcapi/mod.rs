@@ -16,9 +16,9 @@ pub use collections::{get_collection, get_collections};
 pub use conformance::get_conformance;
 pub use landing::get_landing_page;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
-pub use styles::{__path_get_style, __path_get_styles};
+pub use styles::__path_get_styles;
 #[cfg(feature = "resources")]
-pub use styles::{get_style, get_styles};
+pub use styles::get_styles;
 pub use tile::get_tile;
 pub use tile_matrix_sets::{get_tile_matrix_set, get_tile_matrix_sets};
 pub use tilesets::{get_tileset, get_tilesets};

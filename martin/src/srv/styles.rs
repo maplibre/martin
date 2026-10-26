@@ -2,7 +2,7 @@ use actix_middleware_etag::Etag;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, route};
+use actix_web::{HttpRequest, HttpResponse, route, routes};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
 use tracing::{error, instrument, warn};
@@ -31,12 +31,16 @@ struct StyleRequest {
         ),
     )
 )]
-#[route(
-    "/style/{style_id}",
-    method = "GET",
-    method = "HEAD",
-    wrap = "Etag::default()",
-    wrap = "Compress::default()"
+#[routes]
+#[get("/style/{style_id}", wrap = "Etag::default()", wrap = "Compress::default()")]
+#[head("/style/{style_id}", wrap = "Etag::default()", wrap = "Compress::default()")]
+#[cfg_attr(
+    feature = "ogcapi",
+    get("/ogc/styles/{style_id}", wrap = "Etag::default()", wrap = "Compress::default()")
+)]
+#[cfg_attr(
+    feature = "ogcapi",
+    head("/ogc/styles/{style_id}", wrap = "Etag::default()", wrap = "Compress::default()")
 )]
 #[hotpath::measure]
 #[instrument(level = "debug", skip_all, fields(style.id = %path.style_id))]
@@ -46,53 +50,18 @@ pub async fn get_style_json(
     styles: Data<StyleSources>,
     srv_config: Data<SrvConfig>,
 ) -> HttpResponse {
-    match absolute_style(&req, &srv_config, &styles, &path.style_id).await {
-        Ok(style) => HttpResponse::Ok().json(style),
-        Err(unavailable) => unavailable.response(),
-    }
-}
-
-/// Why a style can't be served.
-pub(crate) enum StyleUnavailable {
-    /// No style has this ID, or its file is gone.
-    Missing,
-    /// The style file isn't a valid style.
-    Malformed {
-        /// ID of the style.
-        style_id: String,
-        /// Why the file doesn't parse.
-        error: serde_json::Error,
-    },
-}
-
-impl StyleUnavailable {
-    /// The plain-text response telling the client why the style can't be served.
-    pub(crate) fn response(&self) -> HttpResponse {
-        match self {
-            Self::Missing => HttpResponse::NotFound()
-                .content_type(ContentType::plaintext())
-                .body("No such style exists"),
-            Self::Malformed { style_id, error } => HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!("The requested style {style_id} is malformed: {error:?}")),
-        }
-    }
-}
-
-/// Style `style_id` with its relative URLs made absolute against the URL `req` came in on.
-pub(crate) async fn absolute_style(
-    req: &HttpRequest,
-    srv_config: &SrvConfig,
-    styles: &StyleSources,
-    style_id: &str,
-) -> Result<Style, StyleUnavailable> {
+    let style_id = &path.style_id;
     let Some(path) = styles.style_json_path(style_id) else {
-        return Err(StyleUnavailable::Missing);
+        return HttpResponse::NotFound()
+            .content_type(ContentType::plaintext())
+            .body("No such style exists");
     };
     let Ok(style_content) = tokio::fs::read_to_string(&path).await else {
         // the file was likely deleted after martin was launched and collected the file list
         // TODO: change this to a server error and log appropriately once the watch mode is here
-        return Err(StyleUnavailable::Missing);
+        return HttpResponse::NotFound()
+            .content_type(ContentType::plaintext())
+            .body("No such style exists");
     };
     match serde_json::from_str::<Style>(&style_content) {
         Ok(mut style) => {
@@ -105,11 +74,11 @@ pub(crate) async fn absolute_style(
             // configured path prefix, mirroring the precedence used for TileJSON
             // URLs in `srv/tiles/metadata.rs`:
             //   base_path > route_prefix > X-Forwarded-Prefix > ""
-            let prefix = path_prefix(req, srv_config);
+            let prefix = path_prefix(&req, &srv_config);
             let info = req.connection_info();
             let base_url = format!("{}://{}{prefix}", info.scheme(), info.host());
             style.expand_relative_urls(&base_url);
-            Ok(style)
+            HttpResponse::Ok().json(style)
         }
         Err(e) => {
             error!(
@@ -119,10 +88,9 @@ pub(crate) async fn absolute_style(
                 "Failed to parse style JSON"
             );
 
-            Err(StyleUnavailable::Malformed {
-                style_id: style_id.to_owned(),
-                error: e,
-            })
+            HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body(format!("The requested style {style_id} is malformed: {e:?}"))
         }
     }
 }

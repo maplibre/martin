@@ -1213,7 +1213,7 @@
     },
     "/ogc/styles": {
       "get": {
-        "operationId": "get_styles",
+        "operationId": "ogc.dataset.getStyles",
         "responses": {
           "200": {
             "content": {
@@ -1232,24 +1232,15 @@
     },
     "/ogc/styles/{style_id}": {
       "get": {
-        "operationId": "get_style",
+        "description": "Alias of `/style/{style_id}`, as OGC API - Styles.",
+        "operationId": "ogc.dataset.getStyle",
         "parameters": [
           {
-            "description": "Style ID",
             "in": "path",
             "name": "style_id",
             "required": true,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Style encoding, only `json` is supported.",
-            "in": "query",
-            "name": "f",
-            "required": false,
-            "schema": {
-              "type": ["string", "null"]
             }
           }
         ],
@@ -1258,17 +1249,16 @@
             "content": {
               "application/json": {}
             },
-            "description": "MapLibre style"
+            "description": "MapLibre Style Spec JSON document"
           },
           "400": {
-            "description": "Unsupported style encoding, or the style file is malformed"
+            "description": "Style file is malformed"
           },
           "404": {
-            "description": "No such style"
+            "description": "No matching style"
           }
         },
-        "summary": "One style in the `MapLibre` style format.",
-        "tags": ["crate::srv::ogcapi"]
+        "tags": ["crate::srv"]
       }
     },
     "/ogc/tileMatrixSets": {

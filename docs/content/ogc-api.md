@@ -77,8 +77,7 @@ Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 me
 ## Styles
 
 `/ogc/styles` lists your [styles](sources-styles/index.md) through [OGC API - Styles](https://docs.ogc.org/DRAFTS/20-009.html), each titled after its `name`.
-`/ogc/styles/{styleID}` serves the same MapLibre style as `/style/{styleID}`, as `application/json`.
-That is the only encoding Martin has, so `?f=json` is the only `f` it accepts.
+`/ogc/styles/{styleID}` is an alias of `/style/{styleID}`.
 Martin does not declare the draft's `mapbox-style` class, which names the Mapbox media type.
 
 OGC API - Styles is still a draft, so this part may change with it.

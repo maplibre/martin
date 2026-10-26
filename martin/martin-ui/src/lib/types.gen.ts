@@ -196,7 +196,7 @@ export interface paths {
             cookie?: never;
         };
         /** Every style Martin serves. */
-        get: operations["get_styles"];
+        get: operations["ogc.dataset.getStyles"];
         put?: never;
         post?: never;
         delete?: never;
@@ -212,8 +212,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One style in the `MapLibre` style format. */
-        get: operations["get_style"];
+        /** @description Alias of `/style/{style_id}`, as OGC API - Styles. */
+        get: operations["ogc.dataset.getStyle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1100,7 +1100,7 @@ export interface operations {
             };
         };
     };
-    get_styles: {
+    "ogc.dataset.getStyles": {
         parameters: {
             query?: never;
             header?: never;
@@ -1120,22 +1120,18 @@ export interface operations {
             };
         };
     };
-    get_style: {
+    "ogc.dataset.getStyle": {
         parameters: {
-            query?: {
-                /** @description Style encoding, only `json` is supported. */
-                f?: string | null;
-            };
+            query?: never;
             header?: never;
             path: {
-                /** @description Style ID */
                 style_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description MapLibre style */
+            /** @description MapLibre Style Spec JSON document */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1144,14 +1140,14 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description Unsupported style encoding, or the style file is malformed */
+            /** @description Style file is malformed */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description No such style */
+            /** @description No matching style */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -71,8 +71,24 @@ struct MartinOgcApiOpenApi;
 /// The OGC API - Styles routes.
 #[cfg(all(feature = "ogcapi", feature = "resources"))]
 #[derive(OpenApi)]
-#[openapi(paths(crate::srv::ogcapi::get_styles, crate::srv::ogcapi::get_style))]
+#[openapi(paths(crate::srv::ogcapi::get_styles))]
 struct MartinOgcApiStylesOpenApi;
+
+/// `openapi` with `/ogc/styles/{style_id}`, which `/style/{style_id}` also answers, listed under its OGC operationId.
+#[cfg(all(feature = "ogcapi", feature = "resources"))]
+fn with_ogc_style_alias(mut openapi: utoipa::openapi::OpenApi) -> utoipa::openapi::OpenApi {
+    let mut alias = openapi
+        .paths
+        .paths
+        .get("/style/{style_id}")
+        .expect("/style/{style_id} is documented")
+        .clone();
+    let get = alias.get.as_mut().expect("/style/{style_id} is a GET route");
+    get.operation_id = Some("ogc.dataset.getStyle".to_owned());
+    get.description = Some("Alias of `/style/{style_id}`, as OGC API - Styles.".to_owned());
+    openapi.paths.paths.insert("/ogc/styles/{style_id}".to_owned(), alias);
+    openapi
+}
 
 /// `OpenAPI` document as JSON.
 #[must_use]
@@ -83,7 +99,7 @@ pub fn openapi_spec() -> serde_json::Value {
     #[cfg(feature = "ogcapi")]
     let openapi = openapi.merge_from(MartinOgcApiOpenApi::openapi());
     #[cfg(all(feature = "ogcapi", feature = "resources"))]
-    let openapi = openapi.merge_from(MartinOgcApiStylesOpenApi::openapi());
+    let openapi = with_ogc_style_alias(openapi.merge_from(MartinOgcApiStylesOpenApi::openapi()));
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
 
