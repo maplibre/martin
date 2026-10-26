@@ -5,8 +5,8 @@ use std::fs;
 
 use indoc::indoc;
 use martin_e2e_tests::{
-    Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, temp_dir,
-    tile_listing, tiles,
+    Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
+    temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -487,6 +487,76 @@ async fn martin_serves_mvt_output_in_every_compression() {
     ");
     assert_eq!(dumps[1], dumps[0]);
     assert_eq!(dumps[2], dumps[0]);
+}
+
+#[tokio::test]
+async fn mvt_polygon_rings_start_where_wagyu_does_unless_the_quirk_preserves_the_ring_start() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                antimeridian:
+                  schema: public
+                  table: antimeridian
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POLYGON
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let mut dumps = Vec::new();
+    for quirks in [&[][..], &["--mvt-quirk", "preserve-ring-start"]] {
+        let output = dir.path().join(format!("out-{}.mbtiles", dumps.len()));
+        let mut cp = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mvt")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--zoom-levels")
+            .arg("4")
+            .arg("--bbox=-165,60,-160,62");
+        for arg in quirks {
+            cp = cp.arg(arg);
+        }
+        cp.run().await;
+        let tiles = tiles(&output).await;
+        assert_eq!(tiles.len(), 1);
+        dumps.push(mvt_dump(&tiles[0].3));
+    }
+    insta::assert_snapshot!(dumps[0], @"
+    layer: 0
+      name: antimeridian
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3641 1896,3641 2648,2731 2648,2731 1896,3641 1896)[OUTER]
+        properties:
+          gid = 3 (uint)
+    ");
+    insta::assert_snapshot!(dumps[1], @"
+    layer: 0
+      name: antimeridian
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3641 2648,2731 2648,2731 1896,3641 1896,3641 2648)[OUTER]
+        properties:
+          gid = 3 (uint)
+    ");
 }
 
 #[tokio::test]

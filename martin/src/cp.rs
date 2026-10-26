@@ -186,10 +186,6 @@ pub struct CopyArgs {
     #[cfg(feature = "unstable-generate")]
     #[arg(long)]
     pub threads: Option<NonZeroUsize>,
-    /// Bulk mode, MVT only: a polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it.
-    #[cfg(feature = "unstable-generate")]
-    #[arg(long)]
-    pub mvt_first_vertex_like_wagyu: bool,
     /// Bulk mode, MVT only: a way to encode MVT tiles other than the default. Can be specified multiple times.
     #[cfg(feature = "unstable-generate")]
     #[arg(long = "mvt-quirk", value_name = "QUIRK")]
@@ -252,6 +248,8 @@ pub enum MvtQuirk {
     /// Each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does,
     /// then other keys, such as those of a JSON column, in the order features first use them.
     KeepUnusedKeys,
+    /// Polygon rings keep their source start, rather than starting where `ST_AsMVTGeom`'s wagyu starts them.
+    PreserveRingStart,
 }
 
 impl Default for CopyArgs {
@@ -279,8 +277,6 @@ impl Default for CopyArgs {
             temp_dir: Vec::new(),
             #[cfg(feature = "unstable-generate")]
             threads: None,
-            #[cfg(feature = "unstable-generate")]
-            mvt_first_vertex_like_wagyu: false,
             mvt_quirks: Vec::new(),
         }
     }
@@ -348,7 +344,6 @@ fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
             ("--memory", args.memory.is_some()),
             ("--temp-dir", !args.temp_dir.is_empty()),
             ("--threads", args.threads.is_some()),
-            ("--mvt-first-vertex-like-wagyu", args.mvt_first_vertex_like_wagyu),
             ("--mvt-quirk", !args.mvt_quirks.is_empty()),
         ]
         .into_iter()

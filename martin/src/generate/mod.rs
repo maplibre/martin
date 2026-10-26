@@ -63,7 +63,7 @@ struct GenerateOptions {
     memory: u64,
     temp_dirs: Vec<PathBuf>,
     threads: usize,
-    mvt_first_vertex_like_wagyu: bool,
+    mvt_preserve_ring_start: bool,
     mvt_keep_unused_keys: bool,
 }
 
@@ -133,7 +133,7 @@ impl GenerateOptions {
                 args.temp_dir
             },
             threads,
-            mvt_first_vertex_like_wagyu: args.mvt_first_vertex_like_wagyu,
+            mvt_preserve_ring_start: args.mvt_quirks.contains(&MvtQuirk::PreserveRingStart),
             mvt_keep_unused_keys: args.mvt_quirks.contains(&MvtQuirk::KeepUnusedKeys),
         })
     }
@@ -446,7 +446,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         encoding: options.encoding,
         batch_tiles: 256,
         window: threads * 4,
-        mvt_first_vertex_like_wagyu: options.mvt_first_vertex_like_wagyu,
+        mvt_preserve_ring_start: options.mvt_preserve_ring_start,
         mvt_keep_unused_keys: options.mvt_keep_unused_keys,
     }
 }

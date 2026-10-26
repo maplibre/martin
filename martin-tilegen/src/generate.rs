@@ -26,8 +26,9 @@ pub struct GenerateConfig {
     pub batch_tiles: usize,
     /// Encode batches in flight.
     pub window: usize,
-    /// MVT only: a polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom`'s wagyu starts it.
-    pub mvt_first_vertex_like_wagyu: bool,
+    /// MVT only: polygon rings keep their source start, rather than starting where `ST_AsMVTGeom`'s wagyu starts them
+    /// in tiles that get the whole polygon.
+    pub mvt_preserve_ring_start: bool,
     /// MVT only: each layer lists every key it declares, used or not, in declaration order, as `ST_AsMVT` does,
     /// then the other keys in the order features first use them.
     pub mvt_keep_unused_keys: bool,
@@ -79,7 +80,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let order = sink.tile_order();
 
     let sorter = Sorter::new(config.sort.clone())?;
-    let wagyu_ring_starts = config.mvt_first_vertex_like_wagyu && matches!(config.format, TileFormat::Mvt);
+    let wagyu_ring_starts = !config.mvt_preserve_ring_start && matches!(config.format, TileFormat::Mvt);
     let totals = render_all(
         source,
         &sorter,

@@ -739,18 +739,6 @@ impl Renderer {
         let shift = world_shift(bbox);
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
-        if self.wagyu_ring_starts {
-            self.source_polys.clear();
-            self.source_positive.clear();
-            for rings in self.simplifier.polygons(epsilon) {
-                let first_ring = self.source_positive.len();
-                for ring in rings {
-                    let area = signed_area_2x_f64(ring.map(|c| to_grid(c, shift, world)));
-                    self.source_positive.push(area > 0.0);
-                }
-                self.source_polys.push(len32(self.source_positive.len() - first_ring)?);
-            }
-        }
         let polygons = self
             .simplifier
             .polygons(epsilon)
@@ -779,7 +767,7 @@ impl Renderer {
             sole_tile(&self.vertices, ctx.layer.grid)?
         };
         if self.wagyu_ring_starts && (unclipped || sole.is_some()) {
-            self.start_rings_like_wagyu();
+            self.start_rings_like_wagyu(epsilon, shift, world)?;
         }
         let (polys, parts, vertices) = (
             std::mem::take(&mut self.polys),
@@ -799,7 +787,17 @@ impl Renderer {
     }
 
     /// Rotates each quantized ring to where wagyu starts it, read in its source direction while the rings pair up with the source's.
-    fn start_rings_like_wagyu(&mut self) {
+    fn start_rings_like_wagyu(&mut self, epsilon: f64, shift: f64, world: f64) -> TileGenResult<()> {
+        self.source_polys.clear();
+        self.source_positive.clear();
+        for rings in self.simplifier.polygons(epsilon) {
+            let first_ring = self.source_positive.len();
+            for ring in rings {
+                let area = signed_area_2x_f64(ring.map(|c| to_grid(c, shift, world)));
+                self.source_positive.push(area > 0.0);
+            }
+            self.source_polys.push(len32(self.source_positive.len() - first_ring)?);
+        }
         let paired = self.polys == self.source_polys;
         let mut start = 0;
         for (i, &len) in self.parts.iter().enumerate() {
@@ -809,6 +807,7 @@ impl Renderer {
             let first = wagyu_start(ring, reversed);
             ring.rotate_left(first);
         }
+        Ok(())
     }
 
     /// A feature in one tile is that tile's piece, unchanged but for the tile-local frame.
