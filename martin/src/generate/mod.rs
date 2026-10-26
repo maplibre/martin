@@ -38,7 +38,7 @@ use crate::config::file::process::{MltProcessConfig, ProcessConfig};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
-use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, check_bboxes};
+use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
 use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::logging::LogFormat;
@@ -63,6 +63,7 @@ struct GenerateOptions {
     memory: u64,
     temp_dirs: Vec<PathBuf>,
     threads: usize,
+    mvt_keep_unused_keys: bool,
 }
 
 impl GenerateOptions {
@@ -131,6 +132,7 @@ impl GenerateOptions {
                 args.temp_dir
             },
             threads,
+            mvt_keep_unused_keys: args.mvt_quirks.contains(&MvtQuirk::KeepUnusedKeys),
         })
     }
 }
@@ -442,6 +444,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         encoding: options.encoding,
         batch_tiles: 256,
         window: threads * 4,
+        mvt_keep_unused_keys: options.mvt_keep_unused_keys,
     }
 }
 

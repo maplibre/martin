@@ -31,6 +31,7 @@ pub(crate) struct TileEncoding {
     format: TileFormat,
     encoding: Encoding,
     order: TileOrder,
+    mvt_keep_unused_keys: bool,
     dedup: DedupIndex,
 }
 
@@ -44,6 +45,7 @@ impl TileEncoding {
         encoding: Encoding,
         order: TileOrder,
         batch_tiles: usize,
+        mvt_keep_unused_keys: bool,
     ) -> TileGenResult<(Self, TileBatches)> {
         let encoding = Self {
             infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
@@ -51,6 +53,7 @@ impl TileEncoding {
             format,
             encoding,
             order,
+            mvt_keep_unused_keys,
             dedup: DedupIndex::default(),
         };
         Ok((encoding, sorter.into_tiles(batch_tiles)?))
@@ -64,6 +67,7 @@ impl TileEncoding {
             format: self.format,
             encoding: self.encoding,
             order: self.order,
+            mvt_keep_unused_keys: self.mvt_keep_unused_keys,
         };
         encoder.encode_batch(&settings, &self.dedup, batch)
     }
