@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
-use futures::future::{BoxFuture, join_all, ready};
+use futures::future::{BoxFuture, join_all};
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::duckdb::DuckDBPool;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::resolver::database::resolve_database_entry;
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
+use crate::config::file::tiles::duckdb::resolver::secret::s3_secret;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::{DuckDbConfig, DuckDbSourceEntry};
 use crate::config::file::{CachePolicy, SourceBuildResult, TileSourceWarning};
@@ -25,6 +26,46 @@ pub type DuckDbResolution = SourceBuildResult<(
     Vec<TileSourceWarning>,
     HashMap<String, ProcessConfig>,
 )>;
+
+/// The entry's pool; a remote `s3://` one carries the S3 secret its object-store settings make.
+async fn build_geoparquet_pool(
+    source_id: &str,
+    entry: &GeoParquetEntry,
+    pool_size: usize,
+) -> Result<DuckDBPool, String> {
+    let location = entry
+        .location
+        .as_ref()
+        .expect("GeoParquetEntry must be finalized before resolve");
+    let pool = match location {
+        GeoParquetLocation::Local(path) => DuckDBPool::new_local_geoparquet(
+            source_id.to_owned(),
+            path.clone(),
+            pool_size,
+            entry.settings.threads,
+            entry.settings.memory_limit_mb,
+        ),
+        GeoParquetLocation::Remote(url) => {
+            let secret = s3_secret(&entry.object_store, url).await?;
+            if let Some(secret) = &secret {
+                debug!(
+                    source.id = %source_id,
+                    secret.params = ?secret.param_names().collect::<Vec<_>>(),
+                    "Using DuckDB S3 secret"
+                );
+            }
+            DuckDBPool::new_remote_geoparquet(
+                source_id.to_owned(),
+                url.clone(),
+                secret,
+                pool_size,
+                entry.settings.threads,
+                entry.settings.memory_limit_mb,
+            )
+        }
+    };
+    pool.map_err(|error| error.to_string())
+}
 
 fn resolve_geoparquet_entry(
     entry: &GeoParquetEntry,
@@ -43,34 +84,12 @@ fn resolve_geoparquet_entry(
         .expect("pool_size must be set by DuckDbConfig::finalize")
         .get();
 
-    let pool = match location {
-        GeoParquetLocation::Local(path) => DuckDBPool::new_local_geoparquet(
-            source_id.clone(),
-            path.clone(),
-            pool_size,
-            entry.settings.threads,
-            entry.settings.memory_limit_mb,
-        ),
-        GeoParquetLocation::Remote(url) => DuckDBPool::new_remote_geoparquet(
-            source_id.clone(),
-            url.clone(),
-            pool_size,
-            entry.settings.threads,
-            entry.settings.memory_limit_mb,
-        ),
-    };
-    let pool = match pool {
-        Ok(pool) => pool,
-        Err(error) => {
-            return Box::pin(ready(Err(TileSourceWarning::SourceError {
-                source_id,
-                error: error.to_string(),
-            })));
-        }
-    };
-
     let entry = entry.clone();
     Box::pin(async move {
+        let pool = match build_geoparquet_pool(&source_id, &entry, pool_size).await {
+            Ok(pool) => pool,
+            Err(error) => return Err(TileSourceWarning::SourceError { source_id, error }),
+        };
         match resolve_geoparquet_source(source_id.clone(), &entry, pool, default_cache).await {
             Ok(source) => {
                 info!(source.id = %source_id, "Configured DuckDB GeoParquet source");

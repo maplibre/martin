@@ -6,6 +6,7 @@ mod introspect;
 mod metadata;
 mod mvt_types;
 mod resolve;
+mod secret;
 mod sql;
 
 pub use bounds::bounds_with_auto;

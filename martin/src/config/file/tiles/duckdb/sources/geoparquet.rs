@@ -8,7 +8,8 @@ use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::duckdb::sources::{DuckDbSourceSettings, MvtLayerOptions};
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, SourceLocation, UnrecognizedValues,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ObjectStoreConfig, SourceLocation,
+    UnrecognizedValues,
 };
 
 /// Characters that make a path segment a `DuckDB` glob rather than a file name.
@@ -109,6 +110,9 @@ pub struct GeoParquetEntry {
     #[cfg(feature = "_tiles")]
     #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
+    /// Remote object-store settings, overriding the `duckdb`-level ones key by key.
+    #[serde(flatten)]
+    pub object_store: ObjectStoreConfig,
     /// Unknown keys preserved for diagnostics.
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -132,6 +136,19 @@ impl GeoParquetEntry {
         self.layer.finalize();
         self.location = Some(GeoParquetLocation::from_config(&self.geoparquet)?);
         Ok(())
+    }
+
+    /// Claims this source's object-store keys, then fills the rest from the `duckdb` level.
+    ///
+    /// Only a source with its own `profile` resolves AWS settings itself; the others share
+    /// what the `duckdb` level already resolved from the environment and its profile.
+    pub(crate) async fn finalize_object_store(&mut self, shared: &ObjectStoreConfig) {
+        self.object_store
+            .prepare(&mut self.unrecognized, "duckdb.sources");
+        if self.object_store.profile.is_some() {
+            self.object_store.finalize_runtime("duckdb.sources").await;
+        }
+        self.object_store.inherit(shared);
     }
 }
 

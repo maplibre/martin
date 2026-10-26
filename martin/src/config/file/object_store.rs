@@ -114,6 +114,32 @@ fn is_sensitive_option(key: &str) -> bool {
     )
 }
 
+/// The name `object_store` itself knows `key` by, e.g. `region` for `aws_region`.
+fn canonical_option_key(key: &str) -> String {
+    key.parse::<AmazonS3ConfigKey>()
+        .map(|key| key.as_ref().to_owned())
+        .or_else(|_| {
+            key.parse::<object_store::gcp::GoogleConfigKey>()
+                .map(|key| key.as_ref().to_owned())
+        })
+        .or_else(|_| {
+            key.parse::<object_store::azure::AzureConfigKey>()
+                .map(|key| key.as_ref().to_owned())
+        })
+        .unwrap_or_else(|_| key.to_owned())
+}
+
+fn is_credential_option(key: &str) -> bool {
+    key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
+        matches!(
+            key,
+            AmazonS3ConfigKey::AccessKeyId
+                | AmazonS3ConfigKey::SecretAccessKey
+                | AmazonS3ConfigKey::Token
+        )
+    })
+}
+
 fn is_proxy_option(key: &str) -> bool {
     matches!(
         key.parse::<ClientConfigKey>(),
@@ -157,6 +183,8 @@ impl PartialEq for ObjectStoreConfig {
         self.profile == other.profile && self.options == other.options
     }
 }
+
+impl Eq for ObjectStoreConfig {}
 
 impl ObjectStoreConfig {
     pub(crate) fn serialized_len(&self) -> usize {
@@ -294,6 +322,31 @@ impl ObjectStoreConfig {
             );
         } else if let Some(provider) = sdk_config.credentials_provider() {
             self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider { provider }));
+        }
+    }
+
+    /// Fills every option `self` leaves unset, and the AWS credential provider, from `shared`.
+    ///
+    /// Options are matched by their canonical name, so `aws_region` here shadows a shared
+    /// `region`. With its own `profile`, `self` keeps the profile's credentials and takes no
+    /// credential keys from `shared`.
+    pub(crate) fn inherit(&mut self, shared: &Self) {
+        let own_profile = self.profile.is_some();
+        let own_keys = self
+            .options
+            .keys()
+            .map(|key| canonical_option_key(key))
+            .collect::<Vec<_>>();
+        for (key, value) in &shared.options {
+            if own_keys.contains(&canonical_option_key(key))
+                || (own_profile && is_credential_option(key))
+            {
+                continue;
+            }
+            self.options.insert(key.clone(), value.clone());
+        }
+        if !own_profile && self.aws_credentials.is_none() {
+            self.aws_credentials.clone_from(&shared.aws_credentials);
         }
     }
 

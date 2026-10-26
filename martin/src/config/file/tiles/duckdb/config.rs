@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
@@ -12,7 +11,7 @@ use crate::config::file::tiles::duckdb::sources::{
 };
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
-    UnrecognizedValues,
+    ObjectStoreConfig, UnrecognizedValues,
 };
 
 const DEFAULT_POOL_SIZE: usize = 4;
@@ -69,6 +68,10 @@ pub struct DuckDbConfig {
         schemars(with = "crate::config::file::CachePolicyShape")
     )]
     pub cache: CachePolicy,
+    /// Remote object-store settings (as for `PMTiles`) for remote `GeoParquet` sources unless
+    /// overridden per-source. `s3://` sources get them as a `DuckDB` S3 secret.
+    #[serde(flatten)]
+    pub object_store: ObjectStoreConfig,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -85,6 +88,7 @@ impl Default for DuckDbConfig {
             #[cfg(feature = "_tiles")]
             convert_to_mlt: None,
             cache: CachePolicy::default(),
+            object_store: ObjectStoreConfig::default(),
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -108,7 +112,10 @@ impl DuckDbConfig {
 }
 
 impl ConfigurationLivecycleHooks for DuckDbConfig {
-    fn finalize(&mut self) -> impl Future<Output = ConfigFileResult<()>> + Send {
+    async fn finalize(&mut self) -> ConfigFileResult<()> {
+        self.object_store.prepare(&mut self.unrecognized, "duckdb");
+        self.object_store.finalize_runtime("duckdb").await;
+
         let defaults = DuckDbSourceDefaults {
             pool_size: self.pool_size,
             threads: self.threads,
@@ -116,16 +123,14 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             auto_bounds: self.auto_bounds,
         };
 
-        let finalized = self
-            .sources
-            .iter_mut()
-            .try_for_each(|source| -> ConfigFileResult<()> {
-                source.finalize()?;
-                source.apply_defaults(defaults);
-                Ok(())
-            });
-
-        std::future::ready(finalized)
+        for source in &mut self.sources {
+            source.finalize()?;
+            source.apply_defaults(defaults);
+            if let DuckDbSourceEntry::GeoParquet(entry) = source {
+                entry.finalize_object_store(&self.object_store).await;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -299,6 +304,17 @@ sources:
                             auto_bounds: None,
                         },
                         convert_to_mlt: None,
+                        object_store: ObjectStoreConfig {
+                            profile: None,
+                            options: {},
+                            persisted_options: {},
+                            persist_profile: false,
+                            aws_credentials: None,
+                            http_clients: SharedHttpClients(
+                                {},
+                            ),
+                            aws_profile_files: None,
+                        },
                         unrecognized: UnrecognizedValues(
                             {},
                         ),
@@ -311,6 +327,17 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+            },
+            object_store: ObjectStoreConfig {
+                profile: None,
+                options: {},
+                persisted_options: {},
+                persist_profile: false,
+                aws_credentials: None,
+                http_clients: SharedHttpClients(
+                    {},
+                ),
+                aws_profile_files: None,
             },
             unrecognized: UnrecognizedValues(
                 {},
@@ -406,6 +433,17 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+            },
+            object_store: ObjectStoreConfig {
+                profile: None,
+                options: {},
+                persisted_options: {},
+                persist_profile: false,
+                aws_credentials: None,
+                http_clients: SharedHttpClients(
+                    {},
+                ),
+                aws_profile_files: None,
             },
             unrecognized: UnrecognizedValues(
                 {},
