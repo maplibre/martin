@@ -35,8 +35,14 @@ pub(crate) struct RenderWorker<'a> {
 
 impl<'a> RenderWorker<'a> {
     /// A worker that renders `plan`'s layers into `sorter`, keyed for tiles in `order`, only those
-    /// of `window` when given.
-    pub(crate) fn new(plan: &'a Plan, sorter: &'a Sorter, order: TileOrder, window: Option<TileRect>) -> Self {
+    /// of `window` when given, with ring starts as in [`Renderer::with_wagyu_ring_starts`].
+    pub(crate) fn new(
+        plan: &'a Plan,
+        sorter: &'a Sorter,
+        order: TileOrder,
+        window: Option<TileRect>,
+        wagyu_ring_starts: bool,
+    ) -> Self {
         let windowed = window.map(|window| {
             plan.layers
                 .iter()
@@ -44,7 +50,7 @@ impl<'a> RenderWorker<'a> {
                 .collect()
         });
         Self {
-            renderer: Renderer::default(),
+            renderer: Renderer::default().with_wagyu_ring_starts(wagyu_ring_starts),
             evaluator: plan.evaluator(),
             windowed,
             order,

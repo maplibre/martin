@@ -136,6 +136,7 @@ fn generated(dir: &std::path::Path) -> BTreeMap<(u8, u32, u32), Vec<u8>> {
         encoding: Encoding::Gzip,
         batch_tiles: 7,
         window: 3,
+        mvt_preserve_ring_start: false,
         mvt_keep_unused_keys: false,
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()

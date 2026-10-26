@@ -248,6 +248,8 @@ pub enum MvtQuirk {
     /// Each layer lists every key the config gives it, used or not, in config order, as `ST_AsMVT` does,
     /// then other keys, such as those of a JSON column, in the order features first use them.
     KeepUnusedKeys,
+    /// Polygon rings keep their source start, rather than starting where `ST_AsMVTGeom`'s wagyu starts them.
+    PreserveRingStart,
 }
 
 impl Default for CopyArgs {

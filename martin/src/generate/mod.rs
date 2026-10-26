@@ -63,6 +63,7 @@ struct GenerateOptions {
     memory: u64,
     temp_dirs: Vec<PathBuf>,
     threads: usize,
+    mvt_preserve_ring_start: bool,
     mvt_keep_unused_keys: bool,
 }
 
@@ -95,6 +96,9 @@ impl GenerateOptions {
             #[cfg(feature = "unstable-mlt-v2")]
             Some(CopyFormat::MltV2) => return Err(GenerateError::MltV2),
         };
+        if !args.mvt_quirks.is_empty() && !matches!(format, TileFormat::Mvt) {
+            return Err(GenerateError::MvtQuirkWithoutMvt);
+        }
         let encoding = args
             .encoding
             .as_deref()
@@ -132,6 +136,7 @@ impl GenerateOptions {
                 args.temp_dir
             },
             threads,
+            mvt_preserve_ring_start: args.mvt_quirks.contains(&MvtQuirk::PreserveRingStart),
             mvt_keep_unused_keys: args.mvt_quirks.contains(&MvtQuirk::KeepUnusedKeys),
         })
     }
@@ -167,6 +172,8 @@ pub enum GenerateError {
     #[cfg(feature = "unstable-mlt-v2")]
     #[error("`--mode bulk` cannot write `--format mlt2` yet")]
     MltV2,
+    #[error("`--mvt-quirk` only changes MVT tiles; add `--format mvt`")]
+    MvtQuirkWithoutMvt,
     #[error("unknown encoding `{0}`; `--mode bulk` takes one of gzip, zlib, br, zstd or none")]
     BadEncoding(String),
     #[error("No table source matches `{0}`. Available table sources: {1}")]
@@ -444,6 +451,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         encoding: options.encoding,
         batch_tiles: 256,
         window: threads * 4,
+        mvt_preserve_ring_start: options.mvt_preserve_ring_start,
         mvt_keep_unused_keys: options.mvt_keep_unused_keys,
     }
 }

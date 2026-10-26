@@ -71,6 +71,7 @@ pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: Ro
             encoding: Encoding::Uncompressed,
             batch_tiles: 64,
             window: 4,
+            mvt_preserve_ring_start: false,
             mvt_keep_unused_keys: false,
         };
         generate(

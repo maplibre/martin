@@ -114,6 +114,7 @@ fn run(source: &impl FeatureSource, plan: &Plan, dir: &Path, threads: usize) -> 
         encoding: Encoding::Gzip,
         batch_tiles: 7,
         window: 3,
+        mvt_preserve_ring_start: false,
         mvt_keep_unused_keys: false,
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -836,6 +837,7 @@ fn generate_into_discard(source: &impl FeatureSource, threads: usize) -> TileGen
         encoding: Encoding::Gzip,
         batch_tiles: 7,
         window: 3,
+        mvt_preserve_ring_start: false,
         mvt_keep_unused_keys: false,
     };
     generate(
