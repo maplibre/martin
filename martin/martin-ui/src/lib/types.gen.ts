@@ -239,6 +239,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/styles/{style_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A style rendered as a map. */
+        get: operations["ogc.dataset.style.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/tileMatrixSets": {
         parameters: {
             query?: never;
@@ -1187,6 +1204,68 @@ export interface operations {
             };
             /** @description No matching style */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.getMap": {
+        parameters: {
+            query?: {
+                /** @description Image format, `png` or `jpeg`. */
+                f?: string | null;
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map of the style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Invalid map parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported map format in Accept header */
+            406: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -422,7 +422,7 @@ pub(super) async fn render_map(
     utoipa::path(
         get,
         path = "/ogc/styles/{style_id}/map",
-        operation_id = "get_ogc_style_map",
+        operation_id = "ogc.dataset.style.getMap",
         params(("style_id" = String, Path, description = "Style ID"), MapQuery),
         responses(
             (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"))),

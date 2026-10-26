@@ -449,6 +449,29 @@ async fn the_styles_link_their_maps() {
 }
 
 #[tokio::test]
+async fn the_api_definition_describes_the_style_map_when_rendering() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/api?f=json").await;
+    assert_eq!(response.status(), 200);
+    let definition = response.json();
+    insta::assert_json_snapshot!(definition["paths"]["/styles/{style_id}/map"]["get"]["operationId"], @r#""ogc.dataset.style.getMap""#);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
 async fn the_conformance_declares_maps_when_rendering() {
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
@@ -471,9 +494,7 @@ async fn the_conformance_declares_maps_when_rendering() {
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/landing-page",
         "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/json",
-        "http://www.opengis.net/spec/ogcapi-common-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/core",
-        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/oas30",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tilesets-list",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geodata-tilesets",
