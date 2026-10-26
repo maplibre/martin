@@ -1609,6 +1609,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mvt-quirks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MVT quirks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2344,13 +2361,19 @@ serving, such as caching, are ignored.</p>
 <td>CPU count</td>
 <td>Worker threads</td>
 </tr>
+<tr>
+<td><code>--mvt-quirk</code></td>
+<td></td>
+<td>MVT: a <a href="#mvt-quirks">quirk</a> to encode with, repeatable</td>
+</tr>
 </tbody>
 </table>
 <p>The tile server's <a href="../run-with-cli/">configuration and PostgreSQL arguments</a> also apply, such as
 <code>--config</code> and <code>--pool-size</code>. A configuration file and connection strings cannot be combined.</p>
 <p>Bulk mode refuses the <code>martin cp</code> options it does not read: <code>--url-query</code>, <code>--mbtiles-type</code>,
 <code>--on-duplicate</code>, <code>--concurrency</code>, <code>--skip-agg-tiles-hash</code>, <code>--set-meta</code>, <code>--delete-meta</code>,
-<code>--save-config</code> and <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code> and <code>--threads</code>.</p>
+<code>--save-config</code> and <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code>, <code>--threads</code>
+and <code>--mvt-quirk</code>.</p>
 <p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below <code>--min-zoom</code> do not count.
@@ -2358,6 +2381,22 @@ For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <p>The highest zoom is 27. The tile grid can lower it further, since <code>extent × 2^zoom</code> must not exceed
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
+<h3 id="mvt-quirks">MVT quirks</h3>
+<p>Each <code>--mvt-quirk</code> changes how MVT tiles are encoded:</p>
+<table>
+<thead>
+<tr>
+<th>Quirk</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>keep-unused-keys</code></td>
+<td>Each layer lists every key the config gives it, used or not, in config order, as <code>ST_AsMVT</code> does. Other keys, such as those of a JSON column, follow in the order features first use them.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="sizing-a-run">Sizing a run</h2>
 <ul>
 <li><code>--memory</code> is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
