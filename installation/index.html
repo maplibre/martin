@@ -1455,6 +1455,11 @@ To include it (Linux only), add the <code>rendering</code> feature.
 You will need its build dependencies first (<code>just install-dependencies</code>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="w"> </span>rendering
 </span></code></pre></div>
+<p>For FIPS 140-3 compliant TLS, add the <code>fips</code> feature.
+It makes rustls use the FIPS-validated AWS-LC module (<code>aws-lc-fips-sys</code>), which needs CMake and Go to build,
+and Martin refuses to start if that provider is not in FIPS mode.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--features<span class="w"> </span>fips
+</span></code></pre></div>
 <h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
 <h5 id="windows">Windows</h5>
 <p>When building from source on Windows, please note the following feature limitations:</p>
