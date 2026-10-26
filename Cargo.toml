@@ -119,7 +119,7 @@ dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
 derive-debug = "0.1.2"
-duckdb = { version = ">=1.10503.1, <1.20001", features = ["bundled", "parquet"] }
+duckdb = { version = ">=1.10503.1, <1.20000", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
 flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
