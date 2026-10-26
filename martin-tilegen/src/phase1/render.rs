@@ -342,8 +342,35 @@ pub struct Renderer {
     pub slice_errors: Vec<SliceErrors>,
     /// Whether polygon rings start where `ST_AsMVTGeom`'s wagyu starts them, see [`Renderer::with_wagyu_ring_starts`].
     wagyu_ring_starts: bool,
-    /// The feature's rings before quantizing, sorted by bounding box, for finding the one a quantized ring came from.
-    source_rings: Vec<SourceRing>,
+    /// The feature's rings before quantizing, for the direction each quantized ring was drawn in.
+    source: SourceRings,
+}
+
+/// A feature's rings before quantizing, as quantized rings, which wind one way per kind, are matched with them.
+#[derive(Debug, Default)]
+struct SourceRings {
+    /// Each ring's rounded bounding box and winding, sorted by bounding box.
+    rings: Vec<SourceRing>,
+    /// How the exteriors wind.
+    exteriors: Winds,
+    /// How the holes wind.
+    holes: Winds,
+}
+
+impl SourceRings {
+    /// Whether the quantized `ring`, an exterior or a hole, runs against its source: as every source ring of its kind
+    /// does, else as the one with its bounding box, else not.
+    fn reversed(&self, ring: &[Coord<i32>], exterior: bool) -> bool {
+        let source = match if exterior { self.exteriors } else { self.holes } {
+            Winds::Alike { positive } => Some(positive),
+            Winds::Absent | Winds::Mixed => self
+                .rings
+                .binary_search_by_key(&ring_bbox(ring), |source| source.bbox)
+                .ok()
+                .map(|i| self.rings[i].positive),
+        };
+        source.is_some_and(|positive| positive != (signed_area_2x(ring) > 0))
+    }
 }
 
 /// A ring before quantizing, as a quantized ring is matched with it.
@@ -353,6 +380,29 @@ struct SourceRing {
     bbox: [i32; 4],
     /// Whether it winds positive in the zoom grid.
     positive: bool,
+}
+
+/// How a feature's exteriors, or its holes, wind before quantizing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Winds {
+    /// The feature has none.
+    #[default]
+    Absent,
+    /// Every one winds positive, or every one negative.
+    Alike { positive: bool },
+    /// Some wind each way.
+    Mixed,
+}
+
+impl Winds {
+    /// These and one more ring winding `positive` or not.
+    fn and(self, positive: bool) -> Self {
+        match self {
+            Self::Absent => Self::Alike { positive },
+            Self::Alike { positive: alike } if alike == positive => self,
+            Self::Alike { .. } | Self::Mixed => Self::Mixed,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -817,15 +867,11 @@ impl Renderer {
                 self.index_source_rings(epsilon, shift, world);
                 indexed = true;
             }
-            for r in rings {
+            for (i, r) in rings.enumerate() {
                 let end = start + self.parts[r] as usize;
                 if whole {
                     let ring = &mut self.vertices[start..end];
-                    let reversed = self
-                        .source_rings
-                        .binary_search_by_key(&ring_bbox(ring), |source| source.bbox)
-                        .is_ok_and(|i| (signed_area_2x(ring) > 0) != self.source_rings[i].positive);
-                    let first = wagyu_start(ring, reversed);
+                    let first = wagyu_start(ring, self.source.reversed(ring, i == 0));
                     ring.rotate_left(first);
                 }
                 start = end;
@@ -835,16 +881,17 @@ impl Renderer {
         Ok(())
     }
 
-    /// Fills [`Self::source_rings`] with the feature's rings at `epsilon`, in the zoom grid of `shift` and `world`.
+    /// Fills [`Self::source`] with the feature's rings at `epsilon`, in the zoom grid of `shift` and `world`.
     fn index_source_rings(&mut self, epsilon: f64, shift: f64, world: f64) {
         #[expect(
             clippy::cast_possible_truncation,
             reason = "the quantizer rounded these into `i32` already"
         )]
         let unit = |v: f64| v.round_ties_even() as i32;
-        self.source_rings.clear();
+        self.source.rings.clear();
+        (self.source.exteriors, self.source.holes) = (Winds::Absent, Winds::Absent);
         for rings in self.simplifier.polygons(epsilon) {
-            for ring in rings {
+            for (i, ring) in rings.enumerate() {
                 let (mut lo, mut hi) = (
                     Coord::from((f64::INFINITY, f64::INFINITY)),
                     Coord::from((f64::NEG_INFINITY, f64::NEG_INFINITY)),
@@ -853,13 +900,21 @@ impl Renderer {
                     (lo.x, lo.y) = (lo.x.min(c.x), lo.y.min(c.y));
                     (hi.x, hi.y) = (hi.x.max(c.x), hi.y.max(c.y));
                 }));
-                self.source_rings.push(SourceRing {
+                if area != 0.0 {
+                    let winds = if i == 0 {
+                        &mut self.source.exteriors
+                    } else {
+                        &mut self.source.holes
+                    };
+                    *winds = winds.and(area > 0.0);
+                }
+                self.source.rings.push(SourceRing {
                     bbox: [unit(lo.x), unit(lo.y), unit(hi.x), unit(hi.y)],
                     positive: area > 0.0,
                 });
             }
         }
-        self.source_rings.sort_unstable_by_key(|source| source.bbox);
+        self.source.rings.sort_unstable_by_key(|source| source.bbox);
     }
 
     /// A feature in one tile is that tile's piece, unchanged but for the tile-local frame.
@@ -2272,6 +2327,43 @@ mod tests {
     }
 
     #[test]
+    fn wagyu_ring_starts_keep_the_source_direction_when_a_spike_rounds_away() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let ring: LineString = [
+            (10.0, 90.0),
+            (90.0, 90.0),
+            (90.0, 50.2),
+            (95.0, 50.2),
+            (95.0, 50.1),
+            (90.0, 50.1),
+            (90.0, 10.0),
+            (10.0, 10.0),
+            (10.0, 90.0),
+        ]
+        .into_iter()
+        .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+        .collect();
+        let polygons = [Polygon::new(ring, vec![])];
+        let records = render_with(
+            Renderer::default().with_wagyu_ring_starts(true),
+            TileOrder::Tms,
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
     fn wagyu_ring_starts_apply_to_each_polygon_a_tile_gets_whole_when_the_feature_spans_tiles() {
         let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
         let polygons: Vec<_> = [0.0, 256.0]
@@ -2302,6 +2394,53 @@ mod tests {
         assert_eq!(records.len(), 2);
         assert_eq!(records[0].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
         assert_eq!(records[1].2.vertices, [[10, 90], [10, 10], [90, 10], [90, 90]]);
+    }
+
+    #[test]
+    fn wagyu_ring_starts_read_each_part_in_its_own_direction_when_parts_are_drawn_both_ways() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let right_to_left = [(10.0, 90.0), (90.0, 90.0), (90.0, 10.0), (10.0, 10.0), (10.0, 90.0)];
+        let left_to_right = [
+            (266.0, 346.0),
+            (266.0, 266.0),
+            (346.0, 266.0),
+            (346.0, 346.0),
+            (266.0, 346.0),
+        ];
+        let polygons: Vec<_> = [&right_to_left, &left_to_right]
+            .into_iter()
+            .map(|ring| {
+                let ring: LineString = ring
+                    .iter()
+                    .map(|&(x, y)| coord! { x: x / 512.0, y: y / 512.0 })
+                    .collect();
+                Polygon::new(ring, vec![])
+            })
+            .collect();
+        let records = render_with(
+            Renderer::default().with_wagyu_ring_starts(true),
+            TileOrder::Tms,
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 1..=1,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        let mut starts: Vec<_> = records.iter().map(|record| record.2.vertices.clone()).collect();
+        starts.sort();
+        assert_eq!(
+            starts,
+            [
+                vec![[10, 90], [10, 10], [90, 10], [90, 90]],
+                vec![[90, 10], [90, 90], [10, 90], [10, 10]],
+            ]
+        );
     }
 
     #[test]
