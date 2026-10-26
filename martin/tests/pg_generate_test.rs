@@ -88,7 +88,7 @@ async fn run(
             encoding: Encoding::Gzip,
             batch_tiles: 16,
             window: 4,
-            mvt_declared_keys: false,
+            mvt_keep_unused_keys: false,
         };
         let sink = MbtilesSink::create(&path).unwrap();
         (

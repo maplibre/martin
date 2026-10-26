@@ -26,8 +26,9 @@ pub struct GenerateConfig {
     pub batch_tiles: usize,
     /// Encode batches in flight.
     pub window: usize,
-    /// MVT only: every layer lists all its declared keys in declaration order, used or not, as `ST_AsMVT` does.
-    pub mvt_declared_keys: bool,
+    /// MVT only: each layer lists every key it declares, used or not, in declaration order, as `ST_AsMVT` does,
+    /// then the other keys in the order features first use them.
+    pub mvt_keep_unused_keys: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -86,7 +87,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         config.encoding,
         order,
         config.batch_tiles,
-        config.mvt_declared_keys,
+        config.mvt_keep_unused_keys,
     )?;
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,

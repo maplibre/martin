@@ -261,5 +261,5 @@ codegen-units = 1
 [patch.crates-io]
 # georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
 wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }
-# nyurik/fast-mvt#60: `MvtTileBuilder::preset_keys`, so `--mvt-declared-keys` can list keys no feature uses
+# nyurik/fast-mvt#60: `MvtTileBuilder::preset_keys`, so `--mvt-quirk keep-unused-keys` can list keys no feature uses
 fast-mvt = { git = "https://github.com/nyurik/fast-mvt", rev = "3962ec6ff1cfa4e608afca173c9794306f970438" }
