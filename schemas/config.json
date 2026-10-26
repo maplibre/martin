@@ -320,6 +320,299 @@
       "enum": ["disable"],
       "type": "string"
     },
+    "DuckDbCfgPublish": {
+      "description": "Automatic discovery of the tables and table macros of a `DuckDB` database file.",
+      "properties": {
+        "from_schemas": {
+          "$ref": "#/$defs/OneOrMany2",
+          "description": "Optionally limit to just these schemas"
+        },
+        "macros": {
+          "$ref": "#/$defs/OptBoolObj6"
+        },
+        "tables": {
+          "$ref": "#/$defs/OptBoolObj5",
+          "description": "Here we enable both tables and macros auto discovery.\nYou can also enable just one of them by not mentioning the other, or\nsetting it to false. Setting one to true disables the other one as well.\nE.g. `tables: false` enables just the macros auto-discovery."
+        }
+      },
+      "type": "object"
+    },
+    "DuckDbCfgPublishMacros": {
+      "properties": {
+        "from_schemas": {
+          "$ref": "#/$defs/OneOrMany2",
+          "description": "Optionally limit to just these schemas"
+        },
+        "source_id_format": {
+          "description": "Optionally set how source ID should be generated based on the macro's\nname and schema",
+          "examples": ["{schema}.{macro}"],
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "DuckDbCfgPublishTables": {
+      "properties": {
+        "buffer": {
+          "description": "Buffer distance in tile coordinate space to optionally clip geometries,\noptional, default to 64",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "clip_geom": {
+          "description": "Controls if geometries should be clipped or encoded as is \\[default: true\\]",
+          "type": ["boolean", "null"]
+        },
+        "extent": {
+          "description": "Tile extent in tile coordinate space, optional, default to 4096",
+          "format": "uint32",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "from_schemas": {
+          "$ref": "#/$defs/OneOrMany2",
+          "description": "Add more schemas to the ones listed above"
+        },
+        "id_columns": {
+          "$ref": "#/$defs/OneOrMany2",
+          "description": "A table column to use as the feature ID\nIf a table has no column with this name, `id_column` will not be set for\nthat table.\nIf a list of strings is given, the first found column will be treated as a\nfeature ID."
+        },
+        "source_id_format": {
+          "description": "Optionally set how source ID should be generated based on the table's name,\nschema, and geometry column",
+          "examples": ["{schema}.{table}.{column}"],
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "DuckDbConfig": {
+      "properties": {
+        "auto_bounds": {
+          "$ref": "#/$defs/BoundsCalcType",
+          "description": "Bounds behavior for auto-generated `TileJSON` bounds."
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for caching the tiles of every `DuckDB` source without its own `cache`.\nOverrides the top-level `cache` bounds."
+        },
+        "convert_to_mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memory_limit_mb": {
+          "description": "Optional `DuckDB` memory limit in megabytes for each connection.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "pool_size": {
+          "description": "Connection pool size used by `DuckDB` sources unless overridden per-source.",
+          "format": "uint",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sources": {
+          "description": "Ordered source definitions.",
+          "items": {
+            "$ref": "#/$defs/DuckDbSourceEntry"
+          },
+          "type": "array"
+        },
+        "threads": {
+          "description": "Optional `DuckDB` execution thread count for each connection.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "DuckDbDatabaseEntry": {
+      "description": "Pool and bounds settings shared by database and geoparquet source entries.",
+      "properties": {
+        "auto_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundsCalcType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Per-source override of `duckdb.auto_bounds`."
+        },
+        "auto_publish": {
+          "$ref": "#/$defs/OptBoolObj4",
+          "description": "Automatic discovery of the database's tables. \\[default: null\\]\n\nOptions:\n- `true`: run automatic discovery (`true` may be omitted if further configuration is provided)\n- `false`: disable automatic discovery\n- null: run automatic discovery if `tables` and `macros` are null"
+        },
+        "convert_to_mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "database": {
+          "description": "Path of the `.duckdb` database file (wire / saved-config form).",
+          "type": "string"
+        },
+        "macros": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DuckDbMacroEntry"
+          },
+          "description": "Table macros of this database to publish, keyed by source id.",
+          "type": ["object", "null"]
+        },
+        "memory_limit_mb": {
+          "description": "Per-source override of `duckdb.memory_limit_mb`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "pool_size": {
+          "description": "Per-source override of `duckdb.pool_size`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "tables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DuckDbTableEntry"
+          },
+          "description": "Tables of this database to publish, keyed by source id.",
+          "type": ["object", "null"]
+        },
+        "threads": {
+          "description": "Per-source override of `duckdb.threads`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["database"],
+      "type": "object"
+    },
+    "DuckDbMacroEntry": {
+      "description": "One table macro of a `DuckDB` database file, published as a tile source.\n\nThe macro takes `(z, x, y)` and returns a single row whose first column is the tile.",
+      "properties": {
+        "bounds": {
+          "description": "The maximum extent of available map tiles. Bounds MUST define an area\ncovered by all zoom levels. The bounds are represented in WGS:84\nlatitude and longitude values, in the order left, bottom, right, top.\nValues may be integers or floating point numbers.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": ["array", "null"]
+        },
+        "macro": {
+          "description": "Macro name.",
+          "type": "string"
+        },
+        "maxzoom": {
+          "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "An integer specifying the minimum zoom level",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "schema": {
+          "description": "Schema the macro lives in. Defaults to `main`.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["macro"],
+      "type": "object"
+    },
+    "DuckDbSourceEntry": {
+      "description": "DuckDB source entry: exactly one of `database` or `geoparquet` must be present.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DuckDbDatabaseEntry"
+        },
+        {
+          "$ref": "#/$defs/GeoParquetEntry"
+        }
+      ]
+    },
+    "DuckDbTableEntry": {
+      "description": "One table of a `DuckDB` database file, published as an MVT source.",
+      "properties": {
+        "buffer": {
+          "description": "Optional geometry buffer in tile coordinate space.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "clip_geom": {
+          "description": "Optional geometry clipping toggle.",
+          "type": ["boolean", "null"]
+        },
+        "extent": {
+          "description": "Optional tile extent (MVT coordinate space).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "filter": {
+          "description": "CQL2 filter that limits which rows are served, translated to SQL and added to the tile query with `AND`.",
+          "type": ["string", "null"]
+        },
+        "geometry_column": {
+          "description": "Optional geometry column name. Auto-detected when omitted.",
+          "type": ["string", "null"]
+        },
+        "id_column": {
+          "description": "Optional feature id column to use as MVT feature id.",
+          "type": ["string", "null"]
+        },
+        "maxzoom": {
+          "description": "Optional maximum zoom for source metadata.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "Optional minimum zoom for source metadata.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "schema": {
+          "description": "Schema the table lives in. Defaults to `main`.",
+          "type": ["string", "null"]
+        },
+        "srid": {
+          "description": "Optional source SRID. Auto-detected when omitted.\nNon-positive values are treated as unset and fall back to auto-detection.",
+          "format": "int32",
+          "type": ["integer", "null"]
+        },
+        "table": {
+          "description": "Table name.",
+          "type": "string"
+        }
+      },
+      "required": ["table"],
+      "type": "object"
+    },
     "EndpointsConfig": {
       "description": "Optional endpoints, each off unless enabled here.",
       "properties": {
@@ -891,6 +1184,107 @@
       "required": ["schema", "function"],
       "type": "object"
     },
+    "GeoParquetEntry": {
+      "description": "How one relation is encoded into an MVT layer, shared by every `DuckDB` source kind.",
+      "properties": {
+        "auto_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundsCalcType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Per-source override of `duckdb.auto_bounds`."
+        },
+        "buffer": {
+          "description": "Optional geometry buffer in tile coordinate space.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "clip_geom": {
+          "description": "Optional geometry clipping toggle.",
+          "type": ["boolean", "null"]
+        },
+        "convert_to_mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extent": {
+          "description": "Optional tile extent (MVT coordinate space).",
+          "format": "uint32",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "filter": {
+          "description": "CQL2 filter that limits which rows are served, translated to SQL and added to the tile query with `AND`.",
+          "type": ["string", "null"]
+        },
+        "geometry_column": {
+          "description": "Optional geometry column name. Auto-detected when omitted.",
+          "type": ["string", "null"]
+        },
+        "geoparquet": {
+          "description": "Local path or remote URL of the `GeoParquet` source (wire / saved-config form).",
+          "type": "string"
+        },
+        "id_column": {
+          "description": "Optional feature id column to use as MVT feature id.",
+          "type": ["string", "null"]
+        },
+        "layer_id": {
+          "description": "Optional output source/layer identifier override.",
+          "type": ["string", "null"]
+        },
+        "maxzoom": {
+          "description": "Optional maximum zoom for source metadata.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "memory_limit_mb": {
+          "description": "Per-source override of `duckdb.memory_limit_mb`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "Optional minimum zoom for source metadata.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "pool_size": {
+          "description": "Per-source override of `duckdb.pool_size`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "srid": {
+          "description": "Optional source SRID. Auto-detected when omitted.\nNon-positive values are treated as unset and fall back to auto-detection.",
+          "format": "int32",
+          "type": ["integer", "null"]
+        },
+        "threads": {
+          "description": "Per-source override of `duckdb.threads`.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["geoparquet"],
+      "type": "object"
+    },
     "GlobalCacheConfig": {
       "description": "Global-level cache configuration with both size limits and zoom-level bounds.\n\nUsed at the root of the config file:\n```yaml\ncache:\n  size_mb: 512\n  tile_size_mb: 256\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m\n  minzoom: 0\n  maxzoom: 20\n```\n\nOr disabled entirely:\n```yaml\ncache: disable\n```",
       "properties": {
@@ -1207,6 +1601,45 @@
         },
         {
           "$ref": "#/$defs/PostgresCfgPublishFuncs",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj4": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/DuckDbCfgPublish",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj5": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/DuckDbCfgPublishTables",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj6": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/DuckDbCfgPublishMacros",
           "description": "An object value."
         }
       ],
@@ -1828,6 +2261,10 @@
         }
       ],
       "description": "CORS Configuration\n\nDefaults to `cors: true`, which allows all origins.\nSending/Acting on CORS headers can be completely disabled via `cors: false`"
+    },
+    "duckdb": {
+      "$ref": "#/$defs/DuckDbConfig",
+      "description": "Publish `DuckDB` / `GeoParquet` sources (unstable)"
     },
     "endpoints": {
       "anyOf": [
