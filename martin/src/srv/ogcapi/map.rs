@@ -465,7 +465,7 @@ pub async fn get_style_map(
     utoipa::path(
         get,
         path = "/ogc/collections/{collection_id}/map",
-        operation_id = "get_ogc_collection_map",
+        operation_id = "ogc.collection.getMap",
         params(("collection_id" = String, Path, description = "Collection ID, the ID of a source"), MapQuery),
         responses(
             (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"))),
