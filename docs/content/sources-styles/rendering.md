@@ -100,10 +100,6 @@ PNG is not affected, see [indexed PNG](#indexed-palette-png).
   The alpha channel stays lossless.
 - **`jpeg`** is 1 to 100. JPEG has no lossless mode.
 
-!!! note
-    Up to 2.0.0-beta.4, rendered WebP was lossless and JPEG was encoded at quality 75.
-    Set `quality: { webp: lossless, jpeg: 75 }` to keep that output.
-
 ```yaml
 styles:
     rendering:
