@@ -10,6 +10,7 @@ use martin_tilegen::plan::{
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
+use mlt_core::encoder::EncoderConfig;
 use tilejson::Bounds;
 use tracing::warn;
 
@@ -29,6 +30,8 @@ pub struct LowerOptions {
     pub zooms: RangeInclusive<u8>,
     /// WGS84 area to generate, if not the whole world.
     pub bounds: Option<Bounds>,
+    /// MLT encoder settings, if not the layer default.
+    pub encoder: Option<EncoderConfig>,
 }
 
 /// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when the
@@ -45,7 +48,7 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
         warn!("Skipping source `{id}`: it has no zoom between {cli_min} and {cli_max}");
         return Ok(None);
     }
-    let defaults = LayerDef {
+    let mut defaults = LayerDef {
         clip_mode: info.clip_geom.map_or(ClipMode::Clipped, clip_mode),
         bounds: options.bounds,
         ..LayerDef::new(
@@ -57,6 +60,9 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
             },
         )
     };
+    if let Some(encoder) = options.encoder {
+        defaults.encoder = encoder;
+    }
     let columns: Vec<ColumnDef> = info
         .properties
         .iter()
@@ -87,7 +93,11 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
         return Ok(None);
     }
     let def = TableDef { columns, layers };
-    Ok(Some(ScanTable { info, def }))
+    Ok(Some(ScanTable {
+        id: id.to_owned(),
+        info,
+        def,
+    }))
 }
 
 fn lower_layer(
@@ -297,7 +307,15 @@ mod tests {
 
     fn lower(yaml: &str, zooms: RangeInclusive<u8>) -> GenerateResult<Option<ScanTable>> {
         let info: TableInfo = serde_saphyr::from_str(yaml).expect("valid table");
-        lower_table("roads_source", info, &LowerOptions { zooms, bounds: None })
+        lower_table(
+            "roads_source",
+            info,
+            &LowerOptions {
+                zooms,
+                bounds: None,
+                encoder: None,
+            },
+        )
     }
 
     #[test]
@@ -320,6 +338,7 @@ mod tests {
         let options = LowerOptions {
             zooms: 0..=8,
             bounds: Some(Bounds::new(-10.0, -5.0, 10.0, 5.0)),
+            encoder: None,
         };
         let scan = lower_table("roads_source", info, &options)
             .expect("lowers")
@@ -485,13 +504,13 @@ mod tests {
         TableDef {
             columns: [
                 Value(
-                    "class",
+                    "name",
                     Some(
                         String,
                     ),
                 ),
                 Value(
-                    "name",
+                    "class",
                     Some(
                         String,
                     ),

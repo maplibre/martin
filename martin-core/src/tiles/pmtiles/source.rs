@@ -14,6 +14,7 @@ use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// Where a [`PmtilesSource`] reads from.
@@ -145,10 +146,11 @@ impl PmtilesSource {
             }
         };
 
-        let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
+        let mut tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
             warn!(path = %path, error = ?e, "Unable to parse metadata");
             hdr.get_tilejson(Vec::new())
         });
+        cap_zoom_range(&id, &mut tilejson);
 
         Ok(Self {
             id,

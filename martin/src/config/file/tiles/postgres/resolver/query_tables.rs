@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
+use indexmap::IndexMap;
 #[cfg(feature = "unstable-generate")]
 use martin_core::tiles::postgres::PostgresError::EngineTable;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
@@ -94,11 +95,13 @@ pub async fn query_available_tables(
             geometry_column: row.get("geom"),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
-            properties: Some(
-                serde_json::from_value(row.get("properties"))
-                    .expect("properties column should be a valid JSON object with string values"),
-            ),
-            discovered: DiscoveredTable {
+            properties: Some({
+                let mut props: IndexMap<String, String> = serde_json::from_value(row.get("properties"))
+                    .expect("properties column should be a valid JSON object with string values");
+                props.sort_keys();
+                props
+            }),
+            discovered: Box::new(DiscoveredTable {
                 geometry_index: row.get("geom_idx"),
                 relkind: row
                     .get::<_, Option<i8>>("relkind")
@@ -109,7 +112,7 @@ pub async fn query_available_tables(
                     .expect("nondeterministic_columns column should be a valid JSON array of strings"),
                 tilejson,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         };
 
@@ -357,12 +360,12 @@ impl TableQuerySql {
 
         let (escaped_id_column, id_name, id_field) = if let Some(id_column) = &info.id_column {
             (
-                escape_identifier(id_column),
+                Some(escape_identifier(id_column)),
                 format!(", {}", escape_literal(id_column)),
                 escape_with_alias(&info.discovered.prop_mapping, id_column),
             )
         } else {
-            (String::new(), String::new(), String::new())
+            (None, String::new(), String::new())
         };
 
         let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
@@ -390,14 +393,11 @@ impl TableQuerySql {
             table: escape_identifier(&info.table),
             filter: row_filter(info, "AND")?,
             limit_clause: max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}")),
-            order_clause: order_by.map_or(String::new(), |v| match v {
-                OrderByType::IdAsc => {
-                    format!("ORDER BY {escaped_id_column} ASC NULLS LAST")
-                }
-                OrderByType::IdDesc => {
-                    format!("ORDER BY {escaped_id_column} DESC NULLS LAST")
-                }
-            }),
+            order_clause: match (order_by, escaped_id_column) {
+                (Some(OrderByType::IdAsc), Some(id)) => format!("ORDER BY {id} ASC NULLS LAST"),
+                (Some(OrderByType::IdDesc), Some(id)) => format!("ORDER BY {id} DESC NULLS LAST"),
+                (None, _) | (Some(OrderByType::IdAsc | OrderByType::IdDesc), None) => String::new(),
+            },
             extent,
             buffer,
             clip_geom: info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM),
@@ -545,7 +545,7 @@ WHERE "__martin_geom" IS NOT NULL;
 }
 
 /// The configured CQL2 `filter` as a SQL clause starting with `keyword`, or nothing.
-fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
+pub fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
     use cql2::ToSqlAst as _;
     let Some(filter) = info.filter.as_deref() else {
         return Ok(String::new());

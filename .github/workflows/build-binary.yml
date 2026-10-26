@@ -11,8 +11,8 @@ on:
         description: 'Runner OS label'
         required: true
         type: string
-      musl:
-        description: 'Use cargo-zigbuild / zig for a musl static build'
+      zig:
+        description: 'Cross-compile with cargo-zigbuild / zig, for the musl static and FreeBSD builds'
         required: false
         type: boolean
         default: false
@@ -68,15 +68,15 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Install Rust, just (and cargo-zigbuild for musl)
+      - name: Install Rust, just (and cargo-zigbuild for zig builds)
         uses: $/.github/actions/setup-rust
         with:
-          tools: ${{ inputs.musl && 'just,cargo-zigbuild' || 'just' }}
+          tools: ${{ inputs.zig && 'just,cargo-zigbuild' || 'just' }}
           # Only PRs reuse the cache, and they always build in debug mode.
           cache: ${{ !inputs.release_mode }}
           cache-key: ${{ inputs.target }}${{ inputs.full && '-full' || '' }}${{ inputs.legacy_cpu && '-legacycpu' || '' }}
-      - name: Install zig (musl only)
-        if: inputs.musl
+      - name: Install zig (zig builds only)
+        if: inputs.zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with: { version: '0.17.0', use-cache: false }
       - name: Rust Versions
@@ -107,7 +107,7 @@ jobs:
         run: just install-dependencies
 
       - name: Build ${{ inputs.target }}
-        if: ${{ !inputs.musl && !inputs.full }}
+        if: ${{ !inputs.zig && !inputs.full }}
         env:
           TARGET: ${{ inputs.target }}
           DATABASE_URL: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports['5432'] }}/test
@@ -117,11 +117,11 @@ jobs:
         env:
           TARGET: ${{ inputs.target }}
         run: just build-release-full "$TARGET"
-      - name: Build ${{ inputs.target }} (musl)
-        if: inputs.musl
+      - name: Build ${{ inputs.target }} (zig)
+        if: inputs.zig
         env:
           TARGET: ${{ inputs.target }}
-        run: just build-release-musl "$TARGET"
+        run: just build-release-zig "$TARGET"
       - name: Move ${{ inputs.target }} artefacts to the target_releases directory
         if: ${{ !inputs.pgo }}
         env:

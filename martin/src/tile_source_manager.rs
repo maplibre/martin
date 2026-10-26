@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
+#[cfg(feature = "ogcapi")]
+use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD};
 use tokio::sync::watch;
 use tracing::{info, warn};
 
@@ -101,6 +103,25 @@ impl TileSourceManager {
     #[must_use]
     pub fn tile_sources(&self) -> TileSources {
         TileSources::from_maps(Arc::clone(&self.tile_sources), Arc::clone(&self.aliases))
+    }
+
+    /// The grids the served sources are on, Web Mercator always first.
+    #[cfg(feature = "ogcapi")]
+    #[must_use]
+    pub fn served_grids(&self) -> Vec<TileGrid> {
+        let sources = self.tile_sources();
+        let mut grids = vec![WEB_MERCATOR_QUAD];
+        for id in sources.source_names() {
+            let Ok((source, _)) = sources.get_source(&id) else {
+                continue;
+            };
+            let grid = source.tile_grid();
+            if !grids.iter().any(|served| served.id() == grid.id()) {
+                grids.push(grid.clone());
+            }
+        }
+        grids[1..].sort_by(|a, b| a.id().cmp(b.id()));
+        grids
     }
 
     /// Returns a reference to the optional tile cache.

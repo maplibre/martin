@@ -16,20 +16,25 @@ use std::time::{Duration, Instant};
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
 use martin_tilegen::plan::Untranslatable;
+use martin_tilegen::source::WkbError;
 use martin_tilegen::{
     GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, TileGenResult,
     generate,
 };
+use mlt_core::encoder::EncoderConfig;
+use postgres_protocol::escape::escape_identifier;
 use tilejson::{Bounds, tilejson};
 #[cfg(unix)]
 use tokio::signal::unix::{Signal, SignalKind, signal};
 #[cfg(windows)]
 use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
+use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
+use crate::config::file::process::{MltProcessConfig, ProcessConfig};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
@@ -70,6 +75,7 @@ impl GenerateOptions {
             ("--concurrency", args.concurrency.is_some()),
             ("--skip-agg-tiles-hash", args.skip_agg_tiles_hash),
             ("--set-meta", !args.set_meta.is_empty()),
+            ("--delete-meta", !args.delete_meta.is_empty()),
             ("--save-config", meta.save_config.is_some()),
             (
                 "--max-feature-count",
@@ -195,10 +201,33 @@ pub enum GenerateError {
     ParseSpec(PathBuf, #[source] Box<serde_saphyr::Error>),
     #[error("Cannot write spec file {}: {}", .0.display(), .1)]
     WriteSpec(PathBuf, #[source] std::io::Error),
+    #[error(
+        "`martin test` holds one connection open for its snapshot and reads through another, but `pool_size` is {pool_size}; set it to at least 2"
+    )]
+    PoolTooSmall { pool_size: usize },
     #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
     CaseTooLarge { table: String, key: u64, tiles: usize },
+    #[error(
+        "Source `{source_id}`: {error}\nCount the rows of each geometry type it cannot render with:\n  {count_sql}"
+    )]
+    FeatureGeometry {
+        source_id: String,
+        #[source]
+        error: Box<TileGenError>,
+        count_sql: String,
+    },
+    #[error("Row {key} of `{source_id}`: {error}")]
+    CaseGeometry {
+        source_id: String,
+        key: u64,
+        #[source]
+        error: WkbError,
+    },
     #[error("Cannot decode a tile bulk mode wrote: {0}")]
     Decode(#[source] mlt_core::MltError),
+    #[cfg(feature = "tui")]
+    #[error("The review terminal failed: {0}")]
+    Review(#[source] std::io::Error),
     #[error("Background task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
@@ -258,6 +287,10 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.warn_unrecognized_keys();
 
     let (pool, scans) = select_sources(&config, &options).await?;
+    let geometry_finders: Vec<(String, String)> = scans
+        .iter()
+        .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
+        .collect::<GenerateResult<_>>()?;
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
@@ -280,7 +313,9 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
     };
     reporter.abort();
-    let summary = result.inspect_err(|_| remove_output(&output))?;
+    let summary = result
+        .map_err(|err| explain_feature_geometry(err, &geometry_finders))
+        .inspect_err(|_| remove_output(&output))?;
     info!(
         features = summary.features,
         tiles = summary.tiles,
@@ -289,9 +324,9 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         "Generated tiles"
     );
     if summary.skipped > 0 {
-        warn!(
+        debug!(
             features.skipped = summary.skipped,
-            "Skipped features with geometry collections or empty geometries, which tiles cannot hold"
+            "Skipped features with empty geometries"
         );
     }
     for failed in &summary.slice_errors {
@@ -313,6 +348,37 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         );
     }
     Ok(())
+}
+
+/// `err` naming the source of a feature whose geometry stopped the run, with `finders` by table:
+/// the source id and a query counting the rows of each geometry type it cannot render.
+fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) -> GenerateError {
+    let GenerateError::TileGen(err) = err else {
+        return err;
+    };
+    let (TileGenError::FeatureWkb { table, .. } | TileGenError::RowWkb { table, .. }) = &err else {
+        return GenerateError::TileGen(err);
+    };
+    let Some((source_id, sql)) = finders.get(usize::from(*table)) else {
+        return GenerateError::TileGen(err);
+    };
+    GenerateError::FeatureGeometry {
+        source_id: source_id.clone(),
+        count_sql: sql.clone(),
+        error: Box::new(err),
+    }
+}
+
+/// A query counting the rows of `info` that pass its filter, by each geometry type bulk mode cannot render.
+fn unsupported_geometry_sql(info: &TableInfo) -> GenerateResult<String> {
+    Ok(format!(
+        "SELECT ST_GeometryType(g), count(*) FROM (SELECT {} AS g FROM {}.{} WHERE {} IS NOT NULL{}) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1",
+        linear_geometry(info),
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table),
+        escape_identifier(&info.geometry_column),
+        row_filter(info, "AND")?,
+    ))
 }
 
 /// Created before the run starts, so that a failure removes only a file this run created.
@@ -401,6 +467,12 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
     let mut tables: BTreeMap<String, (TableInfo, usize)> = BTreeMap::new();
     let mut functions = HashSet::new();
     let mut warnings = Vec::new();
+    let global = ProcessConfig {
+        convert_to_mlt: config.convert_to_mlt.clone(),
+        convert_to_mvt: config.convert_to_mvt.clone(),
+        ..ProcessConfig::default()
+    };
+    let mut connections = Vec::new();
     for pg in &config.postgres {
         let builder = PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids).await?;
         let (specs, pg_warnings) = builder.discover().await?;
@@ -416,6 +488,11 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
             }
         }
         pools.push(builder.pool().clone());
+        connections.push(ProcessConfig {
+            convert_to_mlt: pg.convert_to_mlt.clone(),
+            convert_to_mvt: pg.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        });
     }
     config.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
     let requested: Vec<String> = if options.sources.is_empty() {
@@ -427,6 +504,7 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
     let lower = LowerOptions {
         zooms: options.zooms.clone(),
         bounds: options.bbox,
+        encoder: None,
     };
     let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;
@@ -446,7 +524,23 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
             return Err(GenerateError::MultipleDatabases);
         }
-        scans.extend(lower_table(&id, info.clone(), &lower)?);
+        let per_table = ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        };
+        let encoder = match ProcessConfig::layered(&global, &connections[*pool_idx], &per_table).convert_to_mlt {
+            Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
+            _ => None,
+        };
+        scans.extend(lower_table(
+            &id,
+            info.clone(),
+            &LowerOptions {
+                encoder,
+                ..lower.clone()
+            },
+        )?);
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;
     if scans.is_empty() {

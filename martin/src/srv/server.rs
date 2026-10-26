@@ -28,6 +28,8 @@ use crate::srv::admin::{Catalog, get_catalog};
 use crate::srv::admin::{get_index_ui_disabled, webui};
 #[cfg(feature = "resources")]
 use crate::srv::fonts;
+#[cfg(feature = "ogcapi")]
+use crate::srv::ogcapi;
 #[cfg(feature = "resources")]
 use crate::srv::sprites;
 #[cfg(feature = "resources")]
@@ -44,8 +46,8 @@ use crate::srv::tiles;
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
 /// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
 pub const RESERVED_KEYWORDS: &[&str] = &[
-    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh", "reload", "sprite",
-    "status",
+    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "ogc", "refresh", "reload",
+    "sprite", "status",
 ];
 
 /// Maps any classified error onto an HTTP response.
@@ -70,6 +72,28 @@ pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -
             ErrorInternalServerError(e.to_string())
         }
     }
+}
+
+/// Resolve the URL path prefix under which Martin is publicly served.
+///
+/// Returns an empty string when no prefix applies, otherwise a leading-slash
+/// path with no trailing slash (e.g. `/tiles`).
+///
+/// Note: `X-Rewrite-URL` is intentionally not honored here. Unlike the
+/// `TileJSON` case where the header's full path can be used directly, for
+/// styles the header would contain the full style request path
+/// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
+#[cfg(any(feature = "resources", feature = "ogcapi"))]
+pub fn path_prefix(req: &actix_web::HttpRequest, srv_config: &SrvConfig) -> String {
+    let Some(prefix) = srv_config.public_path_prefix() else {
+        return req
+            .headers()
+            .get("X-Forwarded-Prefix")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<actix_web::http::Uri>().ok())
+            .map_or_default(|v| v.path().trim_end_matches('/').to_owned());
+    };
+    prefix.to_owned()
 }
 
 /// Helper struct for debounced warning messages in redirect handlers.
@@ -147,6 +171,18 @@ fn register_services(
     #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))] usr_cfg: &SrvConfig,
 ) {
     cfg.service(get_health).service(get_catalog);
+
+    // Register the OGC API BEFORE the tile routes, whose `/{source_ids}` would take `/ogc`
+    #[cfg(feature = "ogcapi")]
+    cfg.service(ogcapi::get_landing_page)
+        .service(ogcapi::get_conformance)
+        .service(ogcapi::get_tile_matrix_sets)
+        .service(ogcapi::get_tile_matrix_set)
+        .service(ogcapi::get_collections)
+        .service(ogcapi::get_collection)
+        .service(ogcapi::get_tilesets)
+        .service(ogcapi::get_tileset)
+        .service(ogcapi::get_tile);
 
     #[cfg(feature = "_tiles")]
     {
@@ -370,5 +406,61 @@ async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
             }
         }
         Err(e) => tracing::warn!(error = %e, "Ctrl+Break will not stop martin gracefully"),
+    }
+}
+
+#[cfg(all(test, any(feature = "resources", feature = "ogcapi")))]
+mod tests {
+    use actix_web::test::TestRequest;
+
+    use super::*;
+
+    fn cfg(base_path: Option<&str>, route_prefix: Option<&str>) -> SrvConfig {
+        SrvConfig {
+            base_path: base_path.map(str::to_owned),
+            route_prefix: route_prefix.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn path_prefix_empty_when_nothing_configured() {
+        let req = TestRequest::default().to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "");
+    }
+
+    #[test]
+    fn path_prefix_uses_base_path_first() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(
+            path_prefix(&req, &cfg(Some("/from_base"), Some("/from_route"))),
+            "/from_base"
+        );
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_route_prefix() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, Some("/from_route"))), "/from_route");
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_forwarded_prefix_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
+    }
+
+    #[test]
+    fn path_prefix_strips_trailing_slash_from_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header/"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
     }
 }

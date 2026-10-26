@@ -33,6 +33,112 @@ fn make_valid(rings: &[&[(f64, f64)]]) -> String {
     show(Quantizer::new().make_valid(coords(rings)).expect("finite coordinates"))
 }
 
+fn multi_polygon(polygons: &[&[&[(f64, f64)]]]) -> String {
+    show(
+        Quantizer::new()
+            .multi_polygon(polygons.iter().map(|rings| coords(rings)))
+            .expect("finite coordinates"),
+    )
+}
+
+#[test]
+fn parts_apart_after_rounding_stay_separate() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let right = [(11.4, 0.0), (20.0, 0.0), (20.0, 10.0), (11.4, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[&left], &[&right]]), @"
+    (0 0, 10 0, 10 10, 0 10)
+    (11 0, 20 0, 20 10, 11 10)
+    ");
+}
+
+#[test]
+fn parts_that_round_onto_one_edge_merge() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let right = [(10.02, 0.0), (20.0, 0.0), (20.0, 10.0), (10.02, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[&left], &[&right]]), @"(0 0, 10 0, 20 0, 20 10, 10 10, 0 10)");
+}
+
+#[test]
+fn parts_that_cross_far_from_any_vertex_merge_into_their_union() {
+    let across = [(0.0, 4.0), (20.0, 4.0), (20.0, 6.0), (0.0, 6.0)];
+    let down = [(9.0, -10.0), (11.0, -10.0), (11.0, 20.0), (9.0, 20.0)];
+    assert_snapshot!(multi_polygon(&[&[&across], &[&down]]), @"(0 4, 9 4, 9 -10, 11 -10, 11 4, 20 4, 20 6, 11 6, 11 20, 9 20, 9 6, 0 6)");
+}
+
+#[test]
+fn parts_that_touch_at_two_points_and_overlap_between_them_merge() {
+    let wide = [(105.0, 105.0), (105.0, 106.0), (-32.0, 106.0), (0.0, 39.0)];
+    let narrow = [(0.0, 0.0), (0.0, 62.0), (-32.0, 106.0)];
+    assert_snapshot!(multi_polygon(&[&[&wide], &[&narrow]]), @"(-32 106, 0 0, 0 39, 105 105, 105 106)");
+}
+
+#[test]
+fn far_part_stays_as_it_is_while_two_near_parts_merge() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let far = [(40.2, 0.1), (49.7, 0.4), (49.6, 9.5), (40.4, 9.8)];
+    let right = [(10.02, 0.0), (20.0, 0.0), (20.0, 10.0), (10.02, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[&left], &[&far], &[&right]]), @"
+    (0 0, 10 0, 20 0, 20 10, 10 10, 0 10)
+    (40 0, 50 0, 50 10, 40 10)
+    ");
+}
+
+#[test]
+fn far_part_stays_as_it_is_while_two_near_parts_stacked_in_a_column_merge() {
+    let bottom = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let far = [(0.1, 40.2), (9.8, 40.4), (9.5, 49.6), (0.4, 49.7)];
+    let top = [(0.0, 10.02), (10.0, 10.02), (10.0, 20.0), (0.0, 20.0)];
+    assert_snapshot!(multi_polygon(&[&[&bottom], &[&far], &[&top]]), @"
+    (0 0, 10 0, 10 10, 10 20, 0 20, 0 10)
+    (0 40, 10 40, 10 50, 0 50)
+    ");
+}
+
+#[test]
+fn part_vertex_that_rounds_into_another_part_merges() {
+    let upper = [(0.0, 0.0), (10.0, 3.0), (0.0, 3.0)];
+    let lower = [(2.0, 0.0), (10.0, 0.0), (5.45, 1.55)];
+    assert_snapshot!(multi_polygon(&[&[&upper], &[&lower]]), @"(0 0, 2 0, 10 0, 5 2, 10 3, 0 3)");
+}
+
+#[test]
+fn island_in_a_hole_stays_an_island_while_other_parts_merge() {
+    let lake = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let shore = [(2.0, 2.0), (8.0, 2.0), (8.0, 8.0), (2.0, 8.0)];
+    let island = [(4.0, 4.0), (6.0, 4.0), (6.0, 6.0), (4.0, 6.0)];
+    let neighbor = [(10.02, 0.0), (20.0, 0.0), (20.0, 10.0), (10.02, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[&lake, &shore], &[&island], &[&neighbor]]), @"
+    (0 0, 10 0, 20 0, 20 10, 10 10, 0 10), (2 2, 2 8, 8 8, 8 2)
+    (4 4, 6 4, 6 6, 4 6)
+    ");
+}
+
+#[test]
+fn island_that_rounds_onto_its_shore_joins_the_land_around_it() {
+    let lake = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let shore = [(2.0, 2.0), (8.0, 2.0), (8.0, 8.0), (2.0, 8.0)];
+    let island = [(2.02, 4.0), (5.0, 4.0), (5.0, 6.0), (2.02, 6.0)];
+    assert_snapshot!(multi_polygon(&[&[&lake, &shore], &[&island]]), @"(0 0, 10 0, 10 10, 0 10), (2 2, 2 4, 5 4, 5 6, 2 6, 2 8, 8 8, 8 2)");
+}
+
+#[test]
+fn part_that_rounds_to_a_line_is_dropped_and_the_others_kept() {
+    let line = [(0.0, 0.0), (10.0, 0.3), (20.0, 0.1)];
+    let exterior = [(0.2, 2.1), (9.7, 2.4), (9.6, 11.5), (0.4, 11.8)];
+    let hole = [(3.2, 5.1), (3.4, 8.7), (6.6, 8.8), (6.9, 5.3)];
+    assert_snapshot!(multi_polygon(&[&[&line], &[&exterior, &hole]]), @"(0 2, 10 2, 10 12, 0 12), (3 5, 3 9, 7 9, 7 5)");
+}
+
+#[test]
+fn part_without_rings_is_dropped_and_the_others_kept() {
+    let left = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+    let right = [(20.0, 0.0), (30.0, 0.0), (30.0, 10.0), (20.0, 10.0)];
+    assert_snapshot!(multi_polygon(&[&[], &[&left], &[], &[&right]]), @"
+    (0 0, 10 0, 10 10, 0 10)
+    (20 0, 30 0, 30 10, 20 10)
+    ");
+}
+
 #[test]
 fn polygon_that_rounds_valid_keeps_every_vertex() {
     let exterior = [(0.2, 0.1), (9.7, 0.4), (9.6, 9.5), (0.4, 9.8)];
@@ -64,7 +170,7 @@ fn two_tip_vertices_that_would_cross_merge_into_one() {
 #[test]
 fn sliver_that_rounds_onto_itself_keeps_its_area_off_the_fold() {
     let exterior = [(-32.0, -0.25), (3148.25, 12.25), (-490.25, -0.25), (14.5, 0.0)];
-    assert_snapshot!(quantize(&[&exterior]), @"(-490 0, -32 0, 15 0, 3148 12)");
+    assert_snapshot!(quantize(&[&exterior]), @"(-490 0, -32 0, 14 0, 3148 12)");
 }
 
 #[test]
@@ -98,6 +204,27 @@ fn self_crossing_exterior_keeps_both_lobes() {
     (0 0, 5 5, 0 10)
     (5 5, 10 0, 10 10)
     ");
+}
+
+#[test]
+fn self_crossing_exterior_crossing_halfway_between_units_rounds_to_the_even_unit() {
+    let exterior = [(1.0, 1.0), (4.0, 4.0), (4.0, 1.0), (1.0, 4.0)];
+    assert_snapshot!(make_valid(&[&exterior]), @"
+    (1 1, 2 2, 1 4)
+    (2 2, 4 1, 4 4)
+    ");
+}
+
+#[test]
+fn vertices_halfway_between_units_round_to_the_even_unit() {
+    let exterior = [(0.5, -0.5), (3.5, -0.5), (3.5, 2.5), (-1.5, 2.5)];
+    assert_snapshot!(quantize(&[&exterior]), @"(0 0, 4 0, 4 2, -2 2)");
+}
+
+#[test]
+fn vertices_just_off_a_half_round_to_the_nearer_unit() {
+    let exterior = [(0.0, 0.0), (3.4999, 0.0), (3.4999, 2.5001), (0.0, 2.5001)];
+    assert_snapshot!(quantize(&[&exterior]), @"(0 0, 3 0, 3 3, 0 3)");
 }
 
 #[test]

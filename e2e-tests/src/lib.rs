@@ -10,9 +10,11 @@ mod cog;
 mod images;
 mod martin;
 mod martin_cp;
+mod martin_test_generate;
 mod mbtiles;
 mod pmtiles;
 mod statics;
+mod team_engine;
 
 use std::ffi::OsString;
 use std::fs::{self, File};
@@ -30,12 +32,14 @@ pub use crate::martin::{
     Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump, rings_from_smallest_vertex,
 };
 pub use crate::martin_cp::MartinCp;
+pub use crate::martin_test_generate::{MartinTestReview, seed_postgres};
 pub use crate::mbtiles::{
     GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing, open_read_only,
     open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
 pub use crate::pmtiles::{LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles};
 pub use crate::statics::StaticFiles;
+pub use crate::team_engine::TeamEngine;
 
 /// A temporary directory for a test to build its fixtures and outputs in.
 #[must_use]
@@ -80,6 +84,14 @@ fn pg_ssl_args() -> Vec<OsString> {
 ///
 /// `env_var` may hold a program plus leading arguments (e.g. a `docker run ...` invocation).
 fn binary_command(env_var: &str, name: &str) -> Command {
+    let mut argv = binary_argv(env_var, name).into_iter();
+    let mut cmd = Command::new(argv.next().expect("a program"));
+    cmd.args(argv);
+    cmd
+}
+
+/// The program and leading arguments of a workspace binary, as [`binary_command`] runs it.
+fn binary_argv(env_var: &str, name: &str) -> Vec<OsString> {
     if let Ok(bin) = env::var(env_var) {
         let mut parts = bin.split_whitespace();
         let Some(program) = parts.next() else {
@@ -94,9 +106,7 @@ fn binary_command(env_var: &str, name: &str) -> Command {
         } else {
             OsString::from(program)
         };
-        let mut cmd = Command::new(program);
-        cmd.args(parts);
-        return cmd;
+        return std::iter::once(program).chain(parts.map(OsString::from)).collect();
     }
     let target_dir = env::var_os("CARGO_TARGET_DIR").map_or_else(|| workspace_root().join("target"), PathBuf::from);
     let bin = target_dir
@@ -107,7 +117,7 @@ fn binary_command(env_var: &str, name: &str) -> Command {
         "{name} binary not found at `{}`; build it first with `cargo build -p {name}`, or point {env_var} at an existing binary",
         bin.display()
     );
-    Command::new(bin)
+    vec![bin.into_os_string()]
 }
 
 /// Path of a checked-in fixture, relative to `tests/fixtures`.

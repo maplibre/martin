@@ -6,9 +6,11 @@ use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 use std::time::Duration;
 
-use martin_core::tiles::postgres::PostgresPool;
+use martin_core::tiles::postgres::{
+    PooledConnection, PostgresPool, export_snapshot, open_scan_connection, open_snapshot_connection,
+};
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tilegen::plan::{ColumnValues, Condition, GeometryType, Literal, Shape, SizeBand};
+use martin_tilegen::plan::{ColumnFacts, Condition, GeometryType, Literal, Shape, SizeBand};
 use postgres_protocol::escape::escape_identifier;
 
 use crate::config::file::postgres::resolver::{condition_sql, linear_geometry, scan_sql};
@@ -19,16 +21,36 @@ use crate::config::primitives::env::OsEnv;
 use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable};
+use crate::generate::spec::catalog::table_facts;
 use crate::generate::{GenerateError, GenerateResult};
 use crate::srv::RESERVED_KEYWORDS;
 
 /// How long the search for one path's row may take.
 const PATH_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// The table sources with layers of a configuration, and the database they come from.
+/// The table sources with layers of a configuration, and the database they come from as it was when they were
+/// loaded.
 pub struct Postgres {
     builder: PostgresAutoDiscoveryBuilder,
     tables: BTreeMap<String, TableInfo>,
+    /// What the catalog says about the columns of each source's table, as of the snapshot.
+    facts: BTreeMap<String, Vec<ColumnFacts>>,
+    snapshot: Snapshot,
+}
+
+/// An open transaction whose snapshot every read of the database imports, so a row reads the same however often
+/// it is read.
+struct Snapshot {
+    conn: Option<PooledConnection>,
+    id: String,
+}
+
+impl Drop for Snapshot {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            PostgresPool::discard(conn);
+        }
+    }
 }
 
 impl Postgres {
@@ -50,14 +72,30 @@ impl Postgres {
             PostgresAutoDiscoveryBuilder::new(pg, IdResolver::new(RESERVED_KEYWORDS), config.cache.policy(), &grids)
                 .await?;
         let (specs, _) = builder.discover().await?;
-        let tables = specs
+        let tables: BTreeMap<String, TableInfo> = specs
             .into_iter()
             .filter_map(|(id, spec)| match spec {
                 SourceSpec::Table(info) if info.layers.is_some() => Some((id, info)),
                 SourceSpec::Table(_) | SourceSpec::Function(..) => None,
             })
             .collect();
-        Ok(Self { builder, tables })
+        let pool_size = builder.pool().max_size();
+        if pool_size < 2 {
+            return Err(GenerateError::PoolTooSmall { pool_size });
+        }
+        let conn = open_scan_connection(builder.pool()).await?;
+        let id = export_snapshot(&conn).await?;
+        let mut facts = BTreeMap::new();
+        for (source, info) in &tables {
+            facts.insert(source.clone(), table_facts(&conn, info).await?);
+        }
+        let snapshot = Snapshot { conn: Some(conn), id };
+        Ok(Self {
+            builder,
+            tables,
+            facts,
+            snapshot,
+        })
     }
 
     /// The pool of the sources' database.
@@ -100,13 +138,18 @@ impl Postgres {
             "SELECT s.{id}::int8 FROM ({}{size}) AS s WHERE s.{id}::int8 >= 0 LIMIT 1",
             scan.sql
         );
-        let conn = self.pool().get().await.map_err(|e| e.to_string())?;
-        let timeout = format!("SET statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
-        conn.batch_execute(&timeout).await.map_err(|e| db_error(&e))?;
-        let found = conn.query_opt(query.as_str(), &[]).await;
-        conn.batch_execute("RESET statement_timeout")
+        let conn = open_snapshot_connection(self.pool(), &self.snapshot.id)
             .await
-            .map_err(|e| db_error(&e))?;
+            .map_err(|e| e.to_string())?;
+        let found = async {
+            let timeout = format!("SET LOCAL statement_timeout = '{}s'", PATH_TIMEOUT.as_secs());
+            conn.batch_execute(&timeout).await?;
+            conn.query_opt(query.as_str(), &[]).await
+        }
+        .await;
+        if conn.batch_execute("ROLLBACK").await.is_err() {
+            PostgresPool::discard(conn);
+        }
         let Some(row) = found.map_err(|e| db_error(&e))? else {
             return Ok(None);
         };
@@ -126,26 +169,35 @@ impl TestBackend for Postgres {
     fn tables(&self, max_zoom: u8) -> GenerateResult<Vec<TestTable>> {
         let mut out = Vec::with_capacity(self.tables.len());
         for (id, info) in &self.tables {
-            out.extend(test_table(id, info, max_zoom)?);
+            let Some(mut table) = test_table(id, info, max_zoom)? else {
+                continue;
+            };
+            for fact in self.facts.get(id).into_iter().flatten() {
+                table.learn(fact.clone());
+            }
+            out.push(table);
         }
         Ok(out)
     }
 
-    /// Partitioned as bulk mode partitions a table, the scan of one row in a single partition.
+    /// Partitioned as bulk mode partitions a table, the scan of one row in a single partition, reading the snapshot
+    /// of the load.
     async fn scan(&self, table: &TestTable, key: Option<RowKey>, rows: Rows) -> GenerateResult<PgScanSource> {
         let (info, blocks) = match key {
             Some(key) => (self.row(&table.source, key)?, u32::MAX),
             None => (self.info(&table.source)?.clone(), PgScanSource::PARTITION_BLOCKS),
         };
         let scan = vec![ScanTable {
+            id: table.source.clone(),
             info,
             def: table.def.clone(),
         }];
         let pool = self.pool().clone();
-        Ok(match rows {
+        let source = match rows {
             Rows::Bulk => PgScanSource::new(pool, scan, blocks).await?,
             Rows::All => PgScanSource::every_row(pool, scan, blocks).await?,
-        })
+        };
+        Ok(source.at_snapshot(self.snapshot.id.clone()))
     }
 
     async fn find(&self, table: &TestTable, rows: &Condition, shape: Option<Shape>) -> Find {
@@ -161,7 +213,8 @@ impl TestBackend for Postgres {
 }
 
 /// Source `id` with table `info` as `martin test` reads it, at zooms 0 to `max_zoom`, or `None` when it has none of
-/// them. The values the source's `filter` allows a column are known values of the column.
+/// them. The values the source's `filter` allows a column are known values of the column, and the key column is never
+/// `null`, as `martin test` selects no row without a key.
 ///
 /// # Errors
 ///
@@ -170,21 +223,33 @@ pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Op
     let options = LowerOptions {
         zooms: 0..=max_zoom,
         bounds: None,
+        encoder: None,
     };
     let Some(scan) = lower_table(id, info.clone(), &options)? else {
         return Ok(None);
     };
-    Ok(Some(TestTable {
+    let mut table = TestTable {
         source: id.to_owned(),
         def: scan.def,
-        known: filter_values(info),
+        facts: Vec::new(),
         key: info.id_column.clone(),
         geometry: table_geometry(info),
-    }))
+    };
+    for fact in filter_values(info) {
+        table.learn(fact);
+    }
+    if let Some(key) = &info.id_column {
+        table.learn(ColumnFacts {
+            column: key.clone(),
+            not_null: true,
+            values: None,
+        });
+    }
+    Ok(Some(table))
 }
 
 /// The values of the columns the `filter` of `info` allows only some of, from the `IN` lists and `=` it ANDs.
-fn filter_values(info: &TableInfo) -> Vec<ColumnValues> {
+fn filter_values(info: &TableInfo) -> Vec<ColumnFacts> {
     let Some(expr) = info.filter.as_deref().and_then(|f| cql2::parse_text(f).ok()) else {
         return Vec::new();
     };
@@ -194,7 +259,7 @@ fn filter_values(info: &TableInfo) -> Vec<ColumnValues> {
 }
 
 /// The column values `expr` and the conditions it ANDs allow.
-fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnValues>) {
+fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnFacts>) {
     let cql2::Expr::Operation { op, args } = expr else {
         return;
     };
@@ -221,9 +286,10 @@ fn collect_values(expr: &cql2::Expr, out: &mut Vec<ColumnValues>) {
         None
     };
     if let Some(values) = values {
-        out.push(ColumnValues {
+        out.push(ColumnFacts {
             column: property.clone(),
-            values,
+            not_null: true,
+            values: Some(values),
         });
     }
 }

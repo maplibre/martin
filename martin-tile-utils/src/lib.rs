@@ -25,7 +25,7 @@ mod decoders;
 pub use decoders::*;
 mod grid;
 pub use crate::grid::{
-    BUILT_IN_GRIDS, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
+    BUILT_IN_GRIDS, CrsAxes, EUROPEAN_ETRS89_LAEA_QUAD, NZTM2000_QUAD, SIMPLE_CRS, TileGrid, TileGridError,
     UPS_ANTARCTIC_WGS84_QUAD, UPS_ARCTIC_WGS84_QUAD, WEB_MERCATOR_QUAD, WEB_MERCATOR_QUAD_ID, WGS1984_QUAD_ID,
     WORLD_CRS84_QUAD, WORLD_CRS84_QUAD_ID, WORLD_MERCATOR_WGS84_QUAD,
 };
@@ -99,6 +99,17 @@ impl Format {
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
             Self::Jxl => "image/jxl",
+        }
+    }
+
+    /// The media type OGC API - Tiles names for this format.
+    #[must_use]
+    pub const fn ogc_content_type(self) -> &'static str {
+        match self {
+            Self::Mvt => "application/vnd.mapbox-vector-tile",
+            Self::Gif | Self::Jpeg | Self::Json | Self::Mlt | Self::Png | Self::Webp | Self::Avif | Self::Jxl => {
+                self.content_type()
+            }
         }
     }
 

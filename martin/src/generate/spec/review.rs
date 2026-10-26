@@ -106,7 +106,9 @@ impl Reviewed {
 pub struct Review {
     pub found: Vec<Found>,
     pub cases: Vec<Reviewed>,
-    max_zoom: u8,
+    pub max_zoom: u8,
+    /// The highest zoom of the spec's cases.
+    spec_max_zoom: Option<u8>,
     ids: IdColumns,
 }
 
@@ -128,6 +130,7 @@ impl Review {
             found,
             cases,
             max_zoom,
+            spec_max_zoom: spec.map(|spec| spec.max_zoom),
             ids,
         }
     }
@@ -143,6 +146,11 @@ impl Review {
         self.cases.iter().filter(|r| r.status != CaseStatus::Same)
     }
 
+    /// The cases to decide on, to change their decisions.
+    pub fn pending_mut(&mut self) -> impl Iterator<Item = &mut Reviewed> {
+        self.cases.iter_mut().filter(|r| r.status != CaseStatus::Same)
+    }
+
     /// The cases of the spec no path takes any more.
     pub fn gone(&self) -> impl Iterator<Item = &Reviewed> {
         self.cases.iter().filter(|r| r.status == CaseStatus::Gone)
@@ -155,6 +163,18 @@ impl Review {
                 r.decision = Decision::Accepted;
             }
         }
+    }
+
+    /// The spec's max zoom, when it differs from the generated cases' and a case is kept as in the spec, which the
+    /// spec cannot hold together.
+    #[must_use]
+    pub fn kept_at_other_zoom(&self) -> Option<u8> {
+        self.spec_max_zoom.filter(|&zoom| {
+            zoom != self.max_zoom
+                && self
+                    .pending()
+                    .any(|r| r.decision != Decision::Accepted && r.old.is_some())
+        })
     }
 
     /// The spec to write, with unchanged and accepted cases as generated and the others as the spec has them.
@@ -173,6 +193,36 @@ impl Review {
             max_zoom: self.max_zoom,
             cases,
         }
+    }
+
+    /// The cases to decide on with the decision `decision`.
+    pub fn decided_as(&self, decision: Decision) -> impl Iterator<Item = &Reviewed> {
+        self.pending().filter(move |r| r.decision == decision)
+    }
+
+    /// How many cases are unchanged.
+    #[must_use]
+    pub fn unchanged(&self) -> usize {
+        self.cases.iter().filter(|r| r.status == CaseStatus::Same).count()
+    }
+
+    /// The paths no row was found for.
+    pub fn paths_without_row(&self) -> impl Iterator<Item = &Found> {
+        self.found.iter().filter(|f| f.row.key().is_none())
+    }
+
+    /// The decisions, counted.
+    #[must_use]
+    pub fn decided(&self) -> impl Display + '_ {
+        fmt::from_fn(|f| {
+            write!(
+                f,
+                "{} accepted, {} rejected, {} undecided",
+                self.decided_as(Decision::Accepted).count(),
+                self.decided_as(Decision::Rejected).count(),
+                self.decided_as(Decision::Undecided).count()
+            )
+        })
     }
 
     /// The paths and cases, counted by status.

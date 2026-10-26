@@ -128,6 +128,26 @@
           [
             0.0,
             3.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/0",
+        "indices": [
+          3
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            0.0,
+            3.0
           ],
           [
             6.0,
@@ -241,6 +261,10 @@
           [
             66.0,
             69.0
+          ],
+          [
+            72.0,
+            75.0
           ]
         ]
       },
@@ -249,7 +273,8 @@
         "indices": [
           12,
           13,
-          14
+          14,
+          15
         ],
         "marker-color": "#261fb5",
         "marker-size": "small"

@@ -193,15 +193,396 @@
         "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
+      "Collection": {
+        "description": "A tile source as an OGC API collection.",
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "extent": {
+            "$ref": "#/components/schemas/Extent"
+          },
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "title", "extent", "links"],
+        "type": "object"
+      },
+      "Collections": {
+        "description": "The collections the OGC API serves.",
+        "properties": {
+          "collections": {
+            "items": {
+              "$ref": "#/components/schemas/Collection"
+            },
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["collections", "links"],
+        "type": "object"
+      },
+      "Conformance": {
+        "description": "The conformance declaration of the OGC API.",
+        "properties": {
+          "conformsTo": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["conformsTo"],
+        "type": "object"
+      },
+      "DataType": {
+        "description": "What a source's tiles hold, in the terms of OGC API - Tiles.",
+        "enum": ["map", "vector"],
+        "type": "string"
+      },
+      "Extent": {
+        "description": "Where a collection's data lies.",
+        "properties": {
+          "spatial": {
+            "$ref": "#/components/schemas/SpatialExtent"
+          }
+        },
+        "required": ["spatial"],
+        "type": "object"
+      },
       "FontFormat": {
         "description": "Source font file container format.\n\nThe string serialization (serde and `strum`) is the lowercase file\nextension, so [`FontFormat::VARIANTS`] doubles as the list of recognised\nfont extensions and [`str::parse`] maps an extension back to a variant.",
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
+      "LandingPage": {
+        "description": "The entry point of the OGC API.",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["title", "description", "links"],
+        "type": "object"
+      },
+      "Layer": {
+        "description": "A layer of a vector tileset.",
+        "properties": {
+          "dataType": {
+            "$ref": "#/components/schemas/DataType"
+          },
+          "id": {
+            "type": "string"
+          },
+          "maxTileMatrix": {
+            "type": ["string", "null"]
+          },
+          "minTileMatrix": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["id", "dataType"],
+        "type": "object"
+      },
+      "Link": {
+        "description": "A link from one OGC API resource to another.",
+        "properties": {
+          "href": {
+            "type": "string"
+          },
+          "rel": {
+            "type": "string"
+          },
+          "templated": {
+            "description": "Whether `href` is a URI template.",
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["href", "rel", "type", "title"],
+        "type": "object"
+      },
+      "SpatialExtent": {
+        "description": "The bounding box of a collection, in longitude and latitude.",
+        "properties": {
+          "bbox": {
+            "items": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "crs": {
+            "type": "string"
+          }
+        },
+        "required": ["bbox", "crs"],
+        "type": "object"
+      },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
         "enum": ["vector", "raster", "hybrid"],
         "type": "string"
+      },
+      "TileMatrix": {
+        "description": "One zoom level of a tile matrix set.",
+        "properties": {
+          "cellSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "type": "string"
+          },
+          "matrixHeight": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "matrixWidth": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pointOfOrigin": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "scaleDenominator": {
+            "format": "double",
+            "type": "number"
+          },
+          "tileHeight": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tileWidth": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "scaleDenominator",
+          "cellSize",
+          "pointOfOrigin",
+          "tileWidth",
+          "tileHeight",
+          "matrixWidth",
+          "matrixHeight"
+        ],
+        "type": "object"
+      },
+      "TileMatrixLimits": {
+        "description": "The tiles of one zoom that hold data.",
+        "properties": {
+          "maxTileCol": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxTileRow": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minTileCol": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minTileRow": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "tileMatrix": {
+            "type": "string"
+          }
+        },
+        "required": ["tileMatrix", "minTileRow", "maxTileRow", "minTileCol", "maxTileCol"],
+        "type": "object"
+      },
+      "TileMatrixSet": {
+        "description": "A tile matrix set in the JSON encoding of OGC Two Dimensional Tile Matrix Set 2.0.",
+        "properties": {
+          "crs": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "orderedAxes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tileMatrices": {
+            "items": {
+              "$ref": "#/components/schemas/TileMatrix"
+            },
+            "type": "array"
+          },
+          "uri": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["id", "crs", "orderedAxes", "tileMatrices"],
+        "type": "object"
+      },
+      "TileMatrixSetItem": {
+        "description": "One tile matrix set in the list, linking to its definition.",
+        "properties": {
+          "crs": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "uri": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["id", "crs", "links"],
+        "type": "object"
+      },
+      "TileMatrixSets": {
+        "description": "The tile matrix sets the OGC API serves.",
+        "properties": {
+          "tileMatrixSets": {
+            "items": {
+              "$ref": "#/components/schemas/TileMatrixSetItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["tileMatrixSets"],
+        "type": "object"
+      },
+      "TileSet": {
+        "description": "The metadata of a tileset.",
+        "properties": {
+          "crs": {
+            "type": "string"
+          },
+          "dataType": {
+            "$ref": "#/components/schemas/DataType"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/Layer"
+            },
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "tileMatrixSetLimits": {
+            "items": {
+              "$ref": "#/components/schemas/TileMatrixLimits"
+            },
+            "type": "array"
+          },
+          "tileMatrixSetURI": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["title", "dataType", "crs", "tileMatrixSetLimits", "links"],
+        "type": "object"
+      },
+      "TileSetItem": {
+        "description": "A tileset in a list, linking to its metadata.",
+        "properties": {
+          "crs": {
+            "type": "string"
+          },
+          "dataType": {
+            "$ref": "#/components/schemas/DataType"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "tileMatrixSetURI": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["title", "dataType", "crs", "links"],
+        "type": "object"
+      },
+      "TileSets": {
+        "description": "The tilesets of a collection.",
+        "properties": {
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "type": "array"
+          },
+          "tilesets": {
+            "items": {
+              "$ref": "#/components/schemas/TileSetItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["tilesets", "links"],
+        "type": "object"
       }
     }
   },
@@ -426,6 +807,293 @@
         },
         "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
         "tags": ["crate::srv"]
+      }
+    },
+    "/ogc": {
+      "get": {
+        "operationId": "get_landing_page",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandingPage"
+                }
+              }
+            },
+            "description": "OGC API landing page"
+          }
+        },
+        "summary": "The OGC API landing page, at `/ogc` and `/ogc/`.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/collections": {
+      "get": {
+        "operationId": "get_collections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collections"
+                }
+              }
+            },
+            "description": "Every tile source on a tile matrix set with an OGC definition"
+          }
+        },
+        "summary": "Every tile source on a tile matrix set with an OGC definition, as a collection.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/collections/{collection_id}": {
+      "get": {
+        "operationId": "get_collection",
+        "parameters": [
+          {
+            "description": "Collection ID, the ID of a source",
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            },
+            "description": "Collection"
+          },
+          "404": {
+            "description": "No such collection"
+          }
+        },
+        "summary": "One collection.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/collections/{collection_id}/tiles": {
+      "get": {
+        "operationId": "get_tilesets",
+        "parameters": [
+          {
+            "description": "Collection ID, the ID of a source",
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSets"
+                }
+              }
+            },
+            "description": "Tilesets of the collection"
+          },
+          "404": {
+            "description": "No such collection"
+          }
+        },
+        "summary": "The tilesets of one collection, one per tile matrix set it is served on.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "get_tileset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSet"
+                }
+              }
+            },
+            "description": "Tileset metadata with the tile URL template"
+          },
+          "404": {
+            "description": "No such collection or tileset"
+          }
+        },
+        "summary": "The metadata of one tileset, with the template of its tile URLs.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+      "get": {
+        "operationId": "get_ogc_tile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_row",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_col",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Encoded vector or raster tile"
+          },
+          "204": {
+            "description": "Source returned an empty tile"
+          },
+          "304": {
+            "description": "ETag matched If-None-Match"
+          },
+          "404": {
+            "description": "No such collection, tileset or tile"
+          },
+          "406": {
+            "description": "No supported tile format in Accept header"
+          }
+        },
+        "summary": "One tile of a collection, answered as the `/{source_ids}/{z}/{x}/{y}` route answers it.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/conformance": {
+      "get": {
+        "operationId": "get_conformance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conformance"
+                }
+              }
+            },
+            "description": "Conformance classes the OGC API implements"
+          }
+        },
+        "summary": "The conformance classes the OGC API implements.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/tileMatrixSets": {
+      "get": {
+        "operationId": "get_tile_matrix_sets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileMatrixSets"
+                }
+              }
+            },
+            "description": "Tile matrix sets of the served sources"
+          }
+        },
+        "summary": "The tile matrix sets of the served sources.",
+        "tags": ["crate::srv::ogcapi"]
+      }
+    },
+    "/ogc/tileMatrixSets/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "get_tile_matrix_set",
+        "parameters": [
+          {
+            "description": "Tile matrix set ID",
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileMatrixSet"
+                }
+              }
+            },
+            "description": "Tile matrix set definition"
+          },
+          "404": {
+            "description": "No served grid with this ID has an OGC definition"
+          }
+        },
+        "summary": "The definition of one tile matrix set.",
+        "tags": ["crate::srv::ogcapi"]
       }
     },
     "/sdf_sprite/{source_ids}.json": {

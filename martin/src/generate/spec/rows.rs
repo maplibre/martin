@@ -15,10 +15,10 @@ use mlt_core::geo_types;
 use serde_json::Value;
 use wkt::ToWkt as _;
 
-use crate::generate::GenerateResult;
 use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable};
 use crate::generate::spec::file::{Case, IdColumns, Spec, yaml};
 use crate::generate::spec::report::{Change, Look, Reporter, Status, Tone};
+use crate::generate::{GenerateError, GenerateResult};
 
 /// Why a path has the row it has, or has none.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -394,7 +394,15 @@ fn each_row(
 /// The paths `feature` of `table` takes, its geometry in `crs`.
 fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, feature: &SourceFeature) -> GenerateResult<Vec<String>> {
     Ok(plan
-        .paths_of(0, &table.known, crs, feature)?
+        .paths_of(0, &table.facts, crs, feature)
+        .map_err(|err| match (err, feature.id) {
+            (TileGenError::Wkb(error), Some(key)) => GenerateError::CaseGeometry {
+                source_id: table.source.clone(),
+                key,
+                error,
+            },
+            (err, _) => err.into(),
+        })?
         .iter()
         .map(ToString::to_string)
         .collect())
@@ -439,7 +447,7 @@ fn prop_value<S: AsRef<str>>(prop: &Prop<S>) -> Value {
 /// `geometry` as WKT, or `None` when it cannot be decoded.
 fn wkt(geometry: &Geometry) -> Option<String> {
     let mut geometry = geometry.clone();
-    if !geometry.decode_wkb() {
+    if !geometry.decode_wkb().ok()? {
         return None;
     }
     let geometry: geo_types::Geometry<f64> = match geometry {

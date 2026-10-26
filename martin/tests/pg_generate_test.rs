@@ -10,7 +10,7 @@ use martin::config::file::{CachePolicy, ConfigurationLivecycleHooks as _, TileGr
 use martin::config::primitives::IdResolver;
 use martin::generate::layers::{LowerOptions, lower_table};
 use martin::generate::postgres::{PgScanSource, ScanTable};
-use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, open_scan_connection};
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout, export_snapshot, open_scan_connection};
 use martin_tile_utils::{Encoding, decode_gzip};
 use martin_tilegen::source::FeatureSource as _;
 use martin_tilegen::{GenerateConfig, MbtilesSink, Progress, SortConfig, TileFormat, generate};
@@ -58,6 +58,7 @@ fn lower(name: &str, info: TableInfo) -> ScanTable {
     let options = LowerOptions {
         zooms: 0..=6,
         bounds: None,
+        encoder: None,
     };
     lower_table(name, info, &options).unwrap().unwrap()
 }
@@ -294,6 +295,7 @@ async fn one_table_feeds_two_layers() {
     let (builder, specs) = discover().await;
     let mut info = table_info(&specs, "table_source");
     info.id_column = Some("gid".to_owned());
+    info.filter = Some("gid <> 14".to_owned());
     info.layers = Some(Box::new(
         serde_saphyr::from_str(indoc! {"
             overview:
@@ -566,6 +568,7 @@ async fn a_world_bbox_keeps_every_feature_of_a_projected_table() {
     let options = LowerOptions {
         zooms: 0..=0,
         bounds: Some(Bounds::MAX_TILED),
+        encoder: None,
     };
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
@@ -595,6 +598,7 @@ async fn a_bbox_over_a_projected_table_keeps_every_feature_of_its_tiles() {
     let options = LowerOptions {
         zooms: 6..=6,
         bounds: Some(Bounds::new(174.0, -42.0, 175.5, -36.0)),
+        encoder: None,
     };
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
@@ -631,6 +635,7 @@ async fn a_bbox_over_a_web_mercator_table_keeps_every_feature_of_its_tile_at_the
     let options = LowerOptions {
         zooms: 1..=1,
         bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
+        encoder: None,
     };
     let table = lower_table("points3857", table_info(&specs, "points3857"), &options)
         .unwrap()
@@ -663,6 +668,7 @@ async fn a_bbox_over_a_web_mercator_table_keeps_the_features_near_the_antimeridi
     let options = LowerOptions {
         zooms: 0..=0,
         bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
+        encoder: None,
     };
     let info = TableInfo {
         buffer: Some(512),
@@ -724,4 +730,74 @@ async fn the_scan_transaction_turns_off_the_session_timeouts() {
         .await
         .unwrap();
     assert_eq!((scan.get::<_, &str>(0), scan.get::<_, &str>(1)), ("0", "0"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_snapshot_source_leaves_the_exporting_connection_its_slot_of_the_pool() {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        pool_size: Some(std::num::NonZeroUsize::new(2).unwrap()),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let specs: BTreeMap<String, SourceSpec> = specs.into_iter().collect();
+    let exporting = open_scan_connection(builder.pool()).await.unwrap();
+    let snapshot = export_snapshot(&exporting).await.unwrap();
+    let table = lower("points1", table_info(&specs, "points1"));
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
+        .await
+        .unwrap()
+        .at_snapshot(snapshot);
+    let readers = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio::task::spawn_blocking(move || source.open_readers(8).unwrap().len()),
+    )
+    .await
+    .expect("the readers open without waiting for the exporting connection")
+    .unwrap();
+    assert_eq!(readers, 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_snapshot_source_in_a_pool_of_one_fails_to_open_a_reader_instead_of_waiting() {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        pool_size: Some(std::num::NonZeroUsize::new(1).unwrap()),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let specs: BTreeMap<String, SourceSpec> = specs.into_iter().collect();
+    let table = lower("points1", table_info(&specs, "points1"));
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
+        .await
+        .unwrap();
+    let exporting = open_scan_connection(builder.pool()).await.unwrap();
+    let snapshot = export_snapshot(&exporting).await.unwrap();
+    let source = source.at_snapshot(snapshot);
+    let error = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio::task::spawn_blocking(move || source.open_readers(1).err().map(|e| e.to_string())),
+    )
+    .await
+    .expect("the reader fails without waiting for the exporting connection")
+    .unwrap();
+    insta::assert_snapshot!(error.unwrap_or_default(), @"The transaction that exported the snapshot holds the only connection of a pool of 1; set `pool_size` to at least 2");
 }

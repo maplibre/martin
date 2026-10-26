@@ -114,3 +114,17 @@ services:
     volumes:
       - ./tests/fixtures:/fixtures
       - ./tests/fixtures/initdb-dc.sh:/docker-entrypoint-initdb.d/20_martin.sh
+
+  ogc-ets:
+    # The OGC API - Tiles conformance suite, for `just test-ogc`
+    image: ogccite/ets-ogcapi-tiles10:latest@sha256:af8e8ab4f8c131c71ca02a4b05419007657e49cef6c668ecfdbe02b58c002ffc
+    platform: linux/x86_64
+    network_mode: host
+    restart: 'no'
+
+  ogc-ets-maps:
+    # The OGC API - Maps conformance suite on port 8081, for `just test-ogc-maps`
+    build: tests/ogc-ets-maps
+    platform: linux/x86_64
+    network_mode: host
+    restart: 'no'

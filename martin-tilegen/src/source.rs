@@ -1,7 +1,11 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
 use bytes::Bytes;
-use geo_traits::to_geo::ToGeoGeometry as _;
+use geo_traits::to_geo::{ToGeoCoord as _, ToGeoGeometry as _, ToGeoLineString, ToGeoPolygon};
+use geo_traits::{
+    GeometryCollectionTrait as _, GeometryTrait, GeometryType, LineStringTrait as _, MultiLineStringTrait as _,
+    MultiPointTrait as _, MultiPolygonTrait as _, PointTrait as _, PolygonTrait as _,
+};
 use geo_types::{Coord, Geometry as GeoGeometry, GeometryCollection, LineString, Polygon};
 use wkb::reader::Wkb;
 
@@ -51,18 +55,22 @@ pub enum Geometry {
 }
 
 impl Geometry {
-    /// Decodes [`Geometry::Wkb`] in place; `false` if it is invalid, empty or a geometry collection.
-    #[must_use]
-    pub fn decode_wkb(&mut self) -> bool {
+    /// Decodes [`Geometry::Wkb`] in place, dropping the empty points of a multipoint; `Ok(false)` if it is
+    /// an empty point or an empty geometry collection, which have nothing to draw.
+    ///
+    /// # Errors
+    ///
+    /// If the `wkb` crate cannot read the WKB, or it holds a geometry collection that is not empty.
+    pub fn decode_wkb(&mut self) -> Result<bool, WkbError> {
         let Self::Wkb(bytes) = self else {
-            return true;
+            return Ok(true);
         };
-        match decode_wkb(bytes) {
+        match decode_wkb(bytes)? {
             Some(geometry) => {
                 *self = geometry;
-                true
+                Ok(true)
             }
-            None => false,
+            None => Ok(false),
         }
     }
 
@@ -81,8 +89,66 @@ impl Geometry {
     }
 }
 
-fn decode_wkb(bytes: &[u8]) -> Option<Geometry> {
-    Wkb::try_new(bytes).ok()?.try_to_geometry()?.try_into().ok()
+/// Why a WKB geometry cannot be the geometry of a feature.
+#[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
+pub enum WkbError {
+    /// A geometry collection that is not empty, which tiles cannot hold.
+    #[error(
+        "a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+    )]
+    GeometryCollection,
+
+    /// The `wkb` crate cannot read the bytes.
+    #[error("cannot read the WKB: {error}")]
+    Read {
+        #[source]
+        error: wkb::error::WkbError,
+    },
+}
+
+/// Converts each part of a multi-geometry on its own, so one empty point does not fail the whole multipoint.
+fn decode_wkb(bytes: &[u8]) -> Result<Option<Geometry>, WkbError> {
+    let wkb = Wkb::try_new(bytes).map_err(|error| WkbError::Read { error })?;
+    Ok(match wkb.as_type() {
+        GeometryType::MultiPoint(points) => Some(Geometry::Points(
+            points
+                .points()
+                .filter_map(|p| p.coord())
+                .map(|c| c.to_coord())
+                .collect(),
+        )),
+        GeometryType::MultiLineString(lines) => Some(Geometry::Lines(
+            lines.line_strings().map(ToGeoLineString::to_line_string).collect(),
+        )),
+        GeometryType::MultiPolygon(polygons) => Some(Geometry::Polygons(
+            polygons.polygons().map(ToGeoPolygon::to_polygon).collect(),
+        )),
+        GeometryType::GeometryCollection(_) if is_empty(&wkb) => None,
+        GeometryType::GeometryCollection(_) => return Err(WkbError::GeometryCollection),
+        GeometryType::Point(_)
+        | GeometryType::LineString(_)
+        | GeometryType::Polygon(_)
+        | GeometryType::Rect(_)
+        | GeometryType::Triangle(_)
+        | GeometryType::Line(_) => wkb.try_to_geometry().and_then(|geometry| geometry.try_into().ok()),
+    })
+}
+
+/// Whether `geometry` has no coordinates, as `ST_IsEmpty` decides: a collection is empty when all its parts are.
+fn is_empty(geometry: &impl GeometryTrait<T = f64>) -> bool {
+    match geometry.as_type() {
+        GeometryType::Point(point) => point.coord().is_none(),
+        GeometryType::LineString(line) => line.num_coords() == 0,
+        GeometryType::Polygon(polygon) => polygon.exterior().is_none_or(|ring| ring.num_coords() == 0),
+        GeometryType::MultiPoint(points) => points.points().all(|point| point.coord().is_none()),
+        GeometryType::MultiLineString(lines) => lines.line_strings().all(|line| line.num_coords() == 0),
+        GeometryType::MultiPolygon(polygons) => polygons
+            .polygons()
+            .all(|polygon| polygon.exterior().is_none_or(|ring| ring.num_coords() == 0)),
+        GeometryType::GeometryCollection(collection) => collection.geometries().all(|part| is_empty(&part)),
+        GeometryType::Rect(_) | GeometryType::Triangle(_) | GeometryType::Line(_) => false,
+    }
 }
 
 impl TryFrom<GeoGeometry<f64>> for Geometry {
@@ -219,46 +285,103 @@ impl FeatureSource for MemorySource {
 
 #[cfg(test)]
 mod tests {
+    use geo_traits::GeometryTrait;
+    use geo_types::wkt;
+    use wkt::types::{Dimension, MultiPoint, Point};
+
     use super::*;
 
-    #[test]
-    fn wkb_decodes_points_and_lines_and_skips_collections() {
-        let point = [&[1, 1, 0, 0, 0][..], &1.5f64.to_le_bytes(), &(-2.0f64).to_le_bytes()].concat();
-        let mut geometry = Geometry::Wkb(Bytes::from(point));
-        assert!(geometry.decode_wkb());
-        assert_eq!(geometry, Geometry::Point(Coord { x: 1.5, y: -2.0 }));
+    fn wkb(geometry: &impl GeometryTrait<T = f64>) -> Geometry {
+        let mut bytes = Vec::new();
+        wkb::writer::write_geometry(&mut bytes, geometry, &wkb::writer::WriteOptions::default()).unwrap();
+        Geometry::Wkb(Bytes::from(bytes))
+    }
 
-        let line = [
-            &[1, 2, 0, 0, 0, 2, 0, 0, 0][..],
-            &0f64.to_le_bytes(),
-            &0f64.to_le_bytes(),
-            &3f64.to_le_bytes(),
-            &4f64.to_le_bytes(),
-        ]
-        .concat();
-        let mut geometry = Geometry::Wkb(Bytes::from(line));
-        assert!(geometry.decode_wkb());
-        assert_eq!(geometry, Geometry::Line(LineString::from(vec![(0.0, 0.0), (3.0, 4.0)])));
+    fn hex(text: &str) -> Geometry {
+        let bytes = (0..text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(text.get(i..i + 2).unwrap(), 16).unwrap())
+            .collect::<Vec<u8>>();
+        Geometry::Wkb(Bytes::from(bytes))
+    }
 
-        let collection = vec![1, 7, 0, 0, 0, 0, 0, 0, 0];
-        assert!(!Geometry::Wkb(Bytes::from(collection)).decode_wkb());
-        assert!(!Geometry::Wkb(Bytes::new()).decode_wkb());
+    fn point(x: f64, y: f64) -> Point<f64> {
+        Point::from_coord(wkt::types::Coord { x, y, z: None, m: None })
+    }
+
+    fn decode_error(mut geometry: Geometry) -> String {
+        geometry.decode_wkb().unwrap_err().to_string()
     }
 
     #[test]
-    #[ignore = "wkb reads the type code as `code & 0x7`, so a TRIANGLE (17) decodes as a point; georust/wkb#104"]
-    fn wkb_decodes_a_triangle_as_a_polygon() {
-        let ring = [(0.0, 0.0), (4.0, 0.0), (0.0, 3.0), (0.0, 0.0)];
-        let mut triangle = vec![1, 17, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0];
-        for (x, y) in ring {
-            triangle.extend_from_slice(&f64::to_le_bytes(x));
-            triangle.extend_from_slice(&f64::to_le_bytes(y));
-        }
-        let mut geometry = Geometry::Wkb(Bytes::from(triangle));
-        assert!(geometry.decode_wkb());
-        assert_eq!(
-            geometry,
-            Geometry::Polygon(Polygon::new(LineString::from(ring.to_vec()), vec![]))
+    fn wkb_point_decodes() {
+        let mut geometry = hex("0101000000000000000000f03f0000000000000040");
+        assert!(geometry.decode_wkb().unwrap());
+        assert_eq!(geometry, Geometry::Point(Coord { x: 1.0, y: 2.0 }));
+    }
+
+    #[test]
+    fn big_endian_wkb_line_decodes() {
+        let mut geometry = hex("000000000200000002000000000000000000000000000000003ff00000000000003ff0000000000000");
+        assert!(geometry.decode_wkb().unwrap());
+        assert_eq!(geometry, Geometry::Line(LineString::from(vec![(0.0, 0.0), (1.0, 1.0)])));
+    }
+
+    #[test]
+    fn wkb_multipoint_keeps_its_real_points() {
+        let points = vec![point(1., 2.), Point::empty(Dimension::XY), point(3., 4.)];
+        let mut geometry = wkb(&MultiPoint::new(points, Dimension::XY));
+        assert!(geometry.decode_wkb().unwrap());
+        let expected = Geometry::try_from(GeoGeometry::from(wkt! { MULTIPOINT(1. 2., 3. 4.) })).unwrap();
+        assert_eq!(geometry, expected);
+    }
+
+    #[test]
+    fn wkb_empty_point_is_skipped() {
+        assert!(!wkb(&Point::<f64>::empty(Dimension::XY)).decode_wkb().unwrap());
+    }
+
+    #[test]
+    fn wkb_empty_geometry_collection_is_skipped() {
+        assert!(!hex("010700000000000000").decode_wkb().unwrap());
+    }
+
+    #[test]
+    fn ewkb_empty_geometry_collection_with_srid_is_skipped() {
+        assert!(!hex("0107000020110f000000000000").decode_wkb().unwrap());
+    }
+
+    #[test]
+    fn wkb_geometry_collection_of_empty_parts_is_skipped() {
+        let parts = vec![
+            wkt::Wkt::Point(Point::empty(Dimension::XY)),
+            wkt::Wkt::GeometryCollection(wkt::types::GeometryCollection::empty(Dimension::XY)),
+        ];
+        assert!(
+            !wkb(&wkt::types::GeometryCollection::new(parts, Dimension::XY))
+                .decode_wkb()
+                .unwrap()
         );
+    }
+
+    #[test]
+    fn wkb_geometry_collection_is_rejected() {
+        insta::assert_snapshot!(
+            decode_error(hex("0107000000010000000101000000000000000000f03f000000000000f03f")),
+            @"a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)"
+        );
+    }
+
+    #[test]
+    fn wkb_triangle_fails_with_the_wkb_crate_error() {
+        insta::assert_snapshot!(
+            decode_error(hex("0111000000010000000400000000000000000000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f03f00000000000000000000000000000000")),
+            @"cannot read the WKB: General error: WKB type code out of range. Got: 17"
+        );
+    }
+
+    #[test]
+    fn cut_point_fails_with_the_wkb_crate_error() {
+        insta::assert_snapshot!(decode_error(hex("0101000000000000000000f03f")), @"cannot read the WKB: General error: Invalid buffer length for Point: geometry would end at byte 21, but buffer length is 13.");
     }
 }

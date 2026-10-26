@@ -69,6 +69,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The OGC API landing page, at `/ogc` and `/ogc/`. */
+        get: operations["get_landing_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every tile source on a tile matrix set with an OGC definition, as a collection. */
+        get: operations["get_collections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/collections/{collection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One collection. */
+        get: operations["get_collection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/collections/{collection_id}/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tilesets of one collection, one per tile matrix set it is served on. */
+        get: operations["get_tilesets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The metadata of one tileset, with the template of its tile URLs. */
+        get: operations["get_tileset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One tile of a collection, answered as the `/{source_ids}/{z}/{x}/{y}` route answers it. */
+        get: operations["get_ogc_tile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/conformance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The conformance classes the OGC API implements. */
+        get: operations["get_conformance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/tileMatrixSets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tile matrix sets of the served sources. */
+        get: operations["get_tile_matrix_sets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/tileMatrixSets/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The definition of one tile matrix set. */
+        get: operations["get_tile_matrix_set"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sdf_sprite/{source_ids}.json": {
         parameters: {
             query?: never;
@@ -279,6 +432,32 @@ export interface components {
                 };
             };
         };
+        /** @description A tile source as an OGC API collection. */
+        Collection: {
+            description?: string | null;
+            extent: components["schemas"]["Extent"];
+            id: string;
+            links: components["schemas"]["Link"][];
+            title: string;
+        };
+        /** @description The collections the OGC API serves. */
+        Collections: {
+            collections: components["schemas"]["Collection"][];
+            links: components["schemas"]["Link"][];
+        };
+        /** @description The conformance declaration of the OGC API. */
+        Conformance: {
+            conformsTo: string[];
+        };
+        /**
+         * @description What a source's tiles hold, in the terms of OGC API - Tiles.
+         * @enum {string}
+         */
+        DataType: "map" | "vector";
+        /** @description Where a collection's data lies. */
+        Extent: {
+            spatial: components["schemas"]["SpatialExtent"];
+        };
         /**
          * @description Source font file container format.
          *
@@ -288,11 +467,109 @@ export interface components {
          * @enum {string}
          */
         FontFormat: "otf" | "ttf" | "ttc";
+        /** @description The entry point of the OGC API. */
+        LandingPage: {
+            description: string;
+            links: components["schemas"]["Link"][];
+            title: string;
+        };
+        /** @description A layer of a vector tileset. */
+        Layer: {
+            dataType: components["schemas"]["DataType"];
+            id: string;
+            maxTileMatrix?: string | null;
+            minTileMatrix?: string | null;
+        };
+        /** @description A link from one OGC API resource to another. */
+        Link: {
+            href: string;
+            rel: string;
+            /** @description Whether `href` is a URI template. */
+            templated?: boolean;
+            title: string;
+            type: string;
+        };
+        /** @description The bounding box of a collection, in longitude and latitude. */
+        SpatialExtent: {
+            bbox: number[][];
+            crs: string;
+        };
         /**
          * @description What kind of layers a `MapLibre` style draws.
          * @enum {string}
          */
         StyleKind: "vector" | "raster" | "hybrid";
+        /** @description One zoom level of a tile matrix set. */
+        TileMatrix: {
+            /** Format: double */
+            cellSize: number;
+            id: string;
+            /** Format: int64 */
+            matrixHeight: number;
+            /** Format: int64 */
+            matrixWidth: number;
+            pointOfOrigin: number[];
+            /** Format: double */
+            scaleDenominator: number;
+            /** Format: int32 */
+            tileHeight: number;
+            /** Format: int32 */
+            tileWidth: number;
+        };
+        /** @description The tiles of one zoom that hold data. */
+        TileMatrixLimits: {
+            /** Format: int32 */
+            maxTileCol: number;
+            /** Format: int32 */
+            maxTileRow: number;
+            /** Format: int32 */
+            minTileCol: number;
+            /** Format: int32 */
+            minTileRow: number;
+            tileMatrix: string;
+        };
+        /** @description A tile matrix set in the JSON encoding of OGC Two Dimensional Tile Matrix Set 2.0. */
+        TileMatrixSet: {
+            crs: string;
+            id: string;
+            orderedAxes: string[];
+            tileMatrices: components["schemas"]["TileMatrix"][];
+            uri?: string | null;
+        };
+        /** @description One tile matrix set in the list, linking to its definition. */
+        TileMatrixSetItem: {
+            crs: string;
+            id: string;
+            links: components["schemas"]["Link"][];
+            uri?: string | null;
+        };
+        /** @description The tile matrix sets the OGC API serves. */
+        TileMatrixSets: {
+            tileMatrixSets: components["schemas"]["TileMatrixSetItem"][];
+        };
+        /** @description The metadata of a tileset. */
+        TileSet: {
+            crs: string;
+            dataType: components["schemas"]["DataType"];
+            layers?: components["schemas"]["Layer"][];
+            links: components["schemas"]["Link"][];
+            tileMatrixSetLimits: components["schemas"]["TileMatrixLimits"][];
+            tileMatrixSetURI?: string | null;
+            title: string;
+        };
+        /** @description A tileset in a list, linking to its metadata. */
+        TileSetItem: {
+            crs: string;
+            dataType: components["schemas"]["DataType"];
+            links: components["schemas"]["Link"][];
+            tileMatrixSetURI?: string | null;
+            title: string;
+        };
+        /** @description The tilesets of a collection. */
+        TileSets: {
+            links: components["schemas"]["Link"][];
+            tilesets: components["schemas"]["TileSetItem"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -301,8 +578,25 @@ export interface components {
     pathItems: never;
 }
 export type Catalog = components['schemas']['Catalog'];
+export type Collection = components['schemas']['Collection'];
+export type Collections = components['schemas']['Collections'];
+export type Conformance = components['schemas']['Conformance'];
+export type DataType = components['schemas']['DataType'];
+export type Extent = components['schemas']['Extent'];
 export type FontFormat = components['schemas']['FontFormat'];
+export type LandingPage = components['schemas']['LandingPage'];
+export type Layer = components['schemas']['Layer'];
+export type Link = components['schemas']['Link'];
+export type SpatialExtent = components['schemas']['SpatialExtent'];
 export type StyleKind = components['schemas']['StyleKind'];
+export type TileMatrix = components['schemas']['TileMatrix'];
+export type TileMatrixLimits = components['schemas']['TileMatrixLimits'];
+export type TileMatrixSet = components['schemas']['TileMatrixSet'];
+export type TileMatrixSetItem = components['schemas']['TileMatrixSetItem'];
+export type TileMatrixSets = components['schemas']['TileMatrixSets'];
+export type TileSet = components['schemas']['TileSet'];
+export type TileSetItem = components['schemas']['TileSetItem'];
+export type TileSets = components['schemas']['TileSets'];
 export type $defs = Record<string, never>;
 export interface operations {
     purge_source: {
@@ -410,6 +704,258 @@ export interface operations {
                 content: {
                     "text/plain": string;
                 };
+            };
+        };
+    };
+    get_landing_page: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OGC API landing page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LandingPage"];
+                };
+            };
+        };
+    };
+    get_collections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every tile source on a tile matrix set with an OGC definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collections"];
+                };
+            };
+        };
+    };
+    get_collection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Collection ID, the ID of a source */
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collection"];
+                };
+            };
+            /** @description No such collection */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_tilesets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Collection ID, the ID of a source */
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tilesets of the collection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSets"];
+                };
+            };
+            /** @description No such collection */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_tileset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tileset metadata with the tile URL template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSet"];
+                };
+            };
+            /** @description No such collection or tileset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_ogc_tile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+                tile_matrix_set_id: string;
+                tile_matrix: number;
+                tile_row: number;
+                tile_col: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Encoded vector or raster tile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Source returned an empty tile */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ETag matched If-None-Match */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such collection, tileset or tile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported tile format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_conformance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conformance classes the OGC API implements */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conformance"];
+                };
+            };
+        };
+    };
+    get_tile_matrix_sets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tile matrix sets of the served sources */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileMatrixSets"];
+                };
+            };
+        };
+    };
+    get_tile_matrix_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tile matrix set ID */
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tile matrix set definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileMatrixSet"];
+                };
+            };
+            /** @description No served grid with this ID has an OGC definition */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -9,6 +9,7 @@ use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::phase1::simplify::Simplifier;
+use crate::phase1::touch::TileBox;
 use crate::sort::record::{EncodedProps, Geom, Vertex, encode};
 use crate::sort::{LayerId, Seq, SortBuffer, SortKey};
 use crate::{LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
@@ -27,6 +28,9 @@ pub enum RenderLayerError {
 
     #[error("buffer {buffer} is not below half the extent {extent} or above 65535")]
     InvalidBuffer { buffer: u32, extent: u32 },
+
+    #[error("extent {extent} is not a power of two from 64 to 2097152")]
+    InvalidExtent { extent: u32 },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -112,6 +116,10 @@ impl RenderLayer {
         let max_zoom = *zooms.end();
         if zooms.is_empty() {
             return Err(RenderLayerError::EmptyZooms);
+        }
+        // Even, so halves round to the same neighbor in every tile's frame as in tile mode.
+        if !grid.extent.is_power_of_two() || !(1 << 6..=1 << 21).contains(&grid.extent) {
+            return Err(RenderLayerError::InvalidExtent { extent: grid.extent });
         }
         let fits = u64::from(grid.extent)
             .checked_shl(u32::from(max_zoom))
@@ -211,7 +219,7 @@ impl RenderLayer {
             return Ok(None);
         }
         let (first, last) = (
-            (i64::from(lo) - i64::from(buffer)).div_euclid(i64::from(extent)),
+            (i64::from(lo) - i64::from(buffer) - 1).div_euclid(i64::from(extent)),
             (i64::from(hi) + i64::from(buffer)).div_euclid(i64::from(extent)),
         );
         let side = 1i64 << zoom;
@@ -255,6 +263,11 @@ impl RenderLayer {
         } else {
             threshold.below_max_zoom
         }
+    }
+
+    /// Every tile's buffered box, in its own frame.
+    fn tile_box(&self) -> Result<TileBox, GeometryError> {
+        Ok(TileBox::new(to_i32(self.grid.extent)?, to_i32(self.grid.buffer)?))
     }
 }
 
@@ -421,8 +434,8 @@ impl Renderer {
         }
     }
 
-    /// Quantizes the points at `zoom` and pushes one piece per tile, including neighbors whose buffer
-    /// a point reaches (unclipped, all the points).
+    /// Quantizes the points at `zoom`, keeping one of those rounding onto the same vertex, and pushes one
+    /// piece per tile, including neighbors whose buffer a point reaches (unclipped, all the points).
     fn render_points(
         &mut self,
         ctx: &Ctx<'_>,
@@ -434,14 +447,25 @@ impl Renderer {
         let grid = ctx.layer.grid;
         let (extent, buffer) = (to_i32(grid.extent)?, to_i32(grid.buffer)?);
         let world = scale(zoom) * f64::from(grid.extent);
-        self.points.clear();
         self.vertices.clear();
         for c in points {
             let [x, y] = quantize(*c, shift, world)?;
-            self.vertices.push(Coord { x, y });
+            // Quadratic, as multipoints are usually small.
+            if !self.vertices.contains(&Coord { x, y }) {
+                self.vertices.push(Coord { x, y });
+            }
+        }
+        self.points.clear();
+        for &Coord { x, y } in &self.vertices {
             let (tx, ty) = (x.div_euclid(extent), y.div_euclid(extent));
             let (lx, ly) = (x - tx * extent, y - ty * extent);
-            let near = |l: i32| [(l < buffer).then_some(-1), Some(0), (l >= extent - buffer).then_some(1)];
+            let near = |l: i32| {
+                [
+                    (l <= buffer).then_some(-1),
+                    Some(0),
+                    (l >= extent - buffer).then_some(1),
+                ]
+            };
             for dx in near(lx).into_iter().flatten() {
                 for dy in near(ly).into_iter().flatten() {
                     self.points
@@ -509,6 +533,7 @@ impl Renderer {
         let Some((min, max)) = ctx.layer.reachable(zoom, vertices)? else {
             return Ok(());
         };
+        let tile_box = ctx.layer.tile_box()?;
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &self.slicers[pos].1;
         self.sliced.clear();
@@ -529,6 +554,10 @@ impl Renderer {
                 }
                 let start = self.sliced_vertices.len();
                 self.sliced_vertices.extend(slice.run().iter().map(|c| [c.x, c.y]));
+                if !tile_box.holds_length(&self.sliced_vertices[start..]) {
+                    self.sliced_vertices.truncate(start);
+                    continue;
+                }
                 self.sliced.push(SlicedPart {
                     tile: slice.tile(),
                     polygon: 0,
@@ -594,25 +623,26 @@ impl Renderer {
         self.vertices.clear();
         let epsilon = ctx.layer.epsilon(zoom, ctx.feature.simplify);
         let world = scale(zoom) * f64::from(ctx.layer.grid.extent);
-        for rings in self.simplifier.polygons(epsilon) {
-            let rings = rings.map(|ring| ring.map(|c| to_grid(c, shift, world)));
-            let quantized = self
-                .quantizer
-                .polygon(rings)
-                .map_err(|_overflow| GeometryError::CoordOverflow)?;
-            for polygon in quantized.polygons() {
-                let first_ring = self.parts.len();
-                for ring in polygon {
-                    let start = self.vertices.len();
-                    for &vertex in ring.iter().chain(ring.first()) {
-                        push_vertex(&mut self.vertices, start, vertex);
-                    }
-                    self.vertices.pop();
-                    trim_ring_seam(&mut self.vertices, start);
-                    self.parts.push(vertex_count(self.vertices.len() - start)?);
+        let polygons = self
+            .simplifier
+            .polygons(epsilon)
+            .map(|rings| rings.map(move |ring| ring.map(move |c| to_grid(c, shift, world))));
+        let quantized = self
+            .quantizer
+            .multi_polygon(polygons)
+            .map_err(|_overflow| GeometryError::CoordOverflow)?;
+        for polygon in quantized.polygons() {
+            let first_ring = self.parts.len();
+            for ring in polygon {
+                let start = self.vertices.len();
+                for &vertex in ring.iter().chain(ring.first()) {
+                    push_vertex(&mut self.vertices, start, vertex);
                 }
-                self.polys.push(len32(self.parts.len() - first_ring)?);
+                self.vertices.pop();
+                trim_ring_seam(&mut self.vertices, start);
+                self.parts.push(vertex_count(self.vertices.len() - start)?);
             }
+            self.polys.push(len32(self.parts.len() - first_ring)?);
         }
         let (polys, parts, vertices) = (
             std::mem::take(&mut self.polys),
@@ -668,6 +698,7 @@ impl Renderer {
             rings.push(ring);
             rest = tail;
         }
+        let tile_box = ctx.layer.tile_box()?;
         let pos = self.slicer_index(ctx.layer)?;
         let slicer = &mut self.slicers[pos].1;
         self.sliced.clear();
@@ -690,6 +721,7 @@ impl Renderer {
                         self.reached.push(piece.tile());
                     }
                     PolygonSlice::Piece(piece) => {
+                        let (first_part, first_vertex) = (self.sliced.len(), self.sliced_vertices.len());
                         for ring in piece.rings() {
                             let start = self.sliced_vertices.len();
                             self.sliced_vertices.extend(ring.iter().map(|c| [c.x, c.y]));
@@ -701,6 +733,14 @@ impl Renderer {
                                 start,
                                 len: vertex_count(self.sliced_vertices.len() - start)?,
                             });
+                        }
+                        let vertices = &self.sliced_vertices;
+                        let rings = self.sliced[first_part..]
+                            .iter()
+                            .map(|p| &vertices[p.start..p.start + p.len as usize]);
+                        if !tile_box.holds_area(rings) {
+                            self.sliced.truncate(first_part);
+                            self.sliced_vertices.truncate(first_vertex);
                         }
                     }
                     // Only clipped: an unclipped slicer gives covered tiles the whole polygon.
@@ -987,11 +1027,11 @@ fn to_grid(c: Coord<f64>, shift: f64, world: f64) -> Coord<f64> {
     }
 }
 
-/// Rounds to the zoom grid, as [`to_grid`] scales it.
+/// Rounds to the zoom grid, as [`to_grid`] scales it, halves to even as `ST_AsMVTGeom` does.
 #[expect(clippy::cast_possible_truncation, reason = "range-checked before the cast")]
 fn quantize(c: Coord<f64>, shift: f64, world: f64) -> Result<Vertex, GeometryError> {
     let c = to_grid(c, shift, world);
-    let (x, y) = (c.x.round(), c.y.round());
+    let (x, y) = (c.x.round_ties_even(), c.y.round_ties_even());
     let range = f64::from(i32::MIN)..=f64::from(i32::MAX);
     if range.contains(&x) && range.contains(&y) {
         Ok([x as i32, y as i32])
@@ -1135,6 +1175,155 @@ mod tests {
     }
 
     #[test]
+    fn point_on_the_far_buffer_edge_reaches_the_neighbor() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let tiles = render(
+            &layer,
+            FeatureGeom::Points(&[coord! { x: 264.0 / 512.0, y: 100.0 / 512.0 }]),
+        );
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(found, [("1/0/0", vec![[264, 100]]), ("1/1/0", vec![[8, 100]])]);
+    }
+
+    #[test]
+    fn clipped_lines_touching_a_buffer_edge_from_outside_are_dropped() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let lines = [
+            LineString::from(vec![(264.0 / 512.0, 100.0 / 512.0), (300.0 / 512.0, 100.0 / 512.0)]),
+            LineString::from(vec![(200.0 / 512.0, 100.0 / 512.0), (248.0 / 512.0, 100.0 / 512.0)]),
+        ];
+        let tiles = render(&layer, FeatureGeom::Lines(&lines));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[200, 100], [248, 100]]),
+                ("1/1/0", vec![[8, 100], [44, 100]])
+            ]
+        );
+    }
+
+    #[test]
+    fn unclipped_lines_touching_a_buffer_edge_from_outside_reach_the_tile() {
+        let layer = RenderLayer::new(0, 1..=1, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let lines = [
+            LineString::from(vec![(264.0 / 512.0, 100.0 / 512.0), (300.0 / 512.0, 100.0 / 512.0)]),
+            LineString::from(vec![(200.0 / 512.0, 100.0 / 512.0), (248.0 / 512.0, 100.0 / 512.0)]),
+        ];
+        let tiles = render(&layer, FeatureGeom::Lines(&lines));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[264, 100], [300, 100], [200, 100], [248, 100]]),
+                ("1/1/0", vec![[8, 100], [44, 100], [-56, 100], [-8, 100]])
+            ]
+        );
+    }
+
+    #[test]
+    fn clipped_line_along_a_buffer_edge_is_kept() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let line = LineString::from(vec![(264.0 / 512.0, 50.0 / 512.0), (264.0 / 512.0, 150.0 / 512.0)]);
+        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
+        let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
+        assert_eq!(
+            found,
+            [
+                ("1/0/0", vec![[264, 50], [264, 150]]),
+                ("1/1/0", vec![[8, 50], [8, 150]])
+            ]
+        );
+    }
+
+    #[test]
+    fn clipped_polygon_touching_a_buffer_edge_from_outside_is_dropped() {
+        let layer = RenderLayer::new(0, 1..=1, GRID).unwrap();
+        let square = Polygon::new(
+            LineString::from(vec![
+                (264.0 / 512.0, 50.0 / 512.0),
+                (300.0 / 512.0, 50.0 / 512.0),
+                (300.0 / 512.0, 150.0 / 512.0),
+                (264.0 / 512.0, 150.0 / 512.0),
+            ]),
+            vec![],
+        );
+        let tiles = render(&layer, FeatureGeom::Polygons(std::slice::from_ref(&square)));
+        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(names, ["1/1/0"]);
+    }
+
+    #[test]
+    fn clipped_polygon_lying_on_a_tiles_buffer_box_is_kept_there() {
+        let layer = RenderLayer::new(0, 2..=2, GRID).unwrap();
+        let square = Polygon::new(
+            LineString::from(vec![
+                (248.0 / 1024.0, 248.0 / 1024.0),
+                (520.0 / 1024.0, 248.0 / 1024.0),
+                (520.0 / 1024.0, 520.0 / 1024.0),
+                (248.0 / 1024.0, 520.0 / 1024.0),
+            ]),
+            vec![],
+        );
+        let tiles = render(&layer, FeatureGeom::Polygons(std::slice::from_ref(&square)));
+        let names: Vec<_> = tiles.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "2/0/0", "2/0/1", "2/0/2", "2/1/0", "2/1/1", "2/1/2", "2/2/0", "2/2/1", "2/2/2"
+            ]
+        );
+    }
+
+    #[test]
+    fn points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let points = [
+            coord! { x: 0.5, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+            coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 },
+            coord! { x: 0.25, y: 0.5 },
+        ];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128], [64, 128]]);
+    }
+
+    #[test]
+    fn unclipped_points_rounding_onto_one_are_kept_once() {
+        let layer = RenderLayer::new(0, 0..=0, GRID)
+            .unwrap()
+            .with_clip_mode(ClipMode::Unclipped);
+        let points = [coord! { x: 0.5, y: 0.5 }, coord! { x: 0.5 + 0.1 / 256.0, y: 0.5 }];
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128]]);
+    }
+
+    #[test]
+    fn points_halfway_between_units_round_to_the_even_unit() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let points = [0.5, 1.5, 2.5, 3.5].map(|u| coord! { x: (128.0 + u) / 256.0, y: (128.0 - u) / 256.0 });
+        let tiles = render(&layer, FeatureGeom::Points(&points));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[128, 128], [130, 126], [132, 124]]);
+    }
+
+    #[test]
+    fn line_vertices_halfway_between_units_round_to_the_even_unit() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line = LineString::from(vec![
+            coord! { x: 100.5 / 256.0, y: 100.5 / 256.0 },
+            coord! { x: 140.5 / 256.0, y: 121.5 / 256.0 },
+        ]);
+        let tiles = render(&layer, FeatureGeom::Lines(std::slice::from_ref(&line)));
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[100, 100], [140, 122]]);
+    }
+
+    #[test]
     fn line_is_sliced_per_zoom_and_stops_when_too_small() {
         let layer = RenderLayer::new(0, 0..=3, GRID).unwrap();
         let line: LineString = [coord! { x: -0.5, y: 10.0 }, coord! { x: 0.5, y: 10.0 }]
@@ -1269,6 +1458,35 @@ mod tests {
     }
 
     #[test]
+    fn simplification_keeps_the_first_of_two_equally_far_vertices() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let line = LineString::from(vec![
+            (100.0 / 256.0, 100.0 / 256.0),
+            (110.0 / 256.0, 103.0 / 256.0),
+            (120.0 / 256.0, 103.0 / 256.0),
+            (130.0 / 256.0, 100.0 / 256.0),
+        ]);
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Lines(std::slice::from_ref(&line)),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold {
+                    below_max_zoom: 2.0,
+                    at_max_zoom: 2.0,
+                },
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.vertices, [[100, 100], [110, 103], [130, 100]]);
+    }
+
+    #[test]
     fn features_past_the_antimeridian_move_into_the_world() {
         let layer = RenderLayer::new(0, 2..=2, GRID).unwrap();
         let tiles = render(
@@ -1287,7 +1505,7 @@ mod tests {
             ["1/0/0", "1/1/0"]
         );
         let wrapped = tiles.iter().find(|t| t.0 == "1/1/0").unwrap();
-        assert_eq!(wrapped.2.vertices, [[257, 128]]);
+        assert_eq!(wrapped.2.vertices, [[256, 128]]);
     }
 
     fn square(lo: f64, hi: f64) -> LineString<f64> {
@@ -1453,6 +1671,35 @@ mod tests {
     }
 
     #[test]
+    fn multipolygon_parts_that_round_onto_one_edge_merge_into_one_polygon() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let part = |x0: f64, x1: f64| {
+            let ring: LineString = [(x0, 10.0), (x1, 10.0), (x1, 90.0), (x0, 90.0), (x0, 10.0)]
+                .into_iter()
+                .map(|(x, y)| coord! { x: x / 256.0, y: y / 256.0 })
+                .collect();
+            Polygon::new(ring, vec![])
+        };
+        let polygons = [part(10.0, 50.0), part(50.02, 90.0)];
+        let tiles = render_feature(
+            &layer,
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Polygons(&polygons),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 0..=0,
+                simplify: PixelThreshold::ZERO,
+                min_size: PixelThreshold::ZERO,
+            },
+        );
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].2.polygons, [1]);
+        assert_eq!(tiles[0].2.vertices, [[10, 10], [90, 10], [90, 90], [10, 90]]);
+    }
+
+    #[test]
     fn vertices_rounded_onto_a_straight_run_are_dropped() {
         let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
         let line: LineString = [(10.0, 10.0), (50.0, 10.4), (90.0, 10.0), (90.0, 49.6), (90.0, 90.0)]
@@ -1591,6 +1838,81 @@ mod tests {
             },
         )
         .unwrap_err();
+    }
+
+    #[test]
+    fn accepts_extent_64() {
+        RenderLayer::new(0, 0..=0, LayerGrid { extent: 64, buffer: 0 }).unwrap();
+    }
+
+    #[test]
+    fn accepts_extent_2097152() {
+        RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 2_097_152,
+                buffer: 0,
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn rejects_an_odd_extent() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4095,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4095 is not a power of two from 64 to 2097152"
+        );
+    }
+
+    #[test]
+    fn rejects_an_even_extent_that_is_not_a_power_of_two() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4000,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4000 is not a power of two from 64 to 2097152"
+        );
+    }
+
+    #[test]
+    fn rejects_extent_32() {
+        let error = RenderLayer::new(0, 0..=0, LayerGrid { extent: 32, buffer: 0 }).unwrap_err();
+        assert_eq!(error.to_string(), "extent 32 is not a power of two from 64 to 2097152");
+    }
+
+    #[test]
+    fn rejects_extent_4194304() {
+        let error = RenderLayer::new(
+            0,
+            0..=0,
+            LayerGrid {
+                extent: 4_194_304,
+                buffer: 0,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "extent 4194304 is not a power of two from 64 to 2097152"
+        );
     }
 
     #[test]

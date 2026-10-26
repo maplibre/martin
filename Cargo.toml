@@ -131,7 +131,7 @@ geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.28"
+hotpath = "0.29.2"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -168,6 +168,7 @@ pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
 pmtiles = { version = "0.25.0", default-features = false }
 png = "0.18.0"
+portable-pty = "0.9.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
     "with-time-0_3",
@@ -188,6 +189,7 @@ rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+roxmltree = "0.21"
 rstest = "0.28.0"
 rustix = { version = "1.1.5", default-features = false }
 rustls = "0.23.38"
@@ -201,9 +203,9 @@ serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", features = ["miette", "properties"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
-similar = "2.7.0"
+similar = "3.0.0"
 size_format = "1.0.2"
-spreet = { version = "0.13", default-features = false }
+spreet = { version = "0.14", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "fnv", "xxhash", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
@@ -228,6 +230,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
+vt100 = "0.17.0"
 walkdir = "2.5.0"
 webp = { version = "0.3.1", default-features = false }
 wincode = "0.6.2"
@@ -247,8 +250,16 @@ insta.opt-level = 3
 similar.opt-level = 3
 # very large debug bundles
 libduckdb-sys.debug = false
+# See https://doc.rust-lang.org/cargo/reference/profiles.html#build-dependencies
+proc-macro2.debug = false
+quote.debug = false
+unicode-ident.debug = false
 
 [profile.release]
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
+
+[patch.crates-io]
+# georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
+wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }

@@ -31,6 +31,7 @@ async fn generates_a_valid_tileset() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -106,6 +107,7 @@ async fn generates_pmtiles_with_the_same_tiles() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -280,7 +282,7 @@ async fn spreads_jsonb_keys_over_properties_as_martin_serves_them() {
     insta::assert_snapshot!(mlt_dump(&generated), @r#"
     layer array_props extent 4096
       id=Some(1) geom=POINT(2048 2048) props=[kind=Str(Some("a")), label=Str(Some("one")), rank=I32(Some(1)), score=F64(Some(1.5)), tags=Str(Some("{1,2,3}"))]
-      id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("two")), rank=I32(Some(-2)), score=F64(Some(3.0)), tags=Str(None)]
+      id=Some(2) geom=POINT(2059 2037) props=[kind=Str(None), label=Str(Some("from the document")), rank=I32(Some(-2)), score=F64(Some(3.0)), tags=Str(None)]
     "#);
     assert_eq!(mlt_dump(&generated), mlt_dump(&served));
 }
@@ -535,13 +537,15 @@ async fn refuses_options_only_tile_mode_reads() {
         .arg("--skip-agg-tiles-hash")
         .arg("--set-meta")
         .arg("name=x")
+        .arg("--delete-meta")
+        .arg("bounds")
         .arg("--save-config")
         .arg("saved.yaml")
         .arg("--max-feature-count")
         .arg("10")
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--save-config`, `--max-feature-count`");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`, `--save-config`, `--max-feature-count`");
 }
 
 #[tokio::test]
@@ -631,6 +635,7 @@ async fn one_table_feeds_several_layers() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -693,6 +698,7 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -873,6 +879,7 @@ async fn layer_rules_override_settings_per_feature() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -995,6 +1002,7 @@ async fn sort_by_sets_the_draw_order() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -1043,6 +1051,98 @@ async fn sort_by_sets_the_draw_order() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("sort_by_metadata", metadata);
     });
+}
+
+#[tokio::test]
+async fn encodes_with_the_configured_convert_to_mlt_settings() {
+    let dir = temp_dir();
+    let default_config = dir.path().join("default.yaml");
+    fs::write(
+        &default_config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let tessellated_config = dir.path().join("tessellated.yaml");
+    fs::write(
+        &tessellated_config,
+        indoc! {"
+            convert_to_mlt:
+              tessellate: true
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let default_output = dir.path().join("default.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&default_config)
+        .arg("--output-file")
+        .arg(&default_output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let tessellated_output = dir.path().join("tessellated.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&tessellated_config)
+        .arg("--output-file")
+        .arg(&tessellated_output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let listings = format!(
+        "default:\n{}\ntessellated:\n{}",
+        tile_listing(&default_output).await,
+        tile_listing(&tessellated_output).await
+    );
+    insta::assert_snapshot!(listings, @"
+    default:
+    0/0/0 412 bytes
+    1/0/0 190 bytes
+    1/0/1 212 bytes
+    1/1/0 206 bytes
+    1/1/1 478 bytes
+    tessellated:
+    0/0/0 548 bytes
+    1/0/0 280 bytes
+    1/0/1 302 bytes
+    1/1/0 296 bytes
+    1/1/1 637 bytes
+    ");
 }
 
 #[tokio::test]
@@ -1361,6 +1461,7 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
                 table_source:
                   schema: public
                   table: table_source
+                  filter: \"gid <> 14\"
                   srid: 4326
                   geometry_column: geom
                   geometry_type: GEOMETRY
@@ -1388,9 +1489,48 @@ async fn warns_about_a_misconfigured_table_with_on_invalid_warn() {
     insta::assert_snapshot!(log, @r#"
     WARN Table has no spatial index on the geometry column schema=public table=table_source geometry_column=geom
     WARN Tile source resolution warning warning=Source typo: Unable to configure source typo because schema 'ghost_schema' does not exist. Available schemas: "Quotes' \ \' \" and Space.Dot., MixedCase, autodetect, public, schema_a, schema_b, topology
-    WARN Skipped features with geometry collections or empty geometries, which tiles cannot hold features.skipped=1
     "#);
     assert!(output.exists());
+}
+
+#[tokio::test]
+async fn aborts_on_a_geometry_collection_naming_the_source_and_a_query_counting_such_rows() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid >= 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @r#"
+    ERROR Source `table_source`: feature 14: a GEOMETRYCOLLECTION cannot go into a tile, which holds only points, lines and polygons (single or multi)
+    Count the rows of each geometry type it cannot render with:
+      SELECT ST_GeometryType(g), count(*) FROM (SELECT ST_CurveToLine("geom"::geometry) AS g FROM "public"."table_source" WHERE "geom" IS NOT NULL AND (gid >= 14)) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1
+    "#);
+    assert!(!output.exists());
 }
 
 #[tokio::test]

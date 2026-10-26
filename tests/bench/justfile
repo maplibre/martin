@@ -27,7 +27,22 @@ toolkit-slice:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "${HOTPATH_OUTPUT_DIR:-}" ]; then export HOTPATH_OUTPUT_PATH="$HOTPATH_OUTPUT_DIR/toolkit-slice.json"; fi
-    HOTPATH_BENCHMARK=toolkit-slice just toolkit::hotpath big-all-multi 5000 hotpath-alloc,hotpath-cloud
+    export HOTPATH_BENCHMARK=toolkit-slice
+    if [ -z "${HOTPATH_CALLGRIND_OUT_FILE:-}" ]; then
+        just toolkit::hotpath big-all-multi 5000 hotpath-alloc,hotpath-cloud
+        exit
+    fi
+    # With HOTPATH_CALLGRIND_OUT_FILE set (x86_64 Linux), merged mode: the same build runs natively
+    # for timing, then under Valgrind's Callgrind, which adds instruction counts to the native report
+    # and uploads the result. Only the Callgrind run may upload. The runner wraps only the built example, not cargo.
+    features=hotpath-alloc,hotpath-cloud,hotpath-callgrind
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    HOTPATH_OUTPUT_FORMAT=json HOTPATH_OUTPUT_PATH="$work/native.json" \
+        env -u HOTPATH_UPLOAD -u HOTPATH_UPLOAD_RESPONSE_PATH just toolkit::hotpath big-all-multi 5000 "$features"
+    HOTPATH_MERGE_REPORT="$work/native.json" \
+        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="valgrind -q --tool=callgrind --instr-atstart=no --callgrind-out-file=$HOTPATH_CALLGRIND_OUT_FILE" \
+        just toolkit::hotpath big-all-multi 5000 "$features"
 
 [private]
 run name source max_zoom n martin_args='' oha_args='':

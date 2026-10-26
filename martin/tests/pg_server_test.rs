@@ -1187,8 +1187,8 @@ tables:
       - 90
     geometry_type: POINT
     properties:
-      TABLE: text
       giD: int4
+      TABLE: text
     ");
 
     // --------------------------------------------

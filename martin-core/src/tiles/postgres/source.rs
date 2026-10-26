@@ -16,6 +16,7 @@ use crate::tiles::postgres::features::features_from_rows;
 use crate::tiles::postgres::pool::ActiveQueryGuard;
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::postgres::{ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -52,12 +53,13 @@ impl PostgresSource {
     pub fn new(
         id: String,
         tiler: impl Into<PostgresTiler>,
-        tilejson: TileJSON,
+        mut tilejson: TileJSON,
         pool: PostgresPool,
         tile_info: TileInfo,
         cache_zoom: CacheZoomRange,
         tile_grid: TileGrid,
     ) -> Self {
+        cap_zoom_range(&id, &mut tilejson);
         Self {
             id,
             tiler: tiler.into(),

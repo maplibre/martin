@@ -10,6 +10,10 @@ tags:
 !!! tip "OpenAPI Documentation"
     If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](https://raw.githubusercontent.com/maplibre/martin/main/schemas/openapi.json).
 
+!!! tip "OGC compliant API endpoints"
+    Martin also serves its tiles through [OGC API - Tiles](ogc-api.md) under `/ogc`, for clients that need an OGC compliant API.
+    We only recommend them if OGC compliance is a requirement, because they are more complicated to use than the endpoints below.
+
 Martin data is available via these HTTP `GET` endpoints:
 
 | URL                                           | Description                                                        |
@@ -27,6 +31,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/style/{style}`                              | [Style source](sources-styles/index.md)                            |
 | `/style/{style}/{z}/{x}/{y}.{ext}`            | [Rendered raster tiles](sources-styles/rendering.md) (Linux)       |
 | `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](sources-styles/rendering.md#static-images) (Linux) |
+| `/ogc`, `/ogc/...`                            | [OGC API - Tiles](ogc-api.md)                                      |
 | `/health`                                     | Martin server health check: returns 200 `OK`                       |
 | `/_/metrics`                                  | Martin server Prometheus metrics                                   |
 
@@ -48,9 +53,7 @@ Some source IDs are reserved for internal use.
 If you try to use them, they will be automatically renamed to a unique ID
 the same way as duplicate source IDs are handled, e.g. a `catalog` source will become `catalog.1`.
 
-Here are the reserved source IDs:
-`_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `refresh`,
-`reload`, `sprite`, `status`.
+Here are the reserved source IDs: `_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `ogc`, `refresh`, `reload`, `sprite`, `status`.
 
 ### Source TileJSON
 

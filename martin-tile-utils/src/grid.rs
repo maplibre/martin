@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use serde::Serialize;
 
-use crate::{EARTH_CIRCUMFERENCE, MAX_ZOOM, TileRect};
+use crate::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, MAX_ZOOM, TileRect, wgs84_to_webmercator};
 
 /// Identifier of the built-in Web Mercator grid, [`WEB_MERCATOR_QUAD`].
 pub const WEB_MERCATOR_QUAD_ID: &str = "WebMercatorQuad";
@@ -25,6 +25,7 @@ pub const WEB_MERCATOR_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE,
     matrix_at_zoom0: [1, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// Plain longitude and latitude (`EPSG:4326`), two tiles wide and one tall at zoom 0.
@@ -37,6 +38,7 @@ pub const WORLD_CRS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 180.0,
     matrix_at_zoom0: [2, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// The registry's other name for [`WORLD_CRS84_QUAD`], `EPSG:4326` in the axis order Martin always uses.
@@ -52,6 +54,7 @@ pub const WORLD_MERCATOR_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE,
     matrix_at_zoom0: [1, 1],
     wraps: true,
+    in_ogc_registry: true,
 };
 
 /// Europe on the equal-area ETRS89-LAEA projection (`EPSG:3035`).
@@ -64,6 +67,7 @@ pub const EUROPEAN_ETRS89_LAEA_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 4_500_000.0,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// New Zealand on NZTM2000 (`EPSG:2193`), with the zoom scales of [`WEB_MERCATOR_QUAD`] from its zoom 2 on.
@@ -76,6 +80,7 @@ pub const NZTM2000_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: EARTH_CIRCUMFERENCE / 4.0,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: false,
 };
 
 /// The Arctic on Universal Polar Stereographic North (`EPSG:5041`).
@@ -88,6 +93,7 @@ pub const UPS_ARCTIC_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 32_881_518.694_4,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// The Antarctic on Universal Polar Stereographic South (`EPSG:5042`).
@@ -100,6 +106,7 @@ pub const UPS_ANTARCTIC_WGS84_QUAD: TileGrid = TileGrid {
     extent_at_zoom0: 32_881_518.694_4,
     matrix_at_zoom0: [1, 1],
     wraps: false,
+    in_ogc_registry: true,
 };
 
 /// Every built-in grid.
@@ -133,6 +140,8 @@ pub struct TileGrid {
     matrix_at_zoom0: [u32; 2],
     #[serde(skip)]
     wraps: bool,
+    #[serde(skip)]
+    in_ogc_registry: bool,
 }
 
 #[expect(
@@ -158,6 +167,17 @@ pub enum TileGridError {
         "tile grid {0}: matrix_at_zoom0 must be [1, 1], [2, 1] or [1, 2], got [{1}, {2}]. A grid that is two by two at zoom 0 is one by one at zoom 1"
     )]
     InvalidMatrix(String, u32, u32),
+}
+
+/// The units and axis order of a coordinate reference system.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CrsAxes {
+    /// Metres in one unit of the CRS, at the equator for degrees.
+    pub metres_per_unit: f64,
+    /// The abbreviations of the axes, in the order the CRS gives coordinates.
+    pub ordered_axes: [&'static str; 2],
+    /// Whether the CRS gives the northing before the easting.
+    pub northing_first: bool,
 }
 
 impl TileGrid {
@@ -196,6 +216,7 @@ impl TileGrid {
             extent_at_zoom0,
             matrix_at_zoom0: [1, 1],
             wraps: false,
+            in_ogc_registry: false,
         })
     }
 
@@ -233,6 +254,41 @@ impl TileGrid {
     #[must_use]
     pub fn crs_code(&self) -> &str {
         self.crs.split_once(':').map_or("", |(_, c)| c)
+    }
+
+    /// The units and axis order of [`crs`](Self::crs), for the CRSs of the built-in grids.
+    #[must_use]
+    pub fn crs_axes(&self) -> Option<CrsAxes> {
+        let metres = |ordered_axes, northing_first| CrsAxes {
+            metres_per_unit: 1.0,
+            ordered_axes,
+            northing_first,
+        };
+        match (self.crs_authority(), self.crs_code()) {
+            ("EPSG", "4326") | ("OGC", "CRS84") => Some(CrsAxes {
+                metres_per_unit: EARTH_CIRCUMFERENCE / f64::from(EARTH_CIRCUMFERENCE_DEGREES),
+                ordered_axes: ["Lon", "Lat"],
+                northing_first: false,
+            }),
+            ("EPSG", "3857") => Some(metres(["X", "Y"], false)),
+            ("EPSG", "3395" | "5041" | "5042") => Some(metres(["E", "N"], false)),
+            ("EPSG", "3035" | "2193") => Some(metres(["Y", "X"], true)),
+            _ => None,
+        }
+    }
+
+    /// `wgs84` bounds in the CRS of this grid, for the CRSs that need no projection library.
+    #[must_use]
+    pub fn crs_bounds(&self, [left, bottom, right, top]: [f64; 4]) -> Option<[f64; 4]> {
+        match (self.crs_authority(), self.crs_code()) {
+            ("EPSG", "3857") => {
+                let (left, bottom) = wgs84_to_webmercator(left, bottom);
+                let (right, top) = wgs84_to_webmercator(right, top);
+                Some([left, bottom, right, top])
+            }
+            ("EPSG", "4326") | ("OGC", "CRS84") => Some([left, bottom, right, top]),
+            _ => None,
+        }
     }
 
     /// Top-left corner of the zoom-0 tile, in CRS units.
@@ -321,6 +377,12 @@ impl TileGrid {
     pub fn is_web_mercator(&self) -> bool {
         self.id == WEB_MERCATOR_QUAD_ID
     }
+
+    /// Whether the OGC tile matrix set registry defines this grid.
+    #[must_use]
+    pub fn is_in_ogc_registry(&self) -> bool {
+        self.in_ogc_registry
+    }
 }
 
 #[cfg(test)]
@@ -392,8 +454,8 @@ mod tests {
     #[test]
     fn a_tile_range_follows_the_mercator_helper() {
         let (min_x, min_y, max_x, max_y) = crate::bbox_to_xyz(-10.0, -10.0, 10.0, 10.0, 4);
-        let bounds = crate::wgs84_to_webmercator(-10.0, -10.0);
-        let upper = crate::wgs84_to_webmercator(10.0, 10.0);
+        let bounds = wgs84_to_webmercator(-10.0, -10.0);
+        let upper = wgs84_to_webmercator(10.0, 10.0);
         assert_eq!(
             WEB_MERCATOR_QUAD.tile_range([bounds.0, bounds.1, upper.0, upper.1], 4),
             TileRect::new(4, min_x, min_y, max_x, max_y)

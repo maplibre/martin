@@ -75,42 +75,64 @@ impl Shape {
     }
 }
 
-/// The only values a column of a table takes, `null` not among them, known from outside the plan, e.g. from the
-/// source's filter.
+/// What is known from outside the plan about the values a column of a table takes, e.g. from the source's filter or
+/// the table's constraints.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColumnValues {
+pub struct ColumnFacts {
     pub column: String,
-    pub values: Vec<Literal>,
+    /// Whether the column is never `null`.
+    pub not_null: bool,
+    /// The only values the column takes besides `null`, any value when `None`.
+    pub values: Option<Vec<Literal>>,
+}
+
+/// A column with known values that some expression can see, and whether it may be `null` too.
+struct KnownValues {
+    column: String,
+    values: Vec<Literal>,
+    nullable: bool,
+}
+
+impl KnownValues {
+    /// The value of the column when it takes only one, never `null`.
+    fn single(&self) -> Option<&Literal> {
+        match self.values.as_slice() {
+            [only] if !self.nullable => Some(only),
+            _ => None,
+        }
+    }
 }
 
 impl Plan {
     /// Every path through the layers of table `table` in layer order, each with rows that may take other paths too.
-    /// A column in `known` that a layer's expressions read gives that layer one path per value, naming what the layer
-    /// makes of it wherever the value decides that, and the choices it decides get no paths of their own.
+    /// A column in `facts` with known values that a layer's expressions read gives that layer one path per value, and
+    /// one for `null` unless the column is never `null`, naming what the layer makes of it wherever the value decides
+    /// that, and the choices it decides get no paths of their own. A column that is never `null` gets no `null` paths.
+    /// Nothing in `facts` counts while a `jsonb` column may replace the columns it is about.
     ///
     /// # Errors
     ///
     /// If the plan has no table `table`.
-    pub fn branches(&self, table: u16, known: &[ColumnValues]) -> TileGenResult<Vec<Branch>> {
-        Ok(self.paths(table, known)?.into_iter().map(|path| path.branch).collect())
+    pub fn branches(&self, table: u16, facts: &[ColumnFacts]) -> TileGenResult<Vec<Branch>> {
+        Ok(self.paths(table, facts)?.into_iter().map(|path| path.branch).collect())
     }
 
     /// The paths of [`Self::branches`] that `feature` takes as the layers evaluate it, its geometry in `crs`.
     ///
     /// # Errors
     ///
-    /// If the plan has no table `table`.
+    /// If the plan has no table `table`, or `feature` has a geometry a tile cannot hold.
     pub fn paths_of(
         &self,
         table: u16,
-        known: &[ColumnValues],
+        facts: &[ColumnFacts],
         crs: Crs,
         feature: &SourceFeature,
     ) -> TileGenResult<Vec<Branch>> {
-        let paths = self.paths(table, known)?;
+        let paths = self.paths(table, facts)?;
         let mut geometry = feature.geometry.clone();
-        project_geometry(crs, &mut geometry);
-        let Some(geom) = geometry.feature_geom() else {
+        let drawable = project_geometry(crs, &mut geometry)?;
+        let Some(geom) = geometry.feature_geom().filter(|_| drawable) else {
             return Ok(Vec::new());
         };
         let mut errors = vec![0; self.exprs.len()];
@@ -124,21 +146,30 @@ impl Plan {
     }
 
     /// The paths through the layers of table `table`, without a second path with the rows of an earlier one.
-    fn paths(&self, table: u16, limited: &[ColumnValues]) -> TileGenResult<Vec<Path<'_>>> {
+    fn paths(&self, table: u16, facts: &[ColumnFacts]) -> TileGenResult<Vec<Path<'_>>> {
         let planned = self
             .tables
             .get(usize::from(table))
             .ok_or(TileGenError::UnknownTable(table))?;
-        let known: Vec<ColumnValues> = limited
+        let facts = if planned.defs.iter().any(|c| matches!(c, ColumnDef::Keys(_))) {
+            &[]
+        } else {
+            facts
+        };
+        let known: Vec<KnownValues> = facts
             .iter()
-            .map(|k| ColumnValues {
-                column: k.column.clone(),
-                values: (k.values.iter())
-                    .filter(|value| compared_as(&planned.defs, &k.column, value).is_some())
+            .filter_map(|f| {
+                let all = f.values.as_deref()?;
+                let values: Vec<Literal> = (all.iter())
+                    .filter(|value| compared_as(&planned.defs, &f.column, value).is_some())
                     .cloned()
-                    .collect(),
+                    .collect();
+                (all.is_empty() || !values.is_empty()).then(|| KnownValues {
+                    column: f.column.clone(),
+                    values,
+                    nullable: !f.not_null,
+                })
             })
-            .filter(|k| !k.values.is_empty())
             .collect();
         let mut out: Vec<Path<'_>> = Vec::new();
         for layer_index in planned.layers.clone() {
@@ -150,7 +181,7 @@ impl Plan {
                 layer: &self.layers[layer_index],
                 layer_index,
                 known: &known,
-                limited,
+                facts,
             };
             for path in paths.all() {
                 let branch = &path.branch;
@@ -283,9 +314,9 @@ struct LayerPaths<'a, 'k> {
     layer: &'a PlannedLayer,
     layer_index: usize,
     /// The known values of the table's columns, only those the column's kind can take.
-    known: &'k [ColumnValues],
-    /// The columns known from outside the plan to take only some values, `null` not among them.
-    limited: &'k [ColumnValues],
+    known: &'k [KnownValues],
+    /// What is known from outside the plan about the table's columns.
+    facts: &'k [ColumnFacts],
 }
 
 /// A part of a path's rows: the expression it comes from, and its condition.
@@ -444,8 +475,8 @@ impl<'a> LayerPaths<'a, '_> {
         }
     }
 
-    /// Each known value of a column the layer's expressions read, with what the layer makes of a feature with that
-    /// value wherever the known values decide it.
+    /// Each known value of a column the layer's expressions read, and `null` when the column may be `null`, with what
+    /// the layer makes of a feature with that value wherever the known values decide it.
     fn values(&self, out: &mut Vec<Path<'a>>) {
         let read: Vec<String> = self
             .exprs
@@ -454,67 +485,87 @@ impl<'a> LayerPaths<'a, '_> {
             .flat_map(|planned| read_columns(planned.expr.ast()))
             .collect();
         for known in self.known.iter().filter(|k| read.contains(&k.column)) {
-            let column = known.column.as_str();
-            for value in &known.values {
-                let Some(kind) = compared_as(self.columns, column, value) else {
-                    continue;
-                };
-                let others = self.known.iter().filter(|k| k.column != column);
-                let assigned: Vec<(&str, Prop<SourceStr>)> =
-                    std::iter::once((column, prop(value, kind.as_ref().ok().copied())))
-                        .chain(others.filter_map(|k| match k.values.as_slice() {
-                            [only] => {
-                                let kind = compared_as(self.columns, &k.column, only)?;
-                                Some((k.column.as_str(), prop(only, kind.as_ref().ok().copied())))
-                            }
-                            _ => None,
-                        }))
-                        .collect();
-                let decides = |expr: &IdedExpr| self.decided_by(expr, column);
-                let eval = |expr: &IdedExpr| self.eval_with(expr, &assigned);
-                let filter = self.layer.filter.map(|f| self.expr(f));
-                let filter_decided = filter.is_none_or(|f| decides(f.expr.ast()));
-                let mut outcomes = Vec::new();
-                let kept =
-                    filter.is_none_or(|f| !filter_decided || matches!(eval(f.expr.ast()), Ok(Value::Bool(true))));
-                match filter {
-                    Some(f) if !kept => outcomes.push(format!("dropped, `where: {}` is false", f.source)),
-                    _ => {
-                        if let Some(f) = filter.filter(|_| filter_decided) {
-                            outcomes.push(format!("kept by `where: {}`", f.source));
-                        }
-                        let fields = match self.decided_case(&decides, &eval) {
-                            Some(Matched::Rule(i)) => {
-                                outcomes.push(format!("rule {}", i + 1));
-                                self.fields(self.case(Some(i)))
-                            }
-                            Some(Matched::NoRule) => {
-                                if !self.layer.cases.is_empty() {
-                                    outcomes.push("no rule matches".to_owned());
-                                }
-                                self.fields(self.case(None))
-                            }
-                            None => self.shared_fields(),
-                        };
-                        for (field, index) in fields {
-                            let expr = self.exprs[index].expr.ast();
-                            if decides(expr) {
-                                outcomes.push(format!("{field} {}", Outcome(eval(expr))));
-                            }
-                        }
-                    }
+            let values = known.values.iter().map(Some);
+            for value in values.chain(known.nullable.then_some(None)) {
+                if let Some(path) = self.value_path(&known.column, value) {
+                    out.push(path);
                 }
-                let mut path = format!("{column} {}", LiteralCel(value));
-                if !outcomes.is_empty() {
-                    path = format!("{path} -> {}", outcomes.join(", "));
-                }
-                let mut parts = if filter_decided { self.geometry() } else { self.base() };
-                parts.push(("the source's filter", self.equals(column, value, kind)));
-                let mut test = self.test(if filter_decided { Reach::Geometry } else { Reach::Layer });
-                test.checks.push((equals(column, value), Want::True));
-                out.push(self.path(path, parts, test));
             }
         }
+    }
+
+    /// The path of the features with `value` in `column`, `null` for `None`, or `None` when expressions never see
+    /// `value` there.
+    fn value_path(&self, column: &str, value: Option<&Literal>) -> Option<Path<'a>> {
+        let kind = match value {
+            Some(value) => Some(compared_as(self.columns, column, value)?),
+            None => None,
+        };
+        let others = self.known.iter().filter(|k| k.column != column);
+        let assigned: Vec<(&str, Prop<SourceStr>)> = (value.zip(kind.as_ref()))
+            .map(|(value, kind)| (column, prop(value, kind.as_ref().ok().copied())))
+            .into_iter()
+            .chain(others.filter_map(|k| {
+                let only = k.single()?;
+                let kind = compared_as(self.columns, &k.column, only)?;
+                Some((k.column.as_str(), prop(only, kind.as_ref().ok().copied())))
+            }))
+            .collect();
+        let decides = |expr: &IdedExpr| self.decided_by(expr, column);
+        let eval = |expr: &IdedExpr| self.eval_with(expr, &assigned);
+        let filter = self.layer.filter.map(|f| self.expr(f));
+        let filter_decided = filter.is_none_or(|f| decides(f.expr.ast()));
+        let mut outcomes = Vec::new();
+        let mut dropped = false;
+        if let Some(f) = filter.filter(|_| filter_decided) {
+            let source = &f.source;
+            let (outcome, kept) = match eval(f.expr.ast()) {
+                Ok(Value::Bool(true)) => (format!("kept by `where: {source}`"), true),
+                Err(_) => (format!("dropped, `where: {source}` fails"), false),
+                Ok(_) => (format!("dropped, `where: {source}` is false"), false),
+            };
+            dropped = !kept;
+            outcomes.push(outcome);
+        }
+        if !dropped {
+            let fields = match self.decided_case(&decides, &eval) {
+                Some(Matched::Rule(i)) => {
+                    outcomes.push(format!("rule {}", i + 1));
+                    self.fields(self.case(Some(i)))
+                }
+                Some(Matched::NoRule) => {
+                    if !self.layer.cases.is_empty() {
+                        outcomes.push("no rule matches".to_owned());
+                    }
+                    self.fields(self.case(None))
+                }
+                None => self.shared_fields(),
+            };
+            for (field, index) in fields {
+                let expr = self.exprs[index].expr.ast();
+                if decides(expr) {
+                    outcomes.push(format!("{field} {}", Outcome(eval(expr))));
+                }
+            }
+        }
+        let mut path = match value {
+            Some(value) => format!("{column} {}", LiteralCel(value)),
+            None => format!("{column} null"),
+        };
+        if !outcomes.is_empty() {
+            path = format!("{path} -> {}", outcomes.join(", "));
+        }
+        let mut parts = if filter_decided { self.geometry() } else { self.base() };
+        let mut test = self.test(if filter_decided { Reach::Geometry } else { Reach::Layer });
+        let condition = if let Some((value, kind)) = value.zip(kind) {
+            test.checks.push((equals(column, value), Want::True));
+            self.equals(column, value, kind)
+        } else {
+            test.checks.push((property(column), Want::Null));
+            self.no_keys().map(|()| column_is_null(column))
+        };
+        parts.push(("the column's known values", condition));
+        Some(self.path(path, parts, test))
     }
 
     /// The rule a feature whose values `decides` decides and `eval` evaluates matches, or `None` when the values do
@@ -615,7 +666,7 @@ impl<'a> LayerPaths<'a, '_> {
         read.iter().any(|c| c == column)
             && read
                 .iter()
-                .all(|c| c == column || self.known.iter().any(|k| k.column == *c && k.values.len() == 1))
+                .all(|c| c == column || self.known.iter().any(|k| k.column == *c && k.single().is_some()))
     }
 
     /// `expr` on a feature with only the properties `assigned`.
@@ -814,9 +865,7 @@ impl<'a> LayerPaths<'a, '_> {
     /// `expr` as a condition of `polarity`, which no source can check while a `jsonb` column may replace
     /// the columns it reads.
     fn translate(&self, expr: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
-        if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
-            return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
-        }
+        self.no_keys()?;
         condition_of(expr, self.columns, polarity)
     }
 
@@ -828,9 +877,7 @@ impl<'a> LayerPaths<'a, '_> {
         value: &Literal,
         kind: Result<ValueKind, TranslateError>,
     ) -> Result<Condition, TranslateError> {
-        if let Some(keys) = self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
-            return Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned()));
-        }
+        self.no_keys()?;
         let kind = kind?;
         Ok(Condition::Compare {
             left: Term::Column(column.to_owned()),
@@ -838,6 +885,15 @@ impl<'a> LayerPaths<'a, '_> {
             right: Term::Literal(value.clone()),
             kind,
         })
+    }
+
+    /// An error when the table has a `jsonb` column whose keys may replace the columns a condition reads, so no source
+    /// can check one.
+    fn no_keys(&self) -> Result<(), TranslateError> {
+        match self.columns.iter().find(|c| matches!(c, ColumnDef::Keys(_))) {
+            Some(keys) => Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned())),
+            None => Ok(()),
+        }
     }
 
     /// A test on the features of `reach`, with no checks yet.
@@ -879,9 +935,9 @@ impl<'a> LayerPaths<'a, '_> {
         &self.exprs[filter.index]
     }
 
-    /// Whether `name` is a column read by value that no known values rule out being `null`.
+    /// Whether `name` is a column read by value that nothing known rules out being `null`.
     fn may_be_null(&self, name: &str) -> bool {
-        self.is_value(name) && !self.limited.iter().any(|k| k.column == name)
+        self.is_value(name) && !self.facts.iter().any(|f| f.column == name && f.not_null)
     }
 
     /// Whether `name` is a column read by value.

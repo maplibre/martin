@@ -138,6 +138,26 @@
         "type": "MultiPoint",
         "coordinates": [
           [
+            -20.0,
+            -19.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -2/-1",
+        "indices": [
+          0
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
             -1.0,
             -1.0
           ],

@@ -290,7 +290,8 @@ pub fn load_all_fixtures() -> Vec<(String, Polylines)> {
 /// **and** touches many tiles - the case where re-clipping the whole geometry once per tile
 /// (`O(vertices × tiles)`) diverges sharply from a single routing pass. Small per-step jitter keeps
 /// rows off the axis so segments cross tile boundaries at varied angles. ~3.6k vertices spanning
-/// roughly a 420×540 area (≈17×22 tiles on a 25-unit grid).
+/// roughly a 420×540 area (≈17×22 tiles on a 25-unit grid), from `(1, 1)` so it stays off the edges of
+/// the tiles before it.
 #[must_use]
 pub fn big_polyline() -> Geometry<i32> {
     const ROWS: i32 = 60;
@@ -300,10 +301,10 @@ pub fn big_polyline() -> Geometry<i32> {
 
     let mut coords = Vec::with_capacity(((ROWS * (COLS + 1)) + 1) as usize);
     for r in 0..ROWS {
-        let y0 = r * ROW_H;
+        let y0 = 1 + r * ROW_H;
         for k in 0..=COLS {
             // Even rows sweep left->right, odd rows right->left, so the path stays connected.
-            let x = if r % 2 == 0 { k * STEP } else { (COLS - k) * STEP };
+            let x = 1 + if r % 2 == 0 { k * STEP } else { (COLS - k) * STEP };
             let y = y0 + (k * 3) % 5; // jitter in [0, 4]
             coords.push(Coord { x, y });
         }

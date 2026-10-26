@@ -75,19 +75,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+      - uses: rustsec/audit-check@858dc40f52ca2b8570b7a997c1c4e35c6fc9a432 # v2.0.0-3-g858dc40 (Node 24, unreleased)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0192,RUSTSEC-2026-0206,RUSTSEC-2026-0253
+          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
           # RUSTSEC-2025-0141 = bincode unmaintained, is done
           # RUSTSEC-2026-0097 = rand unsoundness with custom logger + rand::rng(); pinned by probabilistic-collections 0.7.0 (rand 0.7) and sqlx 0.8 (rand 0.8), neither have updates available
           # RUSTSEC-2026-0258 = h2 unbounded empty DATA frames dos; remaining leg is h2@0.3.27 pinned by actix-http (still on h2 "0.3" even at 3.13.3), no patched 0.3.x release exists
           # RUSTSEC-2023-0089 = atomic-polyfill unmaintained; only in Cargo.lock via geo-types' optional rstar 0.9/0.10 features, never compiled
-          # RUSTSEC-2026-0192 = ttf-parser unmaintained; pinned by spreet 0.13.1 (latest) -> resvg 0.43, newer resvg moved to skrifa
-          # RUSTSEC-2026-0206 = rustybuzz unmaintained; same spreet 0.13.1 -> resvg 0.43 pin
           # RUSTSEC-2026-0253 = lru@0.7.8 pop() panic safety; pulled in by tracing-log's interest-cache, whose keys never panic on drop
+          # RUSTSEC-2025-0075,0080,0081,0090,0098,0100 = unic-* unmaintained; pinned by pyo3-stub-gen 0.23.1 (latest) -> rustpython-parser 0.4, only in cog-tiles-py
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -146,10 +145,17 @@ jobs:
         path: ${{ runner.temp }}/codeql-cargo-target
         key: codeql-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: codeql-rust-${{ runner.os }}-
+    - name: List every Rust feature except hotpath's profiling ones
+      if: matrix.language == 'rust'
+      id: rust-features
+      run: |
+        list=$(cargo metadata --no-deps --format-version 1 | jq -r '[.packages[] | .name as $p | .features | keys[] | select(contains("hotpath") | not) | "\($p)/\(.)"] | join(",")')
+        echo "list=$list" >> "$GITHUB_OUTPUT"
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       env:
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ runner.temp }}/codeql-cargo-target
+        CODEQL_EXTRACTOR_RUST_OPTION_CARGO_FEATURES: ${{ steps.rust-features.outputs.list }}
       with:
         category: "/language:${{matrix.language}}"
     - name: Save the Rust extractor's cargo cache

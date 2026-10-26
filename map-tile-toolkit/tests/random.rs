@@ -458,7 +458,7 @@ fn extreme_coordinates_never_panic() {
     let mut errs = 0;
     let mut oks = 0;
     for case in 0..1500 {
-        // (The largest extent every buffer allows: `extent + buffer` must fit `i32`.)
+        // (The largest extent every buffer allows: `extent + buffer` must stay below `i32::MAX`.)
         let extent = [
             1u32,
             2,
@@ -468,7 +468,7 @@ fn extreme_coordinates_never_panic() {
             25,
             4096,
             1 << 20,
-            i32::MAX as u32 - u32::from(u16::MAX),
+            i32::MAX as u32 - u32::from(u16::MAX) - 1,
         ][case % 9];
         let buffer = rng.below(u64::from(extent).div_ceil(2).min(60000)) as u16;
         let base: i64 = match rng.below(4) {
@@ -603,8 +603,8 @@ fn points_at_the_limits_match_brute_force() {
             1 << 20,
             1 << 29,
             (1 << 29) + 7,
-            // The largest extent every buffer allows (`extent + buffer` must fit `i32`).
-            i32::MAX as u32 - u32::from(u16::MAX),
+            // The largest extent every buffer allows (`extent + buffer` must stay below `i32::MAX`).
+            i32::MAX as u32 - u32::from(u16::MAX) - 1,
         ][case % 10];
         let buffer = rng.below(u64::from(extent).div_ceil(2).min(60000)) as u16;
         let slicer: Slicer = Slicer::new(extent, buffer).unwrap();
@@ -635,7 +635,7 @@ fn points_at_the_limits_match_brute_force() {
                             let (e, b) = (i64::from(extent), i64::from(buffer));
                             let axis = |t: i32, v: i32| {
                                 let lo = i64::from(t) * e - b;
-                                (lo..=lo + e - 1 + 2 * b).contains(&i64::from(v))
+                                (lo..=lo + e + 2 * b).contains(&i64::from(v))
                             };
                             expected_err |= axis(tx, pt.x) && axis(ty, pt.y);
                         }

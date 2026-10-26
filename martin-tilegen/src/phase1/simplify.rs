@@ -108,7 +108,7 @@ impl Simplifier {
             let mut farthest = (first, 0.0);
             for (i, &c) in (first + 1..).zip(&coords[first + 1..last]) {
                 let d = distance_sq(c, a, b);
-                if d >= farthest.1 {
+                if d > farthest.1 {
                     farthest = (i, d);
                 }
             }
