@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use futures::pin_mut;
+use indexmap::IndexMap;
 #[cfg(feature = "unstable-generate")]
 use martin_core::tiles::postgres::PostgresError::EngineTable;
 use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
@@ -95,12 +96,12 @@ pub async fn query_available_tables(
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some({
-                let mut props: indexmap::IndexMap<String, String> = serde_json::from_value(row.get("properties"))
+                let mut props: IndexMap<String, String> = serde_json::from_value(row.get("properties"))
                     .expect("properties column should be a valid JSON object with string values");
                 props.sort_keys();
                 props
             }),
-            discovered: DiscoveredTable {
+            discovered: Box::new(DiscoveredTable {
                 geometry_index: row.get("geom_idx"),
                 relkind: row
                     .get::<_, Option<i8>>("relkind")
@@ -111,7 +112,7 @@ pub async fn query_available_tables(
                     .expect("nondeterministic_columns column should be a valid JSON array of strings"),
                 tilejson,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         };
 

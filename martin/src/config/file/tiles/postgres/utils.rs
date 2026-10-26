@@ -1,12 +1,25 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use tilejson::TileJSON;
 use tracing::{error, info};
 
+/// The key as the map spells it: `key` itself, or its only case-insensitive match.
 #[must_use]
-pub fn normalize_key<T>(map: &BTreeMap<String, T>, key: &str, info: &str, id: &str) -> Option<String> {
-    find_info_kv(map, key, info, id).map(|(k, _)| k.to_owned()).ok()
+pub fn normalize_key<T>(map: &IndexMap<String, T>, key: &str, info: &str, id: &str) -> Option<String> {
+    if map.contains_key(key) {
+        return Some(key.to_owned());
+    }
+    let found = find_kv_ignore_case(map.keys(), key).ok()??;
+    info!(
+        source.id = %id,
+        key.kind = %info,
+        key.requested = %key,
+        key.found = %found,
+        "Key not found by exact name, using case-insensitive match"
+    );
+    Some(found.clone())
 }
 
 pub fn find_info<'a, T>(map: &'a BTreeMap<String, T>, key: &'a str, info: &str, id: &str) -> Result<&'a T, String> {

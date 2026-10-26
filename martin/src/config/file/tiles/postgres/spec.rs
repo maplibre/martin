@@ -9,10 +9,6 @@ use crate::config::file::postgres::{FunctionInfo, TableInfo};
 
 /// A resolved tile-source description: catalog metadata merged with config and the id already resolved, ready to be instantiated into a running source.
 #[derive(Clone, Debug)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "few specs live at once; boxing would touch every match"
-)]
 pub enum SourceSpec {
     /// A table source. Its SQL query and bounds are deferred to instantiate.
     Table(TableInfo),
@@ -86,6 +82,7 @@ fn hash_tilejson(tilejson: Option<&serde_json::Value>, hasher: &mut Xxh3) {
 mod tests {
     use std::num::NonZeroU32;
 
+    use indexmap::IndexMap;
     use rstest::rstest;
     use tilejson::Bounds;
 
@@ -125,11 +122,11 @@ mod tests {
             buffer: Some(64),
             clip_geom: Some(true),
             geometry_type: Some("LINESTRING".to_owned()),
-            properties: Some(indexmap::IndexMap::from([("name".to_owned(), "text".to_owned())])),
-            discovered: DiscoveredTable {
+            properties: Some(IndexMap::from([("name".to_owned(), "text".to_owned())])),
+            discovered: Box::new(DiscoveredTable {
                 tilejson: Some(serde_json::json!({ "attribution": "abc" })),
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         }
     }
@@ -161,7 +158,7 @@ mod tests {
     #[case::filter(|t: &mut TableInfo|t.filter = Some("gid > 2".to_owned()))]
     #[case::geometry_type(|t: &mut TableInfo|t.geometry_type = Some("POINT".to_owned()))]
     #[case::properties(|t: &mut TableInfo|{
-        t.properties = Some(indexmap::IndexMap::from([("kind".to_owned(), "text".to_owned())]));
+        t.properties = Some(IndexMap::from([("kind".to_owned(), "text".to_owned())]));
     })]
     #[case::prop_mapping(|t: &mut TableInfo|{
         t.discovered
@@ -179,6 +176,21 @@ mod tests {
             fp(full_table()),
             "changing an included field should change the fingerprint"
         );
+    }
+
+    #[test]
+    fn reordering_properties_changes_fingerprint() {
+        let mut name_first = full_table();
+        name_first.properties = Some(IndexMap::from([
+            ("name".to_owned(), "text".to_owned()),
+            ("kind".to_owned(), "text".to_owned()),
+        ]));
+        let mut kind_first = full_table();
+        kind_first.properties = Some(IndexMap::from([
+            ("kind".to_owned(), "text".to_owned()),
+            ("name".to_owned(), "text".to_owned()),
+        ]));
+        assert_ne!(fp(name_first), fp(kind_first));
     }
 
     #[rstest]

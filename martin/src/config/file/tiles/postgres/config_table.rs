@@ -156,7 +156,7 @@ pub struct TableInfo {
     /// What discovery found out about the table, which the config never sets
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
-    pub discovered: DiscoveredTable,
+    pub discovered: Box<DiscoveredTable>,
 }
 
 #[cfg(feature = "unstable-generate")]
@@ -315,10 +315,10 @@ impl TableInfo {
             table: self.table.clone(),
             geometry_column: self.geometry_column.clone(),
             // These values are not serialized, so copy auto-detected values from the database
-            discovered: DiscoveredTable {
+            discovered: Box::new(DiscoveredTable {
                 prop_mapping: HashMap::new(),
-                ..self.discovered.clone()
-            },
+                ..(*self.discovered).clone()
+            }),
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
             // Without one in the config, the column's type decides whether arcs are linearized
@@ -339,8 +339,8 @@ impl TableInfo {
             _ => {}
         }
 
-        let props: BTreeMap<String, &String> = self.properties.iter().flatten().map(|(k, v)| (k.clone(), v)).collect();
-        let props = &props;
+        let empty = IndexMap::new();
+        let props = self.properties.as_ref().unwrap_or(&empty);
 
         if let Some(id_column) = &cfg_inf.id_column {
             let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
