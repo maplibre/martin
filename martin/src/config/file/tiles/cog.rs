@@ -250,8 +250,8 @@ pub struct CogStacSource {
     pub search_expiry: Option<Duration>,
     /// How many search results are kept at once. When unset, 10000.
     pub max_cached_searches: Option<u64>,
-    /// How many items one search keeps, newest (or oldest) first; the rest are not painted and a
-    /// warning is logged. When unset, 1000.
+    /// How many items one search reads, newest (or oldest) first, counting those skipped for
+    /// lacking the asset; the rest are not painted and a warning is logged. When unset, 1000.
     pub max_items_per_search: Option<NonZeroUsize>,
     /// The sample value of pixels without data, overriding each file's own nodata value.
     pub nodata: Option<u8>,
@@ -273,7 +273,9 @@ pub struct CogStacSource {
         schemars(with = "Option<String>", example = &"5m")
     )]
     pub file_idle_timeout: Option<Duration>,
-    /// Zoom-level bounds for tile caching.
+    /// Zoom-level bounds for tile caching. The tile cache does not expire with `search_expiry`,
+    /// so pair this with the top-level `cache.expiry`. When unset, tiles are not cached; only
+    /// searches, opened files and decoded blocks are.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(
         feature = "unstable-schemas",
@@ -576,7 +578,11 @@ impl CogConfig {
             .map(|(id, stac)| {
                 let resolve = Arc::clone(&resolve);
                 async move {
-                    let cache = stac.cache.or(default_cache);
+                    let cache = if stac.cache.is_empty() {
+                        CachePolicy::disabled()
+                    } else {
+                        stac.cache.or(default_cache)
+                    };
                     let result = CogSource::new_stac(id.clone(), stac.options(), resolve, cache.zoom()).await;
                     (id, stac, result)
                 }

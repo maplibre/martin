@@ -262,7 +262,7 @@
         },
         "cache": {
           "$ref": "#/$defs/CachePolicyShape",
-          "description": "Zoom-level bounds for tile caching."
+          "description": "Zoom-level bounds for tile caching. The tile cache does not expire with `search_expiry`,\nso pair this with the top-level `cache.expiry`. When unset, tiles are not cached; only\nsearches, opened files and decoded blocks are."
         },
         "cache_control": {
           "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
@@ -299,9 +299,9 @@
           "type": ["integer", "null"]
         },
         "max_items_per_search": {
-          "description": "How many items one search keeps, newest (or oldest) first; the rest are not painted and a\nwarning is logged. When unset, 1000.",
+          "description": "How many items one search reads, newest (or oldest) first, counting those skipped for\nlacking the asset; the rest are not painted and a warning is logged. When unset, 1000.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": ["integer", "null"]
         },
         "maxzoom": {

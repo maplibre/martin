@@ -193,7 +193,7 @@ cog:
       search_expiry: 1d
       # How many search results are kept at once. When unset, 10000.
       max_cached_searches: 10000
-      # How many items one search keeps; the rest are not painted and a warning is logged. When unset, 1000.
+      # How many items one search reads, counting those without the asset; the rest are not painted and a warning is logged. When unset, 1000.
       max_items_per_search: 1000
       # The sample value of pixels without data, overriding each file's own nodata value. When unset, the file's.
       nodata: 0
@@ -201,18 +201,23 @@ cog:
       max_cached_files: 1000
       file_expiry: 10m
       file_idle_timeout: 5m
-      # Like a source, a STAC source also takes `cache` and `cache_control`.
+      # Rendered tiles are only kept in the tile cache when `cache` is set, as it does not expire with `search_expiry`;
+      # pair it with the top-level `cache.expiry`. Like a source, a STAC source also takes `cache_control`.
+      cache:
+        minzoom: 12
 ```
 
 - At startup, Martin reads the collection for its extent and band names, and opens the first item that matches the filters to check that it can be served.
   A source that cannot is reported like any other invalid source.
 - One search covers one tile at `search_zoom`, and is kept for `search_expiry`: every tile below it is served from that one search.
-  Each search follows the API's `next` links until it has `max_items_per_search` items, sorted by `datetime` (and `id`, so pages do not skip items of the same `datetime`).
+  Each search follows the API's `next` links until it has read `max_items_per_search` items, sorted by `datetime` (and `id`, so pages do not skip items of the same `datetime`).
 - A tile is painted from the items over it in `order`.
   A pixel takes the first item that has data for it, so later items only fill what earlier ones leave empty (outside their extent, or `nodata` in all served bands); painting stops once every pixel is set.
   With `order: newest`, every pixel shows its most recent scene.
 - Tiles are 256 px PNGs, transparent where no item has data. Tiles no item covers are served as empty responses.
 - Files are reprojected with nearest-neighbor resampling, from the coarsest overview that is still at least as detailed as the tile.
+  A tile more than 4 times coarser than that overview is refused, so files need overviews down to `minzoom`.
+  A pixel whose alpha band is 0 counts as empty, like `nodata`.
   They must be tiled COGs with 8-bit samples stored pixel-interleaved, in Web Mercator or a UTM zone (EPSG:326xx, 327xx, 269xx, or 258xx).
   `NAD83` and `ETRS89` coordinates are read as `WGS84` ones, without a datum shift.
 - Asset `href`s are read with the `cog` object-store settings, so `s3://`, `gs://`, `az://` and `https://` assets all work.

@@ -87,7 +87,7 @@ pub struct StacSearchOptions {
     pub order: StacOrder,
     /// One search covers one tile at this zoom, and serves every tile below it.
     pub search_zoom: u8,
-    /// The most items one search keeps; the rest of its pages are not fetched.
+    /// The most items one search reads, kept or skipped; the rest of its pages are not fetched.
     pub max_items_per_search: usize,
     /// How long a search result is kept before searching again.
     pub search_expiry: Duration,
@@ -225,6 +225,7 @@ impl StacIndex {
         let max_items = self.options.max_items_per_search;
         let mut files = Vec::new();
         let mut skipped = 0_usize;
+        let mut read = 0_usize;
         let mut seen = 0_usize;
         let truncated = 'pages: loop {
             let page: ItemCollection = match &request {
@@ -235,9 +236,10 @@ impl StacIndex {
             seen += page_len;
             let matched = page.number_matched.or(page.context.and_then(|context| context.matched));
             for item in page.features {
-                if files.len() == max_items {
+                if read == max_items {
                     break 'pages true;
                 }
+                read += 1;
                 match self.file(&item) {
                     Some(file) => files.push(file),
                     None => skipped += 1,
@@ -251,7 +253,7 @@ impl StacIndex {
                 .find(|link| link.rel == "next")
                 .filter(|_| page_len > 0 && matched.is_none_or(|matched| seen < matched));
             match next {
-                Some(_) if files.len() == max_items => break true,
+                Some(_) if read == max_items => break true,
                 Some(next) => request = request.next(next),
                 None => break false,
             }
@@ -269,7 +271,7 @@ impl StacIndex {
                 stac.search = %self.search_url,
                 tile = %cell,
                 max_items_per_search = max_items,
-                "A STAC search found more items than it keeps; the rest are not painted"
+                "A STAC search found more items than it reads; the rest are not painted"
             );
         }
         Ok(files.into())
@@ -500,14 +502,21 @@ enum Request {
 }
 
 impl Request {
-    /// The request a `next` link stands for, following this one.
+    /// The request a `next` link stands for, following this one. A relative `href` is resolved
+    /// against this request's URL.
     fn next(self, link: Link) -> Self {
+        let base = match &self {
+            Self::Post { url, .. } | Self::Get { url } => url,
+        };
+        let href = reqwest::Url::parse(base)
+            .and_then(|base| base.join(&link.href))
+            .map_or(link.href, String::from);
         let post = link
             .method
             .as_deref()
             .is_some_and(|method| method.eq_ignore_ascii_case("POST"));
         if !post {
-            return Self::Get { url: link.href };
+            return Self::Get { url: href };
         }
         let previous = match self {
             Self::Post { body, .. } => body,
@@ -522,7 +531,7 @@ impl Request {
             (Some(next), false) => next,
             (None, _) => previous,
         };
-        Self::Post { url: link.href, body }
+        Self::Post { url: href, body }
     }
 }
 
@@ -681,7 +690,7 @@ mod tests {
     use object_store::path::Path;
     use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
     use serde_json::json;
-    use wiremock::matchers::{body_partial_json, method, path};
+    use wiremock::matchers::{body_partial_json, method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use crate::CacheZoomRange;
@@ -807,6 +816,144 @@ mod tests {
                 (json!(250), json!("page-2"), true),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn a_relative_next_link_is_resolved_against_the_page_it_came_from() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/collections/ortho"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "extent": {"spatial": {"bbox": [[-122.5, 37.7, -122.4, 37.9]]}},
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .and(body_partial_json(json!({"limit": 1})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("a", "memory://a.tif")],
+            })))
+            .with_priority(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("a", "memory://a.tif")],
+                "numberMatched": 2,
+                "links": [{"rel": "next", "href": "/search?token=page-2"}],
+            })))
+            .with_priority(2)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/search"))
+            .and(query_param("token", "page-2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("b", "memory://b.tif")],
+                "numberMatched": 2,
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let source = stac_source(&server).await;
+
+        let tile = source
+            .get_tile(TileCoord::new_unchecked(16, 10_477, 25_326), None)
+            .await
+            .unwrap();
+
+        assert!(!tile.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_search_stops_after_reading_max_items_per_search_even_when_it_keeps_none() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/collections/ortho"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "extent": {"spatial": {"bbox": [[-122.5, 37.7, -122.4, 37.9]]}},
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .and(body_partial_json(json!({"limit": 1})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("a", "memory://a.tif")],
+            })))
+            .with_priority(1)
+            .mount(&server)
+            .await;
+        Mock::given(path("/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [{
+                    "type": "Feature",
+                    "id": "no-image",
+                    "bbox": [-122.454_75, 37.790_5, -122.437_3, 37.802_2],
+                    "properties": {"datetime": "2022-05-18T16:00:00Z"},
+                    "assets": {},
+                }],
+                "links": [{"rel": "next", "href": "/search?token=same"}],
+            })))
+            .with_priority(2)
+            .mount(&server)
+            .await;
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        store
+            .put(
+                &Path::from("a.tif"),
+                PutPayload::from(std::fs::read("../tests/fixtures/cog/warped/utm.tif").unwrap()),
+            )
+            .await
+            .unwrap();
+        let source = CogSource::new_stac(
+            "stac".to_owned(),
+            CogStacOptions {
+                search: StacSearchOptions {
+                    url: server.uri(),
+                    collection: "ortho".to_owned(),
+                    asset: "image".to_owned(),
+                    datetime: None,
+                    query: None,
+                    order: StacOrder::Newest,
+                    search_zoom: 13,
+                    max_items_per_search: 3,
+                    search_expiry: Duration::from_mins(1),
+                    max_cached_searches: 10,
+                },
+                min_zoom: 13,
+                max_zoom: Some(17),
+                bands: None,
+                nodata: None,
+                max_cached_files: 10,
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
+            },
+            Arc::new(move |href: &str| {
+                let key = href.strip_prefix("memory://").ok_or("not a memory:// href")?;
+                Ok((Arc::clone(&store), Path::from(key)))
+            }),
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap();
+
+        let tile = source
+            .get_tile(TileCoord::new_unchecked(16, 10_477, 25_326), None)
+            .await
+            .unwrap();
+
+        assert!(tile.is_empty());
+        let pages = server
+            .received_requests()
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|request| request.url.path() == "/search")
+            .count();
+        assert_eq!(pages, 1 + 3);
     }
 
     #[tokio::test]
