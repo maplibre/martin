@@ -1298,6 +1298,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Maps
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#conformance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2175,6 +2186,46 @@ Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 me
 <code>/ogc/styles/{styleID}</code> is an alias of <code>/style/{styleID}</code>.
 Martin does not declare the draft's <code>mapbox-style</code> class, which names the Mapbox media type.</p>
 <p>OGC API - Styles is still a draft, so this part may change with it.</p>
+<h2 id="maps">Maps</h2>
+<p>With <a href="../sources-styles/rendering/">rendering</a> enabled, Martin also renders maps through <a href="https://docs.ogc.org/is/20-058/20-058.html">OGC API - Maps</a>.
+<code>/ogc/styles/{styleID}/map</code> is a style rendered as one image.
+It is the format the <code>Accept</code> header weighs highest, ignoring <code>q=0</code>: PNG (also for <code>*/*</code> or no header) or JPEG.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>width</code>, <code>height</code></td>
+<td>size in pixels, up to 2048; with one, the other follows the area; with neither, the longer side is 1024</td>
+</tr>
+<tr>
+<td><code>bbox</code></td>
+<td>area as its lower left and upper right corners, in the axis order of <code>bbox-crs</code>; the whole world by default</td>
+</tr>
+<tr>
+<td><code>bbox-crs</code></td>
+<td>CRS of <code>bbox</code>: CRS84 (default), EPSG:4326 or EPSG:3857</td>
+</tr>
+<tr>
+<td><code>center</code></td>
+<td>point as <code>x,y</code> to center the map on, instead of <code>bbox</code></td>
+</tr>
+<tr>
+<td><code>center-crs</code></td>
+<td>CRS of <code>center</code>, as for <code>bbox-crs</code></td>
+</tr>
+<tr>
+<td><code>scale-denominator</code></td>
+<td>scale of the map, instead of <code>width</code> and <code>height</code> with <code>bbox</code></td>
+</tr>
+</tbody>
+</table>
+<p>Maps are always in web mercator, which the <code>Content-Crs</code> header states.
+The <code>Content-Bbox</code> header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.</p>
 <h2 id="conformance">Conformance</h2>
 <p><code>/ogc/conformance</code> lists which parts of the standards Martin implements:</p>
 <ul>
@@ -2182,6 +2233,7 @@ Martin does not declare the draft's <code>mapbox-style</code> class, which names
 <li>OGC API - Common core, landing page and JSON</li>
 <li>Two Dimensional Tile Matrix Set 2.0 and its JSON encoding</li>
 <li>OGC API - Styles core and global styles, when Martin is built with styles</li>
+<li>OGC API - Maps core, styled map, PNG and JPEG, when rendering is enabled</li>
 </ul>
 <p>We run the official OGC test suite against Martin in CI.</p>
 <h2 id="reading-martin-with-gdal">Reading Martin with GDAL</h2>
