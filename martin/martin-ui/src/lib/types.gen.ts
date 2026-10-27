@@ -1458,10 +1458,7 @@ export interface operations {
     };
     "ogc.dataset.map.getTile": {
         parameters: {
-            query?: {
-                /** @description Image format, `png`, `jpeg` or `tiff`. */
-                f?: string | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 tile_matrix_set_id: string;
@@ -1483,13 +1480,6 @@ export interface operations {
                     "image/jpeg": unknown;
                     "image/tiff; application=geotiff": unknown;
                 };
-            };
-            /** @description Unsupported image format */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description No such tileset or tile */
             404: {
@@ -1688,10 +1678,7 @@ export interface operations {
     };
     "ogc.dataset.style.map.getTile": {
         parameters: {
-            query?: {
-                /** @description Image format, `png`, `jpeg` or `tiff`. */
-                f?: string | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 style_id: string;
@@ -1714,13 +1701,6 @@ export interface operations {
                     "image/jpeg": unknown;
                     "image/tiff; application=geotiff": unknown;
                 };
-            };
-            /** @description Unsupported image format */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description No such style, tileset or tile */
             404: {

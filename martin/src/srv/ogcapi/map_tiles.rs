@@ -189,10 +189,9 @@ pub async fn get_dataset_map_tileset(
         get,
         path = "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
         operation_id = "ogc.dataset.map.getTile",
-        params(DatasetMapTilePath, MapTileQuery),
+        params(DatasetMapTilePath),
         responses(
             (status = 200, description = "Map tile of all collections drawn together", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
-            (status = 400, description = "Unsupported image format"),
             (status = 404, description = "No such tileset or tile"),
             (status = 406, description = "No supported image format in Accept header"),
         ),
@@ -301,10 +300,9 @@ pub async fn get_style_map_tileset(
         get,
         path = "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
         operation_id = "ogc.dataset.style.map.getTile",
-        params(StyleMapTilePath, MapTileQuery),
+        params(StyleMapTilePath),
         responses(
             (status = 200, description = "Map tile of the style", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
-            (status = 400, description = "Unsupported image format"),
             (status = 404, description = "No such style, tileset or tile"),
             (status = 406, description = "No supported image format in Accept header"),
         ),

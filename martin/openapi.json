@@ -1555,15 +1555,6 @@
               "minimum": 0,
               "type": "integer"
             }
-          },
-          {
-            "description": "Image format, `png`, `jpeg` or `tiff`.",
-            "in": "query",
-            "name": "f",
-            "required": false,
-            "schema": {
-              "type": ["string", "null"]
-            }
           }
         ],
         "responses": {
@@ -1574,9 +1565,6 @@
               "image/tiff; application=geotiff": {}
             },
             "description": "Map tile of all collections drawn together"
-          },
-          "400": {
-            "description": "Unsupported image format"
           },
           "404": {
             "description": "No such tileset or tile"
@@ -1874,15 +1862,6 @@
               "minimum": 0,
               "type": "integer"
             }
-          },
-          {
-            "description": "Image format, `png`, `jpeg` or `tiff`.",
-            "in": "query",
-            "name": "f",
-            "required": false,
-            "schema": {
-              "type": ["string", "null"]
-            }
           }
         ],
         "responses": {
@@ -1893,9 +1872,6 @@
               "image/tiff; application=geotiff": {}
             },
             "description": "Map tile of the style"
-          },
-          "400": {
-            "description": "Unsupported image format"
           },
           "404": {
             "description": "No such style, tileset or tile"
