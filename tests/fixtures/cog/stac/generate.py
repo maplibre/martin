@@ -9,6 +9,12 @@ item's own UTM zone (`proj:epsg`) and extent (`proj:bbox`), with 30 m pixels. Re
 years apart (2022: 200, 2020: 90, other years: 140), green and blue are gradients across the
 file, and the 2022 files leave their western 40% as 0 (nodata), so older items show through.
 
+Each `expected/{name}.png` is what `gdalwarp` makes of the items one recorded search found, painted
+oldest first so the newest wins, onto Web Mercator tile 14/2619/6334: their first three bands,
+nearest-neighbour, with 0 in all three as nodata and an alpha band that is transparent where no
+item has data. `14_2619_6334` uses the full search, `14_2619_6334_three_items` the search that
+reads only 3 items (`max_items_per_search: 3`).
+
 The e2e test records new searches on its first run off CI, then fails on the files they name;
 run this script and the test again until both are quiet.
 """
@@ -26,6 +32,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASSETTE = os.path.join(HERE, "../../render_cassette/earth-search.aws.element84.com")
 RES = 30.0
 RED = {"2022": 200, "2020": 90}
+HALF = 20037508.342789244
+TILE = (14, 2619, 6334)
+SEARCH_BBOX = [-122.475586, 37.71859, -122.431641, 37.753344]
+EXPECTED = {"14_2619_6334": 250, "14_2619_6334_three_items": 3}
 
 
 def items():
@@ -35,6 +45,46 @@ def items():
         with open(path) as f:
             page = json.load(f)
         yield from page.get("features", [])
+
+
+def searched(limit):
+    """The items of the recorded search of `SEARCH_BBOX` that asked for `limit` items, newest first."""
+    for path in glob.glob(os.path.join(CASSETTE, "**/*.request.json"), recursive=True):
+        with open(path) as f:
+            request = json.load(f)
+        if request.get("bbox") == SEARCH_BBOX and request.get("limit") == limit and "next" not in request:
+            with open(path.removesuffix(".request.json") + ".json") as f:
+                return json.load(f)["features"][:limit]
+    raise LookupError(f"no recorded search with limit {limit}")
+
+
+def warp_expected(name, limit, tmp):
+    z, x, y = TILE
+    size = 2 * HALF / 2**z
+    minx, maxy = -HALF + x * size, HALF - y * size
+    rgbs = []
+    for i, item in enumerate(reversed(searched(limit))):
+        key = item["assets"]["image"]["href"].removeprefix("s3://naip-analytic/")
+        rgb = os.path.join(tmp, f"rgb{i}.vrt")
+        subprocess.run(
+            ["gdal_translate", "-q", "-of", "VRT", "-b", "1", "-b", "2", "-b", "3", os.path.join(HERE, "naip-analytic", key), rgb],
+            check=True,
+        )
+        rgbs.append(rgb)
+    warped = os.path.join(tmp, f"{name}.tif")
+    subprocess.run(
+        [
+            "gdalwarp", "-q", "-overwrite", "-t_srs", "EPSG:3857",
+            "-te", str(minx), str(maxy - size), str(minx + size), str(maxy), "-ts", "256", "256",
+            "-r", "near", "-et", "0", "-ovr", "NONE", "-srcnodata", "0", "-dstalpha", "-wo", "UNIFIED_SRC_NODATA=YES",
+            *rgbs, warped,
+        ],
+        check=True,
+    )
+    os.makedirs(os.path.join(HERE, "expected"), exist_ok=True)
+    png = os.path.join(HERE, "expected", f"{name}.png")
+    subprocess.run(["gdal_translate", "-q", "-of", "PNG", warped, png], check=True)
+    os.remove(png + ".aux.xml") if os.path.exists(png + ".aux.xml") else None
 
 
 def pixels(width, height, year):
@@ -85,6 +135,8 @@ def main():
             if not os.path.exists(path):
                 write_cog(path, item, tmp)
                 print(path)
+        for name, limit in EXPECTED.items():
+            warp_expected(name, limit, tmp)
 
 
 if __name__ == "__main__":

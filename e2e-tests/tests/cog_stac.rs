@@ -288,8 +288,8 @@ async fn a_search_paints_only_the_items_it_keeps() {
 
     assert_eq!(tile.status(), 200);
     assert_image_matches(fixture("cog/stac/expected/14_2619_6334_three_items.png"), tile.body());
-    let warnings = martin.take_log_lines("more items than it keeps").join("\n");
-    insta::assert_snapshot!(warnings.replace(&cassette.url(EARTH_SEARCH), "[EARTH_SEARCH]"), @" WARN A STAC search found more items than it keeps; the rest are not painted stac.search=[EARTH_SEARCH]/v1/search tile=13/1309/3167 max_items_per_search=3");
+    let warnings = martin.take_log_lines("more items than it reads").join("\n");
+    insta::assert_snapshot!(warnings.replace(&cassette.url(EARTH_SEARCH), "[EARTH_SEARCH]"), @" WARN A STAC search found more items than it reads; the rest are not painted stac.search=[EARTH_SEARCH]/v1/search tile=13/1309/3167 max_items_per_search=3");
     cassette.assert_no_misses();
     martin.stop().await;
 }
