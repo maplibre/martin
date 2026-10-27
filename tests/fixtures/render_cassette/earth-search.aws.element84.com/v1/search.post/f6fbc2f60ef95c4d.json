@@ -1,1 +1,16 @@
-{"type":"FeatureCollection","stac_version":"1.0.0","stac_extensions":[],"context":{"limit":250,"matched":0,"returned":0},"numberMatched":0,"numberReturned":0,"features":[],"links":[{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"}]}
+{
+  "context": { "limit": 250, "matched": 0, "returned": 0 },
+  "features": [],
+  "links": [
+    {
+      "href": "https://earth-search.aws.element84.com/v1",
+      "rel": "root",
+      "type": "application/json"
+    }
+  ],
+  "numberMatched": 0,
+  "numberReturned": 0,
+  "stac_extensions": [],
+  "stac_version": "1.0.0",
+  "type": "FeatureCollection"
+}

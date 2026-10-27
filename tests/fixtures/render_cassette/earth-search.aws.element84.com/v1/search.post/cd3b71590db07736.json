@@ -1,1 +1,861 @@
-{"type":"FeatureCollection","stac_version":"1.0.0","stac_extensions":[],"context":{"limit":250,"matched":8,"returned":8},"numberMatched":8,"numberReturned":8,"features":[{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712221_nw_10_060_20220518","properties":{"naip:state":"ca","naip:year":"2022","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9920],"proj:bbox":[543846,4171062,549798,4178430],"proj:transform":[0.6,0,543846,0,-0.6,4178430,0,0,1],"proj:centroid":{"lat":37.71877,"lon":-122.46873},"grid:code":"DOQQ-3712221NW","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/480a5d316b3c713326b6977ef367fbdc","datetime":"2022-05-18T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2024-05-03T18:35:50.687Z","updated":"2024-05-03T18:35:50.687Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.435214,37.685414],[-122.434709,37.751821],[-122.502272,37.752125],[-122.502716,37.685718],[-122.435214,37.685414]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20220518"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2022/ca_m_3712221_nw_10_060_20220518/ca_m_3712221_nw_10_060_20220518.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20220518/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712221_nw_10_060_20220518.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712221_nw_10_060_20220518.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.502716,37.685414,-122.434709,37.752125],"stac_extensions":["https://stac-extensions.github.io/raster/v1.1.0/schema.json","https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712221_ne_10_060_20220518","properties":{"naip:state":"ca","naip:year":"2022","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9920],"proj:bbox":[549354,4171092,555306,4178460],"proj:transform":[0.6,0,549354,0,-0.6,4178460,0,0,1],"proj:centroid":{"lat":37.71875,"lon":-122.40623},"grid:code":"DOQQ-3712221NE","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/f1e1744016289812ee242497581eeb9e","datetime":"2022-05-18T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2024-05-03T18:32:45.036Z","updated":"2024-05-03T18:32:45.036Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.372746,37.685368],[-122.372185,37.751775],[-122.439747,37.752115],[-122.440247,37.685708],[-122.372746,37.685368]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20220518"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2022/ca_m_3712221_ne_10_060_20220518/ca_m_3712221_ne_10_060_20220518.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20220518/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712221_ne_10_060_20220518.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712221_ne_10_060_20220518.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.440247,37.685368,-122.372185,37.752115],"stac_extensions":["https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/projection/v1.0.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712213_sw_10_060_20220518","properties":{"naip:state":"ca","naip:year":"2022","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9910],"proj:bbox":[543810,4177992,549756,4185360],"proj:transform":[0.6,0,543810,0,-0.6,4185360,0,0,1],"proj:centroid":{"lat":37.78124,"lon":-122.46872},"grid:code":"DOQQ-3712213SW","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/284ca9766f2ef24e303da60d751dba7b","datetime":"2022-05-18T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2024-05-03T18:35:32.168Z","updated":"2024-05-03T18:35:32.168Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.435216,37.747875],[-122.434711,37.814282],[-122.502262,37.814586],[-122.502707,37.748179],[-122.435216,37.747875]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20220518"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2022/ca_m_3712213_sw_10_060_20220518/ca_m_3712213_sw_10_060_20220518.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20220518/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712213_sw_10_060_20220518.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712213_sw_10_060_20220518.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.502707,37.747875,-122.434711,37.814586],"stac_extensions":["https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/projection/v1.0.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712213_se_10_060_20220518","properties":{"naip:state":"ca","naip:year":"2022","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9910],"proj:bbox":[549312,4178028,555258,4185396],"proj:transform":[0.6,0,549312,0,-0.6,4185396,0,0,1],"proj:centroid":{"lat":37.78126,"lon":-122.40624},"grid:code":"DOQQ-3712213SE","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/73d5c8f250b066073fbf1e455c151c84","datetime":"2022-05-18T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2024-05-03T19:08:06.602Z","updated":"2024-05-03T19:08:06.602Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.372763,37.747884],[-122.372202,37.81429],[-122.439752,37.81463],[-122.440253,37.748224],[-122.372763,37.747884]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20220518"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2022/ca_m_3712213_se_10_060_20220518/ca_m_3712213_se_10_060_20220518.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20220518/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712213_se_10_060_20220518.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712213_se_10_060_20220518.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.440253,37.747884,-122.372202,37.81463],"stac_extensions":["https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712221_nw_10_060_20200524","properties":{"naip:state":"ca","naip:year":"2020","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9920],"proj:bbox":[543846,4171062,549798,4178430],"proj:transform":[0.6,0,543846,0,-0.6,4178430,0,0,1],"proj:centroid":{"lat":37.71877,"lon":-122.46873},"grid:code":"DOQQ-3712221NW","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/039a8a99ee8ac273cab4cd3bf044544d","datetime":"2020-05-24T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2023-03-06T20:50:59.533Z","updated":"2023-05-24T18:41:13.749Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.435214,37.685414],[-122.434709,37.751821],[-122.502272,37.752125],[-122.502716,37.685718],[-122.435214,37.685414]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20200524"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2020/ca_m_3712221_nw_10_060_20200524/ca_m_3712221_nw_10_060_20200524.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20200524/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712221_nw_10_060_20200524.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2020/60cm/fgdc/37122/21/m_3712221_nw_10_060_20200524_20200828.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.502716,37.685414,-122.434709,37.752125],"stac_extensions":["https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712221_ne_10_060_20200524","properties":{"naip:state":"ca","naip:year":"2020","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9920],"proj:bbox":[549354,4171092,555306,4178460],"proj:transform":[0.6,0,549354,0,-0.6,4178460,0,0,1],"proj:centroid":{"lat":37.71875,"lon":-122.40623},"grid:code":"DOQQ-3712221NE","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/a2772734d8c160eb60a29f3a3c740dcf","datetime":"2020-05-24T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2023-03-06T20:50:57.935Z","updated":"2023-05-24T20:14:22.261Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.372746,37.685368],[-122.372185,37.751775],[-122.439747,37.752115],[-122.440247,37.685708],[-122.372746,37.685368]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20200524"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2020/ca_m_3712221_ne_10_060_20200524/ca_m_3712221_ne_10_060_20200524.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20200524/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712221_ne_10_060_20200524.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2020/60cm/fgdc/37122/21/m_3712221_ne_10_060_20200524_20200828.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.440247,37.685368,-122.372185,37.752115],"stac_extensions":["https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712213_sw_10_060_20200524","properties":{"naip:state":"ca","naip:year":"2020","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9910],"proj:bbox":[543810,4177992,549756,4185360],"proj:transform":[0.6,0,543810,0,-0.6,4185360,0,0,1],"proj:centroid":{"lat":37.78124,"lon":-122.46872},"grid:code":"DOQQ-3712213SW","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/c6f509169b7cc2fdf20c904209326974","datetime":"2020-05-24T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2023-03-06T20:50:58.384Z","updated":"2023-05-24T20:12:42.823Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.435216,37.747875],[-122.434711,37.814282],[-122.502262,37.814586],[-122.502707,37.748179],[-122.435216,37.747875]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20200524"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2020/ca_m_3712213_sw_10_060_20200524/ca_m_3712213_sw_10_060_20200524.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20200524/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712213_sw_10_060_20200524.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2020/60cm/fgdc/37122/13/m_3712213_sw_10_060_20200524_20200828.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.502707,37.747875,-122.434711,37.814586],"stac_extensions":["https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json"],"collection":"naip"},{"type":"Feature","stac_version":"1.0.0","id":"ca_m_3712213_se_10_060_20200524","properties":{"naip:state":"ca","naip:year":"2020","gsd":0.6,"proj:epsg":26910,"proj:shape":[12280,9910],"proj:bbox":[549312,4178028,555258,4185396],"proj:transform":[0.6,0,549312,0,-0.6,4185396,0,0,1],"proj:centroid":{"lat":37.78126,"lon":-122.40624},"grid:code":"DOQQ-3712213SE","storage:platform":"AWS","storage:region":"us-west-2","storage:requester_pays":true,"earthsearch:payload_id":"roda-naip/workflow-naip-to-stac/0c325feb589505680ea3684de9e489a3","datetime":"2020-05-24T16:00:00Z","processing:software":{"naip-to-stac":"2023.05.22"},"created":"2023-03-06T20:50:59.650Z","updated":"2023-05-24T19:18:09.568Z"},"geometry":{"type":"Polygon","coordinates":[[[-122.372763,37.747884],[-122.372202,37.81429],[-122.439752,37.81463],[-122.440253,37.748224],[-122.372763,37.747884]]]},"links":[{"rel":"self","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20200524"},{"rel":"canonical","href":"s3://earthsearch-data/naip/ca/2020/ca_m_3712213_se_10_060_20200524/ca_m_3712213_se_10_060_20200524.json","type":"application/json"},{"rel":"parent","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"collection","type":"application/json","href":"https://earth-search.aws.element84.com/v1/collections/naip"},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"},{"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20200524/thumbnail"}],"assets":{"image":{"href":"s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712213_se_10_060_20200524.tif","type":"image/tiff; application=geotiff; profile=cloud-optimized","title":"RGBIR COG tile","eo:bands":[{"name":"Red","common_name":"red"},{"name":"Green","common_name":"green"},{"name":"Blue","common_name":"blue"},{"name":"NIR","common_name":"nir","description":"near-infrared"}],"raster:bands":[{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"},{"nodata":0,"data_type":"uint8","spatial_resolution":0.6,"unit":"none"}],"roles":["data"]},"metadata":{"href":"s3://naip-analytic/ca/2020/60cm/fgdc/37122/13/m_3712213_se_10_060_20200524_20200828.xml","type":"application/xml","title":"FGDC Metadata","roles":["metadata"]}},"bbox":[-122.440253,37.747884,-122.372202,37.81463],"stac_extensions":["https://stac-extensions.github.io/projection/v1.0.0/schema.json","https://stac-extensions.github.io/processing/v1.1.0/schema.json","https://stac-extensions.github.io/grid/v1.0.0/schema.json","https://stac-extensions.github.io/eo/v1.0.0/schema.json","https://stac-extensions.github.io/storage/v1.0.0/schema.json","https://stac-extensions.github.io/raster/v1.1.0/schema.json"],"collection":"naip"}],"links":[{"rel":"next","title":"Next page of Items","method":"POST","type":"application/geo+json","href":"https://earth-search.aws.element84.com/v1/search","merge":false,"body":{"datetime":"2020-01-01T00:00:00Z/..","query":{"naip:state":{"eq":"ca"}},"sortby":[{"direction":"desc","field":"properties.datetime"},{"direction":"desc","field":"id"}],"collections":["naip"],"bbox":[-122.475586,37.71859,-122.431641,37.753344],"limit":250,"next":"2020-05-24T16:00:00Z,ca_m_3712213_se_10_060_20200524"}},{"rel":"root","type":"application/json","href":"https://earth-search.aws.element84.com/v1"}]}
+{
+  "context": { "limit": 250, "matched": 8, "returned": 8 },
+  "features": [
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712221_nw_10_060_20220518.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712221_nw_10_060_20220518.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.502716, 37.685414, -122.434709, 37.752125],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.435214, 37.685414],
+            [-122.434709, 37.751821],
+            [-122.502272, 37.752125],
+            [-122.502716, 37.685718],
+            [-122.435214, 37.685414]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712221_nw_10_060_20220518",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20220518",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2022/ca_m_3712221_nw_10_060_20220518/ca_m_3712221_nw_10_060_20220518.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20220518/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2024-05-03T18:35:50.687Z",
+        "datetime": "2022-05-18T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/480a5d316b3c713326b6977ef367fbdc",
+        "grid:code": "DOQQ-3712221NW",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2022",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [543846, 4171062, 549798, 4178430],
+        "proj:centroid": { "lat": 37.71877, "lon": -122.46873 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9920],
+        "proj:transform": [0.6, 0, 543846, 0, -0.6, 4178430, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2024-05-03T18:35:50.687Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712221_ne_10_060_20220518.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712221_ne_10_060_20220518.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.440247, 37.685368, -122.372185, 37.752115],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.372746, 37.685368],
+            [-122.372185, 37.751775],
+            [-122.439747, 37.752115],
+            [-122.440247, 37.685708],
+            [-122.372746, 37.685368]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712221_ne_10_060_20220518",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20220518",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2022/ca_m_3712221_ne_10_060_20220518/ca_m_3712221_ne_10_060_20220518.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20220518/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2024-05-03T18:32:45.036Z",
+        "datetime": "2022-05-18T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/f1e1744016289812ee242497581eeb9e",
+        "grid:code": "DOQQ-3712221NE",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2022",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [549354, 4171092, 555306, 4178460],
+        "proj:centroid": { "lat": 37.71875, "lon": -122.40623 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9920],
+        "proj:transform": [0.6, 0, 549354, 0, -0.6, 4178460, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2024-05-03T18:32:45.036Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712213_sw_10_060_20220518.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712213_sw_10_060_20220518.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.502707, 37.747875, -122.434711, 37.814586],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.435216, 37.747875],
+            [-122.434711, 37.814282],
+            [-122.502262, 37.814586],
+            [-122.502707, 37.748179],
+            [-122.435216, 37.747875]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712213_sw_10_060_20220518",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20220518",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2022/ca_m_3712213_sw_10_060_20220518/ca_m_3712213_sw_10_060_20220518.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20220518/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2024-05-03T18:35:32.168Z",
+        "datetime": "2022-05-18T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/284ca9766f2ef24e303da60d751dba7b",
+        "grid:code": "DOQQ-3712213SW",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2022",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [543810, 4177992, 549756, 4185360],
+        "proj:centroid": { "lat": 37.78124, "lon": -122.46872 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9910],
+        "proj:transform": [0.6, 0, 543810, 0, -0.6, 4185360, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2024-05-03T18:35:32.168Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2022/60cm/rgbir_cog/37122/m_3712213_se_10_060_20220518.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2022/60cm/fgdc/37122/m_3712213_se_10_060_20220518.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.440253, 37.747884, -122.372202, 37.81463],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.372763, 37.747884],
+            [-122.372202, 37.81429],
+            [-122.439752, 37.81463],
+            [-122.440253, 37.748224],
+            [-122.372763, 37.747884]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712213_se_10_060_20220518",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20220518",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2022/ca_m_3712213_se_10_060_20220518/ca_m_3712213_se_10_060_20220518.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20220518/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2024-05-03T19:08:06.602Z",
+        "datetime": "2022-05-18T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/73d5c8f250b066073fbf1e455c151c84",
+        "grid:code": "DOQQ-3712213SE",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2022",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [549312, 4178028, 555258, 4185396],
+        "proj:centroid": { "lat": 37.78126, "lon": -122.40624 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9910],
+        "proj:transform": [0.6, 0, 549312, 0, -0.6, 4185396, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2024-05-03T19:08:06.602Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712221_nw_10_060_20200524.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2020/60cm/fgdc/37122/21/m_3712221_nw_10_060_20200524_20200828.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.502716, 37.685414, -122.434709, 37.752125],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.435214, 37.685414],
+            [-122.434709, 37.751821],
+            [-122.502272, 37.752125],
+            [-122.502716, 37.685718],
+            [-122.435214, 37.685414]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712221_nw_10_060_20200524",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20200524",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2020/ca_m_3712221_nw_10_060_20200524/ca_m_3712221_nw_10_060_20200524.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_nw_10_060_20200524/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2023-03-06T20:50:59.533Z",
+        "datetime": "2020-05-24T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/039a8a99ee8ac273cab4cd3bf044544d",
+        "grid:code": "DOQQ-3712221NW",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2020",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [543846, 4171062, 549798, 4178430],
+        "proj:centroid": { "lat": 37.71877, "lon": -122.46873 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9920],
+        "proj:transform": [0.6, 0, 543846, 0, -0.6, 4178430, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2023-05-24T18:41:13.749Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712221_ne_10_060_20200524.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2020/60cm/fgdc/37122/21/m_3712221_ne_10_060_20200524_20200828.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.440247, 37.685368, -122.372185, 37.752115],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.372746, 37.685368],
+            [-122.372185, 37.751775],
+            [-122.439747, 37.752115],
+            [-122.440247, 37.685708],
+            [-122.372746, 37.685368]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712221_ne_10_060_20200524",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20200524",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2020/ca_m_3712221_ne_10_060_20200524/ca_m_3712221_ne_10_060_20200524.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712221_ne_10_060_20200524/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2023-03-06T20:50:57.935Z",
+        "datetime": "2020-05-24T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/a2772734d8c160eb60a29f3a3c740dcf",
+        "grid:code": "DOQQ-3712221NE",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2020",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [549354, 4171092, 555306, 4178460],
+        "proj:centroid": { "lat": 37.71875, "lon": -122.40623 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9920],
+        "proj:transform": [0.6, 0, 549354, 0, -0.6, 4178460, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2023-05-24T20:14:22.261Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712213_sw_10_060_20200524.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2020/60cm/fgdc/37122/13/m_3712213_sw_10_060_20200524_20200828.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.502707, 37.747875, -122.434711, 37.814586],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.435216, 37.747875],
+            [-122.434711, 37.814282],
+            [-122.502262, 37.814586],
+            [-122.502707, 37.748179],
+            [-122.435216, 37.747875]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712213_sw_10_060_20200524",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20200524",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2020/ca_m_3712213_sw_10_060_20200524/ca_m_3712213_sw_10_060_20200524.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_sw_10_060_20200524/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2023-03-06T20:50:58.384Z",
+        "datetime": "2020-05-24T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/c6f509169b7cc2fdf20c904209326974",
+        "grid:code": "DOQQ-3712213SW",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2020",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [543810, 4177992, 549756, 4185360],
+        "proj:centroid": { "lat": 37.78124, "lon": -122.46872 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9910],
+        "proj:transform": [0.6, 0, 543810, 0, -0.6, 4185360, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2023-05-24T20:12:42.823Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    },
+    {
+      "assets": {
+        "image": {
+          "eo:bands": [
+            { "common_name": "red", "name": "Red" },
+            { "common_name": "green", "name": "Green" },
+            { "common_name": "blue", "name": "Blue" },
+            { "common_name": "nir", "description": "near-infrared", "name": "NIR" }
+          ],
+          "href": "s3://naip-analytic/ca/2020/60cm/rgbir_cog/37122/m_3712213_se_10_060_20200524.tif",
+          "raster:bands": [
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" },
+            { "data_type": "uint8", "nodata": 0, "spatial_resolution": 0.6, "unit": "none" }
+          ],
+          "roles": ["data"],
+          "title": "RGBIR COG tile",
+          "type": "image/tiff; application=geotiff; profile=cloud-optimized"
+        },
+        "metadata": {
+          "href": "s3://naip-analytic/ca/2020/60cm/fgdc/37122/13/m_3712213_se_10_060_20200524_20200828.xml",
+          "roles": ["metadata"],
+          "title": "FGDC Metadata",
+          "type": "application/xml"
+        }
+      },
+      "bbox": [-122.440253, 37.747884, -122.372202, 37.81463],
+      "collection": "naip",
+      "geometry": {
+        "coordinates": [
+          [
+            [-122.372763, 37.747884],
+            [-122.372202, 37.81429],
+            [-122.439752, 37.81463],
+            [-122.440253, 37.748224],
+            [-122.372763, 37.747884]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "ca_m_3712213_se_10_060_20200524",
+      "links": [
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20200524",
+          "rel": "self",
+          "type": "application/geo+json"
+        },
+        {
+          "href": "s3://earthsearch-data/naip/ca/2020/ca_m_3712213_se_10_060_20200524/ca_m_3712213_se_10_060_20200524.json",
+          "rel": "canonical",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://earth-search.aws.element84.com/v1/collections/naip/items/ca_m_3712213_se_10_060_20200524/thumbnail",
+          "rel": "thumbnail"
+        }
+      ],
+      "properties": {
+        "created": "2023-03-06T20:50:59.650Z",
+        "datetime": "2020-05-24T16:00:00Z",
+        "earthsearch:payload_id": "roda-naip/workflow-naip-to-stac/0c325feb589505680ea3684de9e489a3",
+        "grid:code": "DOQQ-3712213SE",
+        "gsd": 0.6,
+        "naip:state": "ca",
+        "naip:year": "2020",
+        "processing:software": { "naip-to-stac": "2023.05.22" },
+        "proj:bbox": [549312, 4178028, 555258, 4185396],
+        "proj:centroid": { "lat": 37.78126, "lon": -122.40624 },
+        "proj:epsg": 26910,
+        "proj:shape": [12280, 9910],
+        "proj:transform": [0.6, 0, 549312, 0, -0.6, 4185396, 0, 0, 1],
+        "storage:platform": "AWS",
+        "storage:region": "us-west-2",
+        "storage:requester_pays": true,
+        "updated": "2023-05-24T19:18:09.568Z"
+      },
+      "stac_extensions": [
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/processing/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/grid/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/raster/v1.1.0/schema.json"
+      ],
+      "stac_version": "1.0.0",
+      "type": "Feature"
+    }
+  ],
+  "links": [
+    {
+      "body": {
+        "bbox": [-122.475586, 37.71859, -122.431641, 37.753344],
+        "collections": ["naip"],
+        "datetime": "2020-01-01T00:00:00Z/..",
+        "limit": 250,
+        "next": "2020-05-24T16:00:00Z,ca_m_3712213_se_10_060_20200524",
+        "query": { "naip:state": { "eq": "ca" } },
+        "sortby": [
+          { "direction": "desc", "field": "properties.datetime" },
+          { "direction": "desc", "field": "id" }
+        ]
+      },
+      "href": "https://earth-search.aws.element84.com/v1/search",
+      "merge": false,
+      "method": "POST",
+      "rel": "next",
+      "title": "Next page of Items",
+      "type": "application/geo+json"
+    },
+    {
+      "href": "https://earth-search.aws.element84.com/v1",
+      "rel": "root",
+      "type": "application/json"
+    }
+  ],
+  "numberMatched": 8,
+  "numberReturned": 8,
+  "stac_extensions": [],
+  "stac_version": "1.0.0",
+  "type": "FeatureCollection"
+}
