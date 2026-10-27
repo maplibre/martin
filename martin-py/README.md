@@ -16,6 +16,40 @@ pip install maturin
 maturin develop --release   # builds martin_py and installs it into the active venv
 ```
 
+`maturin develop` builds the wheel in a temporary directory, installs it into
+the active venv (with `uv run`, that's this crate's venv) and then deletes it.
+To get a wheel file that another project can depend on, use `maturin build`.
+
+### Building a wheel with a stable name
+
+```bash
+uv run maturin build --release --compatibility linux
+# -> ../target/wheels/martin_py-0.1.0-cp312-cp312-linux_x86_64.whl
+```
+
+Always pass `--compatibility linux`. Without it, maturin checks which glibc
+symbol versions the built `.so` uses and tags the wheel with the matching
+manylinux policy, e.g. `manylinux_2_39_x86_64` on a glibc 2.39 host. That tag
+changes with the build machine's glibc, so the wheel's filename changes too.
+Projects that pin the wheel by path then break. In fastgeoapi, that's the
+`[tool.uv.sources]` entry in `pyproject.toml` and the matching `uv.lock` entry.
+The plain `linux_x86_64` tag stays the same from one build to the next.
+It works for local path installs, but PyPI won't accept it.
+
+After rebuilding, reinstall the wheel in the project that consumes it. The
+filename doesn't change, but the contents and hash do:
+
+```bash
+cd ../../fastgeoapi
+uv lock --upgrade-package martin-py
+uv sync --reinstall-package martin-py
+```
+
+For a portable wheel, e.g. one for PyPI or for Docker images based on older
+distros, target an explicit, lower manylinux policy instead. For example,
+`--compatibility manylinux_2_28 --zig` (needs `pip install ziglang`), or build
+inside the `ghcr.io/pyo3/maturin` container.
+
 ## Testing
 
 The commands below use [`just`](https://github.com/casey/just), the command
