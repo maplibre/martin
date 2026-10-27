@@ -140,7 +140,7 @@ async fn a_style_map_is_a_jpeg_when_accept_asks_for_one() {
     Jpeg (256, 256)
     Content-Type: image/jpeg
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     insta::assert_snapshot!(response.header("vary").unwrap_or("-"), @"accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
     martin.stop().await;
@@ -149,7 +149,7 @@ async fn a_style_map_is_a_jpeg_when_accept_asks_for_one() {
 }
 
 #[tokio::test]
-async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
+async fn a_style_map_smaller_than_zoom_0_shows_the_center_of_the_world_at_zoom_0() {
     let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maplibre_demo = maplibre_demo.display();
@@ -172,9 +172,9 @@ async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
     Png (256, 256)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
-    assert_image_matches(fixture("ogc_maps/small_world.png"), response.body());
+    assert_image_matches(fixture("ogc_maps/world_center_at_zoom_0.png"), response.body());
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -209,7 +209,7 @@ async fn a_style_map_skips_the_formats_accept_refuses() {
     Png (256, 256)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -245,7 +245,7 @@ async fn a_style_map_is_the_format_accept_weighs_highest() {
     Jpeg (256, 256)
     Content-Type: image/jpeg
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
@@ -304,7 +304,10 @@ async fn a_scale_too_small_to_show_any_area_is_a_bad_request() {
 }
 
 #[tokio::test]
-async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
+async fn a_map_wider_than_zoom_0_shows_its_center_at_zoom_0() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
             styles:
@@ -313,7 +316,7 @@ async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
                 workers: 1
               sources:
                 maplibre_demo: {maplibre_demo}
-        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        "})
         .start()
         .await
         .expect("martin starts");
@@ -323,10 +326,16 @@ async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
             "/ogc/styles/maplibre_demo/map?bbox=-100000000,-100000000,100000000,100000000&bbox-crs=EPSG:3857&width=256",
         )
         .await;
-    assert_eq!(response.status(), 400);
-    insta::assert_snapshot!(response.text(), @"The map area is too large, at most four times the world's width and height can be drawn");
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
+    ");
     martin.stop().await;
     martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
 }
 
 #[tokio::test]

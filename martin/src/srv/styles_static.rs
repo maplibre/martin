@@ -486,8 +486,7 @@ async fn render_with_overlays(
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    // Zooms below 0 render as zoom 0; only OGC API - Maps draws further out.
-    let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom.max(0.0))
+    let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom)
         .with_size(size.width, size.height, size.scale)
         .with_orientation(camera.bearing, camera.pitch)
         .with_overlays(overlays);
@@ -506,8 +505,7 @@ async fn render_with_overlays(
             | StyleError::GraphicsUnavailable { .. }
             | StyleError::FailedToSendRequest
             | StyleError::FailedToReceiveResponse
-            | StyleError::RenderingPanicked
-            | StyleError::ZoomedOutTooFar { .. }) => {
+            | StyleError::RenderingPanicked) => {
                 error!(error = %other, "Failed to render static image");
                 HttpResponse::InternalServerError()
                     .content_type(ContentType::plaintext())

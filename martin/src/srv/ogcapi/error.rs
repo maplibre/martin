@@ -31,11 +31,6 @@ pub enum OgcApiError {
     #[error("Parameters {parameters} can't be used together")]
     ConflictingMapParameters { parameters: &'static str },
 
-    /// The map is zoomed out further than the renderer draws, see [`martin_core::styles::StyleError::ZoomedOutTooFar`].
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
-    #[error("The map area is too large, at most four times the world's width and height can be drawn")]
-    MapAreaTooLarge,
-
     /// A CRS other than CRS84, EPSG:4326 and EPSG:3857 was given for a map parameter.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("CRS {crs} is not supported, only CRS84, EPSG:4326 and EPSG:3857 are")]
@@ -51,10 +46,9 @@ impl martin_core::Classify for OgcApiError {
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::UnknownStyle { .. } => martin_core::ErrorKind::NotFound,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
-            Self::InvalidMapParameter { .. }
-            | Self::ConflictingMapParameters { .. }
-            | Self::MapAreaTooLarge
-            | Self::UnsupportedCrs { .. } => martin_core::ErrorKind::InvalidInput,
+            Self::InvalidMapParameter { .. } | Self::ConflictingMapParameters { .. } | Self::UnsupportedCrs { .. } => {
+                martin_core::ErrorKind::InvalidInput
+            }
         }
     }
 }

@@ -95,6 +95,8 @@ struct Viewport {
 
 impl Viewport {
     /// The viewport `query` asks for, showing `default_bounds` in longitude and latitude unless it asks for another area.
+    ///
+    /// A map wider than zoom 0 shows at its size is narrowed to zoom 0 around its center, as the renderer draws it.
     fn of(query: &MapQuery, default_bounds: [f64; 4]) -> Result<Self, OgcApiError> {
         let viewport = Self::requested(query, default_bounds)?;
         let [min_x, min_y, max_x, max_y] = viewport.bounds;
@@ -103,6 +105,11 @@ impl Viewport {
                 parameter: "scale-denominator",
                 value: format!("{:?}", query.scale_denominator.unwrap_or_default()),
             });
+        }
+        let zoom_0_resolution = EARTH_CIRCUMFERENCE / RENDER_WORLD_PIXELS;
+        if (max_x - min_x) / f64::from(viewport.width) > zoom_0_resolution {
+            let center = [f64::midpoint(min_x, max_x), f64::midpoint(min_y, max_y)];
+            return Ok(Self::around(center, zoom_0_resolution, viewport.width, viewport.height));
         }
         Ok(viewport)
     }
@@ -196,7 +203,7 @@ impl Viewport {
         }
     }
 
-    /// Longitude and latitude of the center, and the renderer's zoom, below 0 for maps wider than zoom 0 shows.
+    /// Longitude and latitude of the center, and the renderer's zoom.
     fn camera(&self) -> (f64, f64, f64) {
         let [min_x, min_y, max_x, max_y] = self.bounds;
         let (lon, lat) = webmercator_to_wgs84(f64::midpoint(min_x, max_x), f64::midpoint(min_y, max_y));
@@ -359,7 +366,6 @@ pub(super) async fn render_map(
         RenderParams::new(style_path, lat, lon, zoom).with_size(viewport.width, viewport.height, NonZeroU8::MIN);
     let image = match styles.render_static(params).await {
         Ok(image) => image,
-        Err(StyleError::ZoomedOutTooFar { .. }) => return Err(map_error(&OgcApiError::MapAreaTooLarge)),
         Err(StyleError::RenderingIsDisabled) => {
             return Ok(HttpResponse::Forbidden()
                 .content_type(ContentType::plaintext())
