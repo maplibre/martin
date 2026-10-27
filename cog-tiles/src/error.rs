@@ -386,6 +386,19 @@ pub enum UnsupportedReason {
         /// The IFD index.
         index: usize,
     },
+    /// A tile would be read from an image much more detailed than the tile, because coarser
+    /// overviews are missing.
+    #[error(
+        "zoom {zoom} tiles need the image downsampled {factor:.1} times, but at most {max} times is read; add overviews or raise the min zoom"
+    )]
+    MissingOverviews {
+        /// The tile's zoom.
+        zoom: u8,
+        /// Image pixels per tile pixel, in each direction.
+        factor: f64,
+        /// The most image pixels per tile pixel that are read.
+        max: f64,
+    },
     /// A requested band is not in the file.
     #[error("band {band} is requested, but the file has {samples} bands")]
     MissingBand {

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use async_tiff::ImageFileDirectory;
 use async_tiff::decoder::DecoderRegistry;
-use async_tiff::tags::{PlanarConfiguration, SampleFormat};
+use async_tiff::tags::{ExtraSamples, PlanarConfiguration, SampleFormat};
 use futures::future::try_join_all;
 use moka::future::Cache;
 
@@ -25,6 +25,10 @@ const BLOCK_CACHE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// How long a decoded block is kept without being used.
 const BLOCK_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Most full-resolution pixels per image pixel a tile is read with beyond its overview's own,
+/// in each direction, which bounds the blocks one tile decodes.
+const MAX_DOWNSAMPLING: f64 = 4.0;
 
 /// Degrees between the two points whose distance gives a file's scale relative to Web Mercator.
 const SCALE_PROBE_DEGREES: f64 = 1e-3;
@@ -125,7 +129,8 @@ impl Canvas {
 /// Reads tiles from one COG in any supported projection, resampling with nearest neighbour.
 ///
 /// Every image must be tiled, with 8-bit unsigned samples stored pixel-interleaved.
-/// A pixel whose selected bands all equal the nodata value is left unpainted.
+/// A pixel whose selected bands all equal the nodata value, or whose alpha sample is 0, is left
+/// unpainted; any other alpha value paints it opaque.
 #[derive(Debug)]
 pub(crate) struct WarpedCog<B> {
     /// Backend wrapped for `async-tiff`.
@@ -138,6 +143,8 @@ pub(crate) struct WarpedCog<B> {
     levels: Vec<Level>,
     /// Samples per pixel.
     samples: usize,
+    /// The sample that `ExtraSamples` tags as alpha, if any.
+    alpha: Option<usize>,
     /// The sample value of pixels without data, if any.
     nodata: Option<u8>,
     /// Decoders for compressed blocks.
@@ -165,6 +172,7 @@ impl<B: AsyncBackend> WarpedCog<B> {
         check_samples(base, location)?;
         let nodata = nodata.or_else(|| base.gdal_nodata().and_then(parse_nodata));
         let samples = usize::from(base.samples_per_pixel());
+        let alpha = alpha_sample(base, samples);
         let base_chunks = Chunks::of(base, 0, location)?;
         let base_width = f64::from(base.image_width());
         let base_height = f64::from(base.image_height());
@@ -203,6 +211,7 @@ impl<B: AsyncBackend> WarpedCog<B> {
             transform,
             levels,
             samples,
+            alpha,
             nodata,
             decoders: Arc::new(DecoderRegistry::default()),
             file_id: FileId::next(),
@@ -247,6 +256,17 @@ impl<B: AsyncBackend> WarpedCog<B> {
         let Some([col_range, row_range]) = grid.blocks(level) else {
             return Ok(());
         };
+        let factor = grid.scale() / level.scale_x;
+        if factor > MAX_DOWNSAMPLING {
+            return Err(CogError::unsupported(
+                self.location(),
+                UnsupportedReason::MissingOverviews {
+                    zoom: coord.z(),
+                    factor,
+                    max: MAX_DOWNSAMPLING,
+                },
+            ));
+        }
         let reads = row_range
             .clone()
             .flat_map(|row| col_range.clone().map(move |col| (col, row)))
@@ -280,9 +300,10 @@ impl<B: AsyncBackend> WarpedCog<B> {
                 let (block_x, block_y) = ((x % level.block_size) as usize, (y % level.block_size) as usize);
                 let inside = (block_y * level.block_size as usize + block_x) * samples;
                 let pixel = &block.data()[inside..inside + samples];
-                if self
-                    .nodata
-                    .is_some_and(|nodata| bands.iter().all(|&band| pixel[band] == nodata))
+                if self.alpha.is_some_and(|alpha| pixel[alpha] == 0)
+                    || self
+                        .nodata
+                        .is_some_and(|nodata| bands.iter().all(|&band| pixel[band] == nodata))
                 {
                     continue;
                 }
@@ -372,6 +393,23 @@ fn check_samples(ifd: &ImageFileDirectory, location: &str) -> CogResult<()> {
         return Err(CogError::unsupported(location, UnsupportedReason::PlanarBands));
     }
     Ok(())
+}
+
+/// The sample that `ExtraSamples` tags as alpha, unless `GDAL_METADATA` gives it another color
+/// interpretation, as GDAL does for 4-band files whose last band is not alpha.
+fn alpha_sample(ifd: &ImageFileDirectory, samples: usize) -> Option<usize> {
+    let extra = ifd.extra_samples()?;
+    let index = extra
+        .iter()
+        .position(|sample| matches!(sample, ExtraSamples::AssociatedAlpha | ExtraSamples::UnassociatedAlpha))?;
+    let sample = samples.checked_sub(extra.len())? + index;
+    let overridden = ifd.gdal_metadata().is_some_and(|metadata| {
+        let item = format!(r#"<Item name="COLORINTERP" sample="{sample}" role="colorinterp">"#);
+        metadata
+            .split_once(&item)
+            .is_some_and(|(_, rest)| !rest.starts_with("Alpha<"))
+    });
+    (!overridden).then_some(sample)
 }
 
 /// A `GDAL_NODATA` value that an 8-bit sample can hold.

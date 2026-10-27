@@ -77,7 +77,9 @@ let tile = mosaic.get_tile(TileCoord::new(18, 130_992, 87_176)?).await?;
 
 Files in a UTM zone or on any pixel grid, found per tile by an index of your own (`mosaic` feature).
 Each tile is painted from the files the index returns, in order, reprojected with nearest-neighbor
-resampling; later files only fill the pixels earlier ones leave empty:
+resampling; later files only fill the pixels earlier ones leave empty (nodata, or alpha 0).
+A tile is read from the coarsest overview at least as detailed as the tile, and refused when even that
+is more than 4 times as detailed, so files need overviews down to the mosaic's min zoom:
 
 ```rust,no_run
 # #[cfg(feature = "mosaic")]

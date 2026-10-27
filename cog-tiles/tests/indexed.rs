@@ -166,33 +166,93 @@ async fn a_single_band_is_served_as_gray_with_alpha() {
     assert_eq!(decode_png(&tile).2, 2);
 }
 
+#[rstest]
+#[case::nodata("utm.tif")]
+#[case::alpha("utm_alpha.tif")]
 #[tokio::test]
-async fn earlier_files_win_and_later_files_fill_their_gaps() {
-    let utm = std::fs::read(warped_dir().join("utm.tif")).unwrap();
-    let store = store_with(&[("a.tif", utm.clone()), ("b.tif", utm)]).await;
-    let first = file(&store, "a.tif", UTM_BOUNDS);
-    let second = file(&store, "b.tif", UTM_BOUNDS);
-    let index = Arc::new(Files(vec![first.clone(), second]));
-    let both = AsyncIndexedMosaic::open(
+async fn earlier_files_win_and_later_files_fill_their_gaps(#[case] first: &str) {
+    let store = store_with(&[
+        (first, std::fs::read(warped_dir().join(first)).unwrap()),
+        (
+            "utm_flat.tif",
+            std::fs::read(warped_dir().join("utm_flat.tif")).unwrap(),
+        ),
+    ])
+    .await;
+    let first = file(&store, first, UTM_BOUNDS);
+    let index = Arc::new(Files(vec![first.clone(), file(&store, "utm_flat.tif", UTM_BOUNDS)]));
+    let mosaic = AsyncIndexedMosaic::open(
         index,
         &first,
-        IndexedMosaicOptions::new(13, vec![0, 1, 2])
-            .with_max_zoom(Some(17))
-            .with_nodata(Some(1)),
+        IndexedMosaicOptions::new(13, vec![0, 1, 2]).with_max_zoom(Some(17)),
     )
     .await
     .unwrap();
-    let alone = utm_mosaic(
-        IndexedMosaicOptions::new(13, vec![0, 1, 2])
-            .with_max_zoom(Some(17))
-            .with_nodata(Some(1)),
-    )
+    let expected = std::fs::read(warped_dir().join("expected/two_files_17_20952_50650.png")).unwrap();
+    let (_, _, _, expected) = decode_png(&expected);
+
+    let tile = mosaic
+        .get_tile(TileCoord::new(17, 20952, 50650).unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mismatched = mismatched_pixels(&decode_png(&tile).3, &expected);
+    assert!(mismatched <= 8, "{mismatched} of 65536 pixels differ from gdalwarp");
+}
+
+#[tokio::test]
+async fn pixels_the_alpha_band_hides_are_not_painted() {
+    let store = store_with(&[(
+        "utm_alpha.tif",
+        std::fs::read(warped_dir().join("utm_alpha.tif")).unwrap(),
+    )])
     .await;
-    let coord = TileCoord::new(16, 10477, 25326).unwrap();
+    let alpha = file(&store, "utm_alpha.tif", UTM_BOUNDS);
+    let mosaic = AsyncIndexedMosaic::open(
+        Arc::new(Files(vec![alpha.clone()])),
+        &alpha,
+        IndexedMosaicOptions::new(13, vec![0, 1, 2]).with_max_zoom(Some(17)),
+    )
+    .await
+    .unwrap();
+    let expected = std::fs::read(warped_dir().join("expected/17_20952_50650.png")).unwrap();
+    let (_, _, _, expected) = decode_png(&expected);
+
+    let tile = mosaic
+        .get_tile(TileCoord::new(17, 20952, 50650).unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mismatched = mismatched_pixels(&decode_png(&tile).3, &expected);
+    assert!(mismatched <= 8, "{mismatched} of 65536 pixels differ from gdalwarp");
+}
+
+#[tokio::test]
+async fn a_tile_far_coarser_than_the_coarsest_overview_is_refused() {
+    let store = store_with(&[(
+        "utm_no_overviews.tif",
+        std::fs::read(warped_dir().join("utm_no_overviews.tif")).unwrap(),
+    )])
+    .await;
+    let bare = file(&store, "utm_no_overviews.tif", UTM_BOUNDS);
+    let mosaic = AsyncIndexedMosaic::open(
+        Arc::new(Files(vec![bare.clone()])),
+        &bare,
+        IndexedMosaicOptions::new(13, vec![0, 1, 2]),
+    )
+    .await
+    .unwrap();
+
+    let error = mosaic
+        .get_tile(TileCoord::new(13, 1309, 3165).unwrap())
+        .await
+        .unwrap_err();
 
     assert_eq!(
-        both.get_tile_pixels(coord).await.unwrap(),
-        alone.get_tile_pixels(coord).await.unwrap()
+        error.to_string(),
+        "Unable to read mosaic file memory://utm_no_overviews.tif: InMemory/utm_no_overviews.tif cannot be read as tiles: zoom 13 tiles need the image downsampled 7.6 times, but at most 4 times is read; add overviews or raise the min zoom"
     );
 }
 
