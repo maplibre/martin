@@ -1,19 +1,23 @@
 use std::cmp::Reverse;
 use std::num::NonZeroU8;
-use std::path::PathBuf;
 
 use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality, VARY};
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, route};
-use martin_core::styles::{RenderParams, StyleError, StyleSources};
+use martin_core::styles::{RenderParams, RenderStyle, StyleError, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, webmercator_to_wgs84, wgs84_to_webmercator};
 use serde::Deserialize;
 use tracing::error;
 
+use super::collections::collection_source;
 use super::error::OgcApiError;
+use super::generated_style::{Drawn, drawable, generated_style};
+use crate::config::file::srv::SrvConfig;
+use crate::source::SourceEntry;
 use crate::srv::server::map_error;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_scaled_image_response};
+use crate::tile_source_manager::TileSourceManager;
 
 /// The OGC URI of web mercator, the CRS every map is rendered in.
 pub(super) const WEB_MERCATOR: &str = "http://www.opengis.net/def/crs/EPSG/0/3857";
@@ -46,8 +50,9 @@ const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
 pub(super) const WORLD: [f64; 4] = [-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE];
 
 /// The conformance classes of OGC API - Maps this API implements when it renders maps.
-pub(super) const MAPS_CONFORMS_TO: [&str; 4] = [
+pub(super) const MAPS_CONFORMS_TO: [&str; 5] = [
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
+    "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
@@ -57,6 +62,21 @@ pub(super) const MAPS_CONFORMS_TO: [&str; 4] = [
 pub(super) fn renders_maps(req: &HttpRequest) -> bool {
     req.app_data::<Data<StyleSources>>()
         .is_some_and(|styles| styles.is_rendering_enabled())
+}
+
+/// Whether a generated style can draw the tiles of `entry` as a map.
+pub(super) fn can_draw((source, process): &SourceEntry) -> bool {
+    source.tile_grid().is_web_mercator() && drawable(process.advertised_tile_info(source.get_tile_info()).format)
+}
+
+/// The URL Martin serves tiles under, over the connection `req` came in on, for the renderer to fetch them from.
+fn own_tiles_url(req: &HttpRequest, srv_config: &SrvConfig) -> String {
+    let prefix = srv_config
+        .route_prefix
+        .as_deref()
+        .unwrap_or_default()
+        .trim_end_matches('/');
+    format!("http://{}{prefix}", req.app_config().local_addr())
 }
 
 /// The query of a map request.
@@ -363,11 +383,11 @@ fn format_of(req: &HttpRequest) -> actix_web::Result<ImageFormatRequest> {
         .ok_or_else(|| ErrorNotAcceptable("Accept header does not contain any supported map format"))
 }
 
-/// The map of the style at `style_path` that `query` asks for, showing `default_bounds` unless it asks for another area.
+/// The map of `style` that `query` asks for, showing `default_bounds` unless it asks for another area.
 pub(super) async fn render_map(
     req: &HttpRequest,
     styles: &StyleSources,
-    style_path: PathBuf,
+    style: RenderStyle,
     query: &MapQuery,
     default_bounds: [f64; 4],
 ) -> actix_web::Result<HttpResponse> {
@@ -375,7 +395,7 @@ pub(super) async fn render_map(
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
     let (render_width, render_height) = viewport.render_size();
-    let params = RenderParams::new(style_path, lat, lon, zoom).with_size(render_width, render_height, NonZeroU8::MIN);
+    let params = RenderParams::new(style, lat, lon, zoom).with_size(render_width, render_height, NonZeroU8::MIN);
     let image = match styles.render_static(params).await {
         Ok(image) => image,
         Err(StyleError::RenderingIsDisabled) => {
@@ -436,5 +456,58 @@ pub async fn get_style_map(
     let Some(style_path) = styles.style_json_path(&style_id) else {
         return Err(map_error(&OgcApiError::UnknownStyle { style: style_id }));
     };
-    render_map(&req, &styles, style_path, &query, WORLD).await
+    render_map(&req, &styles, style_path.into(), &query, WORLD).await
+}
+
+/// A raster collection rendered as a map.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/collections/{collection_id}/map",
+        operation_id = "ogc.collection.getMap",
+        params(("collection_id" = String, Path, description = "Collection ID, the ID of a source"), MapQuery),
+        responses(
+            (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"))),
+            (status = 400, description = "Invalid map parameters"),
+            (status = 404, description = "No such collection, or it can't be drawn as a map"),
+            (status = 406, description = "No supported map format in Accept header"),
+        ),
+    )
+)]
+#[route("/ogc/collections/{collection_id}/map", method = "GET", method = "HEAD")]
+pub async fn get_collection_map(
+    req: HttpRequest,
+    path: Path<String>,
+    query: Query<MapQuery>,
+    srv_config: Data<SrvConfig>,
+    manager: Data<TileSourceManager>,
+    styles: Data<StyleSources>,
+) -> actix_web::Result<HttpResponse> {
+    let id = path.into_inner();
+    manager.wait_for_sources(&id).await;
+    let (entry, _) = collection_source(&manager, &id)?;
+    if !can_draw(&entry) {
+        return Err(map_error(&OgcApiError::NoCollectionMap { collection: id }));
+    }
+    let (source, process) = &entry;
+    let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
+    let style = generated_style(
+        &own_tiles_url(&req, &srv_config),
+        &[Drawn {
+            id: &id,
+            tilejson: &tilejson,
+        }],
+    );
+    let bounds = tilejson
+        .bounds
+        .map_or(WORLD, |bounds| [bounds.left, bounds.bottom, bounds.right, bounds.top]);
+    render_map(
+        &req,
+        &styles,
+        RenderStyle::Json(style.to_string().into()),
+        &query,
+        bounds,
+    )
+    .await
 }

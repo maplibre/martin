@@ -137,6 +137,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/collections/{collection_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A raster collection rendered as a map. */
+        get: operations["ogc.collection.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/collections/{collection_id}/tiles": {
         parameters: {
             query?: never;
@@ -546,10 +563,14 @@ export interface components {
         };
         /** @description A tile source as an OGC API collection. */
         Collection: {
+            /** @description The CRSs the collection is served in, only the CRS of its grid. */
+            crs: string[];
             description?: string | null;
             extent: components["schemas"]["Extent"];
             id: string;
             links: components["schemas"]["Link"][];
+            /** @description The CRS of the collection's grid. */
+            storageCrs: string;
             title: string;
         };
         /** @description The collections the OGC API serves. */
@@ -613,10 +634,12 @@ export interface components {
             title: string;
             type: string;
         };
-        /** @description The bounding box of a collection, in longitude and latitude. */
+        /** @description The bounding box of a collection, in longitude and latitude and in the CRS of its grid. */
         SpatialExtent: {
             bbox: number[][];
             crs: string;
+            /** @description `bbox` in the CRS of the collection's grid, in its axis order. */
+            storageCrsBbox?: number[][] | null;
         };
         /**
          * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
@@ -1016,6 +1039,66 @@ export interface operations {
             };
             /** @description No such collection */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.collection.getMap": {
+        parameters: {
+            query?: {
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Collection ID, the ID of a source */
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map of the collection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description Invalid map parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such collection, or it can't be drawn as a map */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported map format in Accept header */
+            406: {
                 headers: {
                     [name: string]: unknown;
                 };

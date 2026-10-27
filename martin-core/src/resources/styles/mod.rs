@@ -40,7 +40,7 @@ pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
+pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
 
 #[cfg(feature = "rendering")]
 mod image_quality;
@@ -197,15 +197,15 @@ impl StyleSources {
 
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN).await
+    pub async fn render(&self, style: impl Into<RenderStyle>, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        self.render_with_pixel_ratio(style, z, x, y, NonZeroU8::MIN).await
     }
 
     /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render_with_pixel_ratio(
         &self,
-        path: PathBuf,
+        style: impl Into<RenderStyle>,
         z: u8,
         x: u32,
         y: u32,
@@ -214,7 +214,7 @@ impl StyleSources {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
-            .render_tile_with_pixel_ratio(path, z, x, y, pixel_ratio)
+            .render_tile_with_pixel_ratio(style, z, x, y, pixel_ratio)
             .await
     }
 

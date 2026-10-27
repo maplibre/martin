@@ -24,12 +24,17 @@ struct Collections {
 /// A tile source as an OGC API collection.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
 struct Collection {
     id: String,
     title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     extent: Extent,
+    /// The CRSs the collection is served in, only the CRS of its grid.
+    crs: [String; 1],
+    /// The CRS of the collection's grid.
+    storage_crs: String,
     links: Vec<Link>,
 }
 
@@ -40,12 +45,16 @@ struct Extent {
     spatial: SpatialExtent,
 }
 
-/// The bounding box of a collection, in longitude and latitude.
+/// The bounding box of a collection, in longitude and latitude and in the CRS of its grid.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
 struct SpatialExtent {
     bbox: [[f64; 4]; 1],
     crs: &'static str,
+    /// `bbox` in the CRS of the collection's grid, in its axis order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    storage_crs_bbox: Option<[[f64; 4]; 1]>,
 }
 
 /// The one source collection `id` resolves to, as tile requests resolve it, and the OGC URI of its CRS.
@@ -63,34 +72,65 @@ pub(super) fn collection_source(manager: &TileSourceManager, id: &str) -> ActixR
         .ok_or_else(|| map_error(&OgcApiError::UnknownCollection(id.to_owned())))
 }
 
-/// Collection `id`, linking to itself and to its tilesets.
-fn collection(req: &HttpRequest, srv_config: &SrvConfig, id: &str, (source, process): &SourceEntry) -> Collection {
+/// Collection `id` in `storage_crs`, linking to itself, its tilesets and its map.
+fn collection(
+    req: &HttpRequest,
+    srv_config: &SrvConfig,
+    id: &str,
+    entry: &SourceEntry,
+    storage_crs: String,
+) -> Collection {
+    let (source, process) = entry;
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let data_type = DataType::of(process.advertised_tile_info(source.get_tile_info()).format);
     let bounds = tilejson.bounds.unwrap_or_default();
+    let bbox = [bounds.left, bounds.bottom, bounds.right, bounds.top];
+    let grid = source.tile_grid();
+    let storage_crs_bbox = grid
+        .crs_bounds(bbox)
+        .zip(crs(grid))
+        .map(|(storage_bbox, storage)| [storage.bbox(storage_bbox)]);
     let segment = path_segment(id);
+    #[cfg_attr(
+        not(all(feature = "rendering", target_os = "linux")),
+        expect(unused_mut, reason = "only maps add links")
+    )]
+    let mut links = vec![
+        Link::json(
+            ogc_url(req, srv_config, &format!("/collections/{segment}")),
+            "self",
+            "This collection",
+        ),
+        Link::json(
+            ogc_url(req, srv_config, &format!("/collections/{segment}/tiles")),
+            data_type.tilesets_rel(),
+            "Tilesets",
+        ),
+    ];
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if super::map::renders_maps(req) && super::map::can_draw(entry) {
+        links.push(Link {
+            href: ogc_url(req, srv_config, &format!("/collections/{segment}/map")),
+            rel: super::map::MAP_REL,
+            media_type: "image/png",
+            title: "Map of the collection",
+            templated: false,
+        });
+    }
     Collection {
         id: id.to_owned(),
         title: tilejson.name.unwrap_or_else(|| id.to_owned()),
         description: tilejson.description,
         extent: Extent {
             spatial: SpatialExtent {
-                bbox: [[bounds.left, bounds.bottom, bounds.right, bounds.top]],
+                bbox: [bbox],
                 crs: CRS84,
+                storage_crs_bbox,
             },
         },
-        links: vec![
-            Link::json(
-                ogc_url(req, srv_config, &format!("/collections/{segment}")),
-                "self",
-                "This collection",
-            ),
-            Link::json(
-                ogc_url(req, srv_config, &format!("/collections/{segment}/tiles")),
-                data_type.tilesets_rel(),
-                "Tilesets",
-            ),
-        ],
+        crs: [storage_crs.clone()],
+        storage_crs,
+        links,
     }
 }
 
@@ -124,8 +164,8 @@ pub async fn get_collections(
     let collections = ids
         .iter()
         .filter_map(|id| {
-            let (entry, _) = collection_source(&manager, id).ok()?;
-            Some(collection(&req, &srv_config, id, &entry))
+            let (entry, storage_crs) = collection_source(&manager, id).ok()?;
+            Some(collection(&req, &srv_config, id, &entry, storage_crs))
         })
         .collect();
     HttpResponse::Ok().json(Collections {
@@ -167,6 +207,6 @@ pub async fn get_collection(
 ) -> ActixResult<HttpResponse> {
     let id = path.into_inner();
     manager.wait_for_sources(&id).await;
-    let (entry, _) = collection_source(&manager, &id)?;
-    Ok(HttpResponse::Ok().json(collection(&req, &srv_config, &id, &entry)))
+    let (entry, storage_crs) = collection_source(&manager, &id)?;
+    Ok(HttpResponse::Ok().json(collection(&req, &srv_config, &id, &entry, storage_crs)))
 }

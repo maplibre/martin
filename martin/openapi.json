@@ -203,6 +203,13 @@
       "Collection": {
         "description": "A tile source as an OGC API collection.",
         "properties": {
+          "crs": {
+            "description": "The CRSs the collection is served in, only the CRS of its grid.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "description": {
             "type": ["string", "null"]
           },
@@ -218,11 +225,15 @@
             },
             "type": "array"
           },
+          "storageCrs": {
+            "description": "The CRS of the collection's grid.",
+            "type": "string"
+          },
           "title": {
             "type": "string"
           }
         },
-        "required": ["id", "title", "extent", "links"],
+        "required": ["id", "title", "extent", "crs", "storageCrs", "links"],
         "type": "object"
       },
       "Collections": {
@@ -349,7 +360,7 @@
         "type": "object"
       },
       "SpatialExtent": {
-        "description": "The bounding box of a collection, in longitude and latitude.",
+        "description": "The bounding box of a collection, in longitude and latitude and in the CRS of its grid.",
         "properties": {
           "bbox": {
             "items": {
@@ -363,6 +374,17 @@
           },
           "crs": {
             "type": "string"
+          },
+          "storageCrsBbox": {
+            "description": "`bbox` in the CRS of the collection's grid, in its axis order.",
+            "items": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": ["array", "null"]
           }
         },
         "required": ["bbox", "crs"],
@@ -1063,6 +1085,111 @@
         "summary": "One collection.",
         "tags": ["crate::srv::ogcapi"]
       }
+    },
+    "/ogc/collections/{collection_id}/map": {
+      "get": {
+        "operationId": "ogc.collection.getMap",
+        "parameters": [
+          {
+            "description": "Collection ID, the ID of a source",
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Width of the map in pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Height of the map in pixels.",
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Area to show as `minx,miny,maxx,maxy` in `bbox-crs`.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `bbox`, `CRS84` when not given.",
+            "in": "query",
+            "name": "bbox-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Point to center the map on as `x,y` in `center-crs`.",
+            "in": "query",
+            "name": "center",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `center`, `CRS84` when not given.",
+            "in": "query",
+            "name": "center-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Scale of the map.",
+            "in": "query",
+            "name": "scale-denominator",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": ["number", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Map of the collection"
+          },
+          "400": {
+            "description": "Invalid map parameters"
+          },
+          "404": {
+            "description": "No such collection, or it can't be drawn as a map"
+          },
+          "406": {
+            "description": "No supported map format in Accept header"
+          }
+        },
+        "summary": "A raster collection rendered as a map.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
     },
     "/ogc/collections/{collection_id}/tiles": {
       "get": {
