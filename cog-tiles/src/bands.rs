@@ -78,7 +78,7 @@ impl BandCache {
 
 /// An error from a band read that several tiles waited for.
 #[derive(Debug)]
-struct SharedError(Arc<CogError>);
+pub(crate) struct SharedError(pub Arc<CogError>);
 
 impl fmt::Display for SharedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
