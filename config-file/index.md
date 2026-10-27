@@ -128,6 +128,8 @@ cog:
   reload_interval: 10m
   # A map of source IDs to file paths or config objects
   sources: {}
+  # Sources that each serve the COGs a STAC API finds for each tile, by source ID.
+  stac: {}
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
 #
