@@ -9,9 +9,10 @@ use std::time::Duration;
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::cog::{
     CogMosaicOptions, CogSource, CogStacOptions, CogTileIndexOptions, DEFAULT_LOCATION_FIELD, HrefResolver, StacBand,
-    StacOrder, StacSearchOptions,
+    StacOrder, StacSearchOptions, TileEncoding,
 };
 use martin_core::tiles::{BackendSource, BoxedSource};
+use martin_core::{ImageQuality, LossyQuality};
 use object_store::{ObjectStore, ObjectStoreScheme};
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize, Serializer};
@@ -70,6 +71,22 @@ pub struct CogConfig {
     #[serde(default)]
     pub tile_index: BTreeMap<String, CogTileIndexSource>,
 
+    /// The format every tile of the COG files under `paths` and `sources` is re-encoded as: `png`,
+    /// `webp` or `jpeg`. Mosaic, STAC and tile index sources set their own. When unset, JPEG and WebP
+    /// tiles are served as stored, others as PNG.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &None::<CogTileFormat>))]
+    pub format: Option<CogTileFormat>,
+    /// How lossy `webp` and `jpeg` tiles of the COG files are: 1 (smallest) to 100 (best), or
+    /// `lossless` for `webp`. When unset, 80.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
+    pub quality: Option<ImageQuality>,
+    /// The CSS color shown where `jpeg` tiles of the COG files are transparent, as JPEG has no alpha.
+    /// When unset, white.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
+
     /// Authentication, endpoint, and HTTP client settings for remote COGs.
     #[serde(flatten)]
     pub object_store: ObjectStoreConfig,
@@ -86,6 +103,83 @@ pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
 
 fn default_reload_interval() -> Duration {
     DEFAULT_RELOAD_INTERVAL
+}
+
+/// The format a COG source re-encodes its tiles as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub enum CogTileFormat {
+    /// Lossless PNG.
+    Png,
+    /// WebP, lossy unless `quality` is `lossless`. Transparency stays exact.
+    Webp,
+    /// JPEG, painted over `background` where tiles are transparent.
+    Jpeg,
+}
+
+/// Why the `format`, `quality` and `background` of a COG source do not go together.
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+pub enum CogEncodingError {
+    /// `quality` is set without a lossy format.
+    #[error("`quality` needs `format: webp` or `format: jpeg`")]
+    QualityWithoutLossyFormat,
+    /// `quality: lossless` is set for JPEG.
+    #[error("JPEG has no lossless mode, so `quality` must be 1 to 100")]
+    LosslessJpeg,
+    /// `background` is set without JPEG.
+    #[error("`background` needs `format: jpeg`")]
+    BackgroundWithoutJpeg,
+    /// `background` is not an opaque CSS color.
+    #[error("`background` must be an opaque CSS color, not {background:?}")]
+    Background {
+        /// The configured background.
+        background: String,
+    },
+    /// `format` is set on a source that converts its tiles.
+    #[cfg(feature = "processing")]
+    #[error(
+        "`format` cannot be set with `convert_to_hillshade` or `convert_to_contour`, which encode tiles themselves"
+    )]
+    FormatWithConversion,
+}
+
+/// The encoding `format`, `quality` and `background` select, or `None` to serve tiles as stored.
+fn tile_encoding(
+    format: Option<CogTileFormat>,
+    quality: Option<ImageQuality>,
+    background: Option<&str>,
+) -> Result<Option<TileEncoding>, CogEncodingError> {
+    if background.is_some() && format != Some(CogTileFormat::Jpeg) {
+        return Err(CogEncodingError::BackgroundWithoutJpeg);
+    }
+    let lossy = match quality {
+        Some(ImageQuality::Lossy(quality)) => quality,
+        _ => LossyQuality::default(),
+    }
+    .get();
+    Ok(Some(match (format, quality) {
+        (None, None) => return Ok(None),
+        (None | Some(CogTileFormat::Png), Some(_)) => return Err(CogEncodingError::QualityWithoutLossyFormat),
+        (Some(CogTileFormat::Png), None) => TileEncoding::Png,
+        (Some(CogTileFormat::Webp), Some(ImageQuality::Lossless)) => TileEncoding::Webp { quality: None },
+        (Some(CogTileFormat::Webp), _) => TileEncoding::Webp { quality: Some(lossy) },
+        (Some(CogTileFormat::Jpeg), Some(ImageQuality::Lossless)) => return Err(CogEncodingError::LosslessJpeg),
+        (Some(CogTileFormat::Jpeg), _) => TileEncoding::Jpeg {
+            quality: lossy,
+            background: background.map_or(Ok([255; 3]), opaque_rgb)?,
+        },
+    }))
+}
+
+/// The RGB of an opaque CSS color.
+fn opaque_rgb(background: &str) -> Result<[u8; 3], CogEncodingError> {
+    match csscolorparser::parse(background).map(|color| color.to_rgba8()) {
+        Ok([r, g, b, 255]) => Ok([r, g, b]),
+        _ => Err(CogEncodingError::Background {
+            background: background.to_owned(),
+        }),
+    }
 }
 
 /// Default for [`CogMosaicSource::max_cached_files`].
@@ -142,6 +236,16 @@ pub struct CogMosaicSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+    /// The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are
+    /// served as stored, others as PNG.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &None::<CogTileFormat>))]
+    pub format: Option<CogTileFormat>,
+    /// How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.
+    /// When unset, 80.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
+    pub quality: Option<ImageQuality>,
+    /// The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.
+    pub background: Option<String>,
     /// Hillshade settings for this source.
     ///
     /// Present means the source serves Mapzen *normal* tiles and Martin should bake a hillshade from them.
@@ -174,6 +278,15 @@ impl CogMosaicSource {
             #[cfg(feature = "processing")]
             convert_to_contour: self.convert_to_contour.clone(),
         }
+    }
+
+    /// The encoding `format`, `quality` and `background` select.
+    fn encoding(&self) -> Result<Option<TileEncoding>, CogEncodingError> {
+        #[cfg(feature = "processing")]
+        if self.format.is_some() && (self.convert_to_hillshade.is_some() || self.convert_to_contour.is_some()) {
+            return Err(CogEncodingError::FormatWithConversion);
+        }
+        tile_encoding(self.format, self.quality, self.background.as_deref())
     }
 
     fn options(&self) -> CogMosaicOptions {
@@ -209,7 +322,7 @@ pub const DEFAULT_STAC_ITEMS_PER_SEARCH: usize = 1000;
 /// Each search covers one tile at `search_zoom` and serves every tile below it. A tile is painted
 /// from the items found in `order`: a pixel takes the first item's data for it, so later items only
 /// fill what earlier ones leave empty. Files may be in Web Mercator or a UTM zone, and are opened on
-/// first use. Tiles are PNG, transparent where no item has data.
+/// first use. Tiles are PNG unless `format` says otherwise, transparent where no item has data.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -292,6 +405,15 @@ pub struct CogStacSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+    /// The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &None::<CogTileFormat>))]
+    pub format: Option<CogTileFormat>,
+    /// How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.
+    /// When unset, 80.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
+    pub quality: Option<ImageQuality>,
+    /// The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.
+    pub background: Option<String>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -332,6 +454,11 @@ impl CogStacSource {
             #[cfg(feature = "processing")]
             convert_to_contour: None,
         }
+    }
+
+    /// The encoding `format`, `quality` and `background` select.
+    fn encoding(&self) -> Result<Option<TileEncoding>, CogEncodingError> {
+        tile_encoding(self.format, self.quality, self.background.as_deref())
     }
 
     /// The options [`CogSource::new_stac`] takes.
@@ -379,7 +506,8 @@ impl CogStacSource {
 /// as written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is
 /// painted from the files whose footprints touch it, in the index's row order: a pixel takes the first
 /// file's data for it, so later files only fill what earlier ones leave empty. Files may be in Web
-/// Mercator or a UTM zone, and are opened on first use. Tiles are PNG, transparent where no file has data.
+/// Mercator or a UTM zone, and are opened on first use. Tiles are PNG unless `format` says otherwise,
+/// transparent where no file has data.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -432,6 +560,15 @@ pub struct CogTileIndexSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+    /// The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &None::<CogTileFormat>))]
+    pub format: Option<CogTileFormat>,
+    /// How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.
+    /// When unset, 80.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &80))]
+    pub quality: Option<ImageQuality>,
+    /// The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.
+    pub background: Option<String>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -450,6 +587,11 @@ impl CogTileIndexSource {
             #[cfg(feature = "processing")]
             convert_to_contour: None,
         }
+    }
+
+    /// The encoding `format`, `quality` and `background` select.
+    fn encoding(&self) -> Result<Option<TileEncoding>, CogEncodingError> {
+        tile_encoding(self.format, self.quality, self.background.as_deref())
     }
 
     /// The options [`CogSource::new_tile_index`] takes.
@@ -511,6 +653,9 @@ impl Default for CogConfig {
             mosaics: BTreeMap::new(),
             stac: BTreeMap::new(),
             tile_index: BTreeMap::new(),
+            format: None,
+            quality: None,
+            background: None,
             object_store: ObjectStoreConfig::default(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -546,6 +691,15 @@ impl Serialize for CogConfig {
         if !self.tile_index.is_empty() {
             map.serialize_entry("tile_index", &self.tile_index)?;
         }
+        if let Some(format) = self.format {
+            map.serialize_entry("format", &format)?;
+        }
+        if let Some(quality) = self.quality {
+            map.serialize_entry("quality", &quality)?;
+        }
+        if let Some(background) = &self.background {
+            map.serialize_entry("background", background)?;
+        }
         self.object_store.serialize_entries(&mut map)?;
         map.end()
     }
@@ -553,6 +707,16 @@ impl Serialize for CogConfig {
 
 impl ConfigurationLivecycleHooks for CogConfig {
     async fn finalize(&mut self) -> ConfigFileResult<()> {
+        self.file_encoding().map_err(invalid_encoding("cog"))?;
+        for (id, mosaic) in &self.mosaics {
+            mosaic.encoding().map_err(invalid_encoding(id))?;
+        }
+        for (id, stac) in &self.stac {
+            stac.encoding().map_err(invalid_encoding(id))?;
+        }
+        for (id, index) in &self.tile_index {
+            index.encoding().map_err(invalid_encoding(id))?;
+        }
         self.object_store.prepare(&mut self.unrecognized, "cog");
         self.object_store.finalize_runtime("cog").await;
         Ok(())
@@ -569,8 +733,9 @@ impl TileSourceConfiguration for CogConfig {
     }
 
     async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
+        let encoding = self.file_encoding().map_err(invalid_encoding(&id))?;
         let cog = CogSource::new(id, path, cache.zoom()).await?;
-        Ok(BackendSource::Cog(cog))
+        Ok(BackendSource::Cog(encoded(cog, encoding)))
     }
 
     async fn new_sources_url(&self, id: String, url: Url, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
@@ -578,12 +743,34 @@ impl TileSourceConfiguration for CogConfig {
             .object_store
             .parse_url_opts(&url)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
+        let encoding = self.file_encoding().map_err(invalid_encoding(&id))?;
         let source = CogSource::new_object_store(id, Arc::from(store), path, sanitized_url(&url), cache.zoom()).await?;
-        Ok(BackendSource::Cog(source))
+        Ok(BackendSource::Cog(encoded(source, encoding)))
+    }
+}
+
+/// Names `source_id` in an error about its encoding.
+fn invalid_encoding(source_id: &str) -> impl FnOnce(CogEncodingError) -> ConfigFileError + '_ {
+    move |reason| ConfigFileError::InvalidCogEncoding {
+        source_id: source_id.to_owned(),
+        reason,
+    }
+}
+
+/// `source`, re-encoding every tile as `encoding` if set.
+fn encoded(source: CogSource, encoding: Option<TileEncoding>) -> CogSource {
+    match encoding {
+        Some(encoding) => source.with_encoding(encoding),
+        None => source,
     }
 }
 
 impl CogConfig {
+    /// The encoding `format`, `quality` and `background` select for the COG files.
+    fn file_encoding(&self) -> Result<Option<TileEncoding>, CogEncodingError> {
+        tile_encoding(self.format, self.quality, self.background.as_deref())
+    }
+
     /// Opens every configured mosaic, at most [`MAX_CONCURRENT_SOURCE_INITS`] at once.
     /// A mosaic that fails to open is reported as a warning and stays in the config.
     async fn resolve_mosaics(
@@ -635,6 +822,7 @@ impl CogConfig {
         mosaic: &CogMosaicSource,
         default_cache: &CachePolicy,
     ) -> SourceBuildResult<BackendSource> {
+        let encoding = mosaic.encoding().map_err(invalid_encoding(&id))?;
         let (location, template) = split_mosaic_path(&mosaic.path);
         let options = mosaic.options();
         let cache = mosaic.cache.or(default_cache);
@@ -664,7 +852,7 @@ impl CogConfig {
                 CogSource::new_mosaic_dir(id, root, template, options, cache.zoom()).await?
             }
         };
-        Ok(BackendSource::Cog(source))
+        Ok(BackendSource::Cog(encoded(source, encoding)))
     }
 }
 
@@ -694,7 +882,13 @@ impl CogConfig {
                     } else {
                         stac.cache.or(default_cache)
                     };
-                    let result = CogSource::new_stac(id.clone(), stac.options(), resolve, cache.zoom()).await;
+                    let result = match stac.encoding() {
+                        Ok(encoding) => CogSource::new_stac(id.clone(), stac.options(), resolve, cache.zoom())
+                            .await
+                            .map(|source| encoded(source, encoding))
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    };
                     (id, stac, result)
                 }
             })
@@ -715,9 +909,9 @@ impl CogConfig {
                     );
                     results.push(BackendSource::Cog(src).boxed_on(None));
                 }
-                Err(err) => warnings.push(TileSourceWarning::SourceError {
+                Err(error) => warnings.push(TileSourceWarning::SourceError {
                     source_id: id.clone(),
-                    error: err.to_string(),
+                    error,
                 }),
             }
             self.stac.insert(id, stac);
@@ -743,7 +937,13 @@ impl CogConfig {
                 let resolve = &resolve;
                 async move {
                     let cache = index.cache.or(default_cache);
-                    let result = CogSource::new_tile_index(id.clone(), index.options(), resolve, cache.zoom()).await;
+                    let result = match index.encoding() {
+                        Ok(encoding) => CogSource::new_tile_index(id.clone(), index.options(), resolve, cache.zoom())
+                            .await
+                            .map(|source| encoded(source, encoding))
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    };
                     (id, index, result)
                 }
             })
@@ -763,9 +963,9 @@ impl CogConfig {
                     );
                     results.push(BackendSource::Cog(src).boxed_on(None));
                 }
-                Err(err) => warnings.push(TileSourceWarning::SourceError {
+                Err(error) => warnings.push(TileSourceWarning::SourceError {
                     source_id: id.clone(),
-                    error: err.to_string(),
+                    error,
                 }),
             }
             self.tile_index.insert(id, index);

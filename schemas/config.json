@@ -175,6 +175,10 @@
     "CogMosaicSource": {
       "description": "A source that serves many COG files as one, each covering exactly one tile at `zoom`.\n\nFiles are opened on first use and kept in a bounded cache; tiles without a file are empty.\nOne file is found by listing the location at startup to learn the tile size and format.",
       "properties": {
+        "background": {
+          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "type": ["string", "null"]
+        },
         "cache": {
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
@@ -215,6 +219,18 @@
           "examples": ["5m"],
           "type": ["string", "null"]
         },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CogTileFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are\nserved as stored, others as PNG.",
+          "examples": [null]
+        },
         "max_cached_files": {
           "description": "How many opened files (and known-missing ones) are kept at once. Defaults to 1000.",
           "examples": [1000],
@@ -233,6 +249,18 @@
           "description": "Where the files are, local or remote, naming each file by its tile at `zoom`:\n`{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g. `s3://bucket/ortho/{quadkey}.tif`\nor `/data/ortho/{z}/{x}/{y}.tif`. `{-y}` is the row counted from the bottom (TMS).",
           "type": "string"
         },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
+          "examples": [80]
+        },
         "zoom": {
           "description": "The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.",
           "examples": [16],
@@ -246,11 +274,15 @@
       "type": "object"
     },
     "CogStacSource": {
-      "description": "A source that serves the COGs a STAC API finds for each tile, reprojected onto Web Mercator.\n\nEach search covers one tile at `search_zoom` and serves every tile below it. A tile is painted\nfrom the items found in `order`: a pixel takes the first item's data for it, so later items only\nfill what earlier ones leave empty. Files may be in Web Mercator or a UTM zone, and are opened on\nfirst use. Tiles are PNG, transparent where no item has data.",
+      "description": "A source that serves the COGs a STAC API finds for each tile, reprojected onto Web Mercator.\n\nEach search covers one tile at `search_zoom` and serves every tile below it. A tile is painted\nfrom the items found in `order`: a pixel takes the first item's data for it, so later items only\nfill what earlier ones leave empty. Files may be in Web Mercator or a UTM zone, and are opened on\nfirst use. Tiles are PNG unless `format` says otherwise, transparent where no item has data.",
       "properties": {
         "asset": {
           "description": "The key of the asset to read from each item, e.g. `image` or `visual`.",
           "type": "string"
+        },
+        "background": {
+          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "type": ["string", "null"]
         },
         "bands": {
           "description": "The bands to serve, by number (counted from 1) or by `eo:bands` `common_name` or `name`:\none for gray tiles, three for RGB tiles. When unset, `[red, green, blue]`, or the first\nthree bands if the asset does not name its bands.",
@@ -285,6 +317,18 @@
           "description": "How long an opened file is kept without being used. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, files are kept until `file_expiry`.",
           "examples": ["5m"],
           "type": ["string", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CogTileFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.",
+          "examples": [null]
         },
         "max_cached_files": {
           "description": "How many opened files are kept at once. When unset, 1000.",
@@ -337,6 +381,18 @@
           ],
           "description": "Which items cover a pixel first, by `datetime`: `newest` or `oldest`. When unset, `newest`."
         },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
+          "examples": [80]
+        },
         "query": {
           "additionalProperties": true,
           "description": "A STAC query extension filter, sent as is, e.g. `{\"naip:state\": {\"eq\": \"ca\"}}`.",
@@ -362,9 +418,33 @@
       "required": ["url", "collection", "asset", "minzoom"],
       "type": "object"
     },
+    "CogTileFormat": {
+      "description": "The format a COG source re-encodes its tiles as.",
+      "oneOf": [
+        {
+          "const": "png",
+          "description": "Lossless PNG.",
+          "type": "string"
+        },
+        {
+          "const": "webp",
+          "description": "WebP, lossy unless `quality` is `lossless`. Transparency stays exact.",
+          "type": "string"
+        },
+        {
+          "const": "jpeg",
+          "description": "JPEG, painted over `background` where tiles are transparent.",
+          "type": "string"
+        }
+      ]
+    },
     "CogTileIndexSource": {
-      "description": "A source that serves the COGs a tile index lists, reprojected onto Web Mercator.\n\nThe index is a `GeoPackage` with one row per file: its footprint in `EPSG:4326` and its location,\nas written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is\npainted from the files whose footprints touch it, in the index's row order: a pixel takes the first\nfile's data for it, so later files only fill what earlier ones leave empty. Files may be in Web\nMercator or a UTM zone, and are opened on first use. Tiles are PNG, transparent where no file has data.",
+      "description": "A source that serves the COGs a tile index lists, reprojected onto Web Mercator.\n\nThe index is a `GeoPackage` with one row per file: its footprint in `EPSG:4326` and its location,\nas written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is\npainted from the files whose footprints touch it, in the index's row order: a pixel takes the first\nfile's data for it, so later files only fill what earlier ones leave empty. Files may be in Web\nMercator or a UTM zone, and are opened on first use. Tiles are PNG unless `format` says otherwise,\ntransparent where no file has data.",
       "properties": {
+        "background": {
+          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "type": ["string", "null"]
+        },
         "bands": {
           "description": "The bands to serve, by number (counted from 1): one for gray tiles, three for RGB tiles.\nWhen unset, `[1, 2, 3]`.",
           "examples": [[1, 2, 3]],
@@ -392,6 +472,18 @@
           "description": "How long an opened file is kept without being used. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, files are kept until `file_expiry`.",
           "examples": ["5m"],
           "type": ["string", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CogTileFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.",
+          "examples": [null]
         },
         "layer": {
           "description": "The feature table to read. When unset, the only feature table in the file.",
@@ -432,6 +524,18 @@
         "path": {
           "description": "The `GeoPackage` tile index, e.g. `/data/naip_ca_2020.gpkg`.",
           "type": "string"
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
+          "examples": [80]
         }
       },
       "required": ["path", "minzoom"],
@@ -715,6 +819,10 @@
     },
     "FileConfig3": {
       "properties": {
+        "background": {
+          "description": "The CSS color shown where `jpeg` tiles of the COG files are transparent, as JPEG has no alpha.\nWhen unset, white.",
+          "type": ["string", "null"]
+        },
         "cache": {
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for caching the tiles of every COG source without its own `cache`.\nOverrides the top-level `cache` bounds."
@@ -723,6 +831,18 @@
           "$ref": "#/$defs/OneOrMany2",
           "default": [],
           "description": "A list of directories whose subdirectories are each published under the subdirectory's name"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CogTileFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The format every tile of the COG files under `paths` and `sources` is re-encoded as: `png`,\n`webp` or `jpeg`. Mosaic, STAC and tile index sources set their own. When unset, JPEG and WebP\ntiles are served as stored, others as PNG.",
+          "examples": [null]
         },
         "mosaics": {
           "additionalProperties": {
@@ -736,6 +856,18 @@
           "$ref": "#/$defs/OneOrMany2",
           "default": [],
           "description": "A list of file paths"
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How lossy `webp` and `jpeg` tiles of the COG files are: 1 (smallest) to 100 (best), or\n`lossless` for `webp`. When unset, 80.",
+          "examples": [80]
         },
         "recursive": {
           "description": "Whether `paths` are scanned recursively",

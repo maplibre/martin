@@ -108,6 +108,7 @@ cog = [
     "martin-core/cog",
     "dep:aws-config",
     "dep:aws-credential-types",
+    "dep:csscolorparser",
     "dep:object_store",
     "dep:xxhash-rust",
     "_tiles",

@@ -11,3 +11,4 @@ pub use crate::tiles::cog::mosaic::CogMosaicOptions;
 pub use crate::tiles::cog::source::CogSource;
 pub use crate::tiles::cog::stac::{CogStacOptions, HrefResolver, StacBand, StacIndex, StacOrder, StacSearchOptions};
 pub use crate::tiles::cog::tile_index::{CogTileIndexOptions, DEFAULT_LOCATION_FIELD, TileIndex};
+pub use cog_tiles::TileEncoding;

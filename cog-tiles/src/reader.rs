@@ -443,7 +443,9 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
             }
             #[cfg(feature = "png")]
             Encoding::Png => match self.get_tile_pixels(coord).await? {
-                Some(pixels) => crate::encode::encode_png(&pixels, self.bridge.0.location()).map(Some),
+                Some(pixels) => crate::TileEncoding::Png
+                    .encode_at(&pixels, self.bridge.0.location())
+                    .map(Some),
                 None => Ok(None),
             },
         }

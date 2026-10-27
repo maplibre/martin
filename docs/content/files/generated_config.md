@@ -78,6 +78,9 @@ cache:
 # When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
 cache_control: null
 cog:
+  # The CSS color shown where `jpeg` tiles of the COG files are transparent, as JPEG has no alpha.
+  # When unset, white.
+  background: null
   # Zoom-level bounds for caching the tiles of every COG source without its own `cache`.
   # Overrides the top-level `cache` bounds.
   cache:
@@ -93,10 +96,17 @@ cog:
     minzoom: 0
   # A list of directories whose subdirectories are each published under the subdirectory's name
   collections: []
+  # The format every tile of the COG files under `paths` and `sources` is re-encoded as: `png`,
+  # `webp` or `jpeg`. Mosaic, STAC and tile index sources set their own. When unset, JPEG and WebP
+  # tiles are served as stored, others as PNG.
+  format: null
   # Sources that each serve many COG files as one, by source ID.
   mosaics: {}
   # A list of file paths
   paths: []
+  # How lossy `webp` and `jpeg` tiles of the COG files are: 1 (smallest) to 100 (best), or
+  # `lossless` for `webp`. When unset, 80.
+  quality: 80
   # Whether `paths` are scanned recursively
   recursive: false
   # How often configured remote objects (`s3://`, `https://`, …) are re-checked for

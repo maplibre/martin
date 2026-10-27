@@ -22,29 +22,35 @@ fs = ["tokio/rt", "tokio/fs"]
 png = ["dep:png"]
 # Read COGs from any `object_store` backend (S3, GCS, Azure, HTTP, memory, ...).
 object-store = ["dep:object_store"]
-# Decode WebP tiles to pixels (links libwebp).
-webp = ["async-tiff/webp"]
+# Decode WebP tiles to pixels, and encode tiles as WebP (links libwebp).
+webp = ["png", "async-tiff/webp", "dep:webp"]
+# Encode tiles as JPEG.
+jpeg = ["png", "dep:image"]
 # Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`),
 # or found per tile by an index and reprojected from UTM.
 mosaic = ["fs", "png", "object-store", "dep:tracing"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
-__all = ["fs", "png", "object-store", "mosaic", "webp"]
+__all = ["fs", "png", "object-store", "mosaic", "webp", "jpeg"]
 
 [dependencies]
 async-tiff.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 tracing = { workspace = true, optional = true }
+webp = { workspace = true, optional = true }
 
 [dev-dependencies]
+image.workspace = true
+insta.workspace = true
 jpeg-decoder.workspace = true
 object_store.workspace = true
 png.workspace = true

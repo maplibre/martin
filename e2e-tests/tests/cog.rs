@@ -1323,3 +1323,199 @@ async fn a_tile_index_with_footprints_not_in_wgs84_leaves_the_source_out() {
     insta::assert_snapshot!(martin.take_log_lines("naip.gpkg").join("\n"), @" WARN resolve:handle_tile_warnings: Tile source resolution warning warning=Source naip: The footprints of utm in the tile index tests/fixtures/cog/tile_index/naip.gpkg are in EPSG:26910, not EPSG:4326; build it with `gdaltindex -t_srs EPSG:4326` warnings.count=1");
     martin.stop().await;
 }
+
+#[tokio::test]
+async fn a_tile_index_serves_webp_at_the_configured_quality() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                png:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  maxzoom: 15
+                  nodata: 0
+                webp:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  maxzoom: 15
+                  nodata: 0
+                  format: webp
+                  quality: 80
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let png = martin.get("/png/14/2619/6334").await;
+    let webp = martin.get("/webp/14/2619/6334").await;
+
+    assert_eq!(webp.status(), 200);
+    assert_eq!(webp.header("content-type"), Some("image/webp"));
+    assert_eq!(webp.image_format(), ImageFormat::WebP);
+    assert_eq!(webp.image_size(), (256, 256));
+    assert_eq!(tilejson(&martin, "webp").await["format"], "webp");
+    assert!(
+        webp.body().len() < png.body().len(),
+        "{} B of WebP is not smaller than {} B of PNG",
+        webp.body().len(),
+        png.body().len()
+    );
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_lossy_webp_tile_keeps_the_transparency_where_no_file_has_data() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  nodata: 0
+                  format: webp
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/13/1308/3165").await;
+
+    let pixels = image::load_from_memory(tile.body()).unwrap().to_rgba8();
+    assert_eq!(pixels.get_pixel(0, 128).0[3], 0);
+    assert_eq!(pixels.get_pixel(255, 128).0[3], 255);
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_jpeg_tile_index_paints_the_background_where_no_file_has_data() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  nodata: 0
+                  format: jpeg
+                  quality: 90
+                  background: magenta
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/13/1308/3165").await;
+
+    assert_eq!(tile.header("content-type"), Some("image/jpeg"));
+    assert_eq!(tilejson(&martin, "naip").await["format"], "jpeg");
+    let pixels = image::load_from_memory(tile.body()).unwrap().to_rgb8();
+    let [r, g, b] = pixels.get_pixel(0, 128).0;
+    assert!(r > 250 && g < 5 && b > 250, "{:?} is not magenta", [r, g, b]);
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_cog_file_is_re_encoded_as_the_configured_format() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              paths:
+                - tests/fixtures/cog/usda_naip_512_jpeg_z5.tif
+              format: webp
+              quality: lossless
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/usda_naip_512_jpeg_z5/13/1334/3042").await;
+
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("image/webp"));
+    assert_eq!(tile.image_format(), ImageFormat::WebP);
+    assert_eq!(tile.image_size(), (512, 512));
+    assert_eq!(tilejson(&martin, "usda_naip_512_jpeg_z5").await["format"], "webp");
+    martin.stop().await;
+}
+
+#[rstest]
+#[case::quality_without_format(indoc! {"
+    cog:
+      tile_index:
+        naip:
+          path: tests/fixtures/cog/tile_index/naip.gpkg
+          minzoom: 13
+          quality: 80
+"},
+    "ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`"
+)]
+#[case::quality_with_png(indoc! {"
+    cog:
+      tile_index:
+        naip:
+          path: tests/fixtures/cog/tile_index/naip.gpkg
+          minzoom: 13
+          format: png
+          quality: 80
+"},
+    "ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`"
+)]
+#[case::lossless_jpeg(indoc! {"
+    cog:
+      tile_index:
+        naip:
+          path: tests/fixtures/cog/tile_index/naip.gpkg
+          minzoom: 13
+          format: jpeg
+          quality: lossless
+"},
+    "ERROR Source naip has an invalid tile format: JPEG has no lossless mode, so `quality` must be 1 to 100"
+)]
+#[case::background_without_jpeg(indoc! {"
+    cog:
+      tile_index:
+        naip:
+          path: tests/fixtures/cog/tile_index/naip.gpkg
+          minzoom: 13
+          format: webp
+          background: white
+"},
+    "ERROR Source naip has an invalid tile format: `background` needs `format: jpeg`"
+)]
+#[case::translucent_background(indoc! {"
+    cog:
+      tile_index:
+        naip:
+          path: tests/fixtures/cog/tile_index/naip.gpkg
+          minzoom: 13
+          format: jpeg
+          background: '#ff000080'
+"},
+    "ERROR Source naip has an invalid tile format: `background` must be an opaque CSS color, not \"#ff000080\""
+)]
+#[tokio::test]
+async fn a_format_that_does_not_go_with_its_quality_or_background_is_rejected(
+    #[case] config: &str,
+    #[case] expected: &str,
+) {
+    let error = Martin::builder()
+        .config(config)
+        .start()
+        .await
+        .expect_err("martin must refuse a format that does not go with its options");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    let errors: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("invalid tile format"))
+        .collect();
+    assert_eq!(errors, [expected]);
+}
