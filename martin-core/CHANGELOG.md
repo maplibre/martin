@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/maplibre/martin/compare/martin-core-v0.14.0...martin-core-v0.15.0) - 2026-10-27
+
+### Added
+
+- *(rendering)* [**breaking**] lossy WebP and a configurable WebP/JPEG quality for rendered images ([#3813](https://github.com/maplibre/martin/pull/3813))
+- *(martin)* review `martin test generate` cases in the terminal ([#3688](https://github.com/maplibre/martin/pull/3688))
+
+### Fixed
+
+- *(rendering)* do not reuse a static renderer for a nearby pixel ratio ([#3753](https://github.com/maplibre/martin/pull/3753))
+- *(core)* sources no longer advertise zooms above 30 in their TileJSON ([#3772](https://github.com/maplibre/martin/pull/3772))
+
+### Other
+
+- *(deps)* bump oxipng to 10.2.1 so the release PR's sprite test passes ([#3797](https://github.com/maplibre/martin/pull/3797))
+- *(deps)* bump spreet to 0.14, dropping the unmaintained ttf-parser and rustybuzz ([#3781](https://github.com/maplibre/martin/pull/3781))
+
 ## [0.14.0](https://github.com/maplibre/martin/compare/martin-core-v0.13.0...martin-core-v0.14.0) - 2026-10-22
 
 ### Added

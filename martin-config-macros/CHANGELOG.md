@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.4...martin-config-macros-v0.1.5) - 2026-10-27
+
+### Fixed
+
+- *(config)* point file source setting errors at the bad value ([#3748](https://github.com/maplibre/martin/pull/3748))
+
 ## [0.1.4](https://github.com/maplibre/martin/compare/martin-config-macros-v0.1.3...martin-config-macros-v0.1.4) - 2026-10-22
 
 ### Fixed
