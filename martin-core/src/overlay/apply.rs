@@ -136,9 +136,9 @@ impl<'r> OverlayGuard<'r> {
         let map = self.renderer.map();
         self.renderer
             .command(map.add_style_source_json(&source_id, &source.to_string()))
-            .map_err(|source| ApplyError::Maplibre {
+            .map_err(|error| ApplyError {
                 id: format!("f{index}"),
-                source,
+                error,
             })?;
         self.source_ids.push(source_id.clone());
 
@@ -147,9 +147,9 @@ impl<'r> OverlayGuard<'r> {
             let layer = layer_json(kind, &layer_id, &source_id, &props);
             self.renderer
                 .command(map.add_style_layer_json(&layer.to_string(), ""))
-                .map_err(|source| ApplyError::Maplibre {
+                .map_err(|error| ApplyError {
                     id: format!("f{index}-{kind}"),
-                    source,
+                    error,
                 })?;
             self.layer_ids.push(layer_id);
         }

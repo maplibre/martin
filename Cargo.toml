@@ -151,7 +151,7 @@ log = "0.4"
 map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.4" }
 # maplibre/maplibre-native-ffi#1178 (mln_graphics_device_create) is unreleased; this is the commit the
 # `unstable-native-snapshot` native library was built from
-maplibre-native-ffi = { git = "https://github.com/maplibre/maplibre-native-ffi", rev = "cdf97895302b58cc3cae552f5f0d3e0b842a73ca" }
+maplibre-native-ffi = { git = "https://github.com/maplibre/maplibre-native-ffi", rev = "43162e8b588163a8c2119b77f8ee07b3f69f5bba" }
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.4" }
 martin-core = { path = "./martin-core", version = "0.14.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.1" }

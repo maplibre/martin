@@ -1366,7 +1366,7 @@ dependencies = [
  "regex",
  "rustc-hash 2.1.3",
  "shlex",
- "syn 2.0.119",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -3007,7 +3007,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5721,25 +5721,16 @@ dependencies = [
 [[package]]
 name = "maplibre-native-ffi"
 version = "0.0.0"
-source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=cdf97895302b58cc3cae552f5f0d3e0b842a73ca#cdf97895302b58cc3cae552f5f0d3e0b842a73ca"
+source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=43162e8b588163a8c2119b77f8ee07b3f69f5bba#43162e8b588163a8c2119b77f8ee07b3f69f5bba"
 dependencies = [
  "bitflags 2.13.2",
- "maplibre-native-ffi-core",
- "maplibre-native-ffi-sys",
-]
-
-[[package]]
-name = "maplibre-native-ffi-core"
-version = "0.0.0"
-source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=cdf97895302b58cc3cae552f5f0d3e0b842a73ca#cdf97895302b58cc3cae552f5f0d3e0b842a73ca"
-dependencies = [
  "maplibre-native-ffi-sys",
 ]
 
 [[package]]
 name = "maplibre-native-ffi-platform"
 version = "0.0.0"
-source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=cdf97895302b58cc3cae552f5f0d3e0b842a73ca#cdf97895302b58cc3cae552f5f0d3e0b842a73ca"
+source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=43162e8b588163a8c2119b77f8ee07b3f69f5bba#43162e8b588163a8c2119b77f8ee07b3f69f5bba"
 dependencies = [
  "fixed_decimal",
  "http 1.5.0",
@@ -5758,7 +5749,7 @@ dependencies = [
 [[package]]
 name = "maplibre-native-ffi-sys"
 version = "0.0.0"
-source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=cdf97895302b58cc3cae552f5f0d3e0b842a73ca#cdf97895302b58cc3cae552f5f0d3e0b842a73ca"
+source = "git+https://github.com/maplibre/maplibre-native-ffi?rev=43162e8b588163a8c2119b77f8ee07b3f69f5bba#43162e8b588163a8c2119b77f8ee07b3f69f5bba"
 dependencies = [
  "flate2",
  "maplibre-native-ffi-platform",
@@ -6484,7 +6475,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7758,7 +7749,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.5",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8477,7 +8468,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8545,7 +8536,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8772,7 +8763,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a253edfdea34032da21af84e16fcc94f4c7a6ba237f9f3bc2dbf43cea8535c44"
 dependencies = [
  "annotate-snippets",
- "base64 0.23.1",
+ "base64 0.22.1",
  "encoding_rs_io",
  "granit-parser",
  "miette",
@@ -9763,10 +9754,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9789,7 +9780,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.5",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -11289,7 +11280,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
