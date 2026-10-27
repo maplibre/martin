@@ -135,7 +135,7 @@ impl<'r> OverlayGuard<'r> {
         let source = json!({"type": "geojson", "data": geometry});
         let map = self.renderer.map();
         self.renderer
-            .command(map.add_style_source_json(&source_id, source.to_string().as_bytes()))
+            .command(map.add_style_source_json(&source_id, &source.to_string()))
             .map_err(|source| ApplyError::Maplibre {
                 id: format!("f{index}"),
                 source,
@@ -146,7 +146,7 @@ impl<'r> OverlayGuard<'r> {
             let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
             let layer = layer_json(kind, &layer_id, &source_id, &props);
             self.renderer
-                .command(map.add_style_layer_json(layer.to_string().as_bytes(), None))
+                .command(map.add_style_layer_json(&layer.to_string(), ""))
                 .map_err(|source| ApplyError::Maplibre {
                     id: format!("f{index}-{kind}"),
                     source,

@@ -89,8 +89,6 @@ rendering = [
     "resources",
     "overlay",
     "dep:maplibre-native-ffi",
-    "dep:khronos-egl",
-    "dep:libloading",
     "dep:flume",
     "dep:image",
     "dep:serde_json",
@@ -128,8 +126,6 @@ test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-khronos-egl = { workspace = true, optional = true }
-libloading = { workspace = true, optional = true }
 maplibre-native-ffi = { workspace = true, optional = true, features = ["opengl"] }
 
 [dependencies]

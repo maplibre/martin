@@ -32,7 +32,6 @@ pub use error::StyleError;
 
 /// The EGL display renderers draw on.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-mod graphics;
 /// Worker pool for map image rendering.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;

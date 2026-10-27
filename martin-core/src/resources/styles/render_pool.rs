@@ -11,7 +11,6 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::graphics::Graphics;
 use crate::resources::styles::renderer::{Renderer, Runtime};
 use crate::resources::styles::{StyleError, TileSize};
 
@@ -124,7 +123,7 @@ impl RenderPools {
     ///
     /// # Errors
     ///
-    /// Returns [`StyleError::GraphicsUnavailable`] if no EGL display can render,
+    /// Returns [`StyleError::GraphicsUnavailable`] if no graphics device can be created,
     /// [`StyleError::RenderingError`] if `MapLibre` cannot start, and
     /// [`StyleError::IoError`] if a worker thread cannot be started.
     pub fn new(
@@ -133,7 +132,6 @@ impl RenderPools {
         renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
     ) -> Result<Self, StyleError> {
-        Graphics::get()?;
         let runtime = Arc::new(Runtime::new(ambient_cache_bytes)?);
         let tile_runtime = Arc::clone(&runtime);
         Ok(Self {

@@ -22,11 +22,11 @@ pub enum StyleError {
     #[error(transparent)]
     RenderingError(#[from] maplibre_native_ffi::Error),
 
-    /// No EGL display can render, so no renderer can be created.
+    /// No graphics device can be created, so no renderer can be created.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("No graphics device can render styles: {reason}")]
     GraphicsUnavailable {
-        /// Why each display that was tried could not be used.
+        /// `MapLibre`'s reason.
         reason: String,
     },
 

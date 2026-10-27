@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::ops::Deref;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
@@ -9,21 +10,22 @@ use std::task::{Context, Poll, Wake, Waker};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandDisposition, FrameDemand, FrameDemandFlag, LogicalExtent,
-    MapHandle, MapMode, MapOptions, OpenglOwnedTextureDescriptor, RenderDriverKind, RenderSessionAttachOptions,
-    RenderSessionHandle, RuntimeEvent, RuntimeEventHandler, RuntimeEventMask, RuntimeEventType, RuntimeHandle,
-    RuntimeOptions, TextureReadbackResult, Wake as NativeWake, runtime_create,
+    CameraOptions, CameraUpdate, CameraUpdateMode, GraphicsDeviceHandle, GraphicsDeviceTextureDescriptor,
+    LogicalExtent, MapHandle, MapMode, MapOptions, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle,
+    RuntimeEvent, RuntimeEventFlag, RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions,
+    TextureReadbackResult,
 };
 
 use tracing::warn;
 
 use crate::resources::styles::StyleError;
-use crate::resources::styles::graphics::Graphics;
 
-/// A `MapLibre` runtime shared by every renderer of a pool, with one ambient cache.
+/// A `MapLibre` runtime and graphics device shared by every renderer of a pool, with one ambient cache.
 pub struct Runtime {
     /// The native runtime.
-    handle: RuntimeHandle,
+    handle: Releasable<RuntimeHandle>,
+    /// The device every renderer's texture lives on.
+    device: GraphicsDeviceHandle,
     /// Style-load listeners, by the id of the map they listen to.
     listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
 }
@@ -38,7 +40,10 @@ impl Drop for Runtime {
     /// Releases the runtime and waits until its native threads have stopped.
     fn drop(&mut self) {
         let signal = Arc::new(Signal::default());
-        let released = self.handle.release().map(|released| block_on(&signal, released));
+        let Some(handle) = self.handle.take() else { return };
+        let released = (handle.release())
+            .map(|released| block_on(&signal, released))
+            .map_err(|(_, err)| err);
         if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release the MapLibre runtime");
         }
@@ -48,15 +53,22 @@ impl Drop for Runtime {
 impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
     /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
-        let handle = runtime_create(&RuntimeOptions::default())?;
+        let device = GraphicsDeviceHandle::create(None).map_err(|err| StyleError::GraphicsUnavailable {
+            reason: err.to_string(),
+        })?;
+        let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
         let signal = Arc::new(Signal::default());
         let handler = RuntimeEventHandler::new(move |batch| {
             let Some(routes) = routes.upgrade() else { return };
             let routes = routes.lock().unwrap_or_else(PoisonError::into_inner);
-            for event in batch.events {
+            for event in batch {
                 if let Some(listener) = routes.get(&event.source) {
                     listener.observe(&event);
                 }
@@ -66,7 +78,11 @@ impl Runtime {
         if let Some(bytes) = ambient_cache_bytes {
             block_on(&signal, handle.set_maximum_ambient_cache_size(bytes)?)?;
         }
-        Ok(Self { handle, listeners })
+        Ok(Self {
+            handle: Releasable(Some(handle)),
+            device,
+            listeners,
+        })
     }
 }
 
@@ -141,15 +157,13 @@ pub struct Renderer {
     /// The pool's runtime, kept alive for as long as the map.
     runtime: Arc<Runtime>,
     /// The map the camera, style and overlays apply to.
-    map: MapHandle,
+    map: Releasable<MapHandle>,
     /// The render target the map draws into.
-    session: RenderSessionHandle,
+    session: Releasable<RenderSessionHandle>,
     /// Style-load outcomes of `map`.
     style: Arc<StyleListener>,
-    /// Raised by frame results and by every native completion this renderer waits on.
+    /// Raised by every native completion this renderer waits on.
     signal: Arc<Signal>,
-    /// The token of the latest frame demand.
-    token: u64,
 }
 
 impl Renderer {
@@ -161,44 +175,31 @@ impl Renderer {
         height: u32,
         pixel_ratio: f64,
     ) -> Result<Self, StyleError> {
-        let graphics = Graphics::get()?;
         let signal = Arc::new(Signal::default());
         let extent = LogicalExtent::new(width, height, pixel_ratio);
         let options = MapOptions {
-            initial_extent: extent,
             map_mode: mode,
-            event_mask: RuntimeEventMask::MAP_STYLE_LOADED | RuntimeEventMask::MAP_LOADING_FAILED,
-            ..MapOptions::default()
+            event_mask: Some(RuntimeEventFlag::MAP_STYLE_LOADED | RuntimeEventFlag::MAP_LOADING_FAILED),
+            ..MapOptions::new(extent)
         };
-        let map = block_on(&signal, runtime.handle.create_map(&options)?)?;
+        let (map, created) = runtime.handle.create_map(&options)?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(map.id(), Arc::clone(&style));
+        block_on(&signal, created)?;
 
-        let frames = Arc::clone(&signal);
-        let attach = RenderSessionAttachOptions {
-            driver: RenderDriverKind::CoreWorker,
-            requested_texture_ring_depth: 1,
-            frame_wake: NativeWake::new(move || frames.raise()),
-            ..RenderSessionAttachOptions::default()
-        };
-        let descriptor = OpenglOwnedTextureDescriptor {
-            extent,
-            context: graphics.context(),
-        };
-        #[expect(unsafe_code, reason = "MapLibre creates its context from the raw EGL handles")]
-        // SAFETY: the display and config come from `Graphics`, which is never terminated.
-        let (session, attached) = unsafe { map.attach_opengl_owned_texture(&descriptor, &attach) }?;
+        let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
+        let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
+        let (session, attached) = map.attach_graphics_device_texture(&runtime.device, &descriptor, &attach)?;
         let renderer = Self {
             runtime: Arc::clone(runtime),
-            map,
-            session,
+            map: Releasable(Some(map)),
+            session: Releasable(Some(session)),
             style,
             signal,
-            token: 0,
         };
         block_on(&renderer.signal, attached)?;
         Ok(renderer)
@@ -221,13 +222,12 @@ impl Renderer {
             .into());
         };
         self.style.begin();
-        let set = block_on(&self.signal, self.map.set_style_url(&format!("file://{path}"))?)?;
-        if set.disposition != CommandDisposition::Committed {
-            // An uncommitted style command loads nothing, so no outcome would ever arrive.
-            return Err(StyleError::StyleLoadError {
-                message: set.diagnostic,
-            });
-        }
+        // A failed style command loads nothing, so no outcome would ever arrive.
+        let set = block_on(&self.signal, self.map.set_style_url(&format!("file://{path}"))?).map_err(|err| {
+            StyleError::StyleLoadError {
+                message: err.to_string(),
+            }
+        })?;
         match self.style.wait(set.generation) {
             StyleOutcome::Loaded => Ok(()),
             StyleOutcome::Failed(message) => Err(StyleError::StyleLoadError { message }),
@@ -254,15 +254,8 @@ impl Renderer {
         &self,
         command: maplibre_native_ffi::Result<maplibre_native_ffi::NativeFuture<maplibre_native_ffi::CommandCompletion>>,
     ) -> Result<(), maplibre_native_ffi::Error> {
-        let completion = block_on(&self.signal, command?)?;
-        if completion.disposition == CommandDisposition::Committed {
-            Ok(())
-        } else {
-            Err(maplibre_native_ffi::Error::new(
-                maplibre_native_ffi::Status::NativeError,
-                completion.diagnostic,
-            ))
-        }
+        block_on(&self.signal, command?)?;
+        Ok(())
     }
 
     /// Moves the camera to `camera` and renders the still image `MapLibre` produces once everything it shows has loaded.
@@ -272,34 +265,9 @@ impl Renderer {
             camera,
             ..CameraUpdate::default()
         })?;
-        let mut still = self.map.request_still_image()?;
-        let waker = Waker::from(Arc::clone(&self.signal));
-        let mut context = Context::from_waker(&waker);
-        // Any rendered frame may complete the image, but only one that shows it fully loaded,
-        // so keep one frame demand armed until the image is done.
-        'image: loop {
-            self.token += 1;
-            let token = self.token;
-            self.session.request_frame(&FrameDemand::new(
-                FrameDemandFlag::IF_NEEDED | FrameDemandFlag::WAIT_FOR_UPDATE,
-                token,
-            ))?;
-            loop {
-                let seen = self.signal.seen();
-                if let Poll::Ready(done) = Pin::new(&mut still).poll(&mut context) {
-                    done?;
-                    break 'image;
-                }
-                let mut answered = false;
-                while let Some(batch) = self.session.drain_frame_results()? {
-                    answered |= batch.get()?.results.iter().any(|result| result.token == token);
-                }
-                if answered {
-                    continue 'image;
-                }
-                self.signal.wait_past(seen);
-            }
-        }
+        block_on(&self.signal, self.map.request_still_image()?)?;
+        // Frame results queue up on the session until drained, and the still image needs none of them.
+        self.session.drain_frame_results()?;
         let readback = block_on(&self.signal, self.session.read_texture()?)?;
         Ok(unpremultiply(readback))
     }
@@ -313,17 +281,48 @@ impl Drop for Renderer {
         if let Err(err) | Ok(Err(err)) = detached {
             warn!(error = %err, "Failed to detach a render session");
         }
-        if let Err(err) = self.session.release() {
-            warn!(error = %err, "Failed to release a render session");
+        if let Some(session) = self.session.take() {
+            let released = (session.release())
+                .map(|released| block_on(&self.signal, released))
+                .map_err(|(_, err)| err);
+            if let Err(err) | Ok(Err(err)) = released {
+                warn!(error = %err, "Failed to release a render session");
+            }
         }
-        if let Err(err) = self.map.release().map(|released| block_on(&self.signal, released)) {
+        let Some(map) = self.map.take() else { return };
+        let id = map.id();
+        let released = (map.release())
+            .map(|released| block_on(&self.signal, released))
+            .map_err(|(_, err)| err);
+        if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release a map");
         }
         self.runtime
             .listeners
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .remove(&self.map.id());
+            .remove(&id);
+    }
+}
+
+/// A native handle that `Drop` moves out to release it and wait for its teardown.
+#[derive(Debug)]
+struct Releasable<T>(Option<T>);
+
+impl<T> Releasable<T> {
+    /// Moves the handle out, leaving nothing to release twice.
+    fn take(&mut self) -> Option<T> {
+        self.0.take()
+    }
+}
+
+impl<T> Deref for Releasable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.0
+            .as_ref()
+            .expect("a handle is only moved out while its owner drops")
     }
 }
 
