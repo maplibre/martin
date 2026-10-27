@@ -1,7 +1,4 @@
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-use maplibre_native::{RenderingError, StyleLoadError};
-
-#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::overlay::ApplyError;
 
 /// Errors that can occur during style processing.
@@ -12,15 +9,26 @@ pub enum StyleError {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
 
-    /// `maplibre-native` failed to load the style.
+    /// `MapLibre` failed to load the style.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    #[error(transparent)]
-    StyleLoadError(#[from] StyleLoadError),
+    #[error("Failed to load style: {message}")]
+    StyleLoadError {
+        /// `MapLibre`'s reason.
+        message: String,
+    },
 
-    /// `maplibre-native` failed to produce a frame.
+    /// `MapLibre` failed to produce a frame.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
-    RenderingError(#[from] RenderingError),
+    RenderingError(#[from] maplibre_native_ffi::Error),
+
+    /// No EGL display can render, so no renderer can be created.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("No graphics device can render styles: {reason}")]
+    GraphicsUnavailable {
+        /// Why each display that was tried could not be used.
+        reason: String,
+    },
 
     /// Overlay application against the renderer's style failed.
     #[cfg(all(feature = "rendering", target_os = "linux"))]

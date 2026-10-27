@@ -1,16 +1,18 @@
-//! [`OverlaySpec`] -> side-effects on a maplibre [`StyleRef`].
+//! [`OverlaySpec`] -> sources and layers added to a renderer's map.
 
-use geojson::{GeoJson as GjGeoJson, Geometry, GeometryValue};
-use maplibre_native::{CircleLayer, FillLayer, GeoJson, GeoJsonSource, LineLayer, Static, StyleError, StyleRef};
+use geojson::{Geometry, GeometryValue};
+use maplibre_native_ffi::MapHandle;
+use serde_json::{Map, Value, json};
 
-use crate::overlay::{ApplyError, OverlayFeature, OverlayProperties, OverlaySpec};
+use crate::overlay::{ApplyError, Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec};
+use crate::resources::styles::renderer::Renderer;
 
 /// Prefix prepended to every synthetic source/layer id before it reaches maplibre.
 /// Guarantees overlay ids cannot collide with the base style.
 const ID_PREFIX: &str = "overlay:";
 
-/// Handle to overlay sources and layers added to a [`StyleRef`]. Must be removed
-/// from the style after the next render.
+/// Handle to overlay sources and layers added to a renderer's map. Must be removed
+/// from the map after the next render.
 #[must_use = "AppliedOverlay must be removed from the style after rendering"]
 #[derive(Debug)]
 pub struct AppliedOverlay {
@@ -20,25 +22,33 @@ pub struct AppliedOverlay {
 
 impl AppliedOverlay {
     /// Remove every layer (in reverse-add order) then every source.
-    /// Returns the style to a clean base.
-    pub fn remove_from(self, style: &mut StyleRef<'_, Static>) {
-        for id in self.layer_ids.into_iter().rev() {
-            style.remove_layer(&id);
-        }
-        for id in self.source_ids.into_iter().rev() {
-            style.remove_source(&id);
-        }
+    /// Returns the style to a clean base before the map's next still image.
+    pub fn remove_from(self, map: &MapHandle) {
+        remove(map, self.layer_ids, self.source_ids);
     }
 }
 
-/// Adds `spec` to `style`.
+/// Queues the removal of `layer_ids` (in reverse-add order) then `source_ids`.
+///
+/// Commands apply in order, so they take effect before any later still image; a failed
+/// removal only leaves an id that the next overlay replaces, so failures are not awaited.
+fn remove(map: &MapHandle, layer_ids: Vec<String>, source_ids: Vec<String>) {
+    for id in layer_ids.into_iter().rev() {
+        let _ = map.discarding().remove_style_layer(&id);
+    }
+    for id in source_ids.into_iter().rev() {
+        let _ = map.discarding().remove_style_source(&id);
+    }
+}
+
+/// Adds `spec` to `renderer`'s map.
 /// On any failure mid-way, rolls back what this call added (in reverse order) before returning `Err`.
 ///
 /// # Errors
 ///
-/// Returns [`ApplyError`] on `GeoJSON` conversion failure or any maplibre rejection.
-pub fn apply_to_style(spec: &OverlaySpec, style: &mut StyleRef<'_, Static>) -> Result<AppliedOverlay, ApplyError> {
-    let mut guard = OverlayGuard::new(style);
+/// Returns [`ApplyError`] when maplibre rejects a source or layer.
+pub fn apply_to_style(spec: &OverlaySpec, renderer: &Renderer) -> Result<AppliedOverlay, ApplyError> {
+    let mut guard = OverlayGuard::new(renderer);
     for (index, feature) in spec.features.iter().enumerate() {
         guard.apply_feature(index, feature)?;
     }
@@ -90,19 +100,19 @@ enum LayerKind {
     Circle,
 }
 
-/// Scope guard for the apply pass: tracks the ids it adds and, unless [`commit`](OverlayGuard::commit)ted and removes them again on drop.
+/// Scope guard for the apply pass: tracks the ids it adds and, unless [`commit`](OverlayGuard::commit)ted, removes them again on drop.
 /// On success the ids move to an [`AppliedOverlay`] for removal after the render.
-struct OverlayGuard<'a, 'st> {
-    style: &'st mut StyleRef<'a, Static>,
+struct OverlayGuard<'r> {
+    renderer: &'r Renderer,
     layer_ids: Vec<String>,
     source_ids: Vec<String>,
     committed: bool,
 }
 
-impl<'a, 'st> OverlayGuard<'a, 'st> {
-    const fn new(style: &'st mut StyleRef<'a, Static>) -> Self {
+impl<'r> OverlayGuard<'r> {
+    const fn new(renderer: &'r Renderer) -> Self {
         Self {
-            style,
+            renderer,
             layer_ids: Vec::new(),
             source_ids: Vec::new(),
             committed: false,
@@ -118,32 +128,29 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
         }
         let geometry = feature
             .geometry
-            .clone()
+            .as_ref()
             .expect("layer_kinds is empty for a missing geometry");
 
         let source_id = format!("{ID_PREFIX}f{index}");
-        let mln_gj: GeoJson = (&GjGeoJson::Geometry(geometry))
-            .try_into()
-            .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
-        let mut gs = GeoJsonSource::new(&source_id);
-        gs.set_geojson(&mln_gj);
-        self.style.add_source(gs).map_err(|source| ApplyError::Maplibre {
-            id: format!("f{index}"),
-            source,
-        })?;
+        let source = json!({"type": "geojson", "data": geometry});
+        let map = self.renderer.map();
+        self.renderer
+            .command(map.add_style_source_json(&source_id, source.to_string().as_bytes()))
+            .map_err(|source| ApplyError::Maplibre {
+                id: format!("f{index}"),
+                source,
+            })?;
         self.source_ids.push(source_id.clone());
 
         for kind in kinds {
             let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
-            let result = match kind {
-                LayerKind::Fill => add_fill(self.style, &layer_id, &source_id, &props),
-                LayerKind::Line => add_line(self.style, &layer_id, &source_id, &props),
-                LayerKind::Circle => add_circle(self.style, &layer_id, &source_id, &props),
-            };
-            result.map_err(|source| ApplyError::Maplibre {
-                id: format!("f{index}-{kind}"),
-                source,
-            })?;
+            let layer = layer_json(kind, &layer_id, &source_id, &props);
+            self.renderer
+                .command(map.add_style_layer_json(layer.to_string().as_bytes(), None))
+                .map_err(|source| ApplyError::Maplibre {
+                    id: format!("f{index}-{kind}"),
+                    source,
+                })?;
             self.layer_ids.push(layer_id);
         }
 
@@ -161,88 +168,77 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
     }
 }
 
-impl Drop for OverlayGuard<'_, '_> {
+impl Drop for OverlayGuard<'_> {
     fn drop(&mut self) {
-        if self.committed {
-            return;
-        }
-        for id in self.layer_ids.drain(..).rev() {
-            self.style.remove_layer(&id);
-        }
-        for id in self.source_ids.drain(..).rev() {
-            self.style.remove_source(&id);
+        if !self.committed {
+            remove(
+                self.renderer.map(),
+                std::mem::take(&mut self.layer_ids),
+                std::mem::take(&mut self.source_ids),
+            );
         }
     }
 }
 
-fn add_fill(
-    style: &mut StyleRef<'_, Static>,
-    layer_id: &str,
-    source_id: &str,
-    props: &OverlayProperties,
-) -> Result<(), StyleError> {
-    let mut layer = FillLayer::new(layer_id, source_id);
-    if let Some(c) = props.fill_color {
-        layer.set_fill_color(c.into());
+/// The style-spec layer drawing `source_id` as `kind` with the paint and layout `props` set.
+fn layer_json(kind: LayerKind, layer_id: &str, source_id: &str, props: &OverlayProperties) -> Value {
+    let mut paint = Map::new();
+    let mut layout = Map::new();
+    let set = |map: &mut Map<String, Value>, key: &str, value: Option<Value>| {
+        if let Some(value) = value {
+            map.insert(key.to_owned(), value);
+        }
+    };
+    let color = |c: Option<Color>| c.map(color_json);
+    let number = |n: Option<f32>| n.map(|n| json!(n));
+    match kind {
+        LayerKind::Fill => {
+            set(&mut paint, "fill-color", color(props.fill_color));
+            set(&mut paint, "fill-opacity", number(props.fill_opacity));
+            set(&mut paint, "fill-outline-color", color(props.fill_outline_color));
+        }
+        LayerKind::Line => {
+            set(&mut paint, "line-color", color(props.line_color));
+            set(&mut paint, "line-opacity", number(props.line_opacity));
+            set(&mut paint, "line-width", number(props.line_width));
+            set(&mut layout, "line-cap", props.line_cap.map(|cap| json!(line_cap(cap))));
+            set(
+                &mut layout,
+                "line-join",
+                props.line_join.map(|join| json!(line_join(join))),
+            );
+        }
+        LayerKind::Circle => {
+            set(&mut paint, "circle-color", color(props.circle_color));
+            set(&mut paint, "circle-opacity", number(props.circle_opacity));
+            set(&mut paint, "circle-radius", number(props.circle_radius));
+            set(&mut paint, "circle-stroke-color", color(props.circle_stroke_color));
+            set(&mut paint, "circle-stroke-opacity", number(props.circle_stroke_opacity));
+            set(&mut paint, "circle-stroke-width", number(props.circle_stroke_width));
+        }
     }
-    if let Some(o) = props.fill_opacity {
-        layer.set_fill_opacity(o);
-    }
-    if let Some(c) = props.fill_outline_color {
-        layer.set_fill_outline_color(c.into());
-    }
-    style.add_layer(layer).map(|_| ())
+    json!({"id": layer_id, "type": kind.to_string(), "source": source_id, "paint": paint, "layout": layout})
 }
 
-fn add_line(
-    style: &mut StyleRef<'_, Static>,
-    layer_id: &str,
-    source_id: &str,
-    props: &OverlayProperties,
-) -> Result<(), StyleError> {
-    let mut layer = LineLayer::new(layer_id, source_id);
-    if let Some(c) = props.line_color {
-        layer.set_line_color(c.into());
-    }
-    if let Some(o) = props.line_opacity {
-        layer.set_line_opacity(o);
-    }
-    if let Some(w) = props.line_width {
-        layer.set_line_width(w);
-    }
-    if let Some(cap) = props.line_cap {
-        layer.set_line_cap(cap.into());
-    }
-    if let Some(join) = props.line_join {
-        layer.set_line_join(join.into());
-    }
-    style.add_layer(layer).map(|_| ())
+/// An `rgba` expression, which keeps fractional channels that a CSS color string would round.
+fn color_json(c: Color) -> Value {
+    json!(["rgba", c.r * 255.0, c.g * 255.0, c.b * 255.0, c.a])
 }
 
-fn add_circle(
-    style: &mut StyleRef<'_, Static>,
-    layer_id: &str,
-    source_id: &str,
-    props: &OverlayProperties,
-) -> Result<(), StyleError> {
-    let mut layer = CircleLayer::new(layer_id, source_id);
-    if let Some(c) = props.circle_color {
-        layer.set_circle_color(c.into());
+/// The style-spec name of `cap`.
+const fn line_cap(cap: LineCap) -> &'static str {
+    match cap {
+        LineCap::Butt => "butt",
+        LineCap::Round => "round",
+        LineCap::Square => "square",
     }
-    if let Some(o) = props.circle_opacity {
-        layer.set_circle_opacity(o);
+}
+
+/// The style-spec name of `join`.
+const fn line_join(join: LineJoin) -> &'static str {
+    match join {
+        LineJoin::Miter => "miter",
+        LineJoin::Bevel => "bevel",
+        LineJoin::Round => "round",
     }
-    if let Some(r) = props.circle_radius {
-        layer.set_circle_radius(r);
-    }
-    if let Some(c) = props.circle_stroke_color {
-        layer.set_circle_stroke_color(c.into());
-    }
-    if let Some(o) = props.circle_stroke_opacity {
-        layer.set_circle_stroke_opacity(o);
-    }
-    if let Some(w) = props.circle_stroke_width {
-        layer.set_circle_stroke_width(w);
-    }
-    style.add_layer(layer).map(|_| ())
 }

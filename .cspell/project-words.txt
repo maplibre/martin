@@ -76,6 +76,7 @@ libwebp
 linestring
 linestrings
 lldb
+llvmpipe
 lnglat
 longlat
 manbhav

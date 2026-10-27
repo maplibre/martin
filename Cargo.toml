@@ -145,11 +145,13 @@ itertools = "0.15"
 jpeg-decoder = "0.3.1"
 json-patch = "4"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
+khronos-egl = { version = "6.0", features = ["dynamic"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
+libloading = "0.8.9"
 log = "0.4"
 map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.4" }
-maplibre_native = "0.10.0"
+maplibre-native-ffi = "=0.202610.2"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.4" }
 martin-core = { path = "./martin-core", version = "0.14.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.1" }

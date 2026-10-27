@@ -14,7 +14,8 @@ as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     Rendering is **not** part of the default build.
-    It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements.
+    It relies on [MapLibre Native](https://github.com/maplibre/maplibre-native-ffi), which needs EGL and OpenGL ES at runtime.
+    It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise.
     We only ship it where we control the runtime environment.
     You get it by either:
 
@@ -26,7 +27,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
     Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
-      To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
+      To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-ffi>.
     - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:

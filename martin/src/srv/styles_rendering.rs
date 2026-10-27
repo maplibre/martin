@@ -93,7 +93,7 @@ pub(super) async fn encode_image_response(
     quality: ImageQualities,
 ) -> HttpResponse {
     match encode_off_worker(&ENCODE_PERMITS, move || {
-        encode_image(image.as_image(), format, png_max_colors, quality)
+        encode_image(&image, format, png_max_colors, quality)
     })
     .await
     {
