@@ -608,14 +608,24 @@ styles:
     # Disable it when every source of the styles is served by Martin itself.
     ambient_cache_size_mb: 50
     enabled: false
-    # Highest `@{n}x` pixel ratio the tile endpoint serves. [default: 4]
-    max_pixel_ratio: 4
+    # Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.
+    # [default: [1, 2]]
+    pixel_ratios:
+      - 1
+      - 2
+      - 3
     # Encode rendered PNGs as indexed (palette) images, which is the default.
     # `false` keeps full-colour RGBA.
     png_palette:
       # Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
       # closely, up to this many colours. Defaults to 128.
       max_colors: 128
+    # Quality of rendered WebP and JPEG images, per format.
+    quality:
+      # Quality of JPEG images: 1 to 100. [default: 80]
+      jpeg: 80
+      # Quality of WebP images: 1 to 100, or `lossless` to keep every pixel. [default: 80]
+      webp: 80
     # Renderers each tile worker keeps loaded, one per style and pixel ratio.
     # Beyond this, the least recently used is dropped. [default: 8]
     renderers_per_worker: 16

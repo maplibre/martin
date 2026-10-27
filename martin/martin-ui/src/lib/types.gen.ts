@@ -1393,7 +1393,7 @@ export interface operations {
                     "image/webp": unknown;
                 };
             };
-            /** @description Invalid params or size */
+            /** @description Invalid params or size, or a pixel ratio not listed in `pixel_ratios` */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1511,7 +1511,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Invalid tile coordinates, or a pixel ratio above `max_pixel_ratio` */
+            /** @description Invalid tile coordinates, or a pixel ratio not listed in `pixel_ratios` */
             400: {
                 headers: {
                     [name: string]: unknown;

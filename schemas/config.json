@@ -1192,6 +1192,25 @@
       },
       "type": "object"
     },
+    "ImageQuality": {
+      "description": "Lossy quality from 1 to 100, or `lossless`.",
+      "oneOf": [
+        {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "const": "lossless"
+        }
+      ]
+    },
+    "LossyQuality": {
+      "description": "Lossy quality from 1 to 100.",
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
       "properties": {
@@ -1568,6 +1587,16 @@
       ],
       "description": "A passthrough source value: either a bare upstream URL (or list of URLs) or a full\nconfiguration object."
     },
+    "PixelRatios": {
+      "description": "Whole-number pixel ratios (`@{n}x`) that are served.",
+      "items": {
+        "maximum": 4,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
     "PngPaletteConfig": {
       "properties": {
         "max_colors": {
@@ -1779,6 +1808,35 @@
       "enum": ["brotli", "gzip"],
       "type": "string"
     },
+    "QualityConfig": {
+      "properties": {
+        "jpeg": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LossyQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of JPEG images: 1 to 100. \\[default: 80\\]",
+          "examples": [80]
+        },
+        "webp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of WebP images: 1 to 100, or `lossless` to keep every pixel. \\[default: 80\\]",
+          "examples": [80]
+        }
+      },
+      "type": "object"
+    },
     "RendererConfig": {
       "properties": {
         "ambient_cache_size_mb": {
@@ -1791,17 +1849,32 @@
         "enabled": {
           "type": "boolean"
         },
-        "max_pixel_ratio": {
-          "description": "Highest `@{n}x` pixel ratio the tile endpoint serves. \\[default: 4\\]",
-          "examples": [4],
-          "format": "uint8",
-          "maximum": 255,
-          "minimum": 1,
-          "type": ["integer", "null"]
+        "pixel_ratios": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PixelRatios"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.\n\\[default: \\[1, 2\\]\\]",
+          "examples": [[1, 2, 3]]
         },
         "png_palette": {
           "$ref": "#/$defs/OptBoolObj5",
           "description": "Encode rendered PNGs as indexed (palette) images, which is the default.\n`false` keeps full-colour RGBA."
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of rendered WebP and JPEG images, per format."
         },
         "renderers_per_worker": {
           "description": "Renderers each tile worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used is dropped. \\[default: 8\\]",

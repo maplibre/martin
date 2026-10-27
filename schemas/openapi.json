@@ -1520,7 +1520,7 @@
             "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
           },
           "400": {
-            "description": "Invalid tile coordinates, or a pixel ratio above `max_pixel_ratio`"
+            "description": "Invalid tile coordinates, or a pixel ratio not listed in `pixel_ratios`"
           },
           "403": {
             "description": "Rendering is disabled"
@@ -1587,7 +1587,7 @@
             "description": "Rendered static map image"
           },
           "400": {
-            "description": "Invalid params or size"
+            "description": "Invalid params or size, or a pixel ratio not listed in `pixel_ratios`"
           },
           "403": {
             "description": "Rendering is disabled"
