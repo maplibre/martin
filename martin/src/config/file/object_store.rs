@@ -199,7 +199,7 @@ impl ObjectStoreConfig {
         } else {
             loader
         };
-        // The SDK's loader future is ~11 KiB; boxed, it no longer bloats every config `finalize`.
+        // The SDK's loader future is ~11 KiB for some reason -> Box
         let sdk_config = Box::pin(loader.load()).await;
         self.apply_aws_config(&sdk_config, namespace);
     }
