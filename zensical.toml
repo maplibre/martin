@@ -117,6 +117,7 @@ nav = [
         "using-with-data/index.md",
         {"Using Hosted PostgreSQL" = "recipes.md"},
         {"Setting up a basemap and overlaying data" = "recipe-basemap-postgis.md"},
+        {"Serving NAIP imagery from S3 with a tile index" = "recipe-cog-naip.md"},
         {"Using PostgreSQL with SSL Certificates" = "pg-ssl-certificates.md"}
     ]},
     {"Working with MBTiles archives" = [
@@ -480,6 +481,7 @@ Configuration = [
   { "using-with-data/index.md" = "Guides specific to a tile source" },
   { "recipes.md" = "Connecting to hosted PostgreSQL providers" },
   { "recipe-basemap-postgis.md" = "Generating a basemap and overlaying points from PostGIS" },
+  { "recipe-cog-naip.md" = "Serving NAIP aerial imagery from S3 with a tile index" },
   { "pg-ssl-certificates.md" = "Connecting to PostgreSQL with SSL certificates" },
 ]
 Tools = [

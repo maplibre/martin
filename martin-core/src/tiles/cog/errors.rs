@@ -92,6 +92,86 @@ pub enum CogError {
         /// The zoom of the tile each search covers.
         search_zoom: u8,
     },
+
+    /// A tile index cannot be read.
+    #[error("Cannot read the tile index {}: {error}", path.display())]
+    TileIndexRead {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// Why it cannot be read.
+        #[source]
+        error: sqlx::Error,
+    },
+
+    /// A tile index has no single feature table to read, and no `layer` is set.
+    #[error("The tile index {} has no single feature table, set `layer` to one of: {layers}", path.display())]
+    TileIndexLayer {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The feature tables it has.
+        layers: String,
+    },
+
+    /// A tile index has no feature table of the configured name.
+    #[error("The tile index {} has no feature table {layer}", path.display())]
+    TileIndexNoLayer {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The configured layer.
+        layer: String,
+    },
+
+    /// The footprints of a tile index are not in `EPSG:4326`.
+    #[error(
+        "The footprints of {layer} in the tile index {} are in {srs}, not EPSG:4326; build it with `gdaltindex -t_srs EPSG:4326`",
+        path.display()
+    )]
+    TileIndexSrs {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The layer read.
+        layer: String,
+        /// The footprints' spatial reference system, as `organization:code`.
+        srs: String,
+    },
+
+    /// A file in a tile index has an empty footprint, or one without an envelope in its header.
+    #[error("The footprint of {location} in the tile index {} is empty or has no envelope", path.display())]
+    TileIndexFootprint {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The file's location as written in the index.
+        location: String,
+    },
+
+    /// A file location in a tile index cannot be read from.
+    #[error("Cannot read {location} from the tile index {}: {error}", path.display())]
+    TileIndexLocation {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The file's location as written in the index.
+        location: String,
+        /// Why it cannot be read.
+        error: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// A tile index lists no files.
+    #[error("The tile index {} lists no files in {layer}", path.display())]
+    TileIndexEmpty {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// The layer read.
+        layer: String,
+    },
+
+    /// A tile index lists more files than can be indexed in memory.
+    #[error("The tile index {} lists {count} files, more than can be indexed", path.display())]
+    TileIndexTooLarge {
+        /// The index file.
+        path: std::path::PathBuf,
+        /// How many files it lists.
+        count: usize,
+    },
 }
 
 impl crate::Classify for CogError {

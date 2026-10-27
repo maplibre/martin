@@ -76,9 +76,12 @@ cog = [
     "dep:cog-tiles",
     "cog-tiles/mosaic",
     "dep:futures",
+    "dep:geo-index",
     "dep:object_store",
     "dep:reqwest",
     "dep:serde_json",
+    "dep:sqlx",
+    "dep:url",
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]
@@ -168,6 +171,7 @@ serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true

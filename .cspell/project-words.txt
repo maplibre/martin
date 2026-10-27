@@ -3,6 +3,7 @@ abfss
 actix
 addext
 antimeridian
+asinh
 autoheal
 autoupdated
 autoupdates
@@ -46,6 +47,7 @@ foss
 fsspec
 fsst
 gdal
+gdaltindex
 gdalwarp
 geodata
 geofabrik
@@ -109,6 +111,7 @@ oklch
 onthegomap
 openlayers
 openmaptiles
+optfile
 osmus
 overturemaps
 PDOK
@@ -173,10 +176,15 @@ tui
 unclipped
 undecoded
 urlencode
+USGS
 usize
 utoipa
 valgrind
 varchar
+vsiaz
+vsicurl
+vsigs
+vsis
 wagyu
 webui
 workspaced
