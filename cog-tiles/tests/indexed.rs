@@ -45,6 +45,7 @@ async fn store_with(files: &[(&str, Vec<u8>)]) -> Arc<dyn ObjectStore> {
 
 fn file(store: &Arc<dyn ObjectStore>, key: &str, bounds: [f64; 4]) -> MosaicFile {
     MosaicFile {
+        cache_key: format!("memory://{key}").into(),
         location: format!("memory://{key}").into(),
         store: Arc::clone(store),
         path: Path::from(key),
@@ -183,6 +184,50 @@ async fn earlier_files_win_and_later_files_fill_their_gaps(#[case] first: &str) 
     let index = Arc::new(Files(vec![first.clone(), file(&store, "utm_flat.tif", UTM_BOUNDS)]));
     let mosaic = AsyncIndexedMosaic::open(
         index,
+        &first,
+        IndexedMosaicOptions::new(13, vec![0, 1, 2]).with_max_zoom(Some(17)),
+    )
+    .await
+    .unwrap();
+    let expected = std::fs::read(warped_dir().join("expected/two_files_17_20952_50650.png")).unwrap();
+    let (_, _, _, expected) = decode_png(&expected);
+
+    let tile = mosaic
+        .get_tile(TileCoord::new(17, 20952, 50650).unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mismatched = mismatched_pixels(&decode_png(&tile).3, &expected);
+    assert!(mismatched <= 8, "{mismatched} of 65536 pixels differ from gdalwarp");
+}
+
+#[tokio::test]
+async fn files_shown_under_one_location_are_opened_by_their_cache_keys() {
+    let store = store_with(&[
+        ("utm.tif", std::fs::read(warped_dir().join("utm.tif")).unwrap()),
+        (
+            "utm_flat.tif",
+            std::fs::read(warped_dir().join("utm_flat.tif")).unwrap(),
+        ),
+    ])
+    .await;
+    let first = MosaicFile {
+        cache_key: "https://example.com/image?id=utm".into(),
+        location: "https://example.com/image".into(),
+        store: Arc::clone(&store),
+        path: Path::from("utm.tif"),
+        bounds: UTM_BOUNDS,
+    };
+    let second = MosaicFile {
+        cache_key: "https://example.com/image?id=utm_flat".into(),
+        location: "https://example.com/image".into(),
+        store: Arc::clone(&store),
+        path: Path::from("utm_flat.tif"),
+        bounds: UTM_BOUNDS,
+    };
+    let mosaic = AsyncIndexedMosaic::open(
+        Arc::new(Files(vec![first.clone(), second])),
         &first,
         IndexedMosaicOptions::new(13, vec![0, 1, 2]).with_max_zoom(Some(17)),
     )

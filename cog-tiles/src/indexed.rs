@@ -32,7 +32,9 @@ pub trait MosaicIndex: Debug + Send + Sync {
 /// One file an [`AsyncIndexedMosaic`] paints tiles from.
 #[derive(Clone, Debug)]
 pub struct MosaicFile {
-    /// The file's URL or key, used to cache it once opened and in errors.
+    /// Identifies the file in the cache of opened files, so no two files may share it.
+    pub cache_key: Arc<str>,
+    /// The file's URL or key as shown in errors, without secrets such as signed query strings.
     pub location: Arc<str>,
     /// The store the file is in.
     pub store: Arc<dyn ObjectStore>,
@@ -273,7 +275,7 @@ impl AsyncIndexedMosaic {
             Ok(Arc::new(reader))
         };
         self.readers
-            .try_get_with(Arc::clone(&file.location), open)
+            .try_get_with(Arc::clone(&file.cache_key), open)
             .await
             .map_err(|source| CogError::MosaicFile {
                 key: file.location.to_string(),
