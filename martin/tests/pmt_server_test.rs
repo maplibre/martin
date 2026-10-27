@@ -10,7 +10,7 @@ use martin_tile_utils::decode_gzip;
 use tilejson::TileJSON;
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{

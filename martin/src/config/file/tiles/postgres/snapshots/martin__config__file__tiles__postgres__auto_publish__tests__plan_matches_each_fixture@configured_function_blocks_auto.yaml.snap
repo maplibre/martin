@@ -1,0 +1,19 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/configured_function_blocks_auto.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions:
+  - id: other_tiles
+    schema: public
+    function: other_tiles
+decisions:
+  - ScannedFunctions:
+      schemas:
+        - public
+      id_format: "{function}"

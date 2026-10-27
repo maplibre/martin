@@ -13,6 +13,13 @@ We offer the `martin cp` subcommand for generating tiles in bulk, from any sourc
 `martin cp` can be used to generate tiles for a large area or multiple areas (bounding boxes).
 If multiple areas overlap, it will ensure each tile is generated only once
 `martin cp` supports the same configuration file and CLI arguments as the Martin server, so it can support all sources and even combining sources.
+
+!!! tip "Generating tiles from features"
+    By default, `martin cp` asks the source for each tile, so the source must contain or generate the
+    tiles. `martin cp` can also [generate tiles from features](martin-generate.md): it reads each
+    source's features once and builds the whole tileset inside Martin, using a method adapted from
+    [Planetiler](https://github.com/onthegomap/planetiler).
+
 The released `martin` binary does not include [DuckDB / GeoParquet sources](sources-duckdb.md).
 To use them, build `martin` with the feature and list the source in the configuration file:
 
@@ -22,6 +29,9 @@ cargo build --package martin --bin martin --features=unstable-duckdb
 
 After copying, `martin cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified.
 This allows the MBTiles file to be [validated](mbtiles-validation.md#aggregate-content-validation) using `mbtiles validate` command.
+
+`--set-meta KEY=VALUE` and `--delete-meta KEY` edit the metadata after the copy, so they can override the computed values.
+A key that is both set and deleted is an error, and nothing is copied.
 
 ## Usage
 
@@ -65,6 +75,17 @@ You should also consider
 !!! note
     When the source (such as PG tables) guarantees that an empty tile only has empty tiles below it, `martin cp` copies zoom by zoom and never fetches the tiles below an empty tile.
     This means that even sparse sources can usually be fairly performant.
+
+## Modes
+
+`--mode` chooses how `martin cp` produces the tiles:
+
+- `tile` requests every tile from the source, as the tile server does.
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets.
+  It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](martin-generate.md).
+- `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
+
+Each mode refuses the options only the other one reads.
 
 ## MLT from PostgreSQL tables
 

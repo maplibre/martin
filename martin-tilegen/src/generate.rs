@@ -3,23 +3,17 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
-use geo_types::Coord;
+use crate::source::{FeatureBatch, FeatureSource, SourceError};
 use hotpath::wrap::flume::{Receiver, Sender};
+use martin_tile_utils::Encoding;
+use tilejson::TileJSON;
 
-use martin_core::generate::props::{KeyId, KeyInterner, KeyNames};
-use martin_core::generate::source::{Crs, FeatureBatch, FeatureSource, Geometry, SourceError};
-use martin_tile_utils::{Encoding, Format};
-use mlt_core::PropKind;
-use tilejson::{TileJSON, VectorLayer};
-
+use crate::phase1::{RenderTotals, RenderWorker};
+use crate::phase2::{TileEncoder, TileEncoding};
 use crate::pipeline::{self, BatchSender, spawn_named};
-use crate::plan::{AttributesDef, IdDef, Plan, PlannedLayer};
-use crate::record::EncodedProps;
-use crate::{
-    DedupIndex, EncodeSettings, Feature, FeatureGeom, LayerInfo, LayerStats, Renderer, Seq,
-    SliceErrors, SortBuffer, SortConfig, Sorter, TileEncoder, TileFormat, TileGenError,
-    TileGenResult, TileGrouper, TileOrder, TileRecords, TileSink, project,
-};
+use crate::plan::{ExprErrors, Plan};
+use crate::sort::{SortConfig, Sorter, TileRecords};
+use crate::{TileFormat, TileGenError, TileGenResult, TileOrder, TileSink};
 
 #[derive(Clone, Debug)]
 pub struct GenerateConfig {
@@ -32,16 +26,24 @@ pub struct GenerateConfig {
     pub batch_tiles: usize,
     /// Encode batches in flight.
     pub window: usize,
+    /// MVT only: polygon rings keep their source start, rather than starting where `ST_AsMVTGeom`'s wagyu starts them
+    /// in tiles that get the whole polygon.
+    pub mvt_preserve_ring_start: bool,
+    /// MVT only: each layer lists every key it declares, used or not, in declaration order, as `ST_AsMVT` does,
+    /// then the other keys in the order features first use them.
+    pub mvt_keep_unused_keys: bool,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Summary {
     pub features: u64,
-    /// Features whose geometry the generator cannot render: geometry collections and empty geometries.
+    /// Features with an empty point or an empty geometry collection, which have nothing to draw.
     pub skipped: u64,
     pub tiles: u64,
     /// Layers with feature-zooms the slicer could not handle and skipped, in plan order.
     pub slice_errors: Vec<LayerSliceErrors>,
+    /// Expressions that failed on some features, which then took them as `null`, in plan order.
+    pub expr_errors: Vec<ExprErrors>,
 }
 
 /// The skipped feature-zooms of one layer, and the first of them in source order.
@@ -76,129 +78,55 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     progress: &Progress,
 ) -> TileGenResult<Summary> {
     let order = sink.tile_order();
-    let keys = Keys {
-        tables: plan
-            .tables
-            .iter()
-            .map(|table| KeyInterner::new(&table.columns))
-            .collect(),
-        layers: plan
-            .layers
-            .iter()
-            .map(|layer| KeyInterner::new(&layer.keys))
-            .collect(),
-    };
 
     let sorter = Sorter::new(config.sort.clone())?;
+    let wagyu_ring_starts = !config.mvt_preserve_ring_start && matches!(config.format, TileFormat::Mvt);
     let totals = render_all(
         source,
         &sorter,
         plan,
-        &keys,
         order,
         config.threads,
+        wagyu_ring_starts,
         progress,
     )?;
     progress.writing.store(true, Ordering::Relaxed);
 
-    let names: Vec<KeyNames> = keys.layers.into_iter().map(KeyInterner::freeze).collect();
-    let infos: Vec<_> = plan.layers.iter().map(|layer| layer.info.clone()).collect();
-    let settings = EncodeSettings {
-        layers: &infos,
-        keys: &names,
-        format: config.format,
-        encoding: config.encoding,
+    let (encoding, batches) = TileEncoding::start(
+        plan,
+        sorter,
+        config.format,
+        config.encoding,
         order,
-    };
-    let dedup = DedupIndex::default();
-    let mut grouper = TileGrouper::new(sorter.merge()?);
-    let batch_tiles = config.batch_tiles.max(1);
+        config.batch_tiles,
+        config.mvt_keep_unused_keys,
+    )?;
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
-        |submit: &BatchSender<Vec<TileRecords>, _>| loop {
-            let mut batch = Vec::with_capacity(batch_tiles);
-            hotpath::measure_block!({ "group_batch" }, {
-                while batch.len() < batch_tiles {
-                    let mut tile = TileRecords::default();
-                    if !grouper.next_tile(&mut tile)? {
-                        break;
-                    }
-                    batch.push(tile);
-                }
-            });
-            let done = batch.len() < batch_tiles;
-            if !batch.is_empty() {
-                submit.send(batch)?;
+        |submit: &BatchSender<Vec<TileRecords>, _>| {
+            for batch in batches {
+                submit.send(batch?)?;
             }
-            if done {
-                return Ok(());
-            }
+            Ok(())
         },
         TileEncoder::default,
-        |encoder, batch| encoder.encode_batch(&settings, &dedup, batch),
+        |encoder, batch| encoding.encode(encoder, batch),
         move |batches| {
             let mut tiles = 0u64;
             sink.write_all(&mut batches.inspect(|batch| {
                 if let Ok(batch) = batch {
                     tiles += batch.len() as u64;
-                    progress
-                        .tiles
-                        .fetch_add(batch.len() as u64, Ordering::Relaxed);
+                    progress.tiles.fetch_add(batch.len() as u64, Ordering::Relaxed);
                 }
             }))?;
             Ok((sink, tiles))
         },
     )?;
 
-    let mut layers = vec![LayerStats::default(); infos.len()];
-    for encoder in &encoders {
-        for (total, stats) in layers.iter_mut().zip(&encoder.stats) {
-            total.merge(stats);
-        }
-    }
-    complete_metadata(&mut metadata, &infos, &layers, config.format);
+    encoding.complete_metadata(&mut metadata, &encoders);
     sink.finish(&metadata)?;
-    Ok(Summary {
-        features: totals.features,
-        skipped: totals.skipped,
-        tiles,
-        slice_errors: layer_slice_errors(plan, &totals.slice_errors),
-    })
-}
-
-fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErrors> {
-    plan.layers
-        .iter()
-        .filter_map(|layer| {
-            let index = usize::from(layer.render.index);
-            let errors = totals.get(index)?;
-            let first = errors.first.as_ref()?;
-            Some(LayerSliceErrors {
-                layer: layer.info.name.clone(),
-                errors: errors.count,
-                zoom: first.zoom,
-                id: first.id,
-                partition: first.seq.partition(),
-                row: first.seq.row(),
-                error: first.error.to_string(),
-            })
-        })
-        .collect()
-}
-
-/// Property keys as sources intern them, per table, and as tiles hold them, per output layer.
-struct Keys {
-    tables: Vec<KeyInterner>,
-    layers: Vec<KeyInterner>,
-}
-
-#[derive(Default)]
-struct RenderTotals {
-    features: u64,
-    skipped: u64,
-    /// By layer index.
-    slice_errors: Vec<SliceErrors>,
+    Ok(totals.into_summary(plan, tiles))
 }
 
 type FeatureTx = Sender<FeatureBatch>;
@@ -212,19 +140,16 @@ fn send_features(tx: &FeatureTx, batch: FeatureBatch) -> Result<(), SourceError>
 }
 
 fn feature_channel(capacity: usize) -> (FeatureTx, FeatureRx) {
-    hotpath::channel!(
-        flume::bounded::<FeatureBatch>(capacity),
-        label = { "features" }
-    )
+    hotpath::channel!(flume::bounded::<FeatureBatch>(capacity), label = { "features" })
 }
 
 fn render_all<S: FeatureSource>(
     source: &S,
     sorter: &Sorter,
     plan: &Plan,
-    keys: &Keys,
     order: TileOrder,
     threads: usize,
+    wagyu_ring_starts: bool,
     progress: &Progress,
 ) -> TileGenResult<RenderTotals> {
     let threads = threads.max(1);
@@ -253,9 +178,7 @@ fn render_all<S: FeatureSource>(
                             return Ok(());
                         }
                         reader
-                            .read(partition, &keys.tables, &mut |batch| {
-                                send_features(&tx, batch)
-                            })
+                            .read(partition, plan.table_keys(), &mut |batch| send_features(&tx, batch))
                             .map_err(|err| fail(err.into()))?;
                     }
                 })
@@ -266,31 +189,17 @@ fn render_all<S: FeatureSource>(
             .map(|i| {
                 let rx = rx.clone();
                 spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
-                    let mut buffer = sorter.buffer();
-                    let mut worker = Worker {
-                        renderer: Renderer::default(),
-                        props: EncodedProps::default(),
-                        dynamic: vec![Vec::new(); plan.layers.len()],
-                        skipped: 0,
-                    };
-                    let mut count = 0;
+                    let mut worker = RenderWorker::new(plan, sorter, order, None, wagyu_ring_starts);
                     for mut batch in rx {
                         if failed.load(Ordering::Relaxed) {
                             break;
                         }
-                        render_batch(&mut batch, &mut worker, plan, keys, order, &mut buffer)
-                            .map_err(fail)?;
-                        count += batch.features.len() as u64;
+                        worker.render_batch(&mut batch).map_err(fail)?;
                         progress
                             .features
                             .fetch_add(batch.features.len() as u64, Ordering::Relaxed);
                     }
-                    buffer.finish().map_err(fail)?;
-                    Ok(RenderTotals {
-                        features: count - worker.skipped,
-                        skipped: worker.skipped,
-                        slice_errors: worker.renderer.slice_errors,
-                    })
+                    worker.finish().map_err(fail)
                 })
             })
             .collect();
@@ -305,18 +214,7 @@ fn render_all<S: FeatureSource>(
         let mut totals = RenderTotals::default();
         for worker in workers {
             match join(worker) {
-                Ok(worker) => {
-                    totals.features += worker.features;
-                    totals.skipped += worker.skipped;
-                    if totals.slice_errors.len() < worker.slice_errors.len() {
-                        totals
-                            .slice_errors
-                            .resize_with(worker.slice_errors.len(), SliceErrors::default);
-                    }
-                    for (total, errors) in totals.slice_errors.iter_mut().zip(worker.slice_errors) {
-                        total.merge(errors);
-                    }
-                }
+                Ok(worker) => totals.add(worker),
                 Err(err) => errors.push(err),
             }
         }
@@ -331,192 +229,5 @@ fn render_all<S: FeatureSource>(
 }
 
 fn join<T>(handle: ScopedJoinHandle<'_, T>) -> T {
-    handle
-        .join()
-        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-}
-
-struct Worker {
-    renderer: Renderer,
-    props: EncodedProps,
-    /// Output key of each table key interned after the declared columns, by layer; filled lazily.
-    dynamic: Vec<Vec<DynamicKey>>,
-    skipped: u64,
-}
-
-#[derive(Clone, Copy)]
-enum DynamicKey {
-    Unresolved,
-    Resolved(Option<KeyId>),
-}
-
-impl Worker {
-    fn output_key(
-        &mut self,
-        index: usize,
-        layer: &PlannedLayer,
-        keys: (&KeyInterner, &KeyInterner),
-        key: KeyId,
-    ) -> Option<KeyId> {
-        let pos = key.index();
-        if let Some(&copied) = layer.copy.get(pos) {
-            return copied;
-        }
-        let cache = &mut self.dynamic[index];
-        let slot = pos - layer.copy.len();
-        if slot >= cache.len() {
-            cache.resize(slot + 1, DynamicKey::Unresolved);
-        }
-        if let DynamicKey::Resolved(resolved) = cache[slot] {
-            return resolved;
-        }
-        let (table, output) = keys;
-        let resolved = table.name(key).and_then(|name| match &layer.attributes {
-            AttributesDef::All => Some(output.intern(&name)),
-            AttributesDef::None => None,
-            AttributesDef::Columns(_) => output.get(&name),
-        });
-        cache[slot] = DynamicKey::Resolved(resolved);
-        resolved
-    }
-}
-
-#[hotpath::measure]
-fn render_batch(
-    batch: &mut FeatureBatch,
-    worker: &mut Worker,
-    plan: &Plan,
-    keys: &Keys,
-    order: TileOrder,
-    buffer: &mut SortBuffer<'_>,
-) -> TileGenResult<()> {
-    let table = usize::from(batch.table);
-    let layers = plan
-        .tables
-        .get(table)
-        .ok_or(TileGenError::UnknownTable(batch.table))?
-        .layers
-        .clone();
-    for (row, feature) in (batch.first_row..).zip(&mut batch.features) {
-        let Some(geom) = project_geometry(batch.crs, &mut feature.geometry) else {
-            worker.skipped += 1;
-            continue;
-        };
-        let seq = Seq::new(batch.partition, row)?;
-        for index in layers.clone() {
-            let layer = &plan.layers[index];
-            worker.props.clear();
-            for (key, value) in &feature.props {
-                let output = (&keys.tables[table], &keys.layers[index]);
-                if let Some(key) = worker.output_key(index, layer, output, *key) {
-                    worker.props.push(key, value.as_ref());
-                }
-            }
-            let id = match layer.id {
-                IdDef::Keep => feature.id,
-                IdDef::Drop => None,
-            };
-            worker.renderer.render(
-                order,
-                &layer.render,
-                seq,
-                &Feature {
-                    id,
-                    geom,
-                    props: &worker.props,
-                    zooms: layer.zooms.clone(),
-                    simplify: layer.simplify,
-                    min_size: layer.min_size,
-                },
-                buffer,
-            )?;
-        }
-    }
-    Ok(())
-}
-
-fn project_geometry(crs: Crs, geometry: &mut Geometry) -> Option<FeatureGeom<'_>> {
-    if !geometry.decode_wkb() {
-        return None;
-    }
-    match geometry {
-        Geometry::Points(points) => {
-            project_coords(crs, points);
-            Some(FeatureGeom::Points(points))
-        }
-        Geometry::Lines(lines) => {
-            for line in lines.iter_mut() {
-                project_coords(crs, &mut line.0);
-            }
-            Some(FeatureGeom::Lines(lines))
-        }
-        Geometry::Polygons(polygons) => {
-            for polygon in polygons.iter_mut() {
-                polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
-                polygon.interiors_mut(|rings| {
-                    for ring in rings {
-                        project_coords(crs, &mut ring.0);
-                    }
-                });
-            }
-            Some(FeatureGeom::Polygons(polygons))
-        }
-        Geometry::Wkb(_) => None,
-    }
-}
-
-fn project_coords(crs: Crs, coords: &mut [Coord<f64>]) {
-    match crs {
-        Crs::Wgs84 => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_lonlat(*c)),
-        Crs::WebMercator => coords
-            .iter_mut()
-            .for_each(|c| *c = project::from_mercator(*c)),
-    }
-}
-
-fn complete_metadata(
-    metadata: &mut TileJSON,
-    infos: &[LayerInfo],
-    stats: &[LayerStats],
-    format: TileFormat,
-) {
-    let zooms = stats.iter().filter_map(|s| s.zooms);
-    metadata.minzoom = zooms.clone().map(|z| z.0).min();
-    metadata.maxzoom = zooms.map(|z| z.1).max();
-    let format = Format::from(format).metadata_format_value();
-    metadata.other.insert("format".to_owned(), format.into());
-    metadata.vector_layers = Some(
-        infos
-            .iter()
-            .zip(stats)
-            .filter(|(_, stats)| stats.zooms.is_some())
-            .map(|(info, stats)| {
-                let fields = stats
-                    .fields
-                    .iter()
-                    .map(|(name, &kind)| (name.clone(), field_type(kind).to_owned()));
-                let mut layer = VectorLayer::new(info.name.clone(), fields.collect());
-                (layer.minzoom, layer.maxzoom) = stats.zooms.unzip();
-                layer
-            })
-            .collect(),
-    );
-}
-
-/// `vector_layers` field types, as `MBTiles` and `TileJSON` consumers expect them.
-fn field_type(kind: PropKind) -> &'static str {
-    match kind {
-        PropKind::Bool => "Boolean",
-        PropKind::Str => "String",
-        PropKind::I8
-        | PropKind::U8
-        | PropKind::I32
-        | PropKind::U32
-        | PropKind::I64
-        | PropKind::U64
-        | PropKind::F32
-        | PropKind::F64 => "Number",
-    }
+    handle.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))
 }

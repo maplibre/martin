@@ -56,16 +56,11 @@ pub(crate) mod pg {
     /// [`PostgresDiscovery`]: crate::config::file::discovery::PostgresDiscovery
     pub(crate) async fn builder_for(
         config_yaml: &str,
-    ) -> (
-        PostgresAutoDiscoveryBuilder,
-        ContainerAsync<Postgres>,
-        String,
-    ) {
+    ) -> (PostgresAutoDiscoveryBuilder, ContainerAsync<Postgres>, String) {
         let container = start_postgres_15_with_postgis_3_5_container().await;
         let connection_string = connection_string(&container).await;
 
-        let mut config: PostgresConfig =
-            serde_saphyr::from_str(config_yaml).expect("parse PostgresConfig YAML");
+        let mut config: PostgresConfig = serde_saphyr::from_str(config_yaml).expect("parse PostgresConfig YAML");
         config.connection_string = Some(connection_string.clone());
 
         let builder = PostgresAutoDiscoveryBuilder::new(
@@ -81,16 +76,9 @@ pub(crate) mod pg {
 
     /// Runs arbitrary setup SQL against the database behind `connection_string`.
     pub(crate) async fn seed(connection_string: &str, sql: &str) {
-        let pool = PostgresPool::new(
-            connection_string,
-            None,
-            None,
-            None,
-            2,
-            RetryTimeout::default(),
-        )
-        .await
-        .expect("open seed pool");
+        let pool = PostgresPool::new(connection_string, None, None, None, 2, RetryTimeout::default())
+            .await
+            .expect("open seed pool");
         pool.get()
             .await
             .expect("acquire seed connection")
@@ -120,16 +108,27 @@ pub(crate) mod duckdb {
     impl TestDatabase {
         /// Creates a database file at `filename` inside a temp dir and runs `sql` after
         /// loading the spatial extension.
+        ///
+        /// The file uses storage version v1.5.0, the first that keeps the CRS of a `GEOMETRY` column.
         pub(crate) fn from_sql(filename: &str, sql: &str) -> Self {
             let dir = TempDir::new().expect("temporary DuckDB directory");
             let path = dir.path().join(filename);
-            let conn = Connection::open(&path).expect("writable DuckDB database");
+            let conn = Connection::open_in_memory().expect("in-memory DuckDB connection");
             conn.execute_batch("INSTALL spatial;")
                 .expect("spatial extension installed");
-            conn.execute_batch("LOAD spatial;")
-                .expect("spatial extension loaded");
+            conn.execute_batch("LOAD spatial;").expect("spatial extension loaded");
+            let attach = format!(
+                "ATTACH '{}' AS fixture (STORAGE_VERSION 'v1.5.0'); USE fixture;",
+                path.to_string_lossy().replace('\'', "''")
+            );
+            conn.execute_batch(&attach).expect("writable DuckDB database");
             conn.execute_batch(sql).expect("fixture SQL executed");
             Self { _dir: dir, path }
+        }
+
+        /// Path of the prepared database file.
+        pub(crate) fn path(&self) -> &std::path::Path {
+            &self.path
         }
 
         /// Opens a read-only pool against the prepared database file.

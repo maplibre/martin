@@ -18,7 +18,7 @@ pub enum FileKind {
     Mbtiles,
     #[cfg(feature = "pmtiles")]
     Pmtiles,
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     Cog,
     #[cfg(feature = "processing")]
     GeoJson,
@@ -114,12 +114,7 @@ impl ReloadAdvisory {
             .map(|id| DeletedSource { id: id.clone() })
             .collect();
 
-        let additions = build_all(
-            next_ids.difference(previous_ids).cloned(),
-            &initializer,
-            &process,
-        )
-        .await;
+        let additions = build_all(next_ids.difference(previous_ids).cloned(), &initializer, &process).await;
 
         Self {
             additions,
@@ -234,8 +229,7 @@ mod tests {
     async fn from_sets_empty_to_empty() {
         let prev = BTreeSet::new();
         let next = BTreeSet::new();
-        let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates: []
@@ -247,8 +241,7 @@ mod tests {
     async fn from_sets_additions_only() {
         let prev = BTreeSet::new();
         let next: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
-        let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - a
@@ -262,8 +255,7 @@ mod tests {
     async fn from_sets_removals_only() {
         let prev: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let next = BTreeSet::new();
-        let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates: []
@@ -277,8 +269,7 @@ mod tests {
     async fn from_sets_mixed() {
         let prev: BTreeSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
         let next: BTreeSet<String> = ["b", "c", "d"].into_iter().map(String::from).collect();
-        let advisory =
-            ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - d
@@ -292,8 +283,7 @@ mod tests {
     async fn from_maps_additions_and_removals() {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("b".into(), 2), ("c".into(), 3)].into_iter().collect();
-        let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - c
@@ -307,8 +297,7 @@ mod tests {
     async fn from_maps_version_update() {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 5)].into_iter().collect();
-        let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions: []
         updates:
@@ -325,8 +314,7 @@ mod tests {
         let next: BTreeMap<String, u64> = [("b".into(), 9), ("c".into(), 3), ("d".into(), 4)]
             .into_iter()
             .collect();
-        let advisory =
-            ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
+        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source, ResolvedProcess::default()).await;
         assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
         additions:
           - d

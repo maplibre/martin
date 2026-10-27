@@ -1,34 +1,48 @@
 #![doc = include_str!("../README.md")]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
-mod assemble;
-mod encode;
+mod block;
 mod error;
+mod expr;
 mod generate;
-mod group;
-pub mod pipeline;
+mod phase1;
+mod phase2;
+mod pipeline;
 pub mod plan;
-pub mod project;
-mod props;
-pub mod record;
-mod render;
+pub mod props;
 mod sink;
 mod sort;
-mod sort_key;
+pub mod source;
 mod tile;
 
-pub use assemble::{AssembledLayer, LayerAssembler, LayerGrid};
-pub use encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder, TileFormat};
-pub use error::{TileGenError, TileGenResult};
-pub use generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
-pub use group::{LayerRecordRef, TileGrouper, TileRecords};
-pub use render::{
-    Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, Renderer,
-    SliceError, SliceErrors,
-};
+pub use map_tile_toolkit::ClipMode;
+
+pub use crate::block::render_block;
+pub use crate::error::{TileGenError, TileGenResult};
+pub use crate::generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, generate};
+pub use crate::phase1::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, project};
+pub use crate::phase2::TileFormat;
+pub use crate::plan::{ExprErrors, LayerGrid};
 #[cfg(feature = "mbtiles")]
-pub use sink::MbtilesSink;
-pub use sink::{EncodedTile, TileSink};
-pub use sort::{Merger, SortBuffer, SortConfig, Sorter};
-pub use sort_key::{LayerId, Seq, SortKey};
-pub use tile::{MAX_ZOOM, TileId, TileOrder};
+pub use crate::sink::MbtilesSink;
+#[cfg(feature = "pmtiles")]
+pub use crate::sink::PmtilesSink;
+pub use crate::sink::{EncodedTile, TileSink};
+pub use crate::sort::SortConfig;
+pub use crate::tile::{MAX_ZOOM, TileId, TileOrder};
+
+/// The stages a render runs through, for this crate's benches and stage-level tests only.
+#[cfg(feature = "internals")]
+#[doc(hidden)]
+pub mod internals {
+    pub use crate::phase1::internals::*;
+    pub use crate::phase2::internals::*;
+    pub use crate::sort::{
+        LayerId, LayerRecordRef, Merger, Seq, SortBuffer, SortKey, Sorter, TileGrouper, TileRecords,
+    };
+
+    /// The encoded form of a rendered piece, as it is sorted and grouped.
+    pub mod record {
+        pub use crate::sort::record::*;
+    }
+}

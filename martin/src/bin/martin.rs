@@ -1,7 +1,4 @@
-#![expect(
-    clippy::print_stderr,
-    reason = "binary entrypoint reports startup errors to stderr"
-)]
+#![expect(clippy::print_stderr, reason = "binary entrypoint reports startup errors to stderr")]
 
 use std::env;
 #[cfg(feature = "tui")]
@@ -16,7 +13,7 @@ use martin::config::args::Command;
 use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
@@ -27,6 +24,8 @@ use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
+#[cfg(feature = "unstable-generate")]
+use martin::generate::spec;
 use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
@@ -39,14 +38,8 @@ use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "the startup steps in the order they run"
-)]
-async fn start(
-    args: Args,
-    #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
-) -> StartupResult<()> {
+#[expect(clippy::too_many_lines, reason = "the startup steps in the order they run")]
+async fn start(args: Args, #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>) -> StartupResult<()> {
     info!(martin.version = %VERSION, "Starting Martin");
 
     let env = OsEnv;
@@ -75,7 +68,7 @@ async fn start(
         .await?;
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -101,7 +94,7 @@ async fn start(
     // Otherwise the sources load while the server starts.
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -136,7 +129,7 @@ async fn start(
 
     #[cfg(any(
         feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "processing",
         feature = "pmtiles",
@@ -190,7 +183,7 @@ async fn start(
 /// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
@@ -242,13 +235,22 @@ async fn main() {
     }
 
     #[cfg(feature = "unstable-generate")]
-    if let Some(Command::Generate(generate_args)) = args.command {
-        init_tracing(&filter, LogFormat::from_env(), true);
-        if let Err(e) = Box::pin(martin::generate::start(generate_args)).await {
-            error!("{e}");
-            std::process::exit(1);
+    if let Some(Command::Test(test_args)) = args.command {
+        let log_format = LogFormat::from_env();
+        let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "martin=error".to_owned());
+        init_tracing(
+            &ensure_martin_core_log_level_matches(Some(rust_log), "martin="),
+            log_format,
+            false,
+        );
+        match Box::pin(spec::start(test_args)).await {
+            Ok(true) => return,
+            Ok(false) => std::process::exit(1),
+            Err(e) => {
+                eprintln!("{}", e.render_diagnostic_with(log_format));
+                std::process::exit(2);
+            }
         }
-        return;
     }
 
     #[cfg(feature = "tui")]

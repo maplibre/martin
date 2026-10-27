@@ -4,8 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use martin_e2e_tests::{
-    MartinCp, MbtilesCli, mbtiles_fixture, metadata_listing, summary, summary_filters, temp_dir,
-    tile_listing,
+    MartinCp, MbtilesCli, mbtiles_fixture, metadata_listing, summary, summary_filters, temp_dir, tile_listing,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -45,6 +44,43 @@ async fn refuses_a_format_it_cannot_write(#[case] format: &str, #[case] expected
         .run_expecting_failure()
         .await;
     assert!(log.contains(expected), "`--format {format}` said:\n{log}");
+}
+
+#[tokio::test]
+async fn refuses_a_copy_without_zooms() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Set the zooms to copy with `--max-zoom` or `--zoom-levels`");
+}
+
+#[cfg(feature = "test-generate")]
+#[tokio::test]
+async fn tile_mode_refuses_options_only_bulk_mode_reads() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--mode")
+        .arg("tile")
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--memory")
+        .arg("1GiB")
+        .arg("--temp-dir")
+        .arg(dir.path())
+        .arg("--threads")
+        .arg("2")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Only `--mode bulk` reads `--memory`, `--temp-dir`, `--threads`");
 }
 
 #[tokio::test]
@@ -97,10 +133,7 @@ async fn copies_as_mlt_under_every_v1_spelling(#[case] format: &str) {
         .await;
 
     let metadata = metadata_listing(&output).await;
-    assert!(
-        metadata.contains("mlt"),
-        "`--format {format}` wrote {metadata}"
-    );
+    assert!(metadata.contains("mlt"), "`--format {format}` wrote {metadata}");
 }
 
 #[tokio::test]
@@ -138,6 +171,99 @@ async fn copies_the_only_source_when_none_is_named() {
 }
 
 #[tokio::test]
+async fn deletes_metadata_after_computing_it() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--delete-meta")
+        .arg("description")
+        .arg("--delete-meta")
+        .arg("minzoom")
+        .arg("--delete-meta")
+        .arg("agg_tiles_hash")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(!metadata.contains("description ="), "{metadata}");
+    assert!(!metadata.contains("minzoom ="), "{metadata}");
+    assert!(!metadata.contains("agg_tiles_hash ="), "{metadata}");
+    assert!(metadata.contains("maxzoom = 0"), "{metadata}");
+}
+
+#[tokio::test]
+async fn keeps_an_agg_tiles_hash_set_by_set_meta() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("agg_tiles_hash=ABC")
+        .run()
+        .await;
+
+    let metadata = metadata_listing(&output).await;
+    assert!(metadata.contains("agg_tiles_hash = ABC"), "{metadata}");
+}
+
+#[tokio::test]
+async fn hashes_with_the_hash_algorithm_set_by_set_meta() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("hash_algorithm=xxh64")
+        .run()
+        .await;
+
+    validate(&output).await;
+}
+
+#[tokio::test]
+async fn refuses_a_key_both_set_and_deleted_before_copying() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = dir.path().join("out.mbtiles");
+
+    let log = MartinCp::new()
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--set-meta")
+        .arg("name=x")
+        .arg("--delete-meta")
+        .arg("name")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Metadata key name cannot be both set and deleted");
+    assert!(!output.exists(), "the copy started before the conflict was found");
+}
+
+#[tokio::test]
 async fn falls_back_to_the_source_bounds_without_a_bbox() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
@@ -150,10 +276,7 @@ async fn falls_back_to_the_source_bounds_without_a_bbox() {
     let bounded = dir.path().join("bounded.mbtiles");
     let unbounded = dir.path().join("unbounded.mbtiles");
 
-    for (output, bbox) in [
-        (&bounded, Some("--bbox=0,0,180,85.0511287798066")),
-        (&unbounded, None),
-    ] {
+    for (output, bbox) in [(&bounded, Some("--bbox=0,0,180,85.0511287798066")), (&unbounded, None)] {
         let mut command = MartinCp::new()
             .arg(&source)
             .arg("--output-file")
@@ -190,19 +313,11 @@ async fn writes_the_requested_schema(#[case] mbtiles_type: Option<&str>, #[case]
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let output = dir.path().join("out.mbtiles");
 
-    let mut cp = MartinCp::new()
-        .arg(&source)
-        .arg("--output-file")
-        .arg(&output);
+    let mut cp = MartinCp::new().arg(&source).arg("--output-file").arg(&output);
     if let Some(mbtiles_type) = mbtiles_type {
         cp = cp.arg("--mbtiles-type").arg(mbtiles_type);
     }
-    cp.arg("--min-zoom")
-        .arg("0")
-        .arg("--max-zoom")
-        .arg("1")
-        .run()
-        .await;
+    cp.arg("--min-zoom").arg("0").arg("--max-zoom").arg("1").run().await;
 
     let summary = summary(&output).run_json().await;
     assert_eq!(summary["mbt_type"], expected);
@@ -288,18 +403,14 @@ mod postgres {
 
     use indoc::indoc;
     use martin_e2e_tests::{
-        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-        summary, summary_filters, temp_dir, tiles,
+        GZIP_MAGIC, Martin, MartinCp, gunzip, metadata_listing, mlt_dump, mlt_layers, mvt_dump, summary,
+        summary_filters, temp_dir, tiles,
     };
 
     use crate::{snapshot_filters, validate};
 
     async fn lowest_zoom_tile(path: &Path) -> Vec<u8> {
-        let (_, _, _, data) = tiles(path)
-            .await
-            .into_iter()
-            .next()
-            .expect("the copy wrote no tiles");
+        let (_, _, _, data) = tiles(path).await.into_iter().next().expect("the copy wrote no tiles");
         data
     }
 
@@ -549,10 +660,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/measured_shapes/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/measured_shapes/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -655,11 +763,7 @@ mod postgres {
                 .or_default()
                 .insert(format!("{:?}", feature.geometry()));
         }
-        assert_eq!(
-            geometries.len(),
-            7,
-            "a geometry type is missing: {geometries:#?}"
-        );
+        assert_eq!(geometries.len(), 7, "a geometry type is missing: {geometries:#?}");
         assert!(
             geometries.values().all(|shapes| shapes.len() == 1),
             "a Z or M ordinate moved a geometry: {geometries:#?}"
@@ -677,9 +781,7 @@ mod postgres {
         use std::fs;
 
         use indoc::indoc;
-        use martin_e2e_tests::{
-            MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles,
-        };
+        use martin_e2e_tests::{MartinCp, mlt_dump, mlt_layers, rings_from_smallest_vertex, temp_dir, tiles};
         use mlt_core::geo_types::Geometry;
         use mlt_core::{MValue, PropValue, TileLayer};
 
@@ -996,10 +1098,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/array_props/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/array_props/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -1079,10 +1178,7 @@ mod postgres {
             .await
             .expect("failed to start martin");
         let response = martin
-            .get_with_headers(
-                "/domain_props/0/0/0",
-                &[("Accept", "application/vnd.maplibre-tile")],
-            )
+            .get_with_headers("/domain_props/0/0/0", &[("Accept", "application/vnd.maplibre-tile")])
             .await;
         assert_eq!(response.status(), 200);
         let round_trip = response.mlt();
@@ -1148,9 +1244,7 @@ mod postgres {
             .run()
             .await;
         assert!(
-            log.contains(
-                "Copying through MVT instead of encoding MLT from its rows source.id=table_source"
-            ),
+            log.contains("Copying through MVT instead of encoding MLT from its rows source.id=table_source"),
             "the copy did not report falling back off the row-per-feature path:\n{log}"
         );
 

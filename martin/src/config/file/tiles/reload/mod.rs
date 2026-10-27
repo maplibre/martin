@@ -1,4 +1,4 @@
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 pub mod cog;
 #[cfg(feature = "unstable-duckdb")]
 pub mod duckdb;
@@ -13,7 +13,7 @@ pub mod postgres;
 
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
@@ -23,10 +23,10 @@ mod reloaders;
 
 #[cfg(any(
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "unstable-duckdb",
     feature = "processing",
     feature = "pmtiles",
     feature = "postgres"
 ))]
-pub use reloaders::TileReloaders;
+pub use crate::config::file::tiles::reload::reloaders::TileReloaders;

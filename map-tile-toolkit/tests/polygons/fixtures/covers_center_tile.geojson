@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fill": "#f6fd31",
+        "fill-opacity": 0.3,
+        "stroke": "#b5a300"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[8, 8], [66, 8], [66, 66], [8, 66], [8, 8]]]
+      }
+    }
+  ]
+}

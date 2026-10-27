@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
+#[cfg(feature = "ogcapi")]
+use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD};
 use tokio::sync::watch;
 use tracing::{info, warn};
 
@@ -103,6 +105,25 @@ impl TileSourceManager {
         TileSources::from_maps(Arc::clone(&self.tile_sources), Arc::clone(&self.aliases))
     }
 
+    /// The grids the served sources are on, Web Mercator always first.
+    #[cfg(feature = "ogcapi")]
+    #[must_use]
+    pub fn served_grids(&self) -> Vec<TileGrid> {
+        let sources = self.tile_sources();
+        let mut grids = vec![WEB_MERCATOR_QUAD];
+        for id in sources.source_names() {
+            let Ok((source, _)) = sources.get_source(&id) else {
+                continue;
+            };
+            let grid = source.tile_grid();
+            if !grids.iter().any(|served| served.id() == grid.id()) {
+                grids.push(grid.clone());
+            }
+        }
+        grids[1..].sort_by(|a, b| a.id().cmp(b.id()));
+        grids
+    }
+
     /// Returns a reference to the optional tile cache.
     #[must_use]
     pub const fn tile_cache(&self) -> &OptTileCache {
@@ -127,13 +148,7 @@ impl TileSourceManager {
         out
     }
 
-    fn insert(
-        &self,
-        id: String,
-        src: BoxedSource,
-        process: ResolvedProcess,
-        provenance: Option<SourceProvenance>,
-    ) {
+    fn insert(&self, id: String, src: BoxedSource, process: ResolvedProcess, provenance: Option<SourceProvenance>) {
         if let Some(p) = provenance {
             self.provenance.insert(id.clone(), p);
         }
@@ -292,9 +307,7 @@ mod tests {
         ");
 
         let mut removals = BTreeSet::new();
-        removals.insert(DeletedSource {
-            id: "src_a".to_owned(),
-        });
+        removals.insert(DeletedSource { id: "src_a".to_owned() });
         let remove = ReloadAdvisory {
             removals,
             ..Default::default()
@@ -342,10 +355,7 @@ mod tests {
             async move { mgr.wait_for_sources("src_b").await }
         });
         tokio::task::yield_now().await;
-        assert!(
-            !waiting.is_finished(),
-            "a missing source waits while the sources load"
-        );
+        assert!(!waiting.is_finished(), "a missing source waits while the sources load");
         mgr.finish_loading();
         waiting
             .await
@@ -361,28 +371,20 @@ mod tests {
             async move { mgr.wait_for_sources("src_b").await }
         });
         tokio::task::yield_now().await;
-        assert!(
-            !waiting.is_finished(),
-            "a missing source waits while the sources load"
-        );
+        assert!(!waiting.is_finished(), "a missing source waits while the sources load");
         let advisory = ReloadAdvisory {
             additions: vec![new_source("src_b")],
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        waiting
-            .await
-            .expect("a source published during the load ends the wait");
+        waiting.await.expect("a source published during the load ends the wait");
     }
 
     #[test]
     fn from_sources_populates_map() {
         let src = TestSource::empty("x".to_owned()).boxed() as BoxedSource;
-        let mgr = TileSourceManager::from_sources(
-            None,
-            OnInvalid::Abort,
-            vec![vec![(src, ResolvedProcess::default())]],
-        );
+        let mgr =
+            TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![(src, ResolvedProcess::default())]]);
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }
@@ -435,17 +437,14 @@ mod tests {
             out
         }
 
-        #[expect(
-            clippy::unused_async,
-            reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
-        )]
+        #[expect(clippy::unused_async, reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps")]
         async fn build(id: String, dir: PathBuf) -> SourceBuildResult<BuiltSource> {
             if id.starts_with(BAD_PREFIX) {
                 return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
                     dir.join(format!("{id}.tiles")),
                 )));
             }
-            let source: BoxedSource = TestSource::empty(id.clone()).boxed();
+            let source: BoxedSource = TestSource::empty(id).boxed();
             Ok(source.into())
         }
 

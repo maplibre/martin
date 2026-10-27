@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/id_columns_pick_the_first_integer_column.yaml
+---
+sources:
+  no_ids: "DuckDB table main.no_ids (fixture.duckdb) fields [name]"
+  text_ids: "DuckDB table main.text_ids (fixture.duckdb) fields [uuid]"
+warnings: []

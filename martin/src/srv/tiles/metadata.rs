@@ -67,17 +67,18 @@ pub async fn get_source_info(
 
     let version_param = &srv_config.tilejson_url_version_param;
     let versions: Option<(&str, String)> = if let Some(v) = version_param {
-        let version_str = resolved
-            .sources
-            .iter()
-            .filter_map(|(s, _)| s.get_version())
-            .fold(String::new(), |mut acc, ver| {
-                if !acc.is_empty() {
-                    acc.push('-');
-                }
-                acc.push_str(&ver);
-                acc
-            });
+        let version_str =
+            resolved
+                .sources
+                .iter()
+                .filter_map(|(s, _)| s.get_version())
+                .fold(String::new(), |mut acc, ver| {
+                    if !acc.is_empty() {
+                        acc.push('-');
+                    }
+                    acc.push_str(&ver);
+                    acc
+                });
         if version_str.is_empty() {
             None
         } else {
@@ -265,10 +266,7 @@ pub mod tests {
             .with_format(Format::Mvt);
 
         let tj = merge_tilejson(
-            &[
-                (src1.clone().boxed(), Arc::default()),
-                (src2.boxed(), Arc::default()),
-            ],
+            &[(src1.boxed(), Arc::default()), (src2.boxed(), Arc::default())],
             url.clone(),
         );
         assert_eq!(tj.tiles, vec![url]);
@@ -279,14 +277,8 @@ pub mod tests {
         assert_eq!(
             tj.vector_layers,
             Some(vec![
-                VectorLayer::new(
-                    "layer1".to_owned(),
-                    BTreeMap::from([("a".to_owned(), "x1".to_owned())])
-                ),
-                VectorLayer::new(
-                    "layer2".to_owned(),
-                    BTreeMap::from([("b".to_owned(), "x2".to_owned())])
-                ),
+                VectorLayer::new("layer1".to_owned(), BTreeMap::from([("a".to_owned(), "x1".to_owned())])),
+                VectorLayer::new("layer2".to_owned(), BTreeMap::from([("b".to_owned(), "x2".to_owned())])),
             ])
         );
     }

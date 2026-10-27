@@ -1,0 +1,24 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/srid_zero_without_default_is_skipped.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables: []
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{table}"
+  - Skipped:
+      relation:
+        schema: public
+        table: roads
+        geometry_column: geom
+      reason: NoSrid

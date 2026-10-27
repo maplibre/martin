@@ -1,0 +1,9 @@
+sql: |
+  CREATE SCHEMA tiles;
+  CREATE MACRO tiles.roads(z, x, y) AS TABLE SELECT NULL::BLOB AS mvt;
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish:
+        macros:
+          source_id_format: "{schema}__{macro}"

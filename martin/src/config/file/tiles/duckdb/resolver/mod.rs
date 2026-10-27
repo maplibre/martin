@@ -9,8 +9,10 @@ mod resolve;
 mod secret;
 mod sql;
 
-pub use bounds::bounds_with_auto;
-pub use errors::{BoundsError, BoundsResult, DuckDbSourceError, DuckDbSourceResult};
-pub use geoparquet::resolve_geoparquet_source;
-pub use introspect::LayerIntrospection;
-pub use sql::build_mvt_sql;
+pub use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
+pub use crate::config::file::tiles::duckdb::resolver::errors::{
+    BoundsError, BoundsResult, DuckDbSourceError, DuckDbSourceResult,
+};
+pub use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
+pub use crate::config::file::tiles::duckdb::resolver::introspect::LayerIntrospection;
+pub use crate::config::file::tiles::duckdb::resolver::sql::build_mvt_sql;

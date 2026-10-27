@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/macros_only_skips_tables.yaml
+---
+sources:
+  tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
+warnings: []

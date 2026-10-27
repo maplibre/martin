@@ -223,11 +223,7 @@ struct DuckDBPoolManager {
 }
 
 impl DuckDBPoolManager {
-    fn new(
-        target: DuckDBPoolTarget,
-        threads: Option<NonZeroUsize>,
-        memory_limit_mb: Option<NonZeroUsize>,
-    ) -> Self {
+    fn new(target: DuckDBPoolTarget, threads: Option<NonZeroUsize>, memory_limit_mb: Option<NonZeroUsize>) -> Self {
         Self {
             target,
             threads,
@@ -235,11 +231,7 @@ impl DuckDBPoolManager {
         }
     }
 
-    fn load_extension(
-        &self,
-        conn: &Connection,
-        extension: &'static str,
-    ) -> Result<(), DuckDBPoolManagerError> {
+    fn load_extension(&self, conn: &Connection, extension: &'static str) -> Result<(), DuckDBPoolManagerError> {
         conn.execute_batch(&format!("INSTALL {extension}; LOAD {extension};"))
             .map_err(|source| LoadExtension {
                 source: source.into(),
@@ -253,14 +245,15 @@ impl DuckDBPoolManager {
         // File-backed pools are opened read-only. In-memory GeoParquet pools cannot use
         // AccessMode::ReadOnly - DuckDB rejects "in-memory database in read-only mode".
         let config = match &self.target {
-            DuckDBPoolTarget::DatabaseFile { .. } => Config::default()
-                .access_mode(AccessMode::ReadOnly)
-                .map_err(|source| Open {
-                    source: source.into(),
-                    target: self.target.clone().into(),
-                })?,
-            DuckDBPoolTarget::GeoParquetLocal { .. }
-            | DuckDBPoolTarget::GeoParquetRemote { .. } => Config::default(),
+            DuckDBPoolTarget::DatabaseFile { .. } => {
+                Config::default()
+                    .access_mode(AccessMode::ReadOnly)
+                    .map_err(|source| Open {
+                        source: source.into(),
+                        target: self.target.clone().into(),
+                    })?
+            }
+            DuckDBPoolTarget::GeoParquetLocal { .. } | DuckDBPoolTarget::GeoParquetRemote { .. } => Config::default(),
         };
         let config = Ok(config)
             .and_then(|cfg| match self.threads {
@@ -291,13 +284,13 @@ impl DuckDBPoolManager {
                 }
             })?;
         let conn = match &self.target {
-            DuckDBPoolTarget::DatabaseFile { path } => Connection::open_with_flags(path, config)
-                .map_err(|source| Open {
+            DuckDBPoolTarget::DatabaseFile { path } => {
+                Connection::open_with_flags(path, config).map_err(|source| Open {
                     source: source.into(),
                     target: self.target.clone().into(),
-                })?,
-            DuckDBPoolTarget::GeoParquetLocal { .. }
-            | DuckDBPoolTarget::GeoParquetRemote { .. } => {
+                })?
+            }
+            DuckDBPoolTarget::GeoParquetLocal { .. } | DuckDBPoolTarget::GeoParquetRemote { .. } => {
                 Connection::open_in_memory_with_flags(config).map_err(|source| Open {
                     source: source.into(),
                     target: self.target.clone().into(),

@@ -22,6 +22,18 @@ function ProblemChild({ shouldThrow }: { shouldThrow?: boolean }) {
   return <div>All good</div>;
 }
 
+function CustomFallback({ error, retry }: { error?: Error; retry: () => void }) {
+  return (
+    <div>
+      <span>Custom fallback!</span>
+      {error ? <span>{error.message}</span> : null}
+      <button onClick={retry} type="button">
+        Retry now
+      </button>
+    </div>
+  );
+}
+
 describe('ErrorBoundary', () => {
   it('renders children when no error occurs', () => {
     const { container } = render(
@@ -64,15 +76,6 @@ describe('ErrorBoundary', () => {
   });
 
   it('renders custom fallback component if provided', () => {
-    const CustomFallback = ({ error, retry }: { error?: Error; retry: () => void }) => (
-      <div>
-        <span>Custom fallback!</span>
-        {error ? <span>{error.message}</span> : null}
-        <button onClick={retry} type="button">
-          Retry now
-        </button>
-      </div>
-    );
     const { container } = render(
       <ErrorBoundary fallback={CustomFallback}>
         <ProblemChild shouldThrow />
@@ -112,15 +115,6 @@ describe('ErrorBoundary', () => {
   });
 
   it('resets error state and retries when retry button is clicked (custom fallback)', () => {
-    const CustomFallback = ({ error, retry }: { error?: Error; retry: () => void }) => (
-      <div>
-        <span>Custom fallback!</span>
-        {error ? <span>{error.message}</span> : null}
-        <button onClick={retry} type="button">
-          Retry now
-        </button>
-      </div>
-    );
     // Use a key to force remount after retry
     let key = 0;
     const { container, rerender } = render(

@@ -13,22 +13,6 @@ tags:
 
 # Cloud Optimized GeoTIFF File Sources
 
-!!! warning
-    This feature is currently unstable and thus not included in the default build.
-    Its behavior may change in patch releases.
-
-    To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
-
-    ```bash
-    cargo install martin --features=unstable-cog
-    ```
-
-    It is unstable due to the limitations of our current implementation:
-
-    - [`EPSG:3857`](https://epsg.io/3857) is not yet supported => <https://github.com/maplibre/martin/pull/1893>
-
-    We welcome contributions to help stabilize this feature!
-
 Martin supports serving raster sources such as local and remote [COG (Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 
 ## How Martin serves a COG
@@ -41,20 +25,40 @@ Each image is cut into internal tiles, so a `z/x/y` request maps onto exactly on
 Martin reads this mapping from the header once.
 Each tile is then one range read.
 
-## Supported color type and bits per sample
+## File requirements
 
-| color type | bits per sample | supported | status     |
-|------------|-----------------|-----------|------------|
-| rgb/rgba   | 8               | ✅        |            |
-| rgb/rgba   | 16/32...        | 🛠️        | working on |
-| gray       | 8/16/32...      | 🛠️        | working on |
+Because every served tile is exactly one internal tile of the file, nothing is resampled, and the file has to be laid out for that:
 
-## Supported compression
+- The projected CRS must be [`EPSG:3857`](https://epsg.io/3857), with square pixels and no rotation.
+- The full-resolution image and every overview must have the resolution of a `WebMercatorQuad` zoom level for their tile size,
+  and their internal tiles must line up with that zoom's tiles.
+  An image that does not, such as an overview starting part-way into a tile, is skipped with a warning rather than served shifted;
+  the file is rejected only if none of its images can be served.
+- The image must be stored in square tiles of one size, or in uncompressed strips, with interleaved bands (`PlanarConfiguration=1`) and `Orientation=1`.
+  Striped images are split into 256 px tiles.
+- Overviews are reduced-resolution images (`NewSubfileType=1`), or pages (`NewSubfileType=2`) half the size of the previous page.
+  Other pages are skipped with a warning.
 
-- None
-- LZW
-- Deflate
-- PackBits
+--8<-- "images/sources/cog-align.svg"
+
+GDAL produces such files with `-co TILING_SCHEME=GoogleMapsCompatible`, see [COG generation with GDAL](#cog-generation-with-gdal).
+
+## Supported formats
+
+| compression              | bands                                  | served as            |
+|--------------------------|----------------------------------------|----------------------|
+| JPEG                     | 8-bit gray, YCbCr, or RGB              | JPEG, passed through |
+| JPEG                     | 8-bit RGBA                             | PNG                  |
+| WebP                     | 8-bit RGB or RGBA                      | WebP, passed through |
+| None, LZW, Deflate, ZSTD | 8-bit gray, gray + alpha, RGB, or RGBA | PNG                  |
+| None, in strips          | 8-bit gray, gray + alpha, RGB, or RGBA | PNG                  |
+
+Tiles the file does not store (sparse files) and tiles outside the image are served as empty responses.
+
+Not supported yet:
+
+- elevation data and other images that are not 8-bit (16-bit or floating point)
+- transparency masks, which are ignored
 
 ## Run Martin with CLI to serve cog files
 
@@ -93,20 +97,11 @@ cog:
     # named source matching source name to a single file, local or remote
      cog-src1: /path/to/cog1.tif
      cog-src2: https://example.org/path/cog2.tif
-```
-
-## COG Hot Reload
-
-Two mechanisms keep the catalog current at runtime - local directories are watched with filesystem events, remote COGs are polled.
-
-### Local directories
-
-When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
-
-```yaml
-cog:
-  paths:
-    - /path/to/cog/directory
+  # mosaics of many files, see "Mosaic of many COGs" below
+  mosaics:
+    ortho:
+      path: s3://my-bucket/ortho/{quadkey}.tif
+      zoom: 16
 ```
 
 !!! tip "Scanning subdirectories"
@@ -116,30 +111,92 @@ cog:
 !!! tip "Per-project directories"
     List a directory of project directories under `collections` to publish every file inside a project as `<project>.<file>`, so `/projects/tiles/project1/elevation.tif` becomes `project1.elevation`.
 
-The following events are handled automatically:
+## Mosaic of many COGs
+
+Large imagery is often cut into many COGs, one per tile at some zoom level, and named after that tile.
+A mosaic source serves all of them as one source, without listing or indexing the files:
+a request for `z/x/y` is routed to the file of its ancestor tile at the mosaic's `zoom`.
+
+--8<-- "images/sources/cog-mosaic.svg"
+
+```yaml
+cog:
+  mosaics:
+    ortho:
+      # Where the files are, local or remote, naming each file by its tile at `zoom`:
+      # {quadkey}, or {x} and {y} with an optional {z}, e.g. /data/ortho/{z}/{x}/{y}.tif.
+      # Use {-y} for rows counted from the bottom (TMS), e.g. /data/quads/{x}-{-y}.tif.
+      path: s3://my-bucket/ortho/{quadkey}.tif
+      # The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.
+      zoom: 16
+      # The highest zoom served. Defaults to the highest zoom of the file opened at startup.
+      maxzoom: 20
+      # How many opened files (and known-missing ones) are kept at once. Defaults to 1000.
+      max_cached_files: 1000
+      # How long an opened file is kept before it is opened again. Defaults to "10m".
+      file_expiry: 10m
+      # How long an opened file is kept without being used. Defaults to none: kept until `file_expiry`.
+      file_idle_timeout: 5m
+      # Like a source, a mosaic also takes `cache`, `cache_control`, `convert_to_hillshade`, and `convert_to_contour`.
+```
+
+--8<-- "images/sources/cog-mosaic-names.svg"
+
+- Every file must meet the [file requirements](#file-requirements), cover its tile at `zoom`, and use the same tile size and format as the others.
+  A file that does not is reported as an error for the tiles it would serve.
+- Files without GeoTIFF tags must be square, and are placed on the tile in their file name.
+- At startup, Martin lists the location until it finds one file whose name matches the template, and opens it to learn the tile size and format.
+  For a remote mosaic this needs permission to list the bucket prefix.
+- Other files are opened on first use with a `HEAD` request and one header read (one per IFD if IFDs come after the pixel data), and kept for `file_expiry`.
+  Tiles whose file does not exist, below `zoom`, or beyond the files' own zoom range are served as empty responses.
+- Mosaics are not watched or polled: replaced and added files are picked up once their cache entry expires.
+
+--8<-- "images/sources/cog-mosaic-zooms.svg"
+
+## COG Hot Reload
+
+Martin picks up changed COGs without a restart, except for local files listed one by one.
+How quickly depends on where the COG is:
+
+--8<-- "images/sources/cog-reload.svg"
+
+### Local directories
+
+Directories in `cog.paths` are watched with filesystem events:
 
 - **File added** - the new source appears in the catalog.
 - **File modified** - the source is reloaded and its tile cache is invalidated.
 - **File removed** - the source is removed from the catalog.
 
-### Remote COGs
+Local files listed directly in `cog.paths` or `cog.sources` are loaded at startup and not watched.
 
-Remote object stores and HTTP(S) servers have no event channel, so Martin polls them at `cog.reload_interval` (default `10m`):
+### Remote files and prefixes
 
-- **Configured remote objects** - `cog.sources` entries with an `s3://`, `gs://`, `az://`, `http://`, or `https://` URL, as well as remote URLs passed on the CLI, are re-checked with a `HEAD` request and rebuilt when their `ETag` or `Last-Modified` changes.
-- **Remote prefixes** - prefixes in `cog.paths` are re-listed, and the resulting objects are diffed against the previous snapshot, so added, updated, and removed TIFF objects propagate to the catalog.
+Object stores and HTTP(S) servers send no events, so Martin polls them every `cog.reload_interval` (default `10m`):
 
-Configured remote objects still load at startup when `reload_interval` is `0s`, but are not checked again.
-Remote prefixes are first discovered by the polling loop, so setting `reload_interval` to `0s` prevents their sources from loading.
+- **Remote files** - URLs in `cog.paths`, `cog.sources`, or on the CLI are loaded at startup.
+  At each poll a `HEAD` request checks them, and a source is rebuilt when its `ETag` or `Last-Modified` changes.
+- **Remote prefixes** - prefixes in `cog.paths` are first listed when polling starts, and listed again at each poll.
+  Each listing is compared with the last one, so added, replaced, and removed TIFF objects are added, rebuilt, and removed.
 
-If a later `HEAD` request or prefix listing fails, Martin retains the last-known object version or last successful listing, so a transient outage does not remove live sources.
-Before the first successful listing, a failed prefix is skipped for that poll and retried later.
-With `on_invalid: warn`, failed additions and replacements also remain pending for the next poll; an unsuccessful replacement keeps serving the last good source.
+Setting `reload_interval` to `0s` turns polling off: remote files still load at startup but are not checked again,
+and remote prefixes are never listed, so their sources never load.
+
+If a `HEAD` request or prefix listing fails, Martin keeps serving what it had, so a short outage does not remove live sources.
+A prefix that has not been listed successfully yet is retried at the next poll.
+With `on_invalid: warn`, a file that fails to load is also retried at the next poll; a replacement that fails to load leaves the previous version in place.
+
+### Mosaics
+
+Mosaics are not watched or polled.
+Each file is kept open for `file_expiry` and opened again on its next use, which picks up replaced and added files.
+A file unused for `file_idle_timeout` is closed early and also opened again on its next use.
 
 ## Remote COG
 
 Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
 Only `.tif` and `.tiff` objects under a listed prefix are published, using the file stem as the initial source ID.
+An object that is also configured under `cog.sources` is skipped by the listing, so it is served once, under its configured ID and with its own settings.
 
 ```yaml
 cog:
@@ -155,10 +212,6 @@ cog:
     mosaic: s3://my-bucket/imagery/mosaic.tif
     raster: https://tiles.example.org/mosaic.tif
 ```
-
-!!! note
-    Local files configured directly in `cog.paths` or `cog.sources` are loaded at startup but are not watched for changes.
-    Remote objects in either setting are polled, while remote prefixes in `cog.paths` are re-listed.
 
 --8<-- "object-store/configuration.md"
 
@@ -190,9 +243,9 @@ You could generate cog with `gdal_translate` or `gdalwarp`. See more details in 
 # sudo apt update
 # sudo apt install gdal-bin
 
-# gdalwarp
-gdalwarp src1.tif src2.tif out.tif -of COG
+# gdalwarp, warping to Web Mercator and aligning every level to the tile grid
+gdalwarp src1.tif src2.tif out.tif -of COG -co TILING_SCHEME=GoogleMapsCompatible
 
 # or gdal_translate
-gdal_translate input.tif output_cog.tif -of COG
+gdal_translate input.tif output_cog.tif -of COG -co TILING_SCHEME=GoogleMapsCompatible
 ```

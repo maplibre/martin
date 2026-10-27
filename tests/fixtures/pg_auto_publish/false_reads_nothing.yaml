@@ -1,0 +1,7 @@
+config:
+  auto_publish: false
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857, properties: { gid: int4 } }
+  functions:
+    - { schema: public, name: tiles }

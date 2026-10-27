@@ -1,0 +1,73 @@
+#!/usr/bin/env just --justfile
+
+set shell := ['bash', '-c']
+
+just := quote(just_executable())
+root_just := just + ' --justfile ' + quote(justfile_directory() / 'justfile')
+
+@_default:
+    {{just}} --list
+
+# Run the toolkit's tests, including doc tests
+test:  (_cargo-install 'cargo-nextest')
+    cargo nextest run -p map-tile-toolkit
+    cargo test -p map-tile-toolkit --doc
+
+# Run the toolkit's tests and save their output as the new expected output
+bless *args:  (_cargo-install 'cargo-nextest') (_cargo-install 'cargo-insta')
+    cargo insta test --test-runner nextest --disable-nextest-doctest --accept --unreferenced=delete -p map-tile-toolkit {{args}}
+
+# Fuzz a target with cargo-fuzz (needs nightly), e.g. `just toolkit::fuzz slice_equivalence -- -max_total_time=60`
+fuzz target='slice_equivalence' *args:  (_cargo-install 'cargo-fuzz')
+    # Pin the gnu host: the sanitizer is incompatible with a statically linked (musl) libc.
+    cargo +nightly fuzz run --target "$(rustc -vV | sed -n 's/^host: //p')" {{target}} {{args}}
+
+# Compile-check every fuzz target (needs nightly) so they don't bit-rot
+fuzz-build:  (_cargo-install 'cargo-fuzz')
+    cargo +nightly fuzz build --target "$(rustc -vV | sed -n 's/^host: //p')"
+
+# Profile a `profile` example case under `hotpath` (per-function timing + allocations), e.g. `just toolkit::hotpath big-all-multi 5000`
+hotpath name='big-all-multi' iters='' features='hotpath-alloc':
+    cargo run --release -p map-tile-toolkit --example profile --features {{features}} -- {{name}} {{iters}}
+
+# Reformat all GeoJSON test fixtures
+fmt-geojson:  (_assert-cmd 'node') (_assert-cmd 'npm') (_assert-cmd 'jq')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    npm install --silent --no-fund --no-audit --prefix "$tmp" json-stringify-pretty-compact
+    cat > "$tmp/fmt.mjs" <<'EOF'
+    import stringify from 'json-stringify-pretty-compact';
+    import { readFileSync, writeFileSync } from 'node:fs';
+    for (const p of process.argv.slice(2))
+      writeFileSync(p, stringify(JSON.parse(readFileSync(p, 'utf8'))) + '\n');
+    console.log(`Formatted ${process.argv.length - 2} GeoJSON files`);
+    EOF
+    fixtures=("$PWD"/tests/polylines/{fixtures,bad-fixtures}/*.geojson "$PWD"/tests/polygons/fixtures/*.geojson "$PWD"/tests/points/fixtures/*.geojson)
+    # Round every number nested anywhere inside features[].geometry.coordinates to an integer.
+    for p in "${fixtures[@]}"; do
+      jq '.features[].geometry.coordinates |= walk(if type == "number" then round else . end)' "$p" > "$p.tmp"
+      mv "$p.tmp" "$p"
+    done
+    # Run node from the temp dir so the bare import resolves against the throwaway install.
+    cd "$tmp"
+    node fmt.mjs "${fixtures[@]}"
+
+# Regenerate tests/visualize.qgz (QGIS) from every GeoJSON file under tests/, keeping its view state
+visualize-tests:  (_assert-cmd 'python3')
+    python3 tests/visualize_tests.py tests/visualize.qgz
+    @echo "--------- done --------"
+    @echo "Start QGIS and open this file:"
+    @echo "$(realpath tests/visualize.qgz)"
+
+[private]
+_assert-cmd command:
+    @if ! type {{command}} > /dev/null; then \
+        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer." ;\
+        exit 1 ;\
+    fi
+
+[private]
+_cargo-install command:
+    {{root_just}} cargo-install {{command}}

@@ -140,13 +140,7 @@ impl Mbtiles {
     /// if there is no entry at the given coordinates. Expired entries are still returned
     /// (with their stored `expires`) so the caller can decide whether to serve stale,
     /// revalidate via `etag`, or refetch.
-    pub async fn get_cached<T>(
-        &self,
-        conn: &mut T,
-        z: u8,
-        x: u32,
-        y: u32,
-    ) -> MbtResult<Option<CachedTile>>
+    pub async fn get_cached<T>(&self, conn: &mut T, z: u8, x: u32, y: u32) -> MbtResult<Option<CachedTile>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -243,22 +237,13 @@ impl Mbtiles {
     /// `auto_vacuum` enabled (files created by [`crate::MbtilesCache::open`] do); for other
     /// files the pages are reused by later writes, and a one-off full `VACUUM` is needed
     /// to shrink them on disk.
-    pub async fn purge_expired(
-        &self,
-        conn: &mut SqliteConnection,
-        now: UnixSeconds,
-    ) -> MbtResult<u64> {
+    pub async fn purge_expired(&self, conn: &mut SqliteConnection, now: UnixSeconds) -> MbtResult<u64> {
         let now = now.0;
-        let removed = query!(
-            "DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1",
-            now
-        )
-        .execute(&mut *conn)
-        .await?
-        .rows_affected();
-        query!("PRAGMA incremental_vacuum")
+        let removed = query!("DELETE FROM tile_cache WHERE expires IS NOT NULL AND expires < ?1", now)
             .execute(&mut *conn)
-            .await?;
+            .await?
+            .rows_affected();
+        query!("PRAGMA incremental_vacuum").execute(&mut *conn).await?;
         Ok(removed)
     }
 
@@ -273,11 +258,7 @@ impl Mbtiles {
     /// [`Mbtiles::purge_expired`] applies: the file only shrinks on disk when it has
     /// `auto_vacuum` enabled. An empty cache still has a fixed schema overhead, so
     /// tiny `max_bytes` values evict everything without reaching the target.
-    pub async fn purge_cache_to_size(
-        &self,
-        conn: &mut SqliteConnection,
-        max_bytes: u64,
-    ) -> MbtResult<u64> {
+    pub async fn purge_cache_to_size(&self, conn: &mut SqliteConnection, max_bytes: u64) -> MbtResult<u64> {
         /// How many `tile_cache` rows to evict between size re-measurements. Small enough
         /// to not massively overshoot the target, large enough to amortize the PRAGMAs.
         const EVICT_CHUNK: u32 = 64;
@@ -297,9 +278,7 @@ impl Mbtiles {
                 break; // the cache is empty; what remains is fixed schema overhead
             }
 
-            query!("PRAGMA incremental_vacuum")
-                .execute(&mut *conn)
-                .await?;
+            query!("PRAGMA incremental_vacuum").execute(&mut *conn).await?;
             removed += evicted;
         }
         Ok(removed)
@@ -308,15 +287,9 @@ impl Mbtiles {
 
 /// The database size excluding free pages: `(page_count - freelist_count) * page_size`.
 async fn db_live_size(conn: &mut SqliteConnection) -> MbtResult<u64> {
-    let page_count: i64 = query_scalar("PRAGMA page_count")
-        .fetch_one(&mut *conn)
-        .await?;
-    let freelist: i64 = query_scalar("PRAGMA freelist_count")
-        .fetch_one(&mut *conn)
-        .await?;
-    let page_size: i64 = query_scalar("PRAGMA page_size")
-        .fetch_one(&mut *conn)
-        .await?;
+    let page_count: i64 = query_scalar("PRAGMA page_count").fetch_one(&mut *conn).await?;
+    let freelist: i64 = query_scalar("PRAGMA freelist_count").fetch_one(&mut *conn).await?;
+    let page_size: i64 = query_scalar("PRAGMA page_size").fetch_one(&mut *conn).await?;
     let live_pages = u64::try_from((page_count - freelist).max(0)).expect("value is non-negative");
     let page_size = u64::try_from(page_size.max(0)).expect("value is non-negative");
     Ok(live_pages * page_size)
@@ -346,10 +319,7 @@ mod tests {
     async fn detected_as_cache() {
         let (mbt, mut conn) = cache().await;
         assert!(mbt.is_cache(&mut conn).await.unwrap());
-        assert_eq!(
-            mbt.detect_type(&mut conn).await.unwrap(),
-            crate::MbtType::Cache
-        );
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), crate::MbtType::Cache);
     }
 
     #[tokio::test]
@@ -403,24 +373,17 @@ mod tests {
             expires: Some(UnixSeconds(50)),
             ..Default::default()
         };
-        mbt.set_cached(&mut conn, 0, 0, 0, b"stale", stale)
-            .await
-            .unwrap();
+        mbt.set_cached(&mut conn, 0, 0, 0, b"stale", stale).await.unwrap();
         let fresh = CacheEntryMeta {
             expires: Some(UnixSeconds(200)),
             ..Default::default()
         };
-        mbt.set_cached(&mut conn, 1, 0, 0, b"fresh", fresh)
-            .await
-            .unwrap();
+        mbt.set_cached(&mut conn, 1, 0, 0, b"fresh", fresh).await.unwrap();
         mbt.set_cached(&mut conn, 1, 1, 0, b"forever", CacheEntryMeta::default())
             .await
             .unwrap();
 
-        let removed = mbt
-            .purge_expired(&mut conn, UnixSeconds(100))
-            .await
-            .unwrap();
+        let removed = mbt.purge_expired(&mut conn, UnixSeconds(100)).await.unwrap();
         assert_eq!(removed, 1);
 
         assert!(mbt.get_cached(&mut conn, 0, 0, 0).await.unwrap().is_none());
@@ -429,12 +392,7 @@ mod tests {
         assert_eq!(entry_count(&mut conn).await, 2);
 
         // Nothing left to expire: a second purge is a no-op.
-        assert_eq!(
-            mbt.purge_expired(&mut conn, UnixSeconds(100))
-                .await
-                .unwrap(),
-            0
-        );
+        assert_eq!(mbt.purge_expired(&mut conn, UnixSeconds(100)).await.unwrap(), 0);
     }
 
     #[tokio::test]
@@ -453,19 +411,11 @@ mod tests {
 
         // No entry at these coordinates - the caller must fall back to set_cached.
         let missing = CacheEntryMeta::new(UnixSeconds(1), UnixSeconds(1), "x");
-        assert!(
-            !mbt.update_cached_meta(&mut conn, 3, 0, 0, missing)
-                .await
-                .unwrap()
-        );
+        assert!(!mbt.update_cached_meta(&mut conn, 3, 0, 0, missing).await.unwrap());
 
         // Revalidation bumps the metadata in place; the blob stays untouched.
         let bumped = CacheEntryMeta::new(UnixSeconds(20), UnixSeconds(500), "etag-2");
-        assert!(
-            mbt.update_cached_meta(&mut conn, 3, 1, 2, bumped)
-                .await
-                .unwrap()
-        );
+        assert!(mbt.update_cached_meta(&mut conn, 3, 1, 2, bumped).await.unwrap());
         let got = mbt.get_cached(&mut conn, 3, 1, 2).await.unwrap().unwrap();
         assert_eq!(got.data, b"payload");
         assert_eq!(got.fetched, Some(UnixSeconds(20)));
@@ -537,9 +487,7 @@ mod tests {
             } else {
                 CacheEntryMeta::default()
             };
-            mbt.set_cached(&mut conn, 9, i, 0, &data, meta)
-                .await
-                .unwrap();
+            mbt.set_cached(&mut conn, 9, i, 0, &data, meta).await.unwrap();
         }
 
         let initial = super::db_live_size(&mut conn).await.unwrap();

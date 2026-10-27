@@ -3,7 +3,7 @@ use std::fmt;
 use martin_tile_utils::MAX_ZOOM;
 use serde::{Deserialize, Deserializer, Serialize, de};
 
-use super::error::TilingConfigError;
+use crate::config::file::tiling::error::TilingConfigError;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Zoom(u8);

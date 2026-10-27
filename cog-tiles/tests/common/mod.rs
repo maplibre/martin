@@ -1,0 +1,207 @@
+#![allow(dead_code, clippy::unwrap_used, clippy::cast_precision_loss)]
+
+use std::ops::Range;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+
+use bytes::Bytes;
+use cog_tiles::{AsyncBackend, CogResult, MemoryBackend};
+
+/// The z15 tile covered by the single-file fixtures (quadkey `031313131130112`).
+pub const Z15_X: u32 = 16374;
+pub const Z15_Y: u32 = 10897;
+
+/// A test COG in the workspace's `tests/fixtures/cog/synthetic`.
+pub fn fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/fixtures/cog/synthetic")
+        .join(name)
+}
+
+pub fn memory(name: &str) -> MemoryBackend {
+    let path = fixture(name);
+    MemoryBackend::new(std::fs::read(&path).unwrap(), path.display().to_string())
+}
+
+/// The fixture pattern: band `b` of global pixel `(x, y)` is `(x + 2y + 64b + shift) mod 256`.
+pub fn pattern(x: u32, y: u32, band: u32, shift: u32) -> u8 {
+    u8::try_from((x + 2 * y + 64 * band + shift) % 256).unwrap()
+}
+
+/// The expected 256x256 tile of the pattern whose top-left pixel is global `(x0, y0)`.
+pub fn expected_tile(x0: u32, y0: u32, bands: u32, shift: u32) -> Vec<u8> {
+    let mut out = Vec::with_capacity(256 * 256 * bands as usize);
+    for y in 0..256 {
+        for x in 0..256 {
+            for b in 0..bands {
+                out.push(pattern(x0 + x, y0 + y, b, shift));
+            }
+        }
+    }
+    out
+}
+
+/// Uncompressed striped RGB TIFF with one page per `(side, rows_per_strip)`, with `georef` as `[origin_x, origin_y, resolution]` of page 0.
+pub fn striped_tiff(pages: &[(u32, u32)], subfile_type: u32, georef: Option<[f64; 3]>) -> Vec<u8> {
+    use tiff::encoder::{TiffEncoder, colortype};
+    use tiff::tags::Tag;
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    let mut encoder = TiffEncoder::new(&mut out).unwrap();
+    for (page, &(side, rows_per_strip)) in (0..).zip(pages) {
+        let mut pixels = Vec::new();
+        for y in 0..side {
+            for x in 0..side {
+                pixels.extend((0..3).map(|band| pattern(x, y, band, page)));
+            }
+        }
+        let mut image = encoder.new_image::<colortype::RGB8>(side, side).unwrap();
+        image.encoder().write_tag(Tag::NewSubfileType, subfile_type).unwrap();
+        image.encoder().write_tag(Tag::Orientation, 1_u16).unwrap();
+        image.encoder().write_tag(Tag::FillOrder, 1_u16).unwrap();
+        image.encoder().write_tag(Tag::PlanarConfiguration, 1_u16).unwrap();
+        if let (0, Some([x, y, resolution])) = (page, georef) {
+            let keys: [u16; 16] = [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857];
+            let dir = image.encoder();
+            dir.write_tag(Tag::GeoKeyDirectoryTag, &keys[..]).unwrap();
+            dir.write_tag(Tag::ModelPixelScaleTag, &[resolution, resolution, 0.0][..])
+                .unwrap();
+            dir.write_tag(Tag::ModelTiepointTag, &[0.0, 0.0, 0.0, x, y, 0.0][..])
+                .unwrap();
+        }
+        image.rows_per_strip(rows_per_strip).unwrap();
+        image.write_data(&pixels).unwrap();
+    }
+    out.into_inner()
+}
+
+/// Decodes a PNG into `(width, height, channels, pixels)`.
+pub fn decode_png(data: &[u8]) -> (u32, u32, usize, Vec<u8>) {
+    let mut reader = png::Decoder::new(std::io::Cursor::new(data.to_vec()))
+        .read_info()
+        .unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut buf).unwrap();
+    buf.truncate(info.buffer_size());
+    (info.width, info.height, info.color_type.samples(), buf)
+}
+
+/// Decodes a JPEG into `(width, height, pixels)`.
+pub fn decode_jpeg(data: &[u8]) -> (u16, u16, Vec<u8>) {
+    let mut decoder = jpeg_decoder::Decoder::new(data);
+    let pixels = decoder.decode().unwrap();
+    let info = decoder.info().unwrap();
+    (info.width, info.height, pixels)
+}
+
+pub fn mean_abs_diff(a: &[u8], b: &[u8]) -> f64 {
+    assert_eq!(a.len(), b.len());
+    let sum: u64 = a.iter().zip(b).map(|(&x, &y)| u64::from(x.abs_diff(y))).sum();
+    sum as f64 / a.len() as f64
+}
+
+/// Wraps a backend and counts the requests made to it and the bytes they read.
+#[derive(Debug)]
+pub struct Counting<B> {
+    pub inner: B,
+    pub reads: Arc<AtomicUsize>,
+    pub bytes: Arc<AtomicU64>,
+}
+
+impl<B> Counting<B> {
+    pub fn new(inner: B) -> Self {
+        Self {
+            inner,
+            reads: Arc::new(AtomicUsize::new(0)),
+            bytes: Arc::new(AtomicU64::new(0)),
+        }
+    }
+}
+
+impl<B: AsyncBackend> AsyncBackend for Counting<B> {
+    fn location(&self) -> &str {
+        self.inner.location()
+    }
+
+    fn size(&self) -> u64 {
+        self.inner.size()
+    }
+
+    async fn read(&self, range: Range<u64>) -> CogResult<Bytes> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
+        self.bytes.fetch_add(range.end - range.start, Ordering::SeqCst);
+        self.inner.read(range).await
+    }
+}
+
+/// Rewrites value `index` of `tag` in every IFD of a little-endian classic TIFF that has it.
+pub fn patch_tag(bytes: &mut [u8], tag: u16, index: usize, change: impl Fn(f64) -> f64) {
+    patch_ifd_tags(bytes, None, tag, index, change);
+}
+
+/// Like [`patch_tag`], but only in IFD `page`.
+pub fn patch_page_tag(bytes: &mut [u8], page: usize, tag: u16, index: usize, change: impl Fn(f64) -> f64) {
+    patch_ifd_tags(bytes, Some(page), tag, index, change);
+}
+
+/// Shared implementation of [`patch_tag`] and [`patch_page_tag`].
+fn patch_ifd_tags(bytes: &mut [u8], page: Option<usize>, tag: u16, index: usize, change: impl Fn(f64) -> f64) {
+    let u16_at = |b: &[u8], at: usize| u16::from_le_bytes(b[at..at + 2].try_into().unwrap());
+    let u32_at = |b: &[u8], at: usize| u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+    assert_eq!(&bytes[..4], b"II*\0", "not a little-endian classic TIFF");
+    let mut ifd = u32_at(bytes, 4) as usize;
+    let mut patched = false;
+    for current in 0.. {
+        if ifd == 0 {
+            break;
+        }
+        let count = usize::from(u16_at(bytes, ifd));
+        for entry in (0..count).map(|i| ifd + 2 + i * 12) {
+            if u16_at(bytes, entry) != tag || page.is_some_and(|page| page != current) {
+                continue;
+            }
+            let kind = u16_at(bytes, entry + 2);
+            assert!(matches!(kind, 3 | 4 | 12), "tag {tag} has unsupported type {kind}");
+            let size = match kind {
+                3 => 2,
+                4 => 4,
+                _ => 8,
+            };
+            let values = u32_at(bytes, entry + 4) as usize;
+            let data = if values * size <= 4 {
+                entry + 8
+            } else {
+                u32_at(bytes, entry + 8) as usize
+            };
+            let at = data + index * size;
+            match kind {
+                3 => {
+                    let value = change(f64::from(u16_at(bytes, at)));
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    bytes[at..at + 2].copy_from_slice(&(value as u16).to_le_bytes());
+                }
+                4 => {
+                    let value = change(f64::from(u32_at(bytes, at)));
+                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    bytes[at..at + 4].copy_from_slice(&(value as u32).to_le_bytes());
+                }
+                _ => {
+                    let value = change(f64::from_le_bytes(bytes[at..at + 8].try_into().unwrap()));
+                    bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
+                }
+            }
+            patched = true;
+        }
+        ifd = u32_at(bytes, ifd + 2 + count * 12) as usize;
+    }
+    assert!(patched, "no IFD has tag {tag}");
+}
+
+/// A fixture read into memory with `edit` applied to its bytes.
+pub fn patched(name: &str, edit: impl FnOnce(&mut Vec<u8>)) -> MemoryBackend {
+    let path = fixture(name);
+    let mut bytes = std::fs::read(&path).unwrap();
+    edit(&mut bytes);
+    MemoryBackend::new(bytes, path.display().to_string())
+}

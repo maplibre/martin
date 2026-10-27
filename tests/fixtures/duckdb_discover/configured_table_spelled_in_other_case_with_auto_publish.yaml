@@ -1,0 +1,10 @@
+sql: |
+  CREATE SCHEMA places;
+  CREATE TABLE places.points (gid INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO places.points VALUES (1, ST_Point(0, 0));
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish: true
+      tables:
+        my_points: { schema: PLACES, table: Points }

@@ -14,6 +14,7 @@ use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// Where a [`PmtilesSource`] reads from.
@@ -61,14 +62,7 @@ impl PmtilesSource {
         let store: Arc<dyn ObjectStore> = Arc::from(store);
         let backend = ObjectStoreBackend::new(Box::new(Arc::clone(&store)), path.clone());
         let location = PmtLocation::ObjectStore { store, path };
-        Self::from_backend(
-            cache,
-            id,
-            PmtBackend::ObjectStore(backend),
-            location,
-            cache_zoom,
-        )
-        .await
+        Self::from_backend(cache, id, PmtBackend::ObjectStore(backend), location, cache_zoom).await
     }
 
     /// Create a new `PmtilesSource` from an id and the path of a local `.pmtiles` file.
@@ -152,10 +146,11 @@ impl PmtilesSource {
             }
         };
 
-        let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
+        let mut tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
             warn!(path = %path, error = ?e, "Unable to parse metadata");
             hdr.get_tilejson(Vec::new())
         });
+        cap_zoom_range(&id, &mut tilejson);
 
         Ok(Self {
             id,
@@ -192,18 +187,9 @@ impl Source for PmtilesSource {
         let cache = self.pmt_cache.fork();
         let id = self.id.clone();
         let reloaded = match &self.location {
-            PmtLocation::File(path) => {
-                Self::new_local(cache, id, path.clone(), self.cache_zoom).await
-            }
+            PmtLocation::File(path) => Self::new_local(cache, id, path.clone(), self.cache_zoom).await,
             PmtLocation::ObjectStore { store, path } => {
-                Self::new(
-                    cache,
-                    id,
-                    Box::new(Arc::clone(store)),
-                    path.clone(),
-                    self.cache_zoom,
-                )
-                .await
+                Self::new(cache, id, Box::new(Arc::clone(store)), path.clone(), self.cache_zoom).await
             }
         };
         reloaded.map_err(MartinCoreError::from)
@@ -214,13 +200,8 @@ impl Source for PmtilesSource {
     }
 
     #[instrument(name = "pmtiles", skip_all, fields(source = %self.id))]
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
-        let coord =
-            pmtiles::TileCoord::new(xyz.z(), xyz.x(), xyz.y()).map_err(PmtilesError::PmtError)?;
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
+        let coord = pmtiles::TileCoord::new(xyz.z(), xyz.x(), xyz.y()).map_err(PmtilesError::PmtError)?;
         let result = self.pmtiles.get_tile(coord).await;
         if let Some(t) = match result {
             Err(PmtError::SourceModified) => {

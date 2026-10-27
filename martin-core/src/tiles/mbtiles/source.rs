@@ -15,6 +15,7 @@ use tracing::{debug, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
@@ -46,11 +47,7 @@ fn is_sqlite_busy(err: &MbtError) -> bool {
 
 impl MbtSource {
     /// Creates a new `MBTiles` source from the given file path.
-    pub async fn new(
-        id: String,
-        path: PathBuf,
-        cache_zoom: CacheZoomRange,
-    ) -> Result<Self, MbtilesError> {
+    pub async fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, MbtilesError> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -95,10 +92,12 @@ impl MbtSource {
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path))?;
 
+        let mut tilejson = meta.tilejson;
+        cap_zoom_range(&id, &mut tilejson);
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
-            tilejson: meta.tilejson,
+            tilejson,
             tile_info,
             cache_zoom,
         })
@@ -131,11 +130,7 @@ impl Source for MbtSource {
         self.cache_zoom
     }
 
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         if let Some(tile) = self
             .mbtiles
             .get_tile(xyz.z(), xyz.x(), xyz.y())

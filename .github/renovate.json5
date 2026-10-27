@@ -7,6 +7,8 @@
   schedule: ['* * 1,15 * *'],
   minimumReleaseAge: '7 days',
   automerge: true,
+  // replaces pre-commit.ci autoupdate for .pre-commit-config.yaml revs
+  'pre-commit': { enabled: true },
   prConcurrentLimit: 10,
   prHourlyLimit: 0,
   packageRules: [
@@ -16,15 +18,12 @@
     },
     {
       // These crates are excluded because specific newer versions are broken
-      // (see deny.toml): libdeflater/libdeflate-sys@1.25.0 fail to compile under
-      // musl; insta@1.45.0/1.45.1 fail `cargo test -- diff_and_patch`;
+      // (see deny.toml): insta@1.45.0/1.45.1 fail `cargo test -- diff_and_patch`;
       // freetype-sys@0.23.0 / freetype-rs@0.38.0 / sdf_glyph_renderer@1.1.0 fail
       // to compile (missing zlib.h) on musl and Windows. Keeping them out of the
       // group gives each its own PR for manual review.
       matchManagers: ['cargo'],
       matchPackageNames: [
-        '!libdeflater',
-        '!libdeflate-sys',
         '!insta',
         '!freetype-sys',
         '!freetype-rs',
@@ -51,6 +50,12 @@
       groupName: 'aws crates',
     },
     {
+      // numpy and pyo3-stub-gen each pin one pyo3 minor, which links a single libpython, so they move together.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['/^pyo3/', 'numpy'],
+      groupName: 'pyo3 crates',
+    },
+    {
       // Maintained by us, so no need to wait for the ecosystem to catch up.
       matchManagers: ['cargo'],
       matchPackageNames: ['maplibre_native', 'mlt-core'],
@@ -62,9 +67,9 @@
       groupName: 'npm dependencies',
     },
     {
-      // Biome is updated via .pre-commit-config.yaml, not renovate: pre-commit.ci
-      // bumps the biome hook rev and sync-biome-version propagates it to the
-      // biome.json schemas and package.json dependencies.
+      // Biome is updated via .pre-commit-config.yaml: renovate bumps the biome
+      // hook rev and sync-biome-version propagates it to the biome.json schemas
+      // and package.json dependencies.
       matchManagers: ['npm'],
       matchPackageNames: ['@biomejs/biome'],
       enabled: false,

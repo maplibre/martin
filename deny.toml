@@ -31,6 +31,12 @@ exceptions = [
     { crate = "borrow-or-share", allow = ["MIT-0"] },
     # cql2 -> stacker -> psm, build script only; Apache-2.0 with the LLVM linking exception
     { crate = "ar_archive_writer", allow = ["Apache-2.0 WITH LLVM-exception"] },
+    # cog-tiles-py -> pyo3 -> pyo3-build-config, build script only; Apache-2.0 with the LLVM linking exception
+    { crate = "target-lexicon", allow = ["Apache-2.0 WITH LLVM-exception"] },
+    # cog-tiles-py -> pyo3-stub-gen -> rustpython-parser, only used to write the Python stub
+    { crate = "unicode_names2", allow = ["Unicode-DFS-2016"] },
+    # martin `fips` feature -> rustls -> aws-lc-rs; the FIPS-validated AWS-LC module keeps the OpenSSL licence
+    { crate = "aws-lc-fips-sys", allow = ["OpenSSL"] },
 ]
 
 [licenses.private]
@@ -76,8 +82,6 @@ skip-tree = []
 deny = [
     # The last-known-good versions are pinned in `just update`; ban everything newer
     # until a release is verified to build on all targets (musl + Windows).
-    { crate = "libdeflater:>1.24.0", reason = "1.25.x bundles libdeflate 1.25, which does not compile under musl" },
-    { crate = "libdeflate-sys:>1.24.0", reason = "1.25.x bundles libdeflate 1.25, which does not compile under musl" },
     { crate = "freetype-sys:>0.20.1", reason = "newer releases bundle a libpng that fails to compile (missing zlib.h) on musl and Windows" },
     { crate = "freetype-rs:>0.35.0", reason = "newer releases depend on freetype-sys >0.20.1 which fails to compile on musl and Windows" },
     { crate = "sdf_glyph_renderer:>1.0.2", reason = "newer releases depend on freetype-rs >0.35.0 which fails to compile on musl and Windows" },
@@ -90,7 +94,9 @@ unknown-registry = "deny"
 unknown-git = "deny"
 
 # If git deps are ever needed, they must be explicitly allowed here
-allow-git = []
+allow-git = [
+  "https://github.com/CommanderStorm/wkb",
+]
 
 [graph]
 targets = [

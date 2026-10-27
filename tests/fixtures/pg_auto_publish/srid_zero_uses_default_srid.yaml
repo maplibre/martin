@@ -1,0 +1,8 @@
+config:
+  auto_publish: { tables: true }
+  default_srid: 4326
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 0 }
+  transforms:
+    - { table: 4326, grid: 3857, ok: true }

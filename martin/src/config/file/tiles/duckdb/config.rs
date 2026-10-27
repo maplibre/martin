@@ -1,14 +1,15 @@
+use std::fmt;
 use std::num::NonZeroUsize;
 
-use serde::{Deserialize, Serialize};
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::config::args::BoundsCalcType;
 #[cfg(feature = "_tiles")]
 use crate::config::file::MltProcessConfig;
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::duckdb::sources::{
-    DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
-};
+use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry};
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileResult, ConfigurationLivecycleHooks,
     ObjectStoreConfig, UnrecognizedValues,
@@ -41,10 +42,7 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
     /// Connection pool size used by `DuckDB` sources unless overridden per-source.
-    #[serde(
-        default = "default_pool_size",
-        skip_serializing_if = "is_default_pool_size"
-    )]
+    #[serde(default = "default_pool_size", skip_serializing_if = "is_default_pool_size")]
     pub pool_size: NonZeroUsize,
     /// Optional `DuckDB` execution thread count for each connection.
     pub threads: Option<NonZeroUsize>,
@@ -134,11 +132,83 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[derive(Clone, Debug, PartialEq, Serialize, CollectUnrecognizedKeys)]
 #[serde(untagged)]
 pub enum DuckDbSourceEntry {
     Database(Box<DuckDbDatabaseEntry>),
     GeoParquet(Box<GeoParquetEntry>),
+}
+
+/// Picks the variant by the first `database` or `geoparquet` key and streams the rest of the map
+/// into it, so errors keep their YAML location.
+impl<'de> Deserialize<'de> for DuckDbSourceEntry {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(SourceEntryVisitor)
+    }
+}
+
+struct SourceEntryVisitor;
+
+impl<'de> Visitor<'de> for SourceEntryVisitor {
+    type Value = DuckDbSourceEntry;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a DuckDB source map with a `database` or a `geoparquet` key")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<DuckDbSourceEntry, M::Error> {
+        let mut before = Vec::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if key == "database" || key == "geoparquet" {
+                let is_database = key == "database";
+                let rest = MapAccessDeserializer::new(PrefixedMap {
+                    before: before.into_iter(),
+                    key: Some(key),
+                    value: None,
+                    map,
+                });
+                return if is_database {
+                    DuckDbDatabaseEntry::deserialize(rest).map(|entry| DuckDbSourceEntry::Database(Box::new(entry)))
+                } else {
+                    GeoParquetEntry::deserialize(rest).map(|entry| DuckDbSourceEntry::GeoParquet(Box::new(entry)))
+                };
+            }
+            before.push((key, map.next_value::<serde_json::Value>()?));
+        }
+        Err(de::Error::custom(
+            "a DuckDB source needs either a `database` or a `geoparquet` key",
+        ))
+    }
+}
+
+/// The entries read before the variant key, then that key, then the rest of the live map.
+struct PrefixedMap<M> {
+    before: std::vec::IntoIter<(String, serde_json::Value)>,
+    key: Option<String>,
+    value: Option<serde_json::Value>,
+    map: M,
+}
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for PrefixedMap<M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        if let Some((key, value)) = self.before.next() {
+            self.value = Some(value);
+            return seed.deserialize(key.into_deserializer()).map(Some);
+        }
+        if let Some(key) = self.key.take() {
+            return seed.deserialize(key.into_deserializer()).map(Some);
+        }
+        self.map.next_key_seed(seed)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        match self.value.take() {
+            Some(value) => seed.deserialize(value).map_err(de::Error::custom),
+            None => self.map.next_value_seed(seed),
+        }
+    }
 }
 
 impl DuckDbSourceEntry {
@@ -188,16 +258,16 @@ impl schemars::JsonSchema for DuckDbSourceEntry {
 mod tests {
     use std::assert_matches;
 
+    use indoc::indoc;
+
     use super::*;
     use crate::config::file::tiles::duckdb::GeoParquetLocation;
+    use crate::config::test_helpers::render_failure;
 
     const GEOPARQUET_FIXTURE: &str = "../tests/fixtures/duckdb/geoparquet_polygons.parquet";
 
     #[test]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one debug snapshot of both entry kinds"
-    )]
+    #[expect(clippy::too_many_lines, reason = "one debug snapshot of both entry kinds")]
     fn source_list_may_mix_database_and_geoparquet() {
         let yaml = r"
 pool_size: 4
@@ -327,6 +397,9 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+                unrecognized: UnrecognizedValues(
+                    {},
+                ),
             },
             object_store: ObjectStoreConfig {
                 profile: None,
@@ -390,7 +463,29 @@ sources:
     }
 
     #[test]
-    fn source_entry_with_both_keys_deserializes_as_database() {
+    fn source_entry_with_keys_before_database_deserializes_as_database() {
+        let yaml = r"
+sources:
+  - pool_size: 2
+    auto_publish: false
+    database: /data/tiles.duckdb
+    macros:
+      tiles: { macro: tiles }
+";
+        let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+        insta::assert_yaml_snapshot!(cfg, @"
+        sources:
+          - database: /data/tiles.duckdb
+            pool_size: 2
+            auto_publish: false
+            macros:
+              tiles:
+                macro: tiles
+        ");
+    }
+
+    #[test]
+    fn source_entry_with_both_keys_deserializes_as_the_first() {
         let yaml = r"
 sources:
   - database: /data/tiles.duckdb
@@ -433,6 +528,9 @@ sources:
                     minzoom: None,
                     maxzoom: None,
                 },
+                unrecognized: UnrecognizedValues(
+                    {},
+                ),
             },
             object_store: ObjectStoreConfig {
                 profile: None,
@@ -460,10 +558,17 @@ sources:
     srid: 4326
 ";
         let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("missing entry keys");
-        assert!(
-            err.to_string()
-                .contains("data did not match any variant of untagged enum DuckDbSourceEntry")
-        );
+        insta::assert_snapshot!(err, @"
+        error: line 3 column 5: a DuckDB source needs either a `database` or a `geoparquet` key
+         --> <input>:3:5
+          |
+        1 |
+        2 | sources:
+        3 |   - layer_id: buildings
+          |     ^ a DuckDB source needs either a `database` or a `geoparquet` key
+        4 |     srid: 4326
+          |
+        ");
     }
 
     #[tokio::test]
@@ -486,8 +591,7 @@ sources:
                   memory_limit_mb: 256
                   auto_bounds: skip
         "};
-        let mut config: Config =
-            parse_config(&yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
+        let mut config: Config = parse_config(&yaml, &HashMap::new(), Path::new("<test>")).expect("parse config");
         config.finalize().await.expect("finalize");
 
         insta::assert_snapshot!(
@@ -511,5 +615,76 @@ sources:
             auto_bounds: skip
         "
         );
+    }
+
+    #[test]
+    fn table_id_format_with_an_unknown_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            duckdb:
+              sources:
+                - database: /data/tiles.duckdb
+                  auto_publish:
+                    tables:
+                      source_id_format: '{schema}.{tabel}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{tabel}" uses the unknown placeholder {tabel},
+          │ it may use {schema}, {table}, {column}
+           ╭─[config.yaml:6:29]
+         5 │         tables:
+         6 │           source_id_format: '{schema}.{tabel}'
+           ·                             ──────────────────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn macro_id_format_with_a_table_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            duckdb:
+              sources:
+                - database: /data/tiles.duckdb
+                  auto_publish:
+                    macros:
+                      source_id_format: '{schema}.{table}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{table}" uses the unknown placeholder {table},
+          │ it may use {schema}, {macro}
+           ╭─[config.yaml:6:29]
+         5 │         macros:
+         6 │           source_id_format: '{schema}.{table}'
+           ·                             ──────────────────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn id_formats_with_known_placeholders_are_accepted() {
+        let yaml = r"
+sources:
+  - database: /data/tiles.duckdb
+    auto_publish:
+      tables:
+        source_id_format: 'tiles_{schema}_{table}_{column}'
+      macros:
+        source_id_format: '{schema}.{macro}'
+";
+        let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+        insta::assert_yaml_snapshot!(cfg, @r#"
+        sources:
+          - database: /data/tiles.duckdb
+            auto_publish:
+              tables:
+                source_id_format: "tiles_{schema}_{table}_{column}"
+              macros:
+                source_id_format: "{schema}.{macro}"
+        "#);
     }
 }

@@ -8,17 +8,18 @@ use tilejson::TileJSON;
 
 #[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
-use super::{FuncInfoSources, TableInfoSources};
+use super::{FuncInfoSources, Srid, TableInfoSources};
 use crate::config::args::BoundsCalcType;
+use crate::config::args::OrderByType;
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, TileGrids, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileGrids,
+    UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
-use crate::config::primitives::{OptBoolObj, one_or_many};
+use crate::config::primitives::{FunctionIdFormat, OptBoolObj, TableIdFormat, one_or_many};
 
 /// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
 /// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
@@ -75,8 +76,8 @@ pub struct PostgresConfig {
     #[serde(flatten)]
     pub ssl_certificates: PostgresSslCerts,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
-    pub default_srid: Option<i32>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<i32>", example = &4326i32))]
+    pub default_srid: Option<Srid>,
     /// Tile grid the sources of this connection are served in, unless a source names its own \[default: `WebMercatorQuad`\]
     ///
     /// One of the grids under the top-level `tile_grids`, or `WebMercatorQuad`.
@@ -101,6 +102,14 @@ pub struct PostgresConfig {
     ///
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
+    /// Specify how features should be sorted:
+    /// - `null` (default, no sorting)
+    /// - `id-asc`
+    /// - `id-desc`
+    ///
+    /// Enabling this has performance implications due to the additional sorting.
+    /// This may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features.
+    pub order_by: Option<OrderByType>,
     /// Maximum Postgres connections pool size \[default: 20\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<NonZeroUsize>,
@@ -142,7 +151,7 @@ pub struct PostgresConfig {
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Default `prefetch` for tables tiled by Martin's engine:
-    /// a cache miss renders the N×N block around the tile and caches the neighbours (unstable)
+    /// a cache miss renders the aligned N×N block holding the tile and caches all of it (unstable)
     #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -186,8 +195,7 @@ pub struct PostgresConfig {
 }
 
 /// Default connection pool size.
-pub const DEFAULT_POOL_SIZE: NonZeroUsize =
-    NonZeroUsize::new(20).expect("default pool size is non-zero");
+pub const DEFAULT_POOL_SIZE: NonZeroUsize = NonZeroUsize::new(20).expect("default pool size is non-zero");
 
 impl Default for PostgresConfig {
     // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
@@ -200,6 +208,7 @@ impl Default for PostgresConfig {
             tile_grid: None,
             auto_bounds: None,
             max_feature_count: None,
+            order_by: None,
             pool_size: None,
             cache: CachePolicy::default(),
             retry_timeout: None,
@@ -219,25 +228,14 @@ impl Default for PostgresConfig {
 }
 
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Here we enable both tables and functions auto discovery.
     /// You can also enable just one of them by not mentioning the other, or
@@ -255,34 +253,23 @@ pub struct PostgresCfgPublish {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the table's name,
     /// schema, and geometry column
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"table.{schema}.{table}.{column}")
+        schemars(with = "Option<String>", example = &"table.{schema}.{table}.{column}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<TableIdFormat>,
     /// A table column to use as the feature ID
     /// If a table has no column with this name, `id_column` will not be set for
     /// that table.
@@ -290,10 +277,7 @@ pub struct PostgresCfgPublishTables {
     /// feature ID.
     #[serde(alias = "id_column")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
@@ -313,34 +297,23 @@ pub struct PostgresCfgPublishTables {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub from_schemas: Vec<String>,
     /// Optionally set how source ID should be generated based on the function's
     /// name and schema
     #[serde(alias = "id_format")]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &"{schema}.{function}")
+        schemars(with = "Option<String>", example = &"{schema}.{function}")
     )]
-    pub source_id_format: Option<String>,
+    pub source_id_format: Option<FunctionIdFormat>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -358,14 +331,10 @@ impl PostgresConfig {
             let grid = table.tile_grid.as_deref()?;
             Some((format!("Table source {id}"), grid))
         });
-        let functions = self
-            .functions
-            .iter()
-            .flatten()
-            .filter_map(|(id, function)| {
-                let grid = function.tile_grid.as_deref()?;
-                Some((format!("Function source {id}"), grid))
-            });
+        let functions = self.functions.iter().flatten().filter_map(|(id, function)| {
+            let grid = function.tile_grid.as_deref()?;
+            Some((format!("Function source {id}"), grid))
+        });
         for (what, grid) in connection.into_iter().chain(tables).chain(functions) {
             if grids.get(grid).is_none() {
                 return Err(ConfigFileError::UnknownTileGrid {
@@ -402,13 +371,123 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
     use std::path::Path;
 
+    use indexmap::IndexMap;
     use indoc::indoc;
     use tilejson::Bounds;
 
     use super::*;
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
-    use crate::config::test_helpers::render_finalize_failure;
+    use crate::config::test_helpers::{render_failure, render_finalize_failure};
+
+    #[test]
+    fn default_srid_zero_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 0
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × SRID 0 is out of range, it must be from 1 to 999999
+           ╭─[config.yaml:3:17]
+         2 │   connection_string: postgres://localhost/db
+         3 │   default_srid: 0
+           ·                 ─
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn default_srid_above_the_postgis_maximum_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 1000000
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × SRID 1000000 is out of range, it must be from 1 to 999999
+           ╭─[config.yaml:3:17]
+         2 │   connection_string: postgres://localhost/db
+         3 │   default_srid: 1000000
+           ·                 ───────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn table_id_format_with_an_unknown_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              auto_publish:
+                tables:
+                  source_id_format: '{schema}.{tabel}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{tabel}" uses the unknown placeholder {tabel},
+          │ it may use {schema}, {table}, {column}
+           ╭─[config.yaml:5:25]
+         4 │     tables:
+         5 │       source_id_format: '{schema}.{tabel}'
+           ·                         ──────────────────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn function_id_format_with_a_table_placeholder_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              auto_publish:
+                functions:
+                  source_id_format: '{schema}.{table}'
+        "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × source id format "{schema}.{table}" uses the unknown placeholder {table},
+          │ it may use {schema}, {function}
+           ╭─[config.yaml:5:25]
+         4 │     functions:
+         5 │       source_id_format: '{schema}.{table}'
+           ·                         ──────────────────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "#);
+    }
+
+    #[test]
+    fn id_formats_with_known_placeholders_or_none_are_accepted() {
+        let config = parse_cfg(indoc! {"
+            postgres:
+              connection_string: postgres://localhost/db
+              default_srid: 999999
+              auto_publish:
+                tables:
+                  source_id_format: 'tiles_{schema}_{table}_{column}'
+                functions:
+                  source_id_format: fixed
+        "});
+        insta::assert_yaml_snapshot!(config.postgres, @r#"
+        - connection_string: "postgres://localhost/db"
+          default_srid: 999999
+          auto_publish:
+            tables:
+              source_id_format: "tiles_{schema}_{table}_{column}"
+            functions:
+              source_id_format: fixed
+        "#);
+    }
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
@@ -446,11 +525,10 @@ mod tests {
         "});
         let pg = &config.postgres[0];
         let tables = pg.tables.as_ref().unwrap();
-        assert_eq!(pg.prefetch.unwrap().tiles_per_side(), 2);
-        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side(), 1);
+        assert_eq!(pg.prefetch.unwrap().tiles_per_side().get(), 2);
+        assert_eq!(tables["roads"].prefetch.unwrap().tiles_per_side().get(), 1);
         assert_eq!(tables["cities"].layers, None);
-        let expected: tiling::Layers =
-            serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
+        let expected: tiling::Layers = serde_saphyr::from_str("roads: { simplify: 1, min_size: 0.5 }").unwrap();
         assert_eq!(tables["roads"].layers.as_deref(), Some(&expected));
         assert!(config.get_unrecognized_keys().is_empty());
     }
@@ -479,6 +557,44 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id` at line 4, column 5");
     }
 
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_prefetch_above_16_tiles_per_side_is_rejected() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  prefetch: 17
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: invalid value: integer `17`, expected from 1 to 16 tiles per side at line 3, column 3");
+    }
+
+    #[cfg(feature = "unstable-generate")]
+    #[test]
+    fn a_pg_table_prefetch_without_layers_is_rejected() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  tables:
+                    roads:
+                      schema: public
+                      table: roads
+                      srid: 4326
+                      geometry_column: geom
+                      prefetch: 2
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `prefetch` only applies to a table with `layers` at line 4, column 5");
+    }
+
     #[tokio::test]
     async fn finalize_postgres_missing_connection_string() {
         insta::assert_snapshot!(
@@ -503,10 +619,7 @@ mod tests {
     #[test]
     fn default_impl_yields_ten_minute_reload_interval() {
         // `..Default::default()` must yield 10m so the config-equality tests below still hold.
-        assert_eq!(
-            PostgresConfig::default().reload_interval,
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(PostgresConfig::default().reload_interval, DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]
@@ -598,9 +711,7 @@ mod tests {
                         ..Default::default()
                     },
                     PostgresConfig {
-                        connection_string: Some(
-                            "postgresql://postgres@localhost:5433/db".to_owned(),
-                        ),
+                        connection_string: Some("postgresql://postgres@localhost:5433/db".to_owned()),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
@@ -620,6 +731,7 @@ mod tests {
               default_srid: 4326
               pool_size: 20
               max_feature_count: 100
+              order_by: id-asc
 
               tables:
                 table_source:
@@ -650,9 +762,10 @@ mod tests {
             &Config {
                 postgres: vec![PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_owned()),
-                    default_srid: Some(4326),
+                    default_srid: Some(Srid::try_from(4326).unwrap()),
                     pool_size: NonZeroUsize::new(20),
                     max_feature_count: Some(100),
+                    order_by: Some(OrderByType::IdAsc),
                     tables: Some(BTreeMap::from([(
                         "table_source".to_owned(),
                         TableInfo {
@@ -668,10 +781,7 @@ mod tests {
                             clip_geom: Some(false),
                             filter: Some("gid > 2".to_owned()),
                             geometry_type: Some("GEOMETRY".to_owned()),
-                            properties: Some(BTreeMap::from([(
-                                "gid".to_owned(),
-                                "int4".to_owned(),
-                            )])),
+                            properties: Some(IndexMap::from([("gid".to_owned(), "int4".to_owned())])),
                             ..Default::default()
                         },
                     )])),
@@ -702,8 +812,7 @@ mod tests {
             geometry_column: geom
             extent: 0
         "};
-        let err = serde_saphyr::from_str::<TableInfo>(yaml)
-            .expect_err("extent: 0 must be rejected by NonZeroU32");
+        let err = serde_saphyr::from_str::<TableInfo>(yaml).expect_err("extent: 0 must be rejected by NonZeroU32");
         let msg = err.to_string();
         assert!(
             msg.contains("extent") || msg.contains("zero") || msg.contains("nonzero"),

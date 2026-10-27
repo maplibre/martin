@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/postgres/builder.rs
+expression: discovered
+input_file: tests/fixtures/pg_discover/configured_table_spelled_in_other_case.yaml
+---
+sources:
+  my_roads: table a.roads.geom SRID 3857
+warnings: []

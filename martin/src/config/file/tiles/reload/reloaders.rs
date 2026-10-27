@@ -20,7 +20,7 @@ use crate::tile_source_manager::TileSourceManager;
 pub struct TileReloaders {
     #[cfg(feature = "mbtiles")]
     mbtiles: super::mbtiles::MbtilesReloader,
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     cog: super::cog::CogReloader,
     #[cfg(feature = "unstable-duckdb")]
     duckdb: super::duckdb::DuckDbReloader,
@@ -40,11 +40,7 @@ impl TileReloaders {
         expect(clippy::unused_async, clippy::unused_async_trait_impl)
     )]
     #[expect(clippy::too_many_lines, reason = "one block per file kind")]
-    pub async fn init(
-        config: &Config,
-        catalog: &TileSourceManager,
-        resolver: &IdResolver,
-    ) -> StartupResult<Self> {
+    pub async fn init(config: &Config, catalog: &TileSourceManager, resolver: &IdResolver) -> StartupResult<Self> {
         #[cfg(any(
             feature = "mbtiles",
             feature = "unstable-duckdb",
@@ -71,23 +67,19 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.mbtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
-        #[cfg(feature = "unstable-cog")]
-        let mut cog = super::cog::CogReloader::new(
-            catalog.clone(),
-            resolver.clone(),
-            &config.cog,
-            config.cache.policy(),
-        );
+        #[cfg(feature = "cog")]
+        let mut cog =
+            super::cog::CogReloader::new(catalog.clone(), resolver.clone(), &config.cog, &config.cache.policy());
         #[cfg(feature = "unstable-duckdb")]
         let mut duckdb = super::duckdb::DuckDbReloader::new(
             catalog.clone(),
             resolver,
             &config.duckdb,
-            config.cache.policy(),
+            &config.cache.policy(),
             &global_process,
         );
         #[cfg(feature = "processing")]
@@ -95,14 +87,14 @@ impl TileReloaders {
             catalog.clone(),
             resolver.clone(),
             &config.geojson,
-            config.cache.policy(),
+            &config.cache.policy(),
         );
         #[cfg(feature = "pmtiles")]
         let mut pmtiles = super::pmtiles::PmtilesReloader::new(
             catalog.clone(),
             resolver.clone(),
             &config.pmtiles,
-            config.cache.policy(),
+            &config.cache.policy(),
             &archive_process,
             &tile_grids,
         );
@@ -111,7 +103,7 @@ impl TileReloaders {
             let warnings = mbtiles.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         {
             let warnings = cog.init().await?;
             catalog.on_invalid().handle_tile_warnings(&warnings)?;
@@ -143,18 +135,13 @@ impl TileReloaders {
                         catalog.clone(),
                         resolver.clone(),
                         pg_config,
-                        config.cache.policy(),
+                        &config.cache.policy(),
                         &global_process,
                         &tile_grids,
                     )
                 })
                 .collect();
-            let warnings = try_join_all(
-                reloaders
-                    .iter_mut()
-                    .map(super::postgres::PostgresReloader::init),
-            )
-            .await?;
+            let warnings = try_join_all(reloaders.iter_mut().map(super::postgres::PostgresReloader::init)).await?;
             catalog
                 .on_invalid()
                 .handle_tile_warnings(&warnings.into_iter().flatten().collect::<Vec<_>>())?;
@@ -164,7 +151,7 @@ impl TileReloaders {
         Ok(Self {
             #[cfg(feature = "mbtiles")]
             mbtiles,
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             cog,
             #[cfg(feature = "unstable-duckdb")]
             duckdb,
@@ -179,11 +166,7 @@ impl TileReloaders {
 
     /// Loads every source on a task of its own and then starts the reload loops.
     /// Requests for a source that is not published yet wait until the load is done.
-    pub fn load(
-        config: Config,
-        catalog: TileSourceManager,
-        resolver: IdResolver,
-    ) -> JoinHandle<StartupResult<()>> {
+    pub fn load(config: Config, catalog: TileSourceManager, resolver: IdResolver) -> JoinHandle<StartupResult<()>> {
         catalog.start_loading();
         tokio::spawn(async move {
             let reloaders = Self::init(&config, &catalog, &resolver).await?;
@@ -200,7 +183,7 @@ impl TileReloaders {
         if let Err(e) = self.mbtiles.start() {
             tracing::warn!(error = ?e, "failed to start MbtilesReloader");
         }
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if let Err(e) = self.cog.start() {
             tracing::warn!(error = ?e, "failed to start CogReloader");
         }

@@ -1,0 +1,117 @@
+<svg class="d" viewBox="0 0 904 270" role="img" aria-label="Rounding each vertex on its own can make two edges of a valid polygon cross. Quantizer::polygon keeps rounded rings that stay valid and otherwise snap-rounds: two tip vertices merge into one, a hole rounded onto the exterior becomes a notch. Quantizer::make_valid also takes an invalid polygon: a self-crossing exterior keeps both lobes, split at an added vertex where its edges cross" xmlns="http://www.w3.org/2000/svg">
+<title>Rounding each vertex on its own can make two edges of a valid polygon cross. Quantizer::polygon keeps rounded rings that stay valid and otherwise snap-rounds: two tip vertices merge into one, a hole rounded onto the exterior becomes a notch. Quantizer::make_valid also takes an invalid polygon: a self-crossing exterior keeps both lobes, split at an added vertex where its edges cross</title>
+<style>.d{--fg:var(--md-default-fg-color,#6e7781);--light:var(--md-default-fg-color--light,#848d97);
+--lighter:var(--md-default-fg-color--lighter,#848d9799);--f0:#3f7ad6;--f1:#e07a2e;
+font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
+.d text{fill:var(--fg);dominant-baseline:central}
+.d .muted{fill:var(--light)}.d .small{font-size:11px}
+.d .tile{fill:none;stroke:var(--light);stroke-width:1}
+.d .grid{fill:var(--lighter)}
+.d .input{fill:none;stroke:var(--lighter);stroke-width:1.5;stroke-linejoin:round}
+.d .f1{fill:var(--f1);fill-opacity:.2;stroke:var(--f1);stroke-width:1.5;stroke-linejoin:round}
+.d .kept{fill:var(--f1)}
+.d .float{fill:none;stroke:var(--light);stroke-width:1.25}
+.d .added{fill:var(--f0)}
+.d .cross{fill:none;stroke:var(--f0);stroke-width:2}</style>
+<clipPath id="q0"><rect x="14" y="14" width="180" height="180"/></clipPath>
+<g clip-path="url(#q0)">
+<pattern id="gq0" width="27.7" height="27.7" patternUnits="userSpaceOnUse" x="-13.7" y="0.2"><circle class="grid" cx="13.8" cy="13.8" r="1.2"/></pattern>
+<rect fill="url(#gq0)" x="14" y="14" width="180" height="180"/>
+<path class="input" d="M-1016.7,2490L-875.5,2296.1L146.4,75.2L125.9,84.6L-839.5,493.6L-1094.2,1745L-1135.8,2451.5Z"/>
+<path class="f1" fill-rule="evenodd" d="M-1024.5,2478.6L-886,2284.8L138.6,69.4L138.6,97.1L-830.6,484.8L-1107.5,1758.6L-1135.2,2450.9Z"/>
+<circle class="float" cx="-1016.7" cy="2490" r="3"/>
+<circle class="float" cx="-875.5" cy="2296.1" r="3"/>
+<circle class="float" cx="146.4" cy="75.2" r="3"/>
+<circle class="float" cx="125.9" cy="84.6" r="3"/>
+<circle class="float" cx="-839.5" cy="493.6" r="3"/>
+<circle class="float" cx="-1094.2" cy="1745" r="3"/>
+<circle class="float" cx="-1135.8" cy="2451.5" r="3"/>
+<circle class="kept" cx="-1024.5" cy="2478.6" r="3.5"/>
+<circle class="kept" cx="-886" cy="2284.8" r="3.5"/>
+<circle class="kept" cx="138.6" cy="69.4" r="3.5"/>
+<circle class="kept" cx="138.6" cy="97.1" r="3.5"/>
+<circle class="kept" cx="-830.6" cy="484.8" r="3.5"/>
+<circle class="kept" cx="-1107.5" cy="1758.6" r="3.5"/>
+<circle class="kept" cx="-1135.2" cy="2450.9" r="3.5"/>
+<path class="cross" d="M117.9,98.4L127.9,108.4M117.9,108.4L127.9,98.4"/>
+</g>
+<rect class="tile" x="14" y="14" width="180" height="180"/>
+<text class="small" x="14" y="210">rounded one by one</text>
+<text class="small muted" x="14" y="226">two edges cross</text>
+<clipPath id="q1"><rect x="246" y="14" width="180" height="180"/></clipPath>
+<g clip-path="url(#q1)">
+<pattern id="gq1" width="27.7" height="27.7" patternUnits="userSpaceOnUse" x="-3.2" y="0.2"><circle class="grid" cx="13.8" cy="13.8" r="1.2"/></pattern>
+<rect fill="url(#gq1)" x="246" y="14" width="180" height="180"/>
+<path class="input" d="M-784.7,2490L-643.5,2296.1L378.4,75.2L357.9,84.6L-607.5,493.6L-862.2,1745L-903.8,2451.5Z"/>
+<path class="f1" fill-rule="evenodd" d="M-903.2,2450.9L-875.5,1758.6L-598.6,484.8L370.6,97.1L-654,2284.8L-792.5,2478.6Z"/>
+<circle class="float" cx="-784.7" cy="2490" r="3"/>
+<circle class="float" cx="-643.5" cy="2296.1" r="3"/>
+<circle class="float" cx="378.4" cy="75.2" r="3"/>
+<circle class="float" cx="357.9" cy="84.6" r="3"/>
+<circle class="float" cx="-607.5" cy="493.6" r="3"/>
+<circle class="float" cx="-862.2" cy="1745" r="3"/>
+<circle class="float" cx="-903.8" cy="2451.5" r="3"/>
+<circle class="kept" cx="-903.2" cy="2450.9" r="3.5"/>
+<circle class="kept" cx="-875.5" cy="1758.6" r="3.5"/>
+<circle class="kept" cx="-598.6" cy="484.8" r="3.5"/>
+<circle class="kept" cx="370.6" cy="97.1" r="3.5"/>
+<circle class="kept" cx="-654" cy="2284.8" r="3.5"/>
+<circle class="kept" cx="-792.5" cy="2478.6" r="3.5"/>
+</g>
+<rect class="tile" x="246" y="14" width="180" height="180"/>
+<text class="small" x="246" y="210">polygon</text>
+<text class="small muted" x="246" y="226">two tip vertices merge into one</text>
+<clipPath id="q2"><rect x="478" y="14" width="180" height="180"/></clipPath>
+<g clip-path="url(#q2)">
+<pattern id="gq2" width="30" height="30" patternUnits="userSpaceOnUse" x="13" y="-1"><circle class="grid" cx="15" cy="15" r="1.2"/></pattern>
+<rect fill="url(#gq2)" x="478" y="14" width="180" height="180"/>
+<path class="input" d="M526,-46L808,-46L808,254L526,254ZM550,74L550,134L598,104Z"/>
+<path class="f1" fill-rule="evenodd" d="M538,-46L808,-46L808,254L538,254L538,134L598,104L538,74Z"/>
+<circle class="float" cx="526" cy="-46" r="3"/>
+<circle class="float" cx="808" cy="-46" r="3"/>
+<circle class="float" cx="808" cy="254" r="3"/>
+<circle class="float" cx="526" cy="254" r="3"/>
+<circle class="float" cx="550" cy="74" r="3"/>
+<circle class="float" cx="550" cy="134" r="3"/>
+<circle class="float" cx="598" cy="104" r="3"/>
+<circle class="kept" cx="538" cy="-46" r="3.5"/>
+<circle class="kept" cx="808" cy="-46" r="3.5"/>
+<circle class="kept" cx="808" cy="254" r="3.5"/>
+<circle class="kept" cx="538" cy="254" r="3.5"/>
+<circle class="kept" cx="538" cy="134" r="3.5"/>
+<circle class="kept" cx="598" cy="104" r="3.5"/>
+<circle class="kept" cx="538" cy="74" r="3.5"/>
+</g>
+<rect class="tile" x="478" y="14" width="180" height="180"/>
+<text class="small" x="478" y="210">polygon</text>
+<text class="small muted" x="478" y="226">a hole becomes a notch</text>
+<clipPath id="q3"><rect x="710" y="14" width="180" height="180"/></clipPath>
+<g clip-path="url(#q3)">
+<pattern id="gq3" width="15" height="15" patternUnits="userSpaceOnUse" x="-2.5" y="6.5"><circle class="grid" cx="7.5" cy="7.5" r="1.2"/></pattern>
+<rect fill="url(#gq3)" x="710" y="14" width="180" height="180"/>
+<path class="input" d="M725,29L875,179L875,29L725,179Z"/>
+<path class="f1" fill-rule="evenodd" d="M725,29L800,104L725,179ZM800,104L875,29L875,179Z"/>
+<circle class="float" cx="725" cy="29" r="3"/>
+<circle class="float" cx="875" cy="179" r="3"/>
+<circle class="float" cx="875" cy="29" r="3"/>
+<circle class="float" cx="725" cy="179" r="3"/>
+<circle class="kept" cx="725" cy="29" r="3.5"/>
+<circle class="kept" cx="725" cy="179" r="3.5"/>
+<circle class="kept" cx="875" cy="29" r="3.5"/>
+<circle class="kept" cx="875" cy="179" r="3.5"/>
+<rect class="added" x="796.5" y="100.5" width="7" height="7"/>
+</g>
+<rect class="tile" x="710" y="14" width="180" height="180"/>
+<text class="small" x="710" y="210">make_valid</text>
+<text class="small muted" x="710" y="226">both lobes are kept</text>
+<path class="input" d="M14,256H34"/>
+<text class="muted small" x="44" y="256">float polygon</text>
+<circle class="float" cx="143.2" cy="256" r="3"/>
+<text class="muted small" x="153.2" y="256">float vertex</text>
+<circle class="kept" cx="259.1" cy="256" r="3.5"/>
+<text class="muted small" x="269.1" y="256">rounded vertex</text>
+<rect class="added" x="384.90000000000003" y="252.5" width="7" height="7"/>
+<text class="muted small" x="398.4" y="256">added vertex</text>
+<path class="cross" d="M500.80000000000007,251L510.80000000000007,261M500.80000000000007,261L510.80000000000007,251"/>
+<text class="muted small" x="516.8" y="256">crossing</text>
+</svg>

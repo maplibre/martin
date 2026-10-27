@@ -1,0 +1,13 @@
+config:
+  auto_publish:
+    from_schemas: public
+    tables: { from_schemas: osm }
+    functions: true
+catalog:
+  tables:
+    - { schema: public, table: roads, geometry_column: geom, srid: 3857 }
+    - { schema: osm, table: water, geometry_column: geom, srid: 3857 }
+    - { schema: other, table: parks, geometry_column: geom, srid: 3857 }
+  functions:
+    - { schema: public, name: tiles }
+    - { schema: osm, name: osm_tiles }

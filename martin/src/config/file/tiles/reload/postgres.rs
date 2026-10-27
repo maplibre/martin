@@ -36,7 +36,7 @@ impl PostgresReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: PostgresConfig,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
@@ -56,13 +56,7 @@ impl PostgresReloader {
         };
 
         let default_cache = config.cache.or(default_cache);
-        let discovery = PostgresDiscovery::new(
-            config,
-            id_resolver,
-            default_cache,
-            process,
-            tile_grids.clone(),
-        );
+        let discovery = PostgresDiscovery::new(config, id_resolver, default_cache, process, tile_grids.clone());
         Self {
             driver: ReloadDriver::new(discovery, tsm),
         }
@@ -108,11 +102,7 @@ impl PostgresReloader {
     }
 }
 
-async fn on_slow<T, S: FnOnce()>(
-    future: impl Future<Output = T>,
-    duration: Duration,
-    on_slow: S,
-) -> T {
+async fn on_slow<T, S: FnOnce()>(future: impl Future<Output = T>, duration: Duration, on_slow: S) -> T {
     pin_mut!(future);
     if let Ok(result) = timeout(duration, &mut future).await {
         result
@@ -147,7 +137,7 @@ mod tests {
             tsm,
             IdResolver::new(&[]),
             config,
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             &TileGrids::default(),
         )
@@ -156,7 +146,7 @@ mod tests {
     #[rstest]
     #[case::fast(Duration::from_millis(0), false)]
     #[case::slow(Duration::from_millis(50), true)]
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn on_slow_fires_only_when_the_future_outlives_the_deadline(
         #[case] takes: Duration,
         #[case] should_warn: bool,
@@ -179,10 +169,7 @@ mod tests {
     #[case::zero_disables(Duration::ZERO, false)]
     #[case::nonzero_spawns(Duration::from_mins(10), true)]
     #[tokio::test]
-    async fn start_respects_reload_interval(
-        #[case] interval: Duration,
-        #[case] should_spawn: bool,
-    ) {
+    async fn start_respects_reload_interval(#[case] interval: Duration, #[case] should_spawn: bool) {
         let handle = reloader_with_interval(interval).start();
         assert_eq!(
             handle.is_some(),
@@ -213,9 +200,7 @@ mod e2e {
     use crate::config::file::tiles::driver::{Baseline, ReloadDriver, Trigger};
     use crate::config::file::{CachePolicy, OnInvalid, TileGrids};
     use crate::config::primitives::IdResolver;
-    use crate::test_support::pg::{
-        connection_string, seed, start_postgres_15_with_postgis_3_5_container,
-    };
+    use crate::test_support::pg::{connection_string, seed, start_postgres_15_with_postgis_3_5_container};
 
     /// A [`Trigger`] the test drives in lockstep. Each `next()` first acks that the previous cycle
     /// has finished, then blocks for the test's go-ahead.
@@ -257,18 +242,12 @@ mod e2e {
 
         /// Blocks until the driver finishes its current cycle.
         async fn await_cycle(&mut self) {
-            self.acks
-                .recv()
-                .await
-                .expect("driver task ended unexpectedly");
+            self.acks.recv().await.expect("driver task ended unexpectedly");
         }
 
         /// Requests exactly one reconcile.
         async fn trigger_reconcile(&self) {
-            self.ticks
-                .send(())
-                .await
-                .expect("driver task ended unexpectedly");
+            self.ticks.send(()).await.expect("driver task ended unexpectedly");
         }
     }
 
@@ -282,10 +261,7 @@ mod e2e {
 
     /// The fields the published source advertises (its table's non-geometry columns).
     fn advertised_fields(tsm: &TileSourceManager) -> BTreeMap<String, String> {
-        let (source, _process) = tsm
-            .tile_sources()
-            .get_source("reload_e2e")
-            .expect("source present");
+        let (source, _process) = tsm.tile_sources().get_source("reload_e2e").expect("source present");
         source
             .get_tilejson()
             .vector_layers
@@ -355,21 +331,14 @@ mod e2e {
         .await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(
-            published(&tsm, "reload_e2e"),
-            "CREATE TABLE must publish the source"
-        );
+        assert!(published(&tsm, "reload_e2e"), "CREATE TABLE must publish the source");
         assert!(
             !advertised_fields(&tsm).contains_key("label"),
             "the not-yet-added column must not be advertised"
         );
 
         // ALTER ADD COLUMN -> update (the published source's advertised fields gain the column).
-        seed(
-            &connstr,
-            "ALTER TABLE public.reload_e2e ADD COLUMN label text;",
-        )
-        .await;
+        seed(&connstr, "ALTER TABLE public.reload_e2e ADD COLUMN label text;").await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
         assert!(
@@ -381,10 +350,7 @@ mod e2e {
         seed(&connstr, "DROP TABLE public.reload_e2e;").await;
         rdv.trigger_reconcile().await;
         rdv.await_cycle().await;
-        assert!(
-            !published(&tsm, "reload_e2e"),
-            "DROP TABLE must remove the source"
-        );
+        assert!(!published(&tsm, "reload_e2e"), "DROP TABLE must remove the source");
 
         // Dropping the rendezvous closes the tick channel, ending the driver loop.
         drop(rdv);

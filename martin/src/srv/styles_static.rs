@@ -9,6 +9,7 @@
 )]
 
 use std::future::Future;
+use std::num::NonZeroU8;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -21,7 +22,7 @@ use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
 #[cfg(target_os = "linux")]
 use martin_core::styles::RenderParams;
-use martin_core::styles::StyleSources;
+use martin_core::styles::{PixelRatios, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
 #[cfg(target_os = "linux")]
@@ -79,21 +80,9 @@ impl FromStr for CameraRequest {
         // splitting on `,` would confuse the two groups.
         if let Some((before_at, after_at)) = s.split_once('@') {
             let mut parts = before_at.splitn(3, ',');
-            let lon: f64 = parts
-                .next()
-                .ok_or("missing lon")?
-                .parse()
-                .map_err(|_err| "lon")?;
-            let lat: f64 = parts
-                .next()
-                .ok_or("missing lat")?
-                .parse()
-                .map_err(|_err| "lat")?;
-            let zoom: f64 = parts
-                .next()
-                .ok_or("missing zoom")?
-                .parse()
-                .map_err(|_err| "zoom")?;
+            let lon: f64 = parts.next().ok_or("missing lon")?.parse().map_err(|_err| "lon")?;
+            let lat: f64 = parts.next().ok_or("missing lat")?.parse().map_err(|_err| "lat")?;
+            let zoom: f64 = parts.next().ok_or("missing zoom")?.parse().map_err(|_err| "zoom")?;
             let (bearing, pitch) = if let Some((b, p)) = after_at.split_once(',') {
                 (
                     b.parse::<f64>().map_err(|_err| "bearing")?,
@@ -165,15 +154,15 @@ impl CameraRequest {
 struct SizeRequest {
     width: u32,
     height: u32,
-    scale: f32,
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = u8))]
+    scale: NonZeroU8,
 }
 
 const MAX_WIDTH: u32 = 2048;
 const MAX_HEIGHT: u32 = 2048;
-const MAX_SCALE: u8 = 4;
 
 impl SizeRequest {
-    fn validate(self) -> Result<Self, Box<HttpResponse>> {
+    fn validate(self, pixel_ratios: PixelRatios) -> Result<Self, Box<HttpResponse>> {
         if self.width == 0 || self.height == 0 {
             return Err(Box::new(
                 HttpResponse::BadRequest()
@@ -190,20 +179,11 @@ impl SizeRequest {
                     )),
             ));
         }
-        if !self.scale.is_finite() || self.scale <= 0.0 {
+        if let Err(err) = pixel_ratios.check(self.scale) {
             return Err(Box::new(
                 HttpResponse::BadRequest()
                     .content_type(ContentType::plaintext())
-                    .body("Scale factor must be a positive finite number"),
-            ));
-        }
-        if self.scale > f32::from(MAX_SCALE) {
-            return Err(Box::new(
-                HttpResponse::BadRequest()
-                    .content_type(ContentType::plaintext())
-                    .body(format!(
-                        "Scale factor exceeds maximum allowed ({MAX_SCALE})"
-                    )),
+                    .body(err.to_string()),
             ));
         }
         Ok(self)
@@ -216,19 +196,15 @@ impl FromStr for SizeRequest {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (dims, scale) = if let Some((dims, scale_str)) = s.split_once('@') {
             let scale_str = scale_str.strip_suffix('x').unwrap_or(scale_str);
-            let scale: f32 = scale_str.parse().map_err(|_err| "scale")?;
+            let scale = scale_str.parse().map_err(|_err| "scale")?;
             (dims, scale)
         } else {
-            (s, 1.0)
+            (s, NonZeroU8::MIN)
         };
         let (w_str, h_str) = dims.split_once('x').ok_or("expected WIDTHxHEIGHT")?;
         let width: u32 = w_str.parse().map_err(|_err| "width")?;
         let height: u32 = h_str.parse().map_err(|_err| "height")?;
-        Ok(Self {
-            width,
-            height,
-            scale,
-        })
+        Ok(Self { width, height, scale })
     }
 }
 
@@ -252,7 +228,7 @@ impl<'de> Deserialize<'de> for SizeRequest {
                 ("image/jpeg"),
                 ("image/webp"),
             )),
-            (status = 400, description = "Invalid params or size"),
+            (status = 400, description = "Invalid params or size, or a pixel ratio not listed in `pixel_ratios`"),
             (status = 403, description = "Rendering is disabled"),
             (status = 404, description = "No matching style"),
             (status = 500, description = "Renderer or encoder failure"),
@@ -261,10 +237,7 @@ impl<'de> Deserialize<'de> for SizeRequest {
 )]
 #[route("/style/{style_id}/static/{camera}/{size}.{format}", method = "GET")]
 #[hotpath::measure]
-pub async fn get_rendered_static_style(
-    path: Path<StaticImagePath>,
-    styles: Data<StyleSources>,
-) -> HttpResponse {
+pub async fn get_rendered_static_style(path: Path<StaticImagePath>, styles: Data<StyleSources>) -> HttpResponse {
     handle_static_request(&path, &styles, empty_overlay()).await
 }
 
@@ -284,11 +257,7 @@ struct StaticJpgRedirectPath {
 )]
 pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
-    let StaticJpgRedirectPath {
-        style_id,
-        camera,
-        size,
-    } = path.as_ref();
+    let StaticJpgRedirectPath { style_id, camera, size } = path.as_ref();
     WARNING
         .once_per_hour(|| {
             warn!(
@@ -300,10 +269,7 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         })
         .await;
     HttpResponse::MovedPermanently()
-        .insert_header((
-            LOCATION,
-            format!("/style/{style_id}/static/{camera}/{size}.jpg"),
-        ))
+        .insert_header((LOCATION, format!("/style/{style_id}/static/{camera}/{size}.jpg")))
         .finish()
 }
 
@@ -399,7 +365,7 @@ async fn handle_static_request(
             .body("No such style exists");
     };
 
-    let size = match path.size.validate() {
+    let size = match path.size.validate(styles.pixel_ratios()) {
         Ok(size) => size,
         Err(resp) => return *resp,
     };
@@ -423,7 +389,7 @@ async fn handle_static_request(
 
     #[cfg(target_os = "linux")]
     let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
-        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors()).await,
+        Ok(image) => encode_image_response(image, path.format, styles.png_max_colors(), styles.image_quality()).await,
         Err(resp) => *resp,
     };
     #[cfg(not(target_os = "linux"))]
@@ -459,8 +425,7 @@ fn resolve_camera(camera: CameraRequest, size: SizeRequest) -> Camera {
             max_lon,
             max_lat,
         } => {
-            let (clon, clat, z) =
-                bbox_to_center_zoom(min_lon, min_lat, max_lon, max_lat, size.width, size.height);
+            let (clon, clat, z) = bbox_to_center_zoom(min_lon, min_lat, max_lon, max_lat, size.width, size.height);
             Camera {
                 center_lon: clon,
                 center_lat: clat,
@@ -521,15 +486,10 @@ async fn render_with_overlays(
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    let params = RenderParams::new(
-        style_path,
-        camera.center_lat,
-        camera.center_lon,
-        camera.zoom,
-    )
-    .with_size(size.width, size.height, size.scale)
-    .with_orientation(camera.bearing, camera.pitch)
-    .with_overlays(overlays);
+    let params = RenderParams::new(style_path, camera.center_lat, camera.center_lon, camera.zoom)
+        .with_size(size.width, size.height, size.scale)
+        .with_orientation(camera.bearing, camera.pitch)
+        .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| {
         Box::new(match e {
             StyleError::RenderingIsDisabled => rendering_disabled(),
@@ -561,16 +521,13 @@ mod tests {
     use actix_web::http::StatusCode;
     use actix_web::test::{TestRequest, call_service, init_service};
     use actix_web::{App, web};
-    use martin_core::styles::StyleSources;
+    use martin_core::styles::{PixelRatios, StyleSources};
     use rstest::rstest;
 
     use super::*;
 
     fn one_style() -> (StyleSources, tempfile::NamedTempFile) {
-        let file = tempfile::Builder::new()
-            .suffix(".json")
-            .tempfile()
-            .expect("tempfile");
+        let file = tempfile::Builder::new().suffix(".json").tempfile().expect("tempfile");
         std::fs::write(file.path(), b"{}").expect("write style");
         let styles = StyleSources::default();
         styles.add_style("s".to_owned(), file.path().to_path_buf());
@@ -605,10 +562,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn unknown_style_returns_404() {
-        let resp = call!(
-            get("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(get("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }
@@ -624,10 +578,7 @@ mod tests {
     #[actix_rt::test]
     async fn valid_camera_reach_renderer(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::FORBIDDEN, "params={params:?}");
     }
 
@@ -644,10 +595,7 @@ mod tests {
     #[actix_rt::test]
     async fn invalid_camera_returns_404(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/100x100.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/100x100.png")), styles);
         assert_eq!(resp.status(), StatusCode::NOT_FOUND, "params={params:?}");
     }
 
@@ -656,8 +604,8 @@ mod tests {
     #[case::jpeg_2x("800x600@2x.jpeg")]
     #[case::jpg("256x256.jpg")]
     #[case::webp("400x300.webp")]
-    #[case::scale_no_x_suffix("512x512@3.png")]
-    #[case::fractional_scale("100x100@1.5x.png")]
+    #[case::scale_no_x_suffix("512x512@2.png")]
+    #[case::one_x("100x100@1x.png")]
     #[actix_rt::test]
     async fn valid_size_fmt_reaches_renderer(#[case] size: &str) {
         let (styles, _f) = one_style();
@@ -671,6 +619,12 @@ mod tests {
     #[case::non_numeric_dim("axb.png")]
     #[case::empty_scale("800x600@.png")]
     #[case::non_numeric_scale("800x600@xyz.png")]
+    #[case::fractional_scale("100x100@1.5x.png")]
+    #[case::zero_scale("100x100@0x.png")]
+    #[case::negative_scale("100x100@-2x.png")]
+    #[case::nan_scale("100x100@nanx.png")]
+    #[case::inf_scale("100x100@infx.png")]
+    #[case::scale_past_u8("100x100@256x.png")]
     #[actix_rt::test]
     async fn invalid_size_fmt_returns_404(#[case] size: &str) {
         let (styles, _f) = one_style();
@@ -683,18 +637,10 @@ mod tests {
     #[case::zero_height("100x0.png", "Image dimensions must be greater than zero")]
     #[case::oversize_width("9999x100.png", "Image dimensions exceed maximum")]
     #[case::oversize_height("100x9999.png", "Image dimensions exceed maximum")]
-    #[case::oversize_scale("100x100@9x.png", "Scale factor exceeds maximum")]
-    #[case::just_over_max_scale("100x100@4.4x.png", "Scale factor exceeds maximum")]
-    #[case::zero_scale("100x100@0x.png", "Scale factor must be a positive finite number")]
-    #[case::negative_scale("100x100@-2x.png", "Scale factor must be a positive finite number")]
-    #[case::nan_scale("100x100@nanx.png", "Scale factor must be a positive finite number")]
-    #[case::pos_inf_scale("100x100@infx.png", "Scale factor must be a positive finite number")]
-    #[case::neg_inf_scale("100x100@-infx.png", "Scale factor must be a positive finite number")]
+    #[case::unserved_scale("100x100@3x.png", "Pixel ratio @3x is not served, only @1x, @2x")]
+    #[case::oversize_scale("100x100@9x.png", "Pixel ratio @9x is not served, only @1x, @2x")]
     #[actix_rt::test]
-    async fn dimension_violations_return_400_with_specific_message(
-        #[case] size: &str,
-        #[case] expected_prefix: &str,
-    ) {
+    async fn dimension_violations_return_400_with_specific_message(#[case] size: &str, #[case] expected_prefix: &str) {
         let (styles, _f) = one_style();
         let resp = call!(get(&format!("/style/s/static/0,0,1/{size}")), styles);
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "size={size:?}");
@@ -706,15 +652,25 @@ mod tests {
     }
 
     #[rstest]
+    #[case::get_served(get("/style/s/static/0,0,1/100x100@3x.png"), StatusCode::FORBIDDEN)]
+    #[case::get_unserved(get("/style/s/static/0,0,1/100x100@2x.png"), StatusCode::BAD_REQUEST)]
+    #[case::get_unsuffixed_unserved(get("/style/s/static/0,0,1/100x100.png"), StatusCode::BAD_REQUEST)]
+    #[case::post_unserved(post("/style/s/static/0,0,1/100x100@2x.png"), StatusCode::BAD_REQUEST)]
+    #[actix_rt::test]
+    async fn only_configured_pixel_ratios_reach_renderer(#[case] req: TestRequest, #[case] status: StatusCode) {
+        let (mut styles, _f) = one_style();
+        styles.set_pixel_ratios(PixelRatios::try_from(vec![3]).expect("valid"));
+        let resp = call!(req, styles);
+        assert_eq!(resp.status(), status);
+    }
+
+    #[rstest]
     #[case::inverted_lon("10,0,-10,5")]
     #[case::inverted_lat("0,5,1,-5")]
     #[actix_rt::test]
     async fn inverted_bbox_returns_400(#[case] params: &str) {
         let (styles, _f) = one_style();
-        let resp = call!(
-            get(&format!("/style/s/static/{params}/200x200.png")),
-            styles
-        );
+        let resp = call!(get(&format!("/style/s/static/{params}/200x200.png")), styles);
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "params={params:?}");
         let body = body_text(resp).await;
         assert!(
@@ -725,10 +681,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn post_unknown_style_returns_404() {
-        let resp = call!(
-            post("/style/missing/static/0,0,1/100x100.png"),
-            StyleSources::default()
-        );
+        let resp = call!(post("/style/missing/static/0,0,1/100x100.png"), StyleSources::default());
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_text(resp).await, "No such style exists");
     }
@@ -762,10 +715,6 @@ mod tests {
             styles
         );
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-        assert!(
-            body_text(resp)
-                .await
-                .starts_with("Invalid JSON overlay body")
-        );
+        assert!(body_text(resp).await.starts_with("Invalid JSON overlay body"));
     }
 }

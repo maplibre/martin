@@ -63,12 +63,8 @@ pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
     encode: impl Fn(&mut S, I) -> TileGenResult<O> + Sync,
     write: impl FnOnce(&mut dyn Iterator<Item = TileGenResult<O>>) -> TileGenResult<W> + Send,
 ) -> TileGenResult<(W, Vec<S>)> {
-    let (work_tx, work_rx) =
-        hotpath::channel!(flume::unbounded::<Work<I, O>>(), label = { "encode_work" });
-    let (order_tx, order_rx) = hotpath::channel!(
-        flume::bounded::<Pending<O>>(window),
-        label = { "encode_order" }
-    );
+    let (work_tx, work_rx) = hotpath::channel!(flume::unbounded::<Work<I, O>>(), label = { "encode_work" });
+    let (order_tx, order_rx) = hotpath::channel!(flume::bounded::<Pending<O>>(window), label = { "encode_order" });
     thread::scope(|scope| {
         let encoders: Vec<_> = (0..threads.max(1))
             .map(|i| {
@@ -84,9 +80,11 @@ pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
             .collect();
         drop(work_rx);
         let writer = spawn_named(scope, "writer", 0, move || {
-            write(&mut order_rx.into_iter().map_while(|pending| {
-                hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok())
-            }))
+            write(
+                &mut order_rx
+                    .into_iter()
+                    .map_while(|pending| hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok())),
+            )
         });
 
         let sender = BatchSender {
@@ -99,15 +97,10 @@ pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
             sender.fail(err);
         }
         drop(sender);
-        let written = writer
-            .join()
-            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
+        let written = writer.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))?;
         let states = encoders
             .into_iter()
-            .map(|e| {
-                e.join()
-                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-            })
+            .map(|e| e.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)))
             .collect();
         Ok((written, states))
     })

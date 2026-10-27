@@ -16,9 +16,8 @@ use crate::config::file::ContourProcessConfig;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::HillshadeProcessConfig;
 use crate::config::file::{
-    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError,
-    ConfigurationLivecycleHooks, ResolutionResult, SourceBuildResult, TileSourceWarning,
-    UnrecognizedValues,
+    CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigurationLivecycleHooks,
+    ResolutionResult, SourceBuildResult, TileSourceWarning, UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -100,8 +99,7 @@ impl PassthroughConfig {
     /// Returns `true` if no sources and no custom settings are configured.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        let empty = self.sources.as_ref().is_none_or(BTreeMap::is_empty)
-            && self.get_unrecognized_keys().is_empty();
+        let empty = self.sources.as_ref().is_none_or(BTreeMap::is_empty) && self.get_unrecognized_keys().is_empty();
         #[cfg(feature = "_tiles")]
         let empty = empty && self.convert_to_mlt.is_none() && self.convert_to_mvt.is_none();
         empty
@@ -112,12 +110,8 @@ impl PassthroughConfig {
     ///
     /// The `sources` map is rewritten so its keys become the [`IdResolver`]-assigned source ids,
     /// matching what [`resolved_process_map`](crate::config::file::Config) later keys on.
-    pub async fn resolve(
-        &mut self,
-        idr: &IdResolver,
-        default_cache: CachePolicy,
-    ) -> ResolutionResult {
-        let default_cache = self.cache.or(default_cache);
+    pub async fn resolve(&mut self, idr: &IdResolver, default_cache: CachePolicy) -> ResolutionResult {
+        let default_cache = self.cache.or(&default_cache);
         let mut results = Vec::new();
         let mut warnings = Vec::new();
 
@@ -127,7 +121,7 @@ impl PassthroughConfig {
                 let cfg = src.to_config();
                 let dedup_key = cfg.url.first().cloned().unwrap_or_else(|| id.clone());
                 let id = idr.resolve(&id, dedup_key);
-                match cfg.build(id.clone(), default_cache).await {
+                match cfg.build(id.clone(), default_cache.clone()).await {
                     Ok(source) => {
                         info!(source.id = %id, "Configured passthrough source");
                         results.push(source);
@@ -155,13 +149,7 @@ impl ConfigurationLivecycleHooks for PassthroughConfig {}
 #[serde(untagged)]
 pub enum PassthroughSrc {
     /// Shorthand: an upstream URL template, a `TileJSON` URL, or a list of URL templates.
-    Shorthand(
-        #[cfg_attr(
-            feature = "unstable-schemas",
-            schemars(with = "one_or_many::OneOrMany<String>")
-        )]
-        Vec<String>,
-    ),
+    Shorthand(#[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))] Vec<String>),
     /// A configuration object with headers, timeout, format, and metadata.
     /// Boxed because it is much larger than the shorthand variant.
     Detailed(Box<PassthroughSourceConfig>),
@@ -225,10 +213,7 @@ impl<'de> Deserialize<'de> for PassthroughSrc {
 pub struct PassthroughSourceConfig {
     /// Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL.
     #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<String>")
-    )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub url: Vec<String>,
 
     /// HTTP headers sent with every upstream request (e.g. `Authorization`).
@@ -334,18 +319,14 @@ impl Default for PassthroughSourceConfig {
 impl PassthroughSourceConfig {
     /// Build the upstream into a live [`BoxedSource`], fetching the upstream `TileJSON` once for a
     /// document upstream.
-    async fn build(
-        &self,
-        id: String,
-        default_cache: CachePolicy,
-    ) -> SourceBuildResult<BoxedSource> {
+    async fn build(&self, id: String, default_cache: CachePolicy) -> SourceBuildResult<BoxedSource> {
         let format = match self.format.as_deref() {
-            Some(value) => Some(Format::parse(value).ok_or_else(|| {
-                ConfigFileError::InvalidPassthroughFormat {
+            Some(value) => Some(
+                Format::parse(value).ok_or_else(|| ConfigFileError::InvalidPassthroughFormat {
                     source_id: id.clone(),
                     tile_format: value.to_owned(),
-                }
-            })?),
+                })?,
+            ),
             None => None,
         };
         let meta = TemplateMeta {
@@ -355,11 +336,9 @@ impl PassthroughSourceConfig {
             attribution: self.attribution.clone(),
         };
         let upstream = Upstream::from_config(&id, &self.url, format, meta)?;
-        let transport = Transport::from_string_headers(
-            self.timeout,
-            self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
-        )?;
-        let cache = self.cache.or(default_cache);
+        let transport =
+            Transport::from_string_headers(self.timeout, self.headers.iter().map(|(k, v)| (k.as_str(), v.as_str())))?;
+        let cache = self.cache.or(&default_cache);
         let source = PassthroughSource::new(id, upstream, transport, cache.zoom()).await?;
         Ok(BackendSource::Passthrough(source).boxed())
     }
@@ -384,9 +363,7 @@ mod tests {
         let src = &cfg.sources.as_ref().unwrap()["osm"];
         assert_eq!(
             src,
-            &PassthroughSrc::Shorthand(vec![
-                "https://tiles.example.com/{z}/{x}/{y}.pbf".to_owned()
-            ])
+            &PassthroughSrc::Shorthand(vec!["https://tiles.example.com/{z}/{x}/{y}.pbf".to_owned()])
         );
     }
 
@@ -423,10 +400,7 @@ mod tests {
         let PassthroughSrc::Detailed(obj) = src else {
             panic!("expected a detailed object, got {src:?}");
         };
-        assert_eq!(
-            obj.url,
-            vec!["https://api.example.com/v1/{z}/{x}/{y}.mvt".to_owned()]
-        );
+        assert_eq!(obj.url, vec!["https://api.example.com/v1/{z}/{x}/{y}.mvt".to_owned()]);
         assert_eq!(obj.headers["Authorization"], "Bearer token");
         assert_eq!(obj.timeout, Duration::from_secs(45));
         assert_eq!(obj.format.as_deref(), Some("mvt"));
@@ -457,10 +431,7 @@ mod tests {
                 typoo: 1
         "});
         let keys = cfg.get_unrecognized_keys();
-        assert!(
-            keys.contains("sources.s.typoo"),
-            "expected sources.s.typoo in {keys:?}"
-        );
+        assert!(keys.contains("sources.s.typoo"), "expected sources.s.typoo in {keys:?}");
     }
 
     #[test]

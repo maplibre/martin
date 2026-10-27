@@ -1,11 +1,14 @@
 #[cfg(feature = "_tiles")]
 use std::collections::BTreeMap;
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
@@ -13,7 +16,7 @@ use tracing::{error, instrument, warn};
 use crate::config::file::SourceBuildResult;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileGridsConfig;
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "unstable-duckdb")]
 use crate::config::file::duckdb::DuckDbConfig;
@@ -37,13 +40,13 @@ use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::styles::StyleConfig;
 use crate::config::file::{
-    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, GlobalCacheConfig,
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, DeserializeFields as _, GlobalCacheConfig,
     UnrecognizedValues,
 };
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "processing",
     feature = "resources",
     feature = "resources",
@@ -180,7 +183,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
     pub passthrough: PassthroughConfig,
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[serde(
         default,
         deserialize_with = "path_or_config::deserialize",
@@ -229,9 +232,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>")
     )]
     pub sprites: SpriteConfig,
 
@@ -245,9 +246,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>")
     )]
     pub styles: StyleConfig,
 
@@ -260,9 +259,7 @@ pub struct Config {
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(
-            with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>"
-        )
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>")
     )]
     pub fonts: FontConfig,
 
@@ -293,6 +290,47 @@ pub struct Config {
     pub unrecognized: UnrecognizedValues,
 }
 
+/// Reads a [`Config`] with the server keys read straight into `srv`, so their errors keep their YAML location.
+pub(crate) struct ConfigVisitor;
+
+impl<'de> Visitor<'de> for ConfigVisitor {
+    type Value = Config;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("struct Config")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Config, M::Error> {
+        let mut srv = SrvConfig::default();
+        let mut config = Config::deserialize(MapAccessDeserializer::new(WithoutSrvKeys { map, srv: &mut srv }))?;
+        config.srv = srv;
+        Ok(config)
+    }
+}
+
+/// The live map with the server keys read into `srv` instead of being passed on.
+struct WithoutSrvKeys<'a, M> {
+    map: M,
+    srv: &'a mut SrvConfig,
+}
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for WithoutSrvKeys<'_, M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        while let Some(key) = self.map.next_key::<String>()? {
+            if !self.srv.deserialize_field(&key, &mut self.map)? {
+                return seed.deserialize(key.into_deserializer()).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        self.map.next_value_seed(seed)
+    }
+}
+
 /// Describes the action to take during startup when configuration is found to be invalid
 /// but Martin could still startup in a degraded state (ie, some sources not served).
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
@@ -300,12 +338,7 @@ pub struct Config {
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical
-    #[serde(
-        alias = "warnings",
-        alias = "warning",
-        alias = "continue",
-        alias = "ignore"
-    )]
+    #[serde(alias = "warnings", alias = "warning", alias = "continue", alias = "ignore")]
     Warn,
     /// Log warnings as errors, abort startup
     #[default]
@@ -359,14 +392,27 @@ pub fn parse_base_path(path: &str) -> ConfigFileResult<String> {
     Err(ConfigFileError::InvalidBasePath(path.to_owned()))
 }
 
+/// Installs the process-wide rustls crypto provider.
+///
+/// With the `fips` feature, this is the FIPS 140-3 validated AWS-LC module,
+/// and startup fails if the installed provider is not FIPS-compliant.
 pub fn init_aws_lc_tls() {
+    #[cfg(not(feature = "fips"))]
     use rustls::crypto::aws_lc_rs;
 
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
-        aws_lc_rs::default_provider()
-            .install_default()
-            .expect("Unable to init rustls");
+        #[cfg(feature = "fips")]
+        let provider = rustls::crypto::default_fips_provider();
+        #[cfg(not(feature = "fips"))]
+        let provider = aws_lc_rs::default_provider();
+
+        provider.install_default().expect("Unable to init rustls");
+
+        #[cfg(feature = "fips")]
+        rustls::crypto::CryptoProvider::get_default()
+            .filter(|p| p.fips())
+            .expect("rustls crypto provider is not in FIPS mode");
     });
     *INIT_TLS;
 }
@@ -385,9 +431,8 @@ mod tests {
         // For errors that don't carry source location info, JSON mode still emits a JSON
         // document so downstream tools can keep parsing rather than choking on a free-form
         // log line.
-        let envelope =
-            crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
-                .render_diagnostic_with(LogFormat::Json);
+        let envelope = crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
+            .render_diagnostic_with(LogFormat::Json);
         let parsed: serde_json::Value =
             serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
         let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
@@ -450,7 +495,7 @@ mod tests {
         // Per-source disable is not overridden by global defaults
         let disabled = CachePolicy::disabled();
         let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
-        let merged = disabled.or(defaults);
+        let merged = disabled.or(&defaults);
         for zoom in 0..=u8::MAX {
             assert!(!merged.zoom().contains(zoom));
         }
@@ -461,7 +506,7 @@ mod tests {
         // Per-source config re-enables caching despite global disable
         let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
         let global_disabled = CachePolicy::disabled();
-        let merged = source.or(global_disabled);
+        let merged = source.or(&global_disabled);
         assert!(merged.zoom().contains(0));
         assert!(merged.zoom().contains(5));
         assert!(merged.zoom().contains(10));

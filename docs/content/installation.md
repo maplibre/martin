@@ -11,7 +11,9 @@ tags:
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.5+ on PostgreSQL v12+.
 
 On x86_64, the prebuilt binaries and Docker images require a CPU with the x86-64-v3 feature level (AVX2, BMI2, FMA. Meaning Intel Haswell / AMD Excavator, 2013-2015 or newer).
-Older CPUs can use the static `x86_64-unknown-linux-musl-legacycpu` tarball or the `:latest-legacycpu` / `:<version>-legacycpu` Docker image (`linux/amd64` only, no rendering), or [build Martin from source](development/index.md).
+Older CPUs can use the static `x86_64-unknown-linux-musl-legacycpu` tarball or the `:latest-legacycpu` / `:<version>-legacycpu` Docker image (`linux/amd64` only, no rendering), the `x86_64-unknown-freebsd-legacycpu` tarball on FreeBSD, or [build Martin from source](development/index.md).
+
+The FreeBSD binaries need FreeBSD 14.0 or newer.
 
 ### Docker
 
@@ -26,7 +28,7 @@ export DATABASE_URL=postgres://user:password@host:port/db  # secret!
 docker run -p 3000:3000 \
            -e DATABASE_URL \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:2.0.0-beta.3 \
+           ghcr.io/maplibre/martin:2.0.0-beta.4 \
            --config /config/config.yaml
 ```
 
@@ -44,6 +46,7 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 | Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
 | macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]                                                                                              |
 | Windows  | [.zip][rl-win64-zip]                                                                                                                         |                                                                                                                      |
+| FreeBSD  | [.tar.gz][rl-freebsd-x64]                                                                                                                    | [.tar.gz][rl-freebsd-a64]                                                                                            |
 
 !!! note
     The standard binaries do **not** include server-side style [rendering](sources-styles/rendering.md).
@@ -67,6 +70,10 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 [rl-macos-a64]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz
 
 [rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip
+
+[rl-freebsd-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-freebsd.tar.gz
+
+[rl-freebsd-a64]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-freebsd.tar.gz
 
 Rust users can install pre-built martin binary
 with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) and `cargo`.
@@ -136,8 +143,7 @@ To experiment with them, build Martin from source with the feature enabled:
 cargo install martin --locked --features=unstable-duckdb
 ```
 
-The currently available unstable features are `unstable-cog` for [COG sources](sources-cog-files.md)
-and `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
+The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
 
 Server-side style [rendering](sources-styles/rendering.md) is also left out of the default feature set.
 To include it (Linux only), add the `rendering` feature.
@@ -145,6 +151,14 @@ You will need its build dependencies first (`just install-dependencies`).
 
 ```bash
 cargo install martin --locked --features rendering
+```
+
+For FIPS 140-3 compliant TLS, add the `fips` feature.
+It makes rustls use the FIPS-validated AWS-LC module (`aws-lc-fips-sys`), which needs CMake and Go to build,
+and Martin refuses to start if that provider is not in FIPS mode.
+
+```bash
+cargo install martin --locked --features fips
 ```
 
 #### Platform-Specific Build Notes

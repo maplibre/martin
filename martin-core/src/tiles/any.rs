@@ -7,7 +7,7 @@ use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 use crate::tiles::cog::CogSource;
 use crate::tiles::declared_grid::DeclaredGridSource;
 #[cfg(feature = "unstable-duckdb")]
@@ -58,7 +58,7 @@ pub enum BackendSource {
     #[cfg(feature = "processing")]
     GeoJson(GeoJsonSource),
     /// A cloud-optimized `GeoTIFF`.
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     Cog(CogSource),
     /// A `DuckDB` query.
     #[cfg(feature = "unstable-duckdb")]
@@ -82,7 +82,7 @@ macro_rules! dispatch_backend {
             BackendSource::Passthrough(ref $s) => $body,
             #[cfg(feature = "processing")]
             BackendSource::GeoJson(ref $s) => $body,
-            #[cfg(feature = "unstable-cog")]
+            #[cfg(feature = "cog")]
             BackendSource::Cog(ref $s) => $body,
             #[cfg(feature = "unstable-duckdb")]
             BackendSource::DuckDb(ref $s) => $body,
@@ -121,7 +121,7 @@ impl_from_backend! {
     #[cfg(feature = "postgres")] Postgres(PostgresSource),
     #[cfg(feature = "passthrough")] Passthrough(PassthroughSource),
     #[cfg(feature = "processing")] GeoJson(GeoJsonSource),
-    #[cfg(feature = "unstable-cog")] Cog(CogSource),
+    #[cfg(feature = "cog")] Cog(CogSource),
     #[cfg(feature = "unstable-duckdb")] DuckDb(DuckDBSource),
     #[cfg(feature = "_testing")] Test(TestSource),
 }
@@ -133,7 +133,7 @@ impl_from_backend! {
         feature = "postgres",
         feature = "passthrough",
         feature = "processing",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb",
         feature = "_testing",
     )),
@@ -212,7 +212,7 @@ impl BackendSource {
             feature = "mbtiles",
             feature = "passthrough",
             feature = "processing",
-            feature = "unstable-cog",
+            feature = "cog",
             feature = "unstable-duckdb",
             feature = "_testing",
         )),
@@ -222,30 +222,17 @@ impl BackendSource {
         )
     )]
     pub fn as_postgres(&self) -> Option<&PostgresSource> {
-        if let Self::Postgres(s) = self {
-            Some(s)
-        } else {
-            None
-        }
+        if let Self::Postgres(s) = self { Some(s) } else { None }
     }
 
     /// Retrieves tile data for the given coordinates.
-    pub async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    pub async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         dispatch_backend!(self, |s| Box::pin(s.get_tile(xyz, url_query)).await)
     }
 
     /// Retrieves tile with etag for the given coordinates.
-    pub async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
-        dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query))
-            .await)
+    pub async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
+        dispatch_backend!(self, |s| Box::pin(s.get_tile_with_etag(xyz, url_query)).await)
     }
 
     /// Attempts to create a fresh instance of this source.
@@ -316,9 +303,7 @@ impl AnySource {
     #[cfg(feature = "postgres")]
     #[must_use]
     pub fn cancel_registry(&self) -> Option<ActiveQueryRegistry> {
-        self.backend()
-            .as_postgres()
-            .map(PostgresSource::active_query_registry)
+        self.backend().as_postgres().map(PostgresSource::active_query_registry)
     }
 
     /// Zoom-level bounds for tile caching.
@@ -340,11 +325,7 @@ impl AnySource {
     }
 
     /// Retrieves tile data for the given coordinates.
-    pub async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    pub async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         self.backend().get_tile(xyz, url_query).await
     }
 
@@ -360,21 +341,28 @@ impl AnySource {
         keep_measures: bool,
     ) -> MartinCoreResult<Option<PostgresTileFeatures>> {
         match self.backend().as_postgres() {
-            Some(source) => {
-                source
-                    .get_tile_features(xyz, url_query, keep_measures)
-                    .await
-            }
+            Some(source) => source.get_tile_features(xyz, url_query, keep_measures).await,
             None => Ok(None),
         }
     }
 
+    /// Every tile of the block a cache miss of `xyz` renders, `xyz` among them, for the caller to cache.
+    ///
+    /// `None` means this source renders one tile at a time, and the caller has to fall back to
+    /// [`get_tile_with_etag`](Self::get_tile_with_etag).
+    #[cfg(feature = "unstable-generate")]
+    pub async fn get_tile_block(&self, xyz: TileCoord) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
+        match self {
+            Self::Backend(backend) => match backend.as_postgres() {
+                Some(source) => source.get_tile_block(xyz).await,
+                None => Ok(None),
+            },
+            Self::DeclaredGrid(_) => Ok(None),
+        }
+    }
+
     /// Retrieves tile with etag for the given coordinates.
-    pub async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
+    pub async fn get_tile_with_etag(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
         self.backend().get_tile_with_etag(xyz, url_query).await
     }
 

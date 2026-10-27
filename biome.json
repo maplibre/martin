@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "assist": {
     "actions": {
       "source": {
@@ -31,8 +31,10 @@
       "performance": {
         "noJsxPropsBind": "off"
       },
-      "recommended": true
+      "preset": "recommended"
     }
   },
-  "vcs": { "clientKind": "git", "enabled": true, "useIgnoreFile": true }
+  "markdown": { "formatter": { "enabled": false } },
+  "vcs": { "clientKind": "git", "enabled": true, "useIgnoreFile": true },
+  "yaml": { "formatter": { "enabled": false } }
 }

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::file::{
-    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    ConfigurationLivecycleHooks, FileConfig, UnrecognizedValues, subdirectories,
+    CacheSizeConfig, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    FileConfig, UnrecognizedValues, subdirectories,
 };
 
 pub type SpriteConfig = FileConfig<InnerSpriteConfig>;
@@ -31,8 +31,8 @@ impl SpriteConfig {
         });
 
         for collection in &self.collections {
-            for (name, path) in subdirectories(collection)
-                .map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
+            for (name, path) in
+                subdirectories(collection).map_err(|e| ConfigFileError::IoError(e, collection.clone()))?
             {
                 results.add_source(name, path);
             }
@@ -50,15 +50,7 @@ impl SpriteConfig {
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerSpriteConfig {

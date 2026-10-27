@@ -23,9 +23,7 @@ pub enum FontError {
     },
 
     /// A font alias name is empty or contains a comma.
-    #[error(
-        "Font alias {0:?} is invalid: alias names must be non-empty and must not contain commas"
-    )]
+    #[error("Font alias {0:?} is invalid: alias names must be non-empty and must not contain commas")]
     InvalidAliasName(String),
 
     /// A font alias does not reference any fonts.
@@ -44,9 +42,7 @@ pub enum FontError {
     },
 
     /// A font alias references another alias instead of a font.
-    #[error(
-        "Font alias {alias:?} references {font:?}, which is itself an alias; aliases may only reference fonts"
-    )]
+    #[error("Font alias {alias:?} references {font:?}, which is itself an alias; aliases may only reference fonts")]
     AliasWithinAlias {
         /// Alias name.
         alias: String,
@@ -77,9 +73,7 @@ pub enum FontError {
     InvalidFontRangeStart(u32),
 
     /// The font range end is not aligned to a 256-character boundary.
-    #[error(
-        "Font range end ({0}) must be multiple of {CP_RANGE_SIZE} - 1 (e.g. 255, 511, 767, ...)"
-    )]
+    #[error("Font range end ({0}) must be multiple of {CP_RANGE_SIZE} - 1 (e.g. 255, 511, 767, ...)")]
     InvalidFontRangeEnd(u32),
 
     /// The font range span is not exactly 256 characters.

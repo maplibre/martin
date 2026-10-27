@@ -72,10 +72,10 @@ pub fn normalize_font_ids(ids: &str) -> String {
 }
 
 mod error;
-pub use error::FontError;
+pub use crate::resources::fonts::error::FontError;
 
 mod cache;
-pub use cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
+pub use crate::resources::fonts::cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
 
 /// Glyph information: (codepoints, count, ranges, first, last).
 type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);
@@ -120,23 +120,10 @@ pub type FontCatalog = BTreeMap<String, CatalogFontEntry>;
 /// The string serialization (serde and `strum`) is the lowercase file
 /// extension, so [`FontFormat::VARIANTS`] doubles as the list of recognised
 /// font extensions and [`str::parse`] maps an extension back to a variant.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    strum::EnumString,
-    strum::VariantNames,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::VariantNames)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub enum FontFormat {
     /// `OpenType` font (`.otf`)
     Otf,
@@ -149,10 +136,7 @@ pub enum FontFormat {
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct CatalogFontEntry {
     /// Font family name (e.g., "Arial").
     pub family: String,
@@ -392,9 +376,7 @@ impl FontSources {
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
             for codepoint in start..=end {
-                if !font.codepoints.contains(codepoint as usize)
-                    || !supplied.insert((codepoint - start) as usize)
-                {
+                if !font.codepoints.contains(codepoint as usize) || !supplied.insert((codepoint - start) as usize) {
                     continue;
                 }
                 let g = render_sdf_glyph(&face, codepoint, BUFFER_SIZE, RADIUS, CUTOFF)?;
@@ -429,11 +411,7 @@ pub struct FontSource {
 /// - a directory, we walked recursively, or
 /// - if it is a single font file we register this
 #[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
-fn discover_fonts(
-    lib: &Library,
-    path: PathBuf,
-    fonts: &mut DashMap<String, FontSource>,
-) -> Result<(), FontError> {
+fn discover_fonts(lib: &Library, path: PathBuf, fonts: &mut DashMap<String, FontSource>) -> Result<(), FontError> {
     if path.is_file() {
         if !path
             .extension()
@@ -446,8 +424,7 @@ fn discover_fonts(
     }
 
     let start_count = fonts.len();
-    let font_files = walk_files(&path, FontFormat::VARIANTS)
-        .map_err(|e| FontError::IoError(e.into(), path.clone()))?;
+    let font_files = walk_files(&path, FontFormat::VARIANTS).map_err(|e| FontError::IoError(e.into(), path.clone()))?;
     for font_path in font_files {
         parse_font(lib, fonts, font_path)?;
     }
@@ -460,13 +437,8 @@ fn discover_fonts(
 /// Parses a font file and extracts all faces.
 /// Font names are normalized (family + style, e.g., "Arial Bold").
 #[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
-fn parse_font(
-    lib: &Library,
-    fonts: &mut DashMap<String, FontSource>,
-    path: PathBuf,
-) -> Result<(), FontError> {
-    static RE_SPACES: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(\s|/|,)+").expect("regex pattern is valid"));
+fn parse_font(lib: &Library, fonts: &mut DashMap<String, FontSource>, path: PathBuf) -> Result<(), FontError> {
+    static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").expect("regex pattern is valid"));
 
     // The discovery filter only admits the lowercase extensions in
     // `FontFormat::VARIANTS`, so this parse succeeds for every file we reach.
@@ -504,9 +476,7 @@ fn parse_font(
             }
             Entry::Vacant(v) => {
                 let key = v.key();
-                let Some((codepoints, glyphs, ranges, start, end)) =
-                    get_available_codepoints(&face)
-                else {
+                let Some((codepoints, glyphs, ranges, start, end)) = get_available_codepoints(&face) else {
                     warn!(
                         font.name = %key,
                         font.path = %path.display(),
@@ -590,10 +560,7 @@ mod tests {
         sources
             .add_alias(
                 "Overpass Mono".to_owned(),
-                vec![
-                    "Overpass Mono Regular".to_owned(),
-                    "Overpass Mono Light".to_owned(),
-                ],
+                vec!["Overpass Mono Regular".to_owned(), "Overpass Mono Light".to_owned()],
             )
             .unwrap();
 
@@ -619,16 +586,11 @@ mod tests {
         sources
             .add_alias(
                 "Overpass Mono Regular".to_owned(),
-                vec![
-                    "Overpass Mono Regular".to_owned(),
-                    "Overpass Mono Light".to_owned(),
-                ],
+                vec!["Overpass Mono Regular".to_owned(), "Overpass Mono Light".to_owned()],
             )
             .unwrap();
 
-        let shadowed = sources
-            .get_font_range("Overpass Mono Regular", 0, 255)
-            .unwrap();
+        let shadowed = sources.get_font_range("Overpass Mono Regular", 0, 255).unwrap();
         // A fresh source set without the alias provides the explicit baseline.
         let explicit = overpass_sources()
             .get_font_range("Overpass Mono Regular,Overpass Mono Light", 0, 255)
@@ -647,10 +609,7 @@ mod tests {
         let sources = overpass_sources();
 
         let err = sources
-            .add_alias(
-                "has,comma".to_owned(),
-                vec!["Overpass Mono Regular".to_owned()],
-            )
+            .add_alias("has,comma".to_owned(), vec!["Overpass Mono Regular".to_owned()])
             .unwrap_err();
         assert_matches!(err, FontError::InvalidAliasName(_));
 
@@ -678,16 +637,11 @@ mod tests {
     #[test]
     fn the_catalog_lists_aliases_with_merged_coverage() {
         let mut sources = overpass_sources();
-        sources
-            .recursively_add_directory(fixture("fonts2/u+3320.ttf"))
-            .unwrap();
+        sources.recursively_add_directory(fixture("fonts2/u+3320.ttf")).unwrap();
         sources
             .add_alias(
                 "My Stack".to_owned(),
-                vec![
-                    "Overpass Mono Regular".to_owned(),
-                    "DummyTestFont Regular".to_owned(),
-                ],
+                vec!["Overpass Mono Regular".to_owned(), "DummyTestFont Regular".to_owned()],
             )
             .unwrap();
 
@@ -717,9 +671,7 @@ mod tests {
             )
             .unwrap();
 
-        let single = sources
-            .get_font_range("Overpass Mono Regular", 0, 255)
-            .unwrap();
+        let single = sources.get_font_range("Overpass Mono Regular", 0, 255).unwrap();
         let repeated_ids = vec!["Overpass Mono Regular"; 50].join(",");
         let repeated = sources.get_font_range(&repeated_ids, 0, 255).unwrap();
 
@@ -775,9 +727,7 @@ mod tests {
         symlink("..data/u3320.ttf", root.join("u3320.ttf")).unwrap();
 
         let mut sources = FontSources::default();
-        sources
-            .recursively_add_directory(root.to_path_buf())
-            .unwrap();
+        sources.recursively_add_directory(root.to_path_buf()).unwrap();
         assert_eq!(
             sources.get_catalog().len(),
             1,
@@ -795,11 +745,7 @@ mod tests {
         let mut sources = FontSources::default();
         sources.recursively_add_directory(dir).unwrap();
 
-        let formats: Vec<FontFormat> = sources
-            .get_catalog()
-            .values()
-            .filter_map(|e| e.format)
-            .collect();
+        let formats: Vec<FontFormat> = sources.get_catalog().values().filter_map(|e| e.format).collect();
         assert!(
             formats.contains(&FontFormat::Ttf),
             "expected the .ttf fixture to report Ttf, got {formats:?}"
@@ -816,13 +762,12 @@ mod tests {
 
         // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
         for codepoint in [0x3320, 0x1f60a] {
-            let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join(format!("../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
+            let font_path =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
             assert!(font_path.is_file(), "{}", font_path.display());
             let face = lib.new_face(&font_path, 0).unwrap();
 
-            let (_codepoints, count, _ranges, first, last) =
-                get_available_codepoints(&face).unwrap();
+            let (_codepoints, count, _ranges, first, last) = get_available_codepoints(&face).unwrap();
             assert_eq!(count, 2);
             assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
             assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));

@@ -2,9 +2,13 @@
 
 use std::env;
 use std::path::Path;
+#[cfg(feature = "test-pg")]
+use std::time::Duration;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
+#[cfg(feature = "test-pg")]
+use backon::{ConstantBuilder, Retryable as _};
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{CollectUnrecognizedKeys as _, Config, ServerState, parse_config};
@@ -13,6 +17,14 @@ use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::{Env as _, FauxEnv};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+#[cfg(feature = "test-pg")]
+use martin_core::tiles::postgres::{PostgresPool, RetryTimeout};
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::postgres::Postgres;
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+#[cfg(feature = "test-pg")]
+use testcontainers_modules::testcontainers::{ContainerAsync, ImageExt as _};
 use tracing::warn;
 
 #[must_use]
@@ -23,8 +35,8 @@ pub async fn mock_cfg(yaml: &str) -> Config {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
-        .expect("source can be parsed as yaml");
+    let mut cfg: Config =
+        parse_config(yaml, &env.as_property_map(), Path::new("test.yaml")).expect("source can be parsed as yaml");
     cfg.finalize().await.expect("source can be finalized");
     let res = cfg.get_unrecognized_keys();
     assert!(res.is_empty(), "unrecognized config: {res:?}");
@@ -72,7 +84,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
                 res.tile_manager.clone(),
                 idr.clone(),
                 pg,
-                config.cache.policy(),
+                &config.cache.policy(),
                 &ProcessConfig::default(),
                 &TileGrids::resolve(&config.tile_grids).expect("valid tile grids"),
             );
@@ -126,4 +138,40 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
         .collect();
     assert_eq!(vals.len(), 1);
     vals[0]
+}
+
+/// Launches a throwaway `PostGIS` container so the run never touches the shared `just start` DB.
+#[cfg(feature = "test-pg")]
+pub async fn start_postgis() -> (ContainerAsync<Postgres>, String) {
+    let container = (|| {
+        Postgres::default()
+            .with_name("postgis/postgis")
+            .with_tag("15-3.5") // purposely very old and stable
+            .start()
+    })
+    .retry(
+        ConstantBuilder::default()
+            .with_delay(Duration::from_secs(2))
+            .with_max_times(3),
+    )
+    .sleep(tokio::time::sleep)
+    .await
+    .expect("PostGIS container failed to start (is Docker running?)");
+    let host = container.get_host().await.expect("container host");
+    let port = container.get_host_port_ipv4(5432).await.expect("container port");
+    let connstr = format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
+    (container, connstr)
+}
+
+#[cfg(feature = "test-pg")]
+pub async fn seed(connstr: &str, sql: &str) {
+    let pool = PostgresPool::new(connstr, None, None, None, 2, RetryTimeout::default())
+        .await
+        .expect("open seed pool");
+    pool.get()
+        .await
+        .expect("acquire seed connection")
+        .batch_execute(sql)
+        .await
+        .expect("execute seed SQL");
 }

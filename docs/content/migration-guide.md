@@ -38,7 +38,7 @@ Remove `--tui`. Martin now shows the dashboard when stdout is a terminal. Use `-
 
 The dashboard's log pane follows `RUST_LOG_FORMAT` and defaults to `pretty`.
 
-See [Terminal dashboard](run-with-cli.md#terminal-dashboard).
+See [Terminal dashboard](run-with-cli.md).
 
 ### The web UI is served to localhost by default
 
@@ -229,8 +229,9 @@ If you build Martin or `martin-core` yourself with `--features` or `--no-default
 | `fonts`, `sprites`, `styles`      | `resources`          |
 | `hillshade`, `contour`, `geojson` | `processing`         |
 | `mlt`                             | none, always enabled |
+| `unstable-cog`                    | `cog`                |
 
-Both are enabled by default, so default builds, release binaries and Docker images are unchanged. `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
+All are enabled by default, so default builds, release binaries and Docker images keep their features and now also serve [COG sources](sources-cog-files.md). `metrics`, `webui`, `tui`, `lambda` and the source features `postgres`, `pmtiles`, `mbtiles` and `passthrough` keep their names.
 
 ```bash
 # 1.x

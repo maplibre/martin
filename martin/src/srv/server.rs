@@ -19,9 +19,7 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{
-    DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig,
-};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig};
 use crate::srv::ServerStartError;
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
@@ -30,6 +28,8 @@ use crate::srv::admin::{Catalog, get_catalog};
 use crate::srv::admin::{get_index_ui_disabled, webui};
 #[cfg(feature = "resources")]
 use crate::srv::fonts;
+#[cfg(feature = "ogcapi")]
+use crate::srv::ogcapi;
 #[cfg(feature = "resources")]
 use crate::srv::sprites;
 #[cfg(feature = "resources")]
@@ -46,8 +46,8 @@ use crate::srv::tiles;
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
 /// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
 pub const RESERVED_KEYWORDS: &[&str] = &[
-    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh",
-    "reload", "sprite", "status",
+    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "ogc", "refresh", "reload",
+    "sprite", "status",
 ];
 
 /// Maps any classified error onto an HTTP response.
@@ -57,9 +57,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 /// caller cannot act on are logged.
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
-    use actix_web::error::{
-        ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable,
-    };
+    use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable};
     use martin_core::ErrorKind::{Internal, InvalidInput, NotFound, Unavailable};
 
     match e.kind() {
@@ -76,6 +74,28 @@ pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -
     }
 }
 
+/// Resolve the URL path prefix under which Martin is publicly served.
+///
+/// Returns an empty string when no prefix applies, otherwise a leading-slash
+/// path with no trailing slash (e.g. `/tiles`).
+///
+/// Note: `X-Rewrite-URL` is intentionally not honored here. Unlike the
+/// `TileJSON` case where the header's full path can be used directly, for
+/// styles the header would contain the full style request path
+/// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
+#[cfg(any(feature = "resources", feature = "ogcapi"))]
+pub fn path_prefix(req: &actix_web::HttpRequest, srv_config: &SrvConfig) -> String {
+    let Some(prefix) = srv_config.public_path_prefix() else {
+        return req
+            .headers()
+            .get("X-Forwarded-Prefix")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<actix_web::http::Uri>().ok())
+            .map_or_default(|v| v.path().trim_end_matches('/').to_owned());
+    };
+    prefix.to_owned()
+}
+
 /// Helper struct for debounced warning messages in redirect handlers.
 /// Ensures warnings are logged no more than once per hour to avoid log spam.
 #[cfg(feature = "_catalog")]
@@ -88,9 +108,7 @@ impl DebouncedWarning {
     /// Create a new `DebouncedWarning` instance
     pub const fn new() -> Self {
         Self {
-            last_warning: std::sync::LazyLock::new(|| {
-                tokio::sync::Mutex::new(std::time::Instant::now())
-            }),
+            last_warning: std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::time::Instant::now())),
         }
     }
 
@@ -154,6 +172,20 @@ fn register_services(
 ) {
     cfg.service(get_health).service(get_catalog);
 
+    // Register the OGC API BEFORE the tile routes, whose `/{source_ids}` would take `/ogc`
+    #[cfg(feature = "ogcapi")]
+    cfg.service(ogcapi::get_landing_page)
+        .service(ogcapi::get_conformance)
+        .service(ogcapi::get_tile_matrix_sets)
+        .service(ogcapi::get_tile_matrix_set)
+        .service(ogcapi::get_collections)
+        .service(ogcapi::get_collection)
+        .service(ogcapi::get_tilesets)
+        .service(ogcapi::get_tileset)
+        .service(ogcapi::get_tile);
+    #[cfg(all(feature = "ogcapi", feature = "resources"))]
+    cfg.service(ogcapi::get_styles).service(ogcapi::get_style);
+
     #[cfg(feature = "_tiles")]
     {
         // Register tile format suffix redirects BEFORE the main tile route
@@ -191,8 +223,7 @@ fn register_services(
         .service(fonts::redirect_fonts);
 
     #[cfg(feature = "resources")]
-    cfg.service(styles::get_style_json)
-        .service(styles::redirect_styles);
+    cfg.service(styles::get_style_json).service(styles::redirect_styles);
 
     // `.jpeg` redirects must register before the main routes so they win.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -208,13 +239,8 @@ fn register_services(
             cfg.service(webui_scope());
         }
         WebUiMode::Enable => {
-            let guard = fn_guard(|c| {
-                c.head()
-                    .peer_addr
-                    .is_some_and(|addr| addr.ip().is_loopback())
-            });
-            cfg.service(webui_scope().guard(guard))
-                .service(get_index_ui_disabled);
+            let guard = fn_guard(|c| c.head().peer_addr.is_some_and(|addr| addr.ip().is_loopback()));
+            cfg.service(webui_scope().guard(guard)).service(get_index_ui_disabled);
         }
         WebUiMode::Disable => {
             cfg.service(get_index_ui_disabled);
@@ -230,10 +256,7 @@ fn webui_scope() -> actix_web::Scope {
     use actix_web_static_files::ResourceFiles;
 
     let mut files = webui::generate();
-    let index = files
-        .remove_entry("index.html")
-        .into_iter()
-        .collect::<HashMap<_, _>>();
+    let index = files.remove_entry("index.html").into_iter().collect::<HashMap<_, _>>();
     let assets = files
         .into_iter()
         .filter_map(|(path, file)| Some((path.strip_prefix("_/assets/")?, file)))
@@ -343,13 +366,10 @@ pub fn new_server(
             middleware::from_fn(crate::tui::observe),
         ));
 
-        app.wrap(middleware::Condition::new(
-            request_spans,
-            TracingLogger::default(),
-        ))
-        .wrap(cache_control_middleware(cache_control.clone()))
-        .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-        .configure(|c| router(c, &config))
+        app.wrap(middleware::Condition::new(request_spans, TracingLogger::default()))
+            .wrap(cache_control_middleware(cache_control.clone()))
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+            .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]
@@ -362,10 +382,7 @@ pub fn new_server(
         .bind(listen_addresses.clone())
         .map_err(|e| ServerStartError::Binding(e, listen_addresses.clone()))?;
 
-    let listen_addresses = server
-        .addrs()
-        .first()
-        .map_or(listen_addresses, ToString::to_string);
+    let listen_addresses = server.addrs().first().map_or(listen_addresses, ToString::to_string);
 
     let server = server
         .keep_alive(keep_alive)
@@ -391,5 +408,61 @@ async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
             }
         }
         Err(e) => tracing::warn!(error = %e, "Ctrl+Break will not stop martin gracefully"),
+    }
+}
+
+#[cfg(all(test, any(feature = "resources", feature = "ogcapi")))]
+mod tests {
+    use actix_web::test::TestRequest;
+
+    use super::*;
+
+    fn cfg(base_path: Option<&str>, route_prefix: Option<&str>) -> SrvConfig {
+        SrvConfig {
+            base_path: base_path.map(str::to_owned),
+            route_prefix: route_prefix.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn path_prefix_empty_when_nothing_configured() {
+        let req = TestRequest::default().to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "");
+    }
+
+    #[test]
+    fn path_prefix_uses_base_path_first() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(
+            path_prefix(&req, &cfg(Some("/from_base"), Some("/from_route"))),
+            "/from_base"
+        );
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_route_prefix() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, Some("/from_route"))), "/from_route");
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_forwarded_prefix_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
+    }
+
+    #[test]
+    fn path_prefix_strips_trailing_slash_from_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header/"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
     }
 }

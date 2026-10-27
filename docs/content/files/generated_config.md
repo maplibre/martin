@@ -4,9 +4,7 @@
 
 !!! note
     The generated reference and its JSON Schema cover the features included during schema generation.
-    Unstable sources such as duckdb or cog are not included.
-
-    Unstable sources such as duckdb or cog are not included.
+    Unstable sources such as duckdb are not included.
 
 ```yaml title="config.yaml"
 # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
@@ -79,6 +77,37 @@ cache:
 # Endpoints with an explicit policy, such as the health check, keep their own header.
 # When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
 cache_control: null
+cog:
+  # Zoom-level bounds for caching the tiles of every COG source without its own `cache`.
+  # Overrides the top-level `cache` bounds.
+  cache:
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: 14
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden with `cache.minzoom` on an individual source.
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: 0
+  # A list of directories whose subdirectories are each published under the subdirectory's name
+  collections: []
+  # Sources that each serve many COG files as one, by source ID.
+  mosaics: {}
+  # A list of file paths
+  paths: []
+  # Whether `paths` are scanned recursively
+  recursive: false
+  # How often configured remote objects (`s3://`, `https://`, …) are re-checked for
+  # replacement and remote prefixes are re-listed for additions, replacements, and removals.
+  # Local directories are watched via filesystem events and ignore this setting.
+  #
+  # Supports human-readable formats: "10m", "1h", "30s".
+  # Defaults to "10m". Set to "0s" to disable remote polling and prefix discovery.
+  reload_interval: 10m
+  # A map of source IDs to file paths or config objects
+  sources: {}
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
 #
@@ -530,6 +559,14 @@ postgres:
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
+  # Specify how features should be sorted:
+  # - `null` (default, no sorting)
+  # - `id-asc`
+  # - `id-desc`
+  #
+  # Enabling this has performance implications due to the additional sorting.
+  # This may still be desirable if you want an guaranteed ordering or use this to make `max_feature_count` drop a specific set of features.
+  order_by: id-asc
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
   # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and

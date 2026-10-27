@@ -6,8 +6,7 @@ use std::assert_matches;
 use std::path::PathBuf;
 
 use martin_core::tiles::contour::{
-    ContourOptions, ElevationUnits, HeightGrid, IsolineOptions, ZoomIntervalMap, generate_contours,
-    trace_contours,
+    ContourOptions, ElevationUnits, HeightGrid, IsolineOptions, ZoomIntervalMap, generate_contours, trace_contours,
 };
 use martin_core::tiles::neighbourhood::{DEFAULT_TILE_SIZE, NEIGHBOURHOOD_LEN, Neighbourhood};
 use martin_tile_utils::TileData;
@@ -68,10 +67,7 @@ fn the_traced_tile_carries_classified_contour_lines() {
         .find(|layer| layer.name() == "contour")
         .expect("the contour layer is present");
     assert_eq!(layer.extent(), 4096);
-    assert!(
-        layer.feature_count() > 0,
-        "real terrain should trace at least one line"
-    );
+    assert!(layer.feature_count() > 0, "real terrain should trace at least one line");
 
     let mut saw_major = false;
     let mut saw_standard = false;
@@ -89,11 +85,7 @@ fn the_traced_tile_carries_classified_contour_lines() {
             "elevation encodes as an integer, got {elevation:?}"
         );
 
-        match tags
-            .iter()
-            .find(|(key, _)| *key == "major")
-            .map(|(_, value)| *value)
-        {
+        match tags.iter().find(|(key, _)| *key == "major").map(|(_, value)| *value) {
             Some(MvtValueRef::Bool(true)) => saw_major = true,
             Some(MvtValueRef::Bool(false)) => saw_standard = true,
             other => unexpected.push(format!("{other:?}")),
@@ -174,8 +166,7 @@ fn ramp_tile(grid_x: usize, grid_y: usize) -> TileData {
     let mut pixels = Vec::with_capacity(OVERSIZED_TILE * OVERSIZED_TILE * 4);
     for y in 0..OVERSIZED_TILE {
         for x in 0..OVERSIZED_TILE {
-            let raw =
-                ramp_meters(grid_x * OVERSIZED_TILE + x, grid_y * OVERSIZED_TILE + y) + 32768.0;
+            let raw = ramp_meters(grid_x * OVERSIZED_TILE + x, grid_y * OVERSIZED_TILE + y) + 32768.0;
             #[expect(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
@@ -266,12 +257,8 @@ fn edge_hugging_segments(traced: &[u8]) -> Vec<(geo_types::Coord<i32>, geo_types
 
 #[test]
 fn an_oversized_source_traces_no_contours_along_the_tile_edges() {
-    let traced = trace_contours(
-        &oversized_ramp_neighbourhood(),
-        ZOOM,
-        &ContourOptions::default(),
-    )
-    .expect("the ramp neighbourhood traces");
+    let traced = trace_contours(&oversized_ramp_neighbourhood(), ZOOM, &ContourOptions::default())
+        .expect("the ramp neighbourhood traces");
 
     let segments = edge_hugging_segments(&traced);
     assert!(
@@ -284,12 +271,8 @@ fn an_oversized_source_traces_no_contours_along_the_tile_edges() {
 
 #[test]
 fn an_oversized_source_traces_its_whole_tile() {
-    let traced = trace_contours(
-        &oversized_ramp_neighbourhood(),
-        ZOOM,
-        &ContourOptions::default(),
-    )
-    .expect("the ramp neighbourhood traces");
+    let traced = trace_contours(&oversized_ramp_neighbourhood(), ZOOM, &ContourOptions::default())
+        .expect("the ramp neighbourhood traces");
 
     let centre_low = whole_meters(ramp_meters(OVERSIZED_TILE, OVERSIZED_TILE));
     let centre_high = whole_meters(ramp_meters(2 * OVERSIZED_TILE, 2 * OVERSIZED_TILE));

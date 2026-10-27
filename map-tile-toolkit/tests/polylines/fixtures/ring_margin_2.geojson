@@ -1,0 +1,28 @@
+{
+  "type": "FeatureCollection",
+  "name": "ring_margin_2",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [10, 10],
+          [22, 14],
+          [28, 14],
+          [40, 10],
+          [37, 21],
+          [37, 27],
+          [40, 40],
+          [28, 36],
+          [22, 36],
+          [10, 40],
+          [15, 27],
+          [15, 21],
+          [10, 10]
+        ]
+      }
+    }
+  ]
+}

@@ -71,11 +71,7 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
         .filter_entry(move |entry| {
             if entry.file_type().is_dir() {
                 // descend into the root and numerically-named `{z}`/`{x}` directories only
-                let keep = entry.depth() == 0
-                    || entry
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|s| s.parse::<u32>().is_ok());
+                let keep = entry.depth() == 0 || entry.file_name().to_str().is_some_and(|s| s.parse::<u32>().is_ok());
                 if !keep {
                     warned_about_dirs.call_once(|| {
                         tracing::info!(
@@ -113,11 +109,7 @@ fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResul
             }
             let path = entry.path();
             let coords = tile_coords(path)?;
-            let Some(detected) = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .and_then(Format::parse)
-            else {
+            let Some(detected) = path.extension().and_then(|e| e.to_str()).and_then(Format::parse) else {
                 return Some(Err(MbtError::UnsupportedFileExtension(path.to_path_buf())));
             };
             Some(Ok((path.to_path_buf(), coords, detected)))
@@ -201,8 +193,7 @@ pub async fn pack(
 
     // Derive minzoom/maxzoom (and the compression key) and the geographic bounds from the
     // tiles we just inserted.
-    mbt.update_metadata(&mut conn, UpdateZoomType::Reset)
-        .await?;
+    mbt.update_metadata(&mut conn, UpdateZoomType::Reset).await?;
     if let Some(bbox) = mbt.summary(&mut conn).await?.bbox {
         mbt.set_metadata_value(&mut conn, "bounds", bbox).await?;
     }
@@ -212,11 +203,7 @@ pub async fn pack(
 
 /// Unpacks the `MBTiles` file at `input_file` into a `{z}/{x}/{y}.{ext}` directory tree under
 /// `output_directory`, laying out the `y` coordinate according to `scheme`.
-pub async fn unpack(
-    input_file: &Path,
-    output_directory: &Path,
-    scheme: TileScheme,
-) -> MbtResult<()> {
+pub async fn unpack(input_file: &Path, output_directory: &Path, scheme: TileScheme) -> MbtResult<()> {
     if !input_file.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
@@ -272,9 +259,7 @@ pub async fn unpack(
                 data
             };
 
-            let tile_dir = output_directory
-                .join(coord.z().to_string())
-                .join(coord.x().to_string());
+            let tile_dir = output_directory.join(coord.z().to_string()).join(coord.x().to_string());
             tokio::fs::create_dir_all(&tile_dir).await?;
             tokio::fs::write(tile_dir.join(format!("{y}.{extension}")), &data).await?;
             Ok(())
@@ -336,10 +321,7 @@ mod tests {
     fn tile_coords_from_path() {
         // `{z}/{x}/{y}.{ext}`, with the extension ignored.
         assert_eq!(tile_coords(Path::new("0/0/0.png")), Some((0, 0, 0)));
-        assert_eq!(
-            tile_coords(Path::new("any/prefix/3/4/5.pbf")),
-            Some((3, 4, 5))
-        );
+        assert_eq!(tile_coords(Path::new("any/prefix/3/4/5.pbf")), Some((3, 4, 5)));
         assert_eq!(tile_coords(Path::new("3/4/5")), Some((3, 4, 5)));
 
         // Non-numeric components are rejected.

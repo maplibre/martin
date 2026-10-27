@@ -13,7 +13,7 @@ use crate::MAX_ZOOM;
 /// let coord = TileCoord::new_unchecked(4, 2, 3);
 /// assert_eq!((coord.z(), coord.x(), coord.y()), (4, 2, 3));
 /// ```
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
 pub struct TileCoord {
     z: u8,

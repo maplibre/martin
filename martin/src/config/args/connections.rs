@@ -27,7 +27,7 @@ impl Arguments {
         feature = "mbtiles",
         feature = "pmtiles",
         feature = "processing",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb"
     ))]
     #[must_use]
@@ -40,7 +40,7 @@ impl Arguments {
         feature = "mbtiles",
         feature = "pmtiles",
         feature = "processing",
-        feature = "unstable-cog",
+        feature = "cog",
         feature = "unstable-duckdb"
     ))]
     /// Process input params in the original order, but only if no prior consumer has claimed it.

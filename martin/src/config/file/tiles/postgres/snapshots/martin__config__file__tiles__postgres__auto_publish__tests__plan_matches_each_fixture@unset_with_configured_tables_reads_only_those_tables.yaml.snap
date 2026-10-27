@@ -1,0 +1,17 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/unset_with_configured_tables_reads_only_those_tables.yaml
+---
+reads:
+  tables:
+    schemas:
+      - public
+    only:
+      - - public
+        - roads
+  functions: false
+transforms: []
+tables: []
+functions: []
+decisions: []

@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            4.0,
+            12.0
+          ],
+          [
+            5.0,
+            12.0
+          ],
+          [
+            19.0,
+            12.0
+          ],
+          [
+            20.0,
+            12.0
+          ],
+          [
+            24.0,
+            12.0
+          ],
+          [
+            25.0,
+            12.0
+          ],
+          [
+            29.0,
+            12.0
+          ],
+          [
+            30.0,
+            12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "input",
+        "marker-color": "#f6fd31",
+        "marker-size": "large"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            4.0,
+            12.0
+          ],
+          [
+            5.0,
+            12.0
+          ],
+          [
+            19.0,
+            12.0
+          ],
+          [
+            20.0,
+            12.0
+          ],
+          [
+            24.0,
+            12.0
+          ],
+          [
+            25.0,
+            12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 0/0",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            25.0,
+            12.0
+          ],
+          [
+            29.0,
+            12.0
+          ],
+          [
+            30.0,
+            12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/0",
+        "indices": [
+          5,
+          6,
+          7
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    }
+  ]
+}

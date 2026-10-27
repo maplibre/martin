@@ -7,9 +7,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::file::tiles::discovery::{BuiltSource, Discovery, Version};
 use crate::config::file::tiles::driver::{Sink, Trigger};
-use crate::config::file::{
-    MAX_CONCURRENT_SOURCE_INITS, SourceBuildError, SourceBuildResult, TileSourceWarning,
-};
+use crate::config::file::{MAX_CONCURRENT_SOURCE_INITS, SourceBuildError, SourceBuildResult, TileSourceWarning};
 use crate::reload::ReloadAdvisory;
 
 /// What the catalog already holds for a driver's sources when it starts.
@@ -73,11 +71,7 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
             // Lets the tasks queued on this worker run, since building never waits on anything.
             tokio::task::yield_now().await;
         }
-        self.baseline = Some(Self::commit_applied(
-            &BTreeMap::new(),
-            &discovered.sources,
-            &failed,
-        ));
+        self.baseline = Some(Self::commit_applied(&BTreeMap::new(), &discovered.sources, &failed));
         let mut warnings = self.discovery.construction_warnings();
         warnings.extend(discovered.warnings);
         Ok(warnings)
@@ -169,17 +163,13 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         prev: &BTreeMap<String, (Version, D::Args)>,
         next: &BTreeMap<String, (Version, D::Args)>,
     ) -> ReloadAdvisory {
-        let prev_versions: BTreeMap<String, Version> =
-            prev.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
-        let next_versions: BTreeMap<String, Version> =
-            next.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
+        let prev_versions: BTreeMap<String, Version> = prev.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
+        let next_versions: BTreeMap<String, Version> = next.iter().map(|(id, (v, _))| (id.clone(), *v)).collect();
 
         let process = discovery.process();
         let discovery = Arc::clone(discovery);
-        let args_by_id: BTreeMap<String, D::Args> = next
-            .iter()
-            .map(|(id, (_, args))| (id.clone(), args.clone()))
-            .collect();
+        let args_by_id: BTreeMap<String, D::Args> =
+            next.iter().map(|(id, (_, args))| (id.clone(), args.clone())).collect();
 
         ReloadAdvisory::from_maps(
             &prev_versions,
@@ -231,19 +221,12 @@ mod tests {
     type Snapshot = BTreeMap<String, (Version, ())>;
 
     fn snapshot(entries: &[(&str, Version)]) -> Snapshot {
-        entries
-            .iter()
-            .map(|(id, v)| ((*id).to_owned(), (*v, ())))
-            .collect()
+        entries.iter().map(|(id, v)| ((*id).to_owned(), (*v, ()))).collect()
     }
 
     /// A snapshot of `Opaque` (unversioned) sources, as the remote object-store path produces.
     fn snapshot_opaque(ids: &[&str]) -> Snapshot {
-        snapshot(
-            &ids.iter()
-                .map(|id| (*id, Version::Opaque))
-                .collect::<Vec<_>>(),
-        )
+        snapshot(&ids.iter().map(|id| (*id, Version::Opaque)).collect::<Vec<_>>())
     }
 
     /// Replays a scripted sequence of `discover()` results.
@@ -272,11 +255,7 @@ mod tests {
             std::future::ready(snap.map(Discovered::new))
         }
 
-        fn build(
-            &self,
-            id: &str,
-            _args: &(),
-        ) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
+        fn build(&self, id: &str, _args: &()) -> impl Future<Output = SourceBuildResult<BuiltSource>> + Send {
             let source: BoxedSource = TestSource::empty(id).boxed();
             std::future::ready(Ok(source.into()))
         }
@@ -358,10 +337,7 @@ mod tests {
 
     impl Sink for SpySink {
         fn contains(&self, id: &str) -> bool {
-            self.served
-                .lock()
-                .expect("SpySink served mutex poisoned")
-                .contains(id)
+            self.served.lock().expect("SpySink served mutex poisoned").contains(id)
         }
 
         fn apply_changes(
@@ -372,12 +348,8 @@ mod tests {
                 .lock()
                 .expect("SpySink applied mutex poisoned")
                 .push(AdvisorySnapshot::from(&advisory));
-            if let Some(Err(error)) = self
-                .results
-                .lock()
-                .expect("SpySink results mutex poisoned")
-                .pop_front()
-            {
+            let result = self.results.lock().expect("SpySink results mutex poisoned").pop_front();
+            if let Some(Err(error)) = result {
                 return std::future::ready(Err(error));
             }
 
@@ -442,8 +414,7 @@ mod tests {
         #[case] removals: Vec<String>,
     ) {
         let sink = SpySink::new();
-        *sink.served.lock().expect("SpySink served mutex poisoned") =
-            before.keys().cloned().collect();
+        *sink.served.lock().expect("SpySink served mutex poisoned") = before.keys().cloned().collect();
         let discovery = FakeDiscovery::new(vec![Ok(before), Ok(after)]);
         let recorded = sink.recorded();
 
@@ -508,10 +479,7 @@ mod tests {
         // Seed fails (baseline stays None); the first good tick establishes it without applying.
         let discovery = FakeDiscovery::new(vec![
             Err(SourceBuildError::SourceNotFound("seed boom".into())),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_state(&["a", "b"], &[]);
         let recorded = sink.recorded();
@@ -530,10 +498,7 @@ mod tests {
     #[tokio::test]
     async fn init_applies_full_discovery_then_ticks_diff_against_it() {
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
         let sink = SpySink::new();
@@ -566,17 +531,12 @@ mod tests {
 
     #[tokio::test]
     async fn init_propagates_discovery_and_apply_errors() {
-        let discovery =
-            FakeDiscovery::new(vec![Err(SourceBuildError::SourceNotFound("boom".into()))]);
+        let discovery = FakeDiscovery::new(vec![Err(SourceBuildError::SourceNotFound("boom".into()))]);
         let mut driver = ReloadDriver::new(discovery, SpySink::new());
-        assert!(
-            driver.init().await.is_err(),
-            "discovery error must fail init"
-        );
+        assert!(driver.init().await.is_err(), "discovery error must fail init");
 
         let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
-        let sink =
-            SpySink::with_results(vec![Err(SourceBuildError::SourceNotFound("apply".into()))]);
+        let sink = SpySink::with_results(vec![Err(SourceBuildError::SourceNotFound("apply".into()))]);
         let mut driver = ReloadDriver::new(discovery, sink);
         assert!(driver.init().await.is_err(), "apply error must fail init");
     }
@@ -587,10 +547,7 @@ mod tests {
         let discovery = FakeDiscovery::new(vec![
             Ok(snapshot(&[("a", Version::Tracked(1))])),
             Err(SourceBuildError::SourceNotFound("tick boom".into())),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_state(&["a"], &[]);
         let recorded = sink.recorded();
@@ -613,14 +570,8 @@ mod tests {
     #[tokio::test]
     async fn init_retries_a_skipped_build() {
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_state(&[], &["b"]);
         let recorded = sink.recorded();
@@ -640,13 +591,8 @@ mod tests {
 
     #[tokio::test]
     async fn init_applies_in_chunks_and_retries_skipped_builds_from_each() {
-        let source_ids: Vec<String> = (0..=MAX_CONCURRENT_SOURCE_INITS)
-            .map(|i| format!("s{i:02}"))
-            .collect();
-        let entries: Vec<(&str, Version)> = source_ids
-            .iter()
-            .map(|id| (id.as_str(), Version::Tracked(1)))
-            .collect();
+        let source_ids: Vec<String> = (0..=MAX_CONCURRENT_SOURCE_INITS).map(|i| format!("s{i:02}")).collect();
+        let entries: Vec<(&str, Version)> = source_ids.iter().map(|id| (id.as_str(), Version::Tracked(1))).collect();
         let discovery = FakeDiscovery::new(vec![Ok(snapshot(&entries)), Ok(snapshot(&entries))]);
         let (first_chunk, second_chunk) = source_ids.split_at(MAX_CONCURRENT_SOURCE_INITS);
         let skipped = [first_chunk[0].as_str(), second_chunk[0].as_str()];
@@ -681,18 +627,9 @@ mod tests {
     #[tokio::test]
     async fn reconcile_retries_only_the_skipped_update() {
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(2)),
-                ("b", Version::Tracked(2)),
-            ])),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(2)),
-                ("b", Version::Tracked(2)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
+            Ok(snapshot(&[("a", Version::Tracked(2)), ("b", Version::Tracked(2))])),
+            Ok(snapshot(&[("a", Version::Tracked(2)), ("b", Version::Tracked(2))])),
         ]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
@@ -718,14 +655,8 @@ mod tests {
     #[tokio::test]
     async fn seed_excludes_sources_missing_from_the_sink() {
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
-            Ok(snapshot(&[
-                ("a", Version::Tracked(1)),
-                ("b", Version::Tracked(1)),
-            ])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
+            Ok(snapshot(&[("a", Version::Tracked(1)), ("b", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_state(&["a"], &["b"]);
         let recorded = sink.recorded();
@@ -746,10 +677,7 @@ mod tests {
             Ok(snapshot(&[("a", Version::Tracked(1))])),
             Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
-        let sink = SpySink::with_results(vec![
-            Err(SourceBuildError::SourceNotFound("apply boom".into())),
-            Ok(()),
-        ]);
+        let sink = SpySink::with_results(vec![Err(SourceBuildError::SourceNotFound("apply boom".into())), Ok(())]);
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)

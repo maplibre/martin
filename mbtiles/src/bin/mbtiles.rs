@@ -1,7 +1,4 @@
-#![expect(
-    clippy::print_stdout,
-    reason = "binary entrypoint writes results to stdout"
-)]
+#![expect(clippy::print_stdout, reason = "binary entrypoint writes results to stdout")]
 
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
@@ -12,11 +9,12 @@ use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
-    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError,
-    MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme,
-    UnixSeconds, UpdateZoomType, apply_patch, pack, unpack,
+    AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
+    Mbtiles, MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UnixSeconds, UpdateZoomType, apply_patch, pack,
+    parse_key_value, unpack,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::Connection as _;
 use tilejson::Bounds;
 use tracing::{Instrument as _, error, info_span};
 use tracing_indicatif::IndicatifLayer;
@@ -45,9 +43,7 @@ pub struct Args {
     command: Commands,
 }
 
-#[derive(
-    Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum,
-)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum)]
 #[enum_display(case = "Kebab")]
 pub enum OutputFormat {
     #[default]
@@ -115,6 +111,12 @@ enum Commands {
         /// Update the min and max zoom levels in the metadata table to match the tiles table.
         #[arg(long, value_enum, default_value_t=UpdateZoomType::default())]
         update_zoom: UpdateZoomType,
+        /// Set metadata values after the update, overriding computed ones. Must be set as `"key=value"` pairs. Can be specified multiple times.
+        #[arg(long, value_name = "KEY=VALUE", value_parser = parse_key_value)]
+        set_meta: Vec<(String, String)>,
+        /// Delete metadata values after the update, including computed ones. Can be specified multiple times.
+        #[arg(long, value_name = "KEY")]
+        delete_meta: Vec<String>,
     },
     /// Validate tile data if hash of tile data exists in file
     #[command(name = "validate", alias = "check", alias = "verify")]
@@ -329,13 +331,9 @@ async fn main_int() -> anyhow::Result<()> {
         }
         Commands::Copy(args) => copy(args).await?,
         Commands::Diff(args) => {
-            let copier = args.options.into_copier(
-                args.file1,
-                args.diff,
-                Some(args.file2),
-                None,
-                args.patch_type,
-            );
+            let copier = args
+                .options
+                .into_copier(args.file1, args.diff, Some(args.file2), None, args.patch_type);
             copier.run().instrument(info_span!("diff")).await?;
         }
         Commands::ApplyPatch {
@@ -347,10 +345,19 @@ async fn main_int() -> anyhow::Result<()> {
                 .instrument(info_span!("apply-patch"))
                 .await?;
         }
-        Commands::UpdateMetadata { file, update_zoom } => {
+        Commands::UpdateMetadata {
+            file,
+            update_zoom,
+            set_meta,
+            delete_meta,
+        } => {
             let mbt = Mbtiles::new(file.as_path())?;
             let mut conn = mbt.open().await?;
-            mbt.update_metadata(&mut conn, update_zoom).await?;
+            // one transaction, so a rejected edit leaves the file untouched
+            let mut tx = conn.begin().await?;
+            mbt.update_metadata(&mut *tx, update_zoom).await?;
+            mbt.edit_metadata(&mut *tx, &set_meta, &delete_meta).await?;
+            tx.commit().await?;
         }
         Commands::Validate {
             file,
@@ -402,9 +409,7 @@ async fn main_int() -> anyhow::Result<()> {
         } => {
             let span = info_span!("unpack");
             span.pb_set_style(&bar_style());
-            unpack(&input_file, &output_directory, scheme)
-                .instrument(span)
-                .await?;
+            unpack(&input_file, &output_directory, scheme).instrument(span).await?;
         }
         Commands::CachePurge { file, max_size } => {
             cache_purge(file.as_path(), max_size).await?;
@@ -509,8 +514,7 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
 
 /// Spinner with the command name and elapsed time.
 fn spinner_style() -> ProgressStyle {
-    ProgressStyle::with_template("{spinner} {span_name} {elapsed}")
-        .expect("valid progress template")
+    ProgressStyle::with_template("{spinner} {span_name} {elapsed}").expect("valid progress template")
 }
 
 /// Progress bar for a command that knows how many tiles it will handle.
@@ -525,11 +529,9 @@ fn bar_style() -> ProgressStyle {
 
 /// Progress line for a command that counts tiles as it goes.
 fn counting_style() -> ProgressStyle {
-    ProgressStyle::with_template(
-        "{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)",
-    )
-    .expect("valid progress template")
-    .with_key("rate", rate)
+    ProgressStyle::with_template("{span_name} {elapsed_precise} {spinner} {human_pos} tiles ({rate}/s)")
+        .expect("valid progress template")
+        .with_key("rate", rate)
 }
 
 /// Tiles per second, rounded to a whole number.
@@ -545,17 +547,13 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{
-        ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate,
-    };
+    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, UpdateMetadata, Validate};
     use crate::{Args, IntegrityCheckType};
 
     #[test]
     fn copy_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "copy"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "copy"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -638,16 +636,9 @@ mod tests {
     #[test]
     fn copy_min_max_zoom_no_arguments() {
         assert_eq!(
-            Args::try_parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--max-zoom",
-                "--min-zoom",
-            ])
-            .unwrap_err()
-            .kind(),
+            Args::try_parse_from(["mbtiles", "copy", "src_file", "dst_file", "--max-zoom", "--min-zoom",])
+                .unwrap_err()
+                .kind(),
             ErrorKind::InvalidValue
         );
     }
@@ -676,14 +667,7 @@ mod tests {
     #[test]
     fn copy_zoom_levels_arguments() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--zoom-levels",
-                "3,7,1"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--zoom-levels", "3,7,1"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -701,14 +685,7 @@ mod tests {
     #[test]
     fn copy_diff_with_file_arguments() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--diff-with-file",
-                "no_file",
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--diff-with-file", "no_file",]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -723,14 +700,7 @@ mod tests {
     #[test]
     fn copy_diff_with_override_copy_duplicate_mode() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "copy",
-                "src_file",
-                "dst_file",
-                "--on-duplicate",
-                "override"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--on-duplicate", "override"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -748,9 +718,7 @@ mod tests {
     #[test]
     fn copy_limit() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"
-            ]),
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--copy", "metadata"]),
             Args {
                 command: Copy(CopyArgs {
                     src_files: vec![PathBuf::from("src_file")],
@@ -795,9 +763,7 @@ mod tests {
     #[test]
     fn meta_get_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "meta-get"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "meta-get"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -818,9 +784,7 @@ mod tests {
     #[test]
     fn meta_set_no_arguments() {
         assert_eq!(
-            Args::try_parse_from(["mbtiles", "meta-get"])
-                .unwrap_err()
-                .kind(),
+            Args::try_parse_from(["mbtiles", "meta-get"]).unwrap_err().kind(),
             ErrorKind::MissingRequiredArgument
         );
     }
@@ -836,6 +800,44 @@ mod tests {
                     value: None
                 }
             }
+        );
+    }
+
+    #[test]
+    fn meta_update_with_set_and_delete_arguments() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "meta-update",
+                "src_file",
+                "--set-meta",
+                "name=renamed",
+                "--set-meta",
+                "minzoom=3",
+                "--delete-meta",
+                "bounds",
+            ]),
+            Args {
+                command: UpdateMetadata {
+                    file: PathBuf::from("src_file"),
+                    update_zoom: UpdateZoomType::default(),
+                    set_meta: vec![
+                        ("name".to_owned(), "renamed".to_owned()),
+                        ("minzoom".to_owned(), "3".to_owned()),
+                    ],
+                    delete_meta: vec!["bounds".to_owned()],
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn meta_update_rejects_a_set_meta_without_value() {
+        assert_eq!(
+            Args::try_parse_from(["mbtiles", "meta-update", "src_file", "--set-meta", "name"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::ValueValidation
         );
     }
 
@@ -940,14 +942,7 @@ mod tests {
     #[test]
     fn unpack_scheme() {
         assert_eq!(
-            Args::parse_from([
-                "mbtiles",
-                "unpack",
-                "in.mbtiles",
-                "out_dir",
-                "--scheme",
-                "tms"
-            ]),
+            Args::parse_from(["mbtiles", "unpack", "in.mbtiles", "out_dir", "--scheme", "tms"]),
             Args {
                 command: Unpack {
                     input_file: PathBuf::from("in.mbtiles"),

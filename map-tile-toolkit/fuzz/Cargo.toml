@@ -1,0 +1,55 @@
+[package]
+name = "map-tile-toolkit-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+arbitrary = { version = "1", features = ["derive"] }
+geo = "0.33.1"
+geo-types = "0.7.19"
+libfuzzer-sys = "0.4"
+
+[dependencies.map-tile-toolkit]
+path = ".."
+
+[[bin]]
+name = "slice_equivalence"
+path = "fuzz_targets/slice_equivalence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "polygon_equivalence"
+path = "fuzz_targets/polygon_equivalence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "point_equivalence"
+path = "fuzz_targets/point_equivalence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "quantized_valid"
+path = "fuzz_targets/quantized_valid.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "quantized_multi_valid"
+path = "fuzz_targets/quantized_multi_valid.rs"
+test = false
+doc = false
+bench = false
+
+# Keep the fuzz crate out of the parent package's build graph.
+[workspace]

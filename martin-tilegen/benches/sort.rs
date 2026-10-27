@@ -8,7 +8,8 @@ use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::TileCoord;
-use martin_tilegen::{LayerId, Seq, SortConfig, SortKey, Sorter, TileOrder};
+use martin_tilegen::internals::{LayerId, Seq, SortKey, Sorter};
+use martin_tilegen::{SortConfig, TileOrder};
 
 const RECORDS: usize = 1_000_000;
 const PAYLOAD: [u8; 64] = [7; 64];
@@ -42,9 +43,7 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
     let keys = worker_keys();
     let dir = tempfile::tempdir().expect("temp dir");
     let mut group = c.benchmark_group("external_sort");
-    group
-        .throughput(Throughput::Elements(RECORDS as u64))
-        .sample_size(10);
+    group.throughput(Throughput::Elements(RECORDS as u64)).sample_size(10);
     group.bench_function("push_spill_merge_1m_x64b", |b| {
         b.iter_batched(
             || {
@@ -52,7 +51,6 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
                     temp_dirs: vec![dir.path().to_path_buf()],
                     buffer_bytes: 16 << 20,
                     max_fan_in: 256,
-                    read_buffer_bytes: 256 << 10,
                 })
                 .expect("valid config")
             },
@@ -63,8 +61,9 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
                 }
                 buffer.finish().expect("spill");
                 let mut merger = sorter.merge().expect("merge");
-                while let Some(record) = merger.next_record().expect("read run") {
+                while let Some(record) = merger.peek() {
                     black_box(record);
+                    merger.advance().expect("read run");
                 }
             },
             BatchSize::PerIteration,

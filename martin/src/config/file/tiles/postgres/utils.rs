@@ -1,27 +1,28 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use tilejson::TileJSON;
 use tracing::{error, info};
 
+/// The key as the map spells it: `key` itself, or its only case-insensitive match.
 #[must_use]
-pub fn normalize_key<T>(
-    map: &BTreeMap<String, T>,
-    key: &str,
-    info: &str,
-    id: &str,
-) -> Option<String> {
-    find_info_kv(map, key, info, id)
-        .map(|(k, _)| k.to_owned())
-        .ok()
+pub fn normalize_key<T>(map: &IndexMap<String, T>, key: &str, info: &str, id: &str) -> Option<String> {
+    if map.contains_key(key) {
+        return Some(key.to_owned());
+    }
+    let found = find_kv_ignore_case(map.keys(), key).ok()??;
+    info!(
+        source.id = %id,
+        key.kind = %info,
+        key.requested = %key,
+        key.found = %found,
+        "Key not found by exact name, using case-insensitive match"
+    );
+    Some(found.clone())
 }
 
-pub fn find_info<'a, T>(
-    map: &'a BTreeMap<String, T>,
-    key: &'a str,
-    info: &str,
-    id: &str,
-) -> Result<&'a T, String> {
+pub fn find_info<'a, T>(map: &'a BTreeMap<String, T>, key: &'a str, info: &str, id: &str) -> Result<&'a T, String> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
@@ -41,7 +42,7 @@ fn find_info_kv<'a, T>(
         return Ok((key, v));
     }
 
-    match find_kv_ignore_case(map, key) {
+    match find_kv_ignore_case(map.keys(), key) {
         Ok(None) => Err(format!(
             "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
             map.keys().map(String::as_str).join(", ")
@@ -78,7 +79,7 @@ pub fn find_schema_info<'a, T>(
     if let Some(v) = map.get(schema) {
         return Ok(v);
     }
-    if let Ok(Some(resolved)) = find_kv_ignore_case(map, schema) {
+    if let Ok(Some(resolved)) = find_kv_ignore_case(map.keys(), schema) {
         return Ok(map.get(resolved).expect("guaranteed to be in the map"));
     }
     if all_schemas.iter().any(|s| s.eq_ignore_ascii_case(schema)) {
@@ -98,14 +99,14 @@ pub fn find_schema_info<'a, T>(
 /// If there is no exact match, but there is a case-insensitive match, return that as `Ok(Some(value))`.
 /// If there is no exact match and there are multiple case-insensitive matches, return an error with a vector of the possible matches.
 /// If there is no match, return `Ok(None)`.
-pub fn find_kv_ignore_case<'a, T>(
-    map: &'a BTreeMap<String, T>,
+pub fn find_kv_ignore_case<'a>(
+    keys: impl IntoIterator<Item = &'a String>,
     key: &str,
 ) -> Result<Option<&'a String>, Vec<String>> {
     let key = key.to_lowercase();
     let mut result = None;
     let mut multiple = Vec::new();
-    for k in map.keys() {
+    for k in keys {
         if k.to_lowercase() == key {
             match result {
                 None => result = Some(k),
@@ -118,11 +119,7 @@ pub fn find_kv_ignore_case<'a, T>(
             }
         }
     }
-    if multiple.is_empty() {
-        Ok(result)
-    } else {
-        Err(multiple)
-    }
+    if multiple.is_empty() { Ok(result) } else { Err(multiple) }
 }
 
 #[must_use]

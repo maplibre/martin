@@ -1,0 +1,12 @@
+config:
+  database: fixture.duckdb
+  auto_publish: true
+catalog:
+  columns:
+    - { schema: main, table: roads, column: id, data_type: INTEGER }
+    - { schema: main, table: roads, column: name, data_type: VARCHAR }
+    - { schema: main, table: roads, column: geom, data_type: "GEOMETRY('EPSG:4326')" }
+    - { schema: main, table: plain, column: id, data_type: INTEGER }
+    - { schema: places, table: points, column: geom, data_type: GEOMETRY }
+  macros:
+    - { schema: main, macro: tiles }

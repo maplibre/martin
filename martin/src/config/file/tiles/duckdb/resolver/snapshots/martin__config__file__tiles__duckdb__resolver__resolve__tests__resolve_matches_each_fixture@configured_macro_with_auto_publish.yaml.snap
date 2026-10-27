@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/configured_macro_with_auto_publish.yaml
+---
+sources:
+  my_tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
+warnings: []

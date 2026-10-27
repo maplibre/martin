@@ -5,18 +5,26 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(feature = "postgres")]
+use crate::config::file::postgres::Srid;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::FunctionIdFormat;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::primitives::MacroIdFormat;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::primitives::TableIdFormat;
+#[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::RetryTimeout;
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 use crate::config::args::BoundsCalcType;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::args::OrderByType;
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-use crate::config::file::{
-    CachePolicy, CacheSizeConfig, GlobalCacheConfig, OnInvalid, UnrecognizedKeys,
-};
+use crate::config::file::{OnInvalid, UnrecognizedKeys};
 
 /// Configuration keys that were present in a config section but not recognized by any known field.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,11 +44,7 @@ impl UnrecognizedValues {
     }
 
     /// Inserts an unrecognized key/value, returning the previous value if the key was present.
-    pub fn insert(
-        &mut self,
-        key: impl Into<String>,
-        value: serde_json::Value,
-    ) -> Option<serde_json::Value> {
+    pub fn insert(&mut self, key: impl Into<String>, value: serde_json::Value) -> Option<serde_json::Value> {
         self.0.insert(key.into(), value)
     }
 
@@ -128,6 +132,15 @@ impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for H
     }
 }
 
+#[cfg(any(feature = "postgres", feature = "unstable-generate"))]
+impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for indexmap::IndexMap<K, V, S> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (key, value) in self {
+            value.collect_unrecognized(&format!("{path}{}.", key.as_ref()), out);
+        }
+    }
+}
+
 impl<K: AsRef<str>, V: CollectUnrecognizedKeys> CollectUnrecognizedKeys for BTreeMap<K, V> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         for (key, value) in self {
@@ -167,19 +180,32 @@ impl_empty_collect_unrecognized!(
     Duration,
     serde_json::Value,
     Bounds,
+    martin_core::CacheZoomRange,
     OnInvalid,
     PreferredEncoding,
-    CachePolicy,
-    CacheSizeConfig,
-    GlobalCacheConfig,
 );
 
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 impl_empty_collect_unrecognized!(BoundsCalcType);
+
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+impl_empty_collect_unrecognized!(OrderByType);
+
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+impl_empty_collect_unrecognized!(TableIdFormat);
+
 #[cfg(feature = "postgres")]
-impl_empty_collect_unrecognized!(RetryTimeout);
+impl_empty_collect_unrecognized!(RetryTimeout, Srid, FunctionIdFormat);
+
+#[cfg(feature = "unstable-duckdb")]
+impl_empty_collect_unrecognized!(MacroIdFormat);
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
 #[cfg(feature = "rendering")]
-impl_empty_collect_unrecognized!(martin_core::styles::TileSize);
+impl_empty_collect_unrecognized!(
+    martin_core::styles::TileSize,
+    martin_core::styles::PixelRatios,
+    martin_core::styles::ImageQuality,
+    martin_core::styles::LossyQuality
+);

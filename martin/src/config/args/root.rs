@@ -6,21 +6,16 @@ use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 
-use super::connections::Arguments;
-use super::srv::SrvArgs;
 use crate::config::args::ArgsError::ConfigAndConnections;
 use crate::config::args::ArgsResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
-#[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "processing"
-))]
+use crate::config::args::connections::Arguments;
+use crate::config::args::srv::SrvArgs;
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles", feature = "processing"))]
 use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "resources",
@@ -35,6 +30,8 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "mbtiles")]
 use crate::cp::CopierArgs;
+#[cfg(feature = "unstable-generate")]
+use crate::generate::spec::TestArgs;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -69,12 +66,16 @@ pub struct Args {
 
 #[cfg(feature = "mbtiles")]
 #[derive(Subcommand, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "unstable-generate",
+    expect(clippy::large_enum_variant, reason = "parsed once at startup")
+)]
 pub enum Command {
     /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
     Cp(CopierArgs),
-    /// Generate a tileset from whole tables in one pass (bulk generation)
+    /// Generate and check specs of what table source layers make of real rows
     #[cfg(feature = "unstable-generate")]
-    Generate(crate::generate::GeneratorArgs),
+    Test(TestArgs),
 }
 
 // None of these params will be transferred to the config
@@ -146,13 +147,10 @@ impl Args {
                 feature = "mbtiles",
                 feature = "pmtiles",
                 feature = "processing",
-                feature = "unstable-cog",
+                feature = "cog",
                 feature = "unstable-duckdb"
             )),
-            expect(
-                unused_mut,
-                reason = "postgres may modify the cli strings to process input params"
-            )
+            expect(unused_mut, reason = "postgres may modify the cli strings to process input params")
         )]
         let mut cli_strings = Arguments::new(self.meta.connection);
 
@@ -182,22 +180,21 @@ impl Args {
             config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
         }
 
-        #[cfg(feature = "unstable-cog")]
+        #[cfg(feature = "cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], true);
         }
 
         #[cfg(feature = "unstable-duckdb")]
         if !cli_strings.is_empty() {
-            let geoparquet =
-                parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
-                    .into_iter()
-                    .map(|path| {
-                        DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
-                            geoparquet: path.to_string_lossy().into_owned(),
-                            ..GeoParquetEntry::default()
-                        }))
-                    });
+            let geoparquet = parse_file_paths(&mut cli_strings, &["parquet", "geoparquet"], false, false)
+                .into_iter()
+                .map(|path| {
+                    DuckDbSourceEntry::GeoParquet(Box::new(GeoParquetEntry {
+                        geoparquet: path.to_string_lossy().into_owned(),
+                        ..GeoParquetEntry::default()
+                    }))
+                });
             let databases = parse_file_paths(&mut cli_strings, &["duckdb"], false, false)
                 .into_iter()
                 .map(|database| {
@@ -230,7 +227,7 @@ impl Args {
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -241,14 +238,10 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
         return false;
     };
     match url.scheme() {
-        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => {
-            url.path().split('/').any(|segment| {
-                segment
-                    .rsplit('.')
-                    .next()
-                    .is_some_and(|ext| extension.contains(&ext))
-            })
-        }
+        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => url
+            .path()
+            .split('/')
+            .any(|segment| segment.rsplit('.').next().is_some_and(|ext| extension.contains(&ext))),
         "http" | "https" | "file" => url
             .path()
             .rsplit('.')
@@ -262,7 +255,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 ///
 /// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -281,12 +274,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
         .is_some_and(|ext| extensions.contains(&ext))
 }
 
-#[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "processing"
-))]
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles", feature = "processing"))]
 pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
@@ -299,7 +287,7 @@ pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
 ///
 /// Directories are shared with other consumers when `share_dirs` is set, and otherwise left unclaimed.
 #[cfg(any(
-    feature = "unstable-cog",
+    feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "processing",
@@ -311,7 +299,7 @@ fn parse_file_paths(
     allow_url: bool,
     share_dirs: bool,
 ) -> Vec<PathBuf> {
-    use super::State::{Ignore, Share, Take};
+    use crate::config::args::State::{Ignore, Share, Take};
 
     cli_strings.process(|s| {
         let path = PathBuf::from(s);
@@ -323,10 +311,9 @@ fn parse_file_paths(
         } else if path.is_dir() {
             if share_dirs { Share(path) } else { Ignore }
         } else if path.is_file()
-            && extensions.iter().any(|&expected_ext| {
-                path.extension()
-                    .is_some_and(|actual_ext| actual_ext == expected_ext)
-            })
+            && extensions
+                .iter()
+                .any(|&expected_ext| path.extension().is_some_and(|actual_ext| actual_ext == expected_ext))
         {
             Take(path)
         } else {
@@ -408,10 +395,7 @@ mod tests {
             config2.unwrap().0.srv.preferred_encoding,
             Some(PreferredEncoding::Brotli)
         );
-        assert_eq!(
-            config3.unwrap().0.srv.preferred_encoding,
-            Some(PreferredEncoding::Gzip)
-        );
+        assert_eq!(config3.unwrap().0.srv.preferred_encoding, Some(PreferredEncoding::Gzip));
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
@@ -426,13 +410,24 @@ mod tests {
         assert_eq!(config.cache.size_mb, Some(size_mb));
     }
 
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn cli_default_srid_rejects_srid_zero() {
+        let err = Args::try_parse_from(["martin", "--default-srid", "0"]).unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"
+        error: invalid value '0' for '--default-srid <DEFAULT_SRID>': SRID 0 is out of range, it must be from 1 to 999999
+
+        For more information, try '--help'.
+        ");
+    }
+
     #[test]
     fn cli_cache_size_rejects_unknown_unit() {
         let err = Args::try_parse_from(["martin", "--cache-size", "1 parsec"]).unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ValueValidation);
     }
 
-    #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+    #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
     fn detects_file_scheme_uri() {
         // Valid file scheme URIs
@@ -441,18 +436,12 @@ mod tests {
             "file:test.mbtiles?mode=memory&cache=shared",
             &["mbtiles"]
         ));
-        assert!(is_file_scheme_uri(
-            "file:/path/to/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(is_file_scheme_uri("file:/path/to/test.mbtiles", &["mbtiles"]));
         assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
         assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
 
         // Invalid cases
-        assert!(!is_file_scheme_uri(
-            "http://example.com/test.mbtiles",
-            &["mbtiles"]
-        ));
+        assert!(!is_file_scheme_uri("http://example.com/test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
         assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
@@ -522,7 +511,7 @@ mod tests {
         assert_matches!(err, UnrecognizableConnections(v) if v == bad);
     }
 
-    #[cfg(feature = "unstable-cog")]
+    #[cfg(feature = "cog")]
     #[test]
     fn cli_accepts_remote_cog_urls() {
         let args = Args::parse_from([
@@ -540,7 +529,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[tokio::test]
     async fn cli_multiple_extensions() {
         use std::ffi::OsString;
@@ -551,22 +540,27 @@ mod tests {
             OsString::from("martin"),
             OsString::from("../tests/fixtures/pmtiles/png.pmtiles"),
             file.as_os_str().to_owned(),
-            OsString::from("../tests/fixtures/cog/rgba_u8_nodata.tiff"),
-            OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
+            OsString::from("../tests/fixtures/cog/usda_naip_128_none_z2.tif"),
+            OsString::from("../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"),
         ]);
 
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles:
+          paths:
+            - "file:json.mbtiles?mode=memory&cache=shared"
         cog:
-          - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
-          - "../tests/fixtures/cog/rgba_u8.tif"
+          paths:
+            - "../tests/fixtures/cog/usda_naip_128_none_z2.tif"
+            - "../tests/fixtures/cog/usda_naip_256_lzw_z3.tif"
         "#);
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
@@ -575,20 +569,25 @@ mod tests {
         let err = args.merge_into_config(&mut config);
         err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
-        pmtiles: "../tests/fixtures/"
-        mbtiles: "../tests/fixtures/"
-        cog: "../tests/fixtures/"
-        geojson: "../tests/fixtures/"
+        pmtiles:
+          paths:
+            - "../tests/fixtures/"
+        mbtiles:
+          paths:
+            - "../tests/fixtures/"
+        cog:
+          paths:
+            - "../tests/fixtures/"
+        geojson:
+          paths:
+            - "../tests/fixtures/"
         "#);
     }
 
     #[cfg(feature = "processing")]
     #[test]
     fn cli_geojson_file() {
-        let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/geojson/feature_collection_1.geojson",
-        ]);
+        let args = Args::parse_from(["martin", "../tests/fixtures/geojson/feature_collection_1.geojson"]);
 
         let mut config = Config::default();
         args.merge_into_config(&mut config).unwrap();

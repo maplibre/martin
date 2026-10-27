@@ -6,6 +6,7 @@ use tracing::{instrument, trace};
 use crate::CacheZoomRange;
 use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
 use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -25,11 +26,12 @@ impl DuckDBSource {
     pub fn new(
         id: String,
         info: DuckDBSqlInfo,
-        tilejson: TileJSON,
+        mut tilejson: TileJSON,
         pool: DuckDBPool,
         tile_info: TileInfo,
         cache_zoom: CacheZoomRange,
     ) -> Self {
+        cap_zoom_range(&id, &mut tilejson);
         Self {
             id,
             info,
@@ -78,11 +80,7 @@ impl Source for DuckDBSource {
         ),
         err(Debug),
     )]
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         let id = self.id.clone();
         let info = self.info.clone();
         let tile = self
@@ -124,14 +122,12 @@ fn execute_tile_query(
     conn: &Connection,
 ) -> DuckDBResult<TileData> {
     let sql = &info.sql_query;
-    let mut stmt = conn
-        .prepare_cached(sql)
-        .map_err(|source| PrepareQueryError {
-            source: source.into(),
-            source_id: source_id.to_owned(),
-            signature: info.signature.clone(),
-            query: info.sql_query.clone(),
-        })?;
+    let mut stmt = conn.prepare_cached(sql).map_err(|source| PrepareQueryError {
+        source: source.into(),
+        source_id: source_id.to_owned(),
+        signature: info.signature.clone(),
+        query: info.sql_query.clone(),
+    })?;
 
     trace!(%sql, %xyz, "duckdb tile query");
     let tile = stmt
@@ -146,8 +142,7 @@ fn execute_tile_query(
         .optional()
         .map_err(|e| GetTileError(e.into(), source_id.to_owned(), xyz))?
         .flatten()
-        .map(TileData::from)
-        .unwrap_or_default();
+        .map_or_default(TileData::from);
 
     Ok(tile)
 }

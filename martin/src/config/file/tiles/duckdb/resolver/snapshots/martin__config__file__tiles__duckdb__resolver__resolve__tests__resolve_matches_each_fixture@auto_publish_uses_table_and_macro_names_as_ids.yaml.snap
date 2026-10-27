@@ -1,0 +1,10 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/auto_publish_uses_table_and_macro_names_as_ids.yaml
+---
+sources:
+  points: "DuckDB table places.points (fixture.duckdb) fields [gid, label]"
+  roads: "DuckDB table main.roads (fixture.duckdb) fields [id, name]"
+  tiles: "DuckDB macro main.tiles (fixture.duckdb) fields []"
+warnings: []

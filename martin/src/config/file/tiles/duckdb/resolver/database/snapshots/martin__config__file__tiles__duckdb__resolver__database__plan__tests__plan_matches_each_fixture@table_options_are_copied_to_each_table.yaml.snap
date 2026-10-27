@@ -1,0 +1,18 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/table_options_are_copied_to_each_table.yaml
+---
+reads:
+  tables: true
+  macros: false
+tables:
+  - id: roads
+    schema: main
+    table: roads
+    geometry_column: geom
+    extent: 512
+    buffer: 8
+    clip_geom: false
+macros: []
+decisions: []

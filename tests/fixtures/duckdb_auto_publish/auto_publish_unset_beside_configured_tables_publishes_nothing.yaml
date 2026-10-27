@@ -1,0 +1,10 @@
+config:
+  database: fixture.duckdb
+  tables:
+    my_roads: { table: roads, geometry_column: geom }
+catalog:
+  columns:
+    - { schema: main, table: roads, column: id, data_type: INTEGER }
+    - { schema: main, table: roads, column: geom, data_type: "GEOMETRY('EPSG:4326')" }
+  macros:
+    - { schema: main, macro: tiles }

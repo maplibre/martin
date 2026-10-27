@@ -14,10 +14,7 @@ struct TileRequest {
     y: u32,
 }
 
-async fn get_tile(
-    path: web::Path<TileRequest>,
-    state: web::Data<PmtilesSource>,
-) -> ActixResult<HttpResponse> {
+async fn get_tile(path: web::Path<TileRequest>, state: web::Data<PmtilesSource>) -> ActixResult<HttpResponse> {
     let xyz = TileCoord::new_unchecked(path.z, path.x, path.y);
 
     let tile_data = state
@@ -28,9 +25,7 @@ async fn get_tile(
     if tile_data.is_empty() {
         Ok(HttpResponse::NotFound().finish())
     } else {
-        Ok(HttpResponse::Ok()
-            .content_type("image/webp")
-            .body(tile_data))
+        Ok(HttpResponse::Ok().content_type("image/webp").body(tile_data))
     }
 }
 
@@ -85,15 +80,9 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to parse object store URL");
 
     let cache = PmtCacheInstance::new(0, PmtCache::default());
-    let source = PmtilesSource::new(
-        cache,
-        "webp2".to_owned(),
-        store,
-        path,
-        CacheZoomRange::default(),
-    )
-    .await
-    .expect("Failed to create PMTiles source");
+    let source = PmtilesSource::new(cache, "webp2".to_owned(), store, path, CacheZoomRange::default())
+        .await
+        .expect("Failed to create PMTiles source");
 
     let state = web::Data::new(source);
 

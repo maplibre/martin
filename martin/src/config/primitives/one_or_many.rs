@@ -19,10 +19,7 @@ pub enum OneOrMany<T> {
 }
 
 /// Serializes the values as a sequence.
-pub fn serialize<T: Serialize, S: Serializer>(
-    values: &[T],
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
+pub fn serialize<T: Serialize, S: Serializer>(values: &[T], serializer: S) -> Result<S::Ok, S::Error> {
     values.serialize(serializer)
 }
 
@@ -120,10 +117,7 @@ mod tests {
 
     #[test]
     fn deserialize_quoted_string_is_one() {
-        assert_eq!(
-            parse::<String>("\"hello world\""),
-            vec!["hello world".to_owned()]
-        );
+        assert_eq!(parse::<String>("\"hello world\""), vec!["hello world".to_owned()]);
     }
 
     #[test]
@@ -161,8 +155,7 @@ mod tests {
            ╭─[config.yaml:3:5]
          2 │   connection_string:
          3 │     - first
-           ·     ┬
-           ·     ╰── expected string scalar
+           ·     ─
          4 │     - second
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates

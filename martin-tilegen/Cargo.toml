@@ -1,6 +1,6 @@
 [package]
 name = "martin-tilegen"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Bulk vector tile generation engine: renders features once per zoom, external-sorts the pieces, and assembles MLT/MVT tilesets"
 keywords = ["maps", "tiles", "mvt", "mlt", "tileserver"]
@@ -19,7 +19,15 @@ name = "encode"
 harness = false
 
 [[bench]]
+name = "expr"
+harness = false
+
+[[bench]]
 name = "generate"
+harness = false
+
+[[bench]]
+name = "render"
 harness = false
 
 [[bench]]
@@ -27,34 +35,49 @@ name = "sort"
 harness = false
 
 [features]
-default = ["mbtiles"]
+default = ["mbtiles", "pmtiles"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
+pmtiles = ["pmtiles/write", "dep:serde_json"]
+internals = []
 
 [dependencies]
+bytes.workspace = true
+bytestring.workspace = true
+cel.workspace = true
 flume.workspace = true
 geo.workspace = true
+geo-traits.workspace = true
 geo-types.workspace = true
 hotpath = { workspace = true, features = ["flume"] }
+lasso.workspace = true
 map-tile-toolkit.workspace = true
-martin-core = { workspace = true, features = ["unstable-generate-source"] }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+memmap2.workspace = true
 mlt-core.workspace = true
 pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
+serde_json = { workspace = true, optional = true }
 tempfile.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, optional = true, features = ["rt"] }
+tracing.workspace = true
 wincode = { workspace = true, features = ["derive"] }
+wkb.workspace = true
 xxhash-rust.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["process", "std"] }
 
 [dev-dependencies]
 approx.workspace = true
 criterion.workspace = true
-martin-core = { workspace = true, features = ["_testing", "processing"] }
+insta.workspace = true
+martin-tilegen = { path = ".", features = ["internals"] }
 rstest.workspace = true
+wkt.workspace = true
 
 [lints]
 workspace = true

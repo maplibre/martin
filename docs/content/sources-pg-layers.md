@@ -13,7 +13,8 @@ tags:
 
 `layers` is a key of a [PostgreSQL table source](sources-pg-tables.md). It turns one table into one or
 more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes
-and draw order. Only [`martin generate`](martin-generate.md) uses it so far, and the tile server ignores it.
+and draw order. The [bulk mode](martin-generate.md) of `martin cp` writes them into a tileset, and the
+tile server renders them on request, see [Serving](#serving).
 
 A table source without `layers` is one layer, named by its `layer_id` or by its source id, holding all
 of its `properties` and its feature ids. A table source cannot set both `layer_id` and `layers`.
@@ -39,7 +40,7 @@ postgres:
           minzoom: 10
           simplify: 2
           attributes: [name, "name:*"]
-          id: drop
+          id: false
 ```
 
 Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one
@@ -51,18 +52,19 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | Key                               | Meaning                                                          | Details                                            |
 |-----------------------------------|------------------------------------------------------------------|----------------------------------------------------|
 | `minzoom`, `maxzoom`              | A number, or an expression for each feature's own zoom           | [Zooms](#zooms)                                    |
-| `extent`, `buffer`                | Override the table source's                                      |                                                    |
+| `extent`, `buffer`, `clip_geom`   | Override the table source's                                      |                                                    |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons          | [Simplification](#simplification-and-minimum-size) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped               | [Simplification](#simplification-and-minimum-size) |
 | `geometry`                        | `point`, `line` or `polygon`: only features of that type         | [Features](#features)                              |
 | `where`                           | An expression: only features for which it is `true`              | [Features](#features)                              |
 | `attributes`                      | Which properties to write, and under which names                 | [Attributes](#attributes)                          |
-| `id`                              | `keep` (default), `drop`, or `{ expr: ... }`                     | [Feature ids](#feature-ids)                        |
+| `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 
-`extent` and `buffer` default to the table source's, then to 4096 and 64.
-`buffer` must be less than half the `extent`.
+`extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
+`extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`.
+With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
 
 ## Properties
 
@@ -100,7 +102,8 @@ The highest zoom is 27.
 ## Simplification and minimum size
 
 Lines and polygons are simplified at each zoom, and dropped once they are smaller than `min_size`.
-Both are in pixels of a 256-pixel tile, whatever the `extent`.
+Both are in pixels of a 256-pixel tile, whatever the `extent`, and default to the values
+[Planetiler](https://github.com/onthegomap/planetiler) uses.
 
 | Key        | Below the layer's max zoom | At the layer's max zoom                           |
 |------------|----------------------------|---------------------------------------------------|
@@ -118,7 +121,23 @@ A feature belongs to a layer when all of these hold:
 2. the layer's `geometry` type, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
-A rule's `where` does not filter features: it only picks the rule.
+A [rule](#rules)'s `where` is not one of them.
+A feature that matches no rule stays in the layer.
+
+The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no
+layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+
+- comparisons of a column with a literal,
+- `==` or `!=` between two columns, unless both are floats,
+- `in` with a list of literals, `has(feature.x)` and `'x' in feature`,
+- `&&`, `||`, `!` and `? :`,
+- `size`, `startsWith`, `endsWith`, `contains`, `lowerAscii` and `upperAscii` on a string column,
+  compared with a literal.
+
+Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently.
+When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
+Listing `attributes` without the `jsonb` property's keys avoids that.
+Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.
 
 ## Attributes
 
@@ -135,7 +154,7 @@ An expression that is `null` leaves the attribute out.
 
 ## Feature ids
 
-`id: keep` writes the `id_column` as the feature id, `id: drop` writes none, and `id: { expr: ... }`
+`id: true` writes the `id_column` as the feature id, `id: false` writes none, and an expression
 computes it. A computed id is only written when it is an integer of zero or more.
 
 ## Rules
@@ -182,9 +201,12 @@ Without `sort_by`, the features of a layer keep the order the source reads them 
 === "PostgreSQL"
 
     - A table is read in its physical order.
-    - A view or foreign table with an integer `id_column` is read by that id, which overrides the view's
-      `ORDER BY`.
+    - A view or foreign table with an integer `id_column` is read in 32 partitions by id remainder
+      (`abs(id % 32)`), which interleaves the ids and overrides the view's `ORDER BY`.
     - Any other view is read in its own order.
+
+    The tile server reads each tile's features in the order PostgreSQL finds them, which can
+    differ from request to request, so only `sort_by` gives served tiles a fixed draw order.
 
 `sort_by` is a list of expressions, each a string or `{ expr: ..., desc: true }`, compared in turn.
 Features that compare equal keep the order they are read in.
@@ -330,12 +352,47 @@ postgres:
         places:
           where: "population > 1000"
           minzoom: "population > 1000000 ? 2 : 8"
-          id: { expr: "osm_id * 10" }
+          id: "osm_id * 10"
           attributes:
             kind: class
             label: { expr: "coalesce(feature['name:en'], name)", minzoom: 10 }
             source: { value: osm }
             rank: 3
+```
+
+## Serving
+
+The tile server renders a table source with `layers` itself instead of asking PostGIS for an
+`ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its
+buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](architecture-generate.md#serving-tiles)
+shows how.
+
+- The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent`
+  fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
+- Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
+- `max_feature_count` limits the features read for each tile, or for each block with `prefetch`.
+  The database must apply every `where` first, see [Features](#features), or startup fails.
+  With it, `order_by` chooses which are kept. `order_by` alone changes nothing, as `sort_by` sets the
+  draw order.
+- `prefetch: N`, on the table source or as the default under `postgres`, renders the N×N block holding
+  a tile on a cache miss, in one query, and caches all of its tiles. N is from 1 to 16, and 1 renders
+  each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
+  tile cache, or outside its zooms, each tile is rendered alone. A table with `prefetch` needs `layers`.
+
+```yaml
+postgres:
+  prefetch: 2
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      id_column: osm_id
+      prefetch: 4
+      properties:
+        class: text
+      layers:
+        roads: {}
 ```
 
 ## Validation
@@ -346,3 +403,6 @@ postgres:
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
   yet.
+
+[`martin test`](martin-test.md) checks what the layers make of real rows of the database, and keeps it in
+a spec file.

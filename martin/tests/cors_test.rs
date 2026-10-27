@@ -7,18 +7,14 @@ use actix_web::test::{TestRequest, call_service};
 use indoc::formatdoc;
 use mbtiles::temp_named_mbtiles;
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{
         let cfg = mock_cfg($sources).await;
         let state = mock_sources(cfg.clone()).await.0;
         let srv_config = cfg.srv;
-        let cors_middleware = srv_config
-            .clone()
-            .cors
-            .unwrap_or_default()
-            .make_cors_middleware();
+        let cors_middleware = srv_config.clone().cors.unwrap_or_default().make_cors_middleware();
 
         ::actix_web::test::init_service(
             ::actix_web::App::new()
@@ -59,12 +55,7 @@ async fn cors_explicit_disabled() {
         .insert_header((ORIGIN, "https://example.org"))
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(
-        response
-            .headers()
-            .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .is_none()
-    );
+    assert!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).is_none());
 }
 
 #[actix_rt::test]
@@ -162,20 +153,14 @@ async fn cors_no_header_on_mismatch() {
         .insert_header((ORIGIN, "https://martin.maplibre.org"))
         .to_request();
     let response = call_service(&app, req).await;
-    assert!(
-        response
-            .headers()
-            .get(ACCESS_CONTROL_ALLOW_ORIGIN)
-            .is_none()
-    );
+    assert!(response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).is_none());
 }
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn cors_preflight_request_with_max_age() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mbt, _conn, file) =
-        temp_named_mbtiles("test_cors_preflight_request_with_max_age", script).await;
+    let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_preflight_request_with_max_age", script).await;
 
     let app = create_app!(&formatdoc! {"
         cors:
@@ -199,18 +184,14 @@ async fn cors_preflight_request_with_max_age() {
         response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
         "https://example.org"
     );
-    assert_eq!(
-        response.headers().get(ACCESS_CONTROL_MAX_AGE).unwrap(),
-        "3600"
-    );
+    assert_eq!(response.headers().get(ACCESS_CONTROL_MAX_AGE).unwrap(), "3600");
 }
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn cors_preflight_request_without_max_age() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (_mbt, _conn, file) =
-        temp_named_mbtiles("test_cors_preflight_request_without_max_age", script).await;
+    let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_preflight_request_without_max_age", script).await;
 
     let app = create_app!(&formatdoc! {"
         cors:

@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "2.0.0-beta.3"
+version = "2.0.0-beta.4"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -91,9 +91,11 @@ required-features = ["postgres"]
 
 [features]
 default = [
+    "cog",
     "lambda",
     "mbtiles",
     "metrics",
+    "ogcapi",
     "passthrough",
     "pmtiles",
     "postgres",
@@ -102,8 +104,8 @@ default = [
     "tui",
     "webui",
 ]
-unstable-cog = [
-    "martin-core/unstable-cog",
+cog = [
+    "martin-core/cog",
     "dep:aws-config",
     "dep:aws-credential-types",
     "dep:object_store",
@@ -120,10 +122,13 @@ rendering = [
     "dep:image",
     "dep:png",
     "dep:quantizr",
+    "dep:webp",
 ]
+fips = ["rustls/fips"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
+ogcapi = ["_tiles"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
@@ -142,6 +147,7 @@ postgres = [
     "dep:postgis",
     "dep:postgres-protocol",
     "dep:xxhash-rust",
+    "dep:indexmap",
     "_tiles",
 ]
 processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
@@ -156,13 +162,22 @@ unstable-generate = [
     "dep:cel",
     "dep:indexmap",
     "dep:martin-tilegen",
+    "dep:similar",
+    "dep:wkt",
     "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
 ]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
 _file_kinds = []
-unstable-schemas = ["dep:schemars", "dep:utoipa", "martin-core/unstable-schemas", "default"]
+unstable-schemas = [
+    "dep:schemars",
+    "schemars/indexmap2",
+    "dep:utoipa",
+    "martin-core/unstable-schemas",
+    "default",
+]
 unstable-duckdb = [
     "dep:cql2",
     "martin-core/unstable-duckdb",
@@ -240,6 +255,7 @@ serde.workspace = true
 serde-saphyr.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
+similar = { workspace = true, optional = true }
 smallvec = { version = "1.15", features = ["const_new", "union"] }
 static-files = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
@@ -266,11 +282,14 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 url.workspace = true
 utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+webp = { workspace = true, optional = true }
+wkt = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+wkt = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true
@@ -279,7 +298,7 @@ backon.workspace = true
 criterion.workspace = true
 flate2.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["json", "yaml", "redactions"] }
+insta = { workspace = true, features = ["filters", "glob", "json", "redactions", "yaml"] }
 martin-core = { workspace = true, features = ["_testing"] }
 rstest.workspace = true
 tempfile.workspace = true

@@ -1,0 +1,8 @@
+config:
+  database: fixture.duckdb
+  auto_publish:
+    macros:
+      source_id_format: "{schema}__{macro}"
+catalog:
+  macros:
+    - { schema: tiles, macro: roads }

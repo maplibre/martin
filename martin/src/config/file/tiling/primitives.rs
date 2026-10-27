@@ -3,10 +3,9 @@ use std::marker::PhantomData;
 
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
-use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
+use crate::config::file::tiling::error::TilingConfigError;
 
 macro_rules! forward_scalars {
     ($target:ty => $wrap:expr; $($visit:ident: $scalar:ty),+ $(,)?) => {
@@ -76,8 +75,7 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for NonEmpty<T> {
 
             fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Self::Value, A::Error> {
                 let items = Vec::<T>::deserialize(SeqAccessDeserializer::new(seq))?;
-                NonEmpty::try_from_vec(items)
-                    .ok_or_else(|| de::Error::invalid_length(0, &"at least one item"))
+                NonEmpty::try_from_vec(items).ok_or_else(|| de::Error::invalid_length(0, &"at least one item"))
             }
 
             fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
@@ -91,16 +89,6 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for NonEmpty<T> {
     }
 }
 
-pub fn single_entry_map<S: Serializer>(
-    serializer: S,
-    key: &str,
-    value: &impl Serialize,
-) -> Result<S::Ok, S::Error> {
-    let mut map = serializer.serialize_map(Some(1))?;
-    map.serialize_entry(key, value)?;
-    map.end()
-}
-
 pub fn checked_map<'de, D, R, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
@@ -111,10 +99,7 @@ where
     checked_map_with(deserializer, T::try_from)
 }
 
-pub fn checked_map_with<'de, D, R, T, E>(
-    deserializer: D,
-    check: impl FnOnce(R) -> Result<T, E>,
-) -> Result<T, D::Error>
+pub fn checked_map_with<'de, D, R, T, E>(deserializer: D, check: impl FnOnce(R) -> Result<T, E>) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     R: Deserialize<'de>,
@@ -161,9 +146,7 @@ impl Finite {
 impl<'de> Deserialize<'de> for Finite {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let value = f64::deserialize(deserializer)?;
-        Self::new(value).ok_or_else(|| {
-            de::Error::invalid_value(de::Unexpected::Float(value), &"a finite number")
-        })
+        Self::new(value).ok_or_else(|| de::Error::invalid_value(de::Unexpected::Float(value), &"a finite number"))
     }
 }
 
@@ -240,10 +223,7 @@ impl Expr {
                     .errors
                     .first()
                     .map_or_else(|| errors.to_string(), |e| e.msg.clone());
-                Err(TilingConfigError::InvalidExpr {
-                    expr: source,
-                    reason,
-                })
+                Err(TilingConfigError::InvalidExpr { expr: source, reason })
             }
         }
     }

@@ -15,9 +15,8 @@ use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
-    CacheEntryMeta, CopyDuplicateMode, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli,
-    Mbtiles, MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch,
-    init_mbtiles_schema, invert_y_value,
+    CacheEntryMeta, CopyDuplicateMode, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli, Mbtiles,
+    MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema, invert_y_value,
 };
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
@@ -190,15 +189,7 @@ macro_rules! assert_dump {
 #[derive(Default)]
 #[expect(clippy::type_complexity)]
 struct Databases(
-    HashMap<
-        (&'static str, MbtTypeCli),
-        (
-            Vec<SqliteEntry>,
-            Mbtiles,
-            Option<String>,
-            Mutex<SqliteConnection>,
-        ),
-    >,
+    HashMap<(&'static str, MbtTypeCli), (Vec<SqliteEntry>, Mbtiles, Option<String>, Mutex<SqliteConnection>)>,
 );
 
 impl Databases {
@@ -211,8 +202,7 @@ impl Databases {
         hash: Option<String>,
         conn: SqliteConnection,
     ) {
-        self.0
-            .insert((name, typ), (dump, mbtiles, hash, Mutex::new(conn)));
+        self.0.insert((name, typ), (dump, mbtiles, hash, Mutex::new(conn)));
     }
     fn dump(&self, name: &'static str, typ: MbtTypeCli) -> &Vec<SqliteEntry> {
         &self.0.get(&(name, typ)).unwrap().0
@@ -244,14 +234,7 @@ fn databases() -> Databases {
                     new_file_no_hash!(databases, mbt_typ, "", "", "{typ}__empty-no-hash");
                 let dmp = dump(&mut raw_empty_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__empty-no-hash");
-                result.add(
-                    "empty_no_hash",
-                    mbt_typ,
-                    dmp,
-                    raw_empty_mbt,
-                    None,
-                    raw_empty_cn,
-                );
+                result.add("empty_no_hash", mbt_typ, dmp, raw_empty_mbt, None, raw_empty_cn);
 
                 // ----------------- empty -----------------
                 let (empty_mbt, mut empty_cn) = open!(databases, "{typ}__empty");
@@ -265,13 +248,8 @@ fn databases() -> Databases {
                 result.add("empty", mbt_typ, dmp, empty_mbt, Some(hash), empty_cn);
 
                 // ----------------- v1_no_hash -----------------
-                let (raw_mbt, mut raw_cn) = new_file_no_hash!(
-                    databases,
-                    mbt_typ,
-                    METADATA_V1,
-                    TILES_V1,
-                    "{typ}__v1-no-hash"
-                );
+                let (raw_mbt, mut raw_cn) =
+                    new_file_no_hash!(databases, mbt_typ, METADATA_V1, TILES_V1, "{typ}__v1-no-hash");
                 let dmp = dump(&mut raw_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__v1-no-hash");
                 result.add("v1_no_hash", mbt_typ, dmp, raw_mbt, None, raw_cn);
@@ -288,8 +266,7 @@ fn databases() -> Databases {
                 result.add("v1", mbt_typ, dmp, v1_mbt, Some(hash), v1_cn);
 
                 // ----------------- v2 -----------------
-                let (v2_mbt, mut v2_cn) =
-                    new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
+                let (v2_mbt, mut v2_cn) = new_file!(databases, mbt_typ, METADATA_V2, TILES_V2, "{typ}__v2");
                 let dmp = dump(&mut v2_cn).await.unwrap();
                 assert_dump!(&dmp, "{typ}__v2");
                 let hash = v2_mbt.open_and_validate(Off, Verify).await.unwrap();
@@ -337,10 +314,7 @@ fn databases() -> Databases {
 
                 // ----------------- bin-diff (v1 -> v2) -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    for (a, b, patch_type, pt) in [
-                        ("v1", "v2", BinDiffRaw, "bdr"),
-                        ("v1z", "v2z", BinDiffGz, "bdz"),
-                    ] {
+                    for (a, b, patch_type, pt) in [("v1", "v2", BinDiffRaw, "bdr"), ("v1z", "v2z", BinDiffGz, "bdz")] {
                         let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
                         copy! {
                             result.path(a, mbt_typ),
@@ -355,14 +329,10 @@ fn databases() -> Databases {
                                 unreachable!()
                             }
                             BinDiffGz => {
-                                allow_duplicates!(
-                                    assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6")
-                                );
+                                allow_duplicates!(assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"));
                             }
                             BinDiffRaw => {
-                                allow_duplicates!(
-                                    assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3")
-                                );
+                                allow_duplicates!(assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"));
                             }
                         }
                         result.add(pt, mbt_typ, dmp, bd_mbt, Some(hash), bd_cn);
@@ -376,14 +346,7 @@ fn databases() -> Databases {
                 allow_duplicates! {
                     assert_snapshot!(hash, @"9ED9178D7025276336C783C2B54D6258");
                 }
-                result.add(
-                    "v1_clone",
-                    mbt_typ,
-                    dmp,
-                    v1_clone_mbt,
-                    Some(hash),
-                    v1_clone_cn,
-                );
+                result.add("v1_clone", mbt_typ, dmp, v1_clone_mbt, Some(hash), v1_clone_cn);
 
                 // ----------------- dif_empty (v1 -> v1_clone) -----------------
                 let (dif_empty_mbt, mut dif_empty_cn) = open!(databases, "{typ}__dif_empty");
@@ -398,14 +361,7 @@ fn databases() -> Databases {
                 allow_duplicates! {
                     assert_snapshot!(hash, @"D41D8CD98F00B204E9800998ECF8427E");
                 }
-                result.add(
-                    "dif_empty",
-                    mbt_typ,
-                    dmp,
-                    dif_empty_mbt,
-                    Some(hash),
-                    dif_empty_cn,
-                );
+                result.add("dif_empty", mbt_typ, dmp, dif_empty_mbt, Some(hash), dif_empty_cn);
             }
             result
         })
@@ -559,43 +515,25 @@ async fn convert_cache(
 #[tracing_test::traced_test]
 async fn copy_cache_to_cache_preserves_meta() {
     let (src_mbt, mut src_cn) = open!(copy_cache_to_cache_preserves_meta, "src");
-    src_mbt
-        .create_cache_schema(&mut src_cn, false)
-        .await
-        .unwrap();
+    src_mbt.create_cache_schema(&mut src_cn, false).await.unwrap();
     let meta = CacheEntryMeta::new(UnixSeconds(30), UnixSeconds(100), "etag-1");
     src_mbt
         .set_cached(&mut src_cn, 5, 1, 2, b"expiring", meta)
         .await
         .unwrap();
     src_mbt
-        .set_cached(
-            &mut src_cn,
-            6,
-            3,
-            4,
-            b"permanent",
-            CacheEntryMeta::default(),
-        )
+        .set_cached(&mut src_cn, 6, 3, 4, b"permanent", CacheEntryMeta::default())
         .await
         .unwrap();
 
     let (dst_mbt, mut dst_cn) = open!(copy_cache_to_cache_preserves_meta, "dst");
     copy!(path(&src_mbt), path(&dst_mbt));
-    let got = dst_mbt
-        .get_cached(&mut dst_cn, 5, 1, 2)
-        .await
-        .unwrap()
-        .unwrap();
+    let got = dst_mbt.get_cached(&mut dst_cn, 5, 1, 2).await.unwrap().unwrap();
     assert_eq!(got.data, b"expiring");
     assert_eq!(got.fetched, Some(UnixSeconds(30)));
     assert_eq!(got.expires, Some(UnixSeconds(100)));
     assert_eq!(got.etag.as_deref(), Some("etag-1"));
-    let got = dst_mbt
-        .get_cached(&mut dst_cn, 6, 3, 4)
-        .await
-        .unwrap()
-        .unwrap();
+    let got = dst_mbt.get_cached(&mut dst_cn, 6, 3, 4).await.unwrap().unwrap();
     assert_eq!(got.data, b"permanent");
     assert_eq!(got.fetched, None);
     assert_eq!(got.expires, None);
@@ -608,20 +546,8 @@ async fn copy_cache_to_cache_preserves_meta() {
         path(&z6_mbt),
         min_zoom => Some(6),
     };
-    assert!(
-        z6_mbt
-            .get_cached(&mut z6_cn, 5, 1, 2)
-            .await
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        z6_mbt
-            .get_cached(&mut z6_cn, 6, 3, 4)
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(z6_mbt.get_cached(&mut z6_cn, 5, 1, 2).await.unwrap().is_none());
+    assert!(z6_mbt.get_cached(&mut z6_cn, 6, 3, 4).await.unwrap().is_some());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -634,10 +560,7 @@ async fn copy_with_another_hash_algorithm_rehashes_stored_hashes() -> MbtResult<
         TILES_V1,
         "src"
     );
-    let (dst_mbt, mut dst_cn) = open!(
-        copy_with_another_hash_algorithm_rehashes_stored_hashes,
-        "dst"
-    );
+    let (dst_mbt, mut dst_cn) = open!(copy_with_another_hash_algorithm_rehashes_stored_hashes, "dst");
     copy! {
         path(&src_mbt),
         path(&dst_mbt),
@@ -840,9 +763,7 @@ async fn diff_and_patch(
         let short_dst_type = shorten(dst_type);
         let expected_b = databases.dump(b_db, dst_type);
 
-        eprintln!(
-            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}"
-        );
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}");
         let (clone_mbt, mut clone_cn) = open!(
             diff_and_patch,
             "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__1"
@@ -862,9 +783,7 @@ async fn diff_and_patch(
             "After applying patch to {a_db}, content should match {b_db}",
         );
 
-        eprintln!(
-            "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it"
-        );
+        eprintln!("TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it");
         let (clone_mbt, mut clone_cn) = open!(
             diff_and_patch,
             "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__2"
@@ -1106,9 +1025,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                         (match typ.as_str() {
                             "INTEGER" => row.get::<Option<i64>, _>(idx).map(|v| v.to_string()),
                             "REAL" => row.get::<Option<f64>, _>(idx).map(|v| v.to_string()),
-                            "TEXT" => row
-                                .get::<Option<String>, _>(idx)
-                                .map(|v| format!(r#""{v}""#)),
+                            "TEXT" => row.get::<Option<String>, _>(idx).map(|v| format!(r#""{v}""#)),
                             "BLOB" => row.get::<Option<Vec<u8>>, _>(idx).map(|v| {
                                 format!(
                                     "blob({})",
@@ -1124,15 +1041,12 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                 )
                             }),
 
-                            #[expect(
-                                clippy::panic,
-                                reason = "We should know all column types that sqlite supports"
-                            )]
+                            #[expect(clippy::panic, reason = "We should know all column types that sqlite supports")]
                             _ => {
                                 panic!("Unknown column type: {typ}")
                             }
                         })
-                        .unwrap_or("NULL".to_owned())
+                        .unwrap_or_else(|| "NULL".to_owned())
                     })
                     .join(", ");
                 format!("(  {val}  )")

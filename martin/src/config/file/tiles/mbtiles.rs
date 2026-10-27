@@ -7,23 +7,15 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::{
-    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult,
-    TileSourceConfiguration, UnrecognizedValues,
+    CachePolicy, CollectUnrecognizedKeys, ConfigurationLivecycleHooks, SourceBuildResult, TileSourceConfiguration,
+    UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
 #[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    CollectUnrecognizedKeys,
-    ConfigurationLivecycleHooks,
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
@@ -63,29 +55,17 @@ impl TileSourceConfiguration for MbtConfig {
     }
 
     fn cache(&self) -> CachePolicy {
-        self.cache
+        self.cache.clone()
     }
-    async fn new_sources(
-        &self,
-        id: String,
-        path: PathBuf,
-        cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
-        Ok(BackendSource::Mbtiles(
-            MbtSource::new(id, path, cache.zoom()).await?,
-        ))
+    async fn new_sources(&self, id: String, path: PathBuf, cache: CachePolicy) -> SourceBuildResult<BackendSource> {
+        Ok(BackendSource::Mbtiles(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
     #[expect(
         clippy::unused_async_trait_impl,
         reason = "unreachable stub; async keeps it simple to write and read"
     )]
-    async fn new_sources_url(
-        &self,
-        _id: String,
-        _url: Url,
-        _cache: CachePolicy,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url, _cache: CachePolicy) -> SourceBuildResult<BackendSource> {
         unreachable!()
     }
 }
@@ -100,9 +80,26 @@ mod tests {
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig,
-        FileConfigSource, FileConfigSrc,
+        CachePolicy, CollectUnrecognizedKeys as _, ConfigurationLivecycleHooks as _, FileConfig, FileConfigSource,
+        FileConfigSrc, UnrecognizedValues,
     };
+
+    #[tokio::test]
+    async fn unrecognized_source_keys_are_reported() {
+        let mut cfg = serde_saphyr::from_str::<FileConfig<MbtConfig>>(indoc! {"
+            sources:
+              world:
+                path: /tmp/world.mbtiles
+                cache_contorl: max-age=60
+        "})
+        .unwrap();
+        cfg.finalize().await.unwrap();
+        insta::assert_debug_snapshot!(cfg.get_unrecognized_keys(), @r#"
+        {
+            "sources.world.cache_contorl",
+        }
+        "#);
+    }
 
     #[tokio::test]
     async fn parse() {
@@ -127,10 +124,7 @@ mod tests {
         .unwrap();
         cfg.finalize().await.unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
-        assert!(
-            unrecognised.is_empty(),
-            "unrecognized config: {unrecognised:?}"
-        );
+        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
         assert_eq!(
             cfg.paths,
             vec![
@@ -161,6 +155,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
                 (
@@ -182,6 +177,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
                 (
@@ -199,6 +195,7 @@ mod tests {
                         convert_to_contour: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                         cache_control: None,
+                        unrecognized: UnrecognizedValues::default(),
                     }))
                 ),
             ])

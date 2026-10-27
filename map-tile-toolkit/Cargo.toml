@@ -1,0 +1,42 @@
+[package]
+name = "map-tile-toolkit"
+version = "0.3.4"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Clip integer polylines and polygons into per-tile pieces on a simple tile grid"
+keywords = ["mvt", "tile", "geo", "polyline", "clip"]
+categories = ["science::geo"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+exclude = [
+    "tests/*/fixtures",
+    "tests/*/bad-fixtures",
+    "tests/*/snapshots*",
+    "tests/grid.geojson",
+]
+
+[features]
+default = []
+hotpath = ["dep:hotpath", "hotpath/hotpath"]
+hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
+hotpath-cloud = ["hotpath", "hotpath/hotpath-cloud"]
+hotpath-callgrind = ["hotpath", "hotpath/hotpath-callgrind"]
+
+[dependencies]
+geo-types.workspace = true
+hotpath = { workspace = true, optional = true }
+thiserror.workspace = true
+
+[dev-dependencies]
+geo.workspace = true
+geojson.workspace = true
+insta.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+stats_alloc.workspace = true
+test_each_file.workspace = true
+wkt.workspace = true
+
+[lints]
+workspace = true

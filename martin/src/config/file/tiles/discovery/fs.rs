@@ -15,8 +15,8 @@ use crate::config::file::file_config::declared_tile_grid;
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::tiles::discovery::{BuiltSource, Discovered, Discovery, Version};
 use crate::config::file::{
-    CachePolicy, FileConfig, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError,
-    SourceBuildResult, TileGrids, TileSourceWarning, subdirectories,
+    CachePolicy, FileConfig, FileConfigSrc, ProcessConfig, ResolvedProcess, SourceBuildError, SourceBuildResult,
+    TileGrids, TileSourceWarning, subdirectories,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -108,7 +108,7 @@ impl FsDiscovery {
             configured.insert(
                 canonical,
                 ConfiguredSource {
-                    policy: src.cache_zoom().or(default_cache),
+                    policy: src.cache_zoom().or(&default_cache),
                     process: per_source_process(process, src),
                     grid,
                     src: src.clone(),
@@ -121,9 +121,7 @@ impl FsDiscovery {
             let Ok(SourceLocation::Local(_)) = SourceLocation::classify_path(path) else {
                 return None;
             };
-            let probed = path
-                .canonicalize()
-                .and_then(|p| std::fs::read_dir(&p).map(|_| p));
+            let probed = path.canonicalize().and_then(|p| std::fs::read_dir(&p).map(|_| p));
             match probed {
                 Ok(canonical) => Some(canonical),
                 Err(e) => {
@@ -149,10 +147,7 @@ impl FsDiscovery {
         let mut collections: Vec<PathBuf> = vec![];
         let mut seen_collections: BTreeSet<PathBuf> = BTreeSet::new();
         for collection in &config.collections {
-            if !matches!(
-                SourceLocation::classify_path(collection),
-                Ok(SourceLocation::Local(_))
-            ) {
+            if !matches!(SourceLocation::classify_path(collection), Ok(SourceLocation::Local(_))) {
                 tracing::warn!(collection = ?collection, "a collection must be a local directory");
                 continue;
             }
@@ -217,10 +212,7 @@ impl FsDiscovery {
 }
 
 /// Per-source `convert_to_*` and `cache_control` settings layered over the kind-level [`ProcessConfig`].
-pub(crate) fn per_source_process(
-    kind_level: &ProcessConfig,
-    src: &FileConfigSrc,
-) -> Option<ProcessConfig> {
+pub(crate) fn per_source_process(kind_level: &ProcessConfig, src: &FileConfigSrc) -> Option<ProcessConfig> {
     let FileConfigSrc::Obj(obj) = src else {
         return None;
     };
@@ -264,13 +256,9 @@ impl Discovery for FsDiscovery {
                     Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
                     Err(error) => return Err(SourceBuildError::Io(error)),
                 };
-                match self
-                    .scan(&dir, &format!("{project}."), &mut discovered)
-                    .await
-                {
+                match self.scan(&dir, &format!("{project}."), &mut discovered).await {
                     Ok(()) => {}
-                    Err(SourceBuildError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
-                    }
+                    Err(SourceBuildError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error),
                 }
             }
@@ -279,15 +267,13 @@ impl Discovery for FsDiscovery {
         Ok(Discovered::new(
             discovered
                 .into_iter()
-                .map(|(id, (path, modified_at_ms, policy))| {
-                    (id, (Version::Tracked(modified_at_ms), (path, policy)))
-                })
+                .map(|(id, (path, modified_at_ms, policy))| (id, (Version::Tracked(modified_at_ms), (path, policy))))
                 .collect(),
         ))
     }
 
     async fn build(&self, id: &str, args: &Self::Args) -> SourceBuildResult<BuiltSource> {
-        let source = (self.build)(id.to_owned(), args.0.clone(), args.1).await?;
+        let source = (self.build)(id.to_owned(), args.0.clone(), args.1.clone()).await?;
         let configured = self.configured.get(&args.0);
         let source = source.boxed_on(configured.and_then(|cfg| cfg.grid.as_ref()));
         BuiltSource::with_file_config(
@@ -417,10 +403,8 @@ impl FsDiscovery {
                 let policy = self
                     .configured
                     .get(&e.path)
-                    .map_or(self.default_cache, |cfg| cfg.policy);
-                let id = self
-                    .id_resolver
-                    .resolve(&format!("{prefix}{name}"), e.path_str.clone());
+                    .map_or_else(|| self.default_cache.clone(), |cfg| cfg.policy.clone());
+                let id = self.id_resolver.resolve(&format!("{prefix}{name}"), e.path_str.clone());
                 out.insert(id, (e.path, e.modified_ms, policy));
             }
         }
@@ -450,9 +434,7 @@ mod tests {
         Box::new(|id, path, _policy| {
             Box::pin(async move {
                 if id.starts_with(BAD_PREFIX) {
-                    return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(
-                        path,
-                    )));
+                    return Err(SourceBuildError::from(ConfigFileError::InvalidFilePath(path)));
                 }
                 Ok(TestSource::empty(id).into())
             })
@@ -460,9 +442,7 @@ mod tests {
     }
 
     fn unreachable_builder() -> FsSourceBuilder {
-        Box::new(|id, _path, _policy| {
-            Box::pin(async move { panic!("build should not be called by discover(): {id}") })
-        })
+        Box::new(|id, _path, _policy| Box::pin(async move { panic!("build should not be called by discover(): {id}") }))
     }
 
     fn sorted_source_names(catalog: &TileSourceManager) -> Vec<String> {
@@ -496,9 +476,7 @@ mod tests {
         ids.sort();
         assert_eq!(ids, vec!["alpha", "beta"]);
         assert!(
-            snapshot
-                .values()
-                .all(|(v, _)| matches!(v, Version::Tracked(_))),
+            snapshot.values().all(|(v, _)| matches!(v, Version::Tracked(_))),
             "file sources carry a Tracked mtime version"
         );
     }
@@ -509,8 +487,7 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("gfs/temperature")).expect("create nested dirs");
         File::create(dir.path().join("top.mbtiles")).expect("create top");
         File::create(dir.path().join("gfs/wind.mbtiles")).expect("create wind");
-        File::create(dir.path().join("gfs/temperature/202606300100.mbtiles"))
-            .expect("create temperature");
+        File::create(dir.path().join("gfs/temperature/202606300100.mbtiles")).expect("create temperature");
 
         let recursive = FsDiscovery::from_config(
             FileKind::Mbtiles,
@@ -544,18 +521,8 @@ mod tests {
             unreachable_builder(),
             None,
         );
-        let ids: Vec<String> = flat
-            .discover()
-            .await
-            .expect("discover")
-            .sources
-            .into_keys()
-            .collect();
-        assert_eq!(
-            ids,
-            vec!["top"],
-            "nested files stay hidden unless recursive is set"
-        );
+        let ids: Vec<String> = flat.discover().await.expect("discover").sources.into_keys().collect();
+        assert_eq!(ids, vec!["top"], "nested files stay hidden unless recursive is set");
     }
 
     #[tokio::test]
@@ -628,7 +595,7 @@ mod tests {
 
     #[tokio::test]
     async fn discovered_files_take_the_kind_level_cache_bounds() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
 
         let dir = tempfile::tempdir().expect("tempdir");
         let scanned = dir.path().join("scanned.mbtiles");
@@ -653,6 +620,7 @@ mod tests {
                     convert_to_contour: None,
                     cache: CachePolicy::new(CacheZoomRange::new(Some(3), None)),
                     tile_grid: None,
+                    unrecognized: UnrecognizedValues::default(),
                 })),
             )]),
             ..FileConfig::<()>::default()
@@ -683,7 +651,7 @@ mod tests {
     #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[test]
     fn configured_sources_keep_their_convert_override() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
         use crate::config::primitives::AutoOption;
 
         let dir = tempfile::tempdir().expect("tempdir");
@@ -706,6 +674,7 @@ mod tests {
                         #[cfg(all(feature = "processing", feature = "_tiles"))]
                         convert_to_contour: None,
                         cache: CachePolicy::default(),
+                        unrecognized: UnrecognizedValues::default(),
                     })),
                 ),
                 ("plain".to_owned(), FileConfigSrc::Path(plain.clone())),
@@ -734,10 +703,7 @@ mod tests {
 
         let configured = |path: &PathBuf| {
             let canonical = path.canonicalize().expect("canonicalize");
-            discovery
-                .configured
-                .get(&canonical)
-                .expect("configured path")
+            discovery.configured.get(&canonical).expect("configured path")
         };
         assert_eq!(
             configured(&overridden)
@@ -751,7 +717,7 @@ mod tests {
 
     #[test]
     fn configured_sources_keep_their_cache_control_override() {
-        use crate::config::file::{FileConfig, FileConfigSource};
+        use crate::config::file::{FileConfig, FileConfigSource, UnrecognizedValues};
 
         let dir = tempfile::tempdir().expect("tempdir");
         let pinned = dir.path().join("pinned.mbtiles");
@@ -771,10 +737,9 @@ mod tests {
                     convert_to_hillshade: None,
                     #[cfg(all(feature = "processing", feature = "_tiles"))]
                     convert_to_contour: None,
-                    cache_control: Some(
-                        serde_saphyr::from_str("public, max-age=60").expect("valid header"),
-                    ),
+                    cache_control: Some(serde_saphyr::from_str("public, max-age=60").expect("valid header")),
                     cache: CachePolicy::default(),
+                    unrecognized: UnrecognizedValues::default(),
                 })),
             )]),
             ..FileConfig::<()>::default()
@@ -810,15 +775,11 @@ mod tests {
         let readable = tempfile::tempdir().expect("tempdir");
         File::create(readable.path().join("alpha.mbtiles")).expect("create alpha");
         let unreadable = tempfile::tempdir().expect("tempdir");
-        std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o000))
-            .expect("chmod 000");
+        std::fs::set_permissions(unreadable.path(), std::fs::Permissions::from_mode(0o000)).expect("chmod 000");
 
         let discovery = FsDiscovery::from_config(
             FileKind::Mbtiles,
-            &FileConfig::<()>::new(vec![
-                readable.path().to_path_buf(),
-                unreadable.path().to_path_buf(),
-            ]),
+            &FileConfig::<()>::new(vec![readable.path().to_path_buf(), unreadable.path().to_path_buf()]),
             false,
             &["mbtiles"],
             IdResolver::new(&[]),
@@ -868,11 +829,7 @@ mod tests {
             None,
         );
 
-        let canonical = dir
-            .path()
-            .join("alpha.mbtiles")
-            .canonicalize()
-            .expect("canonicalize");
+        let canonical = dir.path().join("alpha.mbtiles").canonicalize().expect("canonicalize");
         let entry = discovery.config_entry(&canonical);
         assert_eq!(
             entry.get_path(),

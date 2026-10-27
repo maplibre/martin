@@ -1,0 +1,7 @@
+config:
+  auto_publish:
+    functions: { from_schemas: osm }
+catalog:
+  functions:
+    - { schema: public, name: tiles }
+    - { schema: osm, name: tiles }

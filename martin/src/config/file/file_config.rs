@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Debug};
+use std::marker::PhantomData;
 #[cfg(feature = "_tiles")]
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,7 @@ use martin_core::tiles::BackendSource;
 #[cfg(feature = "_tiles")]
 use martin_tile_utils::TileGrid;
 use serde::de::value::MapAccessDeserializer;
-use serde::de::{self, MapAccess, Visitor};
+use serde::de::{self, DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
 use serde::ser::{Error as _, SerializeMap as _};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "_tiles")]
@@ -33,8 +34,7 @@ use crate::config::file::TileGrids;
 #[cfg(feature = "_tiles")]
 use crate::config::file::source_location::SourceLocation;
 use crate::config::file::{
-    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult,
-    UnrecognizedValues,
+    CacheControlHeader, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, UnrecognizedValues,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -51,9 +51,7 @@ use crate::config::primitives::one_or_many;
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
 /// 2. [`CollectUnrecognizedKeys::get_unrecognized_keys`]
-pub trait ConfigurationLivecycleHooks:
-    CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send
-{
+pub trait ConfigurationLivecycleHooks: CollectUnrecognizedKeys + Clone + Debug + Default + PartialEq + Send {
     /// Finalize configuration discovery and patch old values
     ///
     /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
@@ -109,7 +107,7 @@ pub mod path_or_config {
     use serde::de::{self, MapAccess, SeqAccess, Visitor};
     use serde::{Deserialize, Deserializer};
 
-    use super::FileConfig;
+    use crate::config::file::file_config::FileConfig;
 
     /// A path, a list of paths, or a configuration map.
     #[cfg(feature = "unstable-schemas")]
@@ -172,22 +170,17 @@ pub mod path_or_config {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, CollectUnrecognizedKeys)]
+// Deserialized by `FileConfigVisitor`; the `serde` attributes only shape the schema and the unrecognized keys.
+#[derive(Clone, Debug, Default, PartialEq, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
-    #[serde(default, deserialize_with = "one_or_many::deserialize")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<PathBuf>")
-    )]
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub paths: Vec<PathBuf>,
     /// A list of directories whose subdirectories are each published under the subdirectory's name
-    #[serde(default, deserialize_with = "one_or_many::deserialize")]
-    #[cfg_attr(
-        feature = "unstable-schemas",
-        schemars(with = "one_or_many::OneOrMany<PathBuf>")
-    )]
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<PathBuf>"))]
     pub collections: Vec<PathBuf>,
     /// A map of source IDs to file paths or config objects
     #[serde(default)]
@@ -195,6 +188,72 @@ pub struct FileConfig<T> {
     /// Any customizations related to the specifics of the configuration section
     #[serde(flatten)]
     pub custom: T,
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for FileConfig<T> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(FileConfigVisitor(PhantomData))
+    }
+}
+
+/// Reads a [`FileConfig`] with `custom` read straight from the map, so its errors keep their YAML location.
+struct FileConfigVisitor<T>(PhantomData<T>);
+
+impl<'de, T: Deserialize<'de>> Visitor<'de> for FileConfigVisitor<T> {
+    type Value = FileConfig<T>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("struct FileConfig")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfig<T>, M::Error> {
+        let mut rest = WithoutFileKeys {
+            map,
+            paths: Vec::new(),
+            collections: Vec::new(),
+            sources: BTreeMap::new(),
+        };
+        let custom = T::deserialize(MapAccessDeserializer::new(&mut rest))?;
+        Ok(FileConfig {
+            paths: rest.paths,
+            collections: rest.collections,
+            sources: rest.sources,
+            custom,
+        })
+    }
+}
+
+/// The live map with `paths`, `collections` and `sources` read off instead of being passed on.
+struct WithoutFileKeys<M> {
+    map: M,
+    paths: Vec<PathBuf>,
+    collections: Vec<PathBuf>,
+    sources: BTreeMap<String, FileConfigSrc>,
+}
+
+/// One path or a list of paths.
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct OneOrManyPaths(#[serde(deserialize_with = "one_or_many::deserialize")] Vec<PathBuf>);
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for WithoutFileKeys<M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        while let Some(key) = self.map.next_key::<String>()? {
+            match key.as_str() {
+                "paths" => self.paths = self.map.next_value::<OneOrManyPaths>()?.0,
+                "collections" => self.collections = self.map.next_value::<OneOrManyPaths>()?.0,
+                "sources" => self.sources = self.map.next_value()?,
+                _ => return seed.deserialize(key.into_deserializer()).map(Some),
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        self.map.next_value_seed(seed)
+    }
 }
 
 impl<T: Serialize> Serialize for FileConfig<T> {
@@ -213,9 +272,9 @@ impl<T: Serialize> Serialize for FileConfig<T> {
             map.serialize_entry("sources", &self.sources)?;
         }
         let custom = serde_json::to_value(&self.custom).map_err(S::Error::custom)?;
-        let custom = custom.as_object().ok_or_else(|| {
-            S::Error::custom("a flattened file-source configuration must serialize as an object")
-        })?;
+        let custom = custom
+            .as_object()
+            .ok_or_else(|| S::Error::custom("a flattened file-source configuration must serialize as an object"))?;
         for (key, value) in custom {
             map.serialize_entry(key, value)?;
         }
@@ -275,7 +334,7 @@ pub fn subdirectories(collection: &Path) -> std::io::Result<Vec<(String, PathBuf
 impl<T: TileSourceConfiguration> FileConfig<T> {
     /// The kind level cache bounds over the top level ones.
     #[must_use]
-    pub fn cache_or(&self, global: CachePolicy) -> CachePolicy {
+    pub fn cache_or(&self, global: &CachePolicy) -> CachePolicy {
         self.custom.cache().or(global)
     }
 }
@@ -367,7 +426,7 @@ impl FileConfigSrc {
     pub fn cache_zoom(&self) -> CachePolicy {
         match self {
             Self::Path(_) => CachePolicy::default(),
-            Self::Obj(o) => o.cache,
+            Self::Obj(o) => o.cache.clone(),
         }
     }
 
@@ -441,6 +500,10 @@ pub struct FileConfigSource {
     #[serde(default)]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub cache_control: Option<CacheControlHeader>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[cfg(feature = "_tiles")]
@@ -469,7 +532,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     default_cache: CachePolicy,
     tile_grids: Option<&TileGrids>,
 ) -> ResolutionResult {
-    let default_cache = config.cache_or(default_cache);
+    let default_cache = config.cache_or(&default_cache);
 
     let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
@@ -485,7 +548,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             source,
             &mut files,
             &mut configs,
-            default_cache,
+            &default_cache,
             tile_grids,
         ) {
             Ok(p) => planned.push(p),
@@ -505,7 +568,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &mut files,
             &mut directories,
             &mut configs,
-            default_cache,
+            default_cache.clone(),
         ) {
             Ok(p) => planned.extend(p),
             Err(err) => warnings.push(TileSourceWarning::PathError {
@@ -578,19 +641,16 @@ struct Planned {
 
 #[cfg(feature = "_tiles")]
 impl Planned {
-    async fn open<T: TileSourceConfiguration>(
-        &self,
-        custom: &T,
-    ) -> SourceBuildResult<BackendSource> {
+    async fn open<T: TileSourceConfiguration>(&self, custom: &T) -> SourceBuildResult<BackendSource> {
         match &self.target {
             Target::Url { url, .. } => {
                 custom
-                    .new_sources_url(self.id.clone(), url.clone(), self.cache)
+                    .new_sources_url(self.id.clone(), url.clone(), self.cache.clone())
                     .await
             }
             Target::File { path, .. } => {
                 custom
-                    .new_sources(self.id.clone(), path.clone(), self.cache)
+                    .new_sources(self.id.clone(), path.clone(), self.cache.clone())
                     .await
             }
         }
@@ -651,7 +711,7 @@ fn plan_one_source(
     source: FileConfigSrc,
     files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
-    default_cache: CachePolicy,
+    default_cache: &CachePolicy,
     tile_grids: Option<&TileGrids>,
 ) -> SourceBuildResult<Planned> {
     let cache = source.cache_zoom().or(default_cache);
@@ -663,10 +723,7 @@ fn plan_one_source(
         configs.insert(id.clone(), source);
         return Ok(Planned {
             id,
-            target: Target::Url {
-                url,
-                configured: key,
-            },
+            target: Target::Url { url, configured: key },
             cache,
             grid,
             from_sources: true,
@@ -711,13 +768,11 @@ pub(crate) fn declared_tile_grid(
             what: format!("Source {id}"),
         });
     };
-    let grid = grids
-        .get(name)
-        .ok_or_else(|| ConfigFileError::UnknownTileGrid {
-            what: format!("Source {id}"),
-            grid: name.to_owned(),
-            known: grids.names().join(", "),
-        })?;
+    let grid = grids.get(name).ok_or_else(|| ConfigFileError::UnknownTileGrid {
+        what: format!("Source {id}"),
+        grid: name.to_owned(),
+        known: grids.names().join(", "),
+    })?;
     Ok((!grid.is_web_mercator()).then(|| grid.clone()))
 }
 
@@ -736,9 +791,7 @@ fn plan_one_path(
     default_cache: CachePolicy,
 ) -> SourceBuildResult<Vec<Planned>> {
     if let Some(url) = parse_url(parse_urls, &path)? {
-        let target_ext = extension
-            .iter()
-            .find(|&&e| url.path().rsplit('.').next() == Some(e));
+        let target_ext = extension.iter().find(|&&e| url.path().rsplit('.').next() == Some(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
             // a prefix to be discovered by the format-specific reloader (e.g. PmtilesReloader
@@ -756,9 +809,7 @@ fn plan_one_path(
             .and_then(Iterator::last)
             .and_then(|s| {
                 // Strip extension and trailing dot, or keep the original string
-                s.strip_suffix(ext)
-                    .and_then(|s| s.strip_suffix('.'))
-                    .or(Some(s))
+                s.strip_suffix(ext).and_then(|s| s.strip_suffix('.')).or(Some(s))
             })
             .unwrap_or("web_source");
 
@@ -766,10 +817,7 @@ fn plan_one_path(
         configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
         return Ok(vec![Planned {
             id,
-            target: Target::Url {
-                url,
-                configured: path,
-            },
+            target: Target::Url { url, configured: path },
             cache: default_cache,
             grid: None,
             from_sources: false,
@@ -799,17 +847,13 @@ fn plan_one_path(
         return Ok(Vec::new());
     }
     files.insert(can.clone(), path.clone());
-    let id = path.file_stem().map_or_else(
-        || "_unknown".to_owned(),
-        |s| s.to_string_lossy().to_string(),
-    );
+    let id = path
+        .file_stem()
+        .map_or_else(|| "_unknown".to_owned(), |s| s.to_string_lossy().to_string());
     let id = idr.resolve(&id, can.to_string_lossy().to_string());
     Ok(vec![Planned {
         id,
-        target: Target::File {
-            path,
-            canonical: can,
-        },
+        target: Target::File { path, canonical: can },
         cache: default_cache,
         grid: None,
         from_sources: false,
@@ -872,11 +916,15 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 ///   minzoom: 0
 ///   maxzoom: 10
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CachePolicy {
     #[serde(flatten)]
     zoom: CacheZoomRange,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[cfg(feature = "unstable-schemas")]
@@ -899,30 +947,27 @@ pub(crate) enum DisableLiteral {
 impl CachePolicy {
     /// Creates a new `CachePolicy` with the given zoom range.
     #[must_use]
-    pub const fn new(zoom: CacheZoomRange) -> Self {
-        Self { zoom }
+    pub fn new(zoom: CacheZoomRange) -> Self {
+        Self {
+            zoom,
+            unrecognized: UnrecognizedValues::default(),
+        }
     }
 
     /// Creates a disabled `CachePolicy` where caching is turned off.
     #[must_use]
-    pub const fn disabled() -> Self {
-        Self {
-            zoom: CacheZoomRange::disabled(),
-        }
+    pub fn disabled() -> Self {
+        Self::new(CacheZoomRange::disabled())
     }
 
     /// Returns the zoom-level bounds for caching.
     #[must_use]
-    pub const fn zoom(self) -> CacheZoomRange {
+    pub const fn zoom(&self) -> CacheZoomRange {
         self.zoom
     }
 
     /// Returns `true` if no cache bounds are configured.
     #[must_use]
-    #[expect(
-        clippy::trivially_copy_pass_by_ref,
-        reason = "serde skip_serializing_if requires &self"
-    )]
     pub const fn is_empty(&self) -> bool {
         self.zoom.is_empty()
     }
@@ -930,10 +975,8 @@ impl CachePolicy {
     /// Fills in any `None` fields from `other`.
     /// A disabled cache policy (with both bounds set) is not overridden by defaults.
     #[must_use]
-    pub fn or(self, other: Self) -> Self {
-        Self {
-            zoom: self.zoom.or(other.zoom),
-        }
+    pub fn or(&self, other: &Self) -> Self {
+        Self::new(self.zoom.or(other.zoom))
     }
 }
 
@@ -946,6 +989,8 @@ impl<'de> Deserialize<'de> for CachePolicy {
         struct Inner {
             #[serde(flatten, default)]
             zoom: CacheZoomRange,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct CachePolicyVisitor;
@@ -954,9 +999,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
             type Value = CachePolicy;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(
-                    "either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)",
-                )
+                f.write_str("either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)")
             }
 
             fn visit_str<E: de::Error>(self, value: &str) -> Result<CachePolicy, E> {
@@ -975,7 +1018,10 @@ impl<'de> Deserialize<'de> for CachePolicy {
 
             fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CachePolicy, M::Error> {
                 let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(CachePolicy { zoom: inner.zoom })
+                Ok(CachePolicy {
+                    zoom: inner.zoom,
+                    unrecognized: inner.unrecognized,
+                })
             }
         }
 
@@ -1003,7 +1049,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
 /// cache: disable
 /// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GlobalCacheConfig {
     /// Total amount of cache we use \[default: 512, 0 to disable\]
@@ -1064,12 +1110,16 @@ pub struct GlobalCacheConfig {
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
     zoom: CacheZoomRange,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl GlobalCacheConfig {
     /// Creates a disabled `GlobalCacheConfig` with size 0 and minzoom > maxzoom.
     #[must_use]
-    pub const fn disabled() -> Self {
+    pub fn disabled() -> Self {
         Self {
             size_mb: Some(0),
             tile_size_mb: Some(0),
@@ -1078,12 +1128,13 @@ impl GlobalCacheConfig {
             tile_expiry: None,
             tile_idle_timeout: None,
             zoom: CacheZoomRange::disabled(),
+            unrecognized: UnrecognizedValues::default(),
         }
     }
 
     /// Returns the zoom-level bounds as a [`CachePolicy`].
     #[must_use]
-    pub const fn policy(self) -> CachePolicy {
+    pub fn policy(&self) -> CachePolicy {
         CachePolicy::new(self.zoom)
     }
 
@@ -1131,6 +1182,8 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
             tile_idle_timeout: Option<Duration>,
             #[serde(flatten, default)]
             zoom: CacheZoomRange,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct GlobalCacheVisitor;
@@ -1168,6 +1221,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
                     tile_expiry: inner.tile_expiry,
                     tile_idle_timeout: inner.tile_idle_timeout,
                     zoom: inner.zoom,
+                    unrecognized: inner.unrecognized,
                 })
             }
         }
@@ -1191,7 +1245,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 ///   cache: disable
 /// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheSizeConfig {
     /// Size of the cache in MB (0 to disable).
@@ -1214,6 +1268,10 @@ pub struct CacheSizeConfig {
         schemars(with = "Option<String>", example = &"30m")
     )]
     pub idle_timeout: Option<Duration>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl CacheSizeConfig {
@@ -1246,6 +1304,8 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
             expiry: Option<Duration>,
             #[serde(default, with = "humantime_serde")]
             idle_timeout: Option<Duration>,
+            #[serde(flatten)]
+            unrecognized: UnrecognizedValues,
         }
 
         struct CacheSizeVisitor;
@@ -1263,8 +1323,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
                 if value == "disable" {
                     Ok(CacheSizeConfig {
                         size_mb: Some(0),
-                        expiry: None,
-                        idle_timeout: None,
+                        ..CacheSizeConfig::default()
                     })
                 } else {
                     Err(E::custom(format!(
@@ -1283,6 +1342,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
                     size_mb: inner.size_mb,
                     expiry: inner.expiry,
                     idle_timeout: inner.idle_timeout,
+                    unrecognized: inner.unrecognized,
                 })
             }
         }
@@ -1311,14 +1371,7 @@ mod deserialize_tests {
     /// Inner config used to instantiate `FileConfig<T>` in success-path
     /// tests without depending on a real source-type config.
     #[derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        PartialEq,
-        Serialize,
-        CollectUnrecognizedKeys,
-        ConfigurationLivecycleHooks,
+        Clone, Debug, Default, Deserialize, PartialEq, Serialize, CollectUnrecognizedKeys, ConfigurationLivecycleHooks,
     )]
     struct TestCustom {
         #[serde(default)]
@@ -1333,9 +1386,7 @@ mod deserialize_tests {
     // ----- FileConfig<T> -----
 
     #[derive(Debug, PartialEq, Deserialize)]
-    struct Section(
-        #[serde(deserialize_with = "path_or_config::deserialize")] FileConfig<TestCustom>,
-    );
+    struct Section(#[serde(deserialize_with = "path_or_config::deserialize")] FileConfig<TestCustom>);
 
     fn parse_section(yaml: &str) -> FileConfig<TestCustom> {
         parse_yaml::<Section>(yaml).0
@@ -1379,8 +1430,7 @@ mod deserialize_tests {
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
          1 │ pmtiles: 42
-           · ───┬───
-           ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           · ───────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1397,8 +1447,7 @@ mod deserialize_tests {
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
          1 │ pmtiles: true
-           · ───┬───
-           ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           · ───────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1421,13 +1470,56 @@ mod deserialize_tests {
            ╭─[config.yaml:3:7]
          2 │   paths:
          3 │     - { not_a_path: true }
-           ·       ┬
-           ·       ╰── expected string scalar
+           ·       ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
         "
         );
+    }
+
+    #[test]
+    #[cfg(feature = "pmtiles")]
+    fn file_config_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc::indoc! {"
+            pmtiles:
+              paths: /a
+              recursive: maybe
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid boolean
+           ╭─[config.yaml:3:14]
+         2 │   paths: /a
+         3 │   recursive: maybe
+           ·              ─────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    #[cfg(feature = "rendering")]
+    fn nested_file_config_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc::indoc! {"
+            styles:
+              rendering:
+                enabled: true
+                png_palette:
+                  max_colors: 0
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × max_colors must be 2 to 256, not 0
+           ╭─[config.yaml:5:19]
+         4 │     png_palette:
+         5 │       max_colors: 0
+           ·                   ─
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
     }
 
     #[test]
@@ -1460,10 +1552,7 @@ mod deserialize_tests {
             path: PathBuf::from("s3://user:password@bucket/image.tif?token=secret#fragment"),
             ..FileConfigSource::default()
         }));
-        assert_eq!(
-            serde_json::to_value(source).unwrap()["path"],
-            "s3://bucket/image.tif"
-        );
+        assert_eq!(serde_json::to_value(source).unwrap()["path"], "s3://bucket/image.tif");
     }
 
     #[test]
@@ -1483,8 +1572,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: 5
-           ·     ─┬─
-           ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1509,8 +1597,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: true
-           ·     ─┬─
-           ·      ╰── invalid type: boolean `true`, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1535,8 +1622,7 @@ mod deserialize_tests {
            ╭─[config.yaml:3:5]
          2 │   sources:
          3 │     foo: [a, b]
-           ·     ─┬─
-           ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
+           ·     ───
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1568,8 +1654,7 @@ mod deserialize_tests {
           │ `disable`
            ╭─[config.yaml:1:8]
          1 │ cache: enable
-           ·        ───┬──
-           ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
+           ·        ──────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1585,8 +1670,7 @@ mod deserialize_tests {
           │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
            ╭─[config.yaml:1:1]
          1 │ cache: 42
-           · ──┬──
-           ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           · ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1625,8 +1709,7 @@ mod deserialize_tests {
            ╭─[config.yaml:2:3]
          1 │ sprites:
          2 │   cache: yes
-           ·   ──┬──
-           ·     ╰── invalid type: boolean `true`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ·   ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1650,8 +1733,7 @@ mod deserialize_tests {
            ╭─[config.yaml:2:3]
          1 │ sprites:
          2 │   cache: 42
-           ·   ──┬──
-           ·     ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ·   ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -1679,12 +1761,9 @@ mod deserialize_tests {
             },
             ..FileConfig::default()
         };
+        assert_eq!(kind.cache_or(&global).zoom(), CacheZoomRange::new(Some(1), Some(5)));
         assert_eq!(
-            kind.cache_or(global).zoom(),
-            CacheZoomRange::new(Some(1), Some(5))
-        );
-        assert_eq!(
-            FileConfig::<MbtConfig>::default().cache_or(global).zoom(),
+            FileConfig::<MbtConfig>::default().cache_or(&global).zoom(),
             global.zoom()
         );
     }
@@ -1716,10 +1795,7 @@ mod mbtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfig {
             paths: vec![invalid_path.clone()],
             collections: Vec::new(),
@@ -1728,14 +1804,7 @@ mod mbtiles_tests {
         };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(
-            &mut config,
-            &idr,
-            &["mbtiles"],
-            CachePolicy::default(),
-            None,
-        )
-        .await;
+        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default(), None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -1776,10 +1845,7 @@ mod plan_one_path_tests {
             planned.is_empty(),
             "'motif' must not be misdetected as ending in the 'tif' extension"
         );
-        assert_eq!(
-            directories,
-            vec![PathBuf::from("https://example.com/some/motif")]
-        );
+        assert_eq!(directories, vec![PathBuf::from("https://example.com/some/motif")]);
     }
 
     #[test]
@@ -1802,10 +1868,7 @@ mod pmtiles_tests {
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();
-        file_sources.insert(
-            "test_source".to_owned(),
-            FileConfigSrc::Path(invalid_source.clone()),
-        );
+        file_sources.insert("test_source".to_owned(), FileConfigSrc::Path(invalid_source.clone()));
         let mut config = FileConfig {
             paths: vec![invalid_path.clone()],
             collections: Vec::new(),
@@ -1814,14 +1877,7 @@ mod pmtiles_tests {
         };
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(
-            &mut config,
-            &idr,
-            &["pmtiles"],
-            CachePolicy::default(),
-            None,
-        )
-        .await;
+        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default(), None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

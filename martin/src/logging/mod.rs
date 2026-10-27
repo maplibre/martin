@@ -96,12 +96,7 @@ impl LogFormat {
             Self::Full => builder.finish().into(),
             Self::Compact => builder.compact().finish().into(),
             Self::Pretty => builder.pretty().finish().into(),
-            Self::Bare => builder
-                .compact()
-                .without_time()
-                .with_target(false)
-                .finish()
-                .into(),
+            Self::Bare => builder.compact().without_time().with_target(false).finish().into(),
             Self::Json => builder.json().finish().into(),
         }
     }
@@ -152,11 +147,7 @@ impl LogFormat {
             Self::Pretty => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
-                    .with(
-                        fmt_layer()
-                            .pretty()
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
+                    .with(fmt_layer().pretty().with_writer(indicatif_layer.get_stderr_writer()))
                     .with(indicatif_layer)
                     .into()
             }
@@ -259,8 +250,8 @@ impl FromStr for LogFormat {
 ///
 /// This should be called once after setting up the tracing subscriber.
 fn init_log_bridge(env_filter: &EnvFilter) {
-    let mut log_builder = tracing_log::LogTracer::builder()
-        .with_interest_cache(tracing_log::InterestCacheConfig::default());
+    let mut log_builder =
+        tracing_log::LogTracer::builder().with_interest_cache(tracing_log::InterestCacheConfig::default());
     if let Some(Some(max_level)) = env_filter.max_level_hint().map(LevelFilter::into_level) {
         let max_level = match max_level {
             Level::DEBUG => log::LevelFilter::Debug,
@@ -298,17 +289,11 @@ pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
 
 /// Ensures that the log level for `martin_core` matches the log level for `replacement`.
 #[must_use]
-pub fn ensure_martin_core_log_level_matches(
-    env_filter: Option<String>,
-    replacement: &'static str,
-) -> String {
+pub fn ensure_martin_core_log_level_matches(env_filter: Option<String>, replacement: &'static str) -> String {
     if let Some(rust_log) = env_filter {
         // If RUST_LOG is set and contains replacement (e.g., martin=) but not martin_core=, mirror the level
         if rust_log.contains(replacement) && !rust_log.contains("martin_core=") {
-            if let Some(level) = rust_log
-                .split(',')
-                .find_map(|s| s.strip_prefix(replacement))
-            {
+            if let Some(level) = rust_log.split(',').find_map(|s| s.strip_prefix(replacement)) {
                 format!("{rust_log},martin_core={level}")
             } else {
                 rust_log
@@ -396,30 +381,19 @@ mod tests {
     #[test]
     fn default_format_depends_on_the_build_profile() {
         let default = format!("{:?}", LogFormat::default());
-        assert_eq!(
-            default,
-            if cfg!(debug_assertions) {
-                "Pretty"
-            } else {
-                "Compact"
-            }
-        );
+        assert_eq!(default, if cfg!(debug_assertions) { "Pretty" } else { "Compact" });
     }
 
     #[rstest]
     #[case::unset(None, "martin=info,martin_core=info")]
     #[case::mirrored(Some("martin=debug"), "martin=debug,martin_core=debug")]
-    #[case::mirrored_in_list(
-        Some("actix=warn,martin=trace"),
-        "actix=warn,martin=trace,martin_core=trace"
-    )]
+    #[case::mirrored_in_list(Some("actix=warn,martin=trace"), "actix=warn,martin=trace,martin_core=trace")]
     #[case::already_set(Some("martin=debug,martin_core=warn"), "martin=debug,martin_core=warn")]
     #[case::unrelated(Some("actix=warn"), "actix=warn")]
     #[case::not_a_directive(Some("martin"), "martin")]
     #[case::embedded(Some("xmartin=debug"), "xmartin=debug")]
     fn martin_core_level_mirrors_martin(#[case] env_filter: Option<&str>, #[case] expected: &str) {
-        let actual =
-            ensure_martin_core_log_level_matches(env_filter.map(ToOwned::to_owned), "martin=");
+        let actual = ensure_martin_core_log_level_matches(env_filter.map(ToOwned::to_owned), "martin=");
         assert_eq!(actual, expected);
     }
 

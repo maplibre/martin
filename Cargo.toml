@@ -1,7 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
+    "cog-tiles",
+    "cog-tiles-py",
     "e2e-tests",
+    "map-tile-toolkit",
     "martin",
     "martin-config-macros",
     "martin-core",
@@ -102,9 +105,11 @@ bit-set = "0.11"
 brotli = ">=5, <10"
 bytes = "1"
 bytesize = "2.7.0"
+bytestring = "1.5"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
+cog-tiles = { path = "cog-tiles", version = "0.2.0", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
@@ -115,7 +120,7 @@ dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
 derive-debug = "0.1.2"
-duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
+duckdb = { version = ">=1.10503.1, <1.20000", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
 flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
@@ -125,42 +130,47 @@ futures = "0.3"
 geo = "0.33.1"
 geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
-geo-types = "0.7.18"
+geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.28"
+hotpath = "0.29.2"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
+image-webp = "0.2.4"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
+jpeg-decoder = "0.3.1"
 json-patch = "4"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = "0.3.0"
+map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.4" }
 maplibre_native = "0.10.0"
 martin = { path = "./martin", version = "2.0.0-beta.3", default-features = false }
-martin-config-macros = { path = "./martin-config-macros", version = "0.1.3" }
-martin-core = { path = "./martin-core", version = "0.13.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.0" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.1.0", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.21.0" }
+martin-config-macros = { path = "./martin-config-macros", version = "0.1.4" }
+martin-core = { path = "./martin-core", version = "0.14.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.1" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.1.1", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.21.1" }
 md5 = "0.8.0"
+memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.20.2", default-features = false }
+mlt-core = { version = "0.22.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
+numpy = "0.29"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
-pmtiles = { version = "0.24.1", default-features = false }
+pmtiles = { version = "0.25.0", default-features = false }
 png = "0.18.0"
+portable-pty = "0.9.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = [
     "with-time-0_3",
@@ -171,7 +181,8 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
-pyo3 = "0.29.2"
+pyo3 = "0.29"
+pyo3-stub-gen = { version = "0.23.1", default-features = false, features = ["infer_signature", "numpy"] }
 quantizr = "1.4"
 quote = "1"
 radsort = "0.1.1"
@@ -180,7 +191,9 @@ rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
-rstest = "0.27.0"
+roxmltree = "0.21"
+rstest = "0.28.0"
+rustix = { version = "1.1.5", default-features = false }
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
@@ -192,22 +205,25 @@ serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", features = ["miette", "properties"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
+similar = "3.0.0"
 size_format = "1.0.2"
-spreet = { version = "0.13", default-features = false }
+spreet = { version = "0.14", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "fnv", "xxhash", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
+stats_alloc = "0.1"
 strum = { version = "0.28", features = ["derive"] }
 syn = { version = "3", features = ["full"] }
 tempfile = "3.21.0"
-test_each_file = "0.3"
+test_each_file = "0.3.7"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
 thiserror = "2"
-tiff = "0.11.1"
+tiff = { version = "0.11.3", default-features = false, features = ["deflate", "lzw"] }
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.14"
+tokio-util = "0.7"
 tracing = "0.1.44"
 tracing-actix-web = "0.7.21"
 tracing-indicatif = "0.3"
@@ -216,10 +232,13 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
+vt100 = "0.17.0"
 walkdir = "2.5.0"
+webp = { version = "0.3.1", default-features = false }
 wincode = "0.6.2"
 wiremock = "0.6"
 wkb = "0.9.2"
+wkt = "0.14"
 xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 zstd = "0.14"
 zune-core = "0.5"
@@ -233,8 +252,16 @@ insta.opt-level = 3
 similar.opt-level = 3
 # very large debug bundles
 libduckdb-sys.debug = false
+# See https://doc.rust-lang.org/cargo/reference/profiles.html#build-dependencies
+proc-macro2.debug = false
+quote.debug = false
+unicode-ident.debug = false
 
 [profile.release]
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
+
+[patch.crates-io]
+# georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
+wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }

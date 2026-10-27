@@ -1,0 +1,8 @@
+sql: |
+  CREATE MACRO tiles(z, x, y) AS TABLE SELECT NULL::BLOB AS mvt;
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish: true
+      macros:
+        my_tiles: { macro: tiles }

@@ -1,0 +1,11 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/database/plan.rs
+expression: snapshot
+input_file: tests/fixtures/duckdb_auto_publish/auto_publish_unset_beside_configured_tables_publishes_nothing.yaml
+---
+reads:
+  tables: false
+  macros: false
+tables: []
+macros: []
+decisions: []

@@ -318,15 +318,11 @@ async fn a_normalized_source_resolves_every_deduplicated_tile(
         .await
         .expect("failed to start martin");
 
-    let deduplicated = martin
-        .get(&format!("/normalized-dedup-id/{z}/{x}/{y}"))
-        .await;
+    let deduplicated = martin.get(&format!("/normalized-dedup-id/{z}/{x}/{y}")).await;
     assert_eq!(deduplicated.status(), 200);
     assert_eq!(deduplicated.body(), expected);
 
-    let flat = martin
-        .get(&format!("/geography-class-jpg/{z}/{x}/{y}"))
-        .await;
+    let flat = martin.get(&format!("/geography-class-jpg/{z}/{x}/{y}")).await;
     assert_eq!(
         flat.body(),
         deduplicated.body(),
@@ -374,10 +370,7 @@ async fn reload_adds_and_updates_a_source() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     watched.install(&original, "world_cities.mbtiles");
     martin.wait_for_source("world_cities").await;
@@ -408,9 +401,7 @@ async fn reload_adds_and_updates_a_source() {
     assert_eq!(layers[0].features.len(), 68);
 
     watched.install(&modified, "world_cities.mbtiles");
-    martin
-        .wait_for_log("Updated source source.id=world_cities")
-        .await;
+    martin.wait_for_log("Updated source source.id=world_cities").await;
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {
       "world_cities": {
@@ -446,10 +437,7 @@ async fn reload_removes_a_source_when_its_file_is_deleted() {
     watched.remove("world_cities.mbtiles");
     martin.wait_for_source_removed("world_cities").await;
     assert_eq!(martin.get("/world_cities/0/0/0").await.status(), 404);
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=world_cities");
@@ -475,16 +463,12 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
         .await
         .expect("failed to start martin");
 
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     // The staged file already sits next to the watched directory, so the rename is atomic.
     let project = watched.dir().join("project1");
     std::fs::create_dir_all(&project).expect("failed to create the project directory");
-    std::fs::rename(&original, project.join("world_cities.mbtiles"))
-        .expect("failed to move the file into the project");
+    std::fs::rename(&original, project.join("world_cities.mbtiles")).expect("failed to move the file into the project");
     martin.wait_for_source("project1.world_cities").await;
     insta::assert_json_snapshot!(martin.get("/catalog").await.json()["tiles"], @r#"
     {
@@ -496,19 +480,11 @@ async fn reload_publishes_and_removes_a_project_of_a_collection() {
       }
     }
     "#);
-    assert_eq!(
-        martin.get("/project1.world_cities/0/0/0").await.status(),
-        200
-    );
+    assert_eq!(martin.get("/project1.world_cities/0/0/0").await.status(), 200);
 
     std::fs::remove_dir_all(&project).expect("failed to remove the project directory");
-    martin
-        .wait_for_source_removed("project1.world_cities")
-        .await;
-    assert_eq!(
-        martin.get("/catalog").await.json()["tiles"],
-        serde_json::json!({})
-    );
+    martin.wait_for_source_removed("project1.world_cities").await;
+    assert_eq!(martin.get("/catalog").await.json()["tiles"], serde_json::json!({}));
 
     martin.stop().await;
     martin.assert_log_contains("Added source source.id=project1.world_cities");

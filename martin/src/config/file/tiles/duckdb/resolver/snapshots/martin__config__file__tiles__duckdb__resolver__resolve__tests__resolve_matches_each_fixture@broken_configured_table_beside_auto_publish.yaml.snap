@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/broken_configured_table_beside_auto_publish.yaml
+---
+sources:
+  points: "DuckDB table places.points (fixture.duckdb) fields [gid]"
+warnings:
+  - "Source points: Geometry column 'nope' was not found"

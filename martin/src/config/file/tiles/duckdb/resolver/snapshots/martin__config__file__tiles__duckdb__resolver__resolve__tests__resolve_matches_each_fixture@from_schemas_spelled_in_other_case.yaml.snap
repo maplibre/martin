@@ -1,0 +1,9 @@
+---
+source: martin/src/config/file/tiles/duckdb/resolver/resolve.rs
+expression: discovered
+input_file: tests/fixtures/duckdb_discover/from_schemas_spelled_in_other_case.yaml
+---
+sources:
+  points: "DuckDB table places.points (fixture.duckdb) fields [gid]"
+  tiles: "DuckDB macro places.tiles (fixture.duckdb) fields []"
+warnings: []

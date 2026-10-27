@@ -7,7 +7,7 @@ use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::middleware::Next;
 use actix_web::{Error, HttpRequest};
 
-use super::data::TileRequest;
+use crate::tui::data::TileRequest;
 
 /// Records every request on the installed dashboard, with the tile it asked for when it asked for one.
 pub async fn observe(

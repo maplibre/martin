@@ -6,8 +6,7 @@ use crate::config::file::tiles::discovery::{
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
-    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceConfiguration as _,
-    TileSourceWarning,
+    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceConfiguration as _, TileSourceWarning,
 };
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
@@ -30,7 +29,7 @@ impl PmtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<PmtConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {
@@ -60,7 +59,7 @@ impl PmtilesReloader {
             pmt_config.recursive.unwrap_or_default(),
             &[PMTILES_EXT],
             id_resolver.clone(),
-            default_cache,
+            default_cache.clone(),
             &process,
             build,
             Some(tile_grids),
@@ -112,9 +111,7 @@ impl PmtilesReloader {
 
         if has_remote {
             if interval.is_zero() {
-                tracing::info!(
-                    "PmtilesReloader: remote prefix polling disabled (reload_interval = 0s)"
-                );
+                tracing::info!("PmtilesReloader: remote prefix polling disabled (reload_interval = 0s)");
             } else {
                 let trigger = PollTrigger::new(interval);
                 remote.spawn(trigger, Baseline::Empty);
@@ -136,7 +133,7 @@ mod tests {
     use super::*;
     use crate::config::file::pmtiles::DEFAULT_RELOAD_INTERVAL;
     use crate::config::file::{
-        CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid,
+        CachePolicy, FileConfig, FileConfigSource, FileConfigSrc, OnInvalid, UnrecognizedValues,
     };
 
     fn make_reloader(config: &FileConfig<PmtConfig>) -> PmtilesReloader {
@@ -146,7 +143,7 @@ mod tests {
             tsm,
             resolver,
             config,
-            CachePolicy::default(),
+            &CachePolicy::default(),
             &ProcessConfig::default(),
             &TileGrids::default(),
         )
@@ -182,10 +179,7 @@ mod tests {
         let reloader = make_reloader(&FileConfig::default());
         assert_eq!(reloader.local.discovery().directories(), [] as [PathBuf; 0]);
         assert_eq!(reloader.remote.discovery().remote_prefixes(), []);
-        assert_eq!(
-            reloader.remote.discovery().reload_interval(),
-            DEFAULT_RELOAD_INTERVAL
-        );
+        assert_eq!(reloader.remote.discovery().reload_interval(), DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]
@@ -242,6 +236,7 @@ mod tests {
                 convert_to_hillshade: None,
                 #[cfg(all(feature = "processing", feature = "_tiles"))]
                 convert_to_contour: None,
+                unrecognized: UnrecognizedValues::default(),
             })),
         );
         let cfg = FileConfig {

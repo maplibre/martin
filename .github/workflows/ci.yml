@@ -32,6 +32,7 @@ jobs:
       actions: read
     outputs:
       rust: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true') }}
+      fuzz: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.fuzz == 'true' }}
       ui: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true') }}
       docs: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true') }}
       demo: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true') }}
@@ -97,12 +98,18 @@ jobs:
               - 'debian/**'
               - 'e2e-tests/**'
               - 'tests/**'
+              - 'cog-tiles/**'
+              - 'cog-tiles-py/**'
+              - 'map-tile-toolkit/**'
               - 'mbtiles/**'
               - 'martin-*/**'
               - 'martin/*'
               - 'martin/benches/**'
               - 'martin/src/**'
               - 'martin/tests/**'
+            fuzz:
+              - '.github/workflows/fuzz.yml'
+              - 'map-tile-toolkit/**'
             ui:
               - *shared
               - 'biome.json'
@@ -153,9 +160,17 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      artifact-metadata: write
       packages: write
       code-quality: write
       pull-requests: read
+
+  fuzz:
+    needs: changes
+    if: needs.changes.outputs.fuzz == 'true'
+    uses: $/.github/workflows/fuzz.yml
+    permissions:
+      contents: read
 
   ui:
     needs: changes
@@ -234,6 +249,7 @@ jobs:
     needs:
       - changes
       - rust
+      - fuzz
       - ui
       - docs
       - schemas

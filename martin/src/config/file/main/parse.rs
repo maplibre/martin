@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::Config;
+use serde::Deserializer as _;
+
+use crate::config::file::main::{Config, ConfigVisitor};
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::config::primitives::env::Env;
 
 /// Read config from a file
 pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config> {
-    let contents = std::fs::read_to_string(file_name)
-        .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
+    let contents =
+        std::fs::read_to_string(file_name).map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, &env.as_property_map(), file_name)
 }
 
@@ -26,7 +28,7 @@ pub fn parse_config(
     }
     .with_properties(properties.clone());
 
-    serde_saphyr::from_str_with_options::<Config>(contents, options)
+    serde_saphyr::with_deserializer_from_str_with_options(contents, options, |de| de.deserialize_map(ConfigVisitor))
         .map_err(|e| ConfigFileError::yaml_parse(e, contents.to_owned(), file_name))
 }
 
@@ -36,26 +38,20 @@ mod tests {
     use std::path::Path;
     use std::time::Duration;
 
+    use indoc::indoc;
     use rstest::rstest;
 
     use super::*;
-    use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
+    use crate::config::file::srv::SrvConfig;
+    use crate::config::file::{CachePolicy, Config, GlobalCacheConfig, OnInvalid};
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
-        parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("test.yaml"),
-        )
-        .unwrap()
+        parse_config(yaml, &HashMap::<String, String>::new(), Path::new("test.yaml")).unwrap()
     }
 
     fn props(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-            .collect()
+        pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect()
     }
 
     fn parse_with_env(yaml: &str, env: &HashMap<String, String>) -> Config {
@@ -77,8 +73,7 @@ mod tests {
            ╭─[config.yaml:3:3]
          2 │   listen_addresses: "0.0.0.0:3000
          3 │   worker_processes: 4
-           ·   ┬
-           ·   ╰── invalid indentation in multiline quoted scalar
+           ·   ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -95,12 +90,180 @@ mod tests {
           │ warnings, abort
            ╭─[config.yaml:1:13]
          1 │ on_invalid: maybe
-           ·             ──┬──
-           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ·             ─────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
         ");
+    }
+
+    #[test]
+    fn server_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure("keep_alive: abc\n"), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid u64
+           ╭─[config.yaml:1:13]
+         1 │ keep_alive: abc
+           ·             ───
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[cfg(feature = "metrics")]
+    #[test]
+    fn nested_server_setting_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            observability:
+              metrics:
+                add_labels: 5
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × expected mapping start
+           ╭─[config.yaml:3:17]
+         2 │   metrics:
+         3 │     add_labels: 5
+           ·                 ─
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn cors_origin_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            cors:
+              origin: 5
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × expected sequence start
+           ╭─[config.yaml:2:11]
+         1 │ cors:
+         2 │   origin: 5
+           ·           ─
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn server_setting_after_other_keys_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            on_invalid: warn
+            not_a_key: 1
+            keep_alive: 75
+            worker_processes: abc
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid u64
+           ╭─[config.yaml:4:19]
+         3 │ keep_alive: 75
+         4 │ worker_processes: abc
+           ·                   ───
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn config_setting_after_server_settings_error_points_at_the_value() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            keep_alive: 75
+            not_a_key: 1
+            on_invalid: maybe
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+          │ warnings, abort
+           ╭─[config.yaml:3:13]
+         2 │ not_a_key: 1
+         3 │ on_invalid: maybe
+           ·             ─────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn duplicate_server_setting_is_rejected() {
+        insta::assert_snapshot!(render_failure(indoc! {"
+            keep_alive: 75
+            keep_alive: 80
+        "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × duplicate mapping key: keep_alive, set DuplicateKeyPolicy in Options if
+          │ acceptable
+           ╭─[config.yaml:2:1]
+         1 │ keep_alive: 75
+         2 │ keep_alive: 80
+           · ──────────
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        ");
+    }
+
+    #[test]
+    fn server_keys_between_other_keys_are_read_into_srv() {
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        assert_eq!(
+            config.srv,
+            SrvConfig {
+                keep_alive: Some(75),
+                worker_processes: Some(4),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn config_key_between_server_keys_is_read() {
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        assert_eq!(config.on_invalid, Some(OnInvalid::Warn));
+    }
+
+    #[test]
+    fn unknown_keys_between_server_keys_are_collected() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config = parse_yaml(indoc! {"
+            worker_processes: 4
+            not_a_key: 1
+            on_invalid: warn
+            keep_alive: 75
+            also_not_a_key: 2
+        "});
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "also_not_a_key",
+            "not_a_key",
+        }
+        "#);
     }
 
     #[test]
@@ -112,8 +275,7 @@ mod tests {
            ╭─[config.yaml:2:12]
          1 │ cache:
          2 │   size_mb: ${UNDEFINED_VAR}
-           ·            ────────┬───────
-           ·                    ╰── missing property `UNDEFINED_VAR`
+           ·            ────────────────
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -128,8 +290,7 @@ mod tests {
           × Invalid name: '${BASE:fallback}'
            ╭─[config.yaml:1:12]
          1 │ base_path: ${BASE:fallback}
-           ·            ────────┬───────
-           ·                    ╰── Invalid name: '${BASE:fallback}'
+           ·            ────────────────
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -142,22 +303,15 @@ mod tests {
         // JSON document instead of the graphical snippet, suitable for editor tooling and
         // log aggregators.
         let json = render_failure_json("cors: 42\n");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
         let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(
             message.contains("invalid type: integer `42`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("severity").and_then(|s| s.as_str()),
-            Some("error")
-        );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("severity").and_then(|s| s.as_str()), Some("error"));
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
         let labels = parsed.get("labels").and_then(|l| l.as_array()).unwrap();
         assert_eq!(labels.len(), 1, "expected one label, got {labels:?}");
         let span = labels[0].get("span").unwrap();
@@ -168,18 +322,14 @@ mod tests {
     #[test]
     fn substitution_failure_renders_as_json() {
         let json = render_failure_json("cache:\n  size_mb: ${UNDEFINED_VAR}\n");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
         let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(
             message.contains("missing property `UNDEFINED_VAR`"),
             "unexpected message in JSON output: {message}"
         );
-        assert_eq!(
-            parsed.get("filename").and_then(|f| f.as_str()),
-            Some("config.yaml")
-        );
+        assert_eq!(parsed.get("filename").and_then(|f| f.as_str()), Some("config.yaml"));
     }
 
     #[test]
@@ -198,10 +348,44 @@ mod tests {
         "#);
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "resources"))]
+    #[test]
+    fn unrecognized_cache_keys_are_reported() {
+        use crate::config::file::CollectUnrecognizedKeys as _;
+
+        let config = parse_yaml(indoc::indoc! {"
+            cache:
+              size_mb: 512
+              expirey: 1h
+            sprites:
+              cache:
+                size_mb: 64
+                idle_timout: 5m
+            pmtiles:
+              cache:
+                minzoom: 1
+                maxzom: 2
+              sources:
+                world:
+                  path: /tmp/world.pmtiles
+                  cache:
+                    mazoom: 3
+        "});
+        let unrecognized = config.get_unrecognized_keys();
+        let unrecognized = unrecognized.iter().collect::<BTreeSet<_>>();
+        insta::assert_debug_snapshot!(unrecognized, @r#"
+        {
+            "cache.expirey",
+            "pmtiles.cache.maxzom",
+            "pmtiles.sources.world.cache.mazoom",
+            "sprites.cache.idle_timout",
+        }
+        "#);
+    }
+
     #[test]
     fn new_cache_format_works_directly() {
-        let config =
-            parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
+        let config = parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
         assert_eq!(config.cache.size_mb, Some(512));
         assert_eq!(config.cache.tile_size_mb, Some(256));
     }
@@ -219,7 +403,7 @@ mod tests {
         let config = parse_yaml("cache: disable");
         let global_policy = config.cache.policy();
         let unconfigured_source = CachePolicy::default();
-        let merged = unconfigured_source.or(global_policy);
+        let merged = unconfigured_source.or(&global_policy);
         for zoom in 0..=u8::MAX {
             assert!(!merged.zoom().contains(zoom));
         }
@@ -242,9 +426,8 @@ mod tests {
 
     #[test]
     fn cache_expiry_tile_specific() {
-        let config = parse_yaml(
-            "cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m",
-        );
+        let config =
+            parse_yaml("cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m");
         assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
         assert_eq!(config.cache.tile_expiry, Some(Duration::from_mins(30)));
         assert_eq!(config.cache.tile_idle_timeout, Some(Duration::from_mins(5)));
@@ -262,9 +445,8 @@ mod tests {
     #[cfg(feature = "resources")]
     #[test]
     fn cache_expiry_sprites() {
-        let config = parse_yaml(
-            "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
-        );
+        let config =
+            parse_yaml("sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp");
         let cache = &config.sprites.custom.cache;
         assert_eq!(cache.size_mb, Some(64));
         assert_eq!(cache.expiry, Some(Duration::from_hours(2)));
@@ -297,10 +479,7 @@ mod tests {
         let yaml = format!("postgres:\n  connection_string: {input}\n");
         let config = parse_with_env(&yaml, &env);
         let [pg] = config.postgres.as_slice() else {
-            panic!(
-                "expected exactly one postgres config, got: {:?}",
-                config.postgres
-            )
+            panic!("expected exactly one postgres config, got: {:?}", config.postgres)
         };
         assert_eq!(pg.connection_string.as_deref(), expected);
     }
@@ -326,17 +505,10 @@ mod tests {
               #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
               connection_string: 'postgres://postgres:postgres@db:5432/ehrenamtskarte'
         "};
-        let config = parse_config(
-            yaml,
-            &HashMap::<String, String>::new(),
-            Path::new("config.yaml"),
-        )
-        .expect("comments containing ${VAR} must not trigger substitution");
+        let config = parse_config(yaml, &HashMap::<String, String>::new(), Path::new("config.yaml"))
+            .expect("comments containing ${VAR} must not trigger substitution");
         let [one] = config.postgres.as_slice() else {
-            panic!(
-                "expected exactly one postgres config, got: {:?}",
-                config.postgres
-            )
+            panic!("expected exactly one postgres config, got: {:?}", config.postgres)
         };
         assert_eq!(
             one.connection_string.as_deref(),

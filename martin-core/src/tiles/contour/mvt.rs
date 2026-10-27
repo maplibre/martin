@@ -10,8 +10,8 @@ use geo_types::{Coord, Geometry};
 use martin_tile_utils::TileData;
 use mlt_core::fast_mvt::{MvtTileBuilder, MvtValue};
 
-use super::error::ContourError;
-use super::features::GeometryFeatures;
+use crate::tiles::contour::error::ContourError;
+use crate::tiles::contour::features::GeometryFeatures;
 
 /// Where encoded contour features are written.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,10 +41,7 @@ impl Default for MvtEncodingOptions {
 ///
 /// Returns [`ContourError::Encoding`] when the layer name is invalid or the
 /// encoder rejects a feature or tag.
-pub fn encode_contours(
-    features: &GeometryFeatures,
-    opts: &MvtEncodingOptions,
-) -> Result<TileData, ContourError> {
+pub fn encode_contours(features: &GeometryFeatures, opts: &MvtEncodingOptions) -> Result<TileData, ContourError> {
     let extent = NonZeroU32::new(opts.extent)
         .ok_or_else(|| ContourError::Encoding("an MVT extent must not be zero".to_owned()))?;
 
@@ -116,8 +113,7 @@ mod tests {
     /// Features the encoder actually emitted into the contour layer.
     fn encoded_feature_count(features: Vec<ContourFeature>) -> usize {
         let opts = MvtEncodingOptions::default();
-        let bytes = encode_contours(&GeometryFeatures::new(features), &opts)
-            .expect("encoding should succeed");
+        let bytes = encode_contours(&GeometryFeatures::new(features), &opts).expect("encoding should succeed");
         let reader = MvtReaderRef::new(&bytes).expect("tile should parse");
         reader
             .layers()
@@ -156,8 +152,7 @@ mod tests {
     #[test]
     fn tags_round_trip_as_an_int_and_a_bool() {
         let opts = MvtEncodingOptions::default();
-        let features =
-            GeometryFeatures::new(vec![feature(&[(0.0, 0.0), (100.0, 100.0)], 1234, true)]);
+        let features = GeometryFeatures::new(vec![feature(&[(0.0, 0.0), (100.0, 100.0)], 1234, true)]);
         let bytes = encode_contours(&features, &opts).expect("encoding should succeed");
 
         let reader = MvtReaderRef::new(&bytes).expect("tile should parse");

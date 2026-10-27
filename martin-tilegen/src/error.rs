@@ -1,4 +1,4 @@
-use martin_core::generate::source::SourceError;
+use crate::source::SourceError;
 use martin_tile_utils::TileCoord;
 
 use crate::tile::MAX_ZOOM;
@@ -39,6 +39,26 @@ pub enum TileGenError {
     Geometry(#[from] crate::GeometryError),
 
     #[error(transparent)]
+    Wkb(#[from] crate::source::WkbError),
+
+    #[error("feature {id}: {error}")]
+    FeatureWkb {
+        table: u16,
+        id: u64,
+        #[source]
+        error: crate::source::WkbError,
+    },
+
+    #[error("the feature in row {row} of source partition {partition}: {error}")]
+    RowWkb {
+        table: u16,
+        partition: u32,
+        row: u64,
+        #[source]
+        error: crate::source::WkbError,
+    },
+
+    #[error(transparent)]
     Plan(#[from] crate::plan::PlanError),
 
     #[error("a temp record is corrupt")]
@@ -46,6 +66,12 @@ pub enum TileGenError {
 
     #[error(transparent)]
     Mlt(#[from] mlt_core::MltError),
+
+    #[error(transparent)]
+    Expr(#[from] crate::expr::ExprError),
+
+    #[error("{0:?} compression cannot be used here")]
+    UnsupportedEncoding(martin_tile_utils::Encoding),
 
     #[error("the tile writer stopped early")]
     WriterStopped,

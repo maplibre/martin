@@ -16,6 +16,7 @@ See [Serving Architecture](architecture.md) for how the server uses them.
     graph TB
         Martin[Martin Server]
         Pool[Connection Pool<br/>deadpool-postgres]
+        Engine[Tile generation<br/>martin-tilegen]
 
         subgraph PostgreSQL
             Tables[Tables with<br/>Geometry Columns]
@@ -28,6 +29,8 @@ See [Serving Architecture](architecture.md) for how the server uses them.
         Pool --> Functions
         Tables --> PostGIS
         Functions --> PostGIS
+        Tables -.->|features of tables with layers| Engine
+        Engine -.->|MVT tiles| Martin
     ```
 
     **How it works**:
@@ -39,6 +42,10 @@ See [Serving Architecture](architecture.md) for how the server uses them.
     5. Maintains connection pool for efficient query execution
     6. Generates tile SQL queries with bbox parameters
     7. Returns results as MVT tiles
+
+    A table source with [`layers`](sources-pg-layers.md) skips `ST_AsMVT`: its query reads the features
+    around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see
+    [Serving tiles](architecture-generate.md#serving-tiles).
 
 === "MBTiles, PMTiles and COG"
 

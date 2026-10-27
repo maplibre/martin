@@ -74,8 +74,7 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
     let mut res = SqlFuncInfoMapMap::new();
     for ((schema, function), mut variants) in by_name {
         variants.sort_by_key(Variant::signature_key);
-        let (queryless, with_query): (Vec<_>, Vec<_>) =
-            variants.into_iter().partition(|v| !v.takes_query());
+        let (queryless, with_query): (Vec<_>, Vec<_>) = variants.into_iter().partition(|v| !v.takes_query());
         let mut with_query = with_query.into_iter();
         let entries = res.entry(schema.clone()).or_default();
         // The plain name serves both, choosing by the request's query string.
@@ -95,10 +94,7 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
             let key = extra.signature_key();
             entries.insert(
                 key.clone(),
-                (
-                    extra.sql,
-                    FunctionInfo::new(schema.clone(), key, extra.tilejson),
-                ),
+                (extra.sql, FunctionInfo::new(schema.clone(), key, extra.tilejson)),
             );
         }
     }
@@ -163,9 +159,7 @@ fn parse_variant(
             reason = "Can only happen if postgres changes their code. We have tests against this"
         )]
         _ => {
-            panic!(
-                "Invalid output record names or types: {output_record_names:?} {output_record_types:?}"
-            );
+            panic!("Invalid output record names or types: {output_record_names:?} {output_record_types:?}");
         }
     }
     assert!(output_type == "bytea" || output_type == "record");
@@ -194,10 +188,7 @@ fn parse_variant(
         output_type
     };
 
-    let signature = format!(
-        "{schema}.{function}({}) -> {ret_inf}",
-        input_types.join(", ")
-    );
+    let signature = format!("{schema}.{function}({}) -> {ret_inf}", input_types.join(", "));
     let sql = PostgresSqlInfo::new(
         query,
         input_types.len() == 4,
@@ -231,8 +222,7 @@ fn function_call(schema: &str, function: &str, input_types: &[String]) -> String
         }
         // This could also be done as "{name} => ${index}::{typ}"
         // where the name must be passed through escape_identifier
-        write!(query, "${index}::{typ}", index = idx + 1)
-            .expect("writing to a String should not fail");
+        write!(query, "${index}::{typ}", index = idx + 1).expect("writing to a String should not fail");
     }
     query.push(')');
     query

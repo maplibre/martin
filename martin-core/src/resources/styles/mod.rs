@@ -15,10 +15,8 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-#[cfg(feature = "rendering")]
-use std::num::NonZeroU8;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -45,6 +43,14 @@ use render_pool::RenderPools;
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
 
 #[cfg(feature = "rendering")]
+mod image_quality;
+#[cfg(feature = "rendering")]
+pub use image_quality::{ImageQualities, ImageQuality, LossyQuality};
+#[cfg(feature = "rendering")]
+mod pixel_ratio;
+#[cfg(feature = "rendering")]
+pub use pixel_ratio::{InvalidPixelRatios, PixelRatioNotServed, PixelRatios};
+#[cfg(feature = "rendering")]
 mod tile_size;
 #[cfg(feature = "rendering")]
 pub use tile_size::{InvalidTileSize, TileSize};
@@ -52,10 +58,7 @@ pub use tile_size::{InvalidTileSize, TileSize};
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub enum StyleKind {
     /// Style only references vector tile sources.
     Vector,
@@ -68,10 +71,7 @@ pub enum StyleKind {
 /// Style metadata.
 #[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "unstable-schemas",
-    derive(schemars::JsonSchema, utoipa::ToSchema)
-)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct CatalogStyleEntry {
     /// Path to the style JSON file.
     // utoipa 5.4 has no native `PathBuf` support - present it as a `String`
@@ -101,17 +101,16 @@ pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pools: Option<RenderPools>,
-    /// Highest `@{n}x` pixel ratio served by the tile endpoint. `None` means [`DEFAULT_MAX_PIXEL_RATIO`].
+    /// Pixel ratios served by the tile and static endpoints.
     #[cfg(feature = "rendering")]
-    max_pixel_ratio: Option<NonZeroU8>,
+    pixel_ratios: PixelRatios,
     /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     png_max_colors: Option<u16>,
+    /// Quality rendered WebP and JPEG images are encoded at.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    image_quality: ImageQualities,
 }
-
-/// Highest tile pixel ratio served when none is configured.
-#[cfg(feature = "rendering")]
-pub const DEFAULT_MAX_PIXEL_RATIO: NonZeroU8 = NonZeroU8::new(4).expect("4 is non-zero");
 
 /// Style source file.
 #[derive(Clone, Debug)]
@@ -199,8 +198,7 @@ impl StyleSources {
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN)
-            .await
+        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN).await
     }
 
     /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
@@ -244,22 +242,28 @@ impl StyleSources {
         workers: Option<NonZeroUsize>,
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
+        ambient_cache_bytes: Option<u64>,
     ) -> Result<(), std::io::Error> {
-        self.pools = Some(RenderPools::new(workers, tile_size, renderers_per_worker)?);
+        self.pools = Some(RenderPools::new(
+            workers,
+            tile_size,
+            renderers_per_worker,
+            ambient_cache_bytes,
+        )?);
         Ok(())
     }
 
-    /// Limit the tile endpoint to pixel ratios up to `max` (`None` restores the default).
+    /// Serve only `ratios` from the tile and static endpoints.
     #[cfg(feature = "rendering")]
-    pub fn set_max_pixel_ratio(&mut self, max: Option<NonZeroU8>) {
-        self.max_pixel_ratio = max;
+    pub fn set_pixel_ratios(&mut self, ratios: PixelRatios) {
+        self.pixel_ratios = ratios;
     }
 
-    /// Highest pixel ratio the tile endpoint serves.
+    /// Pixel ratios the tile and static endpoints serve.
     #[cfg(feature = "rendering")]
     #[must_use]
-    pub fn max_pixel_ratio(&self) -> NonZeroU8 {
-        self.max_pixel_ratio.unwrap_or(DEFAULT_MAX_PIXEL_RATIO)
+    pub fn pixel_ratios(&self) -> PixelRatios {
+        self.pixel_ratios
     }
 
     /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
@@ -280,6 +284,19 @@ impl StyleSources {
     pub fn png_max_colors(&self) -> Option<u16> {
         self.png_max_colors
     }
+
+    /// Encode rendered WebP and JPEG images at `quality`.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_image_quality(&mut self, quality: ImageQualities) {
+        self.image_quality = quality;
+    }
+
+    /// Quality rendered WebP and JPEG images are encoded at.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn image_quality(&self) -> ImageQualities {
+        self.image_quality
+    }
 }
 
 #[cfg(test)]
@@ -293,10 +310,7 @@ mod tests {
         let style_dir = Path::new("../tests/fixtures/styles/");
 
         let styles = StyleSources::default();
-        styles.add_style(
-            "maplibre_demo".to_owned(),
-            style_dir.join("maplibre_demo.json"),
-        );
+        styles.add_style("maplibre_demo".to_owned(), style_dir.join("maplibre_demo.json"));
         styles.add_style(
             "maptiler_basic".to_owned(),
             style_dir.join("src2").join("maptiler_basic.json"),

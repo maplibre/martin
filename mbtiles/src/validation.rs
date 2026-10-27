@@ -11,16 +11,14 @@ use tilejson::TileJSON;
 use tracing::{debug, info, warn};
 
 use crate::MbtError::{
-    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash,
-    InvalidTileIndex,
+    AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash, InvalidTileIndex,
 };
 use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
-    Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
-    is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type,
-    is_normalized_tables_type,
+    AggTilesHasher, Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
+    is_dedup_id_normalized_tables_type, is_flat_tables_type, is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
 
 /// Metadata key for the aggregate tiles hash value
@@ -247,10 +245,7 @@ pub enum MbtType {
     /// The `schema` argument describes the naming convention (`tiles_shallow`/`tiles_data` or the older `map`/`images`).
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
-    Normalized {
-        hash_view: bool,
-        schema: NormalizedSchema,
-    },
+    Normalized { hash_view: bool, schema: NormalizedSchema },
     /// Tile-cache `MBTiles` file (non-standard)
     ///
     /// Like [`MbtType::Flat`], but the `tile_cache` table stores per-tile cache metadata
@@ -270,13 +265,7 @@ impl MbtType {
 
     #[must_use]
     pub const fn is_normalized_with_view(self) -> bool {
-        matches!(
-            self,
-            Self::Normalized {
-                hash_view: true,
-                ..
-            }
-        )
+        matches!(self, Self::Normalized { hash_view: true, .. })
     }
 
     /// Returns the [`NormalizedSchema`] if this is a normalized type, `None` otherwise.
@@ -315,11 +304,7 @@ pub enum AggHashType {
 impl Mbtiles {
     /// Open the mbtiles file and validate its integrity.
     #[hotpath::measure]
-    pub async fn open_and_validate(
-        &self,
-        check_type: IntegrityCheckType,
-        agg_hash: AggHashType,
-    ) -> MbtResult<String> {
+    pub async fn open_and_validate(&self, check_type: IntegrityCheckType, agg_hash: AggHashType) -> MbtResult<String> {
         let mut conn = if agg_hash == AggHashType::Update {
             self.open().await?
         } else {
@@ -373,22 +358,16 @@ impl Mbtiles {
     {
         match self.get_metadata_value(&mut *conn, HASH_ALGORITHM).await? {
             None => Ok(HashAlgorithm::Md5),
-            Some(value) => {
-                HashAlgorithm::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
-                    algorithm: value,
-                    filepath: self.filepath().into(),
-                })
-            }
+            Some(value) => HashAlgorithm::parse(&value).ok_or_else(|| MbtError::UnsupportedHashAlgorithm {
+                algorithm: value,
+                filepath: self.filepath().into(),
+            }),
         }
     }
 
     /// Detect tile format and verify that it is consistent across some tiles
     #[hotpath::measure]
-    pub async fn detect_format<T>(
-        &self,
-        tilejson: &TileJSON,
-        conn: &mut T,
-    ) -> MbtResult<Option<TileInfo>>
+    pub async fn detect_format<T>(&self, tilejson: &TileJSON, conn: &mut T) -> MbtResult<Option<TileInfo>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -397,9 +376,8 @@ impl Mbtiles {
         let mut tiles_detected = false;
 
         // First, pick any random tile
-        let query = query!(
-            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1"
-        );
+        let query =
+            query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE zoom_level >= 0 LIMIT 1");
         let row = query.fetch_optional(&mut *conn).await?;
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
@@ -436,10 +414,7 @@ impl Mbtiles {
         tile_info = self.check_compression_metadata(tilejson, tile_info, tiles_detected);
 
         if let Some(info) = tile_info {
-            if info.format != Format::Mvt
-                && info.format != Format::Mlt
-                && tilejson.vector_layers.is_some()
-            {
+            if info.format != Format::Mvt && info.format != Format::Mlt && tilejson.vector_layers.is_some() {
                 warn!(
                     mbtiles.file = %self.filename(),
                     "File has vector_layers metadata value, but the tiles are not MVT/MLT"
@@ -451,11 +426,7 @@ impl Mbtiles {
         }
     }
 
-    fn check_format_metadata(
-        &self,
-        tilejson: &TileJSON,
-        mut tile_info: Option<TileInfo>,
-    ) -> Option<TileInfo> {
+    fn check_format_metadata(&self, tilejson: &TileJSON, mut tile_info: Option<TileInfo>) -> Option<TileInfo> {
         if let Some(Value::String(fmt)) = tilejson.other.get("format") {
             let file = self.filename();
             match (tile_info, Format::parse(fmt)) {
@@ -524,9 +495,7 @@ impl Mbtiles {
                         // algorithm", so treat them as equivalent when validating the metadata.
                         // `Internal` means the format compresses data natively (PNG/JPEG/WebP);
                         // `Uncompressed` is the metadata spelling of "no external encoding".
-                        if enc == info.encoding
-                            || (!enc.is_encoded() && !info.encoding.is_encoded())
-                        {
+                        if enc == info.encoding || (!enc.is_encoded() && !info.encoding.is_encoded()) {
                             debug!(
                                 mbtiles.file = %file,
                                 tile.encoding = ?info.encoding,
@@ -557,13 +526,7 @@ impl Mbtiles {
     }
 
     /// Detects the format of a tile and returns its information if none of the values are `None`
-    fn parse_tile(
-        &self,
-        z: Option<i64>,
-        x: Option<i64>,
-        y: Option<i64>,
-        tile: Option<Vec<u8>>,
-    ) -> Option<TileInfo> {
+    fn parse_tile(&self, z: Option<i64>, x: Option<i64>, y: Option<i64>, tile: Option<Vec<u8>>) -> Option<TileInfo> {
         if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
             let info = TileInfo::detect(&tile);
             debug!(
@@ -595,8 +558,7 @@ impl Mbtiles {
         debug!(mbtiles.file = %self, "Detecting MBTiles type");
         let typ = self.detect_layout(&mut *conn).await?;
 
-        self.check_for_uniqueness_constraint(&mut *conn, typ)
-            .await?;
+        self.check_for_uniqueness_constraint(&mut *conn, typ).await?;
 
         Ok(typ)
     }
@@ -663,11 +625,7 @@ impl Mbtiles {
         Ok(Some(table_name))
     }
 
-    async fn check_for_uniqueness_constraint<T>(
-        &self,
-        conn: &mut T,
-        mbt_type: MbtType,
-    ) -> MbtResult<()>
+    async fn check_for_uniqueness_constraint<T>(&self, conn: &mut T, mbt_type: MbtType) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -708,11 +666,7 @@ impl Mbtiles {
 
     /// Perform `SQLite` internal integrity check
     #[hotpath::measure]
-    pub async fn check_integrity<T>(
-        &self,
-        conn: &mut T,
-        integrity_check: IntegrityCheckType,
-    ) -> MbtResult<()>
+    pub async fn check_integrity<T>(&self, conn: &mut T, integrity_check: IntegrityCheckType) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -783,10 +737,7 @@ LIMIT 1;"
                 } else if let Ok(v) = row.try_get::<String, _>(idx) {
                     res.push(format!(r#""{v}" (TEXT)"#));
                 } else if let Ok(v) = row.try_get::<Vec<u8>, _>(idx) {
-                    res.push(format!(
-                        r#""{}" (BLOB)"#,
-                        from_utf8(&v).unwrap_or("<non-utf8-data>")
-                    ));
+                    res.push(format!(r#""{}" (BLOB)"#, from_utf8(&v).unwrap_or("<non-utf8-data>")));
                 } else if let Ok(v) = row.try_get::<i32, _>(idx) {
                     res.push(format!("{v}"));
                 } else if let Ok(v) = row.try_get::<f64, _>(idx) {
@@ -843,9 +794,40 @@ LIMIT 1;"
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let hash = calc_agg_tiles_hash(&mut *conn, algorithm).await?;
+        self.store_agg_tiles_hash(conn, algorithm, hash).await
+    }
+
+    /// Saves the `agg_tiles_hash` that `hasher` computed while the tiles were written, or computes it
+    /// from the file, as [`update_agg_tiles_hash`](Self::update_agg_tiles_hash) does, if `hasher` has
+    /// none for the file's algorithm.
+    #[hotpath::measure]
+    pub async fn finish_agg_tiles_hash<T>(&self, conn: &mut T, hasher: AggTilesHasher) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        let written = if hasher.algorithm() == algorithm {
+            hasher.finish()
+        } else {
+            None
+        };
+        let hash = if let Some(hash) = written {
+            hash
+        } else {
+            debug!(mbtiles.file = %self, "Tiles were not hashed in key order as they were written");
+            calc_agg_tiles_hash(&mut *conn, algorithm).await?
+        };
+        self.store_agg_tiles_hash(conn, algorithm, hash).await
+    }
+
+    /// Saves `hash` as the file's `agg_tiles_hash`, computed with `algorithm`.
+    async fn store_agg_tiles_hash<T>(&self, conn: &mut T, algorithm: HashAlgorithm, hash: String) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let old_hash = self.get_agg_tiles_hash(&mut *conn).await?;
         self.set_metadata_value(&mut *conn, HASH_ALGORITHM, algorithm.as_str())
             .await?;
         if old_hash.as_ref() == Some(&hash) {
@@ -869,8 +851,7 @@ LIMIT 1;"
                     "Adding a new metadata value agg_tiles_hash"
                 );
             }
-            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, &hash)
-                .await?;
+            self.set_metadata_value(&mut *conn, AGG_TILES_HASH, &hash).await?;
         }
         Ok(hash)
     }
@@ -983,12 +964,8 @@ LIMIT 1;"
         let info = PatchFileInfo {
             mbt_type: self.detect_type(&mut *conn).await?,
             agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
-            agg_tiles_hash_before_apply: self
-                .get_metadata_value(&mut *conn, AGG_TILES_HASH_BEFORE_APPLY)
-                .await?,
-            agg_tiles_hash_after_apply: self
-                .get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY)
-                .await?,
+            agg_tiles_hash_before_apply: self.get_metadata_value(&mut *conn, AGG_TILES_HASH_BEFORE_APPLY).await?,
+            agg_tiles_hash_after_apply: self.get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY).await?,
             patch_type: get_patch_type(conn).await?,
         };
 
@@ -998,17 +975,13 @@ LIMIT 1;"
     pub fn assert_hashes(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
         if info.agg_tiles_hash.is_none() {
             if !force {
-                return Err(MbtError::CannotDiffFileWithoutHash(
-                    self.filepath().to_owned(),
-                ));
+                return Err(MbtError::CannotDiffFileWithoutHash(self.filepath().to_owned()));
             }
             warn!(
                 mbtiles.file = %self,
                 "File has no agg_tiles_hash metadata field, probably because it was created by an older version of the `mbtiles` tool. Run `mbtiles validate --agg-hash update <file>` to update the value"
             );
-        } else if info.agg_tiles_hash_before_apply.is_some()
-            || info.agg_tiles_hash_after_apply.is_some()
-        {
+        } else if info.agg_tiles_hash_before_apply.is_some() || info.agg_tiles_hash_after_apply.is_some() {
             if !force {
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_owned()));
             }
@@ -1021,10 +994,7 @@ LIMIT 1;"
     }
 
     pub fn validate_diff_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
-        match (
-            &info.agg_tiles_hash_before_apply,
-            &info.agg_tiles_hash_after_apply,
-        ) {
+        match (&info.agg_tiles_hash_before_apply, &info.agg_tiles_hash_after_apply) {
             (Some(before), Some(after)) => {
                 info!(
                     mbtiles.file = %self,
@@ -1035,9 +1005,7 @@ LIMIT 1;"
             }
             (None, Some(_)) => {
                 if !force {
-                    return Err(MbtError::PatchFileHasNoBeforeHash(
-                        self.filepath().to_owned(),
-                    ));
+                    return Err(MbtError::PatchFileHasNoBeforeHash(self.filepath().to_owned()));
                 }
                 warn!(
                     mbtiles.file = %self,
@@ -1089,10 +1057,7 @@ SELECT coalesce(
 FROM tiles;
 "
     );
-    Ok(query(AssertSqlSafe(sql))
-        .fetch_one(conn)
-        .await?
-        .get::<String, _>(0))
+    Ok(query(AssertSqlSafe(sql)).fetch_one(conn).await?.get::<String, _>(0))
 }
 
 #[cfg(test)]
@@ -1154,9 +1119,7 @@ pub(crate) mod tests {
     async fn validate_valid_file() {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
-            .await
-            .unwrap();
+        mbt.check_integrity(&mut conn, IntegrityCheckType::Quick).await.unwrap();
     }
 
     #[actix_rt::test]
@@ -1169,14 +1132,9 @@ pub(crate) mod tests {
 
     #[actix_rt::test]
     async fn hash_algorithm_defaults_to_md5_when_absent() {
-        let (mbt, mut conn) = anonymous_mbtiles(
-            "CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);",
-        )
-        .await;
-        assert_eq!(
-            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
-            HashAlgorithm::Md5
-        );
+        let (mbt, mut conn) =
+            anonymous_mbtiles("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);").await;
+        assert_eq!(mbt.get_hash_algorithm(&mut conn).await.unwrap(), HashAlgorithm::Md5);
     }
 
     #[actix_rt::test]
@@ -1186,10 +1144,7 @@ pub(crate) mod tests {
              INSERT INTO metadata VALUES('hash_algorithm', 'MD5');",
         )
         .await;
-        assert_eq!(
-            mbt.get_hash_algorithm(&mut conn).await.unwrap(),
-            HashAlgorithm::Md5
-        );
+        assert_eq!(mbt.get_hash_algorithm(&mut conn).await.unwrap(), HashAlgorithm::Md5);
     }
 
     #[actix_rt::test]
@@ -1209,10 +1164,7 @@ pub(crate) mod tests {
     #[case("fnv1a-decimal", HashAlgorithm::Fnv1aDecimal)]
     #[case("xxh64", HashAlgorithm::Xxh64)]
     #[case("XXH3", HashAlgorithm::Xxh3)]
-    fn every_algorithm_parses_and_names_itself(
-        #[case] text: &str,
-        #[case] algorithm: HashAlgorithm,
-    ) {
+    fn every_algorithm_parses_and_names_itself(#[case] text: &str, #[case] algorithm: HashAlgorithm) {
         assert_eq!(HashAlgorithm::parse(text), Some(algorithm));
         assert_eq!(HashAlgorithm::parse(algorithm.as_str()), Some(algorithm));
     }
@@ -1227,14 +1179,9 @@ pub(crate) mod tests {
     #[case(HashAlgorithm::Xxh3, "9555E8555C62DCFD")]
     #[actix_rt::test]
     async fn sql_and_rust_hash_the_same(#[case] algorithm: HashAlgorithm, #[case] expected: &str) {
-        let (_, mut conn) =
-            anonymous_mbtiles("CREATE TABLE metadata (name text, value text);").await;
+        let (_, mut conn) = anonymous_mbtiles("CREATE TABLE metadata (name text, value text);").await;
         let sql = format!("SELECT {}", algorithm.sql_hash("X'68656C6C6F'"));
-        let from_sql: String = query(AssertSqlSafe(sql))
-            .fetch_one(&mut conn)
-            .await
-            .unwrap()
-            .get(0);
+        let from_sql: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
         assert_eq!(from_sql, expected);
         assert_eq!(algorithm.hash(b"hello"), expected);
     }
@@ -1249,10 +1196,7 @@ pub(crate) mod tests {
             HashAlgorithm::Md5,
             "a file that records no algorithm is md5 until told otherwise"
         );
-        assert_matches!(
-            mbt.check_each_tile_hash(&mut conn).await,
-            Err(IncorrectTileHash { .. })
-        );
+        assert_matches!(mbt.check_each_tile_hash(&mut conn).await, Err(IncorrectTileHash { .. }));
         mbt.set_metadata_value(&mut conn, HASH_ALGORITHM, "fnv1a-decimal")
             .await
             .unwrap();
@@ -1276,12 +1220,7 @@ pub(crate) mod tests {
         );
         assert_eq!(mbt.check_agg_tiles_hashes(&mut conn).await.unwrap(), hash);
         // and the md5 aggregate of the same rows is a different value, so the algorithm was honoured
-        assert_ne!(
-            calc_agg_tiles_hash(&mut conn, HashAlgorithm::Md5)
-                .await
-                .unwrap(),
-            hash
-        );
+        assert_ne!(calc_agg_tiles_hash(&mut conn, HashAlgorithm::Md5).await.unwrap(), hash);
     }
 
     #[actix_rt::test]

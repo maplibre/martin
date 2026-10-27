@@ -6,9 +6,7 @@ use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
-use crate::config::file::{
-    CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceWarning,
-};
+use crate::config::file::{CachePolicy, FileConfig, SourceBuildResult, TileGrids, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 use crate::reload::FileKind;
 
@@ -24,7 +22,7 @@ impl MbtilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<MbtConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
         global_process: &ProcessConfig,
         tile_grids: &TileGrids,
     ) -> Self {

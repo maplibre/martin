@@ -31,11 +31,7 @@ impl SpriteCacheKey {
     /// Build a key from the request fields.
     #[must_use]
     pub const fn new(ids: String, as_sdf: bool, as_json: bool) -> Self {
-        Self {
-            ids,
-            as_sdf,
-            as_json,
-        }
+        Self { ids, as_sdf, as_json }
     }
 }
 

@@ -1,0 +1,7 @@
+config:
+  auto_publish: { functions: true }
+  functions:
+    tiles: { schema: Public, function: Tiles }
+catalog:
+  functions:
+    - { schema: public, name: tiles }

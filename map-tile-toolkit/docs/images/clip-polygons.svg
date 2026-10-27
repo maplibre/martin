@@ -1,0 +1,115 @@
+<svg class="d" viewBox="0 0 878.8 458.8" role="img" aria-label="Polygon clipping keeps every vertex with an edge touching the tile's box and closes each ring past the box: a dropped excursion becomes synthetic corners one unit outside the box, or a straight chord, unless keeping its vertices is shorter; a covered tile gets the four corners, a tile inside a hole gets nothing. A hole crossing the tile keeps its own outside vertices, so where the exterior's far part was dropped, the hole can reach past the exterior: the piece is valid only inside the tile" xmlns="http://www.w3.org/2000/svg">
+<title>Polygon clipping keeps every vertex with an edge touching the tile's box and closes each ring past the box: a dropped excursion becomes synthetic corners one unit outside the box, or a straight chord, unless keeping its vertices is shorter; a covered tile gets the four corners, a tile inside a hole gets nothing. A hole crossing the tile keeps its own outside vertices, so where the exterior's far part was dropped, the hole can reach past the exterior: the piece is valid only inside the tile</title>
+<style>.d{--fg:var(--md-default-fg-color,#6e7781);--light:var(--md-default-fg-color--light,#848d97);
+--lighter:var(--md-default-fg-color--lighter,#848d9799);--f0:#3f7ad6;--f1:#e07a2e;
+font-family:var(--md-code-font-family,ui-monospace,monospace);font-size:13px}
+.d text{fill:var(--fg);dominant-baseline:central}
+.d .muted{fill:var(--light)}.d .small{font-size:11px}.d .bold{font-weight:700}.d .mid{text-anchor:middle}
+.d .tile{fill:none;stroke:var(--light);stroke-width:1}
+.d .buf{fill:none;stroke:var(--light);stroke-dasharray:3 3}
+.d .input{fill:none;stroke:var(--lighter);stroke-width:1.5;stroke-linejoin:round}
+.d .line{fill:none;stroke:var(--f1);stroke-width:2;stroke-linejoin:round}
+.d .f1{fill:var(--f1);fill-opacity:.2;stroke:var(--f1);stroke-width:1.5;stroke-linejoin:round}
+.d .synth{fill:none;stroke:var(--f0);stroke-width:1.5;stroke-dasharray:4 2}
+.d .kept{fill:var(--f1)}
+.d .dropped{fill:none;stroke:var(--light);stroke-width:1.25}
+.d .corner{fill:var(--f0)}
+.d .t0{fill:var(--f0)}.d .t1{fill:var(--f1)}</style>
+<text class="small" x="20" y="198.4">inside: kept whole</text>
+<rect class="tile" x="74" y="60.4" width="72" height="72"/>
+<path class="input" d="M84.8,71.2L135.2,74.8L128,121.6L92,114.4Z"/>
+<path class="input" d="M102.8,89.2L110,103.6L117.2,89.2Z"/>
+<path class="f1" fill-rule="evenodd" d="M84.8,71.2L135.2,74.8L128,121.6L92,114.4L84.8,71.2ZM102.8,89.2L110,103.6L117.2,89.2L102.8,89.2Z"/>
+<circle class="kept" cx="135.2" cy="74.8" r="3.5"/>
+<circle class="kept" cx="84.8" cy="71.2" r="3.5"/>
+<circle class="kept" cx="128" cy="121.6" r="3.5"/>
+<circle class="kept" cx="110" cy="103.6" r="3.5"/>
+<circle class="kept" cx="117.2" cy="89.2" r="3.5"/>
+<circle class="kept" cx="92" cy="114.4" r="3.5"/>
+<circle class="kept" cx="102.8" cy="89.2" r="3.5"/>
+<text class="small" x="237.2" y="198.4">3 out > 1 corner: detour</text>
+<rect class="tile" x="291.2" y="60.4" width="72" height="72"/>
+<path class="input" d="M327.2,96.4L262.4,103.6L248,132.4L262.4,168.4L305.6,177L334.4,161.2Z"/>
+<path class="f1" fill-rule="evenodd" d="M334.4,161.2L327.2,96.4L262.4,103.6L290.5,132.4L334.4,161.2Z"/>
+<path class="synth" d="M262.4,103.6L290.5,132.4"/>
+<path class="synth" d="M290.5,132.4L334.4,161.2"/>
+<circle class="dropped" cx="248" cy="132.4" r="3"/>
+<circle class="dropped" cx="262.4" cy="168.4" r="3"/>
+<circle class="kept" cx="334.4" cy="161.2" r="3.5"/>
+<circle class="dropped" cx="305.6" cy="177" r="3"/>
+<circle class="kept" cx="327.2" cy="96.4" r="3.5"/>
+<circle class="kept" cx="262.4" cy="103.6" r="3.5"/>
+<rect class="corner" x="287" y="128.9" width="7" height="7"/>
+<text class="small" x="454.4" y="198.4">1 out ≤ 1 corner: kept</text>
+<rect class="tile" x="508.4" y="60.4" width="72" height="72"/>
+<path class="input" d="M544.4,96.4L479.6,103.6L483.2,164.8L551.6,161.2Z"/>
+<path class="f1" fill-rule="evenodd" d="M551.6,161.2L544.4,96.4L479.6,103.6L483.2,164.8L551.6,161.2Z"/>
+<circle class="kept" cx="551.6" cy="161.2" r="3.5"/>
+<circle class="kept" cx="479.6" cy="103.6" r="3.5"/>
+<circle class="kept" cx="483.2" cy="164.8" r="3.5"/>
+<circle class="kept" cx="544.4" cy="96.4" r="3.5"/>
+<text class="small" x="671.6" y="198.4">1 out > 0 corners: chord</text>
+<rect class="tile" x="725.6" y="60.4" width="72" height="72"/>
+<path class="input" d="M740,67.6L783.2,67.6L826.4,71.2L849.4,96.4L826.4,121.6L783.2,118L740,118Z"/>
+<path class="f1" fill-rule="evenodd" d="M826.4,121.6L783.2,118L740,118L740,67.6L783.2,67.6L826.4,71.2L826.4,121.6Z"/>
+<circle class="kept" cx="826.4" cy="121.6" r="3.5"/>
+<circle class="kept" cx="740" cy="118" r="3.5"/>
+<circle class="kept" cx="783.2" cy="118" r="3.5"/>
+<circle class="dropped" cx="849.4" cy="96.4" r="3"/>
+<circle class="kept" cx="826.4" cy="71.2" r="3.5"/>
+<circle class="kept" cx="740" cy="67.6" r="3.5"/>
+<circle class="kept" cx="783.2" cy="67.6" r="3.5"/>
+<text class="small" x="20" y="414.8">covered: 4 synthetic corners</text>
+<rect class="tile" x="74" y="276.8" width="72" height="72"/>
+<path class="input" d="M30.8,233.6L189.2,233.6L189.2,392L30.8,392Z"/>
+<path class="f1" fill-rule="evenodd" d="M73.3,276.1L146,276.1L146,348.8L73.3,348.8L73.3,276.1Z"/>
+<path class="synth" d="M73.3,276.1L146,276.1"/>
+<path class="synth" d="M146,276.1L146,348.8"/>
+<path class="synth" d="M146,348.8L73.3,348.8"/>
+<path class="synth" d="M73.3,348.8L73.3,276.1"/>
+<circle class="dropped" cx="30.8" cy="392" r="3"/>
+<circle class="dropped" cx="189.2" cy="233.6" r="3"/>
+<circle class="dropped" cx="30.8" cy="233.6" r="3"/>
+<circle class="dropped" cx="189.2" cy="392" r="3"/>
+<rect class="corner" x="142.5" y="272.6" width="7" height="7"/>
+<rect class="corner" x="69.8" y="272.6" width="7" height="7"/>
+<rect class="corner" x="142.5" y="345.3" width="7" height="7"/>
+<rect class="corner" x="69.8" y="345.3" width="7" height="7"/>
+<text class="small" x="237.2" y="414.8">inside a hole: nothing</text>
+<rect class="tile" x="291.2" y="276.8" width="72" height="72"/>
+<path class="input" d="M248,233.6L406.4,233.6L406.4,392L248,392Z"/>
+<path class="input" d="M269.6,255.2L269.6,370.4L384.8,370.4L384.8,255.2Z"/>
+<circle class="dropped" cx="269.6" cy="255.2" r="3"/>
+<circle class="dropped" cx="248" cy="392" r="3"/>
+<circle class="dropped" cx="406.4" cy="392" r="3"/>
+<circle class="dropped" cx="384.8" cy="255.2" r="3"/>
+<circle class="dropped" cx="269.6" cy="370.4" r="3"/>
+<circle class="dropped" cx="384.8" cy="370.4" r="3"/>
+<circle class="dropped" cx="248" cy="233.6" r="3"/>
+<circle class="dropped" cx="406.4" cy="233.6" r="3"/>
+<text class="small" x="454.4" y="414.8">invalid only outside the box</text>
+<rect class="tile" x="508.4" y="276.8" width="72" height="72"/>
+<path class="input" d="M519.2,280.4L569.6,280.4L602,273.2L634.4,273.2L634.4,352.4L602,352.4L569.6,345.2L519.2,345.2Z"/>
+<path class="input" d="M558.8,302L558.8,323.6L625,323.6L625,302Z"/>
+<path class="f1" fill-rule="evenodd" d="M602,352.4L569.6,345.2L519.2,345.2L519.2,280.4L569.6,280.4L602,273.2L602,352.4ZM558.8,302L558.8,323.6L625,323.6L625,302L558.8,302Z"/>
+<circle class="kept" cx="625" cy="302" r="3.5"/>
+<circle class="kept" cx="569.6" cy="345.2" r="3.5"/>
+<circle class="kept" cx="558.8" cy="302" r="3.5"/>
+<circle class="kept" cx="519.2" cy="280.4" r="3.5"/>
+<circle class="kept" cx="602" cy="352.4" r="3.5"/>
+<circle class="kept" cx="519.2" cy="345.2" r="3.5"/>
+<circle class="kept" cx="602" cy="273.2" r="3.5"/>
+<circle class="dropped" cx="634.4" cy="352.4" r="3"/>
+<circle class="dropped" cx="634.4" cy="273.2" r="3"/>
+<circle class="kept" cx="569.6" cy="280.4" r="3.5"/>
+<circle class="kept" cx="625" cy="323.6" r="3.5"/>
+<circle class="kept" cx="558.8" cy="323.6" r="3.5"/>
+<path class="input" d="M14,444.8H34"/>
+<text class="muted small" x="44" y="444.8">input</text>
+<circle class="kept" cx="103.5" cy="444.8" r="3.5"/>
+<text class="muted small" x="113.5" y="444.8">kept</text>
+<circle class="dropped" cx="166.3" cy="444.8" r="3"/>
+<text class="muted small" x="176.3" y="444.8">dropped</text>
+<rect class="corner" x="245.70000000000002" y="441.3" width="7" height="7"/>
+<text class="muted small" x="259.20000000000005" y="444.8">synthetic corner</text>
+</svg>

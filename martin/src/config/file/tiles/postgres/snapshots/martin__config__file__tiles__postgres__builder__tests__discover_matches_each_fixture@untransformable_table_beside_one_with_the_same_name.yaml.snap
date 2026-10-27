@@ -1,0 +1,8 @@
+---
+source: martin/src/config/file/tiles/postgres/builder.rs
+expression: discovered
+input_file: tests/fixtures/pg_discover/untransformable_table_beside_one_with_the_same_name.yaml
+---
+sources:
+  roads: table b.roads.geom SRID 3857
+warnings: []

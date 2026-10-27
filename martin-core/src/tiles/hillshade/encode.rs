@@ -2,8 +2,8 @@
 
 use martin_tile_utils::Format;
 
-use super::error::HillshadeError;
-use super::shade::BakedTile;
+use crate::tiles::hillshade::error::HillshadeError;
+use crate::tiles::hillshade::shade::BakedTile;
 
 /// Image formats a baked hillshade can be encoded to.
 pub const SUPPORTED_FORMATS: &[Format] = &[Format::Png, Format::Webp, Format::Jxl];
@@ -31,18 +31,12 @@ impl BakedTile {
 
         let mut buf = Vec::new();
         let result = match format {
-            Format::Png => PngEncoder::new(&mut buf).write_image(
-                &self.gray,
-                self.side,
-                self.side,
-                ExtendedColorType::L8,
-            ),
-            Format::Webp => WebPEncoder::new_lossless(&mut buf).write_image(
-                &self.gray,
-                self.side,
-                self.side,
-                ExtendedColorType::L8,
-            ),
+            Format::Png => {
+                PngEncoder::new(&mut buf).write_image(&self.gray, self.side, self.side, ExtendedColorType::L8)
+            }
+            Format::Webp => {
+                WebPEncoder::new_lossless(&mut buf).write_image(&self.gray, self.side, self.side, ExtendedColorType::L8)
+            }
             Format::Jxl => {
                 let options = EncoderOptions::new(
                     self.side as usize,
@@ -54,18 +48,12 @@ impl BakedTile {
                     .encode(&mut buf)
                     .map(|_written| ())
                     .map_err(|source| {
-                        image::ImageError::Encoding(EncodingError::new(
-                            ImageFormatHint::Name("jxl".to_owned()),
-                            source,
-                        ))
+                        image::ImageError::Encoding(EncodingError::new(ImageFormatHint::Name("jxl".to_owned()), source))
                     })
             }
-            other @ (Format::Gif
-            | Format::Jpeg
-            | Format::Json
-            | Format::Mvt
-            | Format::Mlt
-            | Format::Avif) => return Err(HillshadeError::UnsupportedFormat(other)),
+            other @ (Format::Gif | Format::Jpeg | Format::Json | Format::Mvt | Format::Mlt | Format::Avif) => {
+                return Err(HillshadeError::UnsupportedFormat(other));
+            }
         };
         result.map_err(|source| HillshadeError::Encoding { format, source })?;
         Ok(buf)
@@ -83,11 +71,7 @@ mod tests {
     /// A small bake with a spread of tones, enough to catch a codec quantising.
     fn baked(side: u32) -> BakedTile {
         let gray = (0..side * side).map(|i| (i % 251) as u8).collect();
-        BakedTile {
-            side,
-            gray,
-            apron: 0,
-        }
+        BakedTile { side, gray, apron: 0 }
     }
 
     #[rstest]

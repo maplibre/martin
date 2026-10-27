@@ -7,7 +7,7 @@ use martin_core::tiles::duckdb::DuckDBPool;
 use tracing::{debug, info};
 
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::duckdb::resolver::database::resolve_database_entry;
+use crate::config::file::tiles::duckdb::resolver::database::{PreparedDatabase, prepare_database_entry};
 use crate::config::file::tiles::duckdb::resolver::geoparquet::resolve_geoparquet_source;
 use crate::config::file::tiles::duckdb::resolver::secret::s3_secret;
 use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
@@ -18,14 +18,16 @@ use crate::config::primitives::IdResolver;
 /// One resolved `DuckDB` source: a live source, or a per-source warning.
 type ResolvedSource = BoxFuture<'static, Result<BoxedSource, TileSourceWarning>>;
 
-/// Every source one config entry resolves to.
-type ResolvedEntry = BoxFuture<'static, Vec<Result<BoxedSource, TileSourceWarning>>>;
+/// One config entry, with its database sources still waiting for their ids.
+enum PreparedEntry {
+    Database(PreparedDatabase),
+    GeoParquet(Result<BoxedSource, TileSourceWarning>),
+}
 
-pub type DuckDbResolution = SourceBuildResult<(
-    Vec<BoxedSource>,
-    Vec<TileSourceWarning>,
-    HashMap<String, ProcessConfig>,
-)>;
+type PendingEntry = BoxFuture<'static, PreparedEntry>;
+
+pub type DuckDbResolution =
+    SourceBuildResult<(Vec<BoxedSource>, Vec<TileSourceWarning>, HashMap<String, ProcessConfig>)>;
 
 /// The entry's pool; a remote `s3://` one carries the S3 secret its object-store settings make.
 async fn build_geoparquet_pool(
@@ -103,40 +105,40 @@ fn resolve_geoparquet_entry(
     })
 }
 
-fn resolve_source_entry(
+fn prepare_source_entry(
     source: &DuckDbSourceEntry,
     id_resolver: &IdResolver,
     default_cache: CachePolicy,
-) -> ResolvedEntry {
+) -> PendingEntry {
     match source {
         DuckDbSourceEntry::Database(entry) => {
             let entry = entry.clone();
-            let id_resolver = id_resolver.clone();
-            Box::pin(
-                async move { resolve_database_entry(&entry, &id_resolver, default_cache).await },
-            )
+            Box::pin(async move { PreparedEntry::Database(prepare_database_entry(&entry).await) })
         }
         DuckDbSourceEntry::GeoParquet(entry) => {
             let source = resolve_geoparquet_entry(entry, id_resolver, default_cache);
-            Box::pin(async move { vec![source.await] })
+            Box::pin(async move { PreparedEntry::GeoParquet(source.await) })
         }
     }
 }
 
 impl DuckDbConfig {
     /// Resolve configured `DuckDB` sources into live tile sources.
-    pub async fn resolve(
-        &self,
-        id_resolver: IdResolver,
-        default_cache: CachePolicy,
-    ) -> DuckDbResolution {
-        let default_cache = self.cache.or(default_cache);
+    pub async fn resolve(&self, id_resolver: IdResolver, default_cache: CachePolicy) -> DuckDbResolution {
+        let default_cache = self.cache.or(&default_cache);
         let pending = self
             .sources
             .iter()
-            .map(|source| resolve_source_entry(source, &id_resolver, default_cache))
+            .map(|source| prepare_source_entry(source, &id_resolver, default_cache.clone()))
             .collect::<Vec<_>>();
-        let resolved = join_all(pending).await;
+        let resolved = join_all(pending)
+            .await
+            .into_iter()
+            .map(|prepared| match prepared {
+                PreparedEntry::Database(database) => database.resolve(&id_resolver, &default_cache),
+                PreparedEntry::GeoParquet(source) => vec![source],
+            })
+            .collect::<Vec<_>>();
         let process = self
             .sources
             .iter()
@@ -158,11 +160,14 @@ impl DuckDbConfig {
 mod tests {
     use std::collections::BTreeMap;
 
+    use insta::assert_yaml_snapshot;
+
     use super::*;
     use crate::config::file::ConfigurationLivecycleHooks as _;
     use crate::config::file::tiles::duckdb::sources::{
         DuckDbDatabaseEntry, DuckDbTableEntry, GeoParquetEntry, MvtLayerOptions,
     };
+    use crate::test_support::duckdb::TestDatabase;
 
     const DATABASE_FIXTURE: &str = "../tests/fixtures/duckdb/database.duckdb";
 
@@ -203,10 +208,7 @@ mod tests {
 
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(
-            sources
-                .iter()
-                .map(|source| source.get_id())
-                .collect::<Vec<_>>(),
+            sources.iter().map(|source| source.get_id()).collect::<Vec<_>>(),
             ["polygons", "polygons.1"]
         );
     }
@@ -244,6 +246,74 @@ mod tests {
         assert!(error.contains("no_such_table"), "{error}");
     }
 
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct DiscoverFixture {
+        sql: String,
+        config: String,
+    }
+
+    #[derive(serde::Serialize)]
+    struct Discovered {
+        sources: BTreeMap<String, String>,
+        warnings: Vec<String>,
+    }
+
+    #[test]
+    fn resolve_matches_each_fixture() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("build runtime");
+        insta::glob!(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/duckdb_discover"),
+            "*.yaml",
+            |path| {
+                let text = std::fs::read_to_string(path).expect("read fixture");
+                let fixture: DiscoverFixture = serde_saphyr::from_str(&text).expect("parse fixture");
+                let db = TestDatabase::from_sql("fixture.duckdb", &fixture.sql);
+                let mut cfg: DuckDbConfig = serde_saphyr::from_str(&fixture.config).expect("parse config");
+                for source in &mut cfg.sources {
+                    if let DuckDbSourceEntry::Database(entry) = source {
+                        entry.database = db.path().to_owned();
+                    }
+                }
+                let (sources, warnings, _) = runtime.block_on(async {
+                    cfg.finalize().await.expect("finalize");
+                    cfg.resolve(IdResolver::default(), CachePolicy::default())
+                        .await
+                        .expect("resolution succeeds")
+                });
+                let db_path = db.path().to_string_lossy().into_owned();
+                let discovered = Discovered {
+                    sources: sources
+                        .iter()
+                        .map(|source| {
+                            let tilejson = source.get_tilejson();
+                            let description = tilejson.description.clone().unwrap_or_default();
+                            let fields = tilejson
+                                .vector_layers
+                                .iter()
+                                .flatten()
+                                .flat_map(|layer| layer.fields.keys().cloned())
+                                .collect::<Vec<_>>();
+                            let description = format!("{description} fields [{}]", fields.join(", "));
+                            (
+                                source.get_id().to_owned(),
+                                description.replace(&db_path, "fixture.duckdb"),
+                            )
+                        })
+                        .collect(),
+                    warnings: warnings
+                        .iter()
+                        .map(|warning| warning.to_string().replace(&db_path, "fixture.duckdb"))
+                        .collect(),
+                };
+                assert_yaml_snapshot!(discovered);
+            }
+        );
+    }
+
     #[tokio::test]
     async fn missing_geoparquet_file_fails_finalize() {
         let mut cfg = DuckDbConfig {
@@ -259,8 +329,7 @@ mod tests {
         };
         let err = cfg.finalize().await.expect_err("missing file");
         assert!(
-            err.to_string().contains("no/such/file.parquet")
-                || err.to_string().contains("No such file"),
+            err.to_string().contains("no/such/file.parquet") || err.to_string().contains("No such file"),
             "unexpected error: {err}"
         );
     }
@@ -276,8 +345,7 @@ mod tests {
         };
         let err = cfg.finalize().await.expect_err("missing file");
         assert!(
-            err.to_string().contains("no/such/file.duckdb")
-                || err.to_string().contains("No such file"),
+            err.to_string().contains("no/such/file.duckdb") || err.to_string().contains("No such file"),
             "unexpected error: {err}"
         );
     }

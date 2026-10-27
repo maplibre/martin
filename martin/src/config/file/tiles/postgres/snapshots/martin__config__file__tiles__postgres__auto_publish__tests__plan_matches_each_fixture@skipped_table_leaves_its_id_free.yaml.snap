@@ -1,0 +1,30 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/skipped_table_leaves_its_id_free.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables:
+  - id: roads
+    schema: b
+    table: roads
+    srid: 3857
+    geometry_column: geom
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - a
+        - b
+      id_format: "{table}"
+  - Skipped:
+      relation:
+        schema: a
+        table: roads
+        geometry_column: geom
+      reason: NoSrid

@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, temp_dir, tiles};
+use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, metadata, temp_dir, tiles};
 use rstest::rstest;
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -32,9 +32,7 @@ fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 
 fn flip_y(path: &Path) -> PathBuf {
     let mut parts = path.iter();
-    let z = parts
-        .next()
-        .expect("a tile path starts with its zoom level");
+    let z = parts.next().expect("a tile path starts with its zoom level");
     let x = parts.next().expect("a tile path has an x directory");
     let name = parts.next().expect("a tile path has a y file name");
     let zoom: u32 = z
@@ -58,11 +56,7 @@ async fn unpack_names_tiles_after_the_stored_format() {
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
 
-    MbtilesCli::new("unpack")
-        .arg(&source)
-        .arg(&tree_dir)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&source).arg(&tree_dir).run().await;
 
     let tree = tile_tree(&tree_dir);
     assert!(
@@ -71,8 +65,7 @@ async fn unpack_names_tiles_after_the_stored_format() {
         tree.keys().collect::<Vec<_>>()
     );
     assert!(
-        tree.keys()
-            .all(|path| path.extension() == Some(OsStr::new("pbf"))),
+        tree.keys().all(|path| path.extension() == Some(OsStr::new("pbf"))),
         "unpacked tiles: {:?}",
         tree.keys().collect::<Vec<_>>()
     );
@@ -86,16 +79,8 @@ async fn pack_unpack_round_trips_a_vector_tile_tree() {
     let packed = dir.path().join("repacked.mbtiles");
     let repacked_tree_dir = dir.path().join("xyz_again");
 
-    MbtilesCli::new("unpack")
-        .arg(&source)
-        .arg(&tree_dir)
-        .run()
-        .await;
-    MbtilesCli::new("pack")
-        .arg(&tree_dir)
-        .arg(&packed)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&source).arg(&tree_dir).run().await;
+    MbtilesCli::new("pack").arg(&tree_dir).arg(&packed).run().await;
     MbtilesCli::new("unpack")
         .arg(&packed)
         .arg(&repacked_tree_dir)
@@ -112,11 +97,7 @@ async fn unpack_with_the_tms_scheme_flips_the_y_coordinate() {
     let xyz_dir = dir.path().join("xyz");
     let tms_dir = dir.path().join("tms");
 
-    MbtilesCli::new("unpack")
-        .arg(&source)
-        .arg(&xyz_dir)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&source).arg(&xyz_dir).run().await;
     MbtilesCli::new("unpack")
         .arg(&source)
         .arg(&tms_dir)
@@ -130,10 +111,7 @@ async fn unpack_with_the_tms_scheme_flips_the_y_coordinate() {
         .iter()
         .map(|(path, data)| (flip_y(path), data.clone()))
         .collect::<BTreeMap<_, _>>();
-    assert_ne!(
-        xyz.keys().collect::<Vec<_>>(),
-        expected.keys().collect::<Vec<_>>()
-    );
+    assert_ne!(xyz.keys().collect::<Vec<_>>(), expected.keys().collect::<Vec<_>>());
     assert_eq!(tile_tree(&tms_dir), expected);
 }
 
@@ -145,11 +123,7 @@ async fn packing_without_compression_round_trips_a_vector_tile_tree() {
     let packed = dir.path().join("raw.mbtiles");
     let unpacked_dir = dir.path().join("raw_out");
 
-    MbtilesCli::new("unpack")
-        .arg(&source)
-        .arg(&tree_dir)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&source).arg(&tree_dir).run().await;
     MbtilesCli::new("pack")
         .arg(&tree_dir)
         .arg(&packed)
@@ -157,11 +131,7 @@ async fn packing_without_compression_round_trips_a_vector_tile_tree() {
         .arg("none")
         .run()
         .await;
-    MbtilesCli::new("unpack")
-        .arg(&packed)
-        .arg(&unpacked_dir)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&packed).arg(&unpacked_dir).run().await;
 
     assert_eq!(tile_tree(&tree_dir), tile_tree(&unpacked_dir));
 }
@@ -170,20 +140,13 @@ async fn packing_without_compression_round_trips_a_vector_tile_tree() {
 #[case::auto(&[], true)]
 #[case::none(&["--compress", "none"], false)]
 #[tokio::test]
-async fn pack_gzips_vector_tiles_unless_compression_is_disabled(
-    #[case] extra_args: &[&str],
-    #[case] gzipped: bool,
-) {
+async fn pack_gzips_vector_tiles_unless_compression_is_disabled(#[case] extra_args: &[&str], #[case] gzipped: bool) {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;
     let tree_dir = dir.path().join("xyz");
     let packed = dir.path().join("packed.mbtiles");
 
-    MbtilesCli::new("unpack")
-        .arg(&source)
-        .arg(&tree_dir)
-        .run()
-        .await;
+    MbtilesCli::new("unpack").arg(&source).arg(&tree_dir).run().await;
     let mut command = MbtilesCli::new("pack").arg(&tree_dir).arg(&packed);
     for arg in extra_args {
         command = command.arg(*arg);
@@ -283,8 +246,7 @@ async fn pack_rejects_an_unsupported_tile_extension() {
     let dir = temp_dir();
     let tree_dir = dir.path().join("bad_extension");
     fs::create_dir_all(tree_dir.join("0").join("0")).expect("failed to create a tile directory");
-    fs::write(tree_dir.join("0").join("0").join("0.txt"), "not a tile")
-        .expect("failed to write a tile");
+    fs::write(tree_dir.join("0").join("0").join("0.txt"), "not a tile").expect("failed to write a tile");
 
     let output = MbtilesCli::new("pack")
         .arg(&tree_dir)
@@ -304,10 +266,8 @@ async fn pack_rejects_inconsistent_tile_formats() {
     let tree_dir = dir.path().join("mixed");
     fs::create_dir_all(tree_dir.join("0").join("0")).expect("failed to create a tile directory");
     fs::create_dir_all(tree_dir.join("1").join("0")).expect("failed to create a tile directory");
-    fs::write(tree_dir.join("0").join("0").join("0.pbf"), "vector")
-        .expect("failed to write a tile");
-    fs::write(tree_dir.join("1").join("0").join("0.png"), "raster")
-        .expect("failed to write a tile");
+    fs::write(tree_dir.join("0").join("0").join("0.pbf"), "vector").expect("failed to write a tile");
+    fs::write(tree_dir.join("1").join("0").join("0.png"), "raster").expect("failed to write a tile");
 
     let output = MbtilesCli::new("pack")
         .arg(&tree_dir)
@@ -404,4 +364,45 @@ async fn copy_with_a_diff_file_takes_one_source() {
         .await;
 
     insta::assert_snapshot!(output, @"ERROR --diff-with-file and --apply-patch take exactly one source file, got 2");
+}
+
+#[tokio::test]
+async fn meta_update_set_meta_overrides_computed_values() {
+    let dir = temp_dir();
+    let file = mbtiles_fixture(dir.path(), "world_cities").await;
+
+    MbtilesCli::new("meta-update")
+        .arg(&file)
+        .arg("--set-meta")
+        .arg("minzoom=3")
+        .arg("--set-meta")
+        .arg("name=renamed")
+        .arg("--delete-meta")
+        .arg("bounds")
+        .run()
+        .await;
+
+    let meta = metadata(&file).await;
+    assert_eq!(meta.get("minzoom").map(String::as_str), Some("3"));
+    assert_eq!(meta.get("name").map(String::as_str), Some("renamed"));
+    assert!(!meta.contains_key("bounds"), "metadata: {meta:?}");
+}
+
+#[tokio::test]
+async fn meta_update_rejects_a_key_both_set_and_deleted() {
+    let dir = temp_dir();
+    let file = mbtiles_fixture(dir.path(), "world_cities").await;
+    let before = metadata(&file).await;
+
+    let output = MbtilesCli::new("meta-update")
+        .arg(&file)
+        .arg("--set-meta")
+        .arg("name=renamed")
+        .arg("--delete-meta")
+        .arg("name")
+        .run_failing()
+        .await;
+
+    assert!(output.contains("name"), "output:\n{output}");
+    assert_eq!(metadata(&file).await, before);
 }

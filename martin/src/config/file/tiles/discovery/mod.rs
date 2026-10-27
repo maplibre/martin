@@ -2,31 +2,21 @@
 //! configured remote-object discovery, and object-store prefix discovery.
 
 mod discovery_trait;
-pub use discovery_trait::{BuiltSource, Discovered, Discovery, Version};
+pub use crate::config::file::tiles::discovery::discovery_trait::{BuiltSource, Discovered, Discovery, Version};
 
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
 mod fs;
-#[cfg(any(
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "processing",
-    feature = "pmtiles"
-))]
-pub use fs::{FsDiscovery, FsSourceBuilder};
+#[cfg(any(feature = "mbtiles", feature = "cog", feature = "processing", feature = "pmtiles"))]
+pub use crate::config::file::tiles::discovery::fs::{FsDiscovery, FsSourceBuilder};
 
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
 mod object_store;
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
-pub use object_store::{
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
+pub use crate::config::file::tiles::discovery::object_store::{
     ConfiguredObjectDiscovery, ObjectStoreDiscovery, ObjectStoreParser, ObjectStoreSourceBuilder,
 };
 
 #[cfg(feature = "postgres")]
 mod postgres;
 #[cfg(feature = "postgres")]
-pub use postgres::PostgresDiscovery;
+pub use crate::config::file::tiles::discovery::postgres::PostgresDiscovery;

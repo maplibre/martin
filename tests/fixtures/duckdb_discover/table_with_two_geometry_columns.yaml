@@ -1,0 +1,9 @@
+sql: |
+  CREATE TABLE parcels (id INTEGER, outline GEOMETRY('EPSG:4326'), centroid GEOMETRY('EPSG:4326'));
+  INSERT INTO parcels VALUES (1, ST_Point(0, 0), ST_Point(0, 0));
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish:
+        tables:
+          source_id_format: "{table}.{column}"

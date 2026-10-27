@@ -20,12 +20,7 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
         "source for the copy operation is not an existing directory"
     );
     let _ = fs::remove_dir_all(dst); // ignore if dir does not exist
-    fs::create_dir_all(dst).unwrap_or_else(|e| {
-        panic!(
-            "failed to create destination directory {}: {e}",
-            dst.display()
-        )
-    });
+    fs::create_dir_all(dst).unwrap_or_else(|e| panic!("failed to create destination directory {}: {e}", dst.display()));
     let excludes = exclude_dirs.iter().map(|v| src.join(v)).collect::<Vec<_>>();
 
     let mut it = walkdir::WalkDir::new(src).follow_links(true).into_iter();
@@ -45,12 +40,8 @@ fn copy_file_tree(src: &Path, dst: &Path, exclude_dirs: &[&str]) {
         );
 
         if entry.file_type().is_dir() {
-            fs::create_dir_all(&dst_path).unwrap_or_else(|e| {
-                panic!(
-                    "failed to create destination directory {}: {e}",
-                    dst_path.display()
-                )
-            });
+            fs::create_dir_all(&dst_path)
+                .unwrap_or_else(|e| panic!("failed to create destination directory {}: {e}", dst_path.display()));
         } else {
             fs::copy(entry.path(), &dst_path).unwrap_or_else(|e| {
                 panic!(
@@ -82,11 +73,7 @@ fn webui() {
         .expect("OUT_DIR environment variable is not a valid path")
         .join("martin-ui");
 
-    copy_file_tree(
-        &martin_ui_dir,
-        &out_martin_ui_dir,
-        &["dist", "node_modules"],
-    );
+    copy_file_tree(&martin_ui_dir, &out_martin_ui_dir, &["dist", "node_modules"]);
 
     println!("installing and building in {}", out_martin_ui_dir.display());
     static_files::NpmBuild::new(&out_martin_ui_dir)
@@ -123,8 +110,7 @@ fn webui_stub() {
         .parse::<std::path::PathBuf>()
         .expect("OUT_DIR environment variable is not a valid path")
         .join("stub-webui");
-    fs::create_dir_all(&stub)
-        .unwrap_or_else(|e| panic!("failed to create {}: {e}", stub.display()));
+    fs::create_dir_all(&stub).unwrap_or_else(|e| panic!("failed to create {}: {e}", stub.display()));
     fs::write(
         stub.join("index.html"),
         "Martin was built with `unstable-schemas`, which replaces the WebUI with this page.\n",

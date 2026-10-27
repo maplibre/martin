@@ -9,11 +9,13 @@ autoupdates
 basemap
 bindiff
 binstall
+bpchar
 bsdiff
 bsdiffraw
 bsdiffrawgz
 bytea
 cacreateserial
+callgrind
 casei
 circularstring
 clippy
@@ -37,6 +39,7 @@ epsg
 ETRS
 extfile
 fastpfor
+fips
 fontawesome
 fontstack
 foss
@@ -48,7 +51,9 @@ geodata
 geofabrik
 geoparquet
 geospatial
+geotransform
 geozero
+gungraun
 haswell
 healthcheck
 healthchecks
@@ -56,6 +61,7 @@ hillshade
 hillshading
 hotpath
 httpfs
+icount
 impls
 indicatif
 inspectable
@@ -66,9 +72,11 @@ jpegxl
 justfiles
 keepalives
 LAEA
+libwebp
 linestring
 linestrings
 lldb
+lnglat
 longlat
 manbhav
 mapbox
@@ -93,6 +101,8 @@ nixpkgs
 notnull
 noto
 NZTM
+ogcapi
+ogrinfo
 oklch
 onthegomap
 openlayers
@@ -124,6 +134,7 @@ reprojects
 rescan
 rgba
 rustaceanvim
+rustls
 saphyr
 schemafile
 serde
@@ -146,6 +157,7 @@ subrequest
 subtransaction
 sugla
 superyachts
+taiki
 thiserror
 tilegen
 tilejson
@@ -155,14 +167,19 @@ tileset
 tilesets
 toon
 tui
+unclipped
 undecoded
 urlencode
 usize
 utoipa
+valgrind
 varchar
+wagyu
 webui
 workspaced
+worktrees
 zensical
 zstd
 zune
 ctid
+quadkey

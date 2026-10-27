@@ -13,7 +13,7 @@ use mbtiles::{Mbtiles, temp_named_mbtiles};
 use tilejson::TileJSON;
 
 pub mod utils;
-pub use utils::*;
+pub use crate::utils::*;
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -53,11 +53,9 @@ async fn config(
     ),
 ) {
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
-    let (json_mbt, json_conn, json_file) =
-        temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
+    let (json_mbt, json_conn, json_file) = temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (mvt_mbt, mvt_conn, mvt_file) =
-        temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
+    let (mvt_mbt, mvt_conn, mvt_file) = temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
     let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
@@ -65,8 +63,7 @@ async fn config(
     let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
-    let (webp_mbt, webp_conn, webp_file) =
-        temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
+    let (webp_mbt, webp_conn, webp_file) = temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
     (
         formatdoc! {"
@@ -193,6 +190,31 @@ async fn mbt_get_tilejson() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
+async fn mbt_tilejson_caps_the_zooms_of_a_file_without_tiles() {
+    let script = r#"CREATE TABLE metadata (name text, value text);
+        INSERT INTO metadata VALUES ('name', 'empty'), ('format', 'pbf'), ('minzoom', '35'), ('maxzoom', '40'),
+            ('center', '0,0,35'), ('json', '{"vector_layers":[{"id":"roads","fields":{},"minzoom":35,"maxzoom":40}]}');
+        CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);"#;
+    let (_mbt, _conn, file) = temp_named_mbtiles("mbt_tilejson_caps_empty", script).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            empty: {file}
+    ", file = file.display()});
+
+    let response = call_service(&app, test_get("/empty").to_request()).await;
+    let response = assert_response(response).await;
+    let body: TileJSON = read_body_json(response).await;
+    let layer = &body.vector_layers.expect("the file declares a layer")[0];
+    let center_zoom = body.center.map(|center| center.zoom);
+    assert_eq!(
+        [body.minzoom, body.maxzoom, center_zoom, layer.minzoom, layer.maxzoom],
+        [Some(30); 5]
+    );
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_tilejson_gzip() {
     let (config, _conns) = config("mbt_get_tilejson_gzip").await;
     let app = create_app!(&config);
@@ -249,10 +271,7 @@ async fn mbt_get_mvt() {
     println!("Status = {:?}", response.status());
     println!("Headers = {:?}", response.headers());
 
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 1828);
@@ -268,10 +287,7 @@ async fn mbt_get_mvt_gzip() {
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
@@ -289,10 +305,7 @@ async fn mbt_get_mvt_brotli() {
     let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
     assert_eq!(body.len(), 975); // this number could change if compression settings change
@@ -309,10 +322,7 @@ async fn mbt_get_raw_mvt() {
     let req = test_get("/m_raw_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 2);
@@ -343,15 +353,10 @@ async fn mbt_get_raw_mvt_gzip() {
     let (config, _conns) = config("mbt_get_raw_mvt_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/m_raw_mvt/0/0/0")
-        .insert_header(accept)
-        .to_request();
+    let req = test_get("/m_raw_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
@@ -367,15 +372,10 @@ async fn mbt_get_raw_mvt_gzip_br() {
     let app = create_app!(&config);
     // Sadly, most browsers prefer to ask for gzip - maybe we should force brotli if supported.
     let accept = (ACCEPT_ENCODING, "br, gzip, deflate");
-    let req = test_get("/m_raw_mvt/0/0/0")
-        .insert_header(accept)
-        .to_request();
+    let req = test_get("/m_raw_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/x-protobuf"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/x-protobuf");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
@@ -392,10 +392,7 @@ async fn mbt_get_json() {
     let req = test_get("/m_json/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/json"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 13);
@@ -411,10 +408,7 @@ async fn mbt_get_json_gzip() {
     let req = test_get("/m_json/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
-    assert_eq!(
-        response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/json"
-    );
+    assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
     assert_eq!(body.len(), 33); // this number could change if compression gets more optimized

@@ -4,7 +4,7 @@ use martin_tile_utils::TileInfo;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use martin_tile_utils::{Encoding, Format};
 #[cfg(feature = "_tiles")]
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
 #[cfg(feature = "_tiles")]
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -14,9 +14,7 @@ use tilejson::VectorLayer;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::contour::{ContourProcessConfig, ContourRangeError, ResolvedContour};
 #[cfg(all(feature = "processing", feature = "_tiles"))]
-use crate::config::file::hillshade::{
-    HillshadeProcessConfig, HillshadeRangeError, ResolvedHillshade,
-};
+use crate::config::file::hillshade::{HillshadeProcessConfig, HillshadeRangeError, ResolvedHillshade};
 use crate::config::file::{CacheControlHeader, ConfigFileError};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
@@ -86,19 +84,15 @@ impl ProcessConfig {
             #[cfg(feature = "_tiles")]
             mlt: match &self.convert_to_mlt {
                 None | Some(MltProcessConfig::Auto) => {
-                    MltConversion::Encode(EncoderConfig::default())
+                    MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline)))
                 }
-                Some(MltProcessConfig::Explicit(cfg)) => {
-                    MltConversion::Encode(EncoderConfig::from(cfg.clone()))
-                }
+                Some(MltProcessConfig::Explicit(cfg)) => MltConversion::Encode(EncoderConfig::from(cfg.clone())),
                 Some(MltProcessConfig::Disabled) => MltConversion::Disabled,
             },
             #[cfg(feature = "_tiles")]
             mvt: match &self.convert_to_mvt {
                 Some(MvtProcessConfig::Disabled) => MvtConversion::Disabled,
-                None | Some(MvtProcessConfig::Auto | MvtProcessConfig::Explicit(_)) => {
-                    MvtConversion::Encode
-                }
+                None | Some(MvtProcessConfig::Auto | MvtProcessConfig::Explicit(_)) => MvtConversion::Encode,
             },
             cache_control: self.cache_control.clone(),
             #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -134,10 +128,7 @@ impl ProcessResolveError {
             all(feature = "processing", feature = "_tiles"),
             all(feature = "processing", feature = "_tiles")
         )),
-        expect(
-            unused_variables,
-            reason = "nothing can fail to resolve without those features"
-        )
+        expect(unused_variables, reason = "nothing can fail to resolve without those features")
     )]
     pub fn for_source(self, source_id: String) -> ConfigFileError {
         match self {
@@ -203,7 +194,7 @@ impl Default for ResolvedProcess {
     fn default() -> Self {
         Self {
             #[cfg(feature = "_tiles")]
-            mlt: MltConversion::Encode(EncoderConfig::default()),
+            mlt: MltConversion::Encode(EncoderConfig::from_profile(Profile::Web(Network::Offline))),
             #[cfg(feature = "_tiles")]
             mvt: MvtConversion::Encode,
             cache_control: None,
@@ -232,10 +223,7 @@ impl ResolvedProcess {
 
     /// Whether a post-cache processor shapes this source's tiles.
     #[must_use]
-    #[cfg_attr(
-        not(all(feature = "processing", feature = "_tiles")),
-        expect(clippy::unused_self)
-    )]
+    #[cfg_attr(not(all(feature = "processing", feature = "_tiles")), expect(clippy::unused_self))]
     pub const fn is_post_processed(&self) -> bool {
         #[cfg(all(feature = "processing", feature = "_tiles"))]
         if self.hillshade.is_some() {
@@ -331,6 +319,9 @@ pub struct MltEncoderConfig {
     pub allow_fastpfor: Option<bool>,
     /// Allow string grouping into shared dictionaries.
     pub allow_shared_dict: Option<bool>,
+    /// Allow second-order deltas of integer and vertex streams, v2 wire only.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub allow_delta2: Option<bool>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -351,14 +342,16 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_fsst,
             allow_fastpfor,
             allow_shared_dict,
+            #[cfg(feature = "unstable-mlt-v2")]
+            allow_delta2,
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
             unrecognized: _unrecognized,
         } = src;
 
-        let mut cfg = Self::default();
+        let mut cfg = Self::from_profile(Profile::Web(Network::Offline));
         if let Some(v) = tessellate {
-            cfg = cfg.with_tessellation(v);
+            cfg = cfg.with_tessellation(if v { Tessellation::Always } else { Tessellation::Off });
         }
         if let Some(v) = try_spatial_morton_sort {
             cfg = cfg.with_spatial_morton_sort(v);
@@ -377,6 +370,10 @@ impl From<MltEncoderConfig> for EncoderConfig {
         }
         if let Some(v) = allow_shared_dict {
             cfg = cfg.with_shared_dict(v);
+        }
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let Some(v) = allow_delta2 {
+            cfg = cfg.with_delta2(v);
         }
         cfg
     }
@@ -480,8 +477,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: atuo
-           · ───────┬──────
-           ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -501,8 +497,7 @@ mod tests {
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert_to_mlt: 42
-           · ───────┬──────
-           ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
+           · ──────────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -523,8 +518,7 @@ mod tests {
            ╭─[config.yaml:2:15]
          1 │ convert_to_mlt:
          2 │   tessellate: yes-please
-           ·               ─────┬────
-           ·                    ╰── invalid boolean
+           ·               ──────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
@@ -625,11 +619,7 @@ mod tests {
             convert_to_contour: None,
         };
 
-        let resolved = ProcessConfig::layered(
-            &global,
-            &ProcessConfig::default(),
-            &ProcessConfig::default(),
-        );
+        let resolved = ProcessConfig::layered(&global, &ProcessConfig::default(), &ProcessConfig::default());
         assert_eq!(resolved, global);
     }
 
@@ -673,16 +663,9 @@ mod tests {
         };
         let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &per_source);
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Auto));
-        assert_eq!(
-            resolved.cache_control,
-            Some(cache_control("public, max-age=60"))
-        );
+        assert_eq!(resolved.cache_control, Some(cache_control("public, max-age=60")));
 
-        let resolved = ProcessConfig::layered(
-            &ProcessConfig::default(),
-            &source_type,
-            &only_cache_control("no-store"),
-        );
+        let resolved = ProcessConfig::layered(&ProcessConfig::default(), &source_type, &only_cache_control("no-store"));
         assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
         assert_eq!(resolved.cache_control, Some(cache_control("no-store")));
     }
@@ -831,18 +814,12 @@ mod tests {
                 saw_encoder_ref = true;
             }
         }
-        assert!(
-            saw_encoder_ref,
-            "expected $ref to MltEncoderConfig: {schema}"
-        );
+        assert!(saw_encoder_ref, "expected $ref to MltEncoderConfig: {schema}");
     }
 
     #[test]
     fn resolve_of_nothing_configured_is_the_default() {
-        assert_eq!(
-            ProcessConfig::default().resolve().unwrap(),
-            ResolvedProcess::default()
-        );
+        assert_eq!(ProcessConfig::default().resolve().unwrap(), ResolvedProcess::default());
     }
 
     #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -857,10 +834,7 @@ mod tests {
             })),
             ..Default::default()
         };
-        let err = out_of_range
-            .resolve()
-            .unwrap_err()
-            .for_source("dem".to_owned());
+        let err = out_of_range.resolve().unwrap_err().for_source("dem".to_owned());
         insta::assert_snapshot!(err, @"Source dem has an invalid hillshade configuration: Hillshade parameter azimuth must be between `0` and `360`, but was `400`");
     }
 }

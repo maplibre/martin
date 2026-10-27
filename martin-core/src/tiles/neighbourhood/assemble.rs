@@ -45,10 +45,7 @@ impl Neighbourhood {
     #[must_use]
     pub const fn offset(index: usize) -> (i32, i32) {
         #[expect(clippy::cast_possible_wrap)]
-        (
-            (index % GRID_SIDE) as i32 - 1,
-            (index / GRID_SIDE) as i32 - 1,
-        )
+        ((index % GRID_SIDE) as i32 - 1, (index / GRID_SIDE) as i32 - 1)
     }
 
     /// Builds a neighbourhood from nine fetch results in row-major order.
@@ -98,8 +95,7 @@ impl Neighbourhood {
             for y in 0..tile_size {
                 for x in 0..tile_size {
                     let px = resolve_pixel(slot.as_ref(), centre, grid, (x, y), tile_size);
-                    let base =
-                        ((grid.1 * tile_size + y) * field_side + grid.0 * tile_size + x) * CHANNELS;
+                    let base = ((grid.1 * tile_size + y) * field_side + grid.0 * tile_size + x) * CHANNELS;
                     rgba[base..base + CHANNELS].copy_from_slice(&px);
                 }
             }
@@ -170,18 +166,9 @@ impl RgbaField {
 /// off-shape tile described on [`clamped_pixel`] is outvoted by its square
 /// neighbours rather than resizing the whole field. Ties go to the centre
 /// tile, since that is the one being rendered.
-fn tile_size_of(
-    decoded: &[Option<RgbaImage>; NEIGHBOURHOOD_LEN],
-    centre: Option<&RgbaImage>,
-) -> usize {
+fn tile_size_of(decoded: &[Option<RgbaImage>; NEIGHBOURHOOD_LEN], centre: Option<&RgbaImage>) -> usize {
     let side = |img: &RgbaImage| img.width().max(img.height()) as usize;
-    let votes = |candidate: usize| {
-        decoded
-            .iter()
-            .flatten()
-            .filter(|i| side(i) == candidate)
-            .count()
-    };
+    let votes = |candidate: usize| decoded.iter().flatten().filter(|i| side(i) == candidate).count();
     let centre_side = centre.map(side);
     decoded
         .iter()
@@ -259,12 +246,7 @@ mod tests {
         }
         let mut buf = Vec::new();
         PngEncoder::new(&mut buf)
-            .write_image(
-                &pixels,
-                width as u32,
-                height as u32,
-                ExtendedColorType::Rgba8,
-            )
+            .write_image(&pixels, width as u32, height as u32, ExtendedColorType::Rgba8)
             .expect("encode test tile");
         buf.into()
     }
@@ -298,8 +280,7 @@ mod tests {
     #[test]
     fn a_512_source_is_stitched_at_its_own_resolution() {
         let side = 2 * DEFAULT_TILE_SIZE;
-        let slots: [Option<TileData>; NEIGHBOURHOOD_LEN] =
-            std::array::from_fn(|_| Some(positional_tile(side, side)));
+        let slots: [Option<TileData>; NEIGHBOURHOOD_LEN] = std::array::from_fn(|_| Some(positional_tile(side, side)));
         let field = Neighbourhood::from_row_major(slots)
             .assemble()
             .expect("a 512 neighbourhood decodes");
@@ -312,8 +293,7 @@ mod tests {
 
     #[test]
     fn missing_neighbours_replicate_the_centre_nearest_edge() {
-        let tiles =
-            Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
+        let tiles = Neighbourhood::centre_only(positional_tile(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let field = tiles.assemble().expect("centre decodes");
 
         let (x, y) = at(1, 1, 40, 90);
@@ -327,17 +307,12 @@ mod tests {
 
         let (x, y) = at(2, 2, 40, 90);
         let last = (DEFAULT_TILE_SIZE - 1) as u8;
-        assert_eq!(
-            field.texel(x, y),
-            [last, last, 0, 255],
-            "corner clamps both axes"
-        );
+        assert_eq!(field.texel(x, y), [last, last, 0, 255], "corner clamps both axes");
     }
 
     #[test]
     fn jxl_upstream_tiles_decode_too() {
-        let tiles =
-            Neighbourhood::centre_only(positional_tile_jxl(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
+        let tiles = Neighbourhood::centre_only(positional_tile_jxl(DEFAULT_TILE_SIZE, DEFAULT_TILE_SIZE));
         let field = tiles.assemble().expect("jxl centre decodes");
 
         let (x, y) = at(1, 1, 40, 90);
@@ -375,20 +350,13 @@ mod tests {
         assert_eq!(field.texel(x, y), [255, 10, 0, 255], "overflow cropped");
 
         let (x, y) = at(1, 0, 100, 255);
-        assert_eq!(
-            field.texel(x, y),
-            [100, 251, 0, 255],
-            "shortfall edge-padded"
-        );
+        assert_eq!(field.texel(x, y), [100, 251, 0, 255], "shortfall edge-padded");
     }
 
     #[test]
     fn a_centre_that_arrived_but_will_not_decode_is_an_error() {
         let tiles = Neighbourhood::centre_only(TileData::from_static(b"this is not an image"));
-        assert!(matches!(
-            tiles.assemble(),
-            Err(NeighbourhoodError::CorruptCentreTile)
-        ));
+        assert!(matches!(tiles.assemble(), Err(NeighbourhoodError::CorruptCentreTile)));
     }
 
     #[test]

@@ -15,6 +15,20 @@ git_release_type = "auto"
 semver_check = true
 
 [[package]]
+name = "cog-tiles"
+
+[[package]]
+name = "cog-tiles-py"
+git_only = true # `publish = false`, released to PyPI by python-release.yml from the tag
+git_tag_name = "python-cog-tiles-v{{ version }}"
+git_release_name = "python-cog-tiles-v{{ version }}"
+changelog_include = ["cog-tiles"]
+semver_check = false # cdylib, its API is the Python module
+
+[[package]]
+name = "map-tile-toolkit"
+
+[[package]]
 name = "martin-core"
 
 [[package]]
@@ -24,8 +38,12 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", ".github", "tests", "docs", "debian"]
+changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", "cog-tiles", ".github", "tests", "docs", "debian"]
 semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
+
+[[package]]
+name = "martin-tilegen"
+semver_check = false # 0.1.0 was published with --no-verify and its baseline does not build against crates.io mbtiles
 
 [[package]]
 name = "mbtiles"

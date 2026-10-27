@@ -1,7 +1,7 @@
 mod errors;
-pub use errors::{DuckDBError, DuckDBResult};
+pub use crate::tiles::duckdb::errors::{DuckDBError, DuckDBResult};
 
 mod pool;
 pub use pool::{DuckDBPool, DuckDBSecret};
 mod source;
-pub use source::{DuckDBSource, DuckDBSqlInfo};
+pub use crate::tiles::duckdb::source::{DuckDBSource, DuckDBSqlInfo};

@@ -6,11 +6,7 @@ use indoc::indoc;
 use martin_e2e_tests::{Martin, MartinBuilder};
 
 async fn start_with_config(builder: MartinBuilder, yaml: &str) -> Martin {
-    builder
-        .config(yaml)
-        .start()
-        .await
-        .expect("failed to start martin")
+    builder.config(yaml).start().await.expect("failed to start martin")
 }
 
 /// The `config.key` of every `Ignoring unrecognized configuration key` line, sorted.
@@ -95,27 +91,19 @@ async fn an_unrecognized_key_does_not_stop_the_configured_sources_from_being_ser
 
     assert_eq!(martin.get("/health").await.status(), 200);
     assert!(
-        martin.get("/catalog").await.json()["tiles"]
-            .get("pmt")
-            .is_some(),
+        martin.get("/catalog").await.json()["tiles"].get("pmt").is_some(),
         "the source next to the unrecognized keys must still be published"
     );
     let tile = martin.get("/pmt/0/0/0").await;
     assert_eq!(tile.status(), 200);
-    assert!(
-        tile.body().starts_with(b"\x89PNG"),
-        "expected a png tile body"
-    );
+    assert!(tile.body().starts_with(b"\x89PNG"), "expected a png tile body");
 
     martin.stop().await;
-    assert_eq!(
-        unrecognized_keys(&mut martin),
-        ["pmtiles.warning", "warning"]
-    );
+    assert_eq!(unrecognized_keys(&mut martin), ["pmtiles.warning", "warning"]);
 }
 
 #[tokio::test]
-async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
+async fn the_cog_section_is_reported_in_builds_with_and_without_cog() {
     let mut martin = start_with_config(
         Martin::builder(),
         indoc! {"
@@ -133,7 +121,7 @@ async fn the_cog_section_is_reported_in_builds_with_and_without_unstable_cog() {
     let keys = unrecognized_keys(&mut martin);
     assert!(
         keys == ["cog"] || keys == ["cog.warning"],
-        "expected the whole section without unstable-cog, or just the key with it, got {keys:?}"
+        "expected the whole section without cog, or just the key with it, got {keys:?}"
     );
 }
 
@@ -188,10 +176,7 @@ async fn unrecognized_keys_are_left_out_of_the_saved_config() {
     ");
 
     martin.stop().await;
-    assert_eq!(
-        unrecognized_keys(&mut martin),
-        ["pmtiles.warning", "warning"]
-    );
+    assert_eq!(unrecognized_keys(&mut martin), ["pmtiles.warning", "warning"]);
 }
 
 #[cfg(feature = "test-pg")]

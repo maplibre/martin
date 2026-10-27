@@ -21,7 +21,7 @@ pub mod mbtiles;
 /// Implementation of `PMTiles`' [`Source`].
 pub mod pmtiles;
 
-#[cfg(feature = "unstable-cog")]
+#[cfg(feature = "cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
 
@@ -53,20 +53,20 @@ pub mod any;
 mod source;
 #[cfg(feature = "_testing")]
 pub mod testing;
-pub use any::{AnySource, BackendSource};
-pub use source::{BoxedSource, Source, UrlQuery};
+pub use crate::tiles::any::{AnySource, BackendSource};
+pub use crate::tiles::source::{BoxedSource, Source, UrlQuery};
 
 mod declared_grid;
-pub use declared_grid::DeclaredGridSource;
+pub use crate::tiles::declared_grid::DeclaredGridSource;
 
 mod error;
-pub use error::{MartinCoreError, MartinCoreResult};
+pub use crate::tiles::error::{MartinCoreError, MartinCoreResult};
 
 mod tile;
-pub use tile::Tile;
+pub use crate::tiles::tile::Tile;
 
 mod cache;
-pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache, TileCacheKey};
+pub use crate::tiles::cache::{NO_TILE_CACHE, OptTileCache, TileCache, TileCacheKey};
 
 #[cfg(feature = "processing")]
 /// Implementation of `GeoJSON`' [`Source`]

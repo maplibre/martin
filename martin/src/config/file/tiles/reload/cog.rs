@@ -2,8 +2,8 @@ use crate::TileSourceManager;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{
-    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery,
-    ObjectStoreParser, ObjectStoreSourceBuilder,
+    ConfiguredObjectDiscovery, FsDiscovery, FsSourceBuilder, ObjectStoreDiscovery, ObjectStoreParser,
+    ObjectStoreSourceBuilder,
 };
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, PollTrigger, ReloadDriver};
 use crate::config::file::{
@@ -30,7 +30,7 @@ impl CogReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfig<CogConfig>,
-        default_cache: CachePolicy,
+        default_cache: &CachePolicy,
     ) -> Self {
         let default_cache = config.cache_or(default_cache);
         let cog_config = config.custom.clone();
@@ -45,7 +45,7 @@ impl CogReloader {
             cog_config.recursive.unwrap_or_default(),
             &["tif", "tiff"],
             id_resolver.clone(),
-            default_cache,
+            default_cache.clone(),
             &ProcessConfig::default(),
             build,
             None,
@@ -58,7 +58,7 @@ impl CogReloader {
             config,
             "CogReloader",
             cog_config.reload_interval,
-            default_cache,
+            &default_cache,
             &ProcessConfig::default(),
             configured_parser,
             ObjectStoreSourceBuilder::Cog(Box::new(cog_config.clone())),
@@ -113,15 +113,10 @@ impl CogReloader {
 
         if has_configured || has_prefixes {
             if interval.is_zero() {
-                tracing::info!(
-                    "CogReloader: remote object and prefix polling disabled (reload_interval = 0s)"
-                );
+                tracing::info!("CogReloader: remote object and prefix polling disabled (reload_interval = 0s)");
             } else {
                 if has_configured {
-                    configured.spawn(
-                        PollTrigger::after_interval(interval),
-                        Baseline::StartupResolved,
-                    );
+                    configured.spawn(PollTrigger::after_interval(interval), Baseline::StartupResolved);
                 }
                 if has_prefixes {
                     prefixes.spawn(PollTrigger::new(interval), Baseline::Empty);

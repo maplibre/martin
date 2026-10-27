@@ -22,10 +22,7 @@ use rstest::rstest;
     &[0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A],
     TileInfo::new(Format::Jxl, Encoding::Internal)
 )]
-#[case::json(
-    br#"{"foo":"bar"}"#,
-    TileInfo::new(Format::Json, Encoding::Uncompressed)
-)]
+#[case::json(br#"{"foo":"bar"}"#, TileInfo::new(Format::Json, Encoding::Uncompressed))]
 #[case::mlt(
     include_bytes!("../fixtures/point.mlt"),
     TileInfo::new(Format::Mlt, Encoding::Internal)
@@ -43,17 +40,10 @@ fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
 
 #[test]
 fn encoding_detect_reads_the_leading_bytes_only() {
-    assert_eq!(
-        Encoding::detect(b"\x1f\x8b\x08\x00rest"),
-        Some(Encoding::Gzip)
-    );
+    assert_eq!(Encoding::detect(b"\x1f\x8b\x08\x00rest"), Some(Encoding::Gzip));
     // every zlib compression level with the usual 32K window
     for header in [b"\x78\x01", b"\x78\x5e", b"\x78\x9c", b"\x78\xda"] {
-        assert_eq!(
-            Encoding::detect(header),
-            Some(Encoding::Zlib),
-            "{header:02x?}"
-        );
+        assert_eq!(Encoding::detect(header), Some(Encoding::Zlib), "{header:02x?}");
     }
     // a smaller window is a zlib header too
     assert_eq!(Encoding::detect(b"\x68\x81"), Some(Encoding::Zlib));

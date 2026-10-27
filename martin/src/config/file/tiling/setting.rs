@@ -6,9 +6,9 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, Finite, forward_scalars};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, Finite, forward_scalars};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 
 macro_rules! measure {
     ($name:ident, $expecting:literal) => {
@@ -48,8 +48,7 @@ macro_rules! measure {
                     }
 
                     fn visit_f64<E: de::Error>(self, v: f64) -> Result<$name, E> {
-                        $name::new(v)
-                            .ok_or_else(|| E::invalid_value(de::Unexpected::Float(v), &self))
+                        $name::new(v).ok_or_else(|| E::invalid_value(de::Unexpected::Float(v), &self))
                     }
                 }
 

@@ -1,0 +1,141 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -20.0,
+            -19.0
+          ],
+          [
+            -1.0,
+            -1.0
+          ],
+          [
+            -5.0,
+            -6.0
+          ],
+          [
+            -6.0,
+            -5.0
+          ],
+          [
+            -12.0,
+            40.0
+          ],
+          [
+            40.0,
+            -12.0
+          ],
+          [
+            -1.0,
+            24.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "input",
+        "marker-color": "#f6fd31",
+        "marker-size": "large"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -20.0,
+            -19.0
+          ],
+          [
+            -1.0,
+            -1.0
+          ],
+          [
+            -5.0,
+            -6.0
+          ],
+          [
+            -6.0,
+            -5.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/-1",
+        "indices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -1.0,
+            24.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/0",
+        "indices": [
+          6
+        ],
+        "marker-color": "#b5211f",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            -12.0,
+            40.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile -1/1",
+        "indices": [
+          4
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            40.0,
+            -12.0
+          ]
+        ]
+      },
+      "properties": {
+        "role": "tile 1/-1",
+        "indices": [
+          5
+        ],
+        "marker-color": "#261fb5",
+        "marker-size": "small"
+      }
+    }
+  ]
+}

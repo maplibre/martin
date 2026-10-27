@@ -5,16 +5,13 @@ use std::time::Duration;
 use compact_str::CompactString;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use reqwest::StatusCode;
-use reqwest::header::{
-    CONTENT_ENCODING, CONTENT_TYPE, ETAG, HeaderMap, HeaderName, HeaderValue, USER_AGENT,
-};
+use reqwest::header::{CONTENT_ENCODING, CONTENT_TYPE, ETAG, HeaderMap, HeaderName, HeaderValue, USER_AGENT};
 use tilejson::{Bounds, TileJSON, tilejson};
 
 use crate::CacheZoomRange;
 use crate::tiles::passthrough::PassthroughError;
-use crate::tiles::passthrough::url::{
-    UrlTemplate, derive_format, is_template, select_url, substitute,
-};
+use crate::tiles::passthrough::url::{UrlTemplate, derive_format, is_template, select_url, substitute};
+use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
@@ -40,26 +37,20 @@ impl Transport {
     ///
     /// This lets callers (e.g. the `martin` crate's config layer) supply headers without
     /// depending on `reqwest`'s header types directly.
-    pub fn from_string_headers<'a, I>(
-        timeout: Duration,
-        headers: I,
-    ) -> Result<Self, PassthroughError>
+    pub fn from_string_headers<'a, I>(timeout: Duration, headers: I) -> Result<Self, PassthroughError>
     where
         I: IntoIterator<Item = (&'a str, &'a str)>,
     {
         let mut header_map = HeaderMap::new();
         for (name, value) in headers {
-            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
-                PassthroughError::InvalidHeaderName {
+            let header_name =
+                HeaderName::from_bytes(name.as_bytes()).map_err(|source| PassthroughError::InvalidHeaderName {
                     name: name.to_owned(),
                     source,
-                }
-            })?;
-            let header_value = HeaderValue::from_str(value).map_err(|source| {
-                PassthroughError::InvalidHeaderValue {
-                    name: name.to_owned(),
-                    source,
-                }
+                })?;
+            let header_value = HeaderValue::from_str(value).map_err(|source| PassthroughError::InvalidHeaderValue {
+                name: name.to_owned(),
+                source,
             })?;
             header_map.insert(header_name, header_value);
         }
@@ -94,11 +85,7 @@ pub struct TemplateSet {
 
 impl TemplateSet {
     /// Build a template set, rejecting an empty URL list.
-    pub fn new(
-        urls: Vec<UrlTemplate>,
-        format: Format,
-        meta: TemplateMeta,
-    ) -> Result<Self, PassthroughError> {
+    pub fn new(urls: Vec<UrlTemplate>, format: Format, meta: TemplateMeta) -> Result<Self, PassthroughError> {
         if urls.is_empty() {
             return Err(PassthroughError::EmptyUrlList);
         }
@@ -203,7 +190,7 @@ impl PassthroughSource {
     ) -> Result<Self, PassthroughError> {
         let client = build_client(&transport)?;
 
-        let (urls, tilejson, tile_info) = match &upstream {
+        let (urls, mut tilejson, tile_info) = match &upstream {
             Upstream::Templates(set) => {
                 let urls: Vec<String> = set.urls().iter().map(|t| t.as_str().to_owned()).collect();
                 let tilejson = build_template_tilejson(&urls, set.meta());
@@ -221,6 +208,7 @@ impl PassthroughSource {
             }
         };
 
+        cap_zoom_range(&id, &mut tilejson);
         Ok(Self {
             id,
             client,
@@ -260,8 +248,7 @@ impl PassthroughSource {
         let encoding = header_str(response.headers(), &CONTENT_ENCODING)
             .and_then(Encoding::parse)
             .unwrap_or(Encoding::Uncompressed);
-        let content_type =
-            header_str(response.headers(), &CONTENT_TYPE).and_then(content_type_format);
+        let content_type = header_str(response.headers(), &CONTENT_TYPE).and_then(content_type_format);
         let data = response.bytes().await?;
         let format = content_type
             .or_else(|| sniff_format(&data))
@@ -292,24 +279,14 @@ impl Source for PassthroughSource {
         self.cache_zoom
     }
 
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData> {
+    async fn get_tile(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         Ok(self.fetch(xyz).await?.data)
     }
 
-    async fn get_tile_with_etag(
-        &self,
-        xyz: TileCoord,
-        _url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<Tile> {
+    async fn get_tile_with_etag(&self, xyz: TileCoord, _url_query: Option<&UrlQuery>) -> MartinCoreResult<Tile> {
         let fetched = self.fetch(xyz).await?;
         let tile = match fetched.etag {
-            Some(etag) if !fetched.data.is_empty() => {
-                Tile::new_with_etag(fetched.data, fetched.info, etag)
-            }
+            Some(etag) if !fetched.data.is_empty() => Tile::new_with_etag(fetched.data, fetched.info, etag),
             _ => Tile::new_hash_etag(fetched.data, fetched.info),
         };
         Ok(tile)
@@ -345,15 +322,14 @@ fn build_client(transport: &Transport) -> Result<reqwest::Client, PassthroughErr
 
 /// Fetch and parse an upstream `TileJSON` document.
 async fn fetch_tilejson(client: &reqwest::Client, url: &str) -> Result<TileJSON, PassthroughError> {
-    let response =
-        client
-            .get(url)
-            .send()
-            .await
-            .map_err(|source| PassthroughError::TileJsonFetch {
-                url: url.to_owned(),
-                source,
-            })?;
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|source| PassthroughError::TileJsonFetch {
+            url: url.to_owned(),
+            source,
+        })?;
     let status = response.status();
     if !status.is_success() {
         return Err(PassthroughError::TileJsonStatus {
@@ -411,10 +387,7 @@ fn header_str<'a>(headers: &'a HeaderMap, name: &HeaderName) -> Option<&'a str> 
 /// below (`%x21 / %x23-7E / obs-text` excludes `"`), so those and other malformed values fall
 /// back to hashing instead.
 fn usable_strong_etag(raw: &str) -> Option<String> {
-    let tag = raw
-        .strip_prefix('"')
-        .and_then(|t| t.strip_suffix('"'))
-        .unwrap_or(raw);
+    let tag = raw.strip_prefix('"').and_then(|t| t.strip_suffix('"')).unwrap_or(raw);
     tag.bytes()
         .all(|b| b == 0x21 || (0x23..=0x7e).contains(&b) || b >= 0x80)
         .then(|| tag.to_owned())
@@ -430,23 +403,16 @@ mod tests {
     fn from_string_headers_validates_and_collects() {
         let transport = Transport::from_string_headers(
             Duration::from_secs(1),
-            [
-                ("x-api-key", "secret"),
-                ("accept", "application/x-protobuf"),
-            ],
+            [("x-api-key", "secret"), ("accept", "application/x-protobuf")],
         )
         .unwrap();
         assert_eq!(transport.headers.get("x-api-key").unwrap(), "secret");
-        assert_eq!(
-            transport.headers.get("accept").unwrap(),
-            "application/x-protobuf"
-        );
+        assert_eq!(transport.headers.get("accept").unwrap(), "application/x-protobuf");
     }
 
     #[test]
     fn from_string_headers_rejects_invalid_name() {
-        let err = Transport::from_string_headers(Duration::from_secs(1), [("bad name", "v")])
-            .unwrap_err();
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("bad name", "v")]).unwrap_err();
         assert_matches!(
             err,
             PassthroughError::InvalidHeaderName { name, .. } if name == "bad name"
@@ -455,8 +421,7 @@ mod tests {
 
     #[test]
     fn from_string_headers_rejects_invalid_value() {
-        let err = Transport::from_string_headers(Duration::from_secs(1), [("x-key", "bad\nvalue")])
-            .unwrap_err();
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("x-key", "bad\nvalue")]).unwrap_err();
         assert_matches!(
             err,
             PassthroughError::InvalidHeaderValue { name, .. } if name == "x-key"

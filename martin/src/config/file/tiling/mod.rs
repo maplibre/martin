@@ -8,16 +8,20 @@ mod zoom;
 
 use std::num::{NonZeroU8, NonZeroU32};
 
-pub use error::TilingConfigError;
 use indexmap::IndexMap;
-pub use primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
-pub use rule::{Rule, RuleSettings, Rules};
 use serde::{Deserialize, Deserializer, Serialize};
-pub use setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
-pub use tile::{GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps};
-pub use value::{Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec};
-pub use zoom::{Zoom, ZoomRange};
 
+pub use crate::config::file::tiling::error::TilingConfigError;
+pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
+pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
+pub use crate::config::file::tiling::setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
+pub use crate::config::file::tiling::tile::{
+    GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps,
+};
+pub use crate::config::file::tiling::value::{
+    Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec,
+};
+pub use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -39,9 +43,7 @@ impl TryFrom<IndexMap<String, Layer>> for Layers {
 
 impl<'de> Deserialize<'de> for Layers {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        checked_map_with(deserializer, |layers: IndexMap<String, Layer>| {
-            Self::try_from(layers)
-        })
+        checked_map_with(deserializer, |layers: IndexMap<String, Layer>| Self::try_from(layers))
     }
 }
 
@@ -50,24 +52,38 @@ impl CollectUnrecognizedKeys for Layers {
         for (name, layer) in &self.0 {
             let path = format!("{path}{name}.");
             layer.unrecognized.collect_unrecognized(&path, out);
-            layer
-                .rules
-                .collect_unrecognized(&format!("{path}rules."), out);
-            layer
-                .tile
-                .collect_unrecognized(&format!("{path}tile."), out);
+            layer.rules.collect_unrecognized(&format!("{path}rules."), out);
+            layer.tile.collect_unrecognized(&format!("{path}tile."), out);
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct Prefetch(NonZeroU8);
 
 impl Prefetch {
+    /// The most tiles per side of a block, so one miss renders at most 256 tiles.
+    pub const MAX: u8 = 16;
+
     #[must_use]
-    pub fn tiles_per_side(self) -> u8 {
-        self.0.get()
+    pub fn tiles_per_side(self) -> NonZeroU8 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Prefetch {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let side = u8::deserialize(deserializer)?;
+        NonZeroU8::new(side)
+            .filter(|side| side.get() <= Self::MAX)
+            .map(Self)
+            .ok_or_else(|| {
+                serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(side.into()),
+                    &format!("from 1 to {} tiles per side", Self::MAX).as_str(),
+                )
+            })
     }
 }
 
@@ -130,13 +146,11 @@ impl Layer {
     fn check(&self, name: &str) -> Result<(), TilingConfigError> {
         let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
         match (fixed(self.minzoom.as_ref()), fixed(self.maxzoom.as_ref())) {
-            (Some(min), Some(max)) if min > max => {
-                Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
-                    layer: name.to_owned(),
-                    min: min.get(),
-                    max: max.get(),
-                })
-            }
+            (Some(min), Some(max)) if min > max => Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
+                layer: name.to_owned(),
+                min: min.get(),
+                max: max.get(),
+            }),
             _ => Ok(()),
         }
     }
@@ -179,10 +193,7 @@ mod tests {
             roads: {}
             buildings: {}
         "});
-        assert_eq!(
-            layers.names().collect::<Vec<_>>(),
-            ["water", "roads", "buildings"]
-        );
+        assert_eq!(layers.names().collect::<Vec<_>>(), ["water", "roads", "buildings"]);
     }
 
     #[test]
@@ -250,10 +261,7 @@ mod tests {
         "#});
         assert_eq!(
             layers.get("roads").expect("layer exists").r#where,
-            Some(
-                Expr::new("highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])")
-                    .expect("valid CEL")
-            )
+            Some(Expr::new("highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])").expect("valid CEL"))
         );
     }
 
@@ -294,24 +302,18 @@ mod tests {
     fn an_id_is_kept_dropped_or_computed() {
         let layers = parse(indoc! {"
             omitted: {}
-            kept: { id: keep }
-            dropped: { id: drop }
-            computed: { id: { expr: 'osm_id * 10' } }
+            kept: { id: true }
+            dropped: { id: false }
+            computed: { id: 'osm_id * 10' }
         "});
-        let ids: Vec<_> = layers
-            .iter()
-            .map(|(name, l)| (name, l.id.clone()))
-            .collect();
+        let ids: Vec<_> = layers.iter().map(|(name, l)| (name, l.id.clone())).collect();
         assert_eq!(
             ids,
             [
                 ("omitted", IdPolicy::Keep),
                 ("kept", IdPolicy::Keep),
                 ("dropped", IdPolicy::Drop),
-                (
-                    "computed",
-                    IdPolicy::Expr(Expr::new("osm_id * 10").expect("valid CEL"))
-                ),
+                ("computed", IdPolicy::Expr(Expr::new("osm_id * 10").expect("valid CEL"))),
             ]
         );
     }
@@ -365,10 +367,10 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_id_policy_is_rejected() {
+    fn a_number_id_is_rejected() {
         insta::assert_snapshot!(
-            rejection("roads: { id: none }"),
-            @"error: line 1 column 10: unknown variant `none`, expected one of keep, drop"
+            rejection("roads: { id: 7 }"),
+            @"error: line 1 column 10: invalid type: integer `7`, expected `true`, `false` or an expression"
         );
     }
 

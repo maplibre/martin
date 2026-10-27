@@ -1,0 +1,19 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/tables_false_leaves_functions_on.yaml
+---
+reads:
+  tables: ~
+  functions: true
+transforms: []
+tables: []
+functions:
+  - id: tiles
+    schema: public
+    function: tiles
+decisions:
+  - ScannedFunctions:
+      schemas:
+        - public
+      id_format: "{function}"

@@ -5,11 +5,14 @@ set shell := ['bash', '-c']
 # Import demo sub-justfile as a module
 mod demo 'demo/justfile'
 
+# Import map-tile-toolkit sub-justfile as a module
+mod toolkit 'map-tile-toolkit/justfile'
+
 # Import martin-ui sub-justfile as a module
 mod ui 'martin/martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
-stable_features := 'lambda,mbtiles,metrics,passthrough,pmtiles,postgres,processing,resources,tui,webui'
+stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,passthrough,pmtiles,postgres,processing,resources,tui,webui'
 # stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
 full_features := stable_features + ',rendering'
 
@@ -186,7 +189,7 @@ bless:
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart bless-insta ui::bless bless-pg; do
+    for target in restart bless-insta toolkit::bless ui::bless bless-pg; do
       echo "::group::just $target"
       {{just}} $target
       echo "::endgroup::"
@@ -201,7 +204,7 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
@@ -210,15 +213,16 @@ bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'car
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
+    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
 # Bless the COG/GeoTIFF tests, including the end-to-end ones
 bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} -p martin --features unstable-cog --no-default-features --lib
-    {{insta_test}} -p martin-core --features unstable-cog --no-default-features --lib
-    cargo build --package martin --no-default-features --features unstable-cog
+    {{insta_test}} -p cog-tiles --all-features
+    {{insta_test}} -p martin --features cog --no-default-features --lib
+    {{insta_test}} -p martin-core --features cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features cog
     {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
 
 # Bless the DuckDB/GeoParquet tests, including the end-to-end ones
@@ -340,12 +344,12 @@ build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
-# Build for musl target using zigbuild
+# Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
+# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for these targets.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
-build-release-musl target: fetch
+build-release-zig target: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
@@ -376,7 +380,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -419,6 +423,7 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
 
     echo "::group::Unit tests"
     {{just}} test-cargo --all-targets
+    {{just}} toolkit::test
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -461,7 +466,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.3 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.4 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -683,13 +688,14 @@ test: fetch start
     {{just}} test-cargo --all-targets
     {{just}} test-pg
     {{just}} test-doc
+    {{just}} toolkit::test
     {{just}} ui::test
     {{just}} test-e2e
 
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test
+    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
@@ -700,10 +706,23 @@ test-s3: fetch (cargo-install 'cargo-nextest')
 
 # Run COG/GeoTIFF tests only, including the end-to-end ones
 test-cog: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run -p martin --features unstable-cog --no-default-features --lib
-    cargo nextest run -p martin-core --features unstable-cog --no-default-features --lib
-    cargo build --package martin --no-default-features --features unstable-cog
+    cargo nextest run -p cog-tiles --all-features
+    cargo test -p cog-tiles --all-features --doc
+    cargo nextest run -p martin --features cog --no-default-features --lib
+    cargo nextest run -p martin-core --features cog --no-default-features --lib
+    cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
+
+# Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
+sync-cog-py-stubs:
+    LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        cargo run --package cog-tiles-py --bin stub-gen --features stub-gen
+
+# Build the cog-tiles Python bindings and run their tests
+test-cog-py:
+    cd cog-tiles-py && uv sync --group dev --no-install-project
+    cd cog-tiles-py && uv run --no-sync maturin develop
+    cd cog-tiles-py && uv run --no-sync pytest
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')
@@ -719,18 +738,32 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features rendering
     cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{args}}
 
-# Run Rust unit tests
+# Run the OGC API - Tiles conformance suite (Docker) against the world_cities fixture
+[linux]
+test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
+    cargo build --package martin --no-default-features --features ogcapi,mbtiles
+    cargo nextest run --package martin-e2e-tests --features test-ogc --test ogc_conformance
+
+# Run the OGC API - Maps conformance suite (Docker, built from source) against a rendered style
+[linux]
+test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
+    cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
+    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps_conformance
+
+# Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo nextest run --package martin-tile-utils
+    {{just}} toolkit::test
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
-    cargo nextest run --package martin-core
+    cargo nextest run --package martin-core --features unstable-generate
+    cargo nextest run --package martin-tilegen
     cargo nextest run --package martin --features unstable-mlt-v2,unstable-generate
     {{just}} test-e2e
 
@@ -742,11 +775,11 @@ test-e2e *args: fetch (cargo-install 'cargo-nextest')
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test martin_cp --test martin_generate --test postgres --test process {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
 
-# Run Rust doc tests
+# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
 test-doc *args: fetch
-    cargo test --doc {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit {{args}}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
@@ -798,12 +831,44 @@ test-lambda martin_bin='target/debug/martin':
 
     jq -ne 'input.statusCode == 200' <<<"$response"
 
-# Run tests that matter on FreeBSD.
-# Notably, we have to skip the postgres tests because the current structure relies on running docker
-# within the test. Additionally, some of the benches that run with --all-targets
-# are also docker-based integration tests.
-# We limit parallelism to prevent OOM during linking of large test binaries.
-test-freebsd: (test-cargo "--build-jobs 2 --lib --bins --tests --examples") test-doc
+# Smoke-test prebuilt FreeBSD binaries on a FreeBSD machine reachable as `ssh <host>`, which needs nothing installed
+test-freebsd-binaries host='freebsd' bin_dir='target_releases':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    host={{quote(host)}}
+    dir=$(ssh "$host" mktemp -d)
+    trap 'ssh "$host" rm -rf "$dir" || true' EXIT
+    tar cf - -C {{quote(bin_dir)}} martin mbtiles -C {{quote(justfile_directory())}} \
+        tests/fixtures/pmtiles/png.pmtiles tests/fixtures/cog tests/fixtures/fonts tests/fixtures/sprites/src1 \
+        | ssh "$host" tar xf - -C "$dir"
+    # FreeBSD has no bash, and its `fetch` stands in for curl. martin is killed on any failure so that ssh can return.
+    ssh "$host" "cd $dir && sh -eux" <<'EOF'
+    freebsd-version
+    uname -m
+    ./martin --version
+    ./mbtiles --version
+    ./martin --listen-addresses 127.0.0.1:3000 \
+        --font tests/fixtures/fonts --sprite tests/fixtures/sprites/src1 \
+        tests/fixtures/pmtiles/png.pmtiles tests/fixtures/cog &
+    martin=$!
+    trap 'kill "$martin" 2>/dev/null || true' EXIT
+    tries=0
+    until fetch -q -o /dev/null http://127.0.0.1:3000/health; do
+        tries=$((tries + 1))
+        [ "$tries" -lt 120 ]
+        sleep 1
+    done
+    fetch -o - http://127.0.0.1:3000/catalog
+    fetch -o /dev/null http://127.0.0.1:3000/png/0/0/0
+    fetch -o /dev/null http://127.0.0.1:3000/usda_naip_128_none_z2/18/42712/97343
+    fetch -o /dev/null 'http://127.0.0.1:3000/font/Overpass%20Mono%20Regular/0-255'
+    fetch -o /dev/null http://127.0.0.1:3000/sprite/src1.json
+    kill -TERM "$martin"
+    wait "$martin"
+    ./martin cp tests/fixtures/pmtiles/png.pmtiles --output-file png.mbtiles --min-zoom 0 --max-zoom 1
+    ./mbtiles validate png.mbtiles
+    ./mbtiles summary png.mbtiles
+    EOF
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
@@ -847,8 +912,6 @@ update-lockfile: fetch
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
-    cargo update --precise 1.24.0 libdeflater
-    cargo update --precise 1.24.0 libdeflate-sys
     cargo update --precise 1.0.2 sdf_glyph_renderer
 
 # Validate that all required development tools are installed

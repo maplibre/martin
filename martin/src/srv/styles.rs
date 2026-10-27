@@ -1,5 +1,4 @@
 use actix_middleware_etag::Etag;
-use actix_web::http::Uri;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
@@ -10,7 +9,7 @@ use tracing::{error, instrument, warn};
 
 use crate::config::file::srv::SrvConfig;
 use crate::maplibre_style::Style;
-use crate::srv::server::DebouncedWarning;
+use crate::srv::server::{DebouncedWarning, path_prefix};
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
@@ -47,18 +46,53 @@ pub async fn get_style_json(
     styles: Data<StyleSources>,
     srv_config: Data<SrvConfig>,
 ) -> HttpResponse {
-    let style_id = &path.style_id;
+    match absolute_style(&req, &srv_config, &styles, &path.style_id).await {
+        Ok(style) => HttpResponse::Ok().json(style),
+        Err(unavailable) => unavailable.response(),
+    }
+}
+
+/// Why a style can't be served.
+pub(crate) enum StyleUnavailable {
+    /// No style has this ID, or its file is gone.
+    Missing,
+    /// The style file isn't a valid style.
+    Malformed {
+        /// ID of the style.
+        style_id: String,
+        /// Why the file doesn't parse.
+        error: serde_json::Error,
+    },
+}
+
+impl StyleUnavailable {
+    /// The plain-text response telling the client why the style can't be served.
+    pub(crate) fn response(&self) -> HttpResponse {
+        match self {
+            Self::Missing => HttpResponse::NotFound()
+                .content_type(ContentType::plaintext())
+                .body("No such style exists"),
+            Self::Malformed { style_id, error } => HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body(format!("The requested style {style_id} is malformed: {error:?}")),
+        }
+    }
+}
+
+/// Style `style_id` with its relative URLs made absolute against the URL `req` came in on.
+pub(crate) async fn absolute_style(
+    req: &HttpRequest,
+    srv_config: &SrvConfig,
+    styles: &StyleSources,
+    style_id: &str,
+) -> Result<Style, StyleUnavailable> {
     let Some(path) = styles.style_json_path(style_id) else {
-        return HttpResponse::NotFound()
-            .content_type(ContentType::plaintext())
-            .body("No such style exists");
+        return Err(StyleUnavailable::Missing);
     };
     let Ok(style_content) = tokio::fs::read_to_string(&path).await else {
         // the file was likely deleted after martin was launched and collected the file list
         // TODO: change this to a server error and log appropriately once the watch mode is here
-        return HttpResponse::NotFound()
-            .content_type(ContentType::plaintext())
-            .body("No such style exists");
+        return Err(StyleUnavailable::Missing);
     };
     match serde_json::from_str::<Style>(&style_content) {
         Ok(mut style) => {
@@ -71,11 +105,11 @@ pub async fn get_style_json(
             // configured path prefix, mirroring the precedence used for TileJSON
             // URLs in `srv/tiles/metadata.rs`:
             //   base_path > route_prefix > X-Forwarded-Prefix > ""
-            let prefix = path_prefix(&req, &srv_config);
+            let prefix = path_prefix(req, srv_config);
             let info = req.connection_info();
             let base_url = format!("{}://{}{prefix}", info.scheme(), info.host());
             style.expand_relative_urls(&base_url);
-            HttpResponse::Ok().json(style)
+            Ok(style)
         }
         Err(e) => {
             error!(
@@ -85,35 +119,12 @@ pub async fn get_style_json(
                 "Failed to parse style JSON"
             );
 
-            HttpResponse::BadRequest()
-                .content_type(ContentType::plaintext())
-                .body(format!(
-                    "The requested style {style_id} is malformed: {e:?}"
-                ))
+            Err(StyleUnavailable::Malformed {
+                style_id: style_id.to_owned(),
+                error: e,
+            })
         }
     }
-}
-
-/// Resolve the URL path prefix under which Martin is publicly served.
-///
-/// Returns an empty string when no prefix applies, otherwise a leading-slash
-/// path with no trailing slash (e.g. `/tiles`).
-///
-/// Note: `X-Rewrite-URL` is intentionally not honored here. Unlike the
-/// `TileJSON` case where the header's full path can be used directly, for
-/// styles the header would contain the full style request path
-/// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
-fn path_prefix(req: &HttpRequest, srv_config: &SrvConfig) -> String {
-    let Some(prefix) = srv_config.public_path_prefix() else {
-        return req
-            .headers()
-            .get("X-Forwarded-Prefix")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<Uri>().ok())
-            .map(|v| v.path().trim_end_matches('/').to_owned())
-            .unwrap_or_default();
-    };
-    prefix.to_owned()
 }
 
 /// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
@@ -134,63 +145,4 @@ pub async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/style/{style_id}")))
         .finish()
-}
-
-#[cfg(test)]
-mod tests {
-    use actix_web::test::TestRequest;
-
-    use super::*;
-
-    fn cfg(base_path: Option<&str>, route_prefix: Option<&str>) -> SrvConfig {
-        SrvConfig {
-            base_path: base_path.map(str::to_owned),
-            route_prefix: route_prefix.map(str::to_owned),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn path_prefix_empty_when_nothing_configured() {
-        let req = TestRequest::default().to_http_request();
-        assert_eq!(path_prefix(&req, &cfg(None, None)), "");
-    }
-
-    #[test]
-    fn path_prefix_uses_base_path_first() {
-        let req = TestRequest::default()
-            .insert_header(("X-Forwarded-Prefix", "/header"))
-            .to_http_request();
-        assert_eq!(
-            path_prefix(&req, &cfg(Some("/from_base"), Some("/from_route"))),
-            "/from_base"
-        );
-    }
-
-    #[test]
-    fn path_prefix_falls_back_to_route_prefix() {
-        let req = TestRequest::default()
-            .insert_header(("X-Forwarded-Prefix", "/header"))
-            .to_http_request();
-        assert_eq!(
-            path_prefix(&req, &cfg(None, Some("/from_route"))),
-            "/from_route"
-        );
-    }
-
-    #[test]
-    fn path_prefix_falls_back_to_forwarded_prefix_header() {
-        let req = TestRequest::default()
-            .insert_header(("X-Forwarded-Prefix", "/from_header"))
-            .to_http_request();
-        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
-    }
-
-    #[test]
-    fn path_prefix_strips_trailing_slash_from_header() {
-        let req = TestRequest::default()
-            .insert_header(("X-Forwarded-Prefix", "/from_header/"))
-            .to_http_request();
-        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
-    }
 }

@@ -4,39 +4,40 @@ pub use file_config::*;
 #[cfg(feature = "_tiles")]
 mod source_location;
 #[cfg(feature = "_tiles")]
-pub use source_location::SourceLocation;
+pub use crate::config::file::source_location::SourceLocation;
 
 mod collect_unrecognized;
 pub use collect_unrecognized::*;
 
+mod deserialize_fields;
+pub use deserialize_fields::*;
+
 mod main;
 pub use main::*;
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
 mod object_store;
-#[cfg(any(feature = "pmtiles", feature = "unstable-cog"))]
-pub(crate) use object_store::ObjectStoreConfig;
+#[cfg(any(feature = "pmtiles", feature = "cog"))]
+pub(crate) use crate::config::file::object_store::ObjectStoreConfig;
 pub mod cache;
 pub mod cors;
 pub mod srv;
-pub use srv::CacheControlHeader;
+pub use crate::config::file::srv::CacheControlHeader;
 
 mod error;
-pub use error::{ConfigFileError, ConfigFileResult};
+pub use crate::config::file::error::{ConfigFileError, ConfigFileResult};
 
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 mod contour;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
-pub use contour::{
-    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings,
-    FilteredThreshold, ResolvedContour,
+pub use crate::config::file::contour::{
+    ContourElevationUnits, ContourProcessConfig, ContourRangeError, ContourSettings, FilteredThreshold, ResolvedContour,
 };
 
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 mod hillshade;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
-pub use hillshade::{
-    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings,
-    ResolvedHillshade,
+pub use crate::config::file::hillshade::{
+    HillshadeFormat, HillshadeProcessConfig, HillshadeRangeError, HillshadeSettings, ResolvedHillshade,
 };
 
 pub mod process;
@@ -48,13 +49,12 @@ pub mod tiling;
 #[cfg(feature = "_tiles")]
 mod tile_grids;
 #[cfg(feature = "_tiles")]
-pub use process::{
-    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig,
-    MvtProcessConfig,
+pub use crate::config::file::process::{
+    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig, MvtProcessConfig,
 };
-pub use process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
+pub use crate::config::file::process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
 #[cfg(feature = "_tiles")]
-pub use tile_grids::{TileGridConfig, TileGrids, TileGridsConfig};
+pub use crate::config::file::tile_grids::{TileGridConfig, TileGrids, TileGridsConfig};
 
 #[cfg(feature = "resources")]
 mod resources;

@@ -2,10 +2,10 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::error::TilingConfigError;
-use super::primitives::{Expr, NonEmpty, checked_map};
-use super::setting::{ByZoom, Meters, Pixels};
-use super::zoom::{Zoom, ZoomRange};
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::primitives::{Expr, NonEmpty, checked_map};
+use crate::config::file::tiling::setting::{ByZoom, Meters, Pixels};
+use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
 #[serde_with::skip_serializing_none]
@@ -32,22 +32,13 @@ impl CollectUnrecognizedKeys for TileOps {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         self.unrecognized.collect_unrecognized(path, out);
         let ops = [
-            (
-                "merge_lines",
-                self.merge_lines.as_ref().map(|op| &op.unrecognized),
-            ),
+            ("merge_lines", self.merge_lines.as_ref().map(|op| &op.unrecognized)),
             (
                 "merge_polygons",
                 self.merge_polygons.as_ref().map(|op| &op.unrecognized),
             ),
-            (
-                "merge_multi",
-                self.merge_multi.as_ref().map(|op| &op.unrecognized),
-            ),
-            (
-                "label_grid",
-                self.label_grid.as_ref().map(|op| &op.unrecognized),
-            ),
+            ("merge_multi", self.merge_multi.as_ref().map(|op| &op.unrecognized)),
+            ("label_grid", self.label_grid.as_ref().map(|op| &op.unrecognized)),
         ];
         for (name, unrecognized) in ops {
             if let Some(unrecognized) = unrecognized {
@@ -99,13 +90,8 @@ pub struct LabelGrid {
 #[derive(Clone, Debug, PartialEq)]
 pub enum GridKeep {
     Best(NonZeroU32),
-    All {
-        rank_attribute: String,
-    },
-    Ranked {
-        best: NonZeroU32,
-        rank_attribute: String,
-    },
+    All { rank_attribute: String },
+    Ranked { best: NonZeroU32, rank_attribute: String },
 }
 
 #[serde_with::skip_serializing_none]
@@ -243,10 +229,7 @@ impl TryFrom<RawLabelGrid> for LabelGrid {
         let keep = match (raw.limit, raw.rank_attribute) {
             (Some(best), None) => GridKeep::Best(best),
             (None, Some(rank_attribute)) => GridKeep::All { rank_attribute },
-            (Some(best), Some(rank_attribute)) => GridKeep::Ranked {
-                best,
-                rank_attribute,
-            },
+            (Some(best), Some(rank_attribute)) => GridKeep::Ranked { best, rank_attribute },
             (None, None) => return Err(TilingConfigError::LabelGridWithoutKeep),
         };
         Ok(Self {
@@ -263,10 +246,7 @@ impl From<&LabelGrid> for RawLabelGrid {
         let (limit, rank_attribute) = match op.keep.clone() {
             GridKeep::Best(best) => (Some(best), None),
             GridKeep::All { rank_attribute } => (None, Some(rank_attribute)),
-            GridKeep::Ranked {
-                best,
-                rank_attribute,
-            } => (Some(best), Some(rank_attribute)),
+            GridKeep::Ranked { best, rank_attribute } => (Some(best), Some(rank_attribute)),
         };
         Self {
             size: op.size,
@@ -369,11 +349,7 @@ mod tests {
                 merge_lines: { by: [class, ref], min_length: 0.5, simplify: 0.5 }
         "});
         assert_eq!(
-            layers
-                .get("transportation")
-                .expect("layer exists")
-                .tile
-                .merge_lines,
+            layers.get("transportation").expect("layer exists").tile.merge_lines,
             Some(MergeLines {
                 by: vec!["class".to_owned(), "ref".to_owned()],
                 min_length: Some(LineLength::Pixels(ByZoom::Constant(px(0.5)))),
@@ -391,11 +367,7 @@ mod tests {
                 merge_lines: { min_length_m: { 4: 1000, 7: 50 }, except_where: 'oneway in [1, -1]' }
         "});
         assert_eq!(
-            layers
-                .get("boundary")
-                .expect("layer exists")
-                .tile
-                .merge_lines,
+            layers.get("boundary").expect("layer exists").tile.merge_lines,
             Some(MergeLines {
                 min_length: Some(LineLength::Meters(ByZoom::Steps(
                     [(zoom(4), metres(1000.0)), (zoom(7), metres(50.0))].into()

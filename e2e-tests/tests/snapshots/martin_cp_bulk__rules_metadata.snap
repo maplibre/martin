@@ -1,0 +1,25 @@
+---
+source: e2e-tests/tests/martin_cp_bulk.rs
+expression: metadata
+---
+agg_tiles_hash = 291D87DDEADE6A6F94124CB04EC1F618
+format = mlt
+generator = martin cp v[VERSION] (bulk)
+hash_algorithm = md5
+json = {
+  "vector_layers": [
+    {
+      "fields": {
+        "band": "String",
+        "half": "Number",
+        "number": "Number"
+      },
+      "id": "ranked",
+      "maxzoom": 2,
+      "minzoom": 0
+    }
+  ]
+}
+maxzoom = 2
+minzoom = 0
+name = rules

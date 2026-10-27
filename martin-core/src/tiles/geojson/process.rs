@@ -81,9 +81,7 @@ pub fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError
         // feature that carries a non-null value decides the type advertised for it.
         for (key, value) in properties.iter().flatten() {
             if let Some(field_type) = field_type(value) {
-                fields
-                    .entry(key.clone())
-                    .or_insert_with(|| field_type.to_owned());
+                fields.entry(key.clone()).or_insert_with(|| field_type.to_owned());
             }
         }
         let (min, max) = (bbox.min(), bbox.max());
@@ -91,8 +89,7 @@ pub fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError
         features.push(PreparedFeature { geom, properties });
     }
 
-    let feature_count = u32::try_from(features.len())
-        .map_err(|_err| GeoJsonError::TooManyFeatures(features.len()))?;
+    let feature_count = u32::try_from(features.len()).map_err(|_err| GeoJsonError::TooManyFeatures(features.len()))?;
     let mut builder = RTreeBuilder::<f64>::new(feature_count);
     for bbox in &bboxes {
         builder.add(bbox[0], bbox[1], bbox[2], bbox[3]);
@@ -103,14 +100,7 @@ pub fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJsonError
     let data_bounds = bboxes
         .iter()
         .copied()
-        .reduce(|a, b| {
-            [
-                a[0].min(b[0]),
-                a[1].min(b[1]),
-                a[2].max(b[2]),
-                a[3].max(b[3]),
-            ]
-        })
+        .reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])
         .map(|[min_x, min_y, max_x, max_y]| {
             geo_types::Rect::new(
                 geo_types::Coord { x: min_x, y: min_y },
@@ -134,10 +124,7 @@ pub fn tile_length_from_zoom(zoom: u8) -> f64 {
 /// Geometries carry no attributes once converted to `geo_types`, so this is the only feature
 /// metadata copied through to the encoder. Null-valued properties are omitted; arrays and objects
 /// are serialized to a JSON string, matching the MVT value model which has no composite types.
-pub fn add_properties(
-    feature: &mut MvtFeatureBuilder,
-    properties: Map<String, JsonValue>,
-) -> Result<(), GeoJsonError> {
+pub fn add_properties(feature: &mut MvtFeatureBuilder, properties: Map<String, JsonValue>) -> Result<(), GeoJsonError> {
     for (key, value) in properties {
         let mvt_value = match value {
             // MVT has no composite value type, so arrays and objects are serialized to a JSON string.
@@ -155,9 +142,7 @@ pub fn add_properties(
             }
         };
         // A null property yields `MvtValue::Null`, which `tag` skips.
-        feature
-            .tag(key, mvt_value)
-            .map_err(GeoJsonError::MvtError)?;
+        feature.tag(key, mvt_value).map_err(GeoJsonError::MvtError)?;
     }
     Ok(())
 }

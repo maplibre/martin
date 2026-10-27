@@ -54,9 +54,7 @@ impl FromStr for RetryTimeout {
         }
         humantime::parse_duration(s)
             .map(Self::After)
-            .map_err(|_not_a_duration| {
-                format!("expected a duration like `30s` or `infinite`, got {s:?}")
-            })
+            .map_err(|_not_a_duration| format!("expected a duration like `30s` or `infinite`, got {s:?}"))
     }
 }
 
@@ -92,18 +90,12 @@ mod tests {
 
     #[test]
     fn parses_a_duration_or_infinite() {
-        assert_eq!(
-            "0s".parse::<RetryTimeout>(),
-            Ok(RetryTimeout::After(Duration::ZERO))
-        );
+        assert_eq!("0s".parse::<RetryTimeout>(), Ok(RetryTimeout::After(Duration::ZERO)));
         assert_eq!(
             "1m 30s".parse::<RetryTimeout>(),
             Ok(RetryTimeout::After(Duration::from_secs(90)))
         );
-        assert_eq!(
-            "Infinite".parse::<RetryTimeout>(),
-            Ok(RetryTimeout::Infinite)
-        );
+        assert_eq!("Infinite".parse::<RetryTimeout>(), Ok(RetryTimeout::Infinite));
         "soon".parse::<RetryTimeout>().unwrap_err();
         "30".parse::<RetryTimeout>().unwrap_err();
         assert_eq!(
@@ -115,19 +107,14 @@ mod tests {
             RetryTimeout::Infinite
         );
         assert_eq!(
-            serde_json::from_str::<RetryTimeout>("30")
-                .unwrap_err()
-                .to_string(),
+            serde_json::from_str::<RetryTimeout>("30").unwrap_err().to_string(),
             "invalid type: integer `30`, expected a duration like `30s` or `infinite` at line 1 column 2"
         );
         assert_eq!(
             serde_json::to_string(&RetryTimeout::After(Duration::from_secs(90))).unwrap(),
             "\"1m 30s\""
         );
-        assert_eq!(
-            serde_json::to_string(&RetryTimeout::Infinite).unwrap(),
-            "\"infinite\""
-        );
+        assert_eq!(serde_json::to_string(&RetryTimeout::Infinite).unwrap(), "\"infinite\"");
     }
 
     #[test]

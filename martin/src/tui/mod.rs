@@ -23,9 +23,9 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-pub use data::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
-pub use observer::observe;
-use state::LogView;
+pub use crate::tui::data::{Dashboard, Snapshot, SourceRow, TileDot, TileRequest};
+pub use crate::tui::observer::observe;
+use crate::tui::state::LogView;
 
 /// How many lines the page keys move the log by.
 const PAGE: usize = 10;
@@ -122,9 +122,7 @@ enum Flow {
 /// Applies a pressed key to the dashboard and the log view of `lines` lines.
 fn press(key: KeyEvent, dashboard: &Dashboard, log: &mut LogView, lines: usize) -> Flow {
     let control = key.modifiers.contains(KeyModifiers::CONTROL);
-    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc)
-        || (control && key.code == KeyCode::Char('c'))
-    {
+    if matches!(key.code, KeyCode::Char('q') | KeyCode::Esc) || (control && key.code == KeyCode::Char('c')) {
         return Flow::Quit;
     }
     if key.code == KeyCode::Char('c') {

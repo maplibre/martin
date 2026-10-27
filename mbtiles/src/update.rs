@@ -3,9 +3,9 @@ use martin_tile_utils::TileInfo;
 use sqlx::{SqliteExecutor, query};
 use tracing::{debug, info, warn};
 
-use self::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
+use crate::update::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::{Mbtiles, compute_min_max_zoom};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
@@ -119,12 +119,9 @@ impl Mbtiles {
                         metadata.compression = %compression,
                         "Setting metadata compression"
                     );
-                    self.set_metadata_value(conn, "compression", compression)
-                        .await?;
+                    self.set_metadata_value(conn, "compression", compression).await?;
                 } else {
-                    info!(
-                        "Tiles use no external compression; removing 'compression' from metadata if present"
-                    );
+                    info!("Tiles use no external compression; removing 'compression' from metadata if present");
                     self.delete_metadata_value(conn, "compression").await?;
                 }
             }
@@ -140,20 +137,14 @@ impl Mbtiles {
     /// If `grow_only` is true, only update the metadata if the
     /// new min or max zoom is outside the current range.
     #[hotpath::measure]
-    pub async fn update_metadata<T>(
-        &self,
-        conn: &mut T,
-        update_zoom: UpdateZoomType,
-    ) -> MbtResult<()>
+    pub async fn update_metadata<T>(&self, conn: &mut T, update_zoom: UpdateZoomType) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         match (update_zoom, compute_min_max_zoom(&mut *conn).await?) {
             (_, Some((min_zoom, max_zoom))) => {
-                self.set_zoom_value(&mut *conn, false, min_zoom, update_zoom)
-                    .await?;
-                self.set_zoom_value(&mut *conn, true, max_zoom, update_zoom)
-                    .await?;
+                self.set_zoom_value(&mut *conn, false, min_zoom, update_zoom).await?;
+                self.set_zoom_value(&mut *conn, true, max_zoom, update_zoom).await?;
             }
             (GrowOnly | Skip, None) => {
                 info!("No tiles found in the tiles table, skipping metadata min/max zoom update");

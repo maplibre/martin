@@ -1,0 +1,11 @@
+sql: |
+  CREATE TABLE roads (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO roads VALUES (1, ST_Point(0, 0));
+  CREATE TABLE rivers (id INTEGER, geom GEOMETRY('EPSG:4326'));
+  INSERT INTO rivers VALUES (1, ST_Point(0, 0));
+config: |
+  sources:
+    - database: fixture.duckdb
+      auto_publish: true
+      tables:
+        rivers: { table: roads }

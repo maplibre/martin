@@ -1,0 +1,34 @@
+---
+source: martin/src/config/file/tiles/postgres/auto_publish.rs
+expression: snapshot
+input_file: tests/fixtures/pg_auto_publish/id_column_not_found_keeps_properties.yaml
+---
+reads:
+  tables:
+    schemas: ~
+    only: ~
+  functions: false
+transforms: []
+tables:
+  - id: roads
+    schema: public
+    table: roads
+    srid: 3857
+    geometry_column: geom
+    properties:
+      gid: int4
+functions: []
+decisions:
+  - ScannedTables:
+      schemas:
+        - public
+      id_format: "{table}"
+  - IdColumn:
+      relation:
+        schema: public
+        table: roads
+        geometry_column: geom
+      outcome:
+        NoneFound:
+          searched:
+            - fid

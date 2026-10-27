@@ -38,7 +38,7 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), and the highest [pixel ratio](#pixel-ratio) tiles are served at:
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), the [pixel ratios](#pixel-ratio) tiles and static images are served at, and the size of the [ambient cache](#ambient-cache):
 
 ```yaml
 styles:
@@ -49,18 +49,24 @@ styles:
         renderers_per_worker: 8
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512
-        # Highest @{n}x pixel ratio served for XYZ tiles [default: 4]
-        max_pixel_ratio: 4
+        # Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]
+        pixel_ratios: [1, 2]
+        # MB of MapLibre Native's cache of fetched tiles, glyphs and sprites, 0 to disable [default: 50 MiB]
+        ambient_cache_size_mb: 0
         # Indexed PNG palette; `false` keeps full-color RGBA [default: max_colors 128]
         png_palette:
             max_colors: 128
+        # Quality per format: WebP 1 to 100 or `lossless`, JPEG 1 to 100 [default: 80 each]
+        quality:
+            webp: 80
+            jpeg: 80
 ```
 
 ## Indexed (palette) PNG
 
 Rendered PNG tiles and static images are indexed (palette) PNGs.
 For map tiles they are about a quarter of the size of full-color RGBA, with no visible difference.
-JPEG and WebP are not affected.
+JPEG and WebP are not affected, they follow the [quality](#quality) setting.
 
 Each image gets the smallest palette that stays close to the full-color render, up to `max_colors` (2 to 256, default 128).
 Encoding a tile this way takes a few milliseconds of CPU.
@@ -82,11 +88,42 @@ styles:
         png_palette: false
 ```
 
+## Quality
+
+Rendered WebP and JPEG tiles and static images are lossy at quality 80.
+Each format has its own `quality`, as the two degrade differently at the same number.
+Both are optional, and any value outside the ones below fails at startup.
+PNG is not affected, see [indexed PNG](#indexed-palette-png).
+
+- **`webp`** is 1 to 100, or `lossless`. Lossy WebP is encoded with [libwebp](https://developers.google.com/speed/webp).
+  At quality 80, map tiles are about a sixth of the size of lossless WebP, with no visible difference.
+  The alpha channel stays lossless.
+- **`jpeg`** is 1 to 100. JPEG has no lossless mode.
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        quality:
+            webp: 90
+            jpeg: 90
+```
+
+Lossless WebP keeps every pixel, for example for imagery or styles with smooth gradients:
+
+```yaml
+styles:
+    rendering:
+        enabled: true
+        quality:
+            webp: lossless
+```
+
 ## Rendered XYZ tiles
 
 We support generating a rasterized image for an XYZ tile of a given style.
 
-After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
 ### Tile size
 
@@ -98,7 +135,9 @@ Any other value fails at startup.
 
 For high-density (retina) screens, add `@{n}x` after the row to draw the same tile at `n` times the pixels:
 `/style/<style_id>/{z}/{x}/{y}@2x.png` is twice `tile_size` wide and high (1024×1024 px with the default 512), `@3x` three times.
-`n` is a whole number from 1 up to `max_pixel_ratio` (4 unless configured): `@5x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
+`n` must be listed in `pixel_ratios` (`[1, 2]` unless configured, each 1 to 4): an unlisted ratio such as `@3x` is answered with `400 Bad Request`, and a malformed suffix such as `@0x` or `@1.5x` with `404 Not Found`.
+A tile without a suffix counts as `@1x`, so `pixel_ratios: [2]` also refuses it.
+Every listed ratio needs renderers of its own, so list only the ratios your clients ask for.
 
 In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png`), which means that on a retina screen, you get the crisp map your users expect.
 
@@ -109,7 +148,15 @@ Beyond that, the least recently used one is dropped, and loaded again the next t
 With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
-Each renderer holds its own memory: lower `renderers_per_worker` or `max_pixel_ratio` to reduce memory usage.
+Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+
+### Ambient cache
+
+MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the network in a cache of its own, in memory and shared by all of them, up to `ambient_cache_size_mb` MB (MapLibre Native's default of 50 MiB unless configured).
+Every fetched resource is compressed and stored there, and every fetch looks it up first.
+A cached resource spares a request only while its `Cache-Control` says it is fresh, and Martin sends none unless `cache_control` is set in the [configuration file](../config-file/index.md).
+When the style's sources are Martin's own, the tiles are already a local read away, so `ambient_cache_size_mb: 0` saves that work.
+Keep it for styles that fetch from other servers.
 
 ## Static images
 
@@ -150,7 +197,8 @@ The `{camera}` segment chooses what the image looks at:
 `{size}.{ext}` follows the `WIDTHxHEIGHT[@{scale}x].{ext}` pattern, e.g.
 `800x600.png`, `400x300@2x.jpg`.
 Allowed extensions are `png`, `jpg`, and `webp`.
-Width and height are capped at 2048 px each; scale is capped at `4x`.
+Width and height are capped at 2048 px each.
+The scale is a whole number listed in [`pixel_ratios`](#pixel-ratio) (`1` if omitted): an unlisted scale is answered with `400 Bad Request`, and a fractional or zero scale such as `@1.5x` or `@0x` with `404 Not Found`.
 
 ### Overlay body (`POST`)
 

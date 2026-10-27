@@ -40,9 +40,7 @@ impl Tile {
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        let etag = URL_SAFE_NO_PAD
-            .encode(etag.to_ne_bytes())
-            .to_compact_string();
+        let etag = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes()).to_compact_string();
         Self { data, info, etag }
     }
 

@@ -29,3 +29,6 @@ site/
 ####
 #### Above content must match .dockerignore ####
 ####
+
+# QGIS project built by `just toolkit::visualize-tests`
+map-tile-toolkit/tests/visualize.qgz
