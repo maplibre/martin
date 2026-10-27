@@ -428,16 +428,19 @@
       "properties": {
         "buffer": {
           "description": "Buffer distance in tile coordinate space to optionally clip geometries,\noptional, default to 64",
+          "examples": [64],
           "format": "uint32",
           "minimum": 0,
           "type": ["integer", "null"]
         },
         "clip_geom": {
           "description": "Controls if geometries should be clipped or encoded as is \\[default: true\\]",
+          "examples": [true],
           "type": ["boolean", "null"]
         },
         "extent": {
           "description": "Tile extent in tile coordinate space, optional, default to 4096",
+          "examples": [4096],
           "format": "uint32",
           "minimum": 1,
           "type": ["integer", "null"]
@@ -607,6 +610,7 @@
         },
         "schema": {
           "description": "Schema the macro lives in. Defaults to `main`.",
+          "examples": ["main"],
           "type": ["string", "null"]
         }
       },
@@ -671,6 +675,7 @@
         },
         "schema": {
           "description": "Schema the table lives in. Defaults to `main`.",
+          "examples": ["main"],
           "type": ["string", "null"]
         },
         "srid": {
