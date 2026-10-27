@@ -2189,7 +2189,11 @@ Martin does not declare the draft's <code>mapbox-style</code> class, which names
 <h2 id="maps">Maps</h2>
 <p>With <a href="../sources-styles/rendering/">rendering</a> enabled, Martin also renders maps through <a href="https://docs.ogc.org/is/20-058/20-058.html">OGC API - Maps</a>.
 <code>/ogc/styles/{styleID}/map</code> is a style rendered as one image.
-It is the format the <code>Accept</code> header weighs highest, ignoring <code>q=0</code>: PNG (also for <code>*/*</code> or no header) or JPEG.</p>
+<code>/ogc/collections/{sourceID}/map</code> is a raster source as one image.
+Only raster sources on <code>WebMercatorQuad</code> have such a map, and their collections link it; vector data is drawn through a style.
+Each collection also gives its <code>storageCrs</code>, the CRS of its grid, with its bounds in that CRS when Martin can convert them.
+<code>/ogc/map</code>, linked from the landing page, draws all those collections in one image, ordered by ID, or only the ones <code>collections</code> names in that order.
+A map is in the format the <code>Accept</code> header weighs highest, ignoring <code>q=0</code>: PNG (also for <code>*/*</code> or no header), JPEG or TIFF.</p>
 <table>
 <thead>
 <tr>
@@ -2204,7 +2208,7 @@ It is the format the <code>Accept</code> header weighs highest, ignoring <code>q
 </tr>
 <tr>
 <td><code>bbox</code></td>
-<td>area as its lower left and upper right corners, in the axis order of <code>bbox-crs</code>; the whole world by default</td>
+<td>area as corners in <code>bbox-crs</code> axis order; defaults to a collection's bounds, or the world for a style</td>
 </tr>
 <tr>
 <td><code>bbox-crs</code></td>
@@ -2222,10 +2226,18 @@ It is the format the <code>Accept</code> header weighs highest, ignoring <code>q
 <td><code>scale-denominator</code></td>
 <td>scale of the map, instead of <code>width</code> and <code>height</code> with <code>bbox</code></td>
 </tr>
+<tr>
+<td><code>collections</code></td>
+<td>for <code>/ogc/map</code> only: comma-separated source IDs, or their <code>/ogc/collections/{sourceID}</code> URLs</td>
+</tr>
 </tbody>
 </table>
 <p>Maps are always in web mercator, which the <code>Content-Crs</code> header states.
-The <code>Content-Bbox</code> header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.</p>
+The <code>Content-Bbox</code> header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
+PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.</p>
+<p>The map of all collections and the map of each style also come as map tiles on <code>WebMercatorQuad</code>, 256 pixels square, under <code>/ogc/map/tiles</code> and <code>/ogc/styles/{styleID}/map/tiles</code>.
+Their tilesets link the tile URL template, and <code>Accept</code> picks the format as for maps.
+Raster collections need no map tiles of their own: their tilesets under <code>/ogc/collections/{sourceID}/tiles</code> already are map tiles.</p>
 <h2 id="conformance">Conformance</h2>
 <p><code>/ogc/conformance</code> lists which parts of the standards Martin implements:</p>
 <ul>
@@ -2233,7 +2245,7 @@ The <code>Content-Bbox</code> header gives the area shown, in metres: when its s
 <li>OGC API - Common core, landing page and JSON</li>
 <li>Two Dimensional Tile Matrix Set 2.0 and its JSON encoding</li>
 <li>OGC API - Styles core and global styles, when Martin is built with styles</li>
-<li>OGC API - Maps core, styled map, PNG and JPEG, when rendering is enabled</li>
+<li>OGC API - Maps core, dataset map, collection map, collections selection, styled map, map tilesets, PNG, JPEG and TIFF, when rendering is enabled</li>
 </ul>
 <p>We run the official OGC test suite against Martin in CI.</p>
 <h2 id="reading-martin-with-gdal">Reading Martin with GDAL</h2>
