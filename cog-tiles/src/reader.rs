@@ -85,7 +85,7 @@ const STRIPED_TILE_SIZE: u32 = 256;
 
 /// How the pixels of an image are chunked in the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Chunks {
+pub(crate) enum Chunks {
     /// Square tiles of this many pixels, each read and decoded on its own.
     Tiles(u32),
     /// Uncompressed full-width strips.
@@ -94,7 +94,7 @@ enum Chunks {
 
 impl Chunks {
     /// Reads how an image is chunked.
-    fn of(ifd: &ImageFileDirectory, index: usize, location: &str) -> CogResult<Self> {
+    pub(crate) fn of(ifd: &ImageFileDirectory, index: usize, location: &str) -> CogResult<Self> {
         let unsupported = |reason| CogError::unsupported(location, reason);
         match (ifd.tile_width(), ifd.tile_height()) {
             (Some(w), Some(h)) if w == h && w > 0 => return Ok(Self::Tiles(w)),
@@ -157,7 +157,7 @@ impl Chunks {
 
 /// Row layout of an uncompressed striped image.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Strips {
+pub(crate) struct Strips {
     /// Rows per strip (the last strip may have fewer).
     rows_per_strip: u32,
     /// Bytes per image row.
@@ -558,7 +558,10 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
 }
 
 /// Reads all IFDs, converting `async-tiff` panics on malformed input into errors.
-async fn read_ifds<B: AsyncBackend>(bridge: &TiffBridge<B>, prefetch: u64) -> CogResult<Vec<ImageFileDirectory>> {
+pub(crate) async fn read_ifds<B: AsyncBackend>(
+    bridge: &TiffBridge<B>,
+    prefetch: u64,
+) -> CogResult<Vec<ImageFileDirectory>> {
     let location = bridge.0.location();
     let cache = BlockMetadataCache::new(bridge.clone(), prefetch.min(bridge.0.size()));
     let parsed = AssertUnwindSafe(async {
@@ -589,7 +592,7 @@ async fn read_ifds<B: AsyncBackend>(bridge: &TiffBridge<B>, prefetch: u64) -> Co
     clippy::wildcard_enum_match_arm,
     reason = "every other `async-tiff` error is wrapped as it is"
 )]
-fn unwrap_tiff_error(location: &str, error: async_tiff::error::AsyncTiffError) -> CogError {
+pub(crate) fn unwrap_tiff_error(location: &str, error: async_tiff::error::AsyncTiffError) -> CogError {
     match error {
         async_tiff::error::AsyncTiffError::External(inner) => match inner.downcast::<CogError>() {
             Ok(cog) => *cog,
@@ -656,7 +659,7 @@ fn choose_encoding(ifd: &ImageFileDirectory, location: &str) -> CogResult<(TileF
 }
 
 /// Returns whether an IFD is the full-resolution image or an overview, or why a page was skipped.
-fn is_image(
+pub(crate) fn is_image(
     index: usize,
     ifd: &ImageFileDirectory,
     previous: Option<&ImageFileDirectory>,
@@ -700,7 +703,7 @@ fn chunking(ifd: &ImageFileDirectory) -> Chunking {
 }
 
 /// Validates an image's pixel order and storage against the full-resolution image, and returns its chunking.
-fn check_same_layout(
+pub(crate) fn check_same_layout(
     base: &ImageFileDirectory,
     base_chunks: Chunks,
     ifd: &ImageFileDirectory,

@@ -75,6 +75,22 @@ let tile = mosaic.get_tile(TileCoord::new(18, 130_992, 87_176)?).await?;
 # }
 ```
 
+Files in a UTM zone or on any pixel grid, found per tile by an index of your own (`mosaic` feature).
+Each tile is painted from the files the index returns, in order, reprojected with nearest-neighbor
+resampling; later files only fill the pixels earlier ones leave empty:
+
+```rust,no_run
+# #[cfg(feature = "mosaic")]
+# async fn run(index: std::sync::Arc<dyn cog_tiles::MosaicIndex>, first: cog_tiles::MosaicFile) -> cog_tiles::CogResult<()> {
+use cog_tiles::{AsyncIndexedMosaic, IndexedMosaicOptions, TileCoord};
+
+let options = IndexedMosaicOptions::new(12, vec![0, 1, 2]).with_nodata(Some(0));
+let mosaic = AsyncIndexedMosaic::open(index, &first, options).await?;
+let tile = mosaic.get_tile(TileCoord::new(16, 10_477, 25_326)?).await?;
+# Ok(())
+# }
+```
+
 Decoded pixels instead of encoded tiles, e.g. to stitch an area into one raster:
 
 ```rust,no_run
@@ -106,7 +122,8 @@ a bounded, expiring cache; tiles without a file are `None`.
   [`object_store`](https://crates.io/crates/object_store). Reads are pinned to the object's
   `ETag`/version, so a replaced object fails instead of mixing two files.
 * `webp`: decode WebP tiles with `get_tile_pixels` (links `libwebp`). Without it, WebP tiles are only passed through.
-* `mosaic`: `AsyncCogMosaic` over a local directory or an object store prefix (enables `fs` and `object-store`).
+* `mosaic`: `AsyncCogMosaic` over a local directory or an object store prefix, and
+  `AsyncIndexedMosaic` over the files a `MosaicIndex` finds (enables `fs`, `png` and `object-store`).
 
 ## Not supported yet
 
@@ -114,13 +131,15 @@ a bounded, expiring cache; tiles without a file are `None`.
   Terrarium/Mapbox RGB.
 * LERC compression (needs `async-tiff`'s `lerc` feature), transparency masks, and tile grids other
   than `WebMercatorQuad`.
-* Resampling or reprojecting COGs that are not tile-aligned. Convert them first with
-  `gdalwarp -t_srs EPSG:3857` and `gdal_translate -of COG -co TILING_SCHEME=GoogleMapsCompatible`.
+* Reprojecting a single COG outside a mosaic, CRSs other than Web Mercator and UTM, and resampling
+  other than nearest-neighbor. Convert such files first with `gdalwarp -t_srs EPSG:3857` and
+  `gdal_translate -of COG -co TILING_SCHEME=GoogleMapsCompatible`.
 
 ## Development
 
 This crate is part of the [Martin](https://github.com/maplibre/martin) workspace and is used by its COG sources.
 Its test COGs are in the workspace's `tests/fixtures/cog/synthetic`, generated (along with Martin's mosaic test files) by `python3 tests/fixtures/cog/synthetic/generate.py` (needs GDAL's Python bindings).
+The reprojection fixtures in `tests/fixtures/cog/warped`, and the `gdalwarp` tiles they are checked against, come from `python3 tests/fixtures/cog/warped/generate.py` (needs numpy and the GDAL command line tools).
 
 ## License
 

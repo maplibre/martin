@@ -2,7 +2,7 @@
 name = "cog-tiles"
 version = "0.2.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
-description = "Read web map tiles from tile-aligned Cloud Optimized GeoTIFFs (COG) in local files or object stores, fetching only the bytes each tile needs"
+description = "Read web map tiles from Cloud Optimized GeoTIFFs (COG) in local files or object stores, fetching only the bytes each tile needs"
 keywords = ["cog", "geotiff", "tiles", "webmercator", "gis"]
 categories = ["science::geo", "encoding", "asynchronous"]
 edition.workspace = true
@@ -24,8 +24,9 @@ png = ["dep:png"]
 object-store = ["dep:object_store"]
 # Decode WebP tiles to pixels (links libwebp).
 webp = ["async-tiff/webp"]
-# Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`).
-mosaic = ["fs", "object-store", "dep:tracing"]
+# Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`),
+# or found per tile by an index and reprojected from UTM.
+mosaic = ["fs", "png", "object-store", "dep:tracing"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
