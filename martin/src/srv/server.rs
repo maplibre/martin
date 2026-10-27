@@ -186,6 +186,8 @@ fn register_services(
         .service(ogcapi::get_tile);
     #[cfg(all(feature = "ogcapi", feature = "resources"))]
     cfg.service(ogcapi::get_styles);
+    #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
+    cfg.service(ogcapi::get_style_map);
 
     #[cfg(feature = "_tiles")]
     {

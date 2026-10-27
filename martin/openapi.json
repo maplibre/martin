@@ -1280,6 +1280,111 @@
       },
       "x-martin-feature": "resources"
     },
+    "/ogc/styles/{style_id}/map": {
+      "get": {
+        "operationId": "ogc.dataset.style.getMap",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Width of the map in pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Height of the map in pixels.",
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Area to show as `minx,miny,maxx,maxy` in `bbox-crs`.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `bbox`, `CRS84` when not given.",
+            "in": "query",
+            "name": "bbox-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Point to center the map on as `x,y` in `center-crs`.",
+            "in": "query",
+            "name": "center",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `center`, `CRS84` when not given.",
+            "in": "query",
+            "name": "center-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Scale of the map.",
+            "in": "query",
+            "name": "scale-denominator",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": ["number", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Map of the style"
+          },
+          "400": {
+            "description": "Invalid map parameters"
+          },
+          "404": {
+            "description": "No such style"
+          },
+          "406": {
+            "description": "No supported map format in Accept header"
+          }
+        },
+        "summary": "A style rendered as a map.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
     "/ogc/tileMatrixSets": {
       "get": {
         "operationId": "getTileMatrixSetsList",

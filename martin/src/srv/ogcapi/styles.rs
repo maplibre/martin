@@ -39,16 +39,31 @@ async fn style_description(
         .ok()
         .and_then(|content| serde_json::from_str::<Style>(&content).ok())
         .and_then(|style| style.other.get("name")?.as_str().map(ToOwned::to_owned));
+    #[cfg_attr(
+        not(all(feature = "rendering", target_os = "linux")),
+        expect(unused_mut, reason = "only maps add links")
+    )]
+    let mut links = vec![Link {
+        href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
+        rel: "stylesheet",
+        media_type: "application/json",
+        title: "MapLibre style",
+        templated: false,
+    }];
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if super::map::renders_maps(req) {
+        links.push(Link {
+            href: ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),
+            rel: super::map::MAP_REL,
+            media_type: "image/png",
+            title: "Map of the style",
+            templated: false,
+        });
+    }
     StyleDescription {
         id: id.to_owned(),
         title,
-        links: vec![Link {
-            href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
-            rel: "stylesheet",
-            media_type: "application/json",
-            title: "MapLibre style",
-            templated: false,
-        }],
+        links,
     }
 }
 
