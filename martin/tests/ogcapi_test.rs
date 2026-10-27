@@ -1,7 +1,7 @@
 #![cfg(all(feature = "ogcapi", feature = "mbtiles"))]
 
 use actix_web::http::StatusCode;
-use actix_web::http::header::CONTENT_TYPE;
+use actix_web::http::header::{CONTENT_TYPE, VARY};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
 use insta::assert_json_snapshot;
@@ -101,6 +101,18 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
           "title": "This document"
         },
         {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -161,6 +173,18 @@ async fn the_landing_page_links_no_styles_without_resources() {
           "title": "This document"
         },
         {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "http://localhost:8080/ogc/api",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -218,6 +242,18 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
           "rel": "self",
           "type": "application/json",
           "title": "This document"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
         },
         {
           "href": "https://maplibre.org/martin/using/",
@@ -280,6 +316,18 @@ async fn the_proxied_links_have_no_styles_without_resources() {
           "title": "This document"
         },
         {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-desc",
+          "type": "application/vnd.oai.openapi+json;version=3.1",
+          "title": "The OpenAPI definition of this API"
+        },
+        {
+          "href": "https://tiles.example.com/maps/ogc/api",
+          "rel": "service-doc",
+          "type": "text/html",
+          "title": "The OpenAPI definition of this API, as HTML"
+        },
+        {
           "href": "https://maplibre.org/martin/using/",
           "rel": "service-doc",
           "type": "text/html",
@@ -306,6 +354,200 @@ async fn the_proxied_links_have_no_styles_without_resources() {
       ]
     }
     "#);
+}
+
+#[cfg(feature = "resources")]
+#[actix_rt::test]
+async fn the_api_definition_describes_the_paths_served() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_definition", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.1"
+    );
+    let definition: serde_json::Value = read_body_json(response).await;
+    let paths: Vec<&String> = definition["paths"].as_object().unwrap().keys().collect();
+    assert_json_snapshot!(serde_json::json!({ "servers": definition["servers"], "paths": paths }), @r#"
+    {
+      "servers": [
+        {
+          "url": "http://localhost:8080/ogc"
+        }
+      ],
+      "paths": [
+        "/",
+        "/api",
+        "/collections",
+        "/collections/{collection_id}",
+        "/collections/{collection_id}/tiles",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/conformance",
+        "/styles",
+        "/styles/{style_id}",
+        "/tileMatrixSets",
+        "/tileMatrixSets/{tile_matrix_set_id}"
+      ]
+    }
+    "#);
+}
+
+#[cfg(not(feature = "resources"))]
+#[actix_rt::test]
+async fn the_api_definition_describes_no_styles_without_resources() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_definition_no_styles", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let response = call_service(&app, TestRequest::get().uri("/ogc/api").to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.1"
+    );
+    let definition: serde_json::Value = read_body_json(response).await;
+    let paths: Vec<&String> = definition["paths"].as_object().unwrap().keys().collect();
+    assert_json_snapshot!(serde_json::json!({ "servers": definition["servers"], "paths": paths }), @r#"
+    {
+      "servers": [
+        {
+          "url": "http://localhost:8080/ogc"
+        }
+      ],
+      "paths": [
+        "/",
+        "/api",
+        "/collections",
+        "/collections/{collection_id}",
+        "/collections/{collection_id}/tiles",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}",
+        "/collections/{collection_id}/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}",
+        "/conformance",
+        "/tileMatrixSets",
+        "/tileMatrixSets/{tile_matrix_set_id}"
+      ]
+    }
+    "#);
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_served_from_the_proxy_in_front_of_martin() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_proxy", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("X-Forwarded-Host", "tiles.example.com"))
+        .insert_header(("X-Forwarded-Proto", "https"))
+        .insert_header(("X-Forwarded-Prefix", "/maps"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let definition: serde_json::Value = read_body_json(response).await;
+    assert_json_snapshot!(definition["servers"], @r#"
+    [
+      {
+        "url": "https://tiles.example.com/maps/ogc"
+      }
+    ]
+    "#);
+}
+
+#[actix_rt::test]
+async fn browsers_get_the_api_definition_as_html() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_browser", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("Accept", "text/html,application/xhtml+xml,*/*;q=0.8"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "text/html; charset=utf-8"
+    );
+    assert_eq!(response.headers().get(VARY).unwrap(), "accept");
+    let body = read_body(response).await;
+    insta::assert_snapshot!(String::from_utf8_lossy(&body), @r##"
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <title>Martin OGC API</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+    </head>
+    <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+    <script>SwaggerUIBundle({ url: location.href, dom_id: "#swagger-ui" });</script>
+    </body>
+    </html>
+    "##);
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_json_when_json_is_weighed_above_html() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_json_first", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("Accept", "application/json,text/html;q=0.9"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.1"
+    );
+    assert_eq!(response.headers().get(VARY).unwrap(), "accept");
+}
+
+#[actix_rt::test]
+async fn the_api_definition_is_json_when_html_is_refused() {
+    let cities = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (_mbt, _conn, cities) = temp_named_mbtiles("ogc_api_no_html", cities).await;
+    let app = create_app!(&formatdoc! {"
+        mbtiles:
+          sources:
+            cities: {cities}
+    ", cities = cities.display()});
+
+    let request = TestRequest::get()
+        .uri("/ogc/api")
+        .insert_header(("Accept", "text/html;q=0,image/png"));
+    let response = call_service(&app, request.to_request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.oai.openapi+json;version=3.1"
+    );
 }
 
 #[cfg(feature = "resources")]

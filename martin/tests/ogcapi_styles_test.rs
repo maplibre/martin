@@ -86,7 +86,7 @@ async fn a_style_is_served_as_a_maplibre_style() {
             maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "});
 
-    let request = TestRequest::get().uri("/ogc/styles/maplibre_demo?f=json");
+    let request = TestRequest::get().uri("/ogc/styles/maplibre_demo");
     let response = call_service(&app, request.to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "application/json");
@@ -120,21 +120,6 @@ async fn a_style_has_its_relative_urls_made_absolute() {
       }
     }
     "#);
-}
-
-#[actix_rt::test]
-async fn a_style_in_another_encoding_is_a_bad_request() {
-    let app = create_app!(indoc! {"
-        styles:
-          sources:
-            maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
-    "});
-
-    let request = TestRequest::get().uri("/ogc/styles/maplibre_demo?f=sld10");
-    let response = call_service(&app, request.to_request()).await;
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body = read_body(response).await;
-    insta::assert_snapshot!(String::from_utf8_lossy(&body), @"Style encoding sld10 is not supported, only json is");
 }
 
 #[actix_rt::test]

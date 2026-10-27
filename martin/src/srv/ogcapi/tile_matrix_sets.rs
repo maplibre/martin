@@ -130,6 +130,7 @@ fn tile_matrix_set(grid: &TileGrid) -> Option<TileMatrixSet> {
     utoipa::path(
         get,
         path = "/ogc/tileMatrixSets",
+        operation_id = "getTileMatrixSetsList",
         responses(
             (status = 200, description = "Tile matrix sets of the served sources", body = TileMatrixSets),
         ),
@@ -177,6 +178,7 @@ pub async fn get_tile_matrix_sets(
     utoipa::path(
         get,
         path = "/ogc/tileMatrixSets/{tile_matrix_set_id}",
+        operation_id = "getTileMatrixSet",
         params(("tile_matrix_set_id" = String, Path, description = "Tile matrix set ID")),
         responses(
             (status = 200, description = "Tile matrix set definition", body = TileMatrixSet),
