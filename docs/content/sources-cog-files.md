@@ -272,6 +272,8 @@ cog:
   To have the newest imagery win, list it first.
 - Tiles are 256 px PNGs, transparent where no file has data, and are resampled, reprojected and checked like those of a [STAC source](#imagery-from-a-stac-api).
 
+The guide [Serving NAIP imagery from S3 with a tile index](recipe-cog-naip.md) walks through this end to end, with a map page.
+
 ## COG Hot Reload
 
 Martin picks up changed COGs without a restart, except for local files listed one by one.

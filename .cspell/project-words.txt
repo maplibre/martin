@@ -3,6 +3,7 @@ abfss
 actix
 addext
 antimeridian
+asinh
 autoheal
 autoupdated
 autoupdates
@@ -113,6 +114,7 @@ openmaptiles
 optfile
 osmus
 overturemaps
+overzoomed
 PDOK
 peucker
 pfor
@@ -175,6 +177,7 @@ tui
 unclipped
 undecoded
 urlencode
+USGS
 usize
 utoipa
 valgrind
