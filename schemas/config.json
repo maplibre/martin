@@ -1601,7 +1601,7 @@
       "properties": {
         "max_colors": {
           "default": 128,
-          "description": "Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it\nclosely, up to this many colours. Defaults to 128.",
+          "description": "Largest palette, 2 to 256 colors. Each image gets the smallest palette that matches it\nclosely, up to this many colors. Defaults to 128.",
           "examples": [128],
           "format": "uint16",
           "maximum": 65535,
@@ -1863,7 +1863,7 @@
         },
         "png_palette": {
           "$ref": "#/$defs/OptBoolObj5",
-          "description": "Encode rendered PNGs as indexed (palette) images, which is the default.\n`false` keeps full-colour RGBA."
+          "description": "Encode rendered PNGs as indexed (palette) images, which is the default.\n`false` keeps full-color RGBA."
         },
         "quality": {
           "anyOf": [

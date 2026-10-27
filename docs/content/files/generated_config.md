@@ -615,10 +615,10 @@ styles:
       - 2
       - 3
     # Encode rendered PNGs as indexed (palette) images, which is the default.
-    # `false` keeps full-colour RGBA.
+    # `false` keeps full-color RGBA.
     png_palette:
-      # Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
-      # closely, up to this many colours. Defaults to 128.
+      # Largest palette, 2 to 256 colors. Each image gets the smallest palette that matches it
+      # closely, up to this many colors. Defaults to 128.
       max_colors: 128
     # Quality of rendered WebP and JPEG images, per format.
     quality:

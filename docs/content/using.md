@@ -8,7 +8,7 @@ tags:
 # Martin Endpoints
 
 !!! tip "OpenAPI Documentation"
-    If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](https://raw.githubusercontent.com/maplibre/martin/main/martin/openapi.json).
+    If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](https://github.com/maplibre/martin/raw/main/martin/openapi.json).
 
 !!! tip "OGC compliant API endpoints"
     Martin also serves its tiles through [OGC API - Tiles](ogc-api.md) under `/ogc`, for clients that need an OGC compliant API.
