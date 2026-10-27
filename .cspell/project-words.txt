@@ -114,7 +114,6 @@ openmaptiles
 optfile
 osmus
 overturemaps
-overzoomed
 PDOK
 peucker
 pfor

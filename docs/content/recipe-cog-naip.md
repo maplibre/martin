@@ -76,13 +76,8 @@ Zooms outside `minzoom` to `maxzoom` are answered with `404` without reading fro
 
 ## Show it on a map
 
-This page shows the imagery at zoom 18 with the roads and labels of OpenFreeMap on top.
-Every motorway, trunk, primary and secondary road gets a translucent pink band reaching 250 m to each side.
-
-- The band is drawn with `line-layer-opacity` (MapLibre GL JS 6), so overlapping segments do not add up to a darker pink.
-- OpenFreeMap tiles only hold a few meters of geometry beyond their edges, so a band drawn from them would stop at each tile edge.
-  The page instead reads the big roads from the zoom-12 tiles around the area into a GeoJSON source, whose tiles each hold far more than 250 m of their neighbors.
-- `hash: true` keeps the map position in the URL, e.g. `#14/37.93/-122.69`.
+This page shows the imagery at zoom 18 with the roads and labels of OpenFreeMap on top, motorways to secondary roads in pink.
+`hash: true` keeps the map position in the URL, e.g. `#14/37.93/-122.69`.
 
 Save it as `index.html` and serve it over HTTP, e.g. with `python3 -m http.server 8000`, then open <http://localhost:8000>.
 
@@ -114,7 +109,6 @@ Save it as `index.html` and serve it over HTTP, e.g. with `python3 -m http.serve
   source <code>localhost:3000/naip</code><br>
   z <code id="z"></code> tile <code id="tile"></code>
   <label><input type="checkbox" id="ofm" checked> OpenFreeMap roads + labels</label>
-  <label><input type="checkbox" id="buffer" checked> 250 m road buffer</label>
   <label><input type="checkbox" id="grid"> tile grid</label>
   <button data-go="-122.6875,37.9375">4-way seam</button>
   <button data-go="-122.6851,37.97">nw/ne edge</button>
@@ -122,11 +116,8 @@ Save it as `index.html` and serve it over HTTP, e.g. with `python3 -m http.serve
 </div>
 <script type="module">
 import { Map, NavigationControl } from "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs";
-import { VectorTile } from "https://esm.sh/@mapbox/vector-tile@2.0.3";
-import Pbf from "https://esm.sh/pbf@4.0.1";
 
 const CENTER = [-122.6875, 37.9375];
-const BUFFER_M = 250;
 const BIG_ROADS = ["motorway", "trunk", "primary", "secondary"];
 
 // MapLibre line widths are pixels of a 512 px tile world; at this latitude a meter is this many px at zoom z.
@@ -134,30 +125,7 @@ const pxPerMeter = z => (512 * 2 ** z) / (40075016.686 * Math.cos(CENTER[1] * Ma
 const meters = m => ["interpolate", ["exponential", 2], ["zoom"], 10, m * pxPerMeter(10), 22, m * pxPerMeter(22)];
 
 const BOUNDS = [[-122.80, 37.85], [-122.58, 38.03]];
-const BAND_ZOOM = 12;
 const bigRoad = ["in", ["get", "class"], ["literal", BIG_ROADS]];
-
-// The big roads of every OpenFreeMap tile at BAND_ZOOM over BOUNDS, so the band sees roads beyond each tile's edge.
-async function bigRoadsOver(tileJsonUrl) {
-  const { tiles: [template] } = await (await fetch(tileJsonUrl)).json();
-  const n = 2 ** BAND_ZOOM;
-  const tx = lng => Math.floor((lng + 180) / 360 * n);
-  const ty = lat => Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * n);
-  const coords = [];
-  for (let x = tx(BOUNDS[0][0]); x <= tx(BOUNDS[1][0]); x++)
-    for (let y = ty(BOUNDS[1][1]); y <= ty(BOUNDS[0][1]); y++) coords.push([x, y]);
-  const features = await Promise.all(coords.map(async ([x, y]) => {
-    const url = template.replace("{z}", BAND_ZOOM).replace("{x}", x).replace("{y}", y);
-    const layer = new VectorTile(new Pbf(await (await fetch(url)).arrayBuffer())).layers.transportation;
-    const out = [];
-    for (let i = 0; layer && i < layer.length; i++) {
-      const f = layer.feature(i);
-      if (BIG_ROADS.includes(f.properties.class) && f.type === 2) out.push(f.toGeoJSON(x, y, BAND_ZOOM));
-    }
-    return out;
-  }));
-  return { type: "FeatureCollection", features: features.flat() };
-}
 const ofmLayers = ["ofm-roads", "ofm-big-roads", "ofm-road-names", "ofm-places"];
 
 const map = new Map({
@@ -176,18 +144,10 @@ const map = new Map({
               minzoom: 14, maxzoom: 19, attribution: "NAIP 2020 via martin" },
       ofm: { type: "vector", url: "https://tiles.openfreemap.org/planet",
              attribution: "<a href=\"https://openfreemap.org\">OpenFreeMap</a> &copy; OpenMapTiles" },
-      // Tiled only up to BAND_ZOOM and overzoomed after, so each tile's buffer spans far more than 250 m.
-      bigRoads: { type: "geojson", data: { type: "FeatureCollection", features: [] },
-                  maxzoom: BAND_ZOOM, buffer: 512, tolerance: 0 },
     },
     layers: [
       { id: "bg", type: "background", paint: { "background-color": "#111" } },
       { id: "naip", type: "raster", source: "naip" },
-      {
-        id: "road-buffer", type: "line", source: "bigRoads",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#ff4fa3", "line-width": meters(2 * BUFFER_M), "line-layer-opacity": 0.18 },
-      },
       {
         id: "ofm-roads", type: "line", source: "ofm", "source-layer": "transportation",
         filter: ["!", bigRoad],
@@ -214,7 +174,6 @@ const map = new Map({
     ],
   },
 });
-bigRoadsOver("https://tiles.openfreemap.org/planet").then(data => map.getSource("bigRoads").setData(data));
 map.addControl(new NavigationControl(), "top-right");
 
 function update() {
@@ -231,8 +190,6 @@ map.on("load", update);
 const visible = on => (on ? "visible" : "none");
 document.getElementById("ofm").onchange = e =>
   ofmLayers.forEach(id => map.setLayoutProperty(id, "visibility", visible(e.target.checked)));
-document.getElementById("buffer").onchange = e =>
-  map.setLayoutProperty("road-buffer", "visibility", visible(e.target.checked));
 document.getElementById("grid").onchange = e => { map.showTileBoundaries = e.target.checked; };
 document.querySelectorAll("[data-go]").forEach(b => b.onclick = () =>
   map.flyTo({ center: b.dataset.go.split(",").map(Number), zoom: 18 }));
