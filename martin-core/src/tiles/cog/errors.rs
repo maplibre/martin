@@ -75,6 +75,15 @@ pub enum CogError {
         available: String,
     },
 
+    /// A search page links its next page outside the STAC API's origin, which is not followed.
+    #[error("The STAC API at {api} links its next search page to {link}, outside its origin")]
+    StacForeignLink {
+        /// The configured STAC API.
+        api: String,
+        /// The next page's URL.
+        link: String,
+    },
+
     /// The lowest zoom served is below the zoom each search covers a tile of.
     #[error("The min zoom {min_zoom} is below the search zoom {search_zoom}")]
     StacMinZoom {

@@ -22,6 +22,9 @@ use crate::tiles::cog::source::{CogSource, CogTiles};
 /// Items asked for per page of search results.
 const PAGE_SIZE: usize = 250;
 
+/// How many redirects within the STAC API's origin one request follows.
+const MAX_REDIRECTS: usize = 10;
+
 /// How long one request to the STAC API may take.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -127,6 +130,9 @@ pub struct StacIndex {
     options: StacSearchOptions,
     /// Turns asset hrefs into stores.
     resolve: HrefResolver,
+    /// The selected sample indexes with the `eo:bands` entry each was chosen by, which every
+    /// asset that names its bands must match.
+    band_layout: Vec<(usize, EoBand)>,
     /// Search results by tile at the search zoom.
     searches: Cache<cog_tiles::TileCoord, Arc<[MosaicFile]>>,
 }
@@ -163,8 +169,16 @@ impl StacIndex {
     /// # Errors
     /// Returns an error if the HTTP client cannot be built.
     pub fn new(options: StacSearchOptions, resolve: HrefResolver) -> Result<Self, CogError> {
+        let api = options.url.clone();
         let client = reqwest::Client::builder()
             .timeout(REQUEST_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+                if attempt.previous().len() < MAX_REDIRECTS && same_origin(attempt.url().as_str(), &api) {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
             .default_headers(
                 [(
                     USER_AGENT,
@@ -187,6 +201,7 @@ impl StacIndex {
             search_url: format!("{}/search", options.url.trim_end_matches('/')),
             options,
             resolve,
+            band_layout: Vec::new(),
             searches,
         })
     }
@@ -254,7 +269,15 @@ impl StacIndex {
                 .filter(|_| page_len > 0 && matched.is_none_or(|matched| seen < matched));
             match next {
                 Some(_) if read == max_items => break true,
-                Some(next) => request = request.next(next),
+                Some(next) => {
+                    request = request.next(next);
+                    if !same_origin(request.url(), &self.options.url) {
+                        return Err(CogError::StacForeignLink {
+                            api: self.options.url.clone(),
+                            link: request.url().to_owned(),
+                        });
+                    }
+                }
                 None => break false,
             }
         };
@@ -329,6 +352,20 @@ impl StacIndex {
             );
             return None;
         };
+        if let Some(names) = &asset.eo_bands
+            && let Some((band, _)) = self
+                .band_layout
+                .iter()
+                .find(|(band, expected)| names.get(*band).is_none_or(|name| !name.same(expected)))
+        {
+            tracing::debug!(
+                stac.item = item.id,
+                asset = self.options.asset,
+                band = band + 1,
+                "STAC asset orders its bands unlike the first item"
+            );
+            return None;
+        }
         match (self.resolve)(&asset.href) {
             Ok((store, path)) => Some(MosaicFile {
                 cache_key: without_fragment(&asset.href).into(),
@@ -369,7 +406,7 @@ impl CogSource {
         }
         let location = format!("{}/collections/{}", options.search.url, options.search.collection);
         let asset_key = options.search.asset.clone();
-        let index = StacIndex::new(options.search, resolve)?;
+        let mut index = StacIndex::new(options.search, resolve)?;
         let collection = index.collection().await?;
         let first = index.first_item().await?;
         let names = [collection.item_assets.get(&asset_key), first.assets.get(&asset_key)]
@@ -377,6 +414,10 @@ impl CogSource {
             .flatten()
             .find_map(|asset| asset.eo_bands.clone());
         let bands = select_bands(options.bands.as_deref(), names.as_deref(), &asset_key)?;
+        index.band_layout = bands
+            .iter()
+            .filter_map(|&band| Some((band, names.as_deref()?.get(band)?.clone())))
+            .collect();
         let probe = index.file(&first).ok_or_else(|| CogError::StacUnusableItem {
             item: first.id.clone(),
             asset: asset_key,
@@ -503,13 +544,17 @@ enum Request {
 }
 
 impl Request {
+    /// Where this request goes.
+    fn url(&self) -> &str {
+        match self {
+            Self::Post { url, .. } | Self::Get { url } => url,
+        }
+    }
+
     /// The request a `next` link stands for, following this one. A relative `href` is resolved
     /// against this request's URL.
     fn next(self, link: Link) -> Self {
-        let base = match &self {
-            Self::Post { url, .. } | Self::Get { url } => url,
-        };
-        let href = reqwest::Url::parse(base)
+        let href = reqwest::Url::parse(self.url())
             .and_then(|base| base.join(&link.href))
             .map_or(link.href, String::from);
         let post = link
@@ -648,6 +693,14 @@ impl EoBand {
             .flatten()
             .any(|own| own.eq_ignore_ascii_case(name))
     }
+
+    /// Whether this band goes by any name of `other`.
+    fn same(&self, other: &Self) -> bool {
+        [&other.common_name, &other.name]
+            .into_iter()
+            .flatten()
+            .any(|name| self.is(name))
+    }
 }
 
 /// A link in a search result.
@@ -678,11 +731,22 @@ fn without_fragment(href: &str) -> &str {
     href.split('#').next().unwrap_or(href)
 }
 
-/// `[west, south, east, north]` of a 2D or 3D STAC bbox.
+/// `[west, south, east, north]` of a 2D or 3D STAC bbox, all longitudes if it crosses the date line.
 fn bbox_bounds(bbox: &[f64]) -> Option<[f64; 4]> {
     match *bbox {
+        [west, south, east, north] | [west, south, _, east, north, _] if west > east => {
+            Some([-180.0, south, 180.0, north])
+        }
         [west, south, east, north] | [west, south, _, east, north, _] => Some([west, south, east, north]),
         _ => None,
+    }
+}
+
+/// Whether `url` has the scheme, host and port of `api`.
+fn same_origin(url: &str, api: &str) -> bool {
+    match (reqwest::Url::parse(url), reqwest::Url::parse(api)) {
+        (Ok(url), Ok(api)) => url.origin() == api.origin(),
+        _ => false,
     }
 }
 
@@ -960,6 +1024,138 @@ mod tests {
             .filter(|request| request.url.path() == "/search")
             .count();
         assert_eq!(pages, 1 + 3);
+    }
+
+    #[tokio::test]
+    async fn a_next_link_outside_the_api_origin_fails_the_search() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/collections/ortho"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "extent": {"spatial": {"bbox": [[-122.5, 37.7, -122.4, 37.9]]}},
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .and(body_partial_json(json!({"limit": 1})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("a", "memory://a.tif")],
+            })))
+            .with_priority(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [item("a", "memory://a.tif")],
+                "links": [{"rel": "next", "href": "http://internal.invalid/admin", "method": "POST", "body": {"drop": "everything"}}],
+            })))
+            .with_priority(2)
+            .mount(&server)
+            .await;
+        let source = stac_source(&server).await;
+
+        let error = source
+            .get_tile(TileCoord::new_unchecked(16, 10_477, 25_326), None)
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            std::error::Error::source(&error).map(ToString::to_string),
+            Some(format!(
+                "The STAC API at {} links its next search page to http://internal.invalid/admin, outside its origin",
+                server.uri()
+            ))
+        );
+    }
+
+    #[tokio::test]
+    async fn an_asset_that_orders_its_bands_unlike_the_first_item_is_skipped() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/collections/ortho"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "extent": {"spatial": {"bbox": [[-122.5, 37.7, -122.4, 37.9]]}},
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .and(body_partial_json(json!({"limit": 1})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [{
+                    "type": "Feature",
+                    "id": "a",
+                    "bbox": [-122.454_75, 37.790_5, -122.437_3, 37.802_2],
+                    "properties": {"datetime": "2022-05-18T16:00:00Z"},
+                    "assets": {"image": {
+                        "href": "memory://a.tif",
+                        "eo:bands": [{"common_name": "red"}, {"common_name": "green"}, {"common_name": "blue"}],
+                    }},
+                }],
+            })))
+            .with_priority(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [{
+                    "type": "Feature",
+                    "id": "b",
+                    "bbox": [-122.454_75, 37.790_5, -122.437_3, 37.802_2],
+                    "properties": {"datetime": "2022-05-18T16:00:00Z"},
+                    "assets": {"image": {
+                        "href": "memory://b.tif",
+                        "eo:bands": [{"common_name": "blue"}, {"common_name": "green"}, {"common_name": "red"}],
+                    }},
+                }],
+            })))
+            .with_priority(2)
+            .mount(&server)
+            .await;
+        let source = stac_source(&server).await;
+
+        let tile = source
+            .get_tile(TileCoord::new_unchecked(16, 10_477, 25_326), None)
+            .await
+            .unwrap();
+
+        assert!(tile.is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_item_whose_bbox_crosses_the_date_line_is_searched_at_every_longitude() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/collections/ortho"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "extent": {"spatial": {"bbox": [[-122.5, 37.7, -122.4, 37.9]]}},
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "features": [{
+                    "type": "Feature",
+                    "id": "a",
+                    "bbox": [179.0, 37.790_5, -122.437_3, 37.802_2],
+                    "properties": {"datetime": "2022-05-18T16:00:00Z"},
+                    "assets": {"image": {"href": "memory://a.tif"}},
+                }],
+            })))
+            .mount(&server)
+            .await;
+        let source = stac_source(&server).await;
+
+        let tile = source
+            .get_tile(TileCoord::new_unchecked(16, 10_477, 25_326), None)
+            .await
+            .unwrap();
+
+        assert!(!tile.is_empty());
     }
 
     #[tokio::test]
