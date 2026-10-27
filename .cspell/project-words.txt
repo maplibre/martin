@@ -46,6 +46,7 @@ foss
 fsspec
 fsst
 gdal
+gdaltindex
 gdalwarp
 geodata
 geofabrik
@@ -109,6 +110,7 @@ oklch
 onthegomap
 openlayers
 openmaptiles
+optfile
 osmus
 overturemaps
 PDOK
@@ -177,6 +179,10 @@ usize
 utoipa
 valgrind
 varchar
+vsiaz
+vsicurl
+vsigs
+vsis
 wagyu
 webui
 workspaced

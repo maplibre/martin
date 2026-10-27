@@ -1,6 +1,6 @@
-//! COG sources over a STAC catalog: Earth Search's NAIP collection replayed from a [`Cassette`],
-//! its assets served by a `RustFS` container standing in for the requester-pays `naip-analytic`
-//! bucket, filled with small synthetic COGs at the keys the items name.
+//! COG sources over NAIP in a `RustFS` container standing in for the requester-pays `naip-analytic`
+//! bucket, filled with small synthetic COGs: found by a STAC catalog (Earth Search's NAIP collection
+//! replayed from a [`Cassette`]), or listed by a tile index.
 //!
 //! Binary has to be built with `cog`, and Docker has to be running.
 
@@ -291,5 +291,38 @@ async fn a_search_paints_only_the_items_it_keeps() {
     let warnings = martin.take_log_lines("more items than it reads").join("\n");
     insta::assert_snapshot!(warnings.replace(&cassette.url(EARTH_SEARCH), "[EARTH_SEARCH]"), @" WARN A STAC search found more items than it reads; the rest are not painted stac.search=[EARTH_SEARCH]/v1/search tile=13/1309/3167 max_items_per_search=3");
     cassette.assert_no_misses();
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_index_reads_its_files_from_a_requester_pays_bucket() {
+    let rustfs = naip_bucket().await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              aws_endpoint: {endpoint}
+              aws_access_key_id: rustfsadmin
+              aws_secret_access_key: rustfsadmin
+              allow_http: true
+              aws_virtual_hosted_style_request: false
+              aws_request_payer: true
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: s3
+                  minzoom: 13
+                  maxzoom: 15
+                  nodata: 0
+            ",
+            endpoint = rustfs.endpoint(),
+        })
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/14/2619/6334").await;
+
+    assert_eq!(tile.status(), 200);
+    assert_image_matches(fixture("cog/tile_index/expected/14_2619_6334.png"), tile.body());
     martin.stop().await;
 }

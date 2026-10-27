@@ -6006,6 +6006,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "spreet",
+ "sqlx",
  "strum 0.28.0",
  "tempfile",
  "testcontainers-modules",

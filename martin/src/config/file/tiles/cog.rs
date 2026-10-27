@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::cog::{
-    CogMosaicOptions, CogSource, CogStacOptions, HrefResolver, StacBand, StacOrder, StacSearchOptions,
+    CogMosaicOptions, CogSource, CogStacOptions, CogTileIndexOptions, DEFAULT_LOCATION_FIELD, HrefResolver, StacBand,
+    StacOrder, StacSearchOptions,
 };
 use martin_core::tiles::{BackendSource, BoxedSource};
 use object_store::{ObjectStore, ObjectStoreScheme};
@@ -64,6 +65,10 @@ pub struct CogConfig {
     /// Sources that each serve the COGs a STAC API finds for each tile, by source ID.
     #[serde(default)]
     pub stac: BTreeMap<String, CogStacSource>,
+
+    /// Sources that each serve the COGs a tile index lists, by source ID.
+    #[serde(default)]
+    pub tile_index: BTreeMap<String, CogTileIndexSource>,
 
     /// Authentication, endpoint, and HTTP client settings for remote COGs.
     #[serde(flatten)]
@@ -368,6 +373,108 @@ impl CogStacSource {
     }
 }
 
+/// A source that serves the COGs a tile index lists, reprojected onto Web Mercator.
+///
+/// The index is a `GeoPackage` with one row per file: its footprint in `EPSG:4326` and its location,
+/// as written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is
+/// painted from the files whose footprints touch it, in the index's row order: a pixel takes the first
+/// file's data for it, so later files only fill what earlier ones leave empty. Files may be in Web
+/// Mercator or a UTM zone, and are opened on first use. Tiles are PNG, transparent where no file has data.
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct CogTileIndexSource {
+    /// The `GeoPackage` tile index, e.g. `/data/naip_ca_2020.gpkg`.
+    pub path: PathBuf,
+    /// The feature table to read. When unset, the only feature table in the file.
+    pub layer: Option<String>,
+    /// The column holding each file's location: a URL, a GDAL `/vsis3/`, `/vsigs/`, `/vsiaz/` or
+    /// `/vsicurl/` path, or a local path relative to the index file. When unset, `location`.
+    pub location_field: Option<String>,
+    /// The bands to serve, by number (counted from 1): one for gray tiles, three for RGB tiles.
+    /// When unset, `[1, 2, 3]`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &[1, 2, 3]))]
+    pub bands: Option<Vec<NonZeroUsize>>,
+    /// The lowest zoom served. Lower zooms are empty.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
+    pub minzoom: u8,
+    /// The highest zoom served. When unset, the zoom at which the first file is fully detailed.
+    pub maxzoom: Option<u8>,
+    /// The sample value of pixels without data, overriding each file's own nodata value.
+    pub nodata: Option<u8>,
+    /// How many opened files are kept at once. When unset, 1000.
+    pub max_cached_files: Option<u64>,
+    /// How long an opened file is kept before it is opened again. Supports human-readable formats:
+    /// "10m", "1h", "30s". When unset, "10m".
+    #[serde(default, with = "humantime_serde")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"10m")
+    )]
+    pub file_expiry: Option<Duration>,
+    /// How long an opened file is kept without being used. Supports human-readable formats:
+    /// "10m", "1h", "30s". When unset, files are kept until `file_expiry`.
+    #[serde(default, with = "humantime_serde")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<String>", example = &"5m")
+    )]
+    pub file_idle_timeout: Option<Duration>,
+    /// Zoom-level bounds for tile caching.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CachePolicyShape")
+    )]
+    pub cache: CachePolicy,
+    /// `Cache-Control` response header for this source.
+    /// Overrides the top-level `cache_control` default.
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
+    pub cache_control: Option<CacheControlHeader>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl CogTileIndexSource {
+    /// The per-source `cache_control` setting.
+    pub(crate) fn process(&self) -> ProcessConfig {
+        ProcessConfig {
+            convert_to_mlt: None,
+            convert_to_mvt: None,
+            cache_control: self.cache_control.clone(),
+            #[cfg(feature = "processing")]
+            convert_to_hillshade: None,
+            #[cfg(feature = "processing")]
+            convert_to_contour: None,
+        }
+    }
+
+    /// The options [`CogSource::new_tile_index`] takes.
+    fn options(&self) -> CogTileIndexOptions {
+        CogTileIndexOptions {
+            path: self.path.clone(),
+            layer: self.layer.clone(),
+            location_field: self
+                .location_field
+                .clone()
+                .unwrap_or_else(|| DEFAULT_LOCATION_FIELD.to_owned()),
+            min_zoom: self.minzoom,
+            max_zoom: self.maxzoom,
+            bands: self.bands.as_ref().map_or_else(
+                || vec![0, 1, 2],
+                |bands| bands.iter().map(|band| band.get() - 1).collect(),
+            ),
+            nodata: self.nodata,
+            max_cached_files: self.max_cached_files.unwrap_or(DEFAULT_MOSAIC_CACHED_FILES),
+            file_expiry: self.file_expiry.unwrap_or(DEFAULT_MOSAIC_FILE_EXPIRY),
+            file_idle_timeout: self.file_idle_timeout,
+        }
+    }
+}
+
 /// A mosaic path with credentials, query and fragment removed from its remote location.
 fn sanitized_mosaic_path(path: &str) -> String {
     let (location, template) = split_mosaic_path(path);
@@ -403,6 +510,7 @@ impl Default for CogConfig {
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             mosaics: BTreeMap::new(),
             stac: BTreeMap::new(),
+            tile_index: BTreeMap::new(),
             object_store: ObjectStoreConfig::default(),
             unrecognized: UnrecognizedValues::default(),
         }
@@ -434,6 +542,9 @@ impl Serialize for CogConfig {
         }
         if !self.stac.is_empty() {
             map.serialize_entry("stac", &self.stac)?;
+        }
+        if !self.tile_index.is_empty() {
+            map.serialize_entry("tile_index", &self.tile_index)?;
         }
         self.object_store.serialize_entries(&mut map)?;
         map.end()
@@ -614,7 +725,59 @@ impl CogConfig {
         (results, warnings)
     }
 
-    /// Builds the stores STAC asset hrefs are read from, with this config's object-store settings,
+    /// Opens every configured tile index source, at most [`MAX_CONCURRENT_SOURCE_INITS`] at once.
+    /// A source that fails to open is reported as a warning and stays in the config.
+    async fn resolve_tile_index(
+        &mut self,
+        idr: &IdResolver,
+        default_cache: CachePolicy,
+    ) -> (Vec<BoxedSource>, Vec<TileSourceWarning>) {
+        let planned: Vec<_> = mem::take(&mut self.tile_index)
+            .into_iter()
+            .map(|(id, index)| (idr.resolve(&id, index.path.display().to_string()), index))
+            .collect();
+        let resolve = self.href_resolver();
+        let default_cache = &default_cache;
+        let opened = stream::iter(planned)
+            .map(|(id, index)| {
+                let resolve = &resolve;
+                async move {
+                    let cache = if index.cache.is_empty() {
+                        CachePolicy::disabled()
+                    } else {
+                        index.cache.or(default_cache)
+                    };
+                    let result = CogSource::new_tile_index(id.clone(), index.options(), resolve, cache.zoom()).await;
+                    (id, index, result)
+                }
+            })
+            .buffered(MAX_CONCURRENT_SOURCE_INITS)
+            .collect::<Vec<_>>()
+            .await;
+
+        let mut results = Vec::new();
+        let mut warnings = Vec::new();
+        for (id, index, result) in opened {
+            match result {
+                Ok(src) => {
+                    info!(
+                        source.id = %id,
+                        source.tile_index = %index.path.display(),
+                        "Configured tile index source"
+                    );
+                    results.push(BackendSource::Cog(src).boxed_on(None));
+                }
+                Err(err) => warnings.push(TileSourceWarning::SourceError {
+                    source_id: id.clone(),
+                    error: err.to_string(),
+                }),
+            }
+            self.tile_index.insert(id, index);
+        }
+        (results, warnings)
+    }
+
+    /// Builds the stores STAC asset hrefs and tile index locations are read from, with this config's object-store settings,
     /// one per host and first path segment, which holds the bucket or container of path-style URLs.
     /// An href with a query (e.g. a presigned URL) gets a store of its own.
     fn href_resolver(&self) -> HrefResolver {
@@ -646,7 +809,7 @@ impl CogConfig {
     }
 }
 
-/// Resolves the COG sources and files, then the mosaics and STAC sources.
+/// Resolves the COG sources and files, then the mosaics, STAC and tile index sources.
 pub async fn resolve_cog(
     config: &mut FileConfig<CogConfig>,
     idr: &IdResolver,
@@ -657,9 +820,12 @@ pub async fn resolve_cog(
     let (mosaics, mosaic_warnings) = config.custom.resolve_mosaics(idr, default_cache.clone()).await;
     sources.extend(mosaics);
     warnings.extend(mosaic_warnings);
-    let (stac, stac_warnings) = config.custom.resolve_stac(idr, default_cache).await;
+    let (stac, stac_warnings) = config.custom.resolve_stac(idr, default_cache.clone()).await;
     sources.extend(stac);
     warnings.extend(stac_warnings);
+    let (indexed, index_warnings) = config.custom.resolve_tile_index(idr, default_cache).await;
+    sources.extend(indexed);
+    warnings.extend(index_warnings);
     Ok((sources, warnings))
 }
 
@@ -798,6 +964,25 @@ mod tests {
         insta::assert_debug_snapshot!(config.get_unrecognized_keys(), @r#"
         {
             "cog.stac.naip.min_zoom",
+        }
+        "#);
+    }
+
+    #[tokio::test]
+    async fn unrecognized_tile_index_keys_are_reported() {
+        let mut config: Config = serde_saphyr::from_str(indoc::indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: /data/naip_ca_2020.gpkg
+                  minzoom: 16
+                  min_zoom: 16
+        "})
+        .unwrap();
+        config.finalize().await.unwrap();
+        insta::assert_debug_snapshot!(config.get_unrecognized_keys(), @r#"
+        {
+            "cog.tile_index.naip.min_zoom",
         }
         "#);
     }
