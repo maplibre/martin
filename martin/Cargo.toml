@@ -122,6 +122,7 @@ rendering = [
     "dep:image",
     "dep:png",
     "dep:quantizr",
+    "dep:tiff",
     "dep:webp",
 ]
 fips = ["rustls/fips"]
@@ -260,6 +261,7 @@ smallvec = { version = "1.15", features = ["const_new", "union"] }
 static-files = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = [
     "fs",

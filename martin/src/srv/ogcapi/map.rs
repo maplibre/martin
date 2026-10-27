@@ -5,7 +5,7 @@ use actix_web::error::ErrorNotAcceptable;
 use actix_web::http::header::{Accept, ContentType, HeaderValue, Quality, VARY};
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, route};
-use martin_core::styles::{RenderParams, RenderStyle, StyleError, StyleSources};
+use martin_core::styles::{ImageQualities, RenderParams, RenderStyle, StyleError, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, webmercator_to_wgs84, wgs84_to_webmercator};
 use serde::Deserialize;
 use tracing::error;
@@ -16,7 +16,7 @@ use super::generated_style::{Drawn, drawable, generated_style};
 use crate::config::file::srv::SrvConfig;
 use crate::source::SourceEntry;
 use crate::srv::server::map_error;
-use crate::srv::styles_rendering::{ImageFormatRequest, encode_scaled_image_response};
+use crate::srv::styles_rendering::{ImageFormatRequest, encode_response, encode_scaled_image_response};
 use crate::tile_source_manager::TileSourceManager;
 
 /// The OGC URI of web mercator, the CRS every map is rendered in.
@@ -50,12 +50,13 @@ const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
 pub(super) const WORLD: [f64; 4] = [-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE];
 
 /// The conformance classes of OGC API - Maps this API implements when it renders maps.
-pub(super) const MAPS_CONFORMS_TO: [&str; 5] = [
+pub(super) const MAPS_CONFORMS_TO: [&str; 6] = [
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
+    "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff",
 ];
 
 /// Whether `req` reaches a server that renders maps, built with rendering and with it enabled.
@@ -359,28 +360,102 @@ fn crs_of(crs: Option<&str>) -> Result<Crs, OgcApiError> {
     }
 }
 
-/// The image format `req` accepts most, PNG when it accepts any.
-///
-/// Like tiles, `Accept` entries with `q=0` are skipped and a header that accepts no map format is a 406.
-fn format_of(req: &HttpRequest) -> actix_web::Result<ImageFormatRequest> {
-    let Some(Accept(mut accepted)) = req.get_header::<Accept>() else {
-        return Ok(ImageFormatRequest::Png);
-    };
-    if accepted.is_empty() {
-        return Ok(ImageFormatRequest::Png);
+/// Image format of a map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MapFormat {
+    /// PNG with an alpha channel.
+    Png,
+    /// JPEG, without transparency.
+    Jpeg,
+    /// `GeoTIFF` in web mercator.
+    Tiff,
+}
+
+impl MapFormat {
+    /// The format `req` accepts most, PNG when it accepts any.
+    ///
+    /// Like tiles, `Accept` entries with `q=0` are skipped and a header that accepts no map format is a 406.
+    fn of(req: &HttpRequest) -> actix_web::Result<Self> {
+        let Some(Accept(mut accepted)) = req.get_header::<Accept>() else {
+            return Ok(Self::Png);
+        };
+        if accepted.is_empty() {
+            return Ok(Self::Png);
+        }
+        accepted.retain(|item| item.quality != Quality::ZERO);
+        accepted.sort_by_key(|item| Reverse(item.quality));
+        accepted
+            .iter()
+            .find_map(
+                |item| match (item.item.type_().as_str(), item.item.subtype().as_str()) {
+                    ("image", "png" | "*") | ("*", "*") => Some(Self::Png),
+                    ("image", "jpeg") => Some(Self::Jpeg),
+                    ("image", "tiff") => Some(Self::Tiff),
+                    _ => None,
+                },
+            )
+            .ok_or_else(|| ErrorNotAcceptable("Accept header does not contain any supported map format"))
     }
-    accepted.retain(|item| item.quality != Quality::ZERO);
-    accepted.sort_by_key(|item| Reverse(item.quality));
-    accepted
-        .iter()
-        .find_map(
-            |item| match (item.item.type_().as_str(), item.item.subtype().as_str()) {
-                ("image", "png" | "*") | ("*", "*") => Some(ImageFormatRequest::Png),
-                ("image", "jpeg") => Some(ImageFormatRequest::Jpeg),
-                _ => None,
-            },
-        )
-        .ok_or_else(|| ErrorNotAcceptable("Accept header does not contain any supported map format"))
+
+    /// `image` of `viewport`, scaled down to `size` when given, encoded in this format at `quality`, in a response with its media type.
+    async fn response(
+        self,
+        image: martin_core::styles::StaticImage,
+        viewport: Viewport,
+        size: Option<(u32, u32)>,
+        quality: ImageQualities,
+    ) -> HttpResponse {
+        match self {
+            Self::Png => encode_scaled_image_response(image, size, ImageFormatRequest::Png, None, quality).await,
+            Self::Jpeg => encode_scaled_image_response(image, size, ImageFormatRequest::Jpeg, None, quality).await,
+            Self::Tiff => {
+                encode_response(GEOTIFF, move || match size {
+                    Some((width, height)) => geotiff(
+                        &image::imageops::resize(
+                            image.as_image(),
+                            width,
+                            height,
+                            image::imageops::FilterType::Triangle,
+                        ),
+                        &viewport,
+                    ),
+                    None => geotiff(image.as_image(), &viewport),
+                })
+                .await
+            }
+        }
+    }
+}
+
+/// Media type of a `GeoTIFF`.
+const GEOTIFF: &str = "image/tiff; application=geotiff";
+
+/// The `GeoTIFF` keys of a raster in web mercator: version 1.1.0 with three keys, a projected model, pixels as areas and EPSG:3857.
+const WEB_MERCATOR_GEO_KEYS: [u16; 16] = [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857];
+
+/// `image` as a deflated `GeoTIFF` placed at the area of `viewport`.
+fn geotiff(image: &image::RgbaImage, viewport: &Viewport) -> tiff::TiffResult<Vec<u8>> {
+    use tiff::encoder::colortype::RGB8;
+    use tiff::encoder::{Compression, DeflateLevel, TiffEncoder};
+    use tiff::tags::{ExtraSamples, Tag};
+
+    let [min_x, _, max_x, max_y] = viewport.bounds;
+    let pixel = (max_x - min_x) / f64::from(image.width());
+    let mut tiff = std::io::Cursor::new(Vec::new());
+    let mut encoder = TiffEncoder::new(&mut tiff)?.with_compression(Compression::Deflate(DeflateLevel::default()));
+    let mut tiff_image = encoder.new_image::<RGB8>(image.width(), image.height())?;
+    tiff_image.extra_samples(&[ExtraSamples::UnassociatedAlpha])?;
+    tiff_image
+        .encoder()
+        .write_tag(Tag::ModelPixelScaleTag, &[pixel, pixel, 0.0][..])?;
+    tiff_image
+        .encoder()
+        .write_tag(Tag::ModelTiepointTag, &[0.0, 0.0, 0.0, min_x, max_y, 0.0][..])?;
+    tiff_image
+        .encoder()
+        .write_tag(Tag::GeoKeyDirectoryTag, &WEB_MERCATOR_GEO_KEYS[..])?;
+    tiff_image.write_data(image.as_raw())?;
+    Ok(tiff.into_inner())
 }
 
 /// The map of `style` that `query` asks for, showing `default_bounds` unless it asks for another area.
@@ -391,7 +466,7 @@ pub(super) async fn render_map(
     query: &MapQuery,
     default_bounds: [f64; 4],
 ) -> actix_web::Result<HttpResponse> {
-    let format = format_of(req)?;
+    let format = MapFormat::of(req)?;
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
     let (render_width, render_height) = viewport.render_size();
@@ -412,8 +487,8 @@ pub(super) async fn render_map(
     };
     let size = ((render_width, render_height) != (viewport.width, viewport.height))
         .then_some((viewport.width, viewport.height));
-    let mut response =
-        encode_scaled_image_response(image, size, format, styles.png_max_colors(), styles.image_quality()).await;
+    let mut response = format.response(image, viewport, size, styles.image_quality()).await;
+    response.head_mut().set_camel_case_headers(true);
     response.headers_mut().append(VARY, HeaderValue::from_static("accept"));
     if response.status().is_success() {
         let headers = response.headers_mut();
@@ -438,7 +513,7 @@ pub(super) async fn render_map(
         operation_id = "ogc.dataset.style.getMap",
         params(("style_id" = String, Path, description = "Style ID"), MapQuery),
         responses(
-            (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"))),
+            (status = 200, description = "Map of the style", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such style"),
             (status = 406, description = "No supported map format in Accept header"),
@@ -468,7 +543,7 @@ pub async fn get_style_map(
         operation_id = "ogc.collection.getMap",
         params(("collection_id" = String, Path, description = "Collection ID, the ID of a source"), MapQuery),
         responses(
-            (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"))),
+            (status = 200, description = "Map of the collection", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
             (status = 400, description = "Invalid map parameters"),
             (status = 404, description = "No such collection, or it can't be drawn as a map"),
             (status = 406, description = "No supported map format in Accept header"),

@@ -93,7 +93,7 @@ With [rendering](sources-styles/rendering.md) enabled, Martin also renders maps 
 `/ogc/collections/{sourceID}/map` is a raster source as one image.
 Only raster sources on `WebMercatorQuad` have such a map, and their collections link it; vector data is drawn through a style.
 Each collection also gives its `storageCrs`, the CRS of its grid, with its bounds in that CRS when Martin can convert them.
-A map is in the format the `Accept` header weighs highest, ignoring `q=0`: PNG (also for `*/*` or no header) or JPEG.
+A map is in the format the `Accept` header weighs highest, ignoring `q=0`: PNG (also for `*/*` or no header), JPEG or TIFF.
 
 | Parameter           | Meaning                                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------------------|
@@ -106,6 +106,7 @@ A map is in the format the `Accept` header weighs highest, ignoring `q=0`: PNG (
 
 Maps are always in web mercator, which the `Content-Crs` header states.
 The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
+PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
 
 ## Conformance
 
@@ -115,7 +116,7 @@ The `Content-Bbox` header gives the area shown, in metres: when its shape differ
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
 - OGC API - Styles core and global styles, when Martin is built with styles
-- OGC API - Maps core, collection map, styled map, PNG and JPEG, when rendering is enabled
+- OGC API - Maps core, collection map, styled map, PNG, JPEG and TIFF, when rendering is enabled
 
 We run the official OGC test suite against Martin in CI.
 

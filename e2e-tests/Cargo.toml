@@ -63,6 +63,7 @@ pretty_assertions.workspace = true
 rstest.workspace = true
 serde-saphyr.workspace = true
 test_each_file.workspace = true
+tiff.workspace = true
 
 [lints]
 workspace = true
