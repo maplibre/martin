@@ -716,6 +716,11 @@ test-cog: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
+# Run the COG tests against a STAC API replayed from a cassette, its files in a RustFS container (needs Docker)
+test-cog-stac: fetch (cargo-install 'cargo-nextest')
+    cargo build --package martin --no-default-features --features cog
+    cargo nextest run --package martin-e2e-tests --features test-stac --test cog_stac
+
 # Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
 sync-cog-py-stubs:
     LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \

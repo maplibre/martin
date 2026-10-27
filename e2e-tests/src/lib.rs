@@ -13,6 +13,7 @@ mod martin_cp;
 mod martin_test_generate;
 mod mbtiles;
 mod pmtiles;
+mod rustfs;
 mod statics;
 mod team_engine;
 
@@ -38,6 +39,7 @@ pub use crate::mbtiles::{
     open_read_write, patch_tiles, summary, summary_filters, tile_listing, tiles,
 };
 pub use crate::pmtiles::{LEAFY_ZOOM, assert_pmtiles_matches_mbtiles, leafy_pmtiles, leafy_tile, vector_pmtiles};
+pub use crate::rustfs::RustFs;
 pub use crate::statics::StaticFiles;
 pub use crate::team_engine::TeamEngine;
 
