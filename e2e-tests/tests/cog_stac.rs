@@ -6,6 +6,7 @@
 
 #![cfg(feature = "test-stac")]
 
+use image::ImageFormat;
 use indoc::formatdoc;
 use martin_e2e_tests::{Cassette, Martin, RustFs, assert_image_matches, fixture, round_floats};
 
@@ -57,6 +58,50 @@ async fn a_stac_source_paints_each_tile_from_the_newest_items() {
     assert_eq!(tile.status(), 200);
     assert_eq!(tile.header("content-type"), Some("image/png"));
     assert_image_matches(fixture("cog/stac/expected/14_2619_6334.png"), tile.body());
+    cassette.assert_no_misses();
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_stac_source_is_re_encoded_as_the_configured_format() {
+    let rustfs = naip_bucket().await;
+    let cassette = Cassette::serving(&[EARTH_SEARCH]).await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              aws_endpoint: {endpoint}
+              aws_access_key_id: rustfsadmin
+              aws_secret_access_key: rustfsadmin
+              allow_http: true
+              aws_virtual_hosted_style_request: false
+              aws_request_payer: true
+              stac:
+                naip:
+                  url: {earth_search}/v1
+                  collection: naip
+                  asset: image
+                  datetime: 2020-01-01T00:00:00Z/..
+                  query:
+                    naip:state:
+                      eq: ca
+                  minzoom: 13
+                  maxzoom: 15
+                  nodata: 0
+                  format: jpeg
+            ",
+            endpoint = rustfs.endpoint(),
+            earth_search = cassette.url(EARTH_SEARCH),
+        })
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/14/2619/6334").await;
+
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("image/jpeg"));
+    assert_eq!(tile.image_format(), ImageFormat::Jpeg);
+    assert_eq!(martin.get("/naip").await.json()["format"], "jpeg");
     cassette.assert_no_misses();
     martin.stop().await;
 }
