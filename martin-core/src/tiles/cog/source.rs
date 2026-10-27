@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cog_tiles::{
-    AsyncBackend as _, AsyncCogMosaic, AsyncCogReader, CogInfo, FileBackend, ObjectStoreBackend, TileFormat,
+    AsyncBackend as _, AsyncCogMosaic, AsyncCogReader, AsyncIndexedMosaic, CogInfo, FileBackend, ObjectStoreBackend,
+    TileFormat,
 };
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
@@ -22,6 +23,7 @@ pub(super) enum CogTiles {
     File(Arc<AsyncCogReader<FileBackend>>),
     ObjectStore(Arc<AsyncCogReader<ObjectStoreBackend>>),
     Mosaic(Arc<AsyncCogMosaic>),
+    Indexed(Arc<AsyncIndexedMosaic>),
 }
 
 /// Tile source that reads from one `Cloud Optimized GeoTIFF` file, or from a mosaic of them.
@@ -185,6 +187,7 @@ impl Source for CogSource {
             CogTiles::File(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
             CogTiles::ObjectStore(reader) => reader.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
             CogTiles::Mosaic(mosaic) => mosaic.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
+            CogTiles::Indexed(mosaic) => mosaic.get_tile(cog_coord(xyz)?).await.map_err(CogError::from)?,
         };
         Ok(tile.unwrap_or_default())
     }

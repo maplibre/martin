@@ -95,9 +95,11 @@ multipolygon
 multisurface
 mydb
 mypass
+naip
 newtype
 nextest
 nixpkgs
+nodata
 notnull
 noto
 NZTM
@@ -147,6 +149,7 @@ sqlx
 srid
 sslinfo
 sslmode
+stac
 stackoverflow
 stmts
 Straße
