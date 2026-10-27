@@ -1659,6 +1659,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tile-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tile format
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cog-hot-reload" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2954,7 +2965,7 @@ a request for <code>z/x/y</code> is routed to the file of its ancestor tile at t
 <li>A tile is painted from the items over it in <code>order</code>.
   A pixel takes the first item that has data for it, so later items only fill what earlier ones leave empty (outside their extent, or <code>nodata</code> in all served bands); painting stops once every pixel is set.
   With <code>order: newest</code>, every pixel shows its most recent scene.</li>
-<li>Tiles are 256 px PNGs, transparent where no item has data. Tiles no item covers are served as empty responses.</li>
+<li>Tiles are 256 px PNGs, transparent where no item has data, unless <a href="#tile-format"><code>format</code></a> says otherwise. Tiles no item covers are served as empty responses.</li>
 <li>Files are reprojected with nearest-neighbor resampling, from the coarsest overview that is still at least as detailed as the tile.
   A tile more than 4 times coarser than that overview is refused, so files need overviews down to <code>minzoom</code>.
   A pixel whose alpha band is 0 counts as empty, like <code>nodata</code>.
@@ -3005,9 +3016,62 @@ GDAL's <code>gdaltindex</code> writes one from any set of files, local or remote
   They are read with the <code>cog</code> object-store settings.</li>
 <li>A tile is painted from the files whose footprints touch it, in the index's row order: a pixel takes the first file that has data for it, so later files only fill what earlier ones leave empty.
   To have the newest imagery win, list it first.</li>
-<li>Tiles are 256 px PNGs, transparent where no file has data, and are resampled, reprojected and checked like those of a <a href="#imagery-from-a-stac-api">STAC source</a>.</li>
+<li>Tiles are 256 px PNGs, transparent where no file has data, unless <a href="#tile-format"><code>format</code></a> says otherwise. They are resampled, reprojected and checked like those of a <a href="#imagery-from-a-stac-api">STAC source</a>.</li>
 </ul>
 <p>The guide <a href="../recipe-cog-naip/">Serving NAIP imagery from S3 with a tile index</a> walks through this end to end, with a map page.</p>
+<h2 id="tile-format">Tile format</h2>
+<p>Every COG source can re-encode its tiles instead, with <code>format</code>, <code>quality</code> and <code>background</code>.
+Set them on a mosaic, STAC or tile index source, or at the top of <code>cog</code> for the files under <code>paths</code> and <code>sources</code>.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">cog</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="c1"># The COG files under `paths` and `sources`</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webp</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">quality</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lossless</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">tile_index</span><span class="p">:</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">naip</span><span class="p">:</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/naip_ca_2020.gpkg</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="c1"># `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are passed through and others are PNG.</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">      </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webp</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">      </span><span class="c1"># 1 (smallest) to 100 (best), or `lossless` for `webp`. When unset, 80.</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">      </span><span class="nt">quality</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="nt">naip_jpeg</span><span class="p">:</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/naip_ca_2020.gpkg</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">      </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">      </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jpeg</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">      </span><span class="c1"># The CSS color shown where tiles are transparent, as JPEG has no alpha. When unset, white.</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">      </span><span class="nt">background</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">black</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>format</code></th>
+<th>transparency</th>
+<th>256 px NAIP tile vs PNG</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>png</code></td>
+<td>kept</td>
+<td>1x</td>
+</tr>
+<tr>
+<td><code>webp</code></td>
+<td>kept exactly, even lossy</td>
+<td>~8x smaller at 80</td>
+</tr>
+<tr>
+<td><code>jpeg</code></td>
+<td>painted over <code>background</code></td>
+<td>~5x smaller at 80</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A set <code>format</code> decodes every tile and encodes it again, also JPEG and WebP tiles that would be passed through, so each re-encode of lossy tiles loses detail again.</li>
+<li>A lossy WebP takes about 4 ms per 256 px tile and a JPEG about 1 ms; both run on a blocking thread, not the request worker.</li>
+<li><code>format</code> cannot be combined with <code>convert_to_hillshade</code> or <code>convert_to_contour</code>, which encode their own tiles.</li>
+</ul>
 <h2 id="cog-hot-reload">COG Hot Reload</h2>
 <p>Martin picks up changed COGs without a restart, except for local files listed one by one.
 How quickly depends on where the COG is:</p>
@@ -3041,18 +3105,18 @@ A file unused for <code>file_idle_timeout</code> is closed early and also opened
 <p>Remote COGs are read with byte-range requests, so Martin fetches the TIFF metadata and image chunks it needs instead of downloading the complete object first.
 Only <code>.tif</code> and <code>.tiff</code> objects under a listed prefix are published, using the file stem as the initial source ID.
 An object that is also configured under <code>cog.sources</code> is skipped by the listing, so it is served once, under its configured ID and with its own settings.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">cog</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1m</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://localhost:9000</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">us-east-1</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">access_key_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_ACCESS_KEY_ID}</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">secret_access_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_SECRET_ACCESS_KEY}</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">mosaic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/mosaic.tif</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">    </span><span class="nt">raster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tiles.example.org/mosaic.tif</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">cog</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">reload_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1m</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://localhost:9000</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">us-east-1</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">access_key_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_ACCESS_KEY_ID}</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">secret_access_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${AWS_SECRET_ACCESS_KEY}</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nt">mosaic</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/imagery/mosaic.tif</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">raster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tiles.example.org/mosaic.tif</span>
 </span></code></pre></div>
 <p>Remote files are read with byte-range requests, so Martin fetches only the metadata and tile or image chunks it needs instead of downloading the complete object first.
 The same option names and credential-resolution rules apply to PMTiles and COG sources.
@@ -3652,15 +3716,15 @@ For quick access to tiles in TIFF files, Martin relies on the requirements/recom
 </ul>
 <h3 id="cog-generation-with-gdal">COG generation with GDAL</h3>
 <p>You could generate cog with <code>gdal_translate</code> or <code>gdalwarp</code>. See more details in <a href="https://gdal.org/en/latest/drivers/raster/cog.html">gdal doc</a>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># gdal-bin installation</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># sudo apt update</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># sudo apt install gdal-bin</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># gdalwarp, warping to Web Mercator and aligning every level to the tile grid</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># or gdal_translate</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># gdal-bin installation</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># sudo apt update</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># sudo apt install gdal-bin</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># gdalwarp, warping to Web Mercator and aligning every level to the tile grid</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># or gdal_translate</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG<span class="w"> </span>-co<span class="w"> </span><span class="nv">TILING_SCHEME</span><span class="o">=</span>GoogleMapsCompatible
 </span></code></pre></div>
 
 

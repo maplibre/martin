@@ -1110,6 +1110,8 @@ cache:
 # When unset, `PMTiles` and `MBTiles` sources are `max-age=0, stale-while-revalidate=86400` while other sources don't set an header, relying on browser-specific heuristics.
 cache_control: null
 cog:
+  # The CSS color painted under transparent `jpeg` pixels, white when unset.
+  background: null
   # Zoom-level bounds for caching the tiles of every COG source without its own `cache`.
   # Overrides the top-level `cache` bounds.
   cache:
@@ -1125,10 +1127,14 @@ cog:
     minzoom: 0
   # A list of directories whose subdirectories are each published under the subdirectory's name
   collections: []
+  # The format every tile is re-encoded as, `png`, `webp` or `jpeg`, instead of the source's usual output.
+  format: null
   # Sources that each serve many COG files as one, by source ID.
   mosaics: {}
   # A list of file paths
   paths: []
+  # How lossy `webp` and `jpeg` tiles are, from 1 (smallest) to 100 (best) or `lossless` for `webp`, 80 when unset.
+  quality: null
   # Whether `paths` are scanned recursively
   recursive: false
   # How often configured remote objects (`s3://`, `https://`, …) are re-checked for
@@ -3156,7 +3162,7 @@ cog:
 - At startup, Martin reads the collection for its extent and band names, and opens the first item that matches the filters to check that it can be served. A source that cannot is reported like any other invalid source.
 - One search covers one tile at `search_zoom`, and is kept for `search_expiry`: every tile below it is served from that one search. Each search follows the API's `next` links until it has read `max_items_per_search` items, sorted by `datetime` (and `id`, so pages do not skip items of the same `datetime`).
 - A tile is painted from the items over it in `order`. A pixel takes the first item that has data for it, so later items only fill what earlier ones leave empty (outside their extent, or `nodata` in all served bands); painting stops once every pixel is set. With `order: newest`, every pixel shows its most recent scene.
-- Tiles are 256 px PNGs, transparent where no item has data. Tiles no item covers are served as empty responses.
+- Tiles are 256 px PNGs, transparent where no item has data, unless [`format`](<#tile-format>) says otherwise. Tiles no item covers are served as empty responses.
 - Files are reprojected with nearest-neighbor resampling, from the coarsest overview that is still at least as detailed as the tile. A tile more than 4 times coarser than that overview is refused, so files need overviews down to `minzoom`. A pixel whose alpha band is 0 counts as empty, like `nodata`. They must be tiled COGs with 8-bit samples stored pixel-interleaved, in Web Mercator or a UTM zone (EPSG:326xx, 327xx, 269xx, or 258xx). `NAD83` and `ETRS89` coordinates are read as `WGS84` ones, without a datum shift.
 - Asset `href`s are read with the `cog` object-store settings, so `s3://`, `gs://`, `az://` and `https://` assets all work.
 
@@ -3203,9 +3209,44 @@ cog:
 - The footprints must be in `EPSG:4326`, as `gdaltindex -t_srs EPSG:4326` writes them; each file may be in its own projection.
 - Locations may be URLs (`s3://`, `gs://`, `az://`, `https://`), GDAL `/vsis3/`, `/vsigs/`, `/vsiaz/` or `/vsicurl/` paths, or local paths, relative to the index file unless absolute. They are read with the `cog` object-store settings.
 - A tile is painted from the files whose footprints touch it, in the index's row order: a pixel takes the first file that has data for it, so later files only fill what earlier ones leave empty. To have the newest imagery win, list it first.
-- Tiles are 256 px PNGs, transparent where no file has data, and are resampled, reprojected and checked like those of a [STAC source](<#imagery-from-a-stac-api>).
+- Tiles are 256 px PNGs, transparent where no file has data, unless [`format`](<#tile-format>) says otherwise. They are resampled, reprojected and checked like those of a [STAC source](<#imagery-from-a-stac-api>).
 
 The guide [Serving NAIP imagery from S3 with a tile index](<https://maplibre.org/martin/recipe-cog-naip/index.md>) walks through this end to end, with a map page.
+
+## Tile format
+
+Every COG source can re-encode its tiles instead, with `format`, `quality` and `background`. Set them on a mosaic, STAC or tile index source, or at the top of `cog` for the files under `paths` and `sources`.
+
+```yaml
+cog:
+  # The COG files under `paths` and `sources`
+  format: webp
+  quality: lossless
+  tile_index:
+    naip:
+      path: /data/naip_ca_2020.gpkg
+      minzoom: 16
+      # `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are passed through and others are PNG.
+      format: webp
+      # 1 (smallest) to 100 (best), or `lossless` for `webp`. When unset, 80.
+      quality: 80
+    naip_jpeg:
+      path: /data/naip_ca_2020.gpkg
+      minzoom: 16
+      format: jpeg
+      # The CSS color shown where tiles are transparent, as JPEG has no alpha. When unset, white.
+      background: black
+```
+
+| `format` | transparency | 256 px NAIP tile vs PNG |
+| --- | --- | --- |
+| `png` | kept | 1x |
+| `webp` | kept exactly, even lossy | \~8x smaller at 80 |
+| `jpeg` | painted over `background` | \~5x smaller at 80 |
+
+- A set `format` decodes every tile and encodes it again, also JPEG and WebP tiles that would be passed through, so each re-encode of lossy tiles loses detail again.
+- A lossy WebP takes about 4 ms per 256 px tile and a JPEG about 1 ms; both run on a blocking thread, not the request worker.
+- `format` cannot be combined with `convert_to_hillshade` or `convert_to_contour`, which encode their own tiles.
 
 ## COG Hot Reload
 
