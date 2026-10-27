@@ -72,10 +72,12 @@ postgres = [
 ]
 unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 cog = [
+    "dep:async-trait",
     "dep:cog-tiles",
     "cog-tiles/mosaic",
     "dep:futures",
     "dep:object_store",
+    "dep:reqwest",
     "dep:serde_json",
     "_tiles",
 ]
@@ -118,6 +120,7 @@ maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
 backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }

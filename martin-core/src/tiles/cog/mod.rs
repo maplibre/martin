@@ -3,7 +3,9 @@
 mod errors;
 mod mosaic;
 mod source;
+mod stac;
 
 pub use crate::tiles::cog::errors::CogError;
 pub use crate::tiles::cog::mosaic::CogMosaicOptions;
 pub use crate::tiles::cog::source::CogSource;
+pub use crate::tiles::cog::stac::{CogStacOptions, HrefResolver, StacBand, StacIndex, StacOrder, StacSearchOptions};
