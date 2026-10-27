@@ -4,14 +4,14 @@ use bytes::Bytes;
 
 use crate::{CogError, CogResult, TileFormat, TilePixels, UnsupportedReason};
 
-/// How decoded tiles are encoded, read as gray, gray and alpha, RGB, or RGB and alpha by band count.
+/// The format and settings decoded tiles are encoded with.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TileEncoding {
     /// Lossless PNG, fast to encode and large.
     #[default]
     Png,
-    /// WebP, whose alpha stays lossless even when its colors are lossy.
+    /// WebP, with lossless alpha.
     #[cfg(feature = "webp")]
     Webp {
         /// The quality from 1 (smallest) to 100 (best), or `None` for lossless.
@@ -40,48 +40,69 @@ impl TileEncoding {
         }
     }
 
-    /// Encodes one decoded tile on the calling task.
+    /// Encodes one decoded tile on the calling task, naming `location` in errors.
     ///
     /// # Errors
     /// Returns an error if `pixels` has more than four bands, or the encoder fails.
-    pub fn encode(self, pixels: &TilePixels) -> CogResult<Bytes> {
-        self.encode_at(pixels, "tile")
-    }
-
-    /// Encodes one decoded tile, naming `location` in errors.
-    pub(crate) fn encode_at(self, pixels: &TilePixels, location: &str) -> CogResult<Bytes> {
-        if !(1..=4).contains(&pixels.bands()) {
-            return Err(CogError::unsupported(
+    pub fn encode(self, pixels: &TilePixels, location: &str) -> CogResult<Bytes> {
+        let channels = Channels::of(pixels.bands()).ok_or_else(|| {
+            CogError::unsupported(
                 location,
                 UnsupportedReason::EncodeSamples {
                     format: self.format(),
                     samples: pixels.bands(),
                 },
-            ));
-        }
+            )
+        })?;
         let backend_error = |e: Box<dyn std::error::Error + Send + Sync>| CogError::Backend {
             location: location.to_owned(),
             source: e,
         };
         match self {
-            Self::Png => encode_png(pixels).map_err(|e| backend_error(e.into())),
+            Self::Png => encode_png(pixels, channels).map_err(|e| backend_error(e.into())),
             #[cfg(feature = "webp")]
-            Self::Webp { quality } => Ok(encode_webp(pixels, quality)),
+            Self::Webp { quality } => Ok(encode_webp(pixels, channels, quality)),
             #[cfg(feature = "jpeg")]
             Self::Jpeg { quality, background } => {
-                encode_jpeg(pixels, quality, background).map_err(|e| backend_error(e.into()))
+                encode_jpeg(pixels, channels, quality, background).map_err(|e| backend_error(e.into()))
             }
         }
     }
 }
 
-/// Encodes a tile of 1 to 4 bands as PNG.
-fn encode_png(pixels: &TilePixels) -> Result<Bytes, png::EncodingError> {
-    let color = match pixels.bands() {
-        1 => png::ColorType::Grayscale,
-        2 => png::ColorType::GrayscaleAlpha,
-        3 => png::ColorType::Rgb,
-        _ => png::ColorType::Rgba,
+/// The channels of a decoded tile, named by its band count.
+#[derive(Clone, Copy)]
+enum Channels {
+    /// One gray band.
+    Gray,
+    /// A gray band and an alpha band.
+    GrayAlpha,
+    /// Red, green and blue bands.
+    Rgb,
+    /// Red, green, blue and alpha bands.
+    Rgba,
+}
+
+impl Channels {
+    /// The channels `bands` bands hold, if any format can encode them.
+    fn of(bands: usize) -> Option<Self> {
+        match bands {
+            1 => Some(Self::Gray),
+            2 => Some(Self::GrayAlpha),
+            3 => Some(Self::Rgb),
+            4 => Some(Self::Rgba),
+            _ => None,
+        }
+    }
+}
+
+/// Encodes a tile as PNG.
+fn encode_png(pixels: &TilePixels, channels: Channels) -> Result<Bytes, png::EncodingError> {
+    let color = match channels {
+        Channels::Gray => png::ColorType::Grayscale,
+        Channels::GrayAlpha => png::ColorType::GrayscaleAlpha,
+        Channels::Rgb => png::ColorType::Rgb,
+        Channels::Rgba => png::ColorType::Rgba,
     };
     let mut out = Vec::new();
     let mut encoder = png::Encoder::new(&mut out, pixels.size(), pixels.size());
@@ -94,16 +115,16 @@ fn encode_png(pixels: &TilePixels) -> Result<Bytes, png::EncodingError> {
     Ok(Bytes::from(out))
 }
 
-/// Encodes a tile of 1 to 4 bands as WebP, which holds only RGB and RGBA.
+/// Encodes a tile as WebP, widening gray to RGB because WebP holds only RGB and RGBA.
 #[cfg(feature = "webp")]
-fn encode_webp(pixels: &TilePixels, quality: Option<u8>) -> Bytes {
+fn encode_webp(pixels: &TilePixels, channels: Channels, quality: Option<u8>) -> Bytes {
     let expanded: Vec<u8>;
-    let (data, layout) = match pixels.bands() {
-        1 => {
+    let (data, layout) = match channels {
+        Channels::Gray => {
             expanded = pixels.data().iter().flat_map(|&v| [v, v, v]).collect();
             (expanded.as_slice(), webp::PixelLayout::Rgb)
         }
-        2 => {
+        Channels::GrayAlpha => {
             expanded = pixels
                 .data()
                 .as_chunks::<2>()
@@ -113,8 +134,8 @@ fn encode_webp(pixels: &TilePixels, quality: Option<u8>) -> Bytes {
                 .collect();
             (expanded.as_slice(), webp::PixelLayout::Rgba)
         }
-        3 => (pixels.data(), webp::PixelLayout::Rgb),
-        _ => (pixels.data(), webp::PixelLayout::Rgba),
+        Channels::Rgb => (pixels.data(), webp::PixelLayout::Rgb),
+        Channels::Rgba => (pixels.data(), webp::PixelLayout::Rgba),
     };
     let encoder = webp::Encoder::new(data, layout, pixels.size(), pixels.size());
     let webp = match quality {
@@ -124,9 +145,9 @@ fn encode_webp(pixels: &TilePixels, quality: Option<u8>) -> Bytes {
     Bytes::copy_from_slice(&webp)
 }
 
-/// Encodes a tile of 1 to 4 bands as JPEG, painting any alpha band over `background`.
+/// Encodes a tile as JPEG, painting any alpha band over `background`.
 #[cfg(feature = "jpeg")]
-fn encode_jpeg(pixels: &TilePixels, quality: u8, background: [u8; 3]) -> image::ImageResult<Bytes> {
+fn encode_jpeg(pixels: &TilePixels, channels: Channels, quality: u8, background: [u8; 3]) -> image::ImageResult<Bytes> {
     use image::ExtendedColorType;
     use image::codecs::jpeg::JpegEncoder;
 
@@ -135,9 +156,9 @@ fn encode_jpeg(pixels: &TilePixels, quality: u8, background: [u8; 3]) -> image::
         u8::try_from((mixed + 127) / 255).expect("a blend of two 8-bit values is 8-bit")
     };
     let painted: Vec<u8>;
-    let (data, color) = match pixels.bands() {
-        1 => (pixels.data(), ExtendedColorType::L8),
-        2 => {
+    let (data, color) = match channels {
+        Channels::Gray => (pixels.data(), ExtendedColorType::L8),
+        Channels::GrayAlpha => {
             painted = pixels
                 .data()
                 .as_chunks::<2>()
@@ -147,8 +168,8 @@ fn encode_jpeg(pixels: &TilePixels, quality: u8, background: [u8; 3]) -> image::
                 .collect();
             (painted.as_slice(), ExtendedColorType::Rgb8)
         }
-        3 => (pixels.data(), ExtendedColorType::Rgb8),
-        _ => {
+        Channels::Rgb => (pixels.data(), ExtendedColorType::Rgb8),
+        Channels::Rgba => {
             painted = pixels
                 .data()
                 .as_chunks::<4>()
@@ -166,7 +187,8 @@ fn encode_jpeg(pixels: &TilePixels, quality: u8, background: [u8; 3]) -> image::
 
 #[cfg(test)]
 mod tests {
-    use rstest::rstest;
+    #[cfg(feature = "webp")]
+    use std::collections::BTreeSet;
 
     use super::*;
 
@@ -178,76 +200,216 @@ mod tests {
         image::load_from_memory(bytes).unwrap()
     }
 
+    #[cfg(feature = "webp")]
+    fn distinct_rgba(bytes: &[u8]) -> BTreeSet<[u8; 4]> {
+        decode(bytes).to_rgba8().pixels().map(|p| p.0).collect()
+    }
+
+    fn png_round_trip(pixel: &[u8]) {
+        let pixels = tile(pixel);
+        let decoded = decode(&TileEncoding::Png.encode(&pixels, "test").unwrap());
+        assert_eq!(decoded.as_bytes(), pixels.data());
+    }
+
     #[test]
     fn rejects_band_counts_no_format_can_hold() {
         let pixels = TilePixels::padded(vec![0; 5], [1, 1, 5], 1, "test").unwrap();
         insta::assert_snapshot!(
-            TileEncoding::Png.encode(&pixels).unwrap_err(),
-            @"tile cannot be read as tiles: 5 samples per pixel cannot be encoded as Png"
+            TileEncoding::Png.encode(&pixels, "test.tif").unwrap_err(),
+            @"test.tif cannot be read as tiles: 5 samples per pixel cannot be encoded as PNG"
         );
     }
 
-    #[rstest]
-    #[case::gray(&[200])]
-    #[case::gray_alpha(&[200, 128])]
-    #[case::rgb(&[10, 20, 30])]
-    #[case::rgba(&[10, 20, 30, 0])]
-    fn png_keeps_every_band(#[case] pixel: &[u8]) {
-        let pixels = tile(pixel);
-        let decoded = decode(&TileEncoding::Png.encode(&pixels).unwrap());
-        assert_eq!(decoded.as_bytes(), pixels.data());
+    #[test]
+    fn png_keeps_a_gray_band() {
+        png_round_trip(&[200]);
+    }
+
+    #[test]
+    fn png_keeps_gray_and_alpha_bands() {
+        png_round_trip(&[200, 128]);
+    }
+
+    #[test]
+    fn png_keeps_rgb_bands() {
+        png_round_trip(&[10, 20, 30]);
+    }
+
+    #[test]
+    fn png_keeps_rgba_bands() {
+        png_round_trip(&[10, 20, 30, 0]);
     }
 
     #[cfg(feature = "webp")]
-    #[rstest]
-    #[case::gray(&[200], [200, 200, 200, 255])]
-    #[case::gray_alpha(&[200, 128], [200, 200, 200, 128])]
-    #[case::rgb(&[10, 20, 30], [10, 20, 30, 255])]
-    #[case::rgba(&[10, 20, 30, 128], [10, 20, 30, 128])]
-    fn lossless_webp_keeps_every_pixel(#[case] pixel: &[u8], #[case] rgba: [u8; 4]) {
-        let webp = TileEncoding::Webp { quality: None }.encode(&tile(pixel)).unwrap();
-        assert!(decode(&webp).to_rgba8().pixels().all(|p| p.0 == rgba));
+    #[test]
+    fn lossless_webp_widens_gray_to_rgb() {
+        let webp = TileEncoding::Webp { quality: None }
+            .encode(&tile(&[200]), "test")
+            .unwrap();
+        insta::assert_debug_snapshot!(distinct_rgba(&webp), @r"
+        {
+            [
+                200,
+                200,
+                200,
+                255,
+            ],
+        }
+        ");
+    }
+
+    #[cfg(feature = "webp")]
+    #[test]
+    fn lossless_webp_widens_gray_and_keeps_alpha() {
+        let webp = TileEncoding::Webp { quality: None }
+            .encode(&tile(&[200, 128]), "test")
+            .unwrap();
+        insta::assert_debug_snapshot!(distinct_rgba(&webp), @r"
+        {
+            [
+                200,
+                200,
+                200,
+                128,
+            ],
+        }
+        ");
+    }
+
+    #[cfg(feature = "webp")]
+    #[test]
+    fn lossless_webp_keeps_rgb() {
+        let webp = TileEncoding::Webp { quality: None }
+            .encode(&tile(&[10, 20, 30]), "test")
+            .unwrap();
+        insta::assert_debug_snapshot!(distinct_rgba(&webp), @r"
+        {
+            [
+                10,
+                20,
+                30,
+                255,
+            ],
+        }
+        ");
+    }
+
+    #[cfg(feature = "webp")]
+    #[test]
+    fn lossless_webp_keeps_rgba() {
+        let webp = TileEncoding::Webp { quality: None }
+            .encode(&tile(&[10, 20, 30, 128]), "test")
+            .unwrap();
+        insta::assert_debug_snapshot!(distinct_rgba(&webp), @r"
+        {
+            [
+                10,
+                20,
+                30,
+                128,
+            ],
+        }
+        ");
     }
 
     #[cfg(feature = "webp")]
     #[test]
     fn lossy_webp_keeps_alpha_exact() {
         let webp = TileEncoding::Webp { quality: Some(10) }
-            .encode(&tile(&[10, 20, 30, 0]))
+            .encode(&tile(&[10, 20, 30, 0]), "test")
             .unwrap();
-        assert!(decode(&webp).to_rgba8().pixels().all(|p| p.0[3] == 0));
+        let alphas: BTreeSet<u8> = distinct_rgba(&webp).iter().map(|p| p[3]).collect();
+        insta::assert_debug_snapshot!(alphas, @r"
+        {
+            0,
+        }
+        ");
     }
 
     #[cfg(feature = "jpeg")]
-    #[rstest]
-    #[case::transparent_gray(&[0, 0], [0, 0, 255])]
-    #[case::transparent_rgb(&[200, 200, 200, 0], [0, 0, 255])]
-    #[case::opaque_rgb(&[200, 200, 200, 255], [200, 200, 200])]
-    #[case::half_transparent_rgb(&[255, 255, 255, 128], [128, 128, 255])]
-    fn jpeg_paints_transparency_over_the_background(#[case] pixel: &[u8], #[case] rgb: [u8; 3]) {
+    fn jpeg_center(pixel: &[u8]) -> [u8; 3] {
         let jpeg = TileEncoding::Jpeg {
             quality: 100,
             background: [0, 0, 255],
         }
-        .encode(&tile(pixel))
+        .encode(&tile(pixel), "test")
         .unwrap();
-        let center = decode(&jpeg).to_rgb8().get_pixel(8, 8).0;
-        assert!(
-            center.iter().zip(rgb).all(|(&got, want)| got.abs_diff(want) <= 2),
-            "{center:?} is not {rgb:?}"
-        );
+        decode(&jpeg).to_rgb8().get_pixel(8, 8).0
     }
 
-    #[rstest]
-    #[case::png(TileEncoding::Png, image::ImageFormat::Png)]
-    #[cfg_attr(feature = "webp", case::webp(TileEncoding::Webp { quality: Some(80) }, image::ImageFormat::WebP))]
-    #[cfg_attr(
-        feature = "jpeg",
-        case::jpeg(TileEncoding::Jpeg { quality: 80, background: [0; 3] }, image::ImageFormat::Jpeg)
-    )]
-    fn encodes_the_format_it_reports(#[case] encoding: TileEncoding, #[case] image_format: image::ImageFormat) {
-        let bytes = encoding.encode(&tile(&[1, 2, 3])).unwrap();
-        assert_eq!(image::guess_format(&bytes).unwrap(), image_format);
-        assert_eq!(encoding.format().extension(), image_format.extensions_str()[0]);
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn jpeg_paints_transparent_gray_as_the_background() {
+        insta::assert_debug_snapshot!(jpeg_center(&[0, 0]), @"
+        [
+            0,
+            0,
+            254,
+        ]
+        ");
+    }
+
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn jpeg_paints_transparent_rgb_as_the_background() {
+        insta::assert_debug_snapshot!(jpeg_center(&[200, 200, 200, 0]), @"
+        [
+            0,
+            0,
+            254,
+        ]
+        ");
+    }
+
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn jpeg_keeps_opaque_rgb() {
+        insta::assert_debug_snapshot!(jpeg_center(&[200, 200, 200, 255]), @"
+        [
+            200,
+            200,
+            200,
+        ]
+        ");
+    }
+
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn jpeg_blends_half_transparent_rgb_with_the_background() {
+        insta::assert_debug_snapshot!(jpeg_center(&[255, 255, 255, 128]), @"
+        [
+            128,
+            127,
+            254,
+        ]
+        ");
+    }
+
+    #[test]
+    fn png_encodes_png() {
+        let bytes = TileEncoding::Png.encode(&tile(&[1, 2, 3]), "test").unwrap();
+        assert_eq!(image::guess_format(&bytes).unwrap(), image::ImageFormat::Png);
+        assert_eq!(TileEncoding::Png.format(), TileFormat::Png);
+    }
+
+    #[cfg(feature = "webp")]
+    #[test]
+    fn webp_encodes_webp() {
+        let encoding = TileEncoding::Webp { quality: Some(80) };
+        let bytes = encoding.encode(&tile(&[1, 2, 3]), "test").unwrap();
+        assert_eq!(image::guess_format(&bytes).unwrap(), image::ImageFormat::WebP);
+        assert_eq!(encoding.format(), TileFormat::Webp);
+    }
+
+    #[cfg(feature = "jpeg")]
+    #[test]
+    fn jpeg_encodes_jpeg() {
+        let encoding = TileEncoding::Jpeg {
+            quality: 80,
+            background: [0; 3],
+        };
+        let bytes = encoding.encode(&tile(&[1, 2, 3]), "test").unwrap();
+        assert_eq!(image::guess_format(&bytes).unwrap(), image::ImageFormat::Jpeg);
+        assert_eq!(encoding.format(), TileFormat::Jpeg);
     }
 }

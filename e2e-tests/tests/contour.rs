@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use geojson::GeometryValue;
 use image::ImageFormat;
-use indoc::formatdoc;
-use martin_e2e_tests::{Martin, StaticFiles, fixture};
+use indoc::{formatdoc, indoc};
+use martin_e2e_tests::{Martin, StartError, StaticFiles, fixture};
 use martin_tile_utils::tile_index;
 use serde_json::json;
 
@@ -227,6 +227,36 @@ async fn an_out_of_range_setting_is_rejected_at_startup() {
         .start()
         .await;
     assert!(started.is_err(), "a resolution outside 1-64 must not start the server");
+}
+
+#[tokio::test]
+async fn a_cog_format_is_rejected_when_a_cog_file_source_traces_contours() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              sources:
+                terrain:
+                  path: tests/fixtures/cog/usda_naip_512_jpeg_z5.tif
+                  convert_to_contour: auto
+              format: webp
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source terrain has an invalid tile format: `format` cannot be set with `convert_to_hillshade` or `convert_to_contour`, which encode tiles themselves
+        ");
+    });
 }
 
 #[tokio::test]

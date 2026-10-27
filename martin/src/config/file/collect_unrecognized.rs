@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(feature = "cog")]
-use crate::config::file::cog::{CogTileFormat, StacBandConfig, StacOrderConfig};
+use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::Srid;
 #[cfg(feature = "postgres")]
@@ -214,5 +214,6 @@ impl_empty_collect_unrecognized!(
     StacBandConfig,
     StacOrderConfig,
     CogTileFormat,
+    CogBackground,
     serde_json::Map<String, serde_json::Value>
 );

@@ -176,7 +176,7 @@
       "description": "A source that serves many COG files as one, each covering exactly one tile at `zoom`.\n\nFiles are opened on first use and kept in a bounded cache; tiles without a file are empty.\nOne file is found by listing the location at startup to learn the tile size and format.",
       "properties": {
         "background": {
-          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "description": "The CSS color painted under transparent `jpeg` pixels, white when unset.",
           "type": ["string", "null"]
         },
         "cache": {
@@ -228,7 +228,7 @@
               "type": "null"
             }
           ],
-          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are\nserved as stored, others as PNG.",
+          "description": "The format every tile is re-encoded as, `png`, `webp` or `jpeg`, instead of the source's usual output.",
           "examples": [null]
         },
         "max_cached_files": {
@@ -258,8 +258,8 @@
               "type": "null"
             }
           ],
-          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
-          "examples": [80]
+          "description": "How lossy `webp` and `jpeg` tiles are, from 1 (smallest) to 100 (best) or `lossless` for `webp`, 80 when unset.",
+          "examples": [null]
         },
         "zoom": {
           "description": "The zoom level at which each file covers exactly one tile. It is also the lowest zoom served.",
@@ -281,7 +281,7 @@
           "type": "string"
         },
         "background": {
-          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "description": "The CSS color painted under transparent `jpeg` pixels, white when unset.",
           "type": ["string", "null"]
         },
         "bands": {
@@ -327,7 +327,7 @@
               "type": "null"
             }
           ],
-          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.",
+          "description": "The format every tile is re-encoded as, `png`, `webp` or `jpeg`, instead of the source's usual output.",
           "examples": [null]
         },
         "max_cached_files": {
@@ -390,8 +390,8 @@
               "type": "null"
             }
           ],
-          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
-          "examples": [80]
+          "description": "How lossy `webp` and `jpeg` tiles are, from 1 (smallest) to 100 (best) or `lossless` for `webp`, 80 when unset.",
+          "examples": [null]
         },
         "query": {
           "additionalProperties": true,
@@ -428,7 +428,7 @@
         },
         {
           "const": "webp",
-          "description": "WebP, lossy unless `quality` is `lossless`. Transparency stays exact.",
+          "description": "WebP, lossy unless `quality` is `lossless`.",
           "type": "string"
         },
         {
@@ -442,7 +442,7 @@
       "description": "A source that serves the COGs a tile index lists, reprojected onto Web Mercator.\n\nThe index is a `GeoPackage` with one row per file: its footprint in `EPSG:4326` and its location,\nas written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is\npainted from the files whose footprints touch it, in the index's row order: a pixel takes the first\nfile's data for it, so later files only fill what earlier ones leave empty. Files may be in Web\nMercator or a UTM zone, and are opened on first use. Tiles are PNG unless `format` says otherwise,\ntransparent where no file has data.",
       "properties": {
         "background": {
-          "description": "The CSS color shown where `jpeg` tiles are transparent, as JPEG has no alpha. When unset, white.",
+          "description": "The CSS color painted under transparent `jpeg` pixels, white when unset.",
           "type": ["string", "null"]
         },
         "bands": {
@@ -482,7 +482,7 @@
               "type": "null"
             }
           ],
-          "description": "The format every tile is re-encoded as: `png`, `webp` or `jpeg`. When unset, PNG.",
+          "description": "The format every tile is re-encoded as, `png`, `webp` or `jpeg`, instead of the source's usual output.",
           "examples": [null]
         },
         "layer": {
@@ -534,8 +534,8 @@
               "type": "null"
             }
           ],
-          "description": "How lossy `webp` and `jpeg` tiles are: 1 (smallest) to 100 (best), or `lossless` for `webp`.\nWhen unset, 80.",
-          "examples": [80]
+          "description": "How lossy `webp` and `jpeg` tiles are, from 1 (smallest) to 100 (best) or `lossless` for `webp`, 80 when unset.",
+          "examples": [null]
         }
       },
       "required": ["path", "minzoom"],
@@ -818,9 +818,10 @@
       "type": "object"
     },
     "FileConfig3": {
+      "description": "The `format`, `quality` and `background` a COG source re-encodes its tiles with.",
       "properties": {
         "background": {
-          "description": "The CSS color shown where `jpeg` tiles of the COG files are transparent, as JPEG has no alpha.\nWhen unset, white.",
+          "description": "The CSS color painted under transparent `jpeg` pixels, white when unset.",
           "type": ["string", "null"]
         },
         "cache": {
@@ -841,7 +842,7 @@
               "type": "null"
             }
           ],
-          "description": "The format every tile of the COG files under `paths` and `sources` is re-encoded as: `png`,\n`webp` or `jpeg`. Mosaic, STAC and tile index sources set their own. When unset, JPEG and WebP\ntiles are served as stored, others as PNG.",
+          "description": "The format every tile is re-encoded as, `png`, `webp` or `jpeg`, instead of the source's usual output.",
           "examples": [null]
         },
         "mosaics": {
@@ -866,8 +867,8 @@
               "type": "null"
             }
           ],
-          "description": "How lossy `webp` and `jpeg` tiles of the COG files are: 1 (smallest) to 100 (best), or\n`lossless` for `webp`. When unset, 80.",
-          "examples": [80]
+          "description": "How lossy `webp` and `jpeg` tiles are, from 1 (smallest) to 100 (best) or `lossless` for `webp`, 80 when unset.",
+          "examples": [null]
         },
         "recursive": {
           "description": "Whether `paths` are scanned recursively",

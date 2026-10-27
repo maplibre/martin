@@ -411,7 +411,7 @@ pub enum UnsupportedReason {
     #[error("decoded tile is not 8-bit")]
     DecodedNotEightBit,
     /// A decoded tile has a sample count the output format cannot hold.
-    #[error("{samples} samples per pixel cannot be encoded as {format:?}")]
+    #[error("{samples} samples per pixel cannot be encoded as {format}")]
     EncodeSamples {
         /// The format the tile was encoded as.
         format: TileFormat,

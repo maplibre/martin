@@ -1444,78 +1444,166 @@ async fn a_cog_file_is_re_encoded_as_the_configured_format() {
     martin.stop().await;
 }
 
-#[rstest]
-#[case::quality_without_format(indoc! {"
-    cog:
-      tile_index:
-        naip:
-          path: tests/fixtures/cog/tile_index/naip.gpkg
-          minzoom: 13
-          quality: 80
-"},
-    "ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`"
-)]
-#[case::quality_with_png(indoc! {"
-    cog:
-      tile_index:
-        naip:
-          path: tests/fixtures/cog/tile_index/naip.gpkg
-          minzoom: 13
-          format: png
-          quality: 80
-"},
-    "ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`"
-)]
-#[case::lossless_jpeg(indoc! {"
-    cog:
-      tile_index:
-        naip:
-          path: tests/fixtures/cog/tile_index/naip.gpkg
-          minzoom: 13
-          format: jpeg
-          quality: lossless
-"},
-    "ERROR Source naip has an invalid tile format: JPEG has no lossless mode, so `quality` must be 1 to 100"
-)]
-#[case::background_without_jpeg(indoc! {"
-    cog:
-      tile_index:
-        naip:
-          path: tests/fixtures/cog/tile_index/naip.gpkg
-          minzoom: 13
-          format: webp
-          background: white
-"},
-    "ERROR Source naip has an invalid tile format: `background` needs `format: jpeg`"
-)]
-#[case::translucent_background(indoc! {"
-    cog:
-      tile_index:
-        naip:
-          path: tests/fixtures/cog/tile_index/naip.gpkg
-          minzoom: 13
-          format: jpeg
-          background: '#ff000080'
-"},
-    "ERROR Source naip has an invalid tile format: `background` must be an opaque CSS color, not \"#ff000080\""
-)]
 #[tokio::test]
-async fn a_format_that_does_not_go_with_its_quality_or_background_is_rejected(
-    #[case] config: &str,
-    #[case] expected: &str,
-) {
+async fn quality_without_a_format_is_rejected() {
     let error = Martin::builder()
-        .config(config)
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+                  quality: 80
+        "})
         .start()
         .await
-        .expect_err("martin must refuse a format that does not go with its options");
+        .expect_err("martin must refuse the config");
 
     let StartError::EarlyExit { log, .. } = error else {
         panic!("expected an early exit, got: {error}");
     };
-    let errors: Vec<&str> = log
-        .lines()
-        .filter(|line| line.contains("invalid tile format"))
-        .collect();
-    assert_eq!(errors, [expected]);
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`
+        ");
+    });
+}
+
+#[tokio::test]
+async fn quality_with_png_is_rejected() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+                  format: png
+                  quality: 80
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source naip has an invalid tile format: `quality` needs `format: webp` or `format: jpeg`
+        ");
+    });
+}
+
+#[tokio::test]
+async fn lossless_jpeg_is_rejected() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+                  format: jpeg
+                  quality: lossless
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source naip has an invalid tile format: JPEG has no lossless mode, so `quality` must be 1 to 100
+        ");
+    });
+}
+
+#[tokio::test]
+async fn a_background_without_jpeg_is_rejected() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+                  format: webp
+                  background: white
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source naip has an invalid tile format: `background` needs `format: jpeg`
+        ");
+    });
+}
+
+#[tokio::test]
+async fn a_translucent_background_is_rejected() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+                  format: jpeg
+                  background: '#ff000080'
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @r##"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × `background` must be an opaque CSS color, not "#ff000080"
+           ╭─[[CONFIG]:4:7]
+         3 │     naip:
+         4 │       path: tests/fixtures/cog/tile_index/naip.gpkg
+           ·       ─
+         5 │       minzoom: 13
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
+        "##);
+    });
 }

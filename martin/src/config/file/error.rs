@@ -62,6 +62,7 @@ pub enum ConfigFileError {
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 
+    /// A COG source's `format`, `quality` and `background` do not go together.
     #[cfg(feature = "cog")]
     #[error("Source {source_id} has an invalid tile format: {reason}")]
     InvalidCogEncoding {
@@ -396,7 +397,7 @@ impl Diagnostic for ConfigFileError {
             | Self::TileResolutionWarningsIssued => return None,
             #[cfg(feature = "cog")]
             Self::InvalidCogEncoding { .. } => {
-                "`format` is `png`, `webp` or `jpeg`; `quality` suits `webp` (1 to 100 or `lossless`) and `jpeg` (1 to 100); `background` suits `jpeg`."
+                "Set `quality` only with `format: webp` or `format: jpeg`, and `background` only with `format: jpeg`."
             }
             #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => {

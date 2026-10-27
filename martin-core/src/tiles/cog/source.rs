@@ -27,25 +27,76 @@ pub(super) enum CogTiles {
 }
 
 impl CogTiles {
-    /// Reads one tile as stored, or encoded as PNG where it cannot be passed through.
-    async fn get_tile(&self, coord: cog_tiles::TileCoord) -> cog_tiles::CogResult<Option<TileData>> {
+    /// Reads one tile as stored, or as PNG where it cannot be passed through, unless `encoding` re-encodes it.
+    async fn read(
+        &self,
+        coord: cog_tiles::TileCoord,
+        encoding: Option<TileEncoding>,
+        id: &str,
+    ) -> Result<Option<TileData>, CogError> {
         match self {
-            Self::File(reader) => reader.get_tile(coord).await,
-            Self::ObjectStore(reader) => reader.get_tile(coord).await,
-            Self::Mosaic(mosaic) => mosaic.get_tile(coord).await,
-            Self::Indexed(mosaic) => mosaic.get_tile(coord).await,
+            Self::File(reader) => {
+                read_as(
+                    || reader.get_tile(coord),
+                    || reader.get_tile_pixels(coord),
+                    encoding,
+                    id,
+                )
+                .await
+            }
+            Self::ObjectStore(reader) => {
+                read_as(
+                    || reader.get_tile(coord),
+                    || reader.get_tile_pixels(coord),
+                    encoding,
+                    id,
+                )
+                .await
+            }
+            Self::Mosaic(mosaic) => {
+                read_as(
+                    || mosaic.get_tile(coord),
+                    || mosaic.get_tile_pixels(coord),
+                    encoding,
+                    id,
+                )
+                .await
+            }
+            Self::Indexed(mosaic) => {
+                read_as(
+                    || mosaic.get_tile(coord),
+                    || mosaic.get_tile_pixels(coord),
+                    encoding,
+                    id,
+                )
+                .await
+            }
         }
     }
+}
 
-    /// Reads and decodes one tile.
-    async fn get_tile_pixels(&self, coord: cog_tiles::TileCoord) -> cog_tiles::CogResult<Option<TilePixels>> {
-        match self {
-            Self::File(reader) => reader.get_tile_pixels(coord).await,
-            Self::ObjectStore(reader) => reader.get_tile_pixels(coord).await,
-            Self::Mosaic(mosaic) => mosaic.get_tile_pixels(coord).await,
-            Self::Indexed(mosaic) => mosaic.get_tile_pixels(coord).await,
-        }
-    }
+/// Reads `stored` without an `encoding`, else reads `pixels` and encodes them on the blocking thread pool.
+async fn read_as<S, P>(
+    stored: impl FnOnce() -> S,
+    pixels: impl FnOnce() -> P,
+    encoding: Option<TileEncoding>,
+    id: &str,
+) -> Result<Option<TileData>, CogError>
+where
+    S: Future<Output = cog_tiles::CogResult<Option<TileData>>>,
+    P: Future<Output = cog_tiles::CogResult<Option<TilePixels>>>,
+{
+    let Some(encoding) = encoding else {
+        return Ok(stored().await?);
+    };
+    let Some(pixels) = pixels().await? else {
+        return Ok(None);
+    };
+    let id = id.to_owned();
+    let tile = tokio::task::spawn_blocking(move || encoding.encode(&pixels, &id))
+        .await
+        .map_err(|join| CogError::Encode { join })??;
+    Ok(Some(tile))
 }
 
 /// Tile source that reads from one `Cloud Optimized GeoTIFF` file, or from a mosaic of them.
@@ -143,14 +194,14 @@ impl CogSource {
         Ok(source)
     }
 
-    /// Decodes every tile and encodes it as `encoding`, even tiles stored as JPEG or WebP.
-    ///
-    /// Lossy encodes take milliseconds, so they run on the blocking thread pool.
+    /// Decodes every tile and encodes it as `encoding` if set, even tiles stored as JPEG or WebP.
     #[must_use]
-    pub fn with_encoding(mut self, encoding: TileEncoding) -> Self {
-        let format = martin_format(encoding.format()).expect("every encoding is a format Martin serves");
-        self.encoding = Some(encoding);
-        self.set_format(format);
+    pub fn with_encoding(mut self, encoding: Option<TileEncoding>) -> Self {
+        if let Some(encoding) = encoding {
+            let format = martin_format(encoding.format()).expect("every encoding is a format Martin serves");
+            self.encoding = Some(encoding);
+            self.set_format(format);
+        }
         self
     }
 
@@ -234,19 +285,8 @@ impl Source for CogSource {
         if xyz.z() < self.min_zoom || xyz.z() > self.max_zoom {
             return Ok(TileData::default());
         }
-        let coord = cog_coord(xyz)?;
-        let Some(encoding) = self.encoding else {
-            let tile = self.tiles.get_tile(coord).await.map_err(CogError::from)?;
-            return Ok(tile.unwrap_or_default());
-        };
-        let Some(pixels) = self.tiles.get_tile_pixels(coord).await.map_err(CogError::from)? else {
-            return Ok(TileData::default());
-        };
-        let tile = tokio::task::spawn_blocking(move || encoding.encode(&pixels))
-            .await
-            .map_err(|join| CogError::Encode { join })?
-            .map_err(CogError::from)?;
-        Ok(tile)
+        let tile = self.tiles.read(cog_coord(xyz)?, self.encoding, &self.id).await?;
+        Ok(tile.unwrap_or_default())
     }
 }
 
