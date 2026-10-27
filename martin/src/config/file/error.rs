@@ -8,6 +8,8 @@ use martin_core::sprites::SpriteError;
 use martin_core::tiles::postgres::PostgresError;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
+#[cfg(feature = "cog")]
+use crate::config::file::cog::CogEncodingError;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use crate::config::file::contour::ContourRangeError;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -59,6 +61,15 @@ pub enum ConfigFileError {
 
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
+
+    /// A COG source's `format`, `quality` and `background` do not go together.
+    #[cfg(feature = "cog")]
+    #[error("Source {source_id} has an invalid tile format: {reason}")]
+    InvalidCogEncoding {
+        source_id: String,
+        #[source]
+        reason: CogEncodingError,
+    },
 
     #[cfg(all(feature = "processing", feature = "_tiles"))]
     #[error("Source {source_id} has an invalid hillshade configuration: {source}")]
@@ -318,6 +329,8 @@ impl Diagnostic for ConfigFileError {
             Self::CorsNoOriginsConfigured => "martin::config::cors::no_origins",
             Self::InvalidBasePath(_) => "martin::config::invalid_base_path",
             Self::TileResolutionWarningsIssued => "martin::config::tile_resolution_warnings",
+            #[cfg(feature = "cog")]
+            Self::InvalidCogEncoding { .. } => "martin::config::cog::invalid_format",
             #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => "martin::config::hillshade::invalid",
             #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -382,6 +395,10 @@ impl Diagnostic for ConfigFileError {
             | Self::InvalidSourceFilePath(..)
             | Self::InvalidBasePath(_)
             | Self::TileResolutionWarningsIssued => return None,
+            #[cfg(feature = "cog")]
+            Self::InvalidCogEncoding { .. } => {
+                "Set `quality` only with `format: webp` or `format: jpeg`, and `background` only with `format: jpeg`."
+            }
             #[cfg(all(feature = "processing", feature = "_tiles"))]
             Self::InvalidHillshade { .. } => {
                 "Check the `hillshade` block of the named source: every parameter must lie inside the range given above."

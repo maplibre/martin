@@ -38,6 +38,8 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(all(feature = "cog", feature = "processing"))]
+use crate::config::file::cog::CogConfig;
 #[cfg(feature = "cog")]
 use crate::config::file::cog::{CogMosaicSource, CogStacSource, CogTileIndexSource, resolve_cog};
 #[cfg(feature = "_tiles")]
@@ -90,6 +92,8 @@ impl Config {
             TileGrids::check_file_sources(&self.pmtiles, Some(&tile_grids))?;
             #[cfg(feature = "cog")]
             TileGrids::check_file_sources(&self.cog, None)?;
+            #[cfg(all(feature = "cog", feature = "processing"))]
+            CogConfig::check_file_conversions(&self.cog)?;
             #[cfg(feature = "processing")]
             TileGrids::check_file_sources(&self.geojson, None)?;
             #[cfg(not(any(feature = "postgres", feature = "mbtiles", feature = "pmtiles")))]

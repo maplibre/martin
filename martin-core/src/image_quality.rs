@@ -1,3 +1,5 @@
+//! How lossy encoded images are, shared by rendered styles and re-encoded COG tiles.
+
 use std::fmt;
 use std::num::NonZeroU8;
 
@@ -32,16 +34,7 @@ impl Default for LossyQuality {
     }
 }
 
-/// Quality rendered images are encoded at, per format.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct ImageQualities {
-    /// Quality of WebP images.
-    pub webp: ImageQuality,
-    /// Quality of JPEG images, which have no lossless mode.
-    pub jpeg: LossyQuality,
-}
-
-/// How lossy a rendered WebP is encoded.
+/// How lossy a WebP is encoded.
 ///
 /// Deserializes from a number 1 to 100 or the string `lossless`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

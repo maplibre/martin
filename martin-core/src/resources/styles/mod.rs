@@ -43,9 +43,7 @@ use render_pool::RenderPools;
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
 
 #[cfg(feature = "rendering")]
-mod image_quality;
-#[cfg(feature = "rendering")]
-pub use image_quality::{ImageQualities, ImageQuality, LossyQuality};
+pub use crate::image_quality::{ImageQuality, LossyQuality};
 #[cfg(feature = "rendering")]
 mod pixel_ratio;
 #[cfg(feature = "rendering")]
@@ -54,6 +52,16 @@ pub use pixel_ratio::{InvalidPixelRatios, PixelRatioNotServed, PixelRatios};
 mod tile_size;
 #[cfg(feature = "rendering")]
 pub use tile_size::{InvalidTileSize, TileSize};
+
+/// Quality rendered images are encoded at, per format.
+#[cfg(feature = "rendering")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct ImageQualities {
+    /// Quality of WebP images.
+    pub webp: ImageQuality,
+    /// Quality of JPEG images, which have no lossless mode.
+    pub jpeg: LossyQuality,
+}
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

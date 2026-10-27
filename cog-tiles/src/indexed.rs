@@ -214,7 +214,7 @@ impl AsyncIndexedMosaic {
     /// See [`get_tile_pixels`](Self::get_tile_pixels).
     pub async fn get_tile(&self, coord: TileCoord) -> CogResult<Option<Bytes>> {
         match self.get_tile_pixels(coord).await? {
-            Some(pixels) => crate::encode::encode_png(&pixels, "mosaic").map(Some),
+            Some(pixels) => crate::TileEncoding::Png.encode(&pixels, "mosaic").map(Some),
             None => Ok(None),
         }
     }

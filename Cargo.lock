@@ -2090,6 +2090,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures",
+ "image",
+ "insta",
  "jpeg-decoder",
  "moka",
  "object_store",
@@ -2100,6 +2102,7 @@ dependencies = [
  "tiff",
  "tokio",
  "tracing",
+ "webp",
 ]
 
 [[package]]
