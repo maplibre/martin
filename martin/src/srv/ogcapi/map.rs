@@ -10,11 +10,13 @@ use martin_tile_utils::{EARTH_CIRCUMFERENCE, webmercator_to_wgs84, wgs84_to_webm
 use serde::Deserialize;
 use tracing::error;
 
-use super::collections::collection_source;
+use super::collections::{collection_source, covering_bounds};
 use super::error::OgcApiError;
 use super::generated_style::{Drawn, drawable, generated_style};
+use super::link::{Link, path_segment};
 use crate::config::file::srv::SrvConfig;
-use crate::source::SourceEntry;
+use crate::source::{MAX_SOURCE_IDS_PER_REQUEST, SourceEntry};
+use crate::srv::error::TileError;
 use crate::srv::server::map_error;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_response, encode_scaled_image_response};
 use crate::tile_source_manager::TileSourceManager;
@@ -28,8 +30,11 @@ const CRS84: &str = "http://www.opengis.net/def/crs/OGC/1.3/CRS84";
 /// The OGC URI of latitude and longitude on WGS 84, in that order.
 const EPSG_4326: &str = "http://www.opengis.net/def/crs/EPSG/0/4326";
 
-/// The link relation from a resource to its map.
-pub(super) const MAP_REL: &str = "https://www.opengis.net/def/rel/ogc/1.0/map";
+/// The link relations from a resource to its map, as the Maps standard prints it and as the OGC registry serves it.
+const MAP_RELS: [&str; 2] = [
+    "https://www.opengis.net/def/rel/ogc/1.0/map",
+    "http://www.opengis.net/def/rel/ogc/1.0/map",
+];
 
 /// Largest width or height of a map, in pixels.
 const MAX_SIDE: u32 = 2048;
@@ -50,9 +55,11 @@ const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
 pub(super) const WORLD: [f64; 4] = [-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE];
 
 /// The conformance classes of OGC API - Maps this API implements when it renders maps.
-pub(super) const MAPS_CONFORMS_TO: [&str; 6] = [
+pub(super) const MAPS_CONFORMS_TO: [&str; 8] = [
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
+    "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/dataset-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
+    "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collections-selection",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
     "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
@@ -63,6 +70,17 @@ pub(super) const MAPS_CONFORMS_TO: [&str; 6] = [
 pub(super) fn renders_maps(req: &HttpRequest) -> bool {
     req.app_data::<Data<StyleSources>>()
         .is_some_and(|styles| styles.is_rendering_enabled())
+}
+
+/// Links to the PNG map at `href`, one per spelling of the map relation.
+pub(super) fn map_links(href: &str, title: &'static str) -> [Link; 2] {
+    MAP_RELS.map(|rel| Link {
+        href: href.to_owned(),
+        rel,
+        media_type: "image/png",
+        title,
+        templated: false,
+    })
 }
 
 /// Whether a generated style can draw the tiles of `entry` as a map.
@@ -101,6 +119,14 @@ pub struct MapQuery {
     /// Scale of the map.
     #[serde(rename = "scale-denominator")]
     scale_denominator: Option<f64>,
+}
+
+/// The collection selection of a dataset map request.
+#[derive(Deserialize, Debug, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+pub struct CollectionsQuery {
+    /// Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once.
+    collections: Option<String>,
 }
 
 /// The area of a map in web mercator metres and its size in pixels.
@@ -577,6 +603,93 @@ pub async fn get_collection_map(
     let bounds = tilejson
         .bounds
         .map_or(WORLD, |bounds| [bounds.left, bounds.bottom, bounds.right, bounds.top]);
+    render_map(
+        &req,
+        &styles,
+        RenderStyle::Json(style.to_string().into()),
+        &query,
+        bounds,
+    )
+    .await
+}
+
+/// The collections a dataset map draws in order: those `collections` names, each once, or every collection with a map.
+fn dataset_collections(
+    manager: &TileSourceManager,
+    collections: Option<&str>,
+) -> Result<Vec<(String, SourceEntry)>, OgcApiError> {
+    let mut ids = manager.tile_sources().source_names();
+    ids.sort();
+    let drawn = |id: &str| {
+        collection_source(manager, id)
+            .ok()
+            .map(|(entry, _)| entry)
+            .filter(can_draw)
+    };
+    let Some(collections) = collections else {
+        return Ok(ids.iter().filter_map(|id| Some((id.clone(), drawn(id)?))).collect());
+    };
+    let mut drawn_collections: Vec<(String, SourceEntry)> = Vec::new();
+    for item in collections.split(',') {
+        let item = item.trim();
+        let id = match item.trim_end_matches('/').rsplit_once("/collections/") {
+            Some((_, segment)) => ids.iter().find(|id| path_segment(id) == segment),
+            None => ids.iter().find(|id| *id == item),
+        };
+        let (id, entry) =
+            id.and_then(|id| Some((id.clone(), drawn(id)?)))
+                .ok_or_else(|| OgcApiError::UnknownMapCollection {
+                    collection: item.to_owned(),
+                })?;
+        if drawn_collections.iter().all(|(drawn_id, _)| *drawn_id != id) {
+            drawn_collections.push((id, entry));
+        }
+    }
+    Ok(drawn_collections)
+}
+
+/// The collections of the dataset drawn as one map, in the order `collections` names them.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/ogc/map",
+        operation_id = "ogc.dataset.getMap",
+        params(MapQuery, CollectionsQuery),
+        responses(
+            (status = 200, description = "Map of the dataset", content(("image/png"), ("image/jpeg"), ("image/tiff; application=geotiff"))),
+            (status = 400, description = "Invalid map parameters, or a collection that can't be drawn"),
+        ),
+    )
+)]
+#[route("/ogc/map", method = "GET", method = "HEAD")]
+pub async fn get_dataset_map(
+    req: HttpRequest,
+    query: Query<MapQuery>,
+    selection: Query<CollectionsQuery>,
+    srv_config: Data<SrvConfig>,
+    manager: Data<TileSourceManager>,
+    styles: Data<StyleSources>,
+) -> actix_web::Result<HttpResponse> {
+    manager.wait_until_loaded().await;
+    if let Some(collections) = &selection.collections {
+        let requested = collections.split(',').count();
+        if requested > MAX_SOURCE_IDS_PER_REQUEST {
+            return Err(TileError::TooManySources {
+                requested,
+                max: MAX_SOURCE_IDS_PER_REQUEST,
+            }
+            .into());
+        }
+    }
+    let collections = dataset_collections(&manager, selection.collections.as_deref()).map_err(|e| map_error(&e))?;
+    let described: Vec<_> = collections
+        .iter()
+        .map(|(id, (source, process))| (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone())))
+        .collect();
+    let drawn: Vec<_> = described.iter().map(|(id, tilejson)| Drawn { id, tilejson }).collect();
+    let style = generated_style(&own_tiles_url(&req, &srv_config), &drawn);
+    let bounds = covering_bounds(described.iter().map(|(_, tilejson)| tilejson.bounds));
     render_map(
         &req,
         &styles,

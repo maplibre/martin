@@ -43,20 +43,16 @@ async fn the_ogc_api_passes_the_maps_conformance_suite() {
         )
         .await;
     insta::assert_snapshot!(martin.redact(&report), @"
-    FAIL verifyCollectionsParameter: A.11 verifyCollectionsParameter failed:
-    [Req11/param-defined] The OpenAPI document does not declare 'collections' as an optional query parameter for the map operation path.
-    [Req11/single-id] Expected HTTP 200 for collections='png' but got HTTP 404.
-    [Req11/multi-id] Expected HTTP 200 for collections='png,toner' but got HTTP 404.
-    [Req11/full-url-id] Expected HTTP 200 for full URL form collections='http://[ADDR]/ogc/collections/png' but got HTTP 404.
-    FAIL verifyDatasetMapLinkFromLandingPage: Landing page must include a dataset map link with rel 'https://www.opengis.net/def/rel/ogc/1.0/map', legacy rel 'http://www.opengis.net/def/rel/ogc/1.0/map', or compact rel 'ogc-rel:map'. expected object to not be null
-    FAIL verifyLandingPageExtentCrs: Landing page JSON response must include an 'extent' object. expected [true] but found [false]
-    FAIL verifyMapResponse: Test Skipped: No map resources found in the collections to verify. Please check the target server. expected [true] but found [false]
     PASS verifyCollectionDescriptionCrs
     PASS verifyCollectionDescriptionLinks
     PASS verifyCollectionMapOperation
+    PASS verifyCollectionsParameter
     PASS verifyCorsSupport
+    PASS verifyDatasetMapLinkFromLandingPage
     PASS verifyJpegContent
+    PASS verifyLandingPageExtentCrs
     PASS verifyMapConformanceSuccess
+    PASS verifyMapResponse
     PASS verifyMapRetrievalOperation
     PASS verifyPngContent
     PASS verifyStyledMapLinks

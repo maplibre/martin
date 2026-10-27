@@ -45,6 +45,11 @@ pub enum OgcApiError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Collection {collection} has no map")]
     NoCollectionMap { collection: String },
+
+    /// A `collections` parameter names something that isn't a collection a map can draw.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Collection {collection} does not exist or has no map")]
+    UnknownMapCollection { collection: String },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -59,7 +64,8 @@ impl martin_core::Classify for OgcApiError {
             Self::InvalidMapParameter { .. }
             | Self::ConflictingMapParameters { .. }
             | Self::MapAreaTooLarge
-            | Self::UnsupportedCrs { .. } => martin_core::ErrorKind::InvalidInput,
+            | Self::UnsupportedCrs { .. }
+            | Self::UnknownMapCollection { .. } => martin_core::ErrorKind::InvalidInput,
         }
     }
 }

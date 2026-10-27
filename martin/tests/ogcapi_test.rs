@@ -93,6 +93,19 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "http://localhost:8080/ogc",
@@ -165,6 +178,19 @@ async fn the_landing_page_links_no_styles_without_resources() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "http://localhost:8080/ogc",
@@ -236,6 +262,19 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "https://tiles.example.com/maps/ogc",
@@ -308,6 +347,19 @@ async fn the_proxied_links_have_no_styles_without_resources() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "https://tiles.example.com/maps/ogc",

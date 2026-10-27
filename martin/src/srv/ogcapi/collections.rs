@@ -3,6 +3,7 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use serde::Serialize;
+use tilejson::Bounds;
 
 use super::data_type::DataType;
 use super::error::OgcApiError;
@@ -38,14 +39,27 @@ struct Collection {
     links: Vec<Link>,
 }
 
-/// Where a collection's data lies.
+/// Where a collection's or the dataset's data lies.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
-struct Extent {
+pub(super) struct Extent {
     spatial: SpatialExtent,
 }
 
-/// The bounding box of a collection, in longitude and latitude and in the CRS of its grid.
+impl Extent {
+    /// The extent of `bbox` in longitude and latitude.
+    pub(super) const fn crs84(bbox: [f64; 4]) -> Self {
+        Self {
+            spatial: SpatialExtent {
+                bbox: [bbox],
+                crs: CRS84,
+                storage_crs_bbox: None,
+            },
+        }
+    }
+}
+
+/// The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +69,32 @@ struct SpatialExtent {
     /// `bbox` in the CRS of the collection's grid, in its axis order.
     #[serde(skip_serializing_if = "Option::is_none")]
     storage_crs_bbox: Option<[[f64; 4]; 1]>,
+}
+
+/// The longitude and latitude bounds covering all of `bounds`, the whole world if there are none, one is unknown or one crosses the antimeridian.
+pub(super) fn covering_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> [f64; 4] {
+    bounds
+        .into_iter()
+        .try_fold(None, |covering: Option<[f64; 4]>, bounds| {
+            let bounds = bounds.filter(|bounds| bounds.left <= bounds.right)?;
+            let [left, bottom, right, top] = covering.unwrap_or([bounds.left, bounds.bottom, bounds.right, bounds.top]);
+            Some(Some([
+                left.min(bounds.left),
+                bottom.min(bounds.bottom),
+                right.max(bounds.right),
+                top.max(bounds.top),
+            ]))
+        })
+        .flatten()
+        .unwrap_or([-180.0, -90.0, 180.0, 90.0])
+}
+
+/// The bounds covering every collection `manager` serves, see [`covering_bounds`].
+pub(super) fn dataset_bounds(manager: &TileSourceManager) -> [f64; 4] {
+    covering_bounds(manager.tile_sources().source_names().iter().filter_map(|id| {
+        let ((source, process), _) = collection_source(manager, id).ok()?;
+        Some(process.advertised_tilejson(source.get_tilejson().clone()).bounds)
+    }))
 }
 
 /// The one source collection `id` resolves to, as tile requests resolve it, and the OGC URI of its CRS.
@@ -109,13 +149,10 @@ fn collection(
     ];
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     if super::map::renders_maps(req) && super::map::can_draw(entry) {
-        links.push(Link {
-            href: ogc_url(req, srv_config, &format!("/collections/{segment}/map")),
-            rel: super::map::MAP_REL,
-            media_type: "image/png",
-            title: "Map of the collection",
-            templated: false,
-        });
+        links.extend(super::map::map_links(
+            &ogc_url(req, srv_config, &format!("/collections/{segment}/map")),
+            "Map of the collection",
+        ));
     }
     Collection {
         id: id.to_owned(),

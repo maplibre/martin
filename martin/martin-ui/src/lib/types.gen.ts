@@ -222,6 +222,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The collections of the dataset drawn as one map, in the order `collections` names them. */
+        get: operations["ogc.dataset.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/styles": {
         parameters: {
             query?: never;
@@ -587,7 +604,7 @@ export interface components {
          * @enum {string}
          */
         DataType: "map" | "vector";
-        /** @description Where a collection's data lies. */
+        /** @description Where a collection's or the dataset's data lies. */
         Extent: {
             spatial: components["schemas"]["SpatialExtent"];
         };
@@ -615,6 +632,8 @@ export interface components {
         /** @description The entry point of the OGC API. */
         LandingPage: {
             description: string;
+            /** @description Where the data of all collections lies. */
+            extent: components["schemas"]["Extent"];
             links: components["schemas"]["Link"][];
             title: string;
         };
@@ -634,7 +653,7 @@ export interface components {
             title: string;
             type: string;
         };
-        /** @description The bounding box of a collection, in longitude and latitude and in the CRS of its grid. */
+        /** @description The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid. */
         SpatialExtent: {
             bbox: number[][];
             crs: string;
@@ -1236,6 +1255,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Conformance"];
                 };
+            };
+        };
+    };
+    "ogc.dataset.getMap": {
+        parameters: {
+            query?: {
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
+                /** @description Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once. */
+                collections?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map of the dataset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description Invalid map parameters, or a collection that can't be drawn */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
