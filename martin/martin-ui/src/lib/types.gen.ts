@@ -1261,8 +1261,6 @@ export interface operations {
     "ogc.dataset.getMap": {
         parameters: {
             query?: {
-                /** @description Image format, `png`, `jpeg` or `tiff`. */
-                f?: string | null;
                 /** @description Width of the map in pixels. */
                 width?: number | null;
                 /** @description Height of the map in pixels. */
