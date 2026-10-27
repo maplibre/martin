@@ -94,7 +94,7 @@ pub enum CogError {
     },
 
     /// A tile index cannot be read.
-    #[error("Cannot read the tile index {}", path.display())]
+    #[error("Cannot read the tile index {}: {error}", path.display())]
     TileIndexRead {
         /// The index file.
         path: std::path::PathBuf,
