@@ -245,6 +245,198 @@
       "required": ["path", "zoom"],
       "type": "object"
     },
+    "CogStacSource": {
+      "description": "A source that serves the COGs a STAC API finds for each tile, reprojected onto Web Mercator.\n\nEach search covers one tile at `search_zoom` and serves every tile below it. A tile is painted\nfrom the items found in `order`: a pixel takes the first item's data for it, so later items only\nfill what earlier ones leave empty. Files may be in Web Mercator or a UTM zone, and are opened on\nfirst use. Tiles are PNG, transparent where no item has data.",
+      "properties": {
+        "asset": {
+          "description": "The key of the asset to read from each item, e.g. `image` or `visual`.",
+          "type": "string"
+        },
+        "bands": {
+          "description": "The bands to serve, by number (counted from 1) or by `eo:bands` `common_name` or `name`:\none for gray tiles, three for RGB tiles. When unset, `[red, green, blue]`, or the first\nthree bands if the asset does not name its bands.",
+          "examples": [["red", "green", "blue"]],
+          "items": {
+            "$ref": "#/$defs/StacBandConfig"
+          },
+          "type": ["array", "null"]
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for tile caching. The tile cache does not expire with `search_expiry`,\nso pair this with the top-level `cache.expiry`. When unset, tiles are not cached; only\nsearches, opened files and decoded blocks are."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
+        "collection": {
+          "description": "The collection to search, e.g. `naip`.",
+          "type": "string"
+        },
+        "datetime": {
+          "description": "A STAC `datetime` the items must fall in: one instant or an interval, open-ended with `..`,\ne.g. `2020-01-01T00:00:00Z/..`.",
+          "type": ["string", "null"]
+        },
+        "file_expiry": {
+          "description": "How long an opened file is kept before it is opened again. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, \"10m\".",
+          "examples": ["10m"],
+          "type": ["string", "null"]
+        },
+        "file_idle_timeout": {
+          "description": "How long an opened file is kept without being used. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, files are kept until `file_expiry`.",
+          "examples": ["5m"],
+          "type": ["string", "null"]
+        },
+        "max_cached_files": {
+          "description": "How many opened files are kept at once. When unset, 1000.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "max_cached_searches": {
+          "description": "How many search results are kept at once. When unset, 10000.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "max_items_per_search": {
+          "description": "How many items one search reads, newest (or oldest) first, counting those skipped for\nlacking the asset; the rest are not painted and a warning is logged. When unset, 1000.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "maxzoom": {
+          "description": "The highest zoom served. When unset, the zoom at which the first item found is fully detailed.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "The lowest zoom served. Lower zooms are empty.",
+          "examples": [12],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nodata": {
+          "description": "The sample value of pixels without data, overriding each file's own nodata value.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "order": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StacOrderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which items cover a pixel first, by `datetime`: `newest` or `oldest`. When unset, `newest`."
+        },
+        "query": {
+          "additionalProperties": true,
+          "description": "A STAC query extension filter, sent as is, e.g. `{\"naip:state\": {\"eq\": \"ca\"}}`.",
+          "type": ["object", "null"]
+        },
+        "search_expiry": {
+          "description": "How long a search result is kept before searching again. Supports human-readable formats:\n\"1d\", \"1h\", \"30m\". When unset, \"1d\".",
+          "examples": ["1d"],
+          "type": ["string", "null"]
+        },
+        "search_zoom": {
+          "description": "Each search covers one tile at this zoom and serves every tile below it. It cannot be above\n`minzoom`. When unset, `minzoom`.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "url": {
+          "description": "The root of the STAC API, e.g. `https://earth-search.aws.element84.com/v1`.\nItems are searched at its `/search` endpoint.",
+          "type": "string"
+        }
+      },
+      "required": ["url", "collection", "asset", "minzoom"],
+      "type": "object"
+    },
+    "CogTileIndexSource": {
+      "description": "A source that serves the COGs a tile index lists, reprojected onto Web Mercator.\n\nThe index is a `GeoPackage` with one row per file: its footprint in `EPSG:4326` and its location,\nas written by `gdaltindex -f GPKG -t_srs EPSG:4326`. It is read into memory at startup. A tile is\npainted from the files whose footprints touch it, in the index's row order: a pixel takes the first\nfile's data for it, so later files only fill what earlier ones leave empty. Files may be in Web\nMercator or a UTM zone, and are opened on first use. Tiles are PNG, transparent where no file has data.",
+      "properties": {
+        "bands": {
+          "description": "The bands to serve, by number (counted from 1): one for gray tiles, three for RGB tiles.\nWhen unset, `[1, 2, 3]`.",
+          "examples": [[1, 2, 3]],
+          "items": {
+            "format": "uint",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": ["array", "null"]
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "cache_control": {
+          "description": "`Cache-Control` response header for this source.\nOverrides the top-level `cache_control` default.",
+          "type": ["string", "null"]
+        },
+        "file_expiry": {
+          "description": "How long an opened file is kept before it is opened again. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, \"10m\".",
+          "examples": ["10m"],
+          "type": ["string", "null"]
+        },
+        "file_idle_timeout": {
+          "description": "How long an opened file is kept without being used. Supports human-readable formats:\n\"10m\", \"1h\", \"30s\". When unset, files are kept until `file_expiry`.",
+          "examples": ["5m"],
+          "type": ["string", "null"]
+        },
+        "layer": {
+          "description": "The feature table to read. When unset, the only feature table in the file.",
+          "type": ["string", "null"]
+        },
+        "location_field": {
+          "description": "The column holding each file's location: a URL, a GDAL `/vsis3/`, `/vsigs/`, `/vsiaz/` or\n`/vsicurl/` path, or a local path relative to the index file. When unset, `location`.",
+          "type": ["string", "null"]
+        },
+        "max_cached_files": {
+          "description": "How many opened files are kept at once. When unset, 1000.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "maxzoom": {
+          "description": "The highest zoom served. When unset, the zoom at which the first file is fully detailed.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "The lowest zoom served. Lower zooms are empty.",
+          "examples": [16],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nodata": {
+          "description": "The sample value of pixels without data, overriding each file's own nodata value.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "path": {
+          "description": "The `GeoPackage` tile index, e.g. `/data/naip_ca_2020.gpkg`.",
+          "type": "string"
+        }
+      },
+      "required": ["path", "minzoom"],
+      "type": "object"
+    },
     "ContourElevationUnits": {
       "description": "Units elevations are reported in on the output features.",
       "oneOf": [
@@ -563,6 +755,22 @@
           "default": {},
           "description": "A map of source IDs to file paths or config objects",
           "type": "object"
+        },
+        "stac": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CogStacSource"
+          },
+          "default": {},
+          "description": "Sources that each serve the COGs a STAC API finds for each tile, by source ID.",
+          "type": "object"
+        },
+        "tile_index": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CogTileIndexSource"
+          },
+          "default": {},
+          "description": "Sources that each serve the COGs a tile index lists, by source ID.",
+          "type": "object"
         }
       },
       "type": "object"
@@ -661,6 +869,10 @@
           "$ref": "#/$defs/OneOrMany2",
           "default": [],
           "description": "A list of file paths"
+        },
+        "rendering": {
+          "$ref": "#/$defs/OptBoolObj4",
+          "description": "Allows static, server side, style rendering"
         },
         "sources": {
           "additionalProperties": {
@@ -1188,6 +1400,25 @@
       },
       "type": "object"
     },
+    "ImageQuality": {
+      "description": "Lossy quality from 1 to 100, or `lossless`.",
+      "oneOf": [
+        {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "const": "lossless"
+        }
+      ]
+    },
+    "LossyQuality": {
+      "description": "Lossy quality from 1 to 100.",
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
       "properties": {
@@ -1346,6 +1577,32 @@
         },
         {
           "$ref": "#/$defs/PostgresCfgPublishFuncs",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj4": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/RendererConfig",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj5": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PngPaletteConfig",
           "description": "An object value."
         }
       ],
@@ -1537,6 +1794,30 @@
         }
       ],
       "description": "A passthrough source value: either a bare upstream URL (or list of URLs) or a full\nconfiguration object."
+    },
+    "PixelRatios": {
+      "description": "Whole-number pixel ratios (`@{n}x`) that are served.",
+      "items": {
+        "maximum": 4,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "PngPaletteConfig": {
+      "properties": {
+        "max_colors": {
+          "default": 128,
+          "description": "Largest palette, 2 to 256 colors. Each image gets the smallest palette that matches it\nclosely, up to this many colors. Defaults to 128.",
+          "examples": [128],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
     },
     "PostgresCfgPublish": {
       "properties": {
@@ -1735,6 +2016,133 @@
       "enum": ["brotli", "gzip"],
       "type": "string"
     },
+    "QualityConfig": {
+      "properties": {
+        "jpeg": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LossyQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of JPEG images: 1 to 100. \\[default: 80\\]",
+          "examples": [80]
+        },
+        "webp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageQuality"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of WebP images: 1 to 100, or `lossless` to keep every pixel. \\[default: 80\\]",
+          "examples": [80]
+        }
+      },
+      "type": "object"
+    },
+    "RendererConfig": {
+      "properties": {
+        "ambient_cache_size_mb": {
+          "description": "Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the network (0 to disable).\nDisable it when every source of the styles is served by Martin itself.",
+          "examples": [50],
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "pixel_ratios": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PixelRatios"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.\n\\[default: \\[1, 2\\]\\]",
+          "examples": [[1, 2, 3]]
+        },
+        "png_palette": {
+          "$ref": "#/$defs/OptBoolObj5",
+          "description": "Encode rendered PNGs as indexed (palette) images, which is the default.\n`false` keeps full-color RGBA."
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Quality of rendered WebP and JPEG images, per format."
+        },
+        "renderers_per_worker": {
+          "description": "Renderers each tile worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used is dropped. \\[default: 8\\]",
+          "examples": [16],
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "tile_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TileSize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.\n\\[default: 512\\]",
+          "examples": [256]
+        },
+        "workers": {
+          "description": "Number of render worker threads. Unset picks a platform default.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        }
+      },
+      "required": ["enabled"],
+      "type": "object"
+    },
+    "StacBandConfig": {
+      "anyOf": [
+        {
+          "description": "The band's number, counted from 1.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "description": "The band's `common_name` or `name` in `eo:bands`, e.g. `red`.",
+          "type": "string"
+        }
+      ],
+      "description": "One band of a STAC asset: its number, counted from 1, or its `eo:bands` name."
+    },
+    "StacOrderConfig": {
+      "description": "Which STAC items cover a pixel first.",
+      "oneOf": [
+        {
+          "const": "newest",
+          "description": "The newest item is painted first.",
+          "type": "string"
+        },
+        {
+          "const": "oldest",
+          "description": "The oldest item is painted first.",
+          "type": "string"
+        }
+      ]
+    },
     "TableInfo": {
       "properties": {
         "bounds": {
@@ -1915,6 +2323,11 @@
       },
       "required": ["crs", "origin", "extent_at_zoom0"],
       "type": "object"
+    },
+    "TileSize": {
+      "description": "Size of a rendered XYZ tile in logical pixels.",
+      "enum": [256, 512],
+      "type": "integer"
     },
     "WebUiMode": {
       "oneOf": [

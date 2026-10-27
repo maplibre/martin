@@ -121,6 +121,24 @@ pub enum CogError {
         source: std::sync::Arc<crate::MosaicFileError>,
     },
 
+    /// A mosaic is asked for a number of bands it cannot serve.
+    #[cfg(feature = "mosaic")]
+    #[error("A mosaic serves 1 (gray) or 3 (RGB) bands, but {count} were selected")]
+    MosaicBands {
+        /// The number of bands selected.
+        count: usize,
+    },
+
+    /// The index of a mosaic cannot be searched.
+    #[cfg(feature = "mosaic")]
+    #[error("Unable to search the mosaic index {location}: {source}")]
+    MosaicIndex {
+        /// Display form of the index.
+        location: String,
+        /// Why the search failed.
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
     /// No file under a mosaic's location matches its key template.
     #[cfg(feature = "mosaic")]
     #[error("No file matching {template} was found under {location}")]
@@ -353,6 +371,41 @@ pub enum UnsupportedReason {
         col: usize,
         /// Row within the image.
         row: usize,
+    },
+    /// The CRS cannot be reprojected to Web Mercator.
+    #[error(
+        "its CRS is EPSG:{epsg}, but only Web Mercator and UTM zones (EPSG:326xx, 327xx, 269xx, 258xx) can be reprojected"
+    )]
+    UnprojectableCrs {
+        /// The EPSG code.
+        epsg: u16,
+    },
+    /// An image to be reprojected is striped.
+    #[error("image {index} is stored in strips, but only tiled images can be reprojected")]
+    StripedReprojection {
+        /// The IFD index.
+        index: usize,
+    },
+    /// A tile would be read from an image much more detailed than the tile, because coarser
+    /// overviews are missing.
+    #[error(
+        "zoom {zoom} tiles need the image downsampled {factor:.1} times, but at most {max} times is read; add overviews or raise the min zoom"
+    )]
+    MissingOverviews {
+        /// The tile's zoom.
+        zoom: u8,
+        /// Image pixels per tile pixel, in each direction.
+        factor: f64,
+        /// The most image pixels per tile pixel that are read.
+        max: f64,
+    },
+    /// A requested band is not in the file.
+    #[error("band {band} is requested, but the file has {samples} bands")]
+    MissingBand {
+        /// The requested band, counted from 1.
+        band: usize,
+        /// Samples per pixel in the file.
+        samples: usize,
     },
     /// A decoded tile is not 8-bit.
     #[error("decoded tile is not 8-bit")]

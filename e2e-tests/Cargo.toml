@@ -17,6 +17,7 @@ test-ogc = []
 test-ogc-maps = []
 test-pg = []
 test-rendering = []
+test-stac = []
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -34,6 +35,7 @@ image-compare.workspace = true
 jxl-oxide.workspace = true
 martin-tile-utils.workspace = true
 mlt-core.workspace = true
+object_store.workspace = true
 pmtiles = { workspace = true, features = ["tilejson", "object-store", "mmap-async-tokio", "write"] }
 portable-pty.workspace = true
 regex.workspace = true
@@ -42,6 +44,7 @@ roxmltree.workspace = true
 serde_json.workspace = true
 sqlx = { workspace = true, features = ["postgres", "tls-rustls-ring-webpki"] }
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "process", "rt", "time"] }
 vt100.workspace = true

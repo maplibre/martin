@@ -288,7 +288,7 @@ jobs:
           npm --prefix demo/frontend install --package-lock-only --no-fund
           npm --prefix martin/martin-ui install --package-lock-only --no-fund
           just gen-schemas
-          uvx prek@0.5.5 run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          uvx prek@0.5.5 run --files schemas/config.json martin/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
           just update-lockfile

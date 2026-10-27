@@ -95,7 +95,9 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    cargo build --quiet --features unstable-schemas --bin gen-schemas
+    # `rendering` only builds on Linux, the platform CI regenerates on, so the
+    # spec covers the static-render routes a `-full` release build serves.
+    cargo build --quiet --features unstable-schemas{{ if os() == "linux" { ",rendering" } else { "" } }} --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
@@ -103,12 +105,13 @@ gen-schemas: fetch
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
-    "$gen" --target openapi     > schemas/openapi.json
+    # Inside the crate, which embeds it to serve at `/ogc/api`.
+    "$gen" --target openapi     > martin/openapi.json
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
-    # written `schemas/openapi.json`. Kept after the cargo runs so the spec
+    # written `martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json schemas/openapi.json
+    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -117,8 +120,8 @@ gen-schemas: fetch
 test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
-        echo "schemas/config.json or schemas/openapi.json missing - run 'just gen-schemas' first" >&2
+    if [[ ! -f schemas/config.json || ! -f martin/openapi.json ]]; then
+        echo "schemas/config.json or martin/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 
@@ -129,7 +132,7 @@ test-schemas:
 
     echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
     uvx --from openapi-spec-validator openapi-spec-validator \
-        schemas/openapi.json
+        martin/openapi.json
     echo "::endgroup::"
 
     echo "::group::Validate real config fixtures against the config schema"
@@ -689,6 +692,11 @@ test-cog: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
+# Run the COG tests against a STAC API replayed from a cassette, its files in a RustFS container (needs Docker)
+test-cog-stac: fetch (cargo-install 'cargo-nextest')
+    cargo build --package martin --no-default-features --features cog
+    cargo nextest run --package martin-e2e-tests --features test-stac --test cog_stac
+
 # Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
 sync-cog-py-stubs:
     LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -724,7 +732,7 @@ test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
 [linux]
 test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
     cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
-    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps_conformance
+    cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps --test ogc_maps_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')

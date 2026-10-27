@@ -10,8 +10,8 @@ use std::fs;
 use image::ImageFormat;
 use indoc::{formatdoc, indoc};
 use martin_e2e_tests::{
-    CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, fixture, round_floats, tag,
-    temp_dir,
+    CogFixture, Martin, PROJECTED_CRS_GEO_KEY, StartError, StaticFiles, WatchedDir, assert_image_matches, fixture,
+    round_floats, tag, temp_dir,
 };
 use rstest::rstest;
 use serde_json::Value;
@@ -1172,4 +1172,154 @@ async fn a_misaligned_overview_is_skipped_with_a_warning() {
         .join("\n")
         .replace(&format!("{:?}", path.display().to_string()), "[PATH]");
     insta::assert_snapshot!(skipped, @" WARN resolve:resolve_tile_sources: Skipping a COG image that cannot be served cog.location=[PATH] reason=image 1 is not aligned to the zoom 18 tile grid");
+}
+
+#[tokio::test]
+async fn a_tile_index_paints_each_tile_from_its_files_in_row_order() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  maxzoom: 15
+                  nodata: 0
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/14/2619/6334").await;
+
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("image/png"));
+    assert_image_matches(fixture("cog/tile_index/expected/14_2619_6334.png"), tile.body());
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_index_describes_the_area_its_files_cover() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  nodata: 0
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    insta::assert_json_snapshot!(tilejson(&martin, "naip").await, @r#"
+    {
+      "bounds": [
+        -122.5027168972,
+        37.6852591659,
+        -122.3719290312,
+        37.8146302227
+      ],
+      "center": [
+        -122.4373229642,
+        37.7499446943,
+        13
+      ],
+      "format": "png",
+      "maxzoom": 13,
+      "minzoom": 13,
+      "tileSize": 256,
+      "tilejson": "3.0.0",
+      "tiles": [
+        "http://[ADDR]/naip/{z}/{x}/{y}"
+      ]
+    }
+    "#);
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_index_serves_nothing_outside_its_zoom_range() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 14
+                  maxzoom: 14
+                  nodata: 0
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let below = martin.get("/naip/13/1309/3167").await;
+    let above = martin.get("/naip/15/5238/12668").await;
+
+    insta::assert_debug_snapshot!(
+        [(below.status(), below.text()), (above.status(), above.text())],
+        @r#"
+    [
+        (
+            404,
+            "Zoom 13 is outside the supported range: naip supports zoom 14-14",
+        ),
+        (
+            404,
+            "Zoom 15 is outside the supported range: naip supports zoom 14-14",
+        ),
+    ]
+    "#
+    );
+    insta::assert_snapshot!(martin.take_log_lines("outside the supported range").join("\n"), @r#"
+    ERROR error="Zoom 13 is outside the supported range: naip supports zoom 14-14"
+    ERROR error="Zoom 15 is outside the supported range: naip supports zoom 14-14"
+    "#);
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_index_with_several_layers_and_no_layer_set_leaves_the_source_out() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            on_invalid: warn
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  minzoom: 13
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/naip").await.status(), 404);
+    insta::assert_snapshot!(martin.take_log_lines("naip.gpkg").join("\n"), @" WARN resolve:handle_tile_warnings: Tile source resolution warning warning=Source naip: The tile index tests/fixtures/cog/tile_index/naip.gpkg has no single feature table, set `layer` to one of: local, s3, utm warnings.count=1");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_index_with_footprints_not_in_wgs84_leaves_the_source_out() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            on_invalid: warn
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: utm
+                  minzoom: 13
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/naip").await.status(), 404);
+    insta::assert_snapshot!(martin.take_log_lines("naip.gpkg").join("\n"), @" WARN resolve:handle_tile_warnings: Tile source resolution warning warning=Source naip: The footprints of utm in the tile index tests/fixtures/cog/tile_index/naip.gpkg are in EPSG:26910, not EPSG:4326; build it with `gdaltindex -t_srs EPSG:4326` warnings.count=1");
+    martin.stop().await;
 }

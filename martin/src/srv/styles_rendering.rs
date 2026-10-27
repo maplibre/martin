@@ -92,8 +92,24 @@ pub(super) async fn encode_image_response(
     png_max_colors: Option<u16>,
     quality: ImageQualities,
 ) -> HttpResponse {
-    match encode_off_worker(&ENCODE_PERMITS, move || {
-        encode_image(&image, format, png_max_colors, quality)
+    encode_scaled_image_response(image, None, format, png_max_colors, quality).await
+}
+
+/// Like [`encode_image_response`], scaling `image` down to `size` first when given.
+#[cfg(target_os = "linux")]
+pub(super) async fn encode_scaled_image_response(
+    image: martin_core::styles::StaticImage,
+    size: Option<(u32, u32)>,
+    format: ImageFormatRequest,
+    png_max_colors: Option<u16>,
+    quality: ImageQualities,
+) -> HttpResponse {
+    match encode_off_worker(&ENCODE_PERMITS, move || match size {
+        Some((width, height)) => {
+            let scaled = image::imageops::resize(&image, width, height, image::imageops::FilterType::Triangle);
+            encode_image(&scaled, format, png_max_colors, quality)
+        }
+        None => encode_image(&image, format, png_max_colors, quality),
     })
     .await
     {

@@ -16,7 +16,7 @@ jobs:
     name: Validate generated config + OpenAPI schemas
     permissions:
       contents: read
-    # The `schemas/` files this validates are kept up to date by the
+    # The `schemas/` and `martin/openapi.json` files this validates are kept up to date by the
     # `gen-schemas` job in `.github/workflows/autofix.yml`, which regenerates
     # and commits them on every PR push - so this job only needs to read the
     # committed files, no Rust toolchain required.

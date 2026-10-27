@@ -100,6 +100,7 @@ fn collection(req: &HttpRequest, srv_config: &SrvConfig, id: &str, (source, proc
     utoipa::path(
         get,
         path = "/ogc/collections",
+        operation_id = "getCollectionsList",
         responses(
             (status = 200, description = "Every tile source on a tile matrix set with an OGC definition", body = Collections),
         ),
@@ -143,6 +144,7 @@ pub async fn get_collections(
     utoipa::path(
         get,
         path = "/ogc/collections/{collection_id}",
+        operation_id = "getCollection",
         params(("collection_id" = String, Path, description = "Collection ID, the ID of a source")),
         responses(
             (status = 200, description = "Collection", body = Collection),

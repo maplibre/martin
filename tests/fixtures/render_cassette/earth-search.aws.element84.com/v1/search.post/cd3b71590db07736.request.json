@@ -1,0 +1,11 @@
+{
+  "bbox": [-122.475586, 37.71859, -122.431641, 37.753344],
+  "collections": ["naip"],
+  "datetime": "2020-01-01T00:00:00Z/..",
+  "limit": 250,
+  "query": { "naip:state": { "eq": "ca" } },
+  "sortby": [
+    { "direction": "desc", "field": "properties.datetime" },
+    { "direction": "desc", "field": "id" }
+  ]
+}

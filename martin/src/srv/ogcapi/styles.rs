@@ -1,19 +1,13 @@
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
-use actix_web::web::{Data, Path, Query};
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use actix_web::web::Data;
+use actix_web::{HttpRequest, HttpResponse, route};
 use martin_core::styles::StyleSources;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use super::error::OgcApiError;
 use super::link::{Link, ogc_url, path_segment};
 use crate::config::file::srv::SrvConfig;
 use crate::maplibre_style::Style;
-use crate::srv::server::map_error;
-use crate::srv::styles::absolute_style;
-
-/// The value of `f` that selects the `MapLibre` style encoding.
-const MAPLIBRE_STYLE_FORMAT: &str = "json";
 
 /// The styles the OGC API serves.
 #[derive(Serialize, Debug)]
@@ -33,14 +27,6 @@ struct StyleDescription {
     links: Vec<Link>,
 }
 
-/// The query of a style request.
-#[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
-pub struct StyleQuery {
-    /// Style encoding, only `json` is supported.
-    f: Option<String>,
-}
-
 /// Style `id` as listed under `/styles`, titled after its `name`.
 async fn style_description(
     req: &HttpRequest,
@@ -53,16 +39,31 @@ async fn style_description(
         .ok()
         .and_then(|content| serde_json::from_str::<Style>(&content).ok())
         .and_then(|style| style.other.get("name")?.as_str().map(ToOwned::to_owned));
+    #[cfg_attr(
+        not(all(feature = "rendering", target_os = "linux")),
+        expect(unused_mut, reason = "only maps add links")
+    )]
+    let mut links = vec![Link {
+        href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
+        rel: "stylesheet",
+        media_type: "application/json",
+        title: "MapLibre style",
+        templated: false,
+    }];
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if super::map::renders_maps(req) {
+        links.push(Link {
+            href: ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),
+            rel: super::map::MAP_REL,
+            media_type: "image/png",
+            title: "Map of the style",
+            templated: false,
+        });
+    }
     StyleDescription {
         id: id.to_owned(),
         title,
-        links: vec![Link {
-            href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
-            rel: "stylesheet",
-            media_type: "application/json",
-            title: "MapLibre style",
-            templated: false,
-        }],
+        links,
     }
 }
 
@@ -72,6 +73,7 @@ async fn style_description(
     utoipa::path(
         get,
         path = "/ogc/styles",
+        operation_id = "ogc.dataset.getStyles",
         responses(
             (status = 200, description = "Every style Martin serves", body = Styles),
         ),
@@ -96,43 +98,5 @@ pub async fn get_styles(req: HttpRequest, srv_config: Data<SrvConfig>, styles: D
             "self",
             "This document",
         )],
-    })
-}
-
-/// One style in the `MapLibre` style format.
-#[cfg_attr(
-    feature = "unstable-schemas",
-    utoipa::path(
-        get,
-        path = "/ogc/styles/{style_id}",
-        params(("style_id" = String, Path, description = "Style ID"), StyleQuery),
-        responses(
-            (status = 200, description = "MapLibre style", content_type = "application/json"),
-            (status = 400, description = "Unsupported style encoding, or the style file is malformed"),
-            (status = 404, description = "No such style"),
-        ),
-    )
-)]
-#[route(
-    "/ogc/styles/{style_id}",
-    method = "GET",
-    method = "HEAD",
-    wrap = "Etag::default()",
-    wrap = "Compress::default()"
-)]
-pub async fn get_style(
-    req: HttpRequest,
-    path: Path<String>,
-    query: Query<StyleQuery>,
-    srv_config: Data<SrvConfig>,
-    styles: Data<StyleSources>,
-) -> ActixResult<HttpResponse> {
-    let id = path.into_inner();
-    if let Some(format) = query.into_inner().f.filter(|format| format != MAPLIBRE_STYLE_FORMAT) {
-        return Err(map_error(&OgcApiError::UnsupportedStyleEncoding { encoding: format }));
-    }
-    Ok(match absolute_style(&req, &srv_config, &styles, &id).await {
-        Ok(style) => HttpResponse::Ok().json(style),
-        Err(unavailable) => unavailable.response(),
     })
 }

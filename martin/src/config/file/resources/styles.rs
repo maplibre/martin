@@ -73,7 +73,7 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &[1, 2, 3]))]
     pub pixel_ratios: Option<PixelRatios>,
     /// Encode rendered PNGs as indexed (palette) images, which is the default.
-    /// `false` keeps full-colour RGBA.
+    /// `false` keeps full-color RGBA.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub png_palette: OptBoolObj<PngPaletteConfig>,
     /// Quality of rendered WebP and JPEG images, per format.
@@ -91,8 +91,8 @@ pub struct RendererConfig {
 )]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PngPaletteConfig {
-    /// Largest palette, 2 to 256 colours. Each image gets the smallest palette that matches it
-    /// closely, up to this many colours. Defaults to 128.
+    /// Largest palette, 2 to 256 colors. Each image gets the smallest palette that matches it
+    /// closely, up to this many colors. Defaults to 128.
     #[serde(default)]
     #[cfg_attr(
         feature = "unstable-schemas",

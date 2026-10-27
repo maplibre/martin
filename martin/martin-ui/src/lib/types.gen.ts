@@ -77,7 +77,24 @@ export interface paths {
             cookie?: never;
         };
         /** The OGC API landing page, at `/ogc` and `/ogc/`. */
-        get: operations["get_landing_page"];
+        get: operations["getLandingPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/api": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The OGC API part of Martin's `OpenAPI` 3.1 definition, as JSON or, for clients preferring HTML, as a page showing it. */
+        get: operations["getAPI"];
         put?: never;
         post?: never;
         delete?: never;
@@ -94,7 +111,7 @@ export interface paths {
             cookie?: never;
         };
         /** Every tile source on a tile matrix set with an OGC definition, as a collection. */
-        get: operations["get_collections"];
+        get: operations["getCollectionsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -111,7 +128,7 @@ export interface paths {
             cookie?: never;
         };
         /** One collection. */
-        get: operations["get_collection"];
+        get: operations["getCollection"];
         put?: never;
         post?: never;
         delete?: never;
@@ -128,7 +145,7 @@ export interface paths {
             cookie?: never;
         };
         /** The tilesets of one collection, one per tile matrix set it is served on. */
-        get: operations["get_tilesets"];
+        get: operations["ogc.collection.vector.getTileSetsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -145,7 +162,7 @@ export interface paths {
             cookie?: never;
         };
         /** The metadata of one tileset, with the template of its tile URLs. */
-        get: operations["get_tileset"];
+        get: operations["ogc.collection.vector.getTileSet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -162,7 +179,7 @@ export interface paths {
             cookie?: never;
         };
         /** One tile of a collection, answered as the `/{source_ids}/{z}/{x}/{y}` route answers it. */
-        get: operations["get_ogc_tile"];
+        get: operations["ogc.collection.vector.getTile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -179,7 +196,7 @@ export interface paths {
             cookie?: never;
         };
         /** The conformance classes the OGC API implements. */
-        get: operations["get_conformance"];
+        get: operations["getConformance"];
         put?: never;
         post?: never;
         delete?: never;
@@ -196,7 +213,7 @@ export interface paths {
             cookie?: never;
         };
         /** Every style Martin serves. */
-        get: operations["get_styles"];
+        get: operations["ogc.dataset.getStyles"];
         put?: never;
         post?: never;
         delete?: never;
@@ -212,8 +229,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One style in the `MapLibre` style format. */
-        get: operations["get_style"];
+        /** @description Alias of `/style/{style_id}`, as OGC API - Styles. */
+        get: operations["ogc.dataset.getStyle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A style rendered as a map. */
+        get: operations["ogc.dataset.style.getMap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -230,7 +264,7 @@ export interface paths {
             cookie?: never;
         };
         /** The tile matrix sets of the served sources. */
-        get: operations["get_tile_matrix_sets"];
+        get: operations["getTileMatrixSetsList"];
         put?: never;
         post?: never;
         delete?: never;
@@ -247,7 +281,7 @@ export interface paths {
             cookie?: never;
         };
         /** The definition of one tile matrix set. */
-        get: operations["get_tile_matrix_set"];
+        get: operations["getTileMatrixSet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -336,6 +370,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/style/{style_id}/static/{camera}/{size}.{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Render a static map image at an arbitrary camera into `{size}.{format}`. */
+        get: operations["get_rendered_static_style"];
+        put?: never;
+        /**
+         * Render a static map image with optional vector overlays.
+         *     See [our documentation](https://maplibre.org/martin/sources-styles/) for
+         *     the supported overlay body -- a `GeoJSON` `FeatureCollection` with style
+         *     properties on each feature.
+         * @description An empty or missing body renders the base map alone.
+         */
+        post: operations["post_rendered_static_style"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/style/{style_id}/{z}/{x}/{y}.{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Append `@{n}x` to `{y}` (`/style/{style_id}/{z}/{x}/{y}@2x.png`) to draw the tile at `n` times the pixels. */
+        get: operations["get_rendered_tile_style"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/{source_ids}": {
         parameters: {
             query?: never;
@@ -401,7 +476,10 @@ export interface components {
                 };
             };
             /** @description Server-wide capability flags */
-            settings: Record<string, never>;
+            settings: {
+                /** @description Whether server-side style rendering endpoints are enabled. */
+                rendering: boolean;
+            };
             sprites: {
                 [key: string]: {
                     /** @description Available sprite image names. */
@@ -493,6 +571,18 @@ export interface components {
             spatial: components["schemas"]["SpatialExtent"];
         };
         /**
+         * @description `"FeatureCollection"` discriminator for the top-level body. A unit enum so
+         *     any other `type` (a bare `Feature`, `Geometry`, or garbage) fails to
+         *     deserialize with a clear serde error.
+         * @enum {string}
+         */
+        FeatureCollectionTag: "FeatureCollection";
+        /**
+         * @description `"Feature"` discriminator for each member of the collection.
+         * @enum {string}
+         */
+        FeatureTag: "Feature";
+        /**
          * @description Source font file container format.
          *
          *     The string serialization (serde and `strum`) is the lowercase file
@@ -527,6 +617,89 @@ export interface components {
         SpatialExtent: {
             bbox: number[][];
             crs: string;
+        };
+        /**
+         * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
+         *     `None` and skipped at apply time.
+         */
+        StaticOverlayFeature: {
+            /**
+             * @description `GeoJSON` geometry. `Point`/`MultiPoint` -> circle layer;
+             *     `LineString`/`MultiLineString` -> line layer;
+             *     `Polygon`/`MultiPolygon` -> fill (and optionally outline-line) layer.
+             *     `GeometryCollection` and `null` are silently skipped.
+             */
+            geometry?: unknown;
+            properties?: components["schemas"]["StaticOverlayProperties"] | null;
+            /** @description `GeoJSON` type discriminator. Must be `"Feature"`. */
+            type: components["schemas"]["FeatureTag"];
+        };
+        /**
+         * @description Wire shape of a feature's `properties`, keyed by canonical `MapLibre`
+         *     paint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];
+         *     enums and numbers are validated by serde. Unknown keys (`id`, `name`,
+         *     `title`, …) are ignored.
+         */
+        StaticOverlayProperties: {
+            /**
+             * @description CSS color for `Point` geometries.
+             * @example #285DAA
+             */
+            "circle-color"?: string | null;
+            /** Format: float */
+            "circle-opacity"?: number | null;
+            /**
+             * Format: float
+             * @description Radius in pixels at the rendered scale.
+             * @example 8
+             */
+            "circle-radius"?: number | null;
+            "circle-stroke-color"?: string | null;
+            /** Format: float */
+            "circle-stroke-opacity"?: number | null;
+            /** Format: float */
+            "circle-stroke-width"?: number | null;
+            /**
+             * @description CSS color for `Polygon` fills.
+             * @example #95BEFA
+             */
+            "fill-color"?: string | null;
+            /** Format: float */
+            "fill-opacity"?: number | null;
+            "fill-outline-color"?: string | null;
+            /**
+             * @description One of `butt`, `round`, `square`.
+             * @example round
+             */
+            "line-cap"?: string | null;
+            /**
+             * @description CSS color for `LineString` geometries (and `Polygon` outlines).
+             * @example #285DAA
+             */
+            "line-color"?: string | null;
+            /**
+             * @description One of `miter`, `bevel`, `round`.
+             * @example round
+             */
+            "line-join"?: string | null;
+            /** Format: float */
+            "line-opacity"?: number | null;
+            /**
+             * Format: float
+             * @description Line width in pixels at the rendered scale.
+             * @example 2
+             */
+            "line-width"?: number | null;
+        };
+        /**
+         * @description Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as
+         *     the `OpenAPI` request-body schema.
+         */
+        StaticStyleOverlay: {
+            /** @description Features to overlay on the rendered base map, in draw order. */
+            features: components["schemas"]["StaticOverlayFeature"][];
+            /** @description `GeoJSON` type discriminator. Must be `"FeatureCollection"`. */
+            type: components["schemas"]["FeatureCollectionTag"];
         };
         /** @description A style in the list, linking to its stylesheets. */
         StyleDescription: {
@@ -628,11 +801,16 @@ export type Collections = components['schemas']['Collections'];
 export type Conformance = components['schemas']['Conformance'];
 export type DataType = components['schemas']['DataType'];
 export type Extent = components['schemas']['Extent'];
+export type FeatureCollectionTag = components['schemas']['FeatureCollectionTag'];
+export type FeatureTag = components['schemas']['FeatureTag'];
 export type FontFormat = components['schemas']['FontFormat'];
 export type LandingPage = components['schemas']['LandingPage'];
 export type Layer = components['schemas']['Layer'];
 export type Link = components['schemas']['Link'];
 export type SpatialExtent = components['schemas']['SpatialExtent'];
+export type StaticOverlayFeature = components['schemas']['StaticOverlayFeature'];
+export type StaticOverlayProperties = components['schemas']['StaticOverlayProperties'];
+export type StaticStyleOverlay = components['schemas']['StaticStyleOverlay'];
 export type StyleDescription = components['schemas']['StyleDescription'];
 export type StyleKind = components['schemas']['StyleKind'];
 export type Styles = components['schemas']['Styles'];
@@ -754,7 +932,7 @@ export interface operations {
             };
         };
     };
-    get_landing_page: {
+    getLandingPage: {
         parameters: {
             query?: never;
             header?: never;
@@ -774,7 +952,28 @@ export interface operations {
             };
         };
     };
-    get_collections: {
+    getAPI: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI 3.1 definition of the OGC API paths this server answers, or an HTML page showing it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.oai.openapi+json;version=3.1": unknown;
+                    "text/html": unknown;
+                };
+            };
+        };
+    };
+    getCollectionsList: {
         parameters: {
             query?: never;
             header?: never;
@@ -794,7 +993,7 @@ export interface operations {
             };
         };
     };
-    get_collection: {
+    getCollection: {
         parameters: {
             query?: never;
             header?: never;
@@ -824,7 +1023,7 @@ export interface operations {
             };
         };
     };
-    get_tilesets: {
+    "ogc.collection.vector.getTileSetsList": {
         parameters: {
             query?: never;
             header?: never;
@@ -854,7 +1053,7 @@ export interface operations {
             };
         };
     };
-    get_tileset: {
+    "ogc.collection.vector.getTileSet": {
         parameters: {
             query?: never;
             header?: never;
@@ -884,7 +1083,7 @@ export interface operations {
             };
         };
     };
-    get_ogc_tile: {
+    "ogc.collection.vector.getTile": {
         parameters: {
             query?: never;
             header?: never;
@@ -936,7 +1135,7 @@ export interface operations {
             };
         };
     };
-    get_conformance: {
+    getConformance: {
         parameters: {
             query?: never;
             header?: never;
@@ -956,7 +1155,7 @@ export interface operations {
             };
         };
     };
-    get_styles: {
+    "ogc.dataset.getStyles": {
         parameters: {
             query?: never;
             header?: never;
@@ -976,11 +1175,59 @@ export interface operations {
             };
         };
     };
-    get_style: {
+    "ogc.dataset.getStyle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MapLibre Style Spec JSON document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Style file is malformed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.getMap": {
         parameters: {
             query?: {
-                /** @description Style encoding, only `json` is supported. */
-                f?: string | null;
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
             };
             header?: never;
             path: {
@@ -991,16 +1238,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description MapLibre style */
+            /** @description Map of the style */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
                 };
             };
-            /** @description Unsupported style encoding, or the style file is malformed */
+            /** @description Invalid map parameters */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1014,9 +1262,16 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description No supported map format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
-    get_tile_matrix_sets: {
+    getTileMatrixSetsList: {
         parameters: {
             query?: never;
             header?: never;
@@ -1036,7 +1291,7 @@ export interface operations {
             };
         };
     };
-    get_tile_matrix_set: {
+    getTileMatrixSet: {
         parameters: {
             query?: never;
             header?: never;
@@ -1211,6 +1466,185 @@ export interface operations {
             };
             /** @description No matching style */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_rendered_static_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
+                camera: string;
+                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
+                size: string;
+                /**
+                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
+                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
+                 */
+                format: "png" | "jpg" | "webp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rendered static map image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Invalid params or size, or a pixel ratio not listed in `pixel_ratios` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    post_rendered_static_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
+                camera: string;
+                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
+                size: string;
+                /**
+                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
+                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
+                 */
+                format: "png" | "jpg" | "webp";
+            };
+            cookie?: never;
+        };
+        /** @description GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaticStyleOverlay"];
+            };
+        };
+        responses: {
+            /** @description Rendered static map image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Invalid params, size, or overlay body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_rendered_tile_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                z: number;
+                x: number;
+                y: number;
+                format: "png" | "jpg" | "webp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-side rendered style tile (PNG/JPEG/WebP) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid tile coordinates, or a pixel ratio not listed in `pixel_ratios` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

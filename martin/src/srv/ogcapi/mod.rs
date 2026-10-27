@@ -6,6 +6,9 @@ mod data_type;
 mod error;
 mod landing;
 mod link;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod map;
+mod openapi;
 #[cfg(feature = "resources")]
 mod styles;
 mod tile;
@@ -15,10 +18,15 @@ mod tilesets;
 pub use collections::{get_collection, get_collections};
 pub use conformance::get_conformance;
 pub use landing::get_landing_page;
+#[cfg(all(feature = "rendering", target_os = "linux", feature = "unstable-schemas"))]
+pub use map::__path_get_style_map;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use map::get_style_map;
+pub use openapi::get_api;
 #[cfg(all(feature = "resources", feature = "unstable-schemas"))]
-pub use styles::{__path_get_style, __path_get_styles};
+pub use styles::__path_get_styles;
 #[cfg(feature = "resources")]
-pub use styles::{get_style, get_styles};
+pub use styles::get_styles;
 pub use tile::get_tile;
 pub use tile_matrix_sets::{get_tile_matrix_set, get_tile_matrix_sets};
 pub use tilesets::{get_tileset, get_tilesets};
@@ -27,6 +35,7 @@ pub use {
     collections::{__path_get_collection, __path_get_collections},
     conformance::__path_get_conformance,
     landing::__path_get_landing_page,
+    openapi::__path_get_api,
     tile::__path_get_tile,
     tile_matrix_sets::{__path_get_tile_matrix_set, __path_get_tile_matrix_sets},
     tilesets::{__path_get_tileset, __path_get_tilesets},

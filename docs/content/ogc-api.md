@@ -26,6 +26,10 @@ You give it the landing page, `/ogc`, and it follows links from there, picking e
 
 That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
 
+The landing page also links `/ogc/api`, the OGC API part of Martin's [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.1) definition, for clients that generate requests from it.
+Clients that weigh HTML above JSON in `Accept`, as browsers do, get it as a [Swagger UI](https://swagger.io/tools/swagger-ui/) page instead, which loads Swagger UI from the jsDelivr CDN.
+OGC API's OpenAPI conformance classes ask for OpenAPI 3.0, so Martin does not declare them.
+
 ## Tile URLs
 
 The thing that trips people up: OGC puts the row before the column.
@@ -77,11 +81,28 @@ Origins are written in the CRS's own axis order, which for EPSG 3035 and 2193 me
 ## Styles
 
 `/ogc/styles` lists your [styles](sources-styles/index.md) through [OGC API - Styles](https://docs.ogc.org/DRAFTS/20-009.html), each titled after its `name`.
-`/ogc/styles/{styleID}` serves the same MapLibre style as `/style/{styleID}`, as `application/json`.
-That is the only encoding Martin has, so `?f=json` is the only `f` it accepts.
+`/ogc/styles/{styleID}` is an alias of `/style/{styleID}`.
 Martin does not declare the draft's `mapbox-style` class, which names the Mapbox media type.
 
 OGC API - Styles is still a draft, so this part may change with it.
+
+## Maps
+
+With [rendering](sources-styles/rendering.md) enabled, Martin also renders maps through [OGC API - Maps](https://docs.ogc.org/is/20-058/20-058.html).
+`/ogc/styles/{styleID}/map` is a style rendered as one image.
+It is the format the `Accept` header weighs highest, ignoring `q=0`: PNG (also for `*/*` or no header) or JPEG.
+
+| Parameter           | Meaning                                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------------------|
+| `width`, `height`   | size in pixels, up to 2048; with one, the other follows the area; with neither, the longer side is 1024     |
+| `bbox`              | area as its lower left and upper right corners, in the axis order of `bbox-crs`; the whole world by default |
+| `bbox-crs`          | CRS of `bbox`: CRS84 (default), EPSG:4326 or EPSG:3857                                                      |
+| `center`            | point as `x,y` to center the map on, instead of `bbox`                                                      |
+| `center-crs`        | CRS of `center`, as for `bbox-crs`                                                                          |
+| `scale-denominator` | scale of the map, instead of `width` and `height` with `bbox`                                               |
+
+Maps are always in web mercator, which the `Content-Crs` header states.
+The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
 
 ## Conformance
 
@@ -91,6 +112,7 @@ OGC API - Styles is still a draft, so this part may change with it.
 - OGC API - Common core, landing page and JSON
 - Two Dimensional Tile Matrix Set 2.0 and its JSON encoding
 - OGC API - Styles core and global styles, when Martin is built with styles
+- OGC API - Maps core, styled map, PNG and JPEG, when rendering is enabled
 
 We run the official OGC test suite against Martin in CI.
 

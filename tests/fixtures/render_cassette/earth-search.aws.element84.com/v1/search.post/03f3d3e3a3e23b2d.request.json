@@ -1,0 +1,10 @@
+{
+  "collections": ["naip"],
+  "datetime": "2020-01-01T00:00:00Z/..",
+  "limit": 1,
+  "query": { "naip:state": { "eq": "ca" } },
+  "sortby": [
+    { "direction": "desc", "field": "properties.datetime" },
+    { "direction": "desc", "field": "id" }
+  ]
+}

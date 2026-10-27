@@ -27,6 +27,10 @@ const INDEX: &str = "_index";
 /// [`Cassette::style`] points a style fixture at it, and [`Cassette::assert_no_misses`] reports
 /// what the recordings did not cover.
 ///
+/// A POST is recorded by its JSON body as well as its path, at `{path}.post/{hash}.json`, with the
+/// body it answers next to it as `{hash}.request.json`; numbers in the body are rounded to six
+/// decimals first, so a request computed with slightly different floating point still matches.
+///
 /// A request no recording covers is fetched from the upstream and written into [`CASSETTE_DIR`],
 /// so a new test records what it needs on its first run and `git add`s it.
 /// On CI it is answered with a 404 instead, keeping a cassette that is behind the tests a failure
@@ -64,7 +68,12 @@ impl Cassette {
         let tape = Arc::new(Tape::new(hosts, &server.uri(), records, max_age));
         let responder = Arc::clone(&tape);
         Mock::given(method("GET"))
-            .respond_with(move |request: &Request| responder.respond(request.url.path()))
+            .respond_with(move |request: &Request| responder.respond(request.url.path(), None))
+            .mount(&server)
+            .await;
+        let responder = Arc::clone(&tape);
+        Mock::given(method("POST"))
+            .respond_with(move |request: &Request| responder.respond(request.url.path(), Some(&request.body)))
             .mount(&server)
             .await;
         Self {
@@ -72,6 +81,12 @@ impl Cassette {
             tape,
             styles: tempfile::tempdir().expect("failed to create a temp dir"),
         }
+    }
+
+    /// The URL that stands for `https://{host}` here.
+    #[must_use]
+    pub fn url(&self, host: &str) -> String {
+        format!("{}/{host}", self.server.uri())
     }
 
     /// Copy the style at `path` with its URLs on the recorded hosts pointed here, and return the
@@ -174,15 +189,23 @@ impl Tape {
             .then(|| format!("https://{host}/{rest}"))
     }
 
-    fn respond(&self, path: &str) -> ResponseTemplate {
-        let Some(body) = self.body(path) else {
+    fn respond(&self, path: &str, request: Option<&[u8]>) -> ResponseTemplate {
+        let request = request.map(canonical_json);
+        let key = match &request {
+            Some(request) => format!("{path}.post/{:016x}.json", fnv1a(request.as_bytes())),
+            None => path.to_owned(),
+        };
+        let Some(body) = self.body(&key, path, request.as_deref()) else {
             self.misses
                 .lock()
                 .expect("cassette lock poisoned")
-                .push(path.to_owned());
+                .push(match &request {
+                    Some(request) => format!("POST {path} {request}"),
+                    None => path.to_owned(),
+                });
             return ResponseTemplate::new(404);
         };
-        let content_type = content_type(path, &body);
+        let content_type = content_type(&key, &body);
         // A TileJSON carries absolute tile URLs on the upstream.
         let body = if content_type == "application/json" {
             let text = String::from_utf8(body).expect("a json recording that is not utf-8");
@@ -199,14 +222,10 @@ impl Tape {
         }
     }
 
-    /// The recorded body for `path`, recording it from the upstream if this is the first ask.
-    fn body(&self, path: &str) -> Option<Vec<u8>> {
-        let recorded = self
-            .responses
-            .read()
-            .expect("cassette lock poisoned")
-            .get(path)
-            .cloned();
+    /// The recorded body for `key`, recording it from the upstream `path` (posting `request` if any)
+    /// if this is the first ask.
+    fn body(&self, key: &str, path: &str, request: Option<&str>) -> Option<Vec<u8>> {
+        let recorded = self.responses.read().expect("cassette lock poisoned").get(key).cloned();
         if let Some(body) = recorded {
             return Some(body);
         }
@@ -219,12 +238,15 @@ impl Tape {
             .get_or_init(|| Mutex::new(Upstream::fetching()))
             .lock()
             .expect("cassette lock poisoned")
-            .get(&url)?;
-        write(&self.dir, path, &body);
+            .get(&url, request)?;
+        write(&self.dir, key, &body);
+        if let Some(request) = request {
+            write(&self.dir, &key.replace(".json", ".request.json"), request.as_bytes());
+        }
         self.responses
             .write()
             .expect("cassette lock poisoned")
-            .insert(path.to_owned(), body.clone());
+            .insert(key.to_owned(), body.clone());
         Some(body)
     }
 }
@@ -235,40 +257,46 @@ impl Tape {
 /// body comes back over a channel.
 #[derive(Debug)]
 struct Upstream {
-    requests: Sender<(String, Sender<Option<Vec<u8>>>)>,
+    requests: Sender<UpstreamRequest>,
 }
+
+/// A URL to fetch, the body to POST to it if any, and where the fetched body goes.
+type UpstreamRequest = (String, Option<String>, Sender<Option<Vec<u8>>>);
 
 impl Upstream {
     fn fetching() -> Self {
-        let (requests, incoming) = channel::<(String, Sender<Option<Vec<u8>>>)>();
+        let (requests, incoming) = channel::<UpstreamRequest>();
         thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("failed to build the recording runtime");
             let client = Client::new();
-            for (url, reply) in incoming {
-                let body = runtime.block_on(fetch(&client, &url));
+            for (url, request, reply) in incoming {
+                let body = runtime.block_on(fetch(&client, &url, request));
                 reply.send(body).expect("the cassette outlives its fetches");
             }
         });
         Self { requests }
     }
 
-    /// The live body of `url`, or `None` if the upstream does not serve it.
-    fn get(&self, url: &str) -> Option<Vec<u8>> {
+    /// The live body of `url`, posting `request` if any, or `None` if the upstream does not serve it.
+    fn get(&self, url: &str, request: Option<&str>) -> Option<Vec<u8>> {
         let (reply, response) = channel();
         self.requests
-            .send((url.to_owned(), reply))
+            .send((url.to_owned(), request.map(str::to_owned), reply))
             .expect("the recording thread outlives the cassette");
         response.recv().expect("the recording thread answers")
     }
 }
 
 /// `url`'s body, decoded, or `None` if the response was not a success.
-async fn fetch(client: &Client, url: &str) -> Option<Vec<u8>> {
-    let response = client
-        .get(url)
+async fn fetch(client: &Client, url: &str, request: Option<String>) -> Option<Vec<u8>> {
+    let request = match request {
+        Some(body) => client.post(url).header("content-type", "application/json").body(body),
+        None => client.get(url),
+    };
+    let response = request
         .send()
         .await
         .unwrap_or_else(|e| panic!("failed to record {url}: {e}"));
@@ -285,6 +313,61 @@ async fn fetch(client: &Client, url: &str) -> Option<Vec<u8>> {
         .await
         .unwrap_or_else(|e| panic!("failed to read the body of {url}: {e}"));
     Some(decompress(&body, encoding.as_deref()))
+}
+
+/// `body` as JSON with sorted keys and numbers rounded to six decimals, or as it is if it is not JSON.
+fn canonical_json(body: &[u8]) -> String {
+    fn write(value: &serde_json::Value, out: &mut String) {
+        match value {
+            serde_json::Value::Object(map) => {
+                let mut keys: Vec<_> = map.keys().collect();
+                keys.sort();
+                out.push('{');
+                for (i, key) in keys.into_iter().enumerate() {
+                    if i > 0 {
+                        out.push(',');
+                    }
+                    out.push_str(&serde_json::Value::from(key.as_str()).to_string());
+                    out.push(':');
+                    write(&map[key], out);
+                }
+                out.push('}');
+            }
+            serde_json::Value::Array(items) => {
+                out.push('[');
+                for (i, item) in items.iter().enumerate() {
+                    if i > 0 {
+                        out.push(',');
+                    }
+                    write(item, out);
+                }
+                out.push(']');
+            }
+            serde_json::Value::Number(number) if number.is_f64() => {
+                let rounded = (number.as_f64().expect("an f64 number") * 1e6).round() / 1e6;
+                out.push_str(&serde_json::Value::from(rounded).to_string());
+            }
+            other @ (serde_json::Value::Null
+            | serde_json::Value::Bool(_)
+            | serde_json::Value::Number(_)
+            | serde_json::Value::String(_)) => out.push_str(&other.to_string()),
+        }
+    }
+    match serde_json::from_slice(body) {
+        Ok(value) => {
+            let mut out = String::new();
+            write(&value, &mut out);
+            out
+        }
+        Err(_) => String::from_utf8_lossy(body).into_owned(),
+    }
+}
+
+/// The 64-bit FNV-1a hash of `bytes`, which names a POST recording.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+    })
 }
 
 /// The recordings under `dir`, keyed by the URL path each answers, or empty for `INDEX`

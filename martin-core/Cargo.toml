@@ -72,11 +72,16 @@ postgres = [
 ]
 unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 cog = [
+    "dep:async-trait",
     "dep:cog-tiles",
     "cog-tiles/mosaic",
     "dep:futures",
+    "dep:geo-index",
     "dep:object_store",
+    "dep:reqwest",
     "dep:serde_json",
+    "dep:sqlx",
+    "dep:url",
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]
@@ -129,6 +134,7 @@ maplibre-native-ffi = { workspace = true, optional = true, features = ["opengl"]
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
 backon = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
@@ -176,6 +182,7 @@ serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
