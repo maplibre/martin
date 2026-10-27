@@ -108,12 +108,7 @@ impl TileServer {
         clippy::needless_pass_by_value,
         reason = "consumed by value to build the tiles_url below without an extra allocation"
     )]
-    fn get_source_info(
-        &self,
-        py: Python<'_>,
-        source_ids: &str,
-        tiles_url: String,
-    ) -> PyResult<String> {
+    fn get_source_info(&self, py: Python<'_>, source_ids: &str, tiles_url: String) -> PyResult<String> {
         let manager = self.manager.clone();
         let source_ids = source_ids.to_owned();
         py.detach(|| {
@@ -152,14 +147,8 @@ impl TileServer {
             .ok_or_else(|| PyValueError::new_err(format!("invalid tile coordinate {z}/{x}/{y}")))?;
         let tile = py.detach(|| {
             self.rt.block_on(async move {
-                let src = DynTileSource::new(
-                    &manager,
-                    &source_ids,
-                    Some(z),
-                    &query,
-                    TileRequestHeaders::default(),
-                )
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+                let src = DynTileSource::new(&manager, &source_ids, Some(z), &query, TileRequestHeaders::default())
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?;
                 src.get_tile_content(xyz)
                     .await
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))
@@ -167,11 +156,7 @@ impl TileServer {
         })?;
         let content_type = tile.info.format.content_type().to_owned();
         let content_encoding = tile.info.encoding.compression().map(str::to_owned);
-        Ok((
-            PyBytes::new(py, &tile.data).unbind(),
-            content_type,
-            content_encoding,
-        ))
+        Ok((PyBytes::new(py, &tile.data).unbind(), content_type, content_encoding))
     }
 }
 
@@ -221,10 +206,7 @@ mod tests {
         let geojson = fixture("geojson/feature_collection_1.geojson");
         let config = write_config(
             &dir,
-            &format!(
-                "geojson:\n  sources:\n    geojson_a: {}\n",
-                geojson.display()
-            ),
+            &format!("geojson:\n  sources:\n    geojson_a: {}\n", geojson.display()),
         );
 
         let manager = load_tile_manager(&config).await.unwrap();
@@ -238,10 +220,7 @@ mod tests {
         let geojson = fixture("geojson/feature_collection_1.geojson");
         let config = write_config(
             &dir,
-            &format!(
-                "geojson:\n  sources:\n    geojson_a: {}\n",
-                geojson.display()
-            ),
+            &format!("geojson:\n  sources:\n    geojson_a: {}\n", geojson.display()),
         );
         let rt = Runtime::new().unwrap();
 
@@ -267,10 +246,7 @@ mod tests {
     #[tokio::test]
     async fn a_source_pointing_at_a_missing_file_is_an_error() {
         let dir = tempfile::tempdir().unwrap();
-        let config = write_config(
-            &dir,
-            "geojson:\n  sources:\n    gone: /nonexistent/nothing.geojson\n",
-        );
+        let config = write_config(&dir, "geojson:\n  sources:\n    gone: /nonexistent/nothing.geojson\n");
 
         let Err(error) = load_tile_manager(&config).await else {
             panic!("a source pointing at a missing file must not load");
