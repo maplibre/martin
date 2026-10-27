@@ -16,6 +16,8 @@ An OGC client doesn't need to know how Martin's URLs look. You give it the landi
 
 That's four requests before the first tile, where a MapLibre map with TileJSON needs one.
 
+The landing page also links `/ogc/api`, the OGC API part of Martin's [OpenAPI 3.1](<https://spec.openapis.org/oas/v3.1.1>) definition, for clients that generate requests from it. Clients that weigh HTML above JSON in `Accept`, as browsers do, get it as a [Swagger UI](<https://swagger.io/tools/swagger-ui/>) page instead, which loads Swagger UI from the jsDelivr CDN. OGC API's OpenAPI conformance classes ask for OpenAPI 3.0, so Martin does not declare them.
+
 ## Tile URLs
 
 The thing that trips people up: OGC puts the row before the column. An OGC tile URL ends in `{z}/{y}/{x}`, not `{z}/{x}/{y}`.
@@ -53,7 +55,7 @@ Grids from the OGC registry also carry their official registry `uri`. Origins ar
 
 ## Styles
 
-`/ogc/styles` lists your [styles](<https://maplibre.org/martin/sources-styles/index.md>) through [OGC API - Styles](<https://docs.ogc.org/DRAFTS/20-009.html>), each titled after its `name`. `/ogc/styles/{styleID}` serves the same MapLibre style as `/style/{styleID}`, as `application/json`. That is the only encoding Martin has, so `?f=json` is the only `f` it accepts. Martin does not declare the draft's `mapbox-style` class, which names the Mapbox media type.
+`/ogc/styles` lists your [styles](<https://maplibre.org/martin/sources-styles/index.md>) through [OGC API - Styles](<https://docs.ogc.org/DRAFTS/20-009.html>), each titled after its `name`. `/ogc/styles/{styleID}` is an alias of `/style/{styleID}`. Martin does not declare the draft's `mapbox-style` class, which names the Mapbox media type.
 
 OGC API - Styles is still a draft, so this part may change with it.
 

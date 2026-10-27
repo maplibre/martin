@@ -4,7 +4,7 @@
 >
 > **OpenAPI Documentation**
 >
-> If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](<https://raw.githubusercontent.com/maplibre/martin/main/schemas/openapi.json>).
+> If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](<https://github.com/maplibre/martin/raw/main/martin/openapi.json>).
 
 > [!TIP]
 >
