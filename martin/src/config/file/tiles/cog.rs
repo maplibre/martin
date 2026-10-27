@@ -615,7 +615,8 @@ impl CogConfig {
     }
 
     /// Builds the stores STAC asset hrefs are read from, with this config's object-store settings,
-    /// one per bucket or host. An href with a query (e.g. a presigned URL) gets a store of its own.
+    /// one per host and first path segment, which holds the bucket or container of path-style URLs.
+    /// An href with a query (e.g. a presigned URL) gets a store of its own.
     fn href_resolver(&self) -> HrefResolver {
         let object_store = self.object_store.clone();
         let stores: Mutex<HashMap<String, Arc<dyn ObjectStore>>> = Mutex::default();
@@ -625,10 +626,11 @@ impl CogConfig {
                 let (store, path) = object_store.parse_url_opts(&url)?;
                 return Ok((Arc::from(store), path));
             }
-            let mut base = url.clone();
-            base.set_path("");
-            base.set_fragment(None);
-            let key = base.to_string();
+            let first_segment = url
+                .path_segments()
+                .and_then(|mut segments| segments.next())
+                .unwrap_or("");
+            let key = format!("{}/{first_segment}", &url[..url::Position::BeforePath]);
             let mut stores = stores
                 .lock()
                 .map_err(|_poisoned| "the object store cache is poisoned")?;

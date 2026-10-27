@@ -331,6 +331,7 @@ impl StacIndex {
         };
         match (self.resolve)(&asset.href) {
             Ok((store, path)) => Some(MosaicFile {
+                cache_key: without_fragment(&asset.href).into(),
                 location: without_query(&asset.href).into(),
                 store,
                 path,
@@ -670,6 +671,11 @@ struct Link {
 /// `href` without its query and fragment, which may hold credentials, e.g. of a presigned URL.
 fn without_query(href: &str) -> &str {
     href.split(['?', '#']).next().unwrap_or(href)
+}
+
+/// `href` up to its fragment, which never selects a different file.
+fn without_fragment(href: &str) -> &str {
+    href.split('#').next().unwrap_or(href)
 }
 
 /// `[west, south, east, north]` of a 2D or 3D STAC bbox.
