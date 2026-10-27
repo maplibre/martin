@@ -1445,6 +1445,61 @@ async fn a_cog_file_is_re_encoded_as_the_configured_format() {
 }
 
 #[tokio::test]
+async fn a_jpeg_tile_index_without_a_background_paints_white_where_no_file_has_data() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              tile_index:
+                naip:
+                  path: tests/fixtures/cog/tile_index/naip.gpkg
+                  layer: local
+                  minzoom: 13
+                  nodata: 0
+                  format: jpeg
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/naip/13/1308/3165").await;
+
+    let pixels = image::load_from_memory(tile.body()).unwrap().to_rgb8();
+    insta::assert_debug_snapshot!(pixels.get_pixel(0, 128).0, @"
+    [
+        255,
+        255,
+        255,
+    ]
+    ");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_mosaic_is_re_encoded_as_the_configured_format() {
+    let mut martin = Martin::builder()
+        .config(indoc! {"
+            cog:
+              mosaics:
+                ortho:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  zoom: 16
+                  format: webp
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/ortho/16/32748/21794").await;
+
+    assert_eq!(tile.status(), 200);
+    assert_eq!(tile.header("content-type"), Some("image/webp"));
+    assert_eq!(tile.image_format(), ImageFormat::WebP);
+    assert_eq!(tile.image_size(), (256, 256));
+    assert_eq!(tilejson(&martin, "ortho").await["format"], "webp");
+    martin.stop().await;
+}
+
+#[tokio::test]
 async fn quality_without_a_format_is_rejected() {
     let error = Martin::builder()
         .config(indoc! {"

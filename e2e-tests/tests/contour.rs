@@ -260,6 +260,37 @@ async fn a_cog_format_is_rejected_when_a_cog_file_source_traces_contours() {
 }
 
 #[tokio::test]
+async fn a_format_is_rejected_on_a_mosaic_that_traces_contours() {
+    let error = Martin::builder()
+        .config(indoc! {"
+            cog:
+              mosaics:
+                terrain:
+                  path: tests/fixtures/cog/mosaic/{quadkey}.tif
+                  zoom: 16
+                  format: webp
+                  convert_to_contour: auto
+        "})
+        .start()
+        .await
+        .expect_err("martin must refuse the config");
+
+    let StartError::EarlyExit { log, .. } = error else {
+        panic!("expected an early exit, got: {error}");
+    };
+    insta::with_settings!({filters => vec![
+        (r"martin\.version=\S+", "martin.version=[VERSION]"),
+        (r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]"),
+    ]}, {
+        insta::assert_snapshot!(log, @"
+         INFO Starting Martin martin.version=[VERSION]
+         INFO Using config file [CONFIG]
+        ERROR Source terrain has an invalid tile format: `format` cannot be set with `convert_to_hillshade` or `convert_to_contour`, which encode tiles themselves
+        ");
+    });
+}
+
+#[tokio::test]
 async fn query_overrides_are_ignored_unless_opted_in() {
     let files = serving(neighbourhood()).await;
     let base_url = files.base_url();
