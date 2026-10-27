@@ -1016,7 +1016,7 @@ docker-is-ready:
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name:
-    docker compose up -d {{name}}
+    docker compose up -d --build {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

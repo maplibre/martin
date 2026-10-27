@@ -22,5 +22,6 @@ COPY --from=build --chown=ets /out/teamengine /usr/local/tomcat/webapps/teamengi
 COPY --from=build /out/lib /usr/local/tomcat/lib
 COPY --from=build --chown=ets /out/te_base /home/ets/te_base
 USER ets
-ENV JAVA_OPTS="-Xms1024m -Xmx2048m -DTE_BASE=/home/ets/te_base"
+# The CORS tests send `Origin`, which Java drops from requests unless restricted headers are allowed.
+ENV JAVA_OPTS="-Xms1024m -Xmx2048m -DTE_BASE=/home/ets/te_base -Dsun.net.http.allowRestrictedHeaders=true"
 CMD ["catalina.sh", "run"]
