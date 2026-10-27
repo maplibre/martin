@@ -17,6 +17,14 @@ pub enum CogError {
         format: cog_tiles::TileFormat,
     },
 
+    /// Encoding a tile on the blocking thread pool panics or is cancelled.
+    #[error("Unable to encode a tile: {join}")]
+    Encode {
+        /// Why the encoding task did not finish.
+        #[source]
+        join: tokio::task::JoinError,
+    },
+
     /// A request to a STAC API fails.
     #[error("Unable to reach the STAC API at {url}: {source}")]
     StacRequest {

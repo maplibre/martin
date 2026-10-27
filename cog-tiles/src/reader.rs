@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::Range;
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
@@ -50,6 +51,16 @@ impl TileFormat {
             Self::Webp => "webp",
             Self::Png => "png",
         }
+    }
+}
+
+impl fmt::Display for TileFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Jpeg => "JPEG",
+            Self::Webp => "WebP",
+            Self::Png => "PNG",
+        })
     }
 }
 
@@ -443,7 +454,9 @@ impl<B: AsyncBackend> AsyncCogReader<B> {
             }
             #[cfg(feature = "png")]
             Encoding::Png => match self.get_tile_pixels(coord).await? {
-                Some(pixels) => crate::encode::encode_png(&pixels, self.bridge.0.location()).map(Some),
+                Some(pixels) => crate::TileEncoding::Png
+                    .encode(&pixels, self.bridge.0.location())
+                    .map(Some),
                 None => Ok(None),
             },
         }

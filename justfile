@@ -731,7 +731,7 @@ test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
 # Run the OGC API - Maps conformance suite (Docker, built from source) against a rendered style
 [linux]
 test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
-    cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
     cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps --test ogc_maps_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
@@ -997,7 +997,7 @@ docker-is-ready:
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name:
-    docker compose up -d {{name}}
+    docker compose up -d --build {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

@@ -2,9 +2,11 @@ use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use std::ops::RangeInclusive;
+
 use martin_tile_utils::{MAX_ZOOM, TileGrid};
 use serde::{Deserialize, Serialize};
-use tilejson::TileJSON;
+use tilejson::Bounds;
 
 use super::collections::collection_source;
 use super::data_type::DataType;
@@ -16,10 +18,13 @@ use crate::source::SourceEntry;
 use crate::srv::server::map_error;
 use crate::tile_source_manager::TileSourceManager;
 
-/// The tilesets of a collection.
+/// The link relation from a tileset to the definition of its tile matrix set.
+const TILING_SCHEME: &str = "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme";
+
+/// The tilesets of a collection, map or style.
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
-struct TileSets {
+pub(super) struct TileSets {
     tilesets: Vec<TileSetItem>,
     links: Vec<Link>,
 }
@@ -41,7 +46,7 @@ struct TileSetItem {
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
-struct TileSet {
+pub(super) struct TileSet {
     title: String,
     data_type: DataType,
     crs: String,
@@ -57,7 +62,7 @@ struct TileSet {
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
-struct TileMatrixLimits {
+pub(super) struct TileMatrixLimits {
     tile_matrix: String,
     min_tile_row: u32,
     max_tile_row: u32,
@@ -69,7 +74,7 @@ struct TileMatrixLimits {
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
-struct Layer {
+pub(super) struct Layer {
     id: String,
     data_type: DataType,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,10 +108,13 @@ pub(super) fn tileset_source(
     Ok((entry, crs))
 }
 
-/// The tiles of each zoom of the source that its bounds cover, every column where they cross the antimeridian, or the whole grid where they can't be placed.
-fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatrixLimits> {
-    let mut bounds = tilejson
-        .bounds
+/// The tiles of each of `zooms` that `bounds` cover, every column where they cross the antimeridian, or the whole grid where they can't be placed.
+pub(super) fn tile_matrix_set_limits(
+    grid: &TileGrid,
+    bounds: Option<Bounds>,
+    zooms: RangeInclusive<u8>,
+) -> Vec<TileMatrixLimits> {
+    let mut bounds = bounds
         .and_then(|bounds| grid.crs_bounds([bounds.left, bounds.bottom, bounds.right, bounds.top]))
         .filter(|[_, bottom, _, top]| bottom <= top)
         .unwrap_or_else(|| grid.bounds());
@@ -114,8 +122,7 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
         let whole = grid.bounds();
         (bounds[0], bounds[2]) = (whole[0], whole[2]);
     }
-    let maxzoom = tilejson.maxzoom.unwrap_or(MAX_ZOOM);
-    (tilejson.minzoom.unwrap_or(0)..=maxzoom)
+    zooms
         .map(|zoom| {
             let rect = grid.tile_range(bounds, zoom);
             TileMatrixLimits {
@@ -127,6 +134,95 @@ fn tile_matrix_set_limits(grid: &TileGrid, tilejson: &TileJSON) -> Vec<TileMatri
             }
         })
         .collect()
+}
+
+/// The one tileset of a collection, map or style, served under `tiles_path`.
+pub(super) struct Tiled<'a> {
+    /// Path of the tilesets list under the OGC API, e.g. `/collections/{collectionId}/tiles`.
+    pub tiles_path: String,
+    /// Title of the tileset.
+    pub title: String,
+    /// What the tiles hold.
+    pub data_type: DataType,
+    /// OGC URI of the CRS of `grid`.
+    pub crs: String,
+    /// Grid the tiles are cut on.
+    pub grid: &'a TileGrid,
+}
+
+impl Tiled<'_> {
+    /// The tilesets list holding this tileset, linking to its metadata.
+    pub(super) fn list(self, req: &HttpRequest, srv_config: &SrvConfig) -> TileSets {
+        let tms = path_segment(self.grid.id());
+        TileSets {
+            tilesets: vec![TileSetItem {
+                title: self.title,
+                data_type: self.data_type,
+                crs: self.crs,
+                tile_matrix_set_uri: registered_uri(self.grid),
+                links: vec![
+                    Link::json(
+                        ogc_url(req, srv_config, &format!("{}/{tms}", self.tiles_path)),
+                        "self",
+                        "Tileset metadata",
+                    ),
+                    Link::json(
+                        ogc_url(req, srv_config, &format!("/tileMatrixSets/{tms}")),
+                        TILING_SCHEME,
+                        "Tile matrix set definition",
+                    ),
+                ],
+            }],
+            links: vec![Link::json(
+                ogc_url(req, srv_config, &self.tiles_path),
+                "self",
+                "This document",
+            )],
+        }
+    }
+
+    /// The metadata of this tileset with `limits` and `layers`, and the template of its tiles in `media_type`.
+    pub(super) fn tileset(
+        self,
+        req: &HttpRequest,
+        srv_config: &SrvConfig,
+        limits: Vec<TileMatrixLimits>,
+        layers: Vec<Layer>,
+        media_type: &'static str,
+    ) -> TileSet {
+        let tileset_path = format!("{}/{}", self.tiles_path, path_segment(self.grid.id()));
+        TileSet {
+            tile_matrix_set_limits: limits,
+            title: self.title,
+            data_type: self.data_type,
+            crs: self.crs,
+            tile_matrix_set_uri: registered_uri(self.grid),
+            layers,
+            links: vec![
+                Link::json(ogc_url(req, srv_config, &tileset_path), "self", "This document"),
+                Link::json(
+                    ogc_url(
+                        req,
+                        srv_config,
+                        &format!("/tileMatrixSets/{}", path_segment(self.grid.id())),
+                    ),
+                    TILING_SCHEME,
+                    "Tile matrix set definition",
+                ),
+                Link {
+                    href: ogc_url(
+                        req,
+                        srv_config,
+                        &format!("{tileset_path}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
+                    ),
+                    rel: "item",
+                    media_type,
+                    title: "Tiles",
+                    templated: true,
+                },
+            ],
+        }
+    }
 }
 
 /// The tilesets of one collection, one per tile matrix set it is served on.
@@ -159,36 +255,15 @@ pub async fn get_tilesets(
     let id = path.into_inner();
     manager.wait_for_sources(&id).await;
     let ((source, process), crs) = collection_source(&manager, &id)?;
-    let grid = source.tile_grid();
-    let tms = path_segment(grid.id());
-    let segment = path_segment(&id);
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
-    let tileset = TileSetItem {
+    let tiled = Tiled {
+        tiles_path: format!("/collections/{}/tiles", path_segment(&id)),
         title: tilejson.name.unwrap_or_else(|| id.clone()),
         data_type: DataType::of(process.advertised_tile_info(source.get_tile_info()).format),
         crs,
-        tile_matrix_set_uri: registered_uri(grid),
-        links: vec![
-            Link::json(
-                ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles/{tms}")),
-                "self",
-                "Tileset metadata",
-            ),
-            Link::json(
-                ogc_url(&req, &srv_config, &format!("/tileMatrixSets/{tms}")),
-                "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
-                "Tile matrix set definition",
-            ),
-        ],
+        grid: source.tile_grid(),
     };
-    Ok(HttpResponse::Ok().json(TileSets {
-        tilesets: vec![tileset],
-        links: vec![Link::json(
-            ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles")),
-            "self",
-            "This document",
-        )],
-    }))
+    Ok(HttpResponse::Ok().json(tiled.list(&req, &srv_config)))
 }
 
 /// The metadata of one tileset, with the template of its tile URLs.
@@ -224,8 +299,6 @@ pub async fn get_tileset(
     } = path.into_inner();
     manager.wait_for_sources(&id).await;
     let ((source, process), crs) = tileset_source(&manager, &id, &tms)?;
-    let tms = path_segment(&tms);
-    let segment = path_segment(&id);
     let grid = source.tile_grid();
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let format = process.advertised_tile_info(source.get_tile_info()).format;
@@ -244,35 +317,17 @@ pub async fn get_tileset(
             .collect(),
         DataType::Raster => Vec::new(),
     };
-    Ok(HttpResponse::Ok().json(TileSet {
-        tile_matrix_set_limits: tile_matrix_set_limits(grid, &tilejson),
+    let limits = tile_matrix_set_limits(
+        grid,
+        tilejson.bounds,
+        tilejson.minzoom.unwrap_or(0)..=tilejson.maxzoom.unwrap_or(MAX_ZOOM),
+    );
+    let tiled = Tiled {
+        tiles_path: format!("/collections/{}/tiles", path_segment(&id)),
         title: tilejson.name.unwrap_or_else(|| id.clone()),
         data_type,
         crs,
-        tile_matrix_set_uri: registered_uri(grid),
-        layers,
-        links: vec![
-            Link::json(
-                ogc_url(&req, &srv_config, &format!("/collections/{segment}/tiles/{tms}")),
-                "self",
-                "This document",
-            ),
-            Link::json(
-                ogc_url(&req, &srv_config, &format!("/tileMatrixSets/{tms}")),
-                "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
-                "Tile matrix set definition",
-            ),
-            Link {
-                href: ogc_url(
-                    &req,
-                    &srv_config,
-                    &format!("/collections/{segment}/tiles/{tms}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
-                ),
-                rel: "item",
-                media_type: format.ogc_content_type(),
-                title: "Tiles",
-                templated: true,
-            },
-        ],
-    }))
+        grid,
+    };
+    Ok(HttpResponse::Ok().json(tiled.tileset(&req, &srv_config, limits, layers, format.ogc_content_type())))
 }

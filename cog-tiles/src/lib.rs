@@ -30,6 +30,8 @@ pub use crate::backend::FileBackend;
 #[cfg(feature = "object-store")]
 pub use crate::backend::ObjectStoreBackend;
 pub use crate::backend::{AsyncBackend, MemoryBackend};
+#[cfg(feature = "png")]
+pub use crate::encode::TileEncoding;
 pub use crate::error::{Chunking, CogError, CogResult, SkippedImage, UnsupportedReason};
 #[cfg(feature = "mosaic")]
 pub use crate::indexed::{

@@ -10,10 +10,10 @@ use std::task::{Context, Poll, Wake, Waker};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, GraphicsDeviceHandle, GraphicsDeviceTextureDescriptor,
-    LogicalExtent, MapHandle, MapMode, MapOptions, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle,
-    RuntimeEvent, RuntimeEventFlag, RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions,
-    TextureReadbackResult,
+    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle,
+    GraphicsDeviceTextureDescriptor, LogicalExtent, MapHandle, MapMode, MapOptions, NativeFuture, RenderDriverKind,
+    RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag, RuntimeEventHandler,
+    RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult,
 };
 
 use tracing::warn;
@@ -221,12 +221,24 @@ impl Renderer {
             )
             .into());
         };
+        let url = format!("file://{path}");
+        self.set_style(|map| map.set_style_url(&url))
+    }
+
+    /// Loads the style document `json` and waits until `MapLibre` has loaded or rejected it.
+    pub fn load_style_json(&mut self, json: &str) -> Result<(), StyleError> {
+        self.set_style(|map| map.set_style_json(json))
+    }
+
+    /// Sends the style command `set` and waits until `MapLibre` has loaded or rejected its style.
+    fn set_style(
+        &self,
+        set: impl FnOnce(&MapHandle) -> maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
+    ) -> Result<(), StyleError> {
         self.style.begin();
         // A failed style command loads nothing, so no outcome would ever arrive.
-        let set = block_on(&self.signal, self.map.set_style_url(&format!("file://{path}"))?).map_err(|err| {
-            StyleError::StyleLoadError {
-                message: err.to_string(),
-            }
+        let set = block_on(&self.signal, set(&self.map)?).map_err(|err| StyleError::StyleLoadError {
+            message: err.to_string(),
         })?;
         match self.style.wait(set.generation) {
             StyleOutcome::Loaded => Ok(()),
@@ -252,7 +264,7 @@ impl Renderer {
     /// Waits for the outcome of a style command, failing if `MapLibre` rejected it.
     pub fn command(
         &self,
-        command: maplibre_native_ffi::Result<maplibre_native_ffi::NativeFuture<maplibre_native_ffi::CommandCompletion>>,
+        command: maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
     ) -> Result<(), maplibre_native_ffi::Error> {
         block_on(&self.signal, command?)?;
         Ok(())

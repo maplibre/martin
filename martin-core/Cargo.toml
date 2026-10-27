@@ -74,14 +74,18 @@ unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
 cog = [
     "dep:async-trait",
     "dep:cog-tiles",
+    "cog-tiles/jpeg",
     "cog-tiles/mosaic",
+    "cog-tiles/webp",
     "dep:futures",
     "dep:geo-index",
     "dep:object_store",
     "dep:reqwest",
     "dep:serde_json",
     "dep:sqlx",
+    "dep:tokio",
     "dep:url",
+    "tokio/rt",
     "_tiles",
 ]
 overlay = ["dep:geojson", "dep:strum"]

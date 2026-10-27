@@ -214,7 +214,7 @@ cog:
 - A tile is painted from the items over it in `order`.
   A pixel takes the first item that has data for it, so later items only fill what earlier ones leave empty (outside their extent, or `nodata` in all served bands); painting stops once every pixel is set.
   With `order: newest`, every pixel shows its most recent scene.
-- Tiles are 256 px PNGs, transparent where no item has data. Tiles no item covers are served as empty responses.
+- Tiles are 256 px PNGs, transparent where no item has data, unless [`format`](#tile-format) says otherwise. Tiles no item covers are served as empty responses.
 - Files are reprojected with nearest-neighbor resampling, from the coarsest overview that is still at least as detailed as the tile.
   A tile more than 4 times coarser than that overview is refused, so files need overviews down to `minzoom`.
   A pixel whose alpha band is 0 counts as empty, like `nodata`.
@@ -270,9 +270,45 @@ cog:
   They are read with the `cog` object-store settings.
 - A tile is painted from the files whose footprints touch it, in the index's row order: a pixel takes the first file that has data for it, so later files only fill what earlier ones leave empty.
   To have the newest imagery win, list it first.
-- Tiles are 256 px PNGs, transparent where no file has data, and are resampled, reprojected and checked like those of a [STAC source](#imagery-from-a-stac-api).
+- Tiles are 256 px PNGs, transparent where no file has data, unless [`format`](#tile-format) says otherwise. They are resampled, reprojected and checked like those of a [STAC source](#imagery-from-a-stac-api).
 
 The guide [Serving NAIP imagery from S3 with a tile index](recipe-cog-naip.md) walks through this end to end, with a map page.
+
+## Tile format
+
+Every COG source can re-encode its tiles instead, with `format`, `quality` and `background`.
+Set them on a mosaic, STAC or tile index source, or at the top of `cog` for the files under `paths` and `sources`.
+
+```yaml
+cog:
+  # The COG files under `paths` and `sources`
+  format: webp
+  quality: lossless
+  tile_index:
+    naip:
+      path: /data/naip_ca_2020.gpkg
+      minzoom: 16
+      # `png`, `webp` or `jpeg`. When unset, JPEG and WebP tiles are passed through and others are PNG.
+      format: webp
+      # 1 (smallest) to 100 (best), or `lossless` for `webp`. When unset, 80.
+      quality: 80
+    naip_jpeg:
+      path: /data/naip_ca_2020.gpkg
+      minzoom: 16
+      format: jpeg
+      # The CSS color shown where tiles are transparent, as JPEG has no alpha. When unset, white.
+      background: black
+```
+
+| `format` | transparency               | 256 px NAIP tile vs PNG |
+|----------|----------------------------|-------------------------|
+| `png`    | kept                       | 1x                      |
+| `webp`   | kept exactly, even lossy   | ~8x smaller at 80       |
+| `jpeg`   | painted over `background`  | ~5x smaller at 80       |
+
+- A set `format` decodes every tile and encodes it again, also JPEG and WebP tiles that would be passed through, so each re-encode of lossy tiles loses detail again.
+- A lossy WebP takes about 4 ms per 256 px tile and a JPEG about 1 ms; both run on a blocking thread, not the request worker.
+- `format` cannot be combined with `convert_to_hillshade` or `convert_to_contour`, which encode their own tiles.
 
 ## COG Hot Reload
 

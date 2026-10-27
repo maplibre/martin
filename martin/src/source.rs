@@ -11,8 +11,8 @@ use crate::config::file::ResolvedProcess;
 use crate::srv::TileError;
 
 /// Maximum number of comma-separated source ids accepted in a single
-/// composite tile request (`/{source_ids}/{z}/{x}/{y}`).
-const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
+/// composite tile request (`/{source_ids}/{z}/{x}/{y}`), or OGC dataset map.
+pub(crate) const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
 /// A source with its process config, which is shared so a request never copies it.
 pub type SourceEntry = (BoxedSource, Arc<ResolvedProcess>);

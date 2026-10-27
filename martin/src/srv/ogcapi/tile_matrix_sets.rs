@@ -78,6 +78,13 @@ impl OgcCrs {
     fn point(&self, [x, y]: [f64; 2]) -> [f64; 2] {
         if self.axes.northing_first { [y, x] } else { [x, y] }
     }
+
+    /// A `[min_x, min_y, max_x, max_y]` bounding box in the axis order of the CRS.
+    pub(super) fn bbox(&self, [min_x, min_y, max_x, max_y]: [f64; 4]) -> [f64; 4] {
+        let [first_min, second_min] = self.point([min_x, min_y]);
+        let [first_max, second_max] = self.point([max_x, max_y]);
+        [first_min, second_min, first_max, second_max]
+    }
 }
 
 /// The CRS of `grid`, for the CRSs whose units and axis order [`TileGrid::crs_axes`] knows.

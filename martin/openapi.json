@@ -203,6 +203,13 @@
       "Collection": {
         "description": "A tile source as an OGC API collection.",
         "properties": {
+          "crs": {
+            "description": "The CRSs the collection is served in, only the CRS of its grid.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "description": {
             "type": ["string", "null"]
           },
@@ -218,11 +225,15 @@
             },
             "type": "array"
           },
+          "storageCrs": {
+            "description": "The CRS of the collection's grid.",
+            "type": "string"
+          },
           "title": {
             "type": "string"
           }
         },
-        "required": ["id", "title", "extent", "links"],
+        "required": ["id", "title", "extent", "crs", "storageCrs", "links"],
         "type": "object"
       },
       "Collections": {
@@ -263,7 +274,7 @@
         "type": "string"
       },
       "Extent": {
-        "description": "Where a collection's data lies.",
+        "description": "Where a collection's or the dataset's data lies.",
         "properties": {
           "spatial": {
             "$ref": "#/components/schemas/SpatialExtent"
@@ -293,6 +304,10 @@
           "description": {
             "type": "string"
           },
+          "extent": {
+            "$ref": "#/components/schemas/Extent",
+            "description": "Where the data of all collections lies."
+          },
           "links": {
             "items": {
               "$ref": "#/components/schemas/Link"
@@ -303,7 +318,7 @@
             "type": "string"
           }
         },
-        "required": ["title", "description", "links"],
+        "required": ["title", "description", "extent", "links"],
         "type": "object"
       },
       "Layer": {
@@ -349,7 +364,7 @@
         "type": "object"
       },
       "SpatialExtent": {
-        "description": "The bounding box of a collection, in longitude and latitude.",
+        "description": "The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid.",
         "properties": {
           "bbox": {
             "items": {
@@ -363,6 +378,17 @@
           },
           "crs": {
             "type": "string"
+          },
+          "storageCrsBbox": {
+            "description": "`bbox` in the CRS of the collection's grid, in its axis order.",
+            "items": {
+              "items": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": ["array", "null"]
           }
         },
         "required": ["bbox", "crs"],
@@ -733,7 +759,7 @@
         "type": "object"
       },
       "TileSets": {
-        "description": "The tilesets of a collection.",
+        "description": "The tilesets of a collection, map or style.",
         "properties": {
           "links": {
             "items": {
@@ -1064,6 +1090,112 @@
         "tags": ["crate::srv::ogcapi"]
       }
     },
+    "/ogc/collections/{collection_id}/map": {
+      "get": {
+        "operationId": "ogc.collection.getMap",
+        "parameters": [
+          {
+            "description": "Collection ID, the ID of a source",
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Width of the map in pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Height of the map in pixels.",
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Area to show as `minx,miny,maxx,maxy` in `bbox-crs`.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `bbox`, `CRS84` when not given.",
+            "in": "query",
+            "name": "bbox-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Point to center the map on as `x,y` in `center-crs`.",
+            "in": "query",
+            "name": "center",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `center`, `CRS84` when not given.",
+            "in": "query",
+            "name": "center-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Scale of the map.",
+            "in": "query",
+            "name": "scale-denominator",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": ["number", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map of the collection"
+          },
+          "400": {
+            "description": "Invalid map parameters"
+          },
+          "404": {
+            "description": "No such collection, or it can't be drawn as a map"
+          },
+          "406": {
+            "description": "No supported map format in Accept header"
+          }
+        },
+        "summary": "A raster collection rendered as a map.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
     "/ogc/collections/{collection_id}/tiles": {
       "get": {
         "operationId": "ogc.collection.vector.getTileSetsList",
@@ -1228,6 +1360,224 @@
         "tags": ["crate::srv::ogcapi"]
       }
     },
+    "/ogc/map": {
+      "get": {
+        "operationId": "ogc.dataset.getMap",
+        "parameters": [
+          {
+            "description": "Width of the map in pixels.",
+            "in": "query",
+            "name": "width",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Height of the map in pixels.",
+            "in": "query",
+            "name": "height",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": ["integer", "null"]
+            }
+          },
+          {
+            "description": "Area to show as `minx,miny,maxx,maxy` in `bbox-crs`.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `bbox`, `CRS84` when not given.",
+            "in": "query",
+            "name": "bbox-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Point to center the map on as `x,y` in `center-crs`.",
+            "in": "query",
+            "name": "center",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "CRS of `center`, `CRS84` when not given.",
+            "in": "query",
+            "name": "center-crs",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "description": "Scale of the map.",
+            "in": "query",
+            "name": "scale-denominator",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": ["number", "null"]
+            }
+          },
+          {
+            "description": "Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once.",
+            "in": "query",
+            "name": "collections",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map of the dataset"
+          },
+          "400": {
+            "description": "Invalid map parameters, or a collection that can't be drawn"
+          }
+        },
+        "summary": "The collections of the dataset drawn as one map, in the order `collections` names them.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/map/tiles": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTileSetsList",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSets"
+                }
+              }
+            },
+            "description": "Map tilesets of all collections drawn together"
+          }
+        },
+        "summary": "The map tilesets of all collections drawn together.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/map/tiles/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTileSet",
+        "parameters": [
+          {
+            "description": "Tile matrix set ID, only `WebMercatorQuad`",
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSet"
+                }
+              }
+            },
+            "description": "Map tileset metadata with the tile URL template"
+          },
+          "404": {
+            "description": "No such tileset"
+          }
+        },
+        "summary": "The map tileset of all collections drawn together, on `WebMercatorQuad`.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_row",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_col",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map tile of all collections drawn together"
+          },
+          "404": {
+            "description": "No such tileset or tile"
+          },
+          "406": {
+            "description": "No supported image format in Accept header"
+          }
+        },
+        "summary": "A map tile of all collections drawn together.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
     "/ogc/styles": {
       "get": {
         "operationId": "ogc.dataset.getStyles",
@@ -1366,7 +1716,8 @@
           "200": {
             "content": {
               "image/jpeg": {},
-              "image/png": {}
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
             },
             "description": "Map of the style"
           },
@@ -1381,6 +1732,155 @@
           }
         },
         "summary": "A style rendered as a map.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTileSetsList",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSets"
+                }
+              }
+            },
+            "description": "Map tilesets of the style"
+          },
+          "404": {
+            "description": "No such style"
+          }
+        },
+        "summary": "The map tilesets of a style.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTileSet",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Tile matrix set ID, only `WebMercatorQuad`",
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSet"
+                }
+              }
+            },
+            "description": "Map tileset metadata with the tile URL template"
+          },
+          "404": {
+            "description": "No such style or tileset"
+          }
+        },
+        "summary": "The map tileset of a style on `WebMercatorQuad`.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_row",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_col",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map tile of the style"
+          },
+          "404": {
+            "description": "No such style, tileset or tile"
+          },
+          "406": {
+            "description": "No supported image format in Accept header"
+          }
+        },
+        "summary": "A map tile of a style.",
         "tags": ["crate::srv::ogcapi"]
       },
       "x-martin-feature": "rendering"

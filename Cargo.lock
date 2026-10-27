@@ -1971,6 +1971,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures",
+ "image",
+ "insta",
  "jpeg-decoder",
  "moka",
  "object_store",
@@ -1981,6 +1983,7 @@ dependencies = [
  "tiff",
  "tokio",
  "tracing",
+ "webp",
 ]
 
 [[package]]
@@ -5846,6 +5849,7 @@ dependencies = [
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.21",
+ "tiff",
  "tilejson",
  "tokio",
  "tracing",
@@ -5990,6 +5994,7 @@ dependencies = [
  "test_each_file",
  "testcontainers-modules",
  "thiserror 2.0.21",
+ "tiff",
  "tokio",
  "vt100 0.17.0",
  "windows-sys 0.61.2",

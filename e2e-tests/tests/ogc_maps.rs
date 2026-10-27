@@ -2,7 +2,7 @@
 #![cfg(all(feature = "test-ogc-maps", target_os = "linux"))]
 
 use indoc::formatdoc;
-use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture};
+use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture, mbtiles_fixture, temp_dir};
 
 /// The image format and size of a map, and the type, CRS and area its headers state, `-` for a missing header.
 fn map_description(response: &TestResponse) -> String {
@@ -109,6 +109,122 @@ async fn a_style_map_centers_on_a_point_at_a_scale() {
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
     Content-Bbox: -2092318.823370133,5099041.723891589,5075681.176629866,8683041.723891588
     ");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_is_a_geotiff_placed_at_its_area() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?bbox=-10,35,30,60&width=400",
+            &[("Accept", "image/tiff")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    let mut geotiff = tiff::decoder::Decoder::new(std::io::Cursor::new(response.body())).expect("a TIFF");
+    insta::assert_snapshot!(format!(
+        "{}\nContent-Bbox: {}\n{:?}\n{:?}\nExtraSamples: {:?}\nModelPixelScale: {:?}\nModelTiepoint: {:?}\nGeoKeyDirectory: {:?}",
+        response.header("content-type").expect("a Content-Type header"),
+        response.header("content-bbox").expect("a Content-Bbox header"),
+        geotiff.dimensions().expect("dimensions"),
+        geotiff.colortype().expect("a color type"),
+        geotiff.get_tag_u16_vec(tiff::tags::Tag::ExtraSamples).expect("extra samples"),
+        geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelPixelScaleTag).expect("a pixel scale"),
+        geotiff.get_tag_f64_vec(tiff::tags::Tag::ModelTiepointTag).expect("a tie point"),
+        geotiff.get_tag_u16_vec(tiff::tags::Tag::GeoKeyDirectoryTag).expect("geo keys"),
+    ), @"
+    image/tiff; application=geotiff
+    Content-Bbox: -1113194.9079327364,4161173.2173294662,3339584.7237982084,8402445.81655319
+    (400, 381)
+    RGBA(8)
+    ExtraSamples: [2]
+    ModelPixelScale: [11131.949079327362, 11131.949079327362, 0.0]
+    ModelTiepoint: [0.0, 0.0, 0.0, -1113194.9079327364, 8402445.81655319, 0.0]
+    GeoKeyDirectory: [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857]
+    ");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_skips_tiff_when_accept_refuses_it() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get_with_headers(
+            "/ogc/styles/maplibre_demo/map?width=256",
+            &[("Accept", "image/tiff;q=0, image/png")],
+        )
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
+    ");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_style_map_png_has_an_alpha_channel() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/styles/maplibre_demo/map?width=256").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    let png = png::Decoder::new(std::io::Cursor::new(response.body()))
+        .read_info()
+        .expect("a PNG");
+    insta::assert_snapshot!(format!("{:?} {:?}", png.info().color_type, png.info().bit_depth), @"Rgba Eight");
     martin.stop().await;
     martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
@@ -449,6 +565,18 @@ async fn the_styles_link_their_maps() {
               "rel": "https://www.opengis.net/def/rel/ogc/1.0/map",
               "title": "Map of the style",
               "type": "image/png"
+            },
+            {
+              "href": "http://[ADDR]/ogc/styles/maplibre_demo/map",
+              "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
+              "title": "Map of the style",
+              "type": "image/png"
+            },
+            {
+              "href": "http://[ADDR]/ogc/styles/maplibre_demo/map/tiles",
+              "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+              "title": "Map tilesets of the style",
+              "type": "application/json"
             }
           ],
           "title": "MapLibre"
@@ -516,12 +644,655 @@ async fn the_conformance_declares_maps_when_rendering() {
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/core",
         "http://www.opengis.net/spec/ogcapi-styles-1/1.0/conf/global-styles",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/core",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/dataset-map",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collection-map",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/collections-selection",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/styled-map",
         "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/png",
-        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg"
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/jpeg",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tiff",
+        "https://www.opengis.net/spec/ogcapi-maps-1/1.0/conf/tilesets"
       ]
     }
     "#);
     martin.stop().await;
     martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_vector_collection_has_no_map() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/world_cities/map").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Collection world_cities has no map");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_raster_collection_map_draws_its_tiles() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/toner/map?width=512").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    ");
+    assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_raster_collection_on_another_grid_has_no_map() {
+    let dir = temp_dir();
+    let geography = mbtiles_fixture(dir.path(), "geography-class-png").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                geography:
+                  path: {geography}
+                  tile_grid: WorldCRS84Quad
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", geography = geography.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/geography/map").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Collection geography has no map");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_raster_collection_gives_its_storage_crs_and_links_its_map() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/collections/toner").await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(martin.redacted_json(&response), @r#"
+    {
+      "crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/3857"
+      ],
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0,
+              180.0,
+              85.0
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+          "storageCrsBbox": [
+            [
+              -20037508.34278925,
+              -19971868.88040858,
+              20037508.34278925,
+              19971868.88040858
+            ]
+          ]
+        }
+      },
+      "id": "toner",
+      "links": [
+        {
+          "href": "http://[ADDR]/ogc/collections/toner",
+          "rel": "self",
+          "title": "This collection",
+          "type": "application/json"
+        },
+        {
+          "href": "http://[ADDR]/ogc/collections/toner/tiles",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+          "title": "Tilesets",
+          "type": "application/json"
+        },
+        {
+          "href": "http://[ADDR]/ogc/collections/toner/map",
+          "rel": "https://www.opengis.net/def/rel/ogc/1.0/map",
+          "title": "Map of the collection",
+          "type": "image/png"
+        },
+        {
+          "href": "http://[ADDR]/ogc/collections/toner/map",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
+          "title": "Map of the collection",
+          "type": "image/png"
+        }
+      ],
+      "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+      "title": "toner"
+    }
+    "#);
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_every_raster_collection() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            world_cities = world_cities.display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map?width=512").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    ");
+    assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_only_the_collections_asked_for() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                png: {png}
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            png = fixture("pmtiles/png.pmtiles").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map?collections=toner&width=512").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    ");
+    assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_a_later_collection_over_an_earlier_one() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/map?collections=toner,naip&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 843)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -13508675.867509153,5155438.341398502,-13507829.83937912,5156831.313495407
+    ");
+    assert_image_matches(fixture("ogc_maps/naip_over_toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_draws_an_earlier_collection_under_a_later_one() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/map?collections=naip,toner&bbox=-121.3505,41.9630,-121.3429,41.9723&width=512")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 843)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -13508675.867509153,5155438.341398502,-13507829.83937912,5156831.313495407
+    ");
+    assert_image_matches(fixture("ogc_maps/toner_over_naip.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_of_more_collections_than_a_composite_tile_is_a_bad_request() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let collections = vec!["toner"; 129].join(",");
+    let response = martin.get(&format!("/ogc/map?collections={collections}")).await;
+    assert_eq!(response.status(), 400);
+    insta::assert_snapshot!(response.text(), @"Requested 129 source ids, but at most 128 are allowed per request");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_takes_collections_by_url() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                png: {png}
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            png = fixture("pmtiles/png.pmtiles").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let url = format!("http://{}/ogc/collections/toner", martin.addr());
+    let response = martin.get(&format!("/ogc/map?collections={url}&width=512")).await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (512, 510)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
+    ");
+    assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_of_a_collection_without_a_map_is_a_bad_request() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map?collections=world_cities").await;
+    assert_eq!(response.status(), 400);
+    insta::assert_snapshot!(response.text(), @"Collection world_cities does not exist or has no map");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc").await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(martin.redacted_json(&response));
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_style_map_tile_is_256_pixels() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin
+        .get("/ogc/styles/maplibre_demo/map/tiles/WebMercatorQuad/2/1/2")
+        .await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
+    assert_image_matches(fixture("ogc_maps/maplibre_demo_tile_2_1_2.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn the_dataset_map_tileset_templates_its_tiles() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad").await;
+    assert_eq!(response.status(), 200);
+    insta::assert_json_snapshot!(martin.redacted_json(&response));
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_tile_draws_the_collections_in_id_order() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                basemap: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
+    assert_image_matches(fixture("ogc_maps/dataset_tile_naip_over_basemap.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_dataset_map_tile_draws_a_collection_later_in_id_order_on_top() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            cog:
+              sources:
+                naip: {naip}
+            pmtiles:
+              sources:
+                toner: {toner}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ",
+            naip = fixture("cog/usda_naip_512_deflate_z2.tif").display(),
+            toner = fixture("pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles").display(),
+        })
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/17/48670/21354").await;
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: -
+    Content-Bbox: -
+    ");
+    assert_image_matches(fixture("ogc_maps/dataset_tile_toner_over_naip.png"), response.body());
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn map_tiles_are_only_on_web_mercator_quad() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WorldCRS84Quad/0/0/0").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Maps are only tiled on WebMercatorQuad, not on WorldCRS84Quad");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn a_map_tile_outside_the_grid_is_not_found() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let response = martin.get("/ogc/map/tiles/WebMercatorQuad/1/2/0").await;
+    assert_eq!(response.status(), 404);
+    insta::assert_snapshot!(response.text(), @"Map tile 1/2/0 is outside WebMercatorQuad");
+    martin.stop().await;
+    martin.take_log_lines("[Render]");
+}
+
+#[tokio::test]
+async fn the_dataset_map_tilesets_are_forbidden_without_rendering() {
+    let dir = temp_dir();
+    let world_cities = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            mbtiles:
+              sources:
+                world_cities: {world_cities}
+            styles:
+              rendering: false
+        ", world_cities = world_cities.display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let list = martin.get("/ogc/map/tiles").await;
+    assert_eq!(list.status(), 403);
+    insta::assert_snapshot!(list.text(), @"Rendering is disabled");
+    let tileset = martin.get("/ogc/map/tiles/WebMercatorQuad").await;
+    assert_eq!(tileset.status(), 403);
+    insta::assert_snapshot!(tileset.text(), @"Rendering is disabled");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn the_style_map_tilesets_are_forbidden_without_rendering() {
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering: false
+              sources:
+                maplibre_demo: {maplibre_demo}
+        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        .start()
+        .await
+        .expect("martin starts");
+
+    let list = martin.get("/ogc/styles/maplibre_demo/map/tiles").await;
+    assert_eq!(list.status(), 403);
+    insta::assert_snapshot!(list.text(), @"Rendering is disabled");
+    let tileset = martin.get("/ogc/styles/maplibre_demo/map/tiles/WebMercatorQuad").await;
+    assert_eq!(tileset.status(), 403);
+    insta::assert_snapshot!(tileset.text(), @"Rendering is disabled");
+    martin.stop().await;
 }
