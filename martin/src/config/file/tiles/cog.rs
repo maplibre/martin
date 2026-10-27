@@ -742,11 +742,7 @@ impl CogConfig {
             .map(|(id, index)| {
                 let resolve = &resolve;
                 async move {
-                    let cache = if index.cache.is_empty() {
-                        CachePolicy::disabled()
-                    } else {
-                        index.cache.or(default_cache)
-                    };
+                    let cache = index.cache.or(default_cache);
                     let result = CogSource::new_tile_index(id.clone(), index.options(), resolve, cache.zoom()).await;
                     (id, index, result)
                 }

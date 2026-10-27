@@ -121,23 +121,24 @@ impl TileIndex {
         while let Some(row) = rows.try_next().await.map_err(read_error)? {
             let location: String = row.try_get(0).map_err(read_error)?;
             let footprint: Vec<u8> = row.try_get(1).map_err(read_error)?;
-            let bounds = envelope(&footprint).ok_or_else(|| CogError::TileIndexFootprint {
-                path: path.to_path_buf(),
-                location: location.clone(),
-            })?;
             let url = location_url(&location, base).ok_or_else(|| CogError::TileIndexLocation {
                 path: path.to_path_buf(),
                 location: location.clone(),
                 error: "it is neither a URL, a supported GDAL virtual path, nor a local path".into(),
             })?;
+            let shown = shown_location(&location, &url);
+            let bounds = envelope(&footprint).ok_or_else(|| CogError::TileIndexFootprint {
+                path: path.to_path_buf(),
+                location: shown.clone(),
+            })?;
             let (store, store_path) = resolve(&url).map_err(|error| CogError::TileIndexLocation {
                 path: path.to_path_buf(),
-                location: location.clone(),
+                location: shown.clone(),
                 error,
             })?;
             files.push(MosaicFile {
                 cache_key: url.into(),
-                location: location.into(),
+                location: shown.into(),
                 store,
                 path: store_path,
                 bounds,
@@ -326,7 +327,85 @@ fn location_url(location: &str, base: &Path) -> Option<String> {
     url::Url::from_file_path(path).ok().map(String::from)
 }
 
+/// How a file `location` resolved to `url` is shown in errors: a remote URL without credentials,
+/// query or fragment (e.g. a signature), or a local path as the index writes it.
+fn shown_location(location: &str, url: &str) -> String {
+    match url::Url::parse(url) {
+        Ok(mut url) if url.scheme() != "file" => {
+            let _ = url.set_username("");
+            let _ = url.set_password(None);
+            url.set_query(None);
+            url.set_fragment(None);
+            url.to_string()
+        }
+        _ => location.to_owned(),
+    }
+}
+
 /// `name` as an SQL identifier.
 fn quoted(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use cog_tiles::{MosaicIndex as _, TileCoord};
+    use object_store::ObjectStore;
+    use object_store::memory::InMemory;
+    use object_store::path::Path;
+    use sqlx::{ConnectOptions as _, sqlite::SqliteConnectOptions};
+
+    use crate::tiles::cog::{HrefResolver, TileIndex};
+
+    fn fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/cog/tile_index/naip.gpkg")
+    }
+
+    #[tokio::test]
+    async fn signed_urls_are_shown_without_credentials_query_or_fragment() {
+        let dir = tempfile::tempdir().unwrap();
+        let index = dir.path().join("signed.gpkg");
+        std::fs::copy(fixture(), &index).unwrap();
+        let mut conn = SqliteConnectOptions::new().filename(&index).connect().await.unwrap();
+        let triggers: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'local'")
+                .fetch_all(&mut conn)
+                .await
+                .unwrap();
+        for trigger in triggers {
+            sqlx::query(sqlx::AssertSqlSafe(format!("DROP TRIGGER \"{trigger}\"")))
+                .execute(&mut conn)
+                .await
+                .unwrap();
+        }
+        sqlx::query("UPDATE local SET location = 'https://user:secret@example.com/naip/' || fid || '.tif?X-Amz-Signature=abc#part'")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        drop(conn);
+        let store: Arc<dyn ObjectStore> = Arc::new(InMemory::new());
+        let resolve: HrefResolver = Arc::new(move |href: &str| Ok((Arc::clone(&store), Path::from(href))));
+
+        let index = TileIndex::open(&index, Some("local"), "location", &resolve)
+            .await
+            .unwrap();
+        let files = index.files_for(TileCoord::new(14, 2619, 6334).unwrap()).await.unwrap();
+
+        let shown: Vec<_> = files.iter().map(|file| file.location.to_string()).collect();
+        insta::assert_debug_snapshot!(shown, @r#"
+        [
+            "https://example.com/naip/1.tif",
+            "https://example.com/naip/2.tif",
+            "https://example.com/naip/3.tif",
+            "https://example.com/naip/4.tif",
+            "https://example.com/naip/5.tif",
+            "https://example.com/naip/6.tif",
+            "https://example.com/naip/7.tif",
+            "https://example.com/naip/8.tif",
+        ]
+        "#);
+    }
 }
