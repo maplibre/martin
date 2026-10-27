@@ -759,7 +759,7 @@
         "type": "object"
       },
       "TileSets": {
-        "description": "The tilesets of a collection.",
+        "description": "The tilesets of a collection, map or style.",
         "properties": {
           "links": {
             "items": {
@@ -1460,6 +1460,124 @@
       },
       "x-martin-feature": "rendering"
     },
+    "/ogc/map/tiles": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTileSetsList",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSets"
+                }
+              }
+            },
+            "description": "Map tilesets of all collections drawn together"
+          }
+        },
+        "summary": "The map tilesets of all collections drawn together.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/map/tiles/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTileSet",
+        "parameters": [
+          {
+            "description": "Tile matrix set ID, only `WebMercatorQuad`",
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSet"
+                }
+              }
+            },
+            "description": "Map tileset metadata with the tile URL template"
+          },
+          "404": {
+            "description": "No such tileset"
+          }
+        },
+        "summary": "The map tileset of all collections drawn together, on `WebMercatorQuad`.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+      "get": {
+        "operationId": "ogc.dataset.map.getTile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_row",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_col",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map tile of all collections drawn together"
+          },
+          "404": {
+            "description": "No such tileset or tile"
+          },
+          "406": {
+            "description": "No supported image format in Accept header"
+          }
+        },
+        "summary": "A map tile of all collections drawn together.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
     "/ogc/styles": {
       "get": {
         "operationId": "ogc.dataset.getStyles",
@@ -1614,6 +1732,155 @@
           }
         },
         "summary": "A style rendered as a map.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTileSetsList",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSets"
+                }
+              }
+            },
+            "description": "Map tilesets of the style"
+          },
+          "404": {
+            "description": "No such style"
+          }
+        },
+        "summary": "The map tilesets of a style.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTileSet",
+        "parameters": [
+          {
+            "description": "Style ID",
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Tile matrix set ID, only `WebMercatorQuad`",
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TileSet"
+                }
+              }
+            },
+            "description": "Map tileset metadata with the tile URL template"
+          },
+          "404": {
+            "description": "No such style or tileset"
+          }
+        },
+        "summary": "The map tileset of a style on `WebMercatorQuad`.",
+        "tags": ["crate::srv::ogcapi"]
+      },
+      "x-martin-feature": "rendering"
+    },
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+      "get": {
+        "operationId": "ogc.dataset.style.map.getTile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix_set_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_matrix",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_row",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tile_col",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/tiff; application=geotiff": {}
+            },
+            "description": "Map tile of the style"
+          },
+          "404": {
+            "description": "No such style, tileset or tile"
+          },
+          "406": {
+            "description": "No supported image format in Accept header"
+          }
+        },
+        "summary": "A map tile of a style.",
         "tags": ["crate::srv::ogcapi"]
       },
       "x-martin-feature": "rendering"

@@ -50,6 +50,16 @@ pub enum OgcApiError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Collection {collection} does not exist or has no map")]
     UnknownMapCollection { collection: String },
+
+    /// Map tiles were asked for on a grid other than `WebMercatorQuad`.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Maps are only tiled on WebMercatorQuad, not on {tile_matrix_set}")]
+    UnknownMapTileset { tile_matrix_set: String },
+
+    /// A map tile was asked for outside `WebMercatorQuad`.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Map tile {z}/{row}/{col} is outside WebMercatorQuad")]
+    MapTileOutsideGrid { z: u8, row: u32, col: u32 },
 }
 
 impl martin_core::Classify for OgcApiError {
@@ -59,7 +69,10 @@ impl martin_core::Classify for OgcApiError {
                 martin_core::ErrorKind::NotFound
             }
             #[cfg(all(feature = "rendering", target_os = "linux"))]
-            Self::UnknownStyle { .. } | Self::NoCollectionMap { .. } => martin_core::ErrorKind::NotFound,
+            Self::UnknownStyle { .. }
+            | Self::NoCollectionMap { .. }
+            | Self::UnknownMapTileset { .. }
+            | Self::MapTileOutsideGrid { .. } => martin_core::ErrorKind::NotFound,
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::InvalidMapParameter { .. }
             | Self::ConflictingMapParameters { .. }

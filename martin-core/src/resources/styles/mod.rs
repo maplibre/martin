@@ -218,6 +218,24 @@ impl StyleSources {
             .await
     }
 
+    /// Renders a slippy tile of `tile_size` instead of the configured [`TileSize`], at `pixel_ratio` times its pixels.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render_of_size(
+        &self,
+        style: impl Into<RenderStyle>,
+        z: u8,
+        x: u32,
+        y: u32,
+        tile_size: TileSize,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
+        self.pools
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_tile_of_size(style, z, x, y, tile_size, pixel_ratio)
+            .await
+    }
+
     /// Render a map image with free camera control.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {

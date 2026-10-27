@@ -56,6 +56,11 @@ async fn style_description(
             &ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),
             "Map of the style",
         ));
+        links.push(Link::json(
+            ogc_url(req, srv_config, &format!("/styles/{}/map/tiles", path_segment(id))),
+            super::data_type::DataType::Raster.tilesets_rel(),
+            "Map tilesets of the style",
+        ));
     }
     StyleDescription {
         id: id.to_owned(),

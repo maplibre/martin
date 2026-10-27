@@ -1,0 +1,89 @@
+---
+source: e2e-tests/tests/ogc_maps.rs
+expression: martin.redacted_json(&response)
+---
+{
+  "description": "The tiles Martin serves, as an OGC API",
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -123.12359,
+          -37.818085,
+          174.763027,
+          59.352706
+        ]
+      ],
+      "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    }
+  },
+  "links": [
+    {
+      "href": "http://[ADDR]/ogc",
+      "rel": "self",
+      "title": "This document",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/api",
+      "rel": "service-desc",
+      "title": "The OpenAPI definition of this API",
+      "type": "application/vnd.oai.openapi+json;version=3.1"
+    },
+    {
+      "href": "http://[ADDR]/ogc/api",
+      "rel": "service-doc",
+      "title": "The OpenAPI definition of this API, as HTML",
+      "type": "text/html"
+    },
+    {
+      "href": "https://maplibre.org/martin/using/",
+      "rel": "service-doc",
+      "title": "The Martin HTTP API",
+      "type": "text/html"
+    },
+    {
+      "href": "http://[ADDR]/ogc/conformance",
+      "rel": "conformance",
+      "title": "Conformance classes",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/collections",
+      "rel": "data",
+      "title": "Collections",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/tileMatrixSets",
+      "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+      "title": "Tile matrix sets",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/styles",
+      "rel": "http://www.opengis.net/def/rel/ogc/1.0/styles",
+      "title": "Styles",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/map",
+      "rel": "https://www.opengis.net/def/rel/ogc/1.0/map",
+      "title": "Map of all collections",
+      "type": "image/png"
+    },
+    {
+      "href": "http://[ADDR]/ogc/map",
+      "rel": "http://www.opengis.net/def/rel/ogc/1.0/map",
+      "title": "Map of all collections",
+      "type": "image/png"
+    },
+    {
+      "href": "http://[ADDR]/ogc/map/tiles",
+      "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+      "title": "Map tilesets of all collections",
+      "type": "application/json"
+    }
+  ],
+  "title": "Martin"
+}
