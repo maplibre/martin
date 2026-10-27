@@ -834,7 +834,6 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
 
 #[rstest]
 #[case::zoom("0,0,0/200x200", "0,0,3/200x200")]
-#[case::a_zoom_below_0("0,0,0/200x200", "0,0,-1/200x200")]
 #[case::bearing("0,0,2@0/200x200", "0,0,2@90/200x200")]
 #[case::pitch("0,0,2@0,0/200x200", "0,0,2@0,45/200x200")]
 #[case::the_center("0,0,4/200x200", "13.4,52.5,4/200x200")]
@@ -869,7 +868,7 @@ async fn a_camera_option_changes_the_static_image(#[case] one: &str, #[case] oth
 }
 
 #[tokio::test]
-async fn a_static_image_zoomed_too_far_below_0_is_a_bad_request() {
+async fn a_static_image_below_zoom_0_renders_as_zoom_0() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
@@ -889,11 +888,12 @@ async fn a_static_image_zoomed_too_far_below_0_is_a_bad_request() {
         .await
         .expect("failed to start martin");
 
-    let response = martin.get("/style/maplibre_demo/static/0,0,-4/200x200.png").await;
-    assert_eq!(response.status(), 400);
-    insta::assert_snapshot!(response.text(), @"Zoom -4 would draw more than 2048 pixels a side, zoom in or render a smaller image");
+    let at_zoom_0 = rendered(&martin, "/style/maplibre_demo/static/0,0,0/200x200.png").await;
+    let below_zoom_0 = rendered(&martin, "/style/maplibre_demo/static/0,0,-4/200x200.png").await;
+    assert_images_alike(&at_zoom_0, &below_zoom_0);
 
     stop_and_take_rendering_log(&mut martin).await;
+    cassette.assert_no_misses();
 }
 
 #[tokio::test]
