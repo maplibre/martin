@@ -499,6 +499,9 @@ async fn render_with_overlays(
                     .content_type(ContentType::plaintext())
                     .body(format!("Overlay application failed: {err}"))
             }
+            err @ StyleError::ZoomedOutTooFar { .. } => HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body(err.to_string()),
             other @ (StyleError::IoError(_)
             | StyleError::StyleLoadError { .. }
             | StyleError::RenderingError(_)

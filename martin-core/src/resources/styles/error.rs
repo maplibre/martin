@@ -50,6 +50,16 @@ pub enum StyleError {
     #[error("Rendering thread panicked while handling the request")]
     RenderingPanicked,
 
+    /// The camera zooms out so far below zoom 0 that drawing it takes more than `max_side` pixels a side.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("Zoom {zoom} would draw more than {max_side} pixels a side, zoom in or render a smaller image")]
+    ZoomedOutTooFar {
+        /// The requested zoom.
+        zoom: f64,
+        /// Longest side that can be drawn.
+        max_side: u32,
+    },
+
     /// Rendering is disabled by configuration.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Rendering is disabled")]

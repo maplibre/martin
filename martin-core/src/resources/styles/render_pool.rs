@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use image::RgbaImage as Image;
+use image::imageops::{self, FilterType};
 use maplibre_native_ffi::{CameraOptions, LatLng, MapMode};
 use tokio::sync::oneshot;
 use tracing::{error, info};
@@ -14,6 +15,9 @@ use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
 use crate::resources::styles::graphics::Graphics;
 use crate::resources::styles::renderer::{Renderer, Runtime};
 use crate::resources::styles::{StyleError, TileSize};
+
+/// Longest side, in logical pixels, that a render zoomed out below zoom 0 draws before it is scaled down.
+const MAX_ZOOMED_OUT_SIDE: u32 = 2048;
 
 /// Parameters for a free-camera (static) map render.
 ///
@@ -34,7 +38,7 @@ pub struct RenderParams {
     lat: f64,
     /// Camera target longitude in degrees (WGS84).
     lon: f64,
-    /// Map zoom level.
+    /// Map zoom level. Below 0, the map is drawn larger at zoom 0 and scaled down to its size.
     zoom: f64,
     /// Logical output width in pixels.
     width: u32,
@@ -97,6 +101,32 @@ impl RenderParams {
     pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
         self.overlays = spec;
         self
+    }
+
+    /// The logical size and zoom `MapLibre` draws at: the requested ones, or larger at zoom 0 when zoomed out below it.
+    fn drawn(&self) -> Result<(u32, u32, f64), StyleError> {
+        let (width, height) = (self.width.max(1), self.height.max(1));
+        if self.zoom >= 0.0 || self.zoom.is_nan() {
+            return Ok((width, height, self.zoom));
+        }
+        let scale = (-self.zoom).exp2();
+        let scaled = |side: u32| (f64::from(side) * scale).round();
+        let (drawn_width, drawn_height) = (scaled(width), scaled(height));
+        let max_side = f64::from(MAX_ZOOMED_OUT_SIDE);
+        if drawn_width > max_side || drawn_height > max_side {
+            return Err(StyleError::ZoomedOutTooFar {
+                zoom: self.zoom,
+                max_side: MAX_ZOOMED_OUT_SIDE,
+            });
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "both are at least the requested side and at most MAX_ZOOMED_OUT_SIDE"
+        )]
+        let (drawn_width, drawn_height) = (drawn_width as u32, drawn_height as u32);
+        let zoom = self.zoom + (f64::from(drawn_width) / f64::from(width)).log2();
+        Ok((drawn_width, drawn_height, zoom))
     }
 }
 
@@ -478,18 +508,33 @@ impl Worker for StaticWorker {
     type Request = RenderParams;
 
     fn render(&mut self, params: RenderParams) -> Result<Image, StyleError> {
-        let width = params.width.max(1);
-        let height = params.height.max(1);
+        let (drawn_width, drawn_height, zoom) = params.drawn()?;
         let renderer = match &mut self.current {
             Some(current) if current.pixel_ratio == params.pixel_ratio => current,
             current => {
                 // A failed build leaves no renderer rather than one of the wrong pixel ratio.
                 *current = None;
-                current.insert(StaticRenderer::new(&self.runtime, width, height, params.pixel_ratio)?)
+                current.insert(StaticRenderer::new(
+                    &self.runtime,
+                    drawn_width,
+                    drawn_height,
+                    params.pixel_ratio,
+                )?)
             }
         };
-        renderer.resize(width, height)?;
-        renderer.render(&params)
+        renderer.resize(drawn_width, drawn_height)?;
+        let image = renderer.render(&params, zoom)?;
+        let (width, height) = (params.width.max(1), params.height.max(1));
+        if (drawn_width, drawn_height) == (width, height) {
+            return Ok(image);
+        }
+        let pixel_ratio = u32::from(params.pixel_ratio.get());
+        Ok(imageops::resize(
+            &image,
+            width * pixel_ratio,
+            height * pixel_ratio,
+            FilterType::Triangle,
+        ))
     }
 }
 
@@ -571,11 +616,12 @@ impl StaticRenderer {
         Ok(())
     }
 
-    fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
+    /// Renders `params` at `zoom`, which replaces `params.zoom`.
+    fn render(&mut self, params: &RenderParams, zoom: f64) -> Result<Image, StyleError> {
         load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style_path)?;
         let camera = CameraOptions {
             center: Some(LatLng::new(params.lat, params.lon)),
-            zoom: Some(params.zoom),
+            zoom: Some(zoom),
             bearing: Some(params.bearing),
             pitch: Some(params.pitch),
             ..CameraOptions::default()
@@ -829,6 +875,55 @@ mod tests {
             let unique: std::collections::HashSet<_> = image.pixels().copied().collect();
             assert!(unique.len() > 1, "{width}x{height} is blank");
         }
+    }
+
+    #[rstest]
+    #[case::one_x(1, (256, 128))]
+    #[case::two_x(2, (512, 256))]
+    #[tokio::test]
+    async fn a_static_render_below_zoom_0_is_its_own_size_and_shows_more(
+        #[case] pixel_ratio: u8,
+        #[case] pixels: (u32, u32),
+    ) {
+        let style_file = write_style();
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+        let pixel_ratio = NonZeroU8::new(pixel_ratio).expect("non-zero");
+        let red_pixels = |image: &Image| image.pixels().filter(|p| p.0[0] > 200 && p.0[1] < 50).count();
+
+        let at_zoom_0 = pool
+            .render(RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(256, 128, pixel_ratio))
+            .await
+            .expect("render at zoom 0");
+        let below_zoom_0 = pool
+            .render(RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, -1.0).with_size(256, 128, pixel_ratio))
+            .await
+            .expect("render at zoom -1");
+
+        assert_eq!((below_zoom_0.width(), below_zoom_0.height()), pixels);
+        let (red_at_zoom_0, red_below_zoom_0) = (red_pixels(&at_zoom_0), red_pixels(&below_zoom_0));
+        assert!(
+            red_below_zoom_0 > 0 && red_below_zoom_0 * 2 < red_at_zoom_0,
+            "{red_below_zoom_0} red pixels at zoom -1, {red_at_zoom_0} at zoom 0"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_static_render_too_far_below_zoom_0_is_rejected() {
+        let style_file = write_style();
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+
+        let error = pool
+            .render(
+                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, -4.0).with_size(256, 256, NonZeroU8::MIN),
+            )
+            .await
+            .expect_err("4096 pixels a side is more than can be drawn");
+
+        insta::assert_snapshot!(error, @"Zoom -4 would draw more than 2048 pixels a side, zoom in or render a smaller image");
     }
 
     struct FlakyWorker;

@@ -31,7 +31,7 @@ pub enum OgcApiError {
     #[error("Parameters {parameters} can't be used together")]
     ConflictingMapParameters { parameters: &'static str },
 
-    /// The map shows more than the renderer can draw at zoom 0 in `MAX_SIDE` pixels.
+    /// The map is zoomed out further than the renderer draws, see [`martin_core::styles::StyleError::ZoomedOutTooFar`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("The map area is too large, at most four times the world's width and height can be drawn")]
     MapAreaTooLarge,
