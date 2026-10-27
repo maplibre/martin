@@ -130,6 +130,8 @@ cog:
   sources: {}
   # Sources that each serve the COGs a STAC API finds for each tile, by source ID.
   stac: {}
+  # Sources that each serve the COGs a tile index lists, by source ID.
+  tile_index: {}
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert_to_mlt` keys.
 #

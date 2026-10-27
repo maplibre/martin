@@ -73,6 +73,7 @@ patches and validates MBTiles archives.
 - [Tile source specific](<https://maplibre.org/martin/using-with-data/index.md>): Guides specific to a tile source
 - [Using Hosted PostgreSQL](<https://maplibre.org/martin/recipes/index.md>): Connecting to hosted PostgreSQL providers
 - [Setting up a basemap and overlaying data](<https://maplibre.org/martin/recipe-basemap-postgis/index.md>): Generating a basemap and overlaying points from PostGIS
+- [Serving NAIP imagery from S3 with a tile index](<https://maplibre.org/martin/recipe-cog-naip/index.md>): Serving NAIP aerial imagery from S3 with a tile index
 - [Using PostgreSQL with SSL Certificates](<https://maplibre.org/martin/pg-ssl-certificates/index.md>): Connecting to PostgreSQL with SSL certificates
 
 ## Tools
