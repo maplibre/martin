@@ -567,7 +567,7 @@ pub fn open(
     location: PathBuf,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -590,7 +590,7 @@ pub async fn open_async(
     location: PathBuf,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -639,7 +639,7 @@ pub fn open_mosaic(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -682,7 +682,7 @@ pub async fn open_mosaic_async(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -733,10 +733,33 @@ pub enum Background {
     Css(String),
 }
 
+/// The tile format a source re-encodes to.
+#[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString, strum::VariantNames)]
+#[strum(serialize_all = "lowercase")]
+pub enum Format {
+    /// Lossless PNG.
+    Png,
+    /// WebP, lossy or lossless.
+    Webp,
+    /// Lossy JPEG, painted over a background where tiles are transparent.
+    Jpeg,
+}
+
+impl<'py> FromPyObject<'_, 'py> for Format {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        let name: String = value.extract()?;
+        name.parse().map_err(|_unknown| {
+            PyValueError::new_err(format!("format must be \"png\", \"webp\" or \"jpeg\", not {name:?}"))
+        })
+    }
+}
+
 /// The `format`, `quality` and `background` a source re-encodes its tiles with.
 #[derive(Clone, Default)]
 struct EncodingArgs {
-    format: Option<String>,
+    format: Option<Format>,
     quality: Option<Quality>,
     background: Option<Background>,
 }
@@ -749,7 +772,7 @@ impl EncodingArgs {
     const DEFAULT_BACKGROUND: [u8; 3] = [255, 255, 255];
 
     /// The arguments as given to `open` or `open_mosaic`.
-    fn new(format: Option<String>, quality: Option<Quality>, background: Option<Background>) -> Self {
+    fn new(format: Option<Format>, quality: Option<Quality>, background: Option<Background>) -> Self {
         Self {
             format,
             quality,
@@ -759,34 +782,29 @@ impl EncodingArgs {
 
     /// The encoding these arguments ask for, or `None` to return tiles as stored.
     fn encoding(&self) -> PyResult<Option<TileEncoding>> {
-        let format = self.format.as_deref();
-        if let Some(other) = format.filter(|f| !matches!(*f, "png" | "webp" | "jpeg")) {
-            return Err(PyValueError::new_err(format!(
-                "format must be \"png\", \"webp\" or \"jpeg\", not {other:?}"
-            )));
-        }
-        if self.quality.is_some() && !matches!(format, Some("webp" | "jpeg")) {
+        let format = self.format;
+        if self.quality.is_some() && !matches!(format, Some(Format::Webp | Format::Jpeg)) {
             return Err(PyValueError::new_err("quality needs format webp or jpeg"));
         }
-        if self.background.is_some() && format != Some("jpeg") {
+        if self.background.is_some() && format != Some(Format::Jpeg) {
             return Err(PyValueError::new_err("background needs format jpeg"));
         }
         let lossless = matches!(&self.quality, Some(Quality::Name(name)) if name == "lossless");
         Ok(match format {
             None => None,
-            Some("webp") => Some(TileEncoding::Webp {
+            Some(Format::Webp) => Some(TileEncoding::Webp {
                 quality: if lossless { None } else { Some(self.lossy_quality()?) },
             }),
-            Some("jpeg") if lossless => {
+            Some(Format::Jpeg) if lossless => {
                 return Err(PyValueError::new_err(
                     "JPEG has no lossless mode, so quality must be 1 to 100",
                 ));
             }
-            Some("jpeg") => Some(TileEncoding::Jpeg {
+            Some(Format::Jpeg) => Some(TileEncoding::Jpeg {
                 quality: self.lossy_quality()?,
                 background: self.background()?,
             }),
-            Some(_) => Some(TileEncoding::Png),
+            Some(Format::Png) => Some(TileEncoding::Png),
         })
     }
 
@@ -822,7 +840,7 @@ impl EncodingArgs {
     /// These arguments as the keywords of `open`.
     fn keywords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let keywords = PyDict::new(py);
-        keywords.set_item("format", &self.format)?;
+        keywords.set_item("format", self.format.map(|f| f.to_string()))?;
         keywords.set_item("quality", self.quality.clone())?;
         keywords.set_item("background", self.background.clone())?;
         Ok(keywords)

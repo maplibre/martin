@@ -2117,6 +2117,7 @@ dependencies = [
  "object_store",
  "pyo3",
  "pyo3-stub-gen",
+ "strum 0.28.0",
  "tokio",
  "tokio-util",
  "url",
