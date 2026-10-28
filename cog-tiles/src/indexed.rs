@@ -18,6 +18,10 @@ use crate::{
 /// The width and height of every tile of an [`AsyncIndexedMosaic`].
 pub const INDEXED_TILE_SIZE: u32 = 256;
 
+/// Turns an asset `href` into the store and path it is read from.
+pub type HrefResolver =
+    Arc<dyn Fn(&str) -> Result<(Arc<dyn ObjectStore>, Path), Box<dyn std::error::Error + Send + Sync>> + Send + Sync>;
+
 /// Finds the files that may hold a tile, e.g. by searching a STAC catalog.
 #[async_trait::async_trait]
 pub trait MosaicIndex: Debug + Send + Sync {
@@ -152,6 +156,8 @@ pub struct AsyncIndexedMosaic {
     nodata: Option<u8>,
     /// Mosaic metadata.
     info: IndexedMosaicInfo,
+    /// `[west, south, east, north]` in degrees, if the index knows them.
+    bounds: Option<[f64; 4]>,
 }
 
 impl AsyncIndexedMosaic {
@@ -189,6 +195,7 @@ impl AsyncIndexedMosaic {
                 tile_size: INDEXED_TILE_SIZE,
                 format: TileFormat::Png,
             },
+            bounds: None,
         };
         let reader = mosaic.reader(probe).await?;
         let [west, south, east, north] = probe.bounds;
@@ -204,6 +211,20 @@ impl AsyncIndexedMosaic {
     #[must_use]
     pub fn info(&self) -> &IndexedMosaicInfo {
         &self.info
+    }
+
+    /// `[west, south, east, north]` in degrees, if the index knows them: the files' footprints of a
+    /// tile index, or the extent of a STAC collection. `None` for a mosaic opened with [`open`](Self::open).
+    #[must_use]
+    pub fn bounds(&self) -> Option<[f64; 4]> {
+        self.bounds
+    }
+
+    /// This mosaic with `bounds`.
+    #[cfg(any(feature = "stac", feature = "tile-index"))]
+    pub(crate) fn with_bounds(mut self, bounds: Option<[f64; 4]>) -> Self {
+        self.bounds = bounds;
+        self
     }
 
     /// Reads one tile as a PNG.

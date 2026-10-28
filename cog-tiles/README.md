@@ -92,6 +92,24 @@ let tile = mosaic.get_tile(TileCoord::new(16, 10_477, 25_326)?).await?;
 # }
 ```
 
+Two indexes are built in. A `gdaltindex` tile index (`tile-index` feature) is read into memory once;
+a STAC API (`stac` feature) is searched once per tile at `search_zoom`, its results cached:
+
+```rust,no_run
+# #[cfg(all(feature = "stac", feature = "tile-index"))]
+# async fn run(resolve: cog_tiles::HrefResolver, search: cog_tiles::StacSearchOptions) -> cog_tiles::CogResult<()> {
+use cog_tiles::{AsyncIndexedMosaic, DEFAULT_LOCATION_FIELD, IndexedMosaicOptions, StacIndex, TileIndex};
+
+let index = TileIndex::open("naip.gpkg".as_ref(), None, DEFAULT_LOCATION_FIELD, &resolve).await?;
+let naip = AsyncIndexedMosaic::open_tile_index(index, IndexedMosaicOptions::new(12, vec![0, 1, 2])).await?;
+
+let (index, first) = StacIndex::open(search, None, resolve).await?;
+let options = IndexedMosaicOptions::new(13, index.bands().to_vec());
+let stac = AsyncIndexedMosaic::open_stac(index, &first, options).await?;
+# Ok(())
+# }
+```
+
 Decoded pixels instead of encoded tiles, e.g. to stitch an area into one raster:
 
 ```rust,no_run
@@ -125,6 +143,8 @@ a bounded, expiring cache; tiles without a file are `None`.
 * `webp`: decode WebP tiles with `get_tile_pixels` (links `libwebp`). Without it, WebP tiles are only passed through.
 * `mosaic`: `AsyncCogMosaic` over a local directory or an object store prefix, and
   `AsyncIndexedMosaic` over the files a `MosaicIndex` finds (enables `fs`, `png` and `object-store`).
+* `tile-index`: `TileIndex`, the files of a `gdaltindex` `GeoPackage` (enables `mosaic`).
+* `stac`: `StacIndex`, the items a STAC API finds (enables `mosaic`).
 
 ## Not supported yet
 
