@@ -457,10 +457,6 @@ mod tests {
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots, eval_part};
     use crate::props::{KeyId, Prop};
 
-    const OPERANDS: [&str; 15] = [
-        "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'",
-    ];
-
     fn props() -> Vec<Vec<(KeyId, Prop<String>)>> {
         let values = [
             None,
@@ -519,49 +515,83 @@ mod tests {
     }
 
     #[rstest]
-    fn comparisons_match_the_interpreter(#[values("==", "!=", "<", "<=", ">", ">=")] op: &str) {
-        let all = props();
-        for a in OPERANDS {
-            for b in OPERANDS {
-                assert_same(&format!("{a} {op} {b}"), &all);
-            }
-        }
+    fn comparisons_match_the_interpreter(
+        #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        a: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        b: &str,
+    ) {
+        assert_same(&format!("{a} {op} {b}"), &props());
+    }
+
+    #[rstest]
+    #[case::not("!{a}")]
+    #[case::not_twice("!!{a}")]
+    #[case::key_comparison("feature['a'] == {a}")]
+    fn logic_of_one_operand_matches_the_interpreter(
+        #[case] shape: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        a: &str,
+    ) {
+        assert_same(&shape.replace("{a}", a), &props());
     }
 
     #[rstest]
     #[case::and("{a} && {b}")]
     #[case::or("{a} || {b}")]
-    #[case::not("!{a}")]
-    #[case::not_twice("!!{a}")]
     #[case::not_of_a_comparison("!({a} < {b})")]
     #[case::not_of_or("!({a} || {b})")]
     #[case::not_of_and("!(a == {a} && b == {b})")]
     #[case::or_of_three("a == {a} || b == {b} || a == {b}")]
     #[case::and_of_ors("(a == {a} || b == {b}) && (a != {b} || b != {a})")]
     #[case::comparison_and_null_check("({a} == {b}) && a != null")]
-    #[case::key_comparison("feature['a'] == {b}")]
     #[case::choice("{a} ? {b} : 3")]
-    fn logic_matches_the_interpreter(#[case] shape: &str) {
-        let all = props();
-        for a in OPERANDS {
-            for b in OPERANDS {
-                assert_same(&shape.replace("{a}", a).replace("{b}", b), &all);
-            }
-        }
+    fn logic_of_two_operands_matches_the_interpreter(
+        #[case] shape: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        a: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        b: &str,
+    ) {
+        assert_same(&shape.replace("{a}", a).replace("{b}", b), &props());
     }
 
     #[rstest]
     fn conversions_match_the_interpreter(
         #[values("int", "double", "bool")] conversion: &str,
         #[values("a", "feature['a']", "feature['missing']")] arg: &str,
-        #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
     ) {
-        let all = props();
-        let converted = format!("{conversion}({arg})");
-        assert_same(&converted, &all);
-        for b in OPERANDS {
-            assert_same(&format!("{converted} {op} {b}"), &all);
-        }
+        assert_same(&format!("{conversion}({arg})"), &props());
+    }
+
+    #[rstest]
+    fn compared_conversions_match_the_interpreter(
+        #[values("int", "double", "bool")] conversion: &str,
+        #[values("a", "feature['a']", "feature['missing']")] arg: &str,
+        #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
+        #[values(
+            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
+            "'Place'"
+        )]
+        b: &str,
+    ) {
+        assert_same(&format!("{conversion}({arg}) {op} {b}"), &props());
     }
 
     #[rstest]
