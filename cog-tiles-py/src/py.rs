@@ -576,11 +576,7 @@ pub fn open(
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background),
     };
     let source = wait(py, cog.open_source()?)?.map_err(to_py)?;
     cog.into_py(py, source)
@@ -603,11 +599,7 @@ pub async fn open_async(
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background),
     };
     let source = spawn(cog.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| cog.into_py(py, source))
@@ -660,11 +652,7 @@ pub fn open_mosaic(
         file_expiry,
         file_idle_timeout,
         options,
-        EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        EncodingArgs::new(format, quality, background),
     )?;
     let source = wait(py, mosaic.open_source()?)?.map_err(to_py)?;
     mosaic.into_py(py, source)
@@ -707,11 +695,7 @@ pub async fn open_mosaic_async(
         file_expiry,
         file_idle_timeout,
         options,
-        EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        EncodingArgs::new(format, quality, background),
     )?;
     let source = spawn(mosaic.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| mosaic.into_py(py, source))
@@ -763,6 +747,15 @@ impl EncodingArgs {
 
     /// The color JPEG tiles show where they are transparent when `background` is unset, as in Martin.
     const DEFAULT_BACKGROUND: [u8; 3] = [255, 255, 255];
+
+    /// The arguments as given to `open` or `open_mosaic`.
+    fn new(format: Option<String>, quality: Option<Quality>, background: Option<Background>) -> Self {
+        Self {
+            format,
+            quality,
+            background,
+        }
+    }
 
     /// The encoding these arguments ask for, or `None` to return tiles as stored.
     fn encoding(&self) -> PyResult<Option<TileEncoding>> {
