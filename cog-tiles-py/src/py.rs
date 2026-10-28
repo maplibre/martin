@@ -310,7 +310,7 @@ type CogArgs = (PathBuf, BTreeMap<String, String>);
 impl Cog {
     /// Opens the COG at `location`, the work that `open` and `open_async` wait for.
     fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
-        let encoding = self.encoding.encoding()?;
+        let encoding = self.encoding.encoding();
         Ok(Source::open(parse_location(&self.location, &self.options)?, encoding))
     }
 
@@ -367,7 +367,7 @@ impl Mosaic {
         let root = Location::parse(&root, &pairs)?;
         let template = template.to_owned();
         let options = self.options;
-        let encoding = self.encoding.encoding()?;
+        let encoding = self.encoding.encoding();
         Ok(async move { Source::open_mosaic(root, &template, options, encoding).await })
     }
 
@@ -576,7 +576,7 @@ pub fn open(
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
-        encoding: EncodingArgs::new(format, quality, background),
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = wait(py, cog.open_source()?)?.map_err(to_py)?;
     cog.into_py(py, source)
@@ -599,7 +599,7 @@ pub async fn open_async(
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
-        encoding: EncodingArgs::new(format, quality, background),
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = spawn(cog.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| cog.into_py(py, source))
@@ -652,7 +652,7 @@ pub fn open_mosaic(
         file_expiry,
         file_idle_timeout,
         options,
-        EncodingArgs::new(format, quality, background),
+        EncodingArgs::new(format, quality, background)?,
     )?;
     let source = wait(py, mosaic.open_source()?)?.map_err(to_py)?;
     mosaic.into_py(py, source)
@@ -695,7 +695,7 @@ pub async fn open_mosaic_async(
         file_expiry,
         file_idle_timeout,
         options,
-        EncodingArgs::new(format, quality, background),
+        EncodingArgs::new(format, quality, background)?,
     )?;
     let source = spawn(mosaic.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| mosaic.into_py(py, source))
@@ -719,18 +719,69 @@ fn parse_location(location: &std::path::Path, options: &BTreeMap<String, String>
     }
 }
 
-/// A lossy quality from 1 (smallest) to 100 (best), or `"lossless"`.
-#[derive(Clone, FromPyObject, IntoPyObject)]
+/// A lossy quality from 1 (smallest) to 100 (best), or lossless.
+#[derive(Clone, Copy)]
 pub enum Quality {
+    /// No loss, for WebP only.
+    Lossless,
+    /// A lossy quality from 1 to 100.
     Level(u8),
-    Name(String),
 }
 
-/// An opaque color as a CSS string such as `"white"` or `"#336699"`, or as `(red, green, blue)`.
-#[derive(Clone, FromPyObject, IntoPyObject)]
-pub enum Background {
-    Rgb((u8, u8, u8)),
-    Css(String),
+impl<'py> FromPyObject<'_, 'py> for Quality {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(name) = value.extract::<String>() {
+            return match name.as_str() {
+                "lossless" => Ok(Self::Lossless),
+                _ => Err(PyValueError::new_err(format!(
+                    "quality must be 1 to 100 or \"lossless\", not {name:?}"
+                ))),
+            };
+        }
+        let level: i64 = value.extract()?;
+        match u8::try_from(level) {
+            Ok(level @ 1..=100) => Ok(Self::Level(level)),
+            _ => Err(PyValueError::new_err(format!("quality must be 1 to 100, not {level}"))),
+        }
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Quality {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
+        match self {
+            Self::Lossless => Ok("lossless".into_pyobject(py)?.into_any()),
+            Self::Level(level) => Ok(level.into_pyobject(py)?.into_any()),
+        }
+    }
+}
+
+/// An opaque color, given as a CSS string such as `"white"` or `"#336699"`, or as `(red, green, blue)`.
+#[derive(Clone, Copy, IntoPyObject)]
+pub struct Background((u8, u8, u8));
+
+impl<'py> FromPyObject<'_, 'py> for Background {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(css) = value.extract::<String>() {
+            return match csscolorparser::parse(&css)
+                .map_err(|e| PyValueError::new_err(format!("background {css:?}: {e}")))?
+                .to_rgba8()
+            {
+                [r, g, b, 255] => Ok(Self((r, g, b))),
+                _ => Err(PyValueError::new_err(format!(
+                    "background must be an opaque CSS color, not {css:?}"
+                ))),
+            };
+        }
+        Ok(Self(value.extract()?))
+    }
 }
 
 /// The tile format a source re-encodes to.
@@ -762,6 +813,7 @@ struct EncodingArgs {
     format: Option<Format>,
     quality: Option<Quality>,
     background: Option<Background>,
+    encoding: Option<TileEncoding>,
 }
 
 impl EncodingArgs {
@@ -769,80 +821,61 @@ impl EncodingArgs {
     const DEFAULT_QUALITY: u8 = 80;
 
     /// The color JPEG tiles show where they are transparent when `background` is unset, as in Martin.
-    const DEFAULT_BACKGROUND: [u8; 3] = [255, 255, 255];
+    const DEFAULT_BACKGROUND: (u8, u8, u8) = (255, 255, 255);
 
-    /// The arguments as given to `open` or `open_mosaic`.
-    fn new(format: Option<Format>, quality: Option<Quality>, background: Option<Background>) -> Self {
-        Self {
-            format,
-            quality,
-            background,
-        }
-    }
-
-    /// The encoding these arguments ask for, or `None` to return tiles as stored.
-    fn encoding(&self) -> PyResult<Option<TileEncoding>> {
-        let format = self.format;
-        if self.quality.is_some() && !matches!(format, Some(Format::Webp | Format::Jpeg)) {
+    /// The arguments as given to `open` or `open_mosaic`, rejecting a `quality` or `background` the `format` cannot use.
+    fn new(format: Option<Format>, quality: Option<Quality>, background: Option<Background>) -> PyResult<Self> {
+        if quality.is_some() && !matches!(format, Some(Format::Webp | Format::Jpeg)) {
             return Err(PyValueError::new_err("quality needs format webp or jpeg"));
         }
-        if self.background.is_some() && format != Some(Format::Jpeg) {
+        if background.is_some() && format != Some(Format::Jpeg) {
             return Err(PyValueError::new_err("background needs format jpeg"));
         }
-        let lossless = matches!(&self.quality, Some(Quality::Name(name)) if name == "lossless");
-        Ok(match format {
+        let level = |quality| match quality {
+            Some(Quality::Level(level)) => level,
+            _ => Self::DEFAULT_QUALITY,
+        };
+        let encoding = match format {
             None => None,
+            Some(Format::Png) => Some(TileEncoding::Png),
             Some(Format::Webp) => Some(TileEncoding::Webp {
-                quality: if lossless { None } else { Some(self.lossy_quality()?) },
+                quality: match quality {
+                    Some(Quality::Lossless) => None,
+                    quality => Some(level(quality)),
+                },
             }),
-            Some(Format::Jpeg) if lossless => {
+            Some(Format::Jpeg) if matches!(quality, Some(Quality::Lossless)) => {
                 return Err(PyValueError::new_err(
                     "JPEG has no lossless mode, so quality must be 1 to 100",
                 ));
             }
-            Some(Format::Jpeg) => Some(TileEncoding::Jpeg {
-                quality: self.lossy_quality()?,
-                background: self.background()?,
-            }),
-            Some(Format::Png) => Some(TileEncoding::Png),
+            Some(Format::Jpeg) => {
+                let (r, g, b) = background.map_or(Self::DEFAULT_BACKGROUND, |Background(rgb)| rgb);
+                Some(TileEncoding::Jpeg {
+                    quality: level(quality),
+                    background: [r, g, b],
+                })
+            }
+        };
+        Ok(Self {
+            format,
+            quality,
+            background,
+            encoding,
         })
     }
 
-    /// The quality from 1 to 100, 80 when unset.
-    fn lossy_quality(&self) -> PyResult<u8> {
-        match &self.quality {
-            None => Ok(Self::DEFAULT_QUALITY),
-            Some(Quality::Level(level @ 1..=100)) => Ok(*level),
-            Some(Quality::Level(level)) => Err(PyValueError::new_err(format!("quality must be 1 to 100, not {level}"))),
-            Some(Quality::Name(name)) => Err(PyValueError::new_err(format!(
-                "quality must be 1 to 100 or \"lossless\", not {name:?}"
-            ))),
-        }
-    }
-
-    /// The JPEG background, white when unset.
-    fn background(&self) -> PyResult<[u8; 3]> {
-        match &self.background {
-            None => Ok(Self::DEFAULT_BACKGROUND),
-            Some(Background::Rgb((r, g, b))) => Ok([*r, *g, *b]),
-            Some(Background::Css(css)) => match csscolorparser::parse(css)
-                .map_err(|e| PyValueError::new_err(format!("background {css:?}: {e}")))?
-                .to_rgba8()
-            {
-                [r, g, b, 255] => Ok([r, g, b]),
-                _ => Err(PyValueError::new_err(format!(
-                    "background must be an opaque CSS color, not {css:?}"
-                ))),
-            },
-        }
+    /// The encoding these arguments ask for, or `None` to return tiles as stored.
+    fn encoding(&self) -> Option<TileEncoding> {
+        self.encoding
     }
 
     /// These arguments as the keywords of `open`.
     fn keywords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let keywords = PyDict::new(py);
         keywords.set_item("format", self.format.map(|f| f.to_string()))?;
-        keywords.set_item("quality", self.quality.clone())?;
-        keywords.set_item("background", self.background.clone())?;
+        keywords.set_item("quality", self.quality)?;
+        keywords.set_item("background", self.background)?;
         Ok(keywords)
     }
 }
