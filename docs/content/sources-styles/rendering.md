@@ -169,7 +169,7 @@ If that is read-only too, it logs a warning and Mesa compiles shaders again for 
 For a read-only container, mount a small `tmpfs` at `/tmp` (the cache stays under a few MB), or set `MESA_SHADER_CACHE_DIR` to a writable volume to keep the cache across restarts:
 
 ```bash
-docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:latest-full
+docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.4
 ```
 
 Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
