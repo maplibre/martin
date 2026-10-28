@@ -14,6 +14,10 @@ on:
           Build on all targets, including the aarch64, macOS and Windows bins and Debian package.
         type: boolean
         default: true
+      run-cog-py:
+        description: Build the cog-tiles Python bindings and run their tests.
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       run-heavy:
@@ -22,6 +26,10 @@ on:
         default: true
       run-release-builds:
         description: Run the aarch64, macOS and Windows builds and the Debian package build
+        type: boolean
+        default: true
+      run-cog-py:
+        description: Build the cog-tiles Python bindings and run their tests
         type: boolean
         default: true
 
@@ -84,6 +92,7 @@ jobs:
         with: { suite: cog }
   test-cog-py:
     name: COG Python bindings ${{ matrix.python }}
+    if: inputs.run-cog-py
     permissions:
       contents: read
     runs-on: ubuntu-latest
