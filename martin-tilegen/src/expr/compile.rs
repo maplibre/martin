@@ -6,6 +6,7 @@ use cel::common::types::CelString;
 use cel::{Context, ExecutionError, Value};
 
 use super::env::{SHARED, Shared};
+use super::fast::FastExpr;
 use super::{FEATURE, FeatureView};
 
 const OPERATORS: [&str; 21] = [
@@ -50,6 +51,8 @@ pub struct CompiledExpr {
     pub(super) expr: IdedExpr,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
+    /// The expression without the interpreter, when it is simple enough.
+    fast: Option<FastExpr>,
 }
 
 impl CompiledExpr {
@@ -70,10 +73,12 @@ impl CompiledExpr {
             needs_all_keys: false,
         };
         analyzer.walk(&mut expr).map_err(|e| e.into_error(source))?;
+        let fast = FastExpr::new(&expr, &analyzer.columns);
         Ok(Self {
             expr,
             columns: analyzer.columns,
             needs_all_keys: analyzer.needs_all_keys,
+            fast,
         })
     }
 
@@ -114,6 +119,15 @@ impl CompiledExpr {
     where
         S: AsRef<str> + Debug + Send + Sync,
     {
+        if let Some(value) = self.fast.as_ref().and_then(|fast| fast.eval(feature)) {
+            let value = Value::from(value);
+            debug_assert!(
+                matches!(&value, Value::Float(v) if v.is_nan())
+                    || eval_part(&self.expr, feature).as_ref() == Ok(&value),
+                "the fast path and the interpreter differ"
+            );
+            return Ok(value);
+        }
         eval_part(&self.expr, feature)
     }
 }
