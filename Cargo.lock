@@ -2111,11 +2111,13 @@ version = "0.1.1"
 dependencies = [
  "bytes",
  "cog-tiles",
+ "csscolorparser 0.9.0",
  "futures",
  "numpy",
  "object_store",
  "pyo3",
  "pyo3-stub-gen",
+ "strum 0.28.0",
  "tokio",
  "tokio-util",
  "url",

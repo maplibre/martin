@@ -186,20 +186,25 @@ class UnsupportedCogError(CogTilesError):
     """
     ...
 
-def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
+def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Cog:
     r"""
     Opens one COG from a local path or a URL (`s3://`, `gs://`, `az://`, `https://`, `file://`).
 
     Object store credentials come from the usual environment variables (e.g. `AWS_REGION`,
     `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
+
+    `format` (`"png"`, `"webp"` or `"jpeg"`) re-encodes every tile, with `quality` from 1 to 100
+    (80 when unset) or `"lossless"` for WebP, and JPEG painted over `background`, a CSS color or
+    `(red, green, blue)` (white when unset). Without it, JPEG and WebP tiles are returned as stored
+    and others as PNG.
     """
 
-async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
+async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Cog:
     r"""
     `open` for `asyncio`, reading the headers on background threads instead of the event loop.
     """
 
-def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
+def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Mosaic:
     r"""
     Opens a mosaic of COGs that each cover one tile at `file_zoom`, named by a template in
     `location`: `{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g.
@@ -209,9 +214,11 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
     One file is found by listing the location now; the others are opened on first use and kept
     for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
     Square files without `GeoTIFF` tags are placed on the tile in their file name.
+
+    `format`, `quality` and `background` re-encode every tile, as in `open`.
     """
 
-async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
+async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Mosaic:
     r"""
     `open_mosaic` for `asyncio`, listing and reading on background threads instead of the event loop.
     """

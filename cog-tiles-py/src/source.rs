@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use cog_tiles::{
     AsyncCogMosaic, AsyncCogReader, CogResult, FileBackend, MosaicOptions, ObjectStoreBackend, PixelWindow, TileCoord,
-    TileFormat, TilePixels,
+    TileEncoding, TileFormat, TilePixels,
 };
 use futures::{StreamExt as _, stream};
 use pyo3::PyResult;
@@ -15,8 +15,16 @@ use tokio_util::task::AbortOnDropHandle;
 use crate::error::{CogTilesError, to_py};
 use crate::location::Location;
 
-/// Where tiles are read from.
-pub enum Source {
+/// Where tiles are read from, and what they are encoded as.
+pub struct Source {
+    /// Reads the tiles.
+    reader: Reader,
+    /// Re-encodes every tile, or `None` to return tiles as the reader does.
+    encoding: Option<TileEncoding>,
+}
+
+/// One COG or a mosaic of them.
+enum Reader {
     File(AsyncCogReader<FileBackend>),
     Store(AsyncCogReader<ObjectStoreBackend>),
     Mosaic(AsyncCogMosaic),
@@ -32,32 +40,42 @@ pub struct Layout {
 }
 
 impl Source {
-    pub async fn open(location: Location) -> CogResult<Self> {
-        Ok(match location {
+    pub async fn open(location: Location, encoding: Option<TileEncoding>) -> CogResult<Self> {
+        let reader = match location {
             Location::Local(path) => {
-                Self::File(AsyncCogReader::try_from_backend(FileBackend::open(path).await?).await?)
+                Reader::File(AsyncCogReader::try_from_backend(FileBackend::open(path).await?).await?)
             }
             Location::Store { store, path, .. } => {
-                Self::Store(AsyncCogReader::try_from_backend(ObjectStoreBackend::open(store, path).await?).await?)
+                Reader::Store(AsyncCogReader::try_from_backend(ObjectStoreBackend::open(store, path).await?).await?)
             }
-        })
+        };
+        Ok(Self { reader, encoding })
     }
 
-    pub async fn open_mosaic(location: Location, template: &str, options: MosaicOptions) -> CogResult<Self> {
-        Ok(Self::Mosaic(match location {
+    pub async fn open_mosaic(
+        location: Location,
+        template: &str,
+        options: MosaicOptions,
+        encoding: Option<TileEncoding>,
+    ) -> CogResult<Self> {
+        let mosaic = match location {
             Location::Local(root) => AsyncCogMosaic::open_dir(root, template, options).await?,
             Location::Store { store, path, display } => {
                 AsyncCogMosaic::open_object_store(store, path, template, &format!("{display}{template}"), options)
                     .await?
             }
-        }))
+        };
+        Ok(Self {
+            reader: Reader::Mosaic(mosaic),
+            encoding,
+        })
     }
 
     pub fn layout(&self) -> Layout {
-        match self {
-            Self::File(reader) => reader_layout(reader),
-            Self::Store(reader) => reader_layout(reader),
-            Self::Mosaic(mosaic) => {
+        let layout = match &self.reader {
+            Reader::File(reader) => reader_layout(reader),
+            Reader::Store(reader) => reader_layout(reader),
+            Reader::Mosaic(mosaic) => {
                 let info = mosaic.info();
                 Layout {
                     min_zoom: info.file_zoom,
@@ -66,33 +84,48 @@ impl Source {
                     format: info.format,
                 }
             }
+        };
+        Layout {
+            format: self.encoding.map_or(layout.format, TileEncoding::format),
+            ..layout
         }
     }
 
     /// `[west, south, east, north]` in degrees and `[min_x, min_y, max_x, max_y]` in `EPSG:3857`,
     /// or `None` for a mosaic, whose extent is not known without listing every file.
     pub fn bounds(&self) -> Option<([f64; 4], [f64; 4])> {
-        let info = match self {
-            Self::File(reader) => reader.info(),
-            Self::Store(reader) => reader.info(),
-            Self::Mosaic(_) => return None,
+        let info = match &self.reader {
+            Reader::File(reader) => reader.info(),
+            Reader::Store(reader) => reader.info(),
+            Reader::Mosaic(_) => return None,
         };
         Some((info.bounds, info.mercator_bounds))
     }
 
-    pub async fn tile(&self, coord: TileCoord) -> CogResult<Option<Bytes>> {
-        match self {
-            Self::File(reader) => reader.get_tile(coord).await,
-            Self::Store(reader) => reader.get_tile(coord).await,
-            Self::Mosaic(mosaic) => mosaic.get_tile(coord).await,
-        }
+    /// The encoded tile, re-encoded on the blocking thread pool if this source has an encoding.
+    pub async fn tile(&self, coord: TileCoord) -> PyResult<Option<Bytes>> {
+        let Some(encoding) = self.encoding else {
+            return match &self.reader {
+                Reader::File(reader) => reader.get_tile(coord).await,
+                Reader::Store(reader) => reader.get_tile(coord).await,
+                Reader::Mosaic(mosaic) => mosaic.get_tile(coord).await,
+            }
+            .map_err(to_py);
+        };
+        let Some(pixels) = self.pixels(coord).await.map_err(to_py)? else {
+            return Ok(None);
+        };
+        let tile = tokio::task::spawn_blocking(move || encoding.encode(&pixels, &coord.to_string()))
+            .await
+            .map_err(|e| CogTilesError::new_err(e.to_string()))?;
+        tile.map(Some).map_err(to_py)
     }
 
     pub async fn pixels(&self, coord: TileCoord) -> CogResult<Option<TilePixels>> {
-        match self {
-            Self::File(reader) => reader.get_tile_pixels(coord).await,
-            Self::Store(reader) => reader.get_tile_pixels(coord).await,
-            Self::Mosaic(mosaic) => mosaic.get_tile_pixels(coord).await,
+        match &self.reader {
+            Reader::File(reader) => reader.get_tile_pixels(coord).await,
+            Reader::Store(reader) => reader.get_tile_pixels(coord).await,
+            Reader::Mosaic(mosaic) => mosaic.get_tile_pixels(coord).await,
         }
     }
 }
@@ -159,7 +192,7 @@ pub async fn stream_tiles(
         let item = match joined {
             Ok((_, Ok(None))) => continue,
             Ok((coord, Ok(Some(data)))) => Ok((coord, data)),
-            Ok((_, Err(e))) => Err(to_py(e)),
+            Ok((_, Err(e))) => Err(e),
             Err(e) => Err(CogTilesError::new_err(e.to_string())),
         };
         let failed = item.is_err();

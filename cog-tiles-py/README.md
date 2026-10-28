@@ -50,6 +50,26 @@ async for z, x, y, data in cog.tiles(bbox, zoom=18):
 The fetches run on background threads, so awaited calls neither block the event loop nor hold a
 thread each.
 
+## Tile format
+
+`format`, `quality` and `background` re-encode every tile, on `open` and `open_mosaic` alike:
+
+```python
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="webp", quality=80)
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="webp", quality="lossless")
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="jpeg", quality=90, background="black")
+```
+
+| `format` | `quality`                                | transparency                                                   |
+|----------|------------------------------------------|----------------------------------------------------------------|
+| `png`    | -                                        | kept                                                           |
+| `webp`   | 1 to 100 or `"lossless"`, 80 when unset  | kept exactly, even lossy                                       |
+| `jpeg`   | 1 to 100, 80 when unset                  | painted over `background`: a CSS color or `(r, g, b)`, white when unset |
+
+Without `format`, JPEG and WebP tiles are returned as stored and others as PNG. With it, every tile
+is decoded and encoded again, also JPEG and WebP tiles, so lossy tiles lose detail again.
+`tile_pixels` and `read` return the decoded pixels either way.
+
 ## What it reads
 
 COGs on the `WebMercatorQuad` grid, as `gdal_translate -of COG -co TILING_SCHEME=GoogleMapsCompatible`
@@ -66,7 +86,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
 
 * All I/O and decoding runs in Rust with the GIL released; `read` and `tiles` keep `concurrency`
   requests in flight (64 by default) and decode on every core.
-* Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
+* Wheels cover CPython 3.11 and later, including free-threaded CPython from 3.15t on.
 * Headers are read once when opening: one request for a typical file, or one per IFD if IFDs come after
   the pixel data. Each tile is one range read. Tiles in the same row of a striped file share one read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
