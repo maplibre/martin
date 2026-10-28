@@ -4,8 +4,6 @@ on:
   pull_request:
     paths:
       - '.github/workflows/python-release.yml'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
       - 'cog-tiles/**'
       - 'cog-tiles-py/**'
   # release-plz drafts the `python-cog-tiles-v*` release and release.yml publishes it with the app token
