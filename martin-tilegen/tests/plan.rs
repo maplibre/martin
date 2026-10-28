@@ -1551,3 +1551,209 @@ fn an_int_column_compares_with_each_number_of_a_list_by_its_own_type() {
     )
     "#);
 }
+
+#[test]
+fn a_where_on_a_converted_string_keeps_the_low_admin_levels() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("admin_level".to_owned(), None)],
+        layers: vec![LayerDef {
+            filter: Some("int(admin_level) <= 4".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("boundaries", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let boundary = |id, admin_level: Option<&str>| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: admin_level
+            .map(|level| (KeyId::new(0), Prop::Str(level.into())))
+            .into_iter()
+            .collect(),
+    };
+    let features = [
+        boundary(1, Some("2")),
+        boundary(2, Some("4")),
+        boundary(3, Some("6")),
+        boundary(4, Some("two")),
+        boundary(5, Some(" 2")),
+        boundary(6, None),
+    ];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "boundaries", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "boundaries", id: Some(2), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    ExprErrors { layer: "boundaries", expr: "int(admin_level) <= 4", errors: 3 }
+    "#);
+}
+
+#[test]
+fn a_converted_attribute_reads_numbers_and_booleans_from_strings() {
+    let converted = |name: &str, expr: &str| ComputedAttr {
+        name: name.to_owned(),
+        value: ValueDef::Expr(expr.to_owned()),
+        zooms: 0..=30,
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("tag".to_owned(), None)],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    converted("int", "int(tag)"),
+                    converted("double", "double(tag)"),
+                    converted("bool", "bool(tag)"),
+                ],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("tags", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let tagged = |id, tag: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::new(0), Prop::Str(tag.into()))],
+    };
+    let features = [
+        tagged(1, "12"),
+        tagged(2, "-3"),
+        tagged(3, "1.5"),
+        tagged(4, "1e3"),
+        tagged(5, "t"),
+        tagged(6, "False"),
+        tagged(7, "yes"),
+    ];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "tags", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"int": I64(12), "double": F64(12.0)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(2), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"int": I64(-3), "double": F64(-3.0)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(3), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"double": F64(1.5)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(4), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"double": F64(1000.0)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(5), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"bool": Bool(true)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(6), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"bool": Bool(false)}, bands: [], sort: None }
+    LayerFeature { layer: "tags", id: Some(7), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    ExprErrors { layer: "tags", expr: "int(tag)", errors: 5 }
+    ExprErrors { layer: "tags", expr: "double(tag)", errors: 3 }
+    ExprErrors { layer: "tags", expr: "bool(tag)", errors: 5 }
+    "#);
+}
+
+#[test]
+fn a_negated_or_keeps_every_class_but_the_listed_ones() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            filter: Some("!(class == 'water' || class == 'ice' || class == 'sand')".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("land", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let area = |id, class: Option<&str>| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: class
+            .map(|class| (KeyId::new(0), Prop::Str(class.into())))
+            .into_iter()
+            .collect(),
+    };
+    let features = [
+        area(1, Some("water")),
+        area(2, Some("ice")),
+        area(3, Some("sand")),
+        area(4, Some("forest")),
+        area(5, None),
+    ];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "land", id: Some(4), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "land", id: Some(5), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    "#);
+}
+
+#[test]
+fn a_boolean_property_and_its_negation_split_the_features() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("oneway".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                filter: Some("bool(oneway)".to_owned()),
+                attributes: AttributesDef::None,
+                ..LayerDef::new("oneway", 0..=0, GRID)
+            },
+            LayerDef {
+                filter: Some("!bool(oneway)".to_owned()),
+                attributes: AttributesDef::None,
+                ..LayerDef::new("twoway", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let road = |id, oneway| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::new(0), oneway)],
+    };
+    let features = [
+        road(1, Prop::Bool(true)),
+        road(2, Prop::Str("1".into())),
+        road(3, Prop::Str("False".into())),
+        road(4, Prop::Str("no".into())),
+    ];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "oneway", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "oneway", id: Some(2), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "twoway", id: Some(3), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    ExprErrors { layer: "oneway", expr: "bool(oneway)", errors: 1 }
+    ExprErrors { layer: "twoway", expr: "!bool(oneway)", errors: 1 }
+    "#);
+}
+
+#[test]
+fn a_choice_sets_the_minzoom_of_each_feature() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("way_area".to_owned(), None)],
+        layers: vec![LayerDef {
+            minzoom_expr: Some("way_area > 1000000.0 ? 4 : 10".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("water", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let lake = |id, way_area: Option<f64>| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: way_area
+            .map(|area| (KeyId::new(0), Prop::F64(area)))
+            .into_iter()
+            .collect(),
+    };
+    let features = [lake(1, Some(5_000_000.0)), lake(2, Some(20_000.0)), lake(3, None)];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "water", id: Some(1), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "water", id: Some(2), zooms: 10..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "water", id: Some(3), zooms: 0..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    ExprErrors { layer: "water", expr: "way_area > 1000000.0 ? 4 : 10", errors: 1 }
+    "#);
+}
+
+#[test]
+fn a_choice_chain_sets_the_minzoom_of_each_feature() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("admin_level".to_owned(), None)],
+        layers: vec![LayerDef {
+            minzoom_expr: Some("admin_level <= 2 ? 0 : admin_level <= 4 ? 3 : 8".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("boundaries", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let boundary = |id, admin_level| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::new(0), Prop::I64(admin_level))],
+    };
+    let features = [boundary(1, 2), boundary(2, 4), boundary(3, 6)];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "boundaries", id: Some(1), zooms: 0..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "boundaries", id: Some(2), zooms: 3..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "boundaries", id: Some(3), zooms: 8..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    "#);
+}

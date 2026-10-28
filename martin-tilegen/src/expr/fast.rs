@@ -593,29 +593,4 @@ mod tests {
     ) {
         assert_same(&format!("{conversion}({arg}) {op} {b}"), &props());
     }
-
-    #[rstest]
-    #[case::int_of_digits("int(a)", "12", Some(Value::Int(12)))]
-    #[case::int_of_a_signed_number("int(a)", "-3", Some(Value::Int(-3)))]
-    #[case::int_of_a_decimal_fails("int(a)", "1.5", None)]
-    #[case::int_of_padded_digits_fails("int(a)", " 12", None)]
-    #[case::double_of_a_decimal("double(a)", "1.5", Some(Value::Float(1.5)))]
-    #[case::double_of_an_exponent("double(a)", "1e3", Some(Value::Float(1000.0)))]
-    #[case::double_of_a_word_fails("double(a)", "abc", None)]
-    #[case::bool_of_t("bool(a)", "t", Some(Value::Bool(true)))]
-    #[case::bool_of_capitalized_false("bool(a)", "False", Some(Value::Bool(false)))]
-    #[case::bool_of_yes_fails("bool(a)", "yes", None)]
-    fn conversions_read_strings_as_cel_does(
-        #[case] source: &str,
-        #[case] value: &str,
-        #[case] expected: Option<Value>,
-    ) {
-        let columns = ["a"];
-        let expr = CompiledExpr::compile(source, &columns, false).unwrap();
-        let keys = ExprKeys::columns(&columns);
-        let props = vec![(KeyId::new(0), Prop::Str(value.to_owned()))];
-        let mut slots = PropSlots::default();
-        let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).ok(), expected);
-    }
 }
