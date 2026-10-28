@@ -1,7 +1,6 @@
 name: Python release
 
 on:
-  # not on Cargo.lock: rust.yml's `test-cog-py` already builds the bindings on every Rust change
   pull_request:
     paths:
       - '.github/workflows/python-release.yml'
