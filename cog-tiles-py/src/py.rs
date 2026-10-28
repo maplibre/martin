@@ -443,7 +443,7 @@ impl TileIndex {
         let options = self
             .index
             .options(self.min_zoom, from_one(self.bands.as_deref().unwrap_or(&[1, 2, 3]))?)?;
-        let encoding = self.encoding.encoding()?;
+        let encoding = self.encoding.encoding();
         let resolve = href_resolver(self.store_options.clone().into_iter().collect());
         let path = self.path.clone();
         let layer = self.layer.clone();
@@ -853,7 +853,7 @@ pub fn open_tile_index(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -873,11 +873,7 @@ pub fn open_tile_index(
             file_idle_timeout,
         },
         store_options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = wait(py, index.open_source()?)?.map_err(to_py)?;
     index.into_py(py, source)
@@ -918,7 +914,7 @@ pub async fn open_tile_index_async(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -938,11 +934,7 @@ pub async fn open_tile_index_async(
             file_idle_timeout,
         },
         store_options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = spawn(index.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| index.into_py(py, source))
