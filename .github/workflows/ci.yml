@@ -32,6 +32,7 @@ jobs:
       actions: read
     outputs:
       rust: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true') }}
+      cog-py: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.cog-py == 'true') }}
       fuzz: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.fuzz == 'true' }}
       ui: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true') }}
       docs: ${{ steps.due.outputs.due != 'false' && (github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true') }}
@@ -107,6 +108,11 @@ jobs:
               - 'martin/benches/**'
               - 'martin/src/**'
               - 'martin/tests/**'
+            cog-py:
+              - *shared
+              - *cargo-manifests
+              - 'cog-tiles/**'
+              - 'cog-tiles-py/**'
             fuzz:
               - '.github/workflows/fuzz.yml'
               - 'map-tile-toolkit/**'
@@ -157,6 +163,7 @@ jobs:
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
       run-release-builds: ${{ needs.changes.outputs.run-release-builds == 'true' }}
+      run-cog-py: ${{ needs.changes.outputs.cog-py == 'true' }}
     permissions:
       contents: read
       id-token: write
