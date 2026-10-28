@@ -101,7 +101,6 @@ jobs:
               - 'tests/**'
               - 'cog-tiles/**'
               - 'cog-tiles-py/**'
-              - 'tests/fixtures/cog/**'
               - 'map-tile-toolkit/**'
               - 'mbtiles/**'
               - 'martin-*/**'
