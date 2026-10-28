@@ -2111,6 +2111,7 @@ version = "0.1.1"
 dependencies = [
  "bytes",
  "cog-tiles",
+ "csscolorparser 0.9.0",
  "futures",
  "numpy",
  "object_store",

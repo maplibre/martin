@@ -6,12 +6,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{CogResult, MosaicOptions, PixelWindow, TileCoord, TilePixels, lnglat_to_mercator};
+use cog_tiles::{CogResult, MosaicOptions, PixelWindow, TileCoord, TileEncoding, TilePixels, lnglat_to_mercator};
 use numpy::ndarray::Array3;
 use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
 use pyo3::exceptions::{PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::types::{PyBytes, PyDict};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::task::AbortOnDropHandle;
@@ -91,7 +91,7 @@ impl TileSource {
     /// The encoded tile `z/x/y` (XYZ, `y = 0` at the top), or `None` if there is no data there.
     fn tile<'py>(&self, py: Python<'py>, z: u8, x: u32, y: u32) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let coord = TileCoord::new(z, x, y).map_err(to_py)?;
-        let tile = wait(py, self.source.tile(coord))?.map_err(to_py)?;
+        let tile = wait(py, self.source.tile(coord))??;
         Ok(tile.map(|data| PyBytes::new(py, &data)))
     }
 
@@ -99,7 +99,7 @@ impl TileSource {
     async fn tile_async(&self, z: u8, x: u32, y: u32) -> PyResult<Option<Py<PyBytes>>> {
         let coord = TileCoord::new(z, x, y).map_err(to_py)?;
         let source = Arc::clone(&self.source);
-        let tile = spawn(async move { source.tile(coord).await }).await?.map_err(to_py)?;
+        let tile = spawn(async move { source.tile(coord).await }).await??;
         Ok(tile.map(|data| Python::attach(|py| PyBytes::new(py, &data).unbind())))
     }
 
@@ -278,6 +278,7 @@ impl TileSource {
 pub struct Cog {
     location: PathBuf,
     options: BTreeMap<String, String>,
+    encoding: EncodingArgs,
 }
 
 #[gen_stub_pymethods]
@@ -286,7 +287,7 @@ impl Cog {
     #[gen_stub(skip)]
     fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, CogArgs)> {
         let this = slf.get();
-        let open = slf.py().import("cog_tiles")?.getattr("open")?;
+        let open = with_keywords(slf.py(), "open", &this.encoding.keywords(slf.py())?)?;
         Ok((open, (this.location.clone(), this.options.clone())))
     }
 
@@ -309,7 +310,8 @@ type CogArgs = (PathBuf, BTreeMap<String, String>);
 impl Cog {
     /// Opens the COG at `location`, the work that `open` and `open_async` wait for.
     fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
-        Ok(Source::open(parse_location(&self.location, &self.options)?))
+        let encoding = self.encoding.encoding()?;
+        Ok(Source::open(parse_location(&self.location, &self.options)?, encoding))
     }
 
     /// The Python object for this COG, read through `source`.
@@ -325,6 +327,7 @@ pub struct Mosaic {
     location: String,
     options: MosaicOptions,
     store_options: BTreeMap<String, String>,
+    encoding: EncodingArgs,
 }
 
 /// The arguments `open_mosaic` is called with to restore a pickled mosaic.
@@ -339,6 +342,7 @@ impl Mosaic {
         file_expiry: f64,
         file_idle_timeout: Option<f64>,
         options: Option<BTreeMap<String, String>>,
+        encoding: EncodingArgs,
     ) -> PyResult<Self> {
         let seconds = |value: f64| {
             Duration::try_from_secs_f64(value)
@@ -352,6 +356,7 @@ impl Mosaic {
             location,
             options: mosaic_options,
             store_options: options.unwrap_or_default(),
+            encoding,
         })
     }
 
@@ -362,7 +367,8 @@ impl Mosaic {
         let root = Location::parse(&root, &pairs)?;
         let template = template.to_owned();
         let options = self.options;
-        Ok(async move { Source::open_mosaic(root, &template, options).await })
+        let encoding = self.encoding.encoding()?;
+        Ok(async move { Source::open_mosaic(root, &template, options, encoding).await })
     }
 
     /// The Python object for this mosaic, read through `source`.
@@ -389,7 +395,7 @@ impl Mosaic {
     #[gen_stub(skip)]
     fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, MosaicArgs)> {
         let this = slf.get();
-        let open = slf.py().import("cog_tiles")?.getattr("open_mosaic")?;
+        let open = with_keywords(slf.py(), "open_mosaic", &this.encoding.keywords(slf.py())?)?;
         let options = this.options;
         Ok((
             open,
@@ -548,13 +554,33 @@ impl TileIterator {
 ///
 /// Object store credentials come from the usual environment variables (e.g. `AWS_REGION`,
 /// `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
+///
+/// `format` (`"png"`, `"webp"` or `"jpeg"`) re-encodes every tile, with `quality` from 1 to 100
+/// (80 when unset) or `"lossless"` for WebP, and JPEG painted over `background`, a CSS color or
+/// `(red, green, blue)` (white when unset). Without it, JPEG and WebP tiles are returned as stored
+/// and others as PNG.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (location, options = None))]
-pub fn open(py: Python<'_>, location: PathBuf, options: Option<BTreeMap<String, String>>) -> PyResult<Py<Cog>> {
+#[pyo3(signature = (location, options = None, *, format = None, quality = None, background = None))]
+pub fn open(
+    py: Python<'_>,
+    location: PathBuf,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<Cog>> {
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
+        encoding: EncodingArgs {
+            format,
+            quality,
+            background,
+        },
     };
     let source = wait(py, cog.open_source()?)?.map_err(to_py)?;
     cog.into_py(py, source)
@@ -563,11 +589,25 @@ pub fn open(py: Python<'_>, location: PathBuf, options: Option<BTreeMap<String, 
 /// `open` for `asyncio`, reading the headers on background threads instead of the event loop.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (location, options = None))]
-pub async fn open_async(location: PathBuf, options: Option<BTreeMap<String, String>>) -> PyResult<Py<Cog>> {
+#[pyo3(signature = (location, options = None, *, format = None, quality = None, background = None))]
+pub async fn open_async(
+    location: PathBuf,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<Cog>> {
     let cog = Cog {
         location,
         options: options.unwrap_or_default(),
+        encoding: EncodingArgs {
+            format,
+            quality,
+            background,
+        },
     };
     let source = spawn(cog.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| cog.into_py(py, source))
@@ -581,6 +621,8 @@ pub async fn open_async(location: PathBuf, options: Option<BTreeMap<String, Stri
 /// One file is found by listing the location now; the others are opened on first use and kept
 /// for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
 /// Square files without `GeoTIFF` tags are placed on the tile in their file name.
+///
+/// `format`, `quality` and `background` re-encode every tile, as in `open`.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (
@@ -590,7 +632,12 @@ pub async fn open_async(location: PathBuf, options: Option<BTreeMap<String, Stri
     file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
     file_idle_timeout = None,
     options = None,
+    *,
+    format = None,
+    quality = None,
+    background = None,
 ))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
 pub fn open_mosaic(
     py: Python<'_>,
     location: String,
@@ -599,6 +646,12 @@ pub fn open_mosaic(
     file_expiry: f64,
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
 ) -> PyResult<Py<Mosaic>> {
     let mosaic = Mosaic::new(
         location,
@@ -607,6 +660,11 @@ pub fn open_mosaic(
         file_expiry,
         file_idle_timeout,
         options,
+        EncodingArgs {
+            format,
+            quality,
+            background,
+        },
     )?;
     let source = wait(py, mosaic.open_source()?)?.map_err(to_py)?;
     mosaic.into_py(py, source)
@@ -622,7 +680,12 @@ pub fn open_mosaic(
     file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
     file_idle_timeout = None,
     options = None,
+    *,
+    format = None,
+    quality = None,
+    background = None,
 ))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
 pub async fn open_mosaic_async(
     location: String,
     file_zoom: u8,
@@ -630,6 +693,12 @@ pub async fn open_mosaic_async(
     file_expiry: f64,
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
 ) -> PyResult<Py<Mosaic>> {
     let mosaic = Mosaic::new(
         location,
@@ -638,9 +707,22 @@ pub async fn open_mosaic_async(
         file_expiry,
         file_idle_timeout,
         options,
+        EncodingArgs {
+            format,
+            quality,
+            background,
+        },
     )?;
     let source = spawn(mosaic.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| mosaic.into_py(py, source))
+}
+
+/// `cog_tiles.<function>` with `keywords` bound, for `__reduce__` to restore keyword-only arguments.
+fn with_keywords<'py>(py: Python<'py>, function: &str, keywords: &Bound<'py, PyDict>) -> PyResult<Bound<'py, PyAny>> {
+    let function = py.import("cog_tiles")?.getattr(function)?;
+    py.import("functools")?
+        .getattr("partial")?
+        .call((function,), Some(keywords))
 }
 
 fn parse_location(location: &std::path::Path, options: &BTreeMap<String, String>) -> PyResult<Location> {
@@ -650,6 +732,107 @@ fn parse_location(location: &std::path::Path, options: &BTreeMap<String, String>
             Location::parse(location, &pairs)
         }
         None => Ok(Location::Local(location.to_path_buf())),
+    }
+}
+
+/// A lossy quality from 1 (smallest) to 100 (best), or `"lossless"`.
+#[derive(Clone, FromPyObject, IntoPyObject)]
+pub enum Quality {
+    Level(u8),
+    Name(String),
+}
+
+/// An opaque color as a CSS string such as `"white"` or `"#336699"`, or as `(red, green, blue)`.
+#[derive(Clone, FromPyObject, IntoPyObject)]
+pub enum Background {
+    Rgb((u8, u8, u8)),
+    Css(String),
+}
+
+/// The `format`, `quality` and `background` a source re-encodes its tiles with.
+#[derive(Clone, Default)]
+struct EncodingArgs {
+    format: Option<String>,
+    quality: Option<Quality>,
+    background: Option<Background>,
+}
+
+impl EncodingArgs {
+    /// The quality when `quality` is unset, as in Martin.
+    const DEFAULT_QUALITY: u8 = 80;
+
+    /// The color JPEG tiles show where they are transparent when `background` is unset, as in Martin.
+    const DEFAULT_BACKGROUND: [u8; 3] = [255, 255, 255];
+
+    /// The encoding these arguments ask for, or `None` to return tiles as stored.
+    fn encoding(&self) -> PyResult<Option<TileEncoding>> {
+        let format = self.format.as_deref();
+        if let Some(other) = format.filter(|f| !matches!(*f, "png" | "webp" | "jpeg")) {
+            return Err(PyValueError::new_err(format!(
+                "format must be \"png\", \"webp\" or \"jpeg\", not {other:?}"
+            )));
+        }
+        if self.quality.is_some() && !matches!(format, Some("webp" | "jpeg")) {
+            return Err(PyValueError::new_err("quality needs format webp or jpeg"));
+        }
+        if self.background.is_some() && format != Some("jpeg") {
+            return Err(PyValueError::new_err("background needs format jpeg"));
+        }
+        let lossless = matches!(&self.quality, Some(Quality::Name(name)) if name == "lossless");
+        Ok(match format {
+            None => None,
+            Some("webp") => Some(TileEncoding::Webp {
+                quality: if lossless { None } else { Some(self.lossy_quality()?) },
+            }),
+            Some("jpeg") if lossless => {
+                return Err(PyValueError::new_err(
+                    "JPEG has no lossless mode, so quality must be 1 to 100",
+                ));
+            }
+            Some("jpeg") => Some(TileEncoding::Jpeg {
+                quality: self.lossy_quality()?,
+                background: self.background()?,
+            }),
+            Some(_) => Some(TileEncoding::Png),
+        })
+    }
+
+    /// The quality from 1 to 100, 80 when unset.
+    fn lossy_quality(&self) -> PyResult<u8> {
+        match &self.quality {
+            None => Ok(Self::DEFAULT_QUALITY),
+            Some(Quality::Level(level @ 1..=100)) => Ok(*level),
+            Some(Quality::Level(level)) => Err(PyValueError::new_err(format!("quality must be 1 to 100, not {level}"))),
+            Some(Quality::Name(name)) => Err(PyValueError::new_err(format!(
+                "quality must be 1 to 100 or \"lossless\", not {name:?}"
+            ))),
+        }
+    }
+
+    /// The JPEG background, white when unset.
+    fn background(&self) -> PyResult<[u8; 3]> {
+        match &self.background {
+            None => Ok(Self::DEFAULT_BACKGROUND),
+            Some(Background::Rgb((r, g, b))) => Ok([*r, *g, *b]),
+            Some(Background::Css(css)) => match csscolorparser::parse(css)
+                .map_err(|e| PyValueError::new_err(format!("background {css:?}: {e}")))?
+                .to_rgba8()
+            {
+                [r, g, b, 255] => Ok([r, g, b]),
+                _ => Err(PyValueError::new_err(format!(
+                    "background must be an opaque CSS color, not {css:?}"
+                ))),
+            },
+        }
+    }
+
+    /// These arguments as the keywords of `open`.
+    fn keywords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let keywords = PyDict::new(py);
+        keywords.set_item("format", &self.format)?;
+        keywords.set_item("quality", self.quality.clone())?;
+        keywords.set_item("background", self.background.clone())?;
+        Ok(keywords)
     }
 }
 
