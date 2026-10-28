@@ -158,7 +158,7 @@ mbtiles = { path = "./mbtiles", version = "0.21.1" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.22.0", default-features = false }
+mlt-core = { version = "0.22.1", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
