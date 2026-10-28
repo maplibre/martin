@@ -48,6 +48,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PROGRESS_EVERY: Duration = Duration::from_secs(10);
 /// Per-worker sort buffers are kept between these: smaller spills too many runs, larger cannot be indexed.
 const BUFFER_BYTES: RangeInclusive<u64> = (16 << 20)..=(u32::MAX as u64);
+/// Runs are ranges of a few shared mapped temp files, so a wider merge only deepens the loser tree,
+/// while each intermediate merge rewrites its runs on one thread.
+const MAX_FAN_IN: usize = 4096;
 const DEFAULT_MEMORY: u64 = 2 << 30;
 const DEFAULT_MAX_ZOOM: u8 = 14;
 
@@ -445,7 +448,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         sort: SortConfig {
             temp_dirs: options.temp_dirs.clone(),
             buffer_bytes: usize::try_from(per_thread).unwrap_or(usize::MAX),
-            max_fan_in: 256,
+            max_fan_in: MAX_FAN_IN,
         },
         format: options.format,
         encoding: options.encoding,

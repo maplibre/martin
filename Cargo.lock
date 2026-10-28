@@ -4221,15 +4221,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.28.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b163ee2a34ff2fd85fa07c0f7bdc9573b0d49701c749d74c54b1e5b65eb8c368"
-dependencies = [
- "hotpath-macros 0.28.7",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b4af2b5ecf2650278fe33b0e49b68c8c484d2306475c127628316dea740cf5c"
@@ -4249,7 +4240,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.29.2",
+ "hotpath-macros",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4272,12 +4263,6 @@ name = "hotpath-drain"
 version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5cceb6c15fbaaeb00b51acc7be7fad533d0b56cb422b1cfc16cf9ca1624d33a"
-
-[[package]]
-name = "hotpath-macros"
-version = "0.28.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23148960ea4f4f2d93970cbc865dc8adfd7e065de68b6a3bdda776d900541a09"
 
 [[package]]
 name = "hotpath-macros"
@@ -5808,7 +5793,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.29.2",
+ "hotpath",
  "insta",
  "serde_json",
  "stats_alloc",
@@ -5878,7 +5863,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.29.2",
+ "hotpath",
  "humantime-serde",
  "image",
  "indexmap 2.14.2",
@@ -5978,7 +5963,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.29.2",
+ "hotpath",
  "humantime",
  "image",
  "insta",
@@ -6079,7 +6064,7 @@ dependencies = [
  "brotli 9.0.0",
  "bytes",
  "flate2",
- "hotpath 0.29.2",
+ "hotpath",
  "rstest",
  "serde",
  "serde_json",
@@ -6101,7 +6086,7 @@ dependencies = [
  "geo",
  "geo-traits",
  "geo-types",
- "hotpath 0.29.2",
+ "hotpath",
  "insta",
  "lasso",
  "map-tile-toolkit",
@@ -6179,7 +6164,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.29.2",
+ "hotpath",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -6342,9 +6327,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "270e30597fd6b3f6f3e1c8d2dc6de99af8d9ed6f121b13c1d9c1c7557ccecf92"
+checksum = "82b52f949e09b007dd7ab2f4033c63dc8cbe5b80a1c9402711a42b135d985f22"
 dependencies = [
  "bitvec",
  "bytemuck",
@@ -6358,7 +6343,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.28.7",
+ "hotpath",
  "integer-encoding",
  "num-traits",
  "num_enum",

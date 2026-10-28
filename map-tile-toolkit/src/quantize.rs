@@ -302,7 +302,11 @@ impl Quantizer {
         self.read(polygons)?;
         let parts = self.fixed_polygon_ends.len();
         let mut groups = std::mem::take(&mut self.groups);
-        let grouped = groups.group(&self.fixed, &self.fixed_ends, &self.fixed_polygon_ends);
+        let grouped: &[(usize, usize)] = if parts <= 1 {
+            &[]
+        } else {
+            groups.group(&self.fixed, &self.fixed_ends, &self.fixed_polygon_ends)
+        };
         if grouped
             .first()
             .is_none_or(|&(first, _)| grouped.iter().all(|g| g.0 == first))
@@ -892,6 +896,10 @@ fn cell_size(lengths: &mut [i64], min: Fixed, max: Fixed, floor: i64) -> i64 {
         .max(floor)
 }
 
+/// Up to this many vertices, [`near_vertices`] checks every vertex against every edge.
+/// Building the grid costs more than it saves for values below it.
+const GRID_MIN_VERTICES: usize = 32;
+
 /// Whether `test(v, a, b)` holds for every vertex `v` within a unit of an edge from vertex `a` to vertex
 /// `b` of the rings ending at `ends`, stopping at the first that fails.
 fn near_vertices(
@@ -906,15 +914,24 @@ fn near_vertices(
         points,
         ..
     } = grid;
+    let edges = || {
+        spans(ends)
+            .flat_map(|Range { start, end }| (start..end).map(move |k| (k, if k + 1 == end { start } else { k + 1 })))
+    };
+    if verts.len() <= GRID_MIN_VERTICES {
+        return edges().all(|(a, b)| {
+            let (p, q) = (verts[a], verts[b]);
+            verts
+                .iter()
+                .enumerate()
+                .all(|(v, &c)| v == a || v == b || !passes_near(p, q, c) || test(v, a, b))
+        });
+    }
     lengths.clear();
     columns.clear();
     points.clear();
     let Some((min, max)) = bounds(verts.iter().copied()) else {
         return true;
-    };
-    let edges = || {
-        spans(ends)
-            .flat_map(|Range { start, end }| (start..end).map(move |k| (k, if k + 1 == end { start } else { k + 1 })))
     };
     lengths.extend(edges().map(|(a, b)| {
         let d = verts[b] - verts[a];
