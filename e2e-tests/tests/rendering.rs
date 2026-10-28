@@ -94,6 +94,60 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     cassette.assert_no_misses();
 }
 
+#[tokio::test]
+async fn mesa_caches_shaders_in_a_private_directory_when_its_default_is_read_only() {
+    fn cache_files(dir: &Path) -> Vec<String> {
+        let mut files = Vec::new();
+        for entry in std::fs::read_dir(dir).expect("failed to read the directory").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(cache_files(&path));
+            } else if entry.metadata().is_ok_and(|meta| meta.len() > 0) {
+                files.push(path.display().to_string());
+            }
+        }
+        files
+    }
+
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .env("HOME", "/proc/self")
+        .env("XDG_CACHE_HOME", "/proc/self")
+        .env("TMPDIR", &tmp.path().display().to_string())
+        .env("VK_LOADER_DRIVERS_SELECT", "*lvp*")
+        .env_remove("MESA_SHADER_CACHE_DIR")
+        .env_remove("MESA_SHADER_CACHE_DISABLE")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
+    let cached = cache_files(tmp.path());
+    assert!(
+        cached.iter().all(|file| file.contains("/martin-mesa-shader-cache-")),
+        "{cached:#?}"
+    );
+    assert!(!cached.is_empty(), "Mesa cached no shaders in the private directory");
+
+    stop_and_take_rendering_log(&mut martin).await;
+    insta::assert_debug_snapshot!(cache_files(tmp.path()), @"[]");
+    insta::with_settings!({filters => vec![(r"mesa\.shader_cache_dir=\S+", "mesa.shader_cache_dir=[DIR]")]}, {
+        insta::assert_snapshot!(martin.take_log_lines("shader cache").join("\n"), @" INFO Mesa's shader cache directory is not writable, caching shaders in a private directory until Martin exits; set MESA_SHADER_CACHE_DIR to keep them across restarts mesa.default_dir=/proc/self mesa.shader_cache_dir=[DIR]");
+    });
+    cassette.assert_no_misses();
+}
+
 #[rstest]
 #[case::the_world("/style/maplibre_demo/0/0/0.jpg")]
 #[case::a_western_hemisphere("/style/maplibre_demo/1/0/0.jpg")]
