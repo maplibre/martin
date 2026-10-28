@@ -10,6 +10,8 @@ pub mod cp;
 #[cfg(feature = "unstable-generate")]
 pub mod generate;
 pub mod logging;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub mod mesa_shader_cache;
 
 #[cfg(feature = "_tiles")]
 mod source;

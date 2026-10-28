@@ -94,6 +94,39 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     cassette.assert_no_misses();
 }
 
+#[tokio::test]
+async fn mesa_caches_shaders_in_a_private_directory_when_its_default_is_read_only() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .env("HOME", "/proc/self")
+        .env("XDG_CACHE_HOME", "/proc/self")
+        .env(
+            "__EGL_VENDOR_LIBRARY_FILENAMES",
+            "/usr/share/glvnd/egl_vendor.d/50_mesa.json",
+        )
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
+
+    stop_and_take_rendering_log(&mut martin).await;
+    insta::with_settings!({filters => vec![(r"mesa\.shader_cache_dir=\S+", "mesa.shader_cache_dir=[DIR]")]}, {
+        insta::assert_snapshot!(martin.take_log_lines("shader cache").join("\n"), @" INFO Mesa's shader cache directory is not writable, caching shaders in a private directory until Martin exits; set MESA_SHADER_CACHE_DIR to keep them across restarts mesa.default_dir=/proc/self mesa.shader_cache_dir=[DIR]");
+    });
+    cassette.assert_no_misses();
+}
+
 #[rstest]
 #[case::the_world("/style/maplibre_demo/0/0/0.jpg")]
 #[case::a_western_hemisphere("/style/maplibre_demo/1/0/0.jpg")]
