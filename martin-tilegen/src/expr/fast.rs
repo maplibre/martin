@@ -49,20 +49,26 @@ pub(super) enum Scalar {
     Str(Box<str>),
 }
 
-/// A comparison operator.
-#[derive(Clone, Copy, Debug)]
+/// A comparison operator, parsed from its CEL function name.
+#[derive(Clone, Copy, Debug, strum::EnumString)]
 pub(super) enum Op {
     /// `==`.
+    #[strum(serialize = "_==_")]
     Eq,
     /// `!=`.
+    #[strum(serialize = "_!=_")]
     Ne,
     /// `<`.
+    #[strum(serialize = "_<_")]
     Lt,
     /// `<=`.
+    #[strum(serialize = "_<=_")]
     Le,
     /// `>`.
+    #[strum(serialize = "_>_")]
     Gt,
     /// `>=`.
+    #[strum(serialize = "_>=_")]
     Ge,
 }
 
@@ -114,18 +120,7 @@ impl FastExpr {
                     (operators::LOGICAL_AND, 2) => Self::And(Box::new([arg(0)?, arg(1)?])),
                     (operators::LOGICAL_OR, 2) => Self::Or(Box::new([arg(0)?, arg(1)?])),
                     (operators::CONDITIONAL, 3) => Self::Cond(Box::new([arg(0)?, arg(1)?, arg(2)?])),
-                    (name, 2) => {
-                        let op = match name {
-                            operators::EQUALS => Op::Eq,
-                            operators::NOT_EQUALS => Op::Ne,
-                            operators::LESS => Op::Lt,
-                            operators::LESS_EQUALS => Op::Le,
-                            operators::GREATER => Op::Gt,
-                            operators::GREATER_EQUALS => Op::Ge,
-                            _ => return None,
-                        };
-                        Self::Compare(op, Box::new([arg(0)?, arg(1)?]))
-                    }
+                    (name, 2) => Self::Compare(name.parse().ok()?, Box::new([arg(0)?, arg(1)?])),
                     _ => return None,
                 }
             }

@@ -6117,6 +6117,7 @@ dependencies = [
  "rstest",
  "rustix 1.1.5",
  "serde_json",
+ "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
  "tilejson",
