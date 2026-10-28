@@ -2405,10 +2405,10 @@ For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <ul>
 <li><code>--memory</code> is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
   with many threads the total can exceed <code>--memory</code>. More memory means fewer, longer sorted runs. Up to
-  256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
+  4096 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
   and writes the temporary data one more time.</li>
 <li>The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows
-  with the zoom range and is usually several times the size of the input. Merging more than 256 runs
+  with the zoom range and is usually several times the size of the input. Merging more than 4096 runs
   needs room for one more copy.</li>
 <li><code>--temp-dir</code> takes the sorted runs in turn. Directories on separate disks spread the I/O.</li>
 <li><code>--threads</code> sets the number of render workers and encoders.</li>
