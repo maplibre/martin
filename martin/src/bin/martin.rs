@@ -26,7 +26,7 @@ use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 #[cfg(feature = "unstable-generate")]
 use martin::generate::spec;
-use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_library_log_levels_match, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
@@ -216,7 +216,7 @@ where
 #[hotpath::main]
 async fn main() {
     let args = Args::parse();
-    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    let filter = ensure_library_log_levels_match(env::var("RUST_LOG").ok(), "martin=");
 
     #[cfg(feature = "mbtiles")]
     if let Some(Command::Cp(copy_args)) = args.command {
@@ -239,7 +239,7 @@ async fn main() {
         let log_format = LogFormat::from_env();
         let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "martin=error".to_owned());
         init_tracing(
-            &ensure_martin_core_log_level_matches(Some(rust_log), "martin="),
+            &ensure_library_log_levels_match(Some(rust_log), "martin="),
             log_format,
             false,
         );
