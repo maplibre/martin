@@ -1,6 +1,7 @@
-//! Evaluates the expressions most layers use, property comparisons joined by `&&`, `||`, `!` and `?:`,
-//! without the CEL interpreter. Anything it is not sure gives the interpreter's value, it leaves to the
-//! interpreter: other operators, mixed types, and every error.
+//! Evaluates the expressions most layers use without the CEL interpreter: comparisons of literals,
+//! properties and their `int`, `double` or `bool` conversions, joined by `&&`, `||` and `!`, and one
+//! `?:` choosing between two operands. Anything it is not sure gives the interpreter's value, it leaves
+//! to the interpreter: other operators, mixed types, `?:` chains, and every error.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -14,22 +15,47 @@ use super::{FEATURE, FeatureView, feature_key};
 /// An expression of the subset, built from a compiled syntax tree.
 #[derive(Debug)]
 pub(super) enum FastExpr {
+    /// A condition, such as a `where`.
+    Pred(Pred),
+    /// An operand on its own, such as an attribute.
+    Operand(Operand),
+    /// `cond ? a : b` of two operands, such as a `minzoom`.
+    Cond(Box<(Pred, Operand, Operand)>),
+}
+
+/// A condition, with every `!` folded into its comparisons and operands.
+#[derive(Debug)]
+pub(super) enum Pred {
+    /// `a op b` of two operands.
+    Compare(Op, Box<[Operand; 2]>),
+    /// An operand that must be `true`, such as a boolean property.
+    True(Operand),
+    /// An operand that must be `false`, from `!a`.
+    False(Operand),
+    /// `a && b && ...`, none of whose parts is itself an `All`.
+    All(Box<[Self]>),
+    /// `a || b || ...`, none of whose parts is itself an `Any`.
+    Any(Box<[Self]>),
+}
+
+/// A literal, a property, or a converted property.
+#[derive(Debug)]
+pub(super) enum Operand {
     /// A literal.
     Literal(Scalar),
+    /// A property.
+    Read(Read),
+    /// `int(p)`, `double(p)` or `bool(p)` of a property.
+    Convert(Conversion, Read),
+}
+
+/// A property read.
+#[derive(Debug)]
+pub(super) enum Read {
     /// A bare identifier: the interpreter fails when the table has no such key.
     Ident(Box<str>),
     /// `feature['k']`: `null` when the table has no such key.
     Key(Box<str>),
-    /// `!a`.
-    Not(Box<Self>),
-    /// `a && b`.
-    And(Box<[Self; 2]>),
-    /// `a || b`.
-    Or(Box<[Self; 2]>),
-    /// `a op b`.
-    Compare(Op, Box<[Self; 2]>),
-    /// `a ? b : c`.
-    Cond(Box<[Self; 3]>),
 }
 
 /// A literal of the subset.
@@ -72,6 +98,18 @@ pub(super) enum Op {
     Ge,
 }
 
+/// A CEL conversion function, parsed from its name.
+#[derive(Clone, Copy, Debug, strum::EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub(super) enum Conversion {
+    /// `int(v)`.
+    Int,
+    /// `double(v)`.
+    Double,
+    /// `bool(v)`.
+    Bool,
+}
+
 /// A value an expression of the subset produces.
 #[derive(Clone, Copy, Debug)]
 pub(super) enum FastValue<'a> {
@@ -93,83 +131,252 @@ impl FastExpr {
     /// The subset form of `expr`, whose identifiers are the property names in `columns`; `None` if it
     /// has anything else.
     pub(super) fn new(expr: &IdedExpr, columns: &BTreeSet<String>) -> Option<Self> {
-        Some(match &expr.expr {
-            Expr::Literal(literal) => Self::Literal(match literal {
-                LiteralValue::Null => Scalar::Null,
-                LiteralValue::Boolean(v) => Scalar::Bool(*v.inner()),
-                LiteralValue::Int(v) => Scalar::Int(*v.inner()),
-                LiteralValue::UInt(v) => Scalar::UInt(*v.inner()),
-                LiteralValue::Double(v) => Scalar::Double(*v.inner()),
-                LiteralValue::String(v) => Scalar::Str(v.inner().into()),
-                LiteralValue::Bytes(_) => return None,
-            }),
-            Expr::Ident(name) if name != FEATURE && columns.contains(name) => Self::Ident(name.as_str().into()),
-            Expr::Call(call) => {
-                if let Some(key) = feature_key(call) {
-                    let Expr::Literal(LiteralValue::String(key)) = &key.expr else {
-                        return None;
-                    };
-                    return Some(Self::Key(key.inner().into()));
-                }
-                if call.target.is_some() {
-                    return None;
-                }
-                let arg = |i: usize| Self::new(&call.args[i], columns);
-                match (call.func_name.as_str(), call.args.len()) {
-                    (operators::LOGICAL_NOT, 1) => Self::Not(Box::new(arg(0)?)),
-                    (operators::LOGICAL_AND, 2) => Self::And(Box::new([arg(0)?, arg(1)?])),
-                    (operators::LOGICAL_OR, 2) => Self::Or(Box::new([arg(0)?, arg(1)?])),
-                    (operators::CONDITIONAL, 3) => Self::Cond(Box::new([arg(0)?, arg(1)?, arg(2)?])),
-                    (name, 2) => Self::Compare(name.parse().ok()?, Box::new([arg(0)?, arg(1)?])),
-                    _ => return None,
-                }
-            }
-            Expr::Unspecified
-            | Expr::Comprehension(_)
-            | Expr::Ident(_)
-            | Expr::List(_)
-            | Expr::Map(_)
-            | Expr::Select(_)
-            | Expr::Struct(_) => return None,
-        })
+        if let Expr::Call(call) = &expr.expr
+            && call.target.is_none()
+            && call.func_name == operators::CONDITIONAL
+            && let [cond, then, otherwise] = call.args.as_slice()
+        {
+            return Some(Self::Cond(Box::new((
+                Pred::new(cond, columns)?,
+                Operand::new(then, columns)?,
+                Operand::new(otherwise, columns)?,
+            ))));
+        }
+        match Pred::call(expr, columns) {
+            Some(pred) => Some(Self::Pred(pred)),
+            None => Operand::new(expr, columns).map(Self::Operand),
+        }
     }
 
     /// The value of the expression for `view`, or `None` to leave it to the interpreter.
     pub(super) fn eval<'a, S: AsRef<str>>(&'a self, view: &FeatureView<'a, S>) -> Option<FastValue<'a>> {
         match self {
-            Self::Literal(literal) => Some(match literal {
-                Scalar::Null => FastValue::Null,
-                Scalar::Bool(v) => FastValue::Bool(*v),
-                Scalar::Int(v) => FastValue::Int(*v),
-                Scalar::UInt(v) => FastValue::UInt(*v),
-                Scalar::Double(v) => FastValue::Double(*v),
-                Scalar::Str(v) => FastValue::Str(v),
-            }),
-            Self::Ident(name) => Some(FastValue::of(view.prop(view.key(name)?))),
-            Self::Key(name) => Some(FastValue::of(view.key(name).and_then(|key| view.prop(key)))),
-            Self::Not(inner) => Some(FastValue::Bool(!inner.eval(view)?.as_bool()?)),
-            Self::And(args) => {
-                let left = args[0].eval(view)?.as_bool()?;
-                let value = !left || args[1].eval(view)?.as_bool()?;
-                Some(FastValue::Bool(left && value))
-            }
-            Self::Or(args) => {
-                let left = args[0].eval(view)?.as_bool()?;
-                let value = left || args[1].eval(view)?.as_bool()?;
-                Some(FastValue::Bool(value))
-            }
-            Self::Cond(args) => {
-                if args[0].eval(view)?.as_bool()? {
-                    args[1].eval(view)
+            Self::Pred(pred) => pred.eval(view).map(FastValue::Bool),
+            Self::Operand(operand) => operand.eval(view),
+            Self::Cond(cond) => {
+                let (pred, then, otherwise) = &**cond;
+                if pred.eval(view)? {
+                    then.eval(view)
                 } else {
-                    args[2].eval(view)
+                    otherwise.eval(view)
                 }
             }
-            Self::Compare(op, args) => {
-                let (a, b) = (args[0].eval(view)?, args[1].eval(view)?);
-                compare(*op, a, b).map(FastValue::Bool)
+        }
+    }
+}
+
+impl Pred {
+    /// The condition `expr` is, also a bare operand, as the parts of `&&`, `||`, `!` and `?:` may be.
+    fn new(expr: &IdedExpr, columns: &BTreeSet<String>) -> Option<Self> {
+        Self::call(expr, columns).or_else(|| Operand::new(expr, columns).map(Self::True))
+    }
+
+    /// The condition `expr` is, if it is `!`, `&&`, `||` or a comparison.
+    fn call(expr: &IdedExpr, columns: &BTreeSet<String>) -> Option<Self> {
+        let Expr::Call(call) = &expr.expr else {
+            return None;
+        };
+        if call.target.is_some() {
+            return None;
+        }
+        let part = |i: usize| Self::new(&call.args[i], columns);
+        let operand = |i: usize| Operand::new(&call.args[i], columns);
+        Some(match (call.func_name.as_str(), call.args.len()) {
+            (operators::LOGICAL_NOT, 1) => part(0)?.negate(),
+            (operators::LOGICAL_AND, 2) => Self::all(part(0)?, part(1)?),
+            (operators::LOGICAL_OR, 2) => Self::any(part(0)?, part(1)?),
+            (name, 2) => Self::Compare(name.parse().ok()?, Box::new([operand(0)?, operand(1)?])),
+            _ => return None,
+        })
+    }
+
+    /// `a && b`, with the parts of `a` or `b` that are already an `All` merged in.
+    fn all(a: Self, b: Self) -> Self {
+        let mut parts = Vec::new();
+        for pred in [a, b] {
+            if let Self::All(inner) = pred {
+                parts.extend(inner);
+            } else {
+                parts.push(pred);
             }
         }
+        Self::All(parts.into())
+    }
+
+    /// `a || b`, with the parts of `a` or `b` that are already an `Any` merged in.
+    fn any(a: Self, b: Self) -> Self {
+        let mut parts = Vec::new();
+        for pred in [a, b] {
+            if let Self::Any(inner) = pred {
+                parts.extend(inner);
+            } else {
+                parts.push(pred);
+            }
+        }
+        Self::Any(parts.into())
+    }
+
+    /// `!self`: the opposite comparison, the opposite operand test, or De Morgan's law.
+    fn negate(self) -> Self {
+        match self {
+            Self::Compare(op, args) => Self::Compare(op.negate(), args),
+            Self::True(operand) => Self::False(operand),
+            Self::False(operand) => Self::True(operand),
+            Self::All(parts) => Self::Any(parts.into_iter().map(Self::negate).collect()),
+            Self::Any(parts) => Self::All(parts.into_iter().map(Self::negate).collect()),
+        }
+    }
+
+    /// Whether the condition holds for `view`, or `None` to leave it to the interpreter.
+    fn eval<S: AsRef<str>>(&self, view: &FeatureView<'_, S>) -> Option<bool> {
+        match self {
+            Self::Compare(op, args) => compare(*op, args[0].eval(view)?, args[1].eval(view)?),
+            Self::True(operand) => operand.eval(view)?.as_bool(),
+            Self::False(operand) => operand.eval(view)?.as_bool().map(|v| !v),
+            Self::All(parts) => {
+                for part in parts {
+                    if !part.eval(view)? {
+                        return Some(false);
+                    }
+                }
+                Some(true)
+            }
+            Self::Any(parts) => {
+                for part in parts {
+                    if part.eval(view)? {
+                        return Some(true);
+                    }
+                }
+                Some(false)
+            }
+        }
+    }
+}
+
+impl Operand {
+    /// The operand `expr` is, if it is a literal, a property or a conversion of a property.
+    fn new(expr: &IdedExpr, columns: &BTreeSet<String>) -> Option<Self> {
+        if let Expr::Literal(literal) = &expr.expr {
+            return Scalar::new(literal).map(Self::Literal);
+        }
+        if let Some(read) = Read::new(expr, columns) {
+            return Some(Self::Read(read));
+        }
+        let Expr::Call(call) = &expr.expr else {
+            return None;
+        };
+        match (call.target.as_deref(), call.args.as_slice()) {
+            (None, [arg]) => Some(Self::Convert(call.func_name.parse().ok()?, Read::new(arg, columns)?)),
+            _ => None,
+        }
+    }
+
+    /// The value of the operand for `view`, or `None` to leave it to the interpreter.
+    fn eval<'a, S: AsRef<str>>(&'a self, view: &FeatureView<'a, S>) -> Option<FastValue<'a>> {
+        match self {
+            Self::Literal(literal) => Some(literal.value()),
+            Self::Read(read) => read.eval(view),
+            Self::Convert(conversion, read) => conversion.apply(read.eval(view)?),
+        }
+    }
+}
+
+impl Read {
+    /// The property `expr` reads, if it is a column name or `feature['k']`.
+    fn new(expr: &IdedExpr, columns: &BTreeSet<String>) -> Option<Self> {
+        match &expr.expr {
+            Expr::Ident(name) if name != FEATURE && columns.contains(name) => Some(Self::Ident(name.as_str().into())),
+            Expr::Call(call) => {
+                let Expr::Literal(LiteralValue::String(key)) = &feature_key(call)?.expr else {
+                    return None;
+                };
+                Some(Self::Key(key.inner().into()))
+            }
+            Expr::Unspecified
+            | Expr::Comprehension(_)
+            | Expr::Ident(_)
+            | Expr::List(_)
+            | Expr::Literal(_)
+            | Expr::Map(_)
+            | Expr::Select(_)
+            | Expr::Struct(_) => None,
+        }
+    }
+
+    /// The property's value for `view`, or `None` when the interpreter would fail.
+    fn eval<'a, S: AsRef<str>>(&self, view: &FeatureView<'a, S>) -> Option<FastValue<'a>> {
+        match self {
+            Self::Ident(name) => Some(FastValue::of(view.prop(view.key(name)?))),
+            Self::Key(name) => Some(FastValue::of(view.key(name).and_then(|key| view.prop(key)))),
+        }
+    }
+}
+
+impl Scalar {
+    /// The literal, if it is not bytes.
+    fn new(literal: &LiteralValue) -> Option<Self> {
+        Some(match literal {
+            LiteralValue::Null => Self::Null,
+            LiteralValue::Boolean(v) => Self::Bool(*v.inner()),
+            LiteralValue::Int(v) => Self::Int(*v.inner()),
+            LiteralValue::UInt(v) => Self::UInt(*v.inner()),
+            LiteralValue::Double(v) => Self::Double(*v.inner()),
+            LiteralValue::String(v) => Self::Str(v.inner().into()),
+            LiteralValue::Bytes(_) => return None,
+        })
+    }
+
+    /// The literal as a value.
+    fn value(&self) -> FastValue<'_> {
+        match self {
+            Self::Null => FastValue::Null,
+            Self::Bool(v) => FastValue::Bool(*v),
+            Self::Int(v) => FastValue::Int(*v),
+            Self::UInt(v) => FastValue::UInt(*v),
+            Self::Double(v) => FastValue::Double(*v),
+            Self::Str(v) => FastValue::Str(v),
+        }
+    }
+}
+
+impl Op {
+    /// The operator that holds exactly when this one does not, for two values of one type.
+    fn negate(self) -> Self {
+        match self {
+            Self::Eq => Self::Ne,
+            Self::Ne => Self::Eq,
+            Self::Lt => Self::Ge,
+            Self::Le => Self::Gt,
+            Self::Gt => Self::Le,
+            Self::Ge => Self::Lt,
+        }
+    }
+}
+
+impl Conversion {
+    /// `value` converted as the CEL function converts it, or `None` where that fails.
+    fn apply(self, value: FastValue<'_>) -> Option<FastValue<'static>> {
+        Some(match (self, value) {
+            (Self::Int, FastValue::Int(v)) => FastValue::Int(v),
+            (Self::Int, FastValue::UInt(v)) => FastValue::Int(i64::try_from(v).ok()?),
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_precision_loss,
+                reason = "cel's int() truncates doubles strictly inside the i64 range"
+            )]
+            (Self::Int, FastValue::Double(v)) if v > i64::MIN as f64 && v < i64::MAX as f64 => FastValue::Int(v as i64),
+            (Self::Int, FastValue::Str(v)) => FastValue::Int(v.parse().ok()?),
+            #[expect(clippy::cast_precision_loss, reason = "cel's double() rounds integers the same way")]
+            (Self::Double, FastValue::Int(v)) => FastValue::Double(v as f64),
+            #[expect(clippy::cast_precision_loss, reason = "cel's double() rounds integers the same way")]
+            (Self::Double, FastValue::UInt(v)) => FastValue::Double(v as f64),
+            (Self::Double, FastValue::Double(v)) => FastValue::Double(v),
+            (Self::Double, FastValue::Str(v)) => FastValue::Double(v.parse().ok()?),
+            (Self::Bool, FastValue::Bool(v)) => FastValue::Bool(v),
+            (Self::Bool, FastValue::Str("1" | "t" | "true" | "TRUE" | "True")) => FastValue::Bool(true),
+            (Self::Bool, FastValue::Str("0" | "f" | "false" | "FALSE" | "False")) => FastValue::Bool(false),
+            _ => return None,
+        })
     }
 }
 
@@ -245,6 +452,7 @@ impl From<FastValue<'_>> for Value {
 #[cfg(test)]
 mod tests {
     use cel::Value;
+    use rstest::rstest;
 
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots, eval_part};
     use crate::props::{KeyId, Prop};
@@ -265,6 +473,12 @@ mod tests {
             Some(Prop::F64(f64::NAN)),
             Some(Prop::Str(String::new())),
             Some(Prop::Str("place".to_owned())),
+            Some(Prop::Str("8".to_owned())),
+            Some(Prop::Str("-1".to_owned())),
+            Some(Prop::Str("0.5".to_owned())),
+            Some(Prop::Str("1e3".to_owned())),
+            Some(Prop::Str("t".to_owned())),
+            Some(Prop::Str("False".to_owned())),
         ];
         let mut out = Vec::new();
         for a in &values {
@@ -304,35 +518,74 @@ mod tests {
         }
     }
 
-    #[test]
-    fn comparisons_match_the_interpreter() {
+    #[rstest]
+    fn comparisons_match_the_interpreter(#[values("==", "!=", "<", "<=", ">", ">=")] op: &str) {
         let all = props();
         for a in OPERANDS {
             for b in OPERANDS {
-                for op in ["==", "!=", "<", "<=", ">", ">="] {
-                    assert_same(&format!("{a} {op} {b}"), &all);
-                }
+                assert_same(&format!("{a} {op} {b}"), &all);
             }
         }
     }
 
-    #[test]
-    fn logic_matches_the_interpreter() {
+    #[rstest]
+    #[case::and("{a} && {b}")]
+    #[case::or("{a} || {b}")]
+    #[case::not("!{a}")]
+    #[case::not_twice("!!{a}")]
+    #[case::not_of_a_comparison("!({a} < {b})")]
+    #[case::not_of_or("!({a} || {b})")]
+    #[case::not_of_and("!(a == {a} && b == {b})")]
+    #[case::or_of_three("a == {a} || b == {b} || a == {b}")]
+    #[case::and_of_ors("(a == {a} || b == {b}) && (a != {b} || b != {a})")]
+    #[case::comparison_and_null_check("({a} == {b}) && a != null")]
+    #[case::key_comparison("feature['a'] == {b}")]
+    #[case::choice("{a} ? {b} : 3")]
+    fn logic_matches_the_interpreter(#[case] shape: &str) {
         let all = props();
         for a in OPERANDS {
             for b in OPERANDS {
-                for source in [
-                    format!("{a} && {b}"),
-                    format!("{a} || {b}"),
-                    format!("!{a}"),
-                    format!("{a} ? {b} : 3"),
-                    format!("({a} == {b}) && a != null"),
-                    format!("a == {a} || b == {b}"),
-                    format!("feature['a'] == {b}"),
-                ] {
-                    assert_same(&source, &all);
-                }
+                assert_same(&shape.replace("{a}", a).replace("{b}", b), &all);
             }
         }
+    }
+
+    #[rstest]
+    fn conversions_match_the_interpreter(
+        #[values("int", "double", "bool")] conversion: &str,
+        #[values("a", "feature['a']", "feature['missing']")] arg: &str,
+        #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
+    ) {
+        let all = props();
+        let converted = format!("{conversion}({arg})");
+        assert_same(&converted, &all);
+        for b in OPERANDS {
+            assert_same(&format!("{converted} {op} {b}"), &all);
+        }
+    }
+
+    #[rstest]
+    #[case::int_of_digits("int(a)", "12", Some(Value::Int(12)))]
+    #[case::int_of_a_signed_number("int(a)", "-3", Some(Value::Int(-3)))]
+    #[case::int_of_a_decimal_fails("int(a)", "1.5", None)]
+    #[case::int_of_padded_digits_fails("int(a)", " 12", None)]
+    #[case::double_of_a_decimal("double(a)", "1.5", Some(Value::Float(1.5)))]
+    #[case::double_of_an_exponent("double(a)", "1e3", Some(Value::Float(1000.0)))]
+    #[case::double_of_a_word_fails("double(a)", "abc", None)]
+    #[case::bool_of_t("bool(a)", "t", Some(Value::Bool(true)))]
+    #[case::bool_of_capitalized_false("bool(a)", "False", Some(Value::Bool(false)))]
+    #[case::bool_of_yes_fails("bool(a)", "yes", None)]
+    fn conversions_read_strings_as_cel_does(
+        #[case] source: &str,
+        #[case] value: &str,
+        #[case] expected: Option<Value>,
+    ) {
+        let columns = ["a"];
+        let expr = CompiledExpr::compile(source, &columns, false).unwrap();
+        let keys = ExprKeys::columns(&columns);
+        let props = vec![(KeyId::new(0), Prop::Str(value.to_owned()))];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(expr.eval(&view).ok(), expected);
     }
 }
