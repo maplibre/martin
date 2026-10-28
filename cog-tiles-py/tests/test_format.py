@@ -53,25 +53,62 @@ def test_jpeg_paints_transparent_pixels_over_the_background(background, rgb):
     assert np.abs(decode(cog.tile(16, 32_749, 21_794)) - expected).mean() < 4
 
 
+def rejects(message, processing=None):
+    full = message if processing is None else f"{message}\nwhile processing '{processing}'"
+    return pytest.raises(ValueError, match=f"^{re.escape(full)}$")
+
+
+def test_an_unknown_format_is_rejected():
+    with rejects('format must be "png", "webp" or "jpeg", not "gif"', processing="format"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="gif")
+
+
 @pytest.mark.parametrize(
     ("arguments", "message"),
     [
-        ({"format": "gif"}, 'format must be "png", "webp" or "jpeg", not "gif"'),
-        ({"quality": 80}, "quality needs format webp or jpeg"),
-        ({"format": "png", "quality": 80}, "quality needs format webp or jpeg"),
-        ({"format": "webp", "quality": 0}, "quality must be 1 to 100, not 0"),
-        ({"format": "webp", "quality": 101}, "quality must be 1 to 100, not 101"),
-        ({"format": "webp", "quality": "best"}, 'quality must be 1 to 100 or "lossless", not "best"'),
-        ({"format": "jpeg", "quality": "lossless"}, "JPEG has no lossless mode, so quality must be 1 to 100"),
-        ({"background": "black"}, "background needs format jpeg"),
-        ({"format": "webp", "background": "black"}, "background needs format jpeg"),
-        ({"format": "jpeg", "background": "transparent"}, 'background must be an opaque CSS color, not "transparent"'),
-        ({"format": "jpeg", "background": "nope"}, 'background "nope": '),
+        ({}, "quality needs format webp or jpeg"),
+        ({"format": "png"}, "quality needs format webp or jpeg"),
     ],
 )
-def test_invalid_encodings_are_rejected(arguments, message):
-    with pytest.raises(ValueError, match=re.escape(message)):
-        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", **arguments)
+def test_quality_is_rejected_without_a_lossy_format(arguments, message):
+    with rejects(message):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", quality=80, **arguments)
+
+
+@pytest.mark.parametrize(
+    ("quality", "message"),
+    [
+        (0, "quality must be 1 to 100, not 0"),
+        (101, "quality must be 1 to 100, not 101"),
+        ("best", 'quality must be 1 to 100 or "lossless", not "best"'),
+    ],
+)
+def test_an_out_of_range_quality_is_rejected(quality, message):
+    with rejects(message, processing="quality"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="webp", quality=quality)
+
+
+def test_jpeg_rejects_lossless_quality():
+    with rejects("JPEG has no lossless mode, so quality must be 1 to 100"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="jpeg", quality="lossless")
+
+
+@pytest.mark.parametrize("arguments", [{}, {"format": "webp"}])
+def test_background_is_rejected_without_format_jpeg(arguments):
+    with rejects("background needs format jpeg"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", background="black", **arguments)
+
+
+@pytest.mark.parametrize(
+    ("background", "message"),
+    [
+        ("transparent", 'background must be an opaque CSS color, not "transparent"'),
+        ("nope", 'background "nope": invalid unknown format'),
+    ],
+)
+def test_an_unusable_background_is_rejected(background, message):
+    with rejects(message, processing="background"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="jpeg", background=background)
 
 
 @pytest.mark.parametrize("fmt", ["webp", "jpeg"])
