@@ -195,8 +195,7 @@ def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Op
 
     `format` (`"png"`, `"webp"` or `"jpeg"`) re-encodes every tile, with `quality` from 1 to 100
     (80 when unset) or `"lossless"` for WebP, and JPEG painted over `background`, a CSS color or
-    `(red, green, blue)` (white when unset). Without it, JPEG and WebP tiles are returned as stored
-    and others as PNG.
+    `(red, green, blue)` (white when unset). `format` is `"webp"` when unset.
     """
 
 async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Cog:
