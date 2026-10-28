@@ -86,7 +86,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
 
 * All I/O and decoding runs in Rust with the GIL released; `read` and `tiles` keep `concurrency`
   requests in flight (64 by default) and decode on every core.
-* Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
+* Wheels cover CPython 3.11 and later, including free-threaded CPython from 3.15t on.
 * Headers are read once when opening: one request for a typical file, or one per IFD if IFDs come after
   the pixel data. Each tile is one range read. Tiles in the same row of a striped file share one read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
