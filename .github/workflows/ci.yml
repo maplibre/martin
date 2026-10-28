@@ -101,6 +101,7 @@ jobs:
               - 'tests/**'
               - 'cog-tiles/**'
               - 'cog-tiles-py/**'
+              - 'tests/fixtures/cog/**'
               - 'map-tile-toolkit/**'
               - 'mbtiles/**'
               - 'martin-*/**'
@@ -113,6 +114,7 @@ jobs:
               - *cargo-manifests
               - 'cog-tiles/**'
               - 'cog-tiles-py/**'
+              - 'tests/fixtures/cog/**'
             fuzz:
               - '.github/workflows/fuzz.yml'
               - 'map-tile-toolkit/**'
