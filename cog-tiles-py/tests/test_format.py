@@ -6,9 +6,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
 
 import cog_tiles
+
+Image = pytest.importorskip("PIL.Image")
 
 FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "cog"
 SYNTHETIC = FIXTURES / "synthetic"

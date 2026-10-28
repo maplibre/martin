@@ -29,8 +29,8 @@ stub-gen = []
 
 [dependencies]
 bytes.workspace = true
-csscolorparser.workspace = true
 cog-tiles = { workspace = true, features = ["jpeg", "mosaic", "webp"] }
+csscolorparser.workspace = true
 futures.workspace = true
 numpy.workspace = true
 object_store.workspace = true
