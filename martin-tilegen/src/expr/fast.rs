@@ -494,9 +494,7 @@ mod tests {
 
     fn assert_same(source: &str, all: &[Vec<(KeyId, Prop<String>)>]) {
         let columns = ["a", "b", "c"];
-        let Ok(expr) = CompiledExpr::compile(source, &columns, false) else {
-            return;
-        };
+        let expr = CompiledExpr::compile(source, &columns, false).expect(source);
         let keys = ExprKeys::columns(&columns);
         let mut slots = PropSlots::default();
         for props in all {
@@ -518,13 +516,11 @@ mod tests {
     fn comparisons_match_the_interpreter(
         #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         a: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         b: &str,
     ) {
@@ -538,8 +534,7 @@ mod tests {
     fn logic_of_one_operand_matches_the_interpreter(
         #[case] shape: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         a: &str,
     ) {
@@ -559,13 +554,11 @@ mod tests {
     fn logic_of_two_operands_matches_the_interpreter(
         #[case] shape: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         a: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         b: &str,
     ) {
@@ -575,7 +568,7 @@ mod tests {
     #[rstest]
     fn conversions_match_the_interpreter(
         #[values("int", "double", "bool")] conversion: &str,
-        #[values("a", "feature['a']", "feature['missing']")] arg: &str,
+        #[values("a", "feature['a']", "feature['c']")] arg: &str,
     ) {
         assert_same(&format!("{conversion}({arg})"), &props());
     }
@@ -583,11 +576,10 @@ mod tests {
     #[rstest]
     fn compared_conversions_match_the_interpreter(
         #[values("int", "double", "bool")] conversion: &str,
-        #[values("a", "feature['a']", "feature['missing']")] arg: &str,
+        #[values("a", "feature['a']", "feature['c']")] arg: &str,
         #[values("==", "!=", "<", "<=", ">", ">=")] op: &str,
         #[values(
-            "a", "b", "missing", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'",
-            "'Place'"
+            "a", "b", "c", "null", "true", "false", "0", "8", "-1", "8u", "0.0", "8.0", "''", "'place'", "'Place'"
         )]
         b: &str,
     ) {
