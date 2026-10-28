@@ -571,7 +571,7 @@ impl Stac {
         });
         // The bands are known once the collection is read, so the options are built without them first.
         let mut options = self.index.options(self.min_zoom, Vec::new())?;
-        let encoding = self.encoding.encoding()?;
+        let encoding = self.encoding.encoding();
         let resolve = href_resolver(self.store_options.clone().into_iter().collect());
         Ok(async move {
             let (index, probe) = StacIndex::open(search, bands.as_deref(), resolve).await?;
@@ -1151,7 +1151,7 @@ pub fn open_stac(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -1181,11 +1181,7 @@ pub fn open_stac(
             file_idle_timeout,
         },
         store_options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = wait(py, stac.open_source()?)?.map_err(to_py)?;
     stac.into_py(py, source)
@@ -1242,7 +1238,7 @@ pub async fn open_stac_async(
     file_idle_timeout: Option<f64>,
     options: Option<BTreeMap<String, String>>,
     #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
-    format: Option<String>,
+    format: Option<Format>,
     #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
     quality: Option<Quality>,
     #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
@@ -1272,11 +1268,7 @@ pub async fn open_stac_async(
             file_idle_timeout,
         },
         store_options: options.unwrap_or_default(),
-        encoding: EncodingArgs {
-            format,
-            quality,
-            background,
-        },
+        encoding: EncodingArgs::new(format, quality, background)?,
     };
     let source = spawn(stac.open_source()?).await?.map_err(to_py)?;
     Python::attach(|py| stac.into_py(py, source))
