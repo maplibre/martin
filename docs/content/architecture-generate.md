@@ -172,14 +172,14 @@ When every worker has spilled its last buffer, phase 1 ends.
 
 ### Merge
 
-A loser-tree merge reads up to 256 runs at once, each through a 256 KiB buffer, and streams their
-records in key order into phase 2. Only the pieces of one feature in one tile can have equal keys. They
-come from one worker, and keep the order it pushed them in.
+A loser-tree merge reads up to 4096 runs at once, each straight from its mapped temp file, and streams
+their records in key order into phase 2. Only the pieces of one feature in one tile can have equal keys.
+They come from one worker, and keep the order it pushed them in.
 
-With more than 256 runs, only the excess is merged first: adjacent runs, just enough that merging them
-in groups of 256 leaves 256 runs in all, picked where they hold the fewest bytes. The groups are merged in
+With more than 4096 runs, only the excess is merged first: adjacent runs, just enough that merging them
+in groups of 4096 leaves 4096 runs in all, picked where they hold the fewest bytes. The groups are merged in
 parallel into new temp files. The other runs are left for the final merge, which is never written to
-disk. One such pass is enough for up to 65 536 runs. Merging only adjacent runs keeps equal keys in the
+disk. One such pass is enough for up to 16 777 216 runs. Merging only adjacent runs keeps equal keys in the
 order they were pushed.
 
 --8<-- "images/generate/merge.svg"
@@ -289,11 +289,11 @@ Every queue and buffer has a bound that does not depend on the size of the input
 | Feature queue    | `threads × 2` batches of up to 1024 features                              |
 | Sort buffers     | `--memory` in total, records plus index, at least 16 MiB per worker       |
 | Run file writers | 1 MiB of write buffer for each run being written                          |
-| Merge            | 256 KiB of read buffer per run, at most 256 runs, so 64 MiB per merge     |
+| Merge            | Mapped run files, no read buffers, at most 4096 runs per merge            |
 | Encode window    | `threads × 4` batches of 256 tiles or 16 MiB, plus the one being written  |
 | Dedup index      | One copy of each distinct tile that got a dedup key                       |
 
-An intermediate merge, with more than 256 runs, runs several 64 MiB merges at once. On disk, a feature
+An intermediate merge, with more than 4096 runs, runs several merges at once. On disk, a feature
 has a record in every tile it touches, at every zoom, and an intermediate merge needs room for another
 copy of the runs it merges, which are the fewest bytes it can merge.
 
