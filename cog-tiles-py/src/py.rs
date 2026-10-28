@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{CogResult, MosaicOptions, PixelWindow, TileCoord, TileEncoding, TilePixels, lnglat_to_mercator};
+use cog_tiles::{
+    AsyncIndexedMosaic, CogResult, IndexedMosaicOptions, MosaicOptions, PixelWindow, TileCoord, TileEncoding,
+    TilePixels, lnglat_to_mercator,
+};
 use numpy::ndarray::Array3;
 use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
 use pyo3::exceptions::{PyStopAsyncIteration, PyValueError};
@@ -17,7 +20,7 @@ use tokio::sync::{Mutex, mpsc};
 use tokio_util::task::AbortOnDropHandle;
 
 use crate::error::to_py;
-use crate::location::{Location, split_mosaic};
+use crate::location::{Location, href_resolver, split_mosaic};
 use crate::runtime::{runtime, spawn, wait};
 use crate::source::{Layout, Source, read_window, stream_tiles};
 
@@ -76,13 +79,13 @@ impl TileSource {
         self.layout.format.content_type()
     }
 
-    /// `(west, south, east, north)` in degrees, or `None` for a mosaic.
+    /// `(west, south, east, north)` in degrees, or `None` for a `Mosaic`.
     #[getter]
     fn bounds(&self) -> Option<(f64, f64, f64, f64)> {
         self.source.bounds().map(|(bounds, _)| bounds.into())
     }
 
-    /// `(min_x, min_y, max_x, max_y)` in EPSG:3857 meters, or `None` for a mosaic.
+    /// `(min_x, min_y, max_x, max_y)` in EPSG:3857 meters, or `None` for a `Mosaic`.
     #[getter]
     fn mercator_bounds(&self) -> Option<(f64, f64, f64, f64)> {
         self.source.bounds().map(|(_, bounds)| bounds.into())
@@ -129,7 +132,7 @@ impl TileSource {
     /// Use it with `for` or `async for`.
     ///
     /// `zoom` is one zoom or a sequence of them, all zooms of the source when `None`.
-    /// `bbox` is the source's bounds when `None`; a mosaic needs one.
+    /// `bbox` is the source's bounds when `None`; a `Mosaic` needs one.
     #[pyo3(signature = (bbox = None, zoom = None, *, crs = "EPSG:4326", concurrency = DEFAULT_CONCURRENCY))]
     fn tiles(
         &self,
@@ -344,10 +347,6 @@ impl Mosaic {
         options: Option<BTreeMap<String, String>>,
         encoding: EncodingArgs,
     ) -> PyResult<Self> {
-        let seconds = |value: f64| {
-            Duration::try_from_secs_f64(value)
-                .map_err(|e| PyValueError::new_err(format!("{value} is not a valid number of seconds: {e}")))
-        };
         let mosaic_options = MosaicOptions::new(file_zoom)
             .with_max_cached_files(max_cached_files)
             .with_file_expiry(seconds(file_expiry)?)
@@ -420,6 +419,104 @@ impl Mosaic {
             layout.tile_size,
             layout.format.extension(),
         )
+    }
+}
+
+/// The COGs a `gdaltindex` tile index lists, in any supported projection, reprojected onto Web Mercator.
+#[gen_stub_pyclass]
+#[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
+pub struct TileIndex {
+    path: PathBuf,
+    min_zoom: u8,
+    layer: Option<String>,
+    location_field: String,
+    bands: Option<Vec<usize>>,
+    index: IndexArgs,
+    store_options: BTreeMap<String, String>,
+    encoding: EncodingArgs,
+}
+
+impl TileIndex {
+    /// Reads the index and opens its first file, the work that `open_tile_index` and
+    /// `open_tile_index_async` wait for.
+    fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
+        let options = self
+            .index
+            .options(self.min_zoom, from_one(self.bands.as_deref().unwrap_or(&[1, 2, 3]))?)?;
+        let encoding = self.encoding.encoding()?;
+        let resolve = href_resolver(self.store_options.clone().into_iter().collect());
+        let path = self.path.clone();
+        let layer = self.layer.clone();
+        let location_field = self.location_field.clone();
+        Ok(async move {
+            let index = cog_tiles::TileIndex::open(&path, layer.as_deref(), &location_field, &resolve).await?;
+            let mosaic = AsyncIndexedMosaic::open_tile_index(index, options).await?;
+            Ok(Source::indexed(mosaic, encoding))
+        })
+    }
+
+    /// The Python object for this tile index, read through `source`.
+    fn into_py(self, py: Python<'_>, source: Source) -> PyResult<Py<Self>> {
+        Py::new(py, PyClassInitializer::from(TileSource::new(source)).add_subclass(self))
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl TileIndex {
+    #[gen_stub(skip)]
+    fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, (PathBuf, u8))> {
+        let this = slf.get();
+        let keywords = this.encoding.keywords(slf.py())?;
+        this.index.add_keywords(&keywords)?;
+        keywords.set_item("layer", &this.layer)?;
+        keywords.set_item("location_field", &this.location_field)?;
+        keywords.set_item("bands", &this.bands)?;
+        keywords.set_item("options", &this.store_options)?;
+        let open = with_keywords(slf.py(), "open_tile_index", &keywords)?;
+        Ok((open, (this.path.clone(), this.min_zoom)))
+    }
+
+    fn __repr__(slf: &Bound<'_, Self>) -> String {
+        let layout = slf.as_super().get().layout;
+        format!(
+            "TileIndex({:?}, zooms={}..={}, format={:?})",
+            slf.get().path.display().to_string(),
+            layout.min_zoom,
+            layout.max_zoom,
+            layout.format.extension(),
+        )
+    }
+}
+
+/// The zooms, nodata and file cache of a mosaic found by an index.
+#[derive(Clone)]
+struct IndexArgs {
+    max_zoom: Option<u8>,
+    nodata: Option<u8>,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+}
+
+impl IndexArgs {
+    /// The options of a mosaic from `min_zoom` serving `bands`, counted from 0.
+    fn options(&self, min_zoom: u8, bands: Vec<usize>) -> PyResult<IndexedMosaicOptions> {
+        Ok(IndexedMosaicOptions::new(min_zoom, bands)
+            .with_max_zoom(self.max_zoom)
+            .with_nodata(self.nodata)
+            .with_max_cached_files(self.max_cached_files)
+            .with_file_expiry(seconds(self.file_expiry)?)
+            .with_file_idle_timeout(self.file_idle_timeout.map(seconds).transpose()?))
+    }
+
+    /// Adds these arguments to `keywords`.
+    fn add_keywords(&self, keywords: &Bound<'_, PyDict>) -> PyResult<()> {
+        keywords.set_item("max_zoom", self.max_zoom)?;
+        keywords.set_item("nodata", self.nodata)?;
+        keywords.set_item("max_cached_files", self.max_cached_files)?;
+        keywords.set_item("file_expiry", self.file_expiry)?;
+        keywords.set_item("file_idle_timeout", self.file_idle_timeout)
     }
 }
 
@@ -707,6 +804,165 @@ fn with_keywords<'py>(py: Python<'py>, function: &str, keywords: &Bound<'py, PyD
     py.import("functools")?
         .getattr("partial")?
         .call((function,), Some(keywords))
+}
+
+/// Opens the COGs a `gdaltindex` tile index lists: a `GeoPackage` with one footprint and location
+/// per file, e.g. `gdaltindex -f GPKG -t_srs EPSG:4326 index.gpkg *.tif`.
+///
+/// The files may be in Web Mercator or a UTM zone, tiled with overviews down to `min_zoom`; each
+/// tile is painted from the files in the index's row order, reprojected with nearest-neighbour
+/// resampling, as PNG with an alpha band. `layer` is the feature table to read, the only one when
+/// `None`. `bands` are the bands served, counted from 1: one for gray, three for RGB.
+/// `nodata` overrides each file's nodata value. `max_zoom` is the zoom at which the first file is
+/// fully detailed when `None`.
+///
+/// Locations may be local paths (relative to the index), URLs, or GDAL `/vsis3/`, `/vsigs/`,
+/// `/vsiaz/` or `/vsicurl/` paths, read with `options` as in `open`. The whole index is read now,
+/// and its first file is opened. `format`, `quality` and `background` re-encode every tile, as in `open`.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (
+    path,
+    min_zoom,
+    *,
+    layer = None,
+    location_field = cog_tiles::DEFAULT_LOCATION_FIELD.to_owned(),
+    max_zoom = None,
+    bands = None,
+    nodata = None,
+    max_cached_files = cog_tiles::DEFAULT_MAX_CACHED_FILES,
+    file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
+    file_idle_timeout = None,
+    options = None,
+    format = None,
+    quality = None,
+    background = None,
+))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
+pub fn open_tile_index(
+    py: Python<'_>,
+    path: PathBuf,
+    min_zoom: u8,
+    layer: Option<String>,
+    location_field: String,
+    max_zoom: Option<u8>,
+    bands: Option<Vec<usize>>,
+    nodata: Option<u8>,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<TileIndex>> {
+    let index = TileIndex {
+        path,
+        min_zoom,
+        layer,
+        location_field,
+        bands,
+        index: IndexArgs {
+            max_zoom,
+            nodata,
+            max_cached_files,
+            file_expiry,
+            file_idle_timeout,
+        },
+        store_options: options.unwrap_or_default(),
+        encoding: EncodingArgs {
+            format,
+            quality,
+            background,
+        },
+    };
+    let source = wait(py, index.open_source()?)?.map_err(to_py)?;
+    index.into_py(py, source)
+}
+
+/// `open_tile_index` for `asyncio`, reading the index and the first file on background threads
+/// instead of the event loop.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (
+    path,
+    min_zoom,
+    *,
+    layer = None,
+    location_field = cog_tiles::DEFAULT_LOCATION_FIELD.to_owned(),
+    max_zoom = None,
+    bands = None,
+    nodata = None,
+    max_cached_files = cog_tiles::DEFAULT_MAX_CACHED_FILES,
+    file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
+    file_idle_timeout = None,
+    options = None,
+    format = None,
+    quality = None,
+    background = None,
+))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
+pub async fn open_tile_index_async(
+    path: PathBuf,
+    min_zoom: u8,
+    layer: Option<String>,
+    location_field: String,
+    max_zoom: Option<u8>,
+    bands: Option<Vec<usize>>,
+    nodata: Option<u8>,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<String>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<TileIndex>> {
+    let index = TileIndex {
+        path,
+        min_zoom,
+        layer,
+        location_field,
+        bands,
+        index: IndexArgs {
+            max_zoom,
+            nodata,
+            max_cached_files,
+            file_expiry,
+            file_idle_timeout,
+        },
+        store_options: options.unwrap_or_default(),
+        encoding: EncodingArgs {
+            format,
+            quality,
+            background,
+        },
+    };
+    let source = spawn(index.open_source()?).await?.map_err(to_py)?;
+    Python::attach(|py| index.into_py(py, source))
+}
+
+/// `bands` counted from 1, counted from 0.
+fn from_one(bands: &[usize]) -> PyResult<Vec<usize>> {
+    bands
+        .iter()
+        .map(|&band| {
+            band.checked_sub(1)
+                .ok_or_else(|| PyValueError::new_err("bands are counted from 1"))
+        })
+        .collect()
+}
+
+/// `value` seconds as a duration.
+fn seconds(value: f64) -> PyResult<Duration> {
+    Duration::try_from_secs_f64(value)
+        .map_err(|e| PyValueError::new_err(format!("{value} is not a valid number of seconds: {e}")))
 }
 
 fn parse_location(location: &std::path::Path, options: &BTreeMap<String, String>) -> PyResult<Location> {

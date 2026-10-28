@@ -16,9 +16,12 @@ fn _cog_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py::open_mosaic, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_async, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_mosaic_async, m)?)?;
+    m.add_function(wrap_pyfunction!(py::open_tile_index, m)?)?;
+    m.add_function(wrap_pyfunction!(py::open_tile_index_async, m)?)?;
     m.add_class::<py::TileSource>()?;
     m.add_class::<py::Cog>()?;
     m.add_class::<py::Mosaic>()?;
+    m.add_class::<py::TileIndex>()?;
     m.add_class::<py::Raster>()?;
     m.add_class::<py::TileIterator>()?;
     m.add("CogTilesError", m.py().get_type::<error::CogTilesError>())?;

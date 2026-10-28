@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use cog_tiles::{
-    AsyncCogMosaic, AsyncCogReader, CogResult, FileBackend, MosaicOptions, ObjectStoreBackend, PixelWindow, TileCoord,
-    TileEncoding, TileFormat, TilePixels,
+    AsyncCogMosaic, AsyncCogReader, AsyncIndexedMosaic, CogResult, FileBackend, MosaicOptions, ObjectStoreBackend,
+    PixelWindow, TileCoord, TileEncoding, TileFormat, TilePixels, lnglat_to_mercator,
 };
 use futures::{StreamExt as _, stream};
 use pyo3::PyResult;
@@ -28,6 +28,7 @@ enum Reader {
     File(AsyncCogReader<FileBackend>),
     Store(AsyncCogReader<ObjectStoreBackend>),
     Mosaic(AsyncCogMosaic),
+    Indexed(AsyncIndexedMosaic),
 }
 
 /// The zooms, tile size and format of a source.
@@ -71,6 +72,13 @@ impl Source {
         })
     }
 
+    pub fn indexed(mosaic: AsyncIndexedMosaic, encoding: Option<TileEncoding>) -> Self {
+        Self {
+            reader: Reader::Indexed(mosaic),
+            encoding,
+        }
+    }
+
     pub fn layout(&self) -> Layout {
         let layout = match &self.reader {
             Reader::File(reader) => reader_layout(reader),
@@ -84,6 +92,15 @@ impl Source {
                     format: info.format,
                 }
             }
+            Reader::Indexed(mosaic) => {
+                let info = mosaic.info();
+                Layout {
+                    min_zoom: info.min_zoom,
+                    max_zoom: info.max_zoom,
+                    tile_size: info.tile_size,
+                    format: info.format,
+                }
+            }
         };
         Layout {
             format: self.encoding.map_or(layout.format, TileEncoding::format),
@@ -92,12 +109,18 @@ impl Source {
     }
 
     /// `[west, south, east, north]` in degrees and `[min_x, min_y, max_x, max_y]` in `EPSG:3857`,
-    /// or `None` for a mosaic, whose extent is not known without listing every file.
+    /// or `None` for a mosaic whose extent is not known without listing every file.
     pub fn bounds(&self) -> Option<([f64; 4], [f64; 4])> {
         let info = match &self.reader {
             Reader::File(reader) => reader.info(),
             Reader::Store(reader) => reader.info(),
             Reader::Mosaic(_) => return None,
+            Reader::Indexed(mosaic) => {
+                let bounds @ [west, south, east, north] = mosaic.bounds()?;
+                let [min_x, min_y] = lnglat_to_mercator(west, south);
+                let [max_x, max_y] = lnglat_to_mercator(east, north);
+                return Some((bounds, [min_x, min_y, max_x, max_y]));
+            }
         };
         Some((info.bounds, info.mercator_bounds))
     }
@@ -109,6 +132,7 @@ impl Source {
                 Reader::File(reader) => reader.get_tile(coord).await,
                 Reader::Store(reader) => reader.get_tile(coord).await,
                 Reader::Mosaic(mosaic) => mosaic.get_tile(coord).await,
+                Reader::Indexed(mosaic) => mosaic.get_tile(coord).await,
             }
             .map_err(to_py);
         };
@@ -126,6 +150,7 @@ impl Source {
             Reader::File(reader) => reader.get_tile_pixels(coord).await,
             Reader::Store(reader) => reader.get_tile_pixels(coord).await,
             Reader::Mosaic(mosaic) => mosaic.get_tile_pixels(coord).await,
+            Reader::Indexed(mosaic) => mosaic.get_tile_pixels(coord).await,
         }
     }
 }
