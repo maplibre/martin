@@ -53,6 +53,21 @@ transparent where no file has data. `bands` picks the bands served, counted from
 default, or one band for gray). Locations may be paths relative to the index, URLs, or GDAL
 `/vsis3/`, `/vsigs/`, `/vsiaz/` and `/vsicurl/` paths, read with `options` as in `open`.
 
+Or the items a STAC API finds for each tile:
+
+```python
+naip = cog_tiles.open_stac(
+    "https://earth-search.aws.element84.com/v1", "naip", "image", min_zoom=13,
+    datetime="2020-01-01T00:00:00Z/..", query={"naip:state": {"eq": "ca"}}, nodata=0,
+    options={"aws_request_payer": "true"},
+)
+```
+
+One search covers a tile at `search_zoom` (`min_zoom` by default) and serves every tile below it;
+results are cached for `search_expiry` seconds. Items are painted newest first (`order="oldest"`
+for the other way), each pixel from the first item with data for it. `bands` selects bands by
+number or `eo:bands` name, `["red", "green", "blue"]` by default.
+
 With `asyncio`, e.g. in a tile server, every call that waits has an `_async` twin:
 
 ```python
@@ -115,7 +130,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
   with `crs="EPSG:3857"`. A raster covers the whole pixels the bbox touches; `raster.bounds` is
   the snapped extent. Pixels without data are 0, and a bbox without any data returns `None`.
 * `read` refuses rasters over `max_pixels` (16384 x 16384 by default).
-* `Cog`, `Mosaic` and `TileIndex` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
+* `Cog`, `Mosaic`, `TileIndex` and `Stac` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
   `DataLoader` workers. Forked processes get their own I/O threads.
 * Object store credentials come from the usual environment variables (`AWS_*`, `GOOGLE_*`,
   `AZURE_*`); `options` overrides them with
