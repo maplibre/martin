@@ -93,6 +93,19 @@ async fn the_landing_page_links_conformance_collections_and_tile_matrix_sets() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "http://localhost:8080/ogc",
@@ -165,6 +178,19 @@ async fn the_landing_page_links_no_styles_without_resources() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "http://localhost:8080/ogc",
@@ -236,6 +262,19 @@ async fn the_links_follow_the_proxy_in_front_of_martin() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "https://tiles.example.com/maps/ogc",
@@ -308,6 +347,19 @@ async fn the_proxied_links_have_no_styles_without_resources() {
     {
       "title": "Martin",
       "description": "The tiles Martin serves, as an OGC API",
+      "extent": {
+        "spatial": {
+          "bbox": [
+            [
+              -180.0,
+              -85.0511,
+              180.0,
+              85.0511
+            ]
+          ],
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
       "links": [
         {
           "href": "https://tiles.example.com/maps/ogc",
@@ -770,9 +822,21 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
                   59.352706
                 ]
               ],
-              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+              "storageCrsBbox": [
+                [
+                  -13706055.343439795,
+                  -4553759.1026285365,
+                  19454531.17513113,
+                  8257013.871133056
+                ]
+              ]
             }
           },
+          "crs": [
+            "http://www.opengis.net/def/crs/EPSG/0/3857"
+          ],
+          "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
           "links": [
             {
               "href": "http://localhost:8080/ogc/collections/cities",
@@ -802,9 +866,21 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
                   59.352706
                 ]
               ],
-              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+              "storageCrsBbox": [
+                [
+                  -123.12359,
+                  -37.818085,
+                  174.763027,
+                  59.352706
+                ]
+              ]
             }
           },
+          "crs": [
+            "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+          ],
+          "storageCrs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
           "links": [
             {
               "href": "http://localhost:8080/ogc/collections/cities_crs84",
@@ -837,6 +913,10 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
               "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
             }
           },
+          "crs": [
+            "http://www.opengis.net/def/crs/EPSG/0/3035"
+          ],
+          "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3035",
           "links": [
             {
               "href": "http://localhost:8080/ogc/collections/cities_laea",
@@ -866,9 +946,21 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
                   59.352706
                 ]
               ],
-              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+              "storageCrsBbox": [
+                [
+                  -13706055.343439795,
+                  -4553759.1026285365,
+                  19454531.17513113,
+                  8257013.871133056
+                ]
+              ]
             }
           },
+          "crs": [
+            "http://www.opengis.net/def/crs/EPSG/0/3857"
+          ],
+          "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
           "links": [
             {
               "href": "http://localhost:8080/ogc/collections/cities_surveyed",
@@ -898,9 +990,21 @@ async fn the_collections_are_the_sources_on_a_tile_matrix_set_with_an_ogc_crs() 
                   85.0511
                 ]
               ],
-              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+              "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+              "storageCrsBbox": [
+                [
+                  -20037508.34278925,
+                  -20037471.205137044,
+                  20037508.34278925,
+                  20037471.205137044
+                ]
+              ]
             }
           },
+          "crs": [
+            "http://www.opengis.net/def/crs/EPSG/0/3857"
+          ],
+          "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
           "links": [
             {
               "href": "http://localhost:8080/ogc/collections/geography",
@@ -952,9 +1056,21 @@ async fn a_collection_links_itself_and_its_tilesets() {
               85.0511
             ]
           ],
-          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+          "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+          "storageCrsBbox": [
+            [
+              -20037508.34278925,
+              -20037471.205137044,
+              20037508.34278925,
+              20037471.205137044
+            ]
+          ]
         }
       },
+      "crs": [
+        "http://www.opengis.net/def/crs/EPSG/0/3857"
+      ],
+      "storageCrs": "http://www.opengis.net/def/crs/EPSG/0/3857",
       "links": [
         {
           "href": "http://localhost:8080/ogc/collections/geography",

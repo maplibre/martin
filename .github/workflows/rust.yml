@@ -78,6 +78,8 @@ jobs:
         with: { tools: 'just,nextest', cache: true, coverage: true }
       - name: Run COG tests
         run: just test-cog
+      - name: Run COG tests against a STAC API and RustFS
+        run: just test-cog-stac
       - uses: $/.github/actions/upload-coverage
         with: { suite: cog }
   test-cog-py:

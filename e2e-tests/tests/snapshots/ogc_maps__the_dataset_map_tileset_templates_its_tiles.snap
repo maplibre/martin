@@ -1,0 +1,250 @@
+---
+source: e2e-tests/tests/ogc_maps.rs
+expression: martin.redacted_json(&response)
+---
+{
+  "crs": "http://www.opengis.net/def/crs/EPSG/0/3857",
+  "dataType": "map",
+  "links": [
+    {
+      "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad",
+      "rel": "self",
+      "title": "This document",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/tileMatrixSets/WebMercatorQuad",
+      "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme",
+      "title": "Tile matrix set definition",
+      "type": "application/json"
+    },
+    {
+      "href": "http://[ADDR]/ogc/map/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}",
+      "rel": "item",
+      "templated": true,
+      "title": "Tiles",
+      "type": "image/png"
+    }
+  ],
+  "tileMatrixSetLimits": [
+    {
+      "maxTileCol": 0,
+      "maxTileRow": 0,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "0"
+    },
+    {
+      "maxTileCol": 1,
+      "maxTileRow": 1,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "1"
+    },
+    {
+      "maxTileCol": 3,
+      "maxTileRow": 3,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "2"
+    },
+    {
+      "maxTileCol": 7,
+      "maxTileRow": 7,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "3"
+    },
+    {
+      "maxTileCol": 15,
+      "maxTileRow": 15,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "4"
+    },
+    {
+      "maxTileCol": 31,
+      "maxTileRow": 31,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "5"
+    },
+    {
+      "maxTileCol": 63,
+      "maxTileRow": 63,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "6"
+    },
+    {
+      "maxTileCol": 127,
+      "maxTileRow": 127,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "7"
+    },
+    {
+      "maxTileCol": 255,
+      "maxTileRow": 255,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "8"
+    },
+    {
+      "maxTileCol": 511,
+      "maxTileRow": 511,
+      "minTileCol": 0,
+      "minTileRow": 0,
+      "tileMatrix": "9"
+    },
+    {
+      "maxTileCol": 1023,
+      "maxTileRow": 1022,
+      "minTileCol": 0,
+      "minTileRow": 1,
+      "tileMatrix": "10"
+    },
+    {
+      "maxTileCol": 2047,
+      "maxTileRow": 2044,
+      "minTileCol": 0,
+      "minTileRow": 3,
+      "tileMatrix": "11"
+    },
+    {
+      "maxTileCol": 4095,
+      "maxTileRow": 4089,
+      "minTileCol": 0,
+      "minTileRow": 6,
+      "tileMatrix": "12"
+    },
+    {
+      "maxTileCol": 8191,
+      "maxTileRow": 8178,
+      "minTileCol": 0,
+      "minTileRow": 13,
+      "tileMatrix": "13"
+    },
+    {
+      "maxTileCol": 16383,
+      "maxTileRow": 16357,
+      "minTileCol": 0,
+      "minTileRow": 26,
+      "tileMatrix": "14"
+    },
+    {
+      "maxTileCol": 32767,
+      "maxTileRow": 32714,
+      "minTileCol": 0,
+      "minTileRow": 53,
+      "tileMatrix": "15"
+    },
+    {
+      "maxTileCol": 65535,
+      "maxTileRow": 65428,
+      "minTileCol": 0,
+      "minTileRow": 107,
+      "tileMatrix": "16"
+    },
+    {
+      "maxTileCol": 131071,
+      "maxTileRow": 130857,
+      "minTileCol": 0,
+      "minTileRow": 214,
+      "tileMatrix": "17"
+    },
+    {
+      "maxTileCol": 262143,
+      "maxTileRow": 261714,
+      "minTileCol": 0,
+      "minTileRow": 429,
+      "tileMatrix": "18"
+    },
+    {
+      "maxTileCol": 524287,
+      "maxTileRow": 523429,
+      "minTileCol": 0,
+      "minTileRow": 858,
+      "tileMatrix": "19"
+    },
+    {
+      "maxTileCol": 1048575,
+      "maxTileRow": 1046858,
+      "minTileCol": 0,
+      "minTileRow": 1717,
+      "tileMatrix": "20"
+    },
+    {
+      "maxTileCol": 2097151,
+      "maxTileRow": 2093717,
+      "minTileCol": 0,
+      "minTileRow": 3434,
+      "tileMatrix": "21"
+    },
+    {
+      "maxTileCol": 4194303,
+      "maxTileRow": 4187434,
+      "minTileCol": 0,
+      "minTileRow": 6869,
+      "tileMatrix": "22"
+    },
+    {
+      "maxTileCol": 8388607,
+      "maxTileRow": 8374868,
+      "minTileCol": 0,
+      "minTileRow": 13739,
+      "tileMatrix": "23"
+    },
+    {
+      "maxTileCol": 16777215,
+      "maxTileRow": 16749736,
+      "minTileCol": 0,
+      "minTileRow": 27479,
+      "tileMatrix": "24"
+    },
+    {
+      "maxTileCol": 33554431,
+      "maxTileRow": 33499472,
+      "minTileCol": 0,
+      "minTileRow": 54959,
+      "tileMatrix": "25"
+    },
+    {
+      "maxTileCol": 67108863,
+      "maxTileRow": 66998945,
+      "minTileCol": 0,
+      "minTileRow": 109918,
+      "tileMatrix": "26"
+    },
+    {
+      "maxTileCol": 134217727,
+      "maxTileRow": 133997890,
+      "minTileCol": 0,
+      "minTileRow": 219837,
+      "tileMatrix": "27"
+    },
+    {
+      "maxTileCol": 268435455,
+      "maxTileRow": 267995781,
+      "minTileCol": 0,
+      "minTileRow": 439674,
+      "tileMatrix": "28"
+    },
+    {
+      "maxTileCol": 536870911,
+      "maxTileRow": 535991563,
+      "minTileCol": 0,
+      "minTileRow": 879348,
+      "tileMatrix": "29"
+    },
+    {
+      "maxTileCol": 1073741823,
+      "maxTileRow": 1071983126,
+      "minTileCol": 0,
+      "minTileRow": 1758697,
+      "tileMatrix": "30"
+    }
+  ],
+  "tileMatrixSetURI": "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad",
+  "title": "Map of all collections"
+}

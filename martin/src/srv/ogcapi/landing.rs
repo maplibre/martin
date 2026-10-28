@@ -4,9 +4,11 @@ use actix_web::web::Data;
 use actix_web::{HttpRequest, HttpResponse, route};
 use serde::Serialize;
 
+use super::collections::{Extent, dataset_bounds};
 use super::link::{Link, ogc_url};
 use super::openapi::OPENAPI_JSON;
 use crate::config::file::srv::SrvConfig;
+use crate::tile_source_manager::TileSourceManager;
 
 /// The entry point of the OGC API.
 #[derive(Serialize, Debug)]
@@ -14,6 +16,8 @@ use crate::config::file::srv::SrvConfig;
 struct LandingPage {
     title: &'static str,
     description: &'static str,
+    /// Where the data of all collections lies.
+    extent: Extent,
     links: Vec<Link>,
 }
 
@@ -36,7 +40,12 @@ struct LandingPage {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-pub async fn get_landing_page(req: HttpRequest, srv_config: Data<SrvConfig>) -> HttpResponse {
+pub async fn get_landing_page(
+    req: HttpRequest,
+    srv_config: Data<SrvConfig>,
+    manager: Data<TileSourceManager>,
+) -> HttpResponse {
+    manager.wait_until_loaded().await;
     #[cfg_attr(not(feature = "resources"), expect(unused_mut, reason = "only styles add links"))]
     let mut links = vec![
         Link::json(ogc_url(&req, &srv_config, ""), "self", "This document"),
@@ -79,9 +88,22 @@ pub async fn get_landing_page(req: HttpRequest, srv_config: Data<SrvConfig>) -> 
         "http://www.opengis.net/def/rel/ogc/1.0/styles",
         "Styles",
     ));
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if super::map::renders_maps(&req) {
+        links.extend(super::map::map_links(
+            &ogc_url(&req, &srv_config, "/map"),
+            "Map of all collections",
+        ));
+        links.push(Link::json(
+            ogc_url(&req, &srv_config, "/map/tiles"),
+            super::data_type::DataType::Raster.tilesets_rel(),
+            "Map tilesets of all collections",
+        ));
+    }
     HttpResponse::Ok().json(LandingPage {
         title: "Martin",
         description: "The tiles Martin serves, as an OGC API",
+        extent: Extent::crs84(dataset_bounds(&manager)),
         links,
     })
 }

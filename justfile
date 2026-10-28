@@ -716,6 +716,11 @@ test-cog: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-cog --test cog
 
+# Run the COG tests against a STAC API replayed from a cassette, its files in a RustFS container (needs Docker)
+test-cog-stac: fetch (cargo-install 'cargo-nextest')
+    cargo build --package martin --no-default-features --features cog
+    cargo nextest run --package martin-e2e-tests --features test-stac --test cog_stac
+
 # Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
 sync-cog-py-stubs:
     LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
@@ -750,7 +755,7 @@ test-ogc: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets')
 # Run the OGC API - Maps conformance suite (Docker, built from source) against a rendered style
 [linux]
 test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
-    cargo build --package martin --no-default-features --features ogcapi,mbtiles,rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
     cargo nextest run --package martin-e2e-tests --features test-ogc-maps --test ogc_maps --test ogc_maps_conformance
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
@@ -1016,7 +1021,7 @@ docker-is-ready:
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name:
-    docker compose up -d {{name}}
+    docker compose up -d --build {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

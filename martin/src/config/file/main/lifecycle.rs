@@ -38,8 +38,10 @@ use crate::config::file::ConfigurationLivecycleHooks;
 use crate::config::file::TileGrids;
 #[cfg(any(feature = "_tiles", feature = "resources"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(all(feature = "cog", feature = "processing"))]
+use crate::config::file::cog::CogConfig;
 #[cfg(feature = "cog")]
-use crate::config::file::cog::{CogMosaicSource, resolve_cog};
+use crate::config::file::cog::{CogMosaicSource, CogStacSource, CogTileIndexSource, resolve_cog};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
 #[cfg(feature = "_tiles")]
@@ -90,6 +92,8 @@ impl Config {
             TileGrids::check_file_sources(&self.pmtiles, Some(&tile_grids))?;
             #[cfg(feature = "cog")]
             TileGrids::check_file_sources(&self.cog, None)?;
+            #[cfg(all(feature = "cog", feature = "processing"))]
+            CogConfig::check_file_conversions(&self.cog)?;
             #[cfg(feature = "processing")]
             TileGrids::check_file_sources(&self.geojson, None)?;
             #[cfg(not(any(feature = "postgres", feature = "mbtiles", feature = "pmtiles")))]
@@ -152,7 +156,11 @@ impl Config {
         let is_empty = is_empty && self.passthrough.is_empty();
 
         #[cfg(feature = "cog")]
-        let is_empty = is_empty && self.cog.is_empty() && self.cog.custom.mosaics.is_empty();
+        let is_empty = is_empty
+            && self.cog.is_empty()
+            && self.cog.custom.mosaics.is_empty()
+            && self.cog.custom.stac.is_empty()
+            && self.cog.custom.tile_index.is_empty();
 
         #[cfg(feature = "unstable-duckdb")]
         let is_empty = is_empty && self.duckdb.is_empty();
@@ -422,7 +430,11 @@ impl Config {
         }
 
         #[cfg(feature = "cog")]
-        if !self.cog.is_empty() || !self.cog.custom.mosaics.is_empty() {
+        if !self.cog.is_empty()
+            || !self.cog.custom.mosaics.is_empty()
+            || !self.cog.custom.stac.is_empty()
+            || !self.cog.custom.tile_index.is_empty()
+        {
             let val = resolve_cog(&mut self.cog, idr, self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
@@ -534,6 +546,24 @@ impl Config {
                 &ProcessConfig::default(),
                 &self.cog.custom.mosaics,
                 CogMosaicSource::process,
+            )?;
+
+            #[cfg(feature = "cog")]
+            Self::insert_source_configs(
+                &mut map,
+                &global,
+                &ProcessConfig::default(),
+                &self.cog.custom.stac,
+                CogStacSource::process,
+            )?;
+
+            #[cfg(feature = "cog")]
+            Self::insert_source_configs(
+                &mut map,
+                &global,
+                &ProcessConfig::default(),
+                &self.cog.custom.tile_index,
+                CogTileIndexSource::process,
             )?;
 
             #[cfg(feature = "processing")]

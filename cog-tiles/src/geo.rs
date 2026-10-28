@@ -37,20 +37,55 @@ impl Georef {
     /// Reads and validates the georeferencing of the full-resolution image.
     pub fn from_ifd(ifd: &ImageFileDirectory, location: &str) -> CogResult<Self> {
         let unsupported = |reason| CogError::unsupported(location, reason);
-
-        let geo_keys = ifd
-            .geo_key_directory()
-            .ok_or_else(|| unsupported(UnsupportedReason::NoGeoKeys))?;
-        match geo_keys.projected_type {
-            Some(code) if WEB_MERCATOR_CODES.contains(&code) => {}
-            Some(code) => {
+        match projected_type(ifd, location)? {
+            code if WEB_MERCATOR_CODES.contains(&code) => {}
+            code => {
                 return Err(unsupported(UnsupportedReason::Crs { epsg: code }));
             }
-            None => {
-                return Err(unsupported(UnsupportedReason::NoProjectedCrs));
-            }
         }
+        let transform = PixelTransform::from_ifd(ifd, location)?;
+        if (transform.scale_x - transform.scale_y).abs() > MAX_NON_SQUARE_DIFFERENCE {
+            return Err(unsupported(UnsupportedReason::NonSquarePixels {
+                x: transform.scale_x,
+                y: transform.scale_y,
+            }));
+        }
+        Ok(Self {
+            origin_x: transform.origin_x,
+            origin_y: transform.origin_y,
+            resolution: transform.scale_x,
+        })
+    }
+}
 
+/// The `ProjectedCRSGeoKey` of an image.
+pub(crate) fn projected_type(ifd: &ImageFileDirectory, location: &str) -> CogResult<u16> {
+    let unsupported = |reason| CogError::unsupported(location, reason);
+    let geo_keys = ifd
+        .geo_key_directory()
+        .ok_or_else(|| unsupported(UnsupportedReason::NoGeoKeys))?;
+    geo_keys
+        .projected_type
+        .ok_or_else(|| unsupported(UnsupportedReason::NoProjectedCrs))
+}
+
+/// Where the full-resolution image sits in its own coordinate system, north up.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PixelTransform {
+    /// x of the top-left corner of the top-left pixel.
+    pub origin_x: f64,
+    /// y of the top-left corner of the top-left pixel.
+    pub origin_y: f64,
+    /// Pixel width, in coordinate system units.
+    pub scale_x: f64,
+    /// Pixel height, in coordinate system units.
+    pub scale_y: f64,
+}
+
+impl PixelTransform {
+    /// Reads and validates the pixel-to-model transform of the full-resolution image.
+    pub fn from_ifd(ifd: &ImageFileDirectory, location: &str) -> CogResult<Self> {
+        let unsupported = |reason| CogError::unsupported(location, reason);
         let (mut origin_x, mut origin_y, scale_x, scale_y) =
             if let (Some(scale), Some(tie)) = (ifd.model_pixel_scale(), ifd.model_tiepoint()) {
                 if scale.len() < 2 || tie.len() < 6 {
@@ -77,13 +112,8 @@ impl Georef {
                 y: scale_y,
             }));
         }
-        if (scale_x - scale_y).abs() > MAX_NON_SQUARE_DIFFERENCE {
-            return Err(unsupported(UnsupportedReason::NonSquarePixels {
-                x: scale_x,
-                y: scale_y,
-            }));
-        }
-        if geo_keys.raster_type == Some(RASTER_PIXEL_IS_POINT) {
+        let raster_type = ifd.geo_key_directory().and_then(|keys| keys.raster_type);
+        if raster_type == Some(RASTER_PIXEL_IS_POINT) {
             // The coordinates refer to pixel centers; tiles are aligned on pixel corners.
             origin_x -= scale_x / 2.0;
             origin_y += scale_y / 2.0;
@@ -91,11 +121,11 @@ impl Georef {
         if !(origin_x.is_finite() && origin_y.is_finite()) {
             return Err(unsupported(UnsupportedReason::NonFiniteOrigin));
         }
-
         Ok(Self {
             origin_x,
             origin_y,
-            resolution: scale_x,
+            scale_x,
+            scale_y,
         })
     }
 }

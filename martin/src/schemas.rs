@@ -103,7 +103,17 @@ fn with_ogc_style_alias(mut openapi: utoipa::openapi::OpenApi) -> utoipa::openap
 /// The OGC API - Maps routes.
 #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
 #[derive(OpenApi)]
-#[openapi(paths(crate::srv::ogcapi::get_style_map))]
+#[openapi(paths(
+    crate::srv::ogcapi::get_style_map,
+    crate::srv::ogcapi::get_collection_map,
+    crate::srv::ogcapi::get_dataset_map,
+    crate::srv::ogcapi::get_dataset_map_tilesets,
+    crate::srv::ogcapi::get_dataset_map_tileset,
+    crate::srv::ogcapi::get_dataset_map_tile,
+    crate::srv::ogcapi::get_style_map_tilesets,
+    crate::srv::ogcapi::get_style_map_tileset,
+    crate::srv::ogcapi::get_style_map_tile,
+))]
 struct MartinOgcApiMapsOpenApi;
 
 /// `openapi` with each path marked, as `x-martin-feature`, as served only by a build with `feature`.

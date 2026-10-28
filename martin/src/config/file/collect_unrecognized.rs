@@ -4,6 +4,8 @@ use std::num::{NonZeroI32, NonZeroU8, NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(feature = "cog")]
+use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::Srid;
 #[cfg(feature = "postgres")]
@@ -203,9 +205,15 @@ impl_empty_collect_unrecognized!(MacroIdFormat);
 #[cfg(all(feature = "webui", not(docsrs)))]
 impl_empty_collect_unrecognized!(WebUiMode);
 #[cfg(feature = "rendering")]
+impl_empty_collect_unrecognized!(martin_core::styles::TileSize, martin_core::styles::PixelRatios);
+#[cfg(any(feature = "rendering", feature = "cog"))]
+impl_empty_collect_unrecognized!(martin_core::ImageQuality, martin_core::LossyQuality);
+
+#[cfg(feature = "cog")]
 impl_empty_collect_unrecognized!(
-    martin_core::styles::TileSize,
-    martin_core::styles::PixelRatios,
-    martin_core::styles::ImageQuality,
-    martin_core::styles::LossyQuality
+    StacBandConfig,
+    StacOrderConfig,
+    CogTileFormat,
+    CogBackground,
+    serde_json::Map<String, serde_json::Value>
 );

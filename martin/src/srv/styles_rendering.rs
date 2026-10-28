@@ -80,6 +80,9 @@ enum EncodeError {
     Palette(#[from] png_palette::PngPaletteError),
     #[error("Failed to encode a lossy WebP: {0:?}")]
     Webp(webp::WebPEncodingError),
+    #[cfg(feature = "ogcapi")]
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
@@ -115,6 +118,27 @@ pub(super) async fn encode_scaled_image_response(
     .await
     {
         Ok(bytes) => HttpResponse::Ok().content_type(format.content_type()).body(bytes),
+        Err(e) => {
+            error!(error = %e, "Failed to encode image");
+            HttpResponse::InternalServerError()
+                .content_type(ContentType::plaintext())
+                .body("Failed to encode image")
+        }
+    }
+}
+
+/// Run `encode` under the limit image encodes share, and answer its bytes as `content_type`.
+#[cfg(all(feature = "ogcapi", target_os = "linux"))]
+pub(super) async fn encode_response<E: std::error::Error + Send + Sync + 'static>(
+    content_type: &'static str,
+    encode: impl FnOnce() -> Result<Vec<u8>, E> + Send + 'static,
+) -> HttpResponse {
+    match encode_off_worker(&ENCODE_PERMITS, move || {
+        encode().map_err(|e| EncodeError::Other(Box::new(e)))
+    })
+    .await
+    {
+        Ok(bytes) => HttpResponse::Ok().content_type(content_type).body(bytes),
         Err(e) => {
             error!(error = %e, "Failed to encode image");
             HttpResponse::InternalServerError()

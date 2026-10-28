@@ -2090,6 +2090,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures",
+ "image",
+ "insta",
  "jpeg-decoder",
  "moka",
  "object_store",
@@ -2100,6 +2102,7 @@ dependencies = [
  "tiff",
  "tokio",
  "tracing",
+ "webp",
 ]
 
 [[package]]
@@ -5917,6 +5920,7 @@ dependencies = [
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.21",
+ "tiff",
  "tilejson",
  "tokio",
  "tracing",
@@ -5952,6 +5956,7 @@ version = "0.15.0"
 dependencies = [
  "actix-web",
  "approx",
+ "async-trait",
  "backon",
  "base64 0.23.1",
  "bit-set 0.11.1",
@@ -6006,6 +6011,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "spreet",
+ "sqlx",
  "strum 0.28.0",
  "tempfile",
  "testcontainers-modules",
@@ -6042,6 +6048,7 @@ dependencies = [
  "libc",
  "martin-tile-utils",
  "mlt-core",
+ "object_store",
  "pbf_font_tools",
  "pmtiles",
  "png",
@@ -6056,7 +6063,9 @@ dependencies = [
  "sqlx",
  "tempfile",
  "test_each_file",
+ "testcontainers-modules",
  "thiserror 2.0.21",
+ "tiff",
  "tokio",
  "vt100 0.17.0",
  "windows-sys 0.61.2",

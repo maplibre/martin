@@ -137,6 +137,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/collections/{collection_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A raster collection rendered as a map. */
+        get: operations["ogc.collection.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/collections/{collection_id}/tiles": {
         parameters: {
             query?: never;
@@ -205,6 +222,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ogc/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The collections of the dataset drawn as one map, in the order `collections` names them. */
+        get: operations["ogc.dataset.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/map/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tilesets of all collections drawn together. */
+        get: operations["ogc.dataset.map.getTileSetsList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/map/tiles/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tileset of all collections drawn together, on `WebMercatorQuad`. */
+        get: operations["ogc.dataset.map.getTileSet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A map tile of all collections drawn together. */
+        get: operations["ogc.dataset.map.getTile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ogc/styles": {
         parameters: {
             query?: never;
@@ -248,6 +333,57 @@ export interface paths {
         };
         /** A style rendered as a map. */
         get: operations["ogc.dataset.style.getMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tilesets of a style. */
+        get: operations["ogc.dataset.style.map.getTileSetsList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The map tileset of a style on `WebMercatorQuad`. */
+        get: operations["ogc.dataset.style.map.getTileSet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ogc/styles/{style_id}/map/tiles/{tile_matrix_set_id}/{tile_matrix}/{tile_row}/{tile_col}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A map tile of a style. */
+        get: operations["ogc.dataset.style.map.getTile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -546,10 +682,14 @@ export interface components {
         };
         /** @description A tile source as an OGC API collection. */
         Collection: {
+            /** @description The CRSs the collection is served in, only the CRS of its grid. */
+            crs: string[];
             description?: string | null;
             extent: components["schemas"]["Extent"];
             id: string;
             links: components["schemas"]["Link"][];
+            /** @description The CRS of the collection's grid. */
+            storageCrs: string;
             title: string;
         };
         /** @description The collections the OGC API serves. */
@@ -566,7 +706,7 @@ export interface components {
          * @enum {string}
          */
         DataType: "map" | "vector";
-        /** @description Where a collection's data lies. */
+        /** @description Where a collection's or the dataset's data lies. */
         Extent: {
             spatial: components["schemas"]["SpatialExtent"];
         };
@@ -594,6 +734,8 @@ export interface components {
         /** @description The entry point of the OGC API. */
         LandingPage: {
             description: string;
+            /** @description Where the data of all collections lies. */
+            extent: components["schemas"]["Extent"];
             links: components["schemas"]["Link"][];
             title: string;
         };
@@ -613,10 +755,12 @@ export interface components {
             title: string;
             type: string;
         };
-        /** @description The bounding box of a collection, in longitude and latitude. */
+        /** @description The bounding box of a collection or the dataset, in longitude and latitude and in the CRS of a collection's grid. */
         SpatialExtent: {
             bbox: number[][];
             crs: string;
+            /** @description `bbox` in the CRS of the collection's grid, in its axis order. */
+            storageCrsBbox?: number[][] | null;
         };
         /**
          * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
@@ -783,7 +927,7 @@ export interface components {
             tileMatrixSetURI?: string | null;
             title: string;
         };
-        /** @description The tilesets of a collection. */
+        /** @description The tilesets of a collection, map or style. */
         TileSets: {
             links: components["schemas"]["Link"][];
             tilesets: components["schemas"]["TileSetItem"][];
@@ -1023,6 +1167,67 @@ export interface operations {
             };
         };
     };
+    "ogc.collection.getMap": {
+        parameters: {
+            query?: {
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description Collection ID, the ID of a source */
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map of the collection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description Invalid map parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such collection, or it can't be drawn as a map */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported map format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     "ogc.collection.vector.getTileSetsList": {
         parameters: {
             query?: never;
@@ -1155,6 +1360,143 @@ export interface operations {
             };
         };
     };
+    "ogc.dataset.getMap": {
+        parameters: {
+            query?: {
+                /** @description Width of the map in pixels. */
+                width?: number | null;
+                /** @description Height of the map in pixels. */
+                height?: number | null;
+                /** @description Area to show as `minx,miny,maxx,maxy` in `bbox-crs`. */
+                bbox?: string | null;
+                /** @description CRS of `bbox`, `CRS84` when not given. */
+                "bbox-crs"?: string | null;
+                /** @description Point to center the map on as `x,y` in `center-crs`. */
+                center?: string | null;
+                /** @description CRS of `center`, `CRS84` when not given. */
+                "center-crs"?: string | null;
+                /** @description Scale of the map. */
+                "scale-denominator"?: number | null;
+                /** @description Comma-separated IDs or URLs of the collections to draw, all of them when not given; a repeated one is drawn once. */
+                collections?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map of the dataset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description Invalid map parameters, or a collection that can't be drawn */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.map.getTileSetsList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tilesets of all collections drawn together */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSets"];
+                };
+            };
+        };
+    };
+    "ogc.dataset.map.getTileSet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tile matrix set ID, only `WebMercatorQuad` */
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tileset metadata with the tile URL template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSet"];
+                };
+            };
+            /** @description No such tileset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.map.getTile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tile_matrix_set_id: string;
+                tile_matrix: number;
+                tile_row: number;
+                tile_col: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tile of all collections drawn together */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description No such tileset or tile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported image format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     "ogc.dataset.getStyles": {
         parameters: {
             query?: never;
@@ -1246,6 +1588,7 @@ export interface operations {
                 content: {
                     "image/png": unknown;
                     "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
                 };
             };
             /** @description Invalid map parameters */
@@ -1263,6 +1606,110 @@ export interface operations {
                 content?: never;
             };
             /** @description No supported map format in Accept header */
+            406: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTileSetsList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tilesets of the style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSets"];
+                };
+            };
+            /** @description No such style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTileSet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Style ID */
+                style_id: string;
+                /** @description Tile matrix set ID, only `WebMercatorQuad` */
+                tile_matrix_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tileset metadata with the tile URL template */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TileSet"];
+                };
+            };
+            /** @description No such style or tileset */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "ogc.dataset.style.map.getTile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                tile_matrix_set_id: string;
+                tile_matrix: number;
+                tile_row: number;
+                tile_col: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Map tile of the style */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/tiff; application=geotiff": unknown;
+                };
+            };
+            /** @description No such style, tileset or tile */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No supported image format in Accept header */
             406: {
                 headers: {
                     [name: string]: unknown;

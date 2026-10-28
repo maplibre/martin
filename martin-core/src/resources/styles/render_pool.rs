@@ -1,6 +1,6 @@
 use std::num::{NonZeroU8, NonZeroU32, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
@@ -12,6 +12,32 @@ use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
 use crate::resources::styles::{StyleError, TileSize};
+
+/// A style to render: a file, or a style document already in memory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RenderStyle {
+    /// A style JSON file.
+    Path(PathBuf),
+    /// A style JSON document.
+    Json(Arc<str>),
+}
+
+impl From<PathBuf> for RenderStyle {
+    fn from(path: PathBuf) -> Self {
+        Self::Path(path)
+    }
+}
+
+impl RenderStyle {
+    /// Loads this style into `renderer`, waiting until it has loaded.
+    fn load<S>(&self, renderer: &mut ImageRenderer<S>) -> Result<(), StyleError> {
+        match self {
+            Self::Path(path) => renderer.load_style_from_path(path)?.wait()?,
+            Self::Json(json) => renderer.load_style_from_json_str(json.as_ref()).wait()?,
+        }
+        Ok(())
+    }
+}
 
 /// Parameters for a free-camera (static) map render.
 ///
@@ -26,8 +52,8 @@ use crate::resources::styles::{StyleError, TileSize};
 /// ```
 #[derive(Debug, Clone)]
 pub struct RenderParams {
-    /// Path to the style JSON file.
-    style_path: PathBuf,
+    /// Style to render.
+    style: RenderStyle,
     /// Camera target latitude in degrees (WGS84).
     lat: f64,
     /// Camera target longitude in degrees (WGS84).
@@ -51,12 +77,12 @@ pub struct RenderParams {
 }
 
 impl RenderParams {
-    /// Start a render request at `(lat, lon, zoom)` against `style_path`.
+    /// Start a render request at `(lat, lon, zoom)` against `style`.
     /// Size defaults to 512×512×1; orientation defaults to north-up flat.
     #[must_use]
-    pub fn new(style_path: PathBuf, lat: f64, lon: f64, zoom: f64) -> Self {
+    pub fn new(style: impl Into<RenderStyle>, lat: f64, lon: f64, zoom: f64) -> Self {
         Self {
-            style_path,
+            style: style.into(),
             lat,
             lon,
             zoom,
@@ -140,27 +166,40 @@ impl RenderPools {
     }
 
     /// Render a slippy tile of the pool's [`TileSize`] asynchronously.
-    pub async fn render_tile(&self, style_path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        self.render_tile_with_pixel_ratio(style_path, z, x, y, NonZeroU8::MIN)
-            .await
+    pub async fn render_tile(&self, style: impl Into<RenderStyle>, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        self.render_tile_with_pixel_ratio(style, z, x, y, NonZeroU8::MIN).await
     }
 
     /// Render a slippy tile asynchronously at `pixel_ratio` times the pixels of [`Self::render_tile`].
     pub async fn render_tile_with_pixel_ratio(
         &self,
-        style_path: PathBuf,
+        style: impl Into<RenderStyle>,
         z: u8,
         x: u32,
         y: u32,
         pixel_ratio: NonZeroU8,
     ) -> Result<Image, StyleError> {
+        self.render_tile_of_size(style, z, x, y, self.tile_size, pixel_ratio)
+            .await
+    }
+
+    /// Render a slippy tile of `tile_size` instead of the pool's [`TileSize`], at `pixel_ratio` times its pixels.
+    pub async fn render_tile_of_size(
+        &self,
+        style: impl Into<RenderStyle>,
+        z: u8,
+        x: u32,
+        y: u32,
+        tile_size: TileSize,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
         self.tile
             .render(TileRequest {
-                style_path,
+                style: style.into(),
                 z,
                 x,
                 y,
-                tile_size: self.tile_size,
+                tile_size,
                 pixel_ratio,
             })
             .await
@@ -324,7 +363,7 @@ trait Worker: 'static {
 
 /// A slippy-tile render request.
 struct TileRequest {
-    style_path: PathBuf,
+    style: RenderStyle,
     z: u8,
     x: u32,
     y: u32,
@@ -377,7 +416,7 @@ pub const DEFAULT_RENDERERS_PER_WORKER: NonZeroUsize = NonZeroUsize::new(8).expe
 
 /// A tile renderer for one geometry with a style loaded.
 struct TileSlot {
-    style_path: PathBuf,
+    style: RenderStyle,
     geometry: Geometry,
     renderer: ImageRenderer<Tile>,
 }
@@ -406,24 +445,24 @@ impl TileWorker {
         self
     }
 
-    /// Moves the renderer for `style_path` and `geometry` to the front, loading it if needed.
-    fn slot(&mut self, style_path: &Path, geometry: Geometry) -> Result<&mut TileSlot, StyleError> {
+    /// Moves the renderer for `style` and `geometry` to the front, loading it if needed.
+    fn slot(&mut self, style: &RenderStyle, geometry: Geometry) -> Result<&mut TileSlot, StyleError> {
         if let Some(i) = self
             .slots
             .iter()
-            .position(|s| s.geometry == geometry && s.style_path == style_path)
+            .position(|s| s.geometry == geometry && &s.style == style)
         {
             // Move the hit to the front, keeping the others in most-recently-used order,
             // so the `truncate` below always drops the least recently used renderer.
             self.slots[..=i].rotate_right(1);
         } else {
             let mut renderer = geometry.renderer(self.ambient_cache_bytes);
-            renderer.load_style_from_path(style_path)?.wait()?;
+            style.load(&mut renderer)?;
             self.slots.truncate(self.capacity.get() - 1);
             self.slots.insert(
                 0,
                 TileSlot {
-                    style_path: style_path.to_path_buf(),
+                    style: style.clone(),
                     geometry,
                     renderer,
                 },
@@ -438,7 +477,7 @@ impl Worker for TileWorker {
     type Request = TileRequest;
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
-        self.slot(&req.style_path, Geometry::of(&req))?
+        self.slot(&req.style, Geometry::of(&req))?
             .renderer
             .render_tile(req.z, req.x, req.y)
             .map_err(StyleError::RenderingError)
@@ -479,7 +518,7 @@ impl Worker for StaticWorker {
     }
 }
 
-/// Loads `path` into `renderer`, skipping the load if it is already the cached style.
+/// Loads `style` into `renderer`, skipping the load if it is already the cached style.
 ///
 /// `MapLibre` drops the active style the moment a new load begins, so a failed load
 /// here (early `?` return) must leave the cache empty.
@@ -487,15 +526,15 @@ impl Worker for StaticWorker {
 /// and render against the now-missing style.
 fn load_style_cached<S>(
     renderer: &mut ImageRenderer<S>,
-    cached: &mut Option<PathBuf>,
-    path: &Path,
+    cached: &mut Option<RenderStyle>,
+    style: &RenderStyle,
 ) -> Result<(), StyleError> {
-    if cached.as_deref() == Some(path) {
+    if cached.as_ref() == Some(style) {
         return Ok(());
     }
     *cached = None;
-    renderer.load_style_from_path(path)?.wait()?;
-    *cached = Some(path.to_path_buf());
+    style.load(renderer)?;
+    *cached = Some(style.clone());
     Ok(())
 }
 
@@ -542,7 +581,7 @@ struct StaticRenderer {
     width: u32,
     height: u32,
     pixel_ratio: NonZeroU8,
-    loaded_style: Option<PathBuf>,
+    loaded_style: Option<RenderStyle>,
 }
 
 impl StaticRenderer {
@@ -567,7 +606,7 @@ impl StaticRenderer {
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
-        load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style_path)?;
+        load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
         let camera = CameraUpdate::new()
             .center(LatLng {
                 lat: params.lat,
@@ -653,7 +692,7 @@ mod tests {
                 // The zoom-0 world tile always contains the origin polygon, so
                 // every concurrent render produces the same non-blank image.
                 pool.render(TileRequest {
-                    style_path: style,
+                    style: style.into(),
                     z: 0,
                     x: 0,
                     y: 0,
@@ -683,7 +722,7 @@ mod tests {
         for (pixel_ratio, px) in [(1, 512), (2, 1024), (1, 512), (3, 1536), (2, 1024)] {
             let image = pool
                 .render(TileRequest {
-                    style_path: style.clone(),
+                    style: style.clone().into(),
                     z: 0,
                     x: 0,
                     y: 0,
@@ -732,7 +771,7 @@ mod tests {
 
         let image = pool
             .render(TileRequest {
-                style_path: style_file.path().to_path_buf(),
+                style: style_file.path().to_path_buf().into(),
                 z,
                 x: 0,
                 y: 0,
@@ -758,11 +797,13 @@ mod tests {
         let mut worker = TileWorker::new(NonZeroUsize::new(2).expect("2 != 0"));
 
         for &i in requested {
-            worker.slot(styles[i].path(), PX512).expect("load style");
+            worker
+                .slot(&styles[i].path().to_path_buf().into(), PX512)
+                .expect("load style");
         }
 
-        let loaded: Vec<_> = worker.slots.iter().map(|s| s.style_path.as_path()).collect();
-        let expected: Vec<_> = kept.iter().map(|&i| styles[i].path()).collect();
+        let loaded: Vec<_> = worker.slots.iter().map(|s| s.style.clone()).collect();
+        let expected: Vec<RenderStyle> = kept.iter().map(|&i| styles[i].path().to_path_buf().into()).collect();
         assert_eq!(loaded, expected);
     }
 
@@ -772,8 +813,9 @@ mod tests {
         let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
         let two_x = Geometry::Tile(TileSize::Px512, NonZeroU8::new(2).expect("2 != 0"));
 
-        worker.slot(style.path(), PX512).expect("load style");
-        worker.slot(style.path(), two_x).expect("load style");
+        let style = style.path().to_path_buf().into();
+        worker.slot(&style, PX512).expect("load style");
+        worker.slot(&style, two_x).expect("load style");
 
         let geometries: Vec<_> = worker.slots.iter().map(|s| s.geometry).collect();
         assert_eq!(geometries, [two_x, PX512]);
@@ -783,7 +825,7 @@ mod tests {
     fn a_style_that_fails_to_load_takes_no_slot() {
         let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
 
-        let result = worker.slot(Path::new("/nonexistent/style.json"), PX512);
+        let result = worker.slot(&PathBuf::from("/nonexistent/style.json").into(), PX512);
 
         assert!(result.is_err());
         assert!(worker.slots.is_empty());
@@ -839,5 +881,22 @@ mod tests {
         assert_eq!((img.width(), img.height()), (256, 384));
         let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
         assert!(unique.len() > 1, "image is blank");
+    }
+
+    #[tokio::test]
+    async fn a_style_in_memory_renders_as_its_file_does() {
+        let style_file = write_style();
+        let pool = RenderPool::new(NonZeroUsize::new(1), StaticWorker::default).expect("spawn render pool");
+
+        let from_file = pool
+            .render(RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 2.0))
+            .await
+            .expect("render the file");
+        let in_memory = pool
+            .render(RenderParams::new(RenderStyle::Json(POLY_STYLE.into()), 0.0, 0.0, 2.0))
+            .await
+            .expect("render the document");
+
+        assert_eq!(in_memory.as_image(), from_file.as_image());
     }
 }

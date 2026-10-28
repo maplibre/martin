@@ -40,12 +40,10 @@ pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams};
+pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
 
 #[cfg(feature = "rendering")]
-mod image_quality;
-#[cfg(feature = "rendering")]
-pub use image_quality::{ImageQualities, ImageQuality, LossyQuality};
+pub use crate::image_quality::{ImageQuality, LossyQuality};
 #[cfg(feature = "rendering")]
 mod pixel_ratio;
 #[cfg(feature = "rendering")]
@@ -54,6 +52,16 @@ pub use pixel_ratio::{InvalidPixelRatios, PixelRatioNotServed, PixelRatios};
 mod tile_size;
 #[cfg(feature = "rendering")]
 pub use tile_size::{InvalidTileSize, TileSize};
+
+/// Quality rendered images are encoded at, per format.
+#[cfg(feature = "rendering")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct ImageQualities {
+    /// Quality of WebP images.
+    pub webp: ImageQuality,
+    /// Quality of JPEG images, which have no lossless mode.
+    pub jpeg: LossyQuality,
+}
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -197,15 +205,15 @@ impl StyleSources {
 
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        self.render_with_pixel_ratio(path, z, x, y, NonZeroU8::MIN).await
+    pub async fn render(&self, style: impl Into<RenderStyle>, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        self.render_with_pixel_ratio(style, z, x, y, NonZeroU8::MIN).await
     }
 
     /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render_with_pixel_ratio(
         &self,
-        path: PathBuf,
+        style: impl Into<RenderStyle>,
         z: u8,
         x: u32,
         y: u32,
@@ -214,7 +222,25 @@ impl StyleSources {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
-            .render_tile_with_pixel_ratio(path, z, x, y, pixel_ratio)
+            .render_tile_with_pixel_ratio(style, z, x, y, pixel_ratio)
+            .await
+    }
+
+    /// Renders a slippy tile of `tile_size` instead of the configured [`TileSize`], at `pixel_ratio` times its pixels.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render_of_size(
+        &self,
+        style: impl Into<RenderStyle>,
+        z: u8,
+        x: u32,
+        y: u32,
+        tile_size: TileSize,
+        pixel_ratio: NonZeroU8,
+    ) -> Result<Image, StyleError> {
+        self.pools
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_tile_of_size(style, z, x, y, tile_size, pixel_ratio)
             .await
     }
 

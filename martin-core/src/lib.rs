@@ -12,6 +12,11 @@ pub mod cache;
 mod cache_zoom_range;
 pub use crate::cache_zoom_range::CacheZoomRange;
 
+#[cfg(any(feature = "rendering", feature = "cog"))]
+mod image_quality;
+#[cfg(any(feature = "rendering", feature = "cog"))]
+pub use crate::image_quality::{ImageQuality, LossyQuality};
+
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
