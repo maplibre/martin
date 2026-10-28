@@ -63,16 +63,9 @@ def test_an_unknown_format_is_rejected():
         cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="gif")
 
 
-@pytest.mark.parametrize(
-    ("arguments", "message"),
-    [
-        ({}, "quality needs format webp or jpeg"),
-        ({"format": "png"}, "quality needs format webp or jpeg"),
-    ],
-)
-def test_quality_is_rejected_without_a_lossy_format(arguments, message):
-    with rejects(message):
-        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", quality=80, **arguments)
+def test_quality_is_rejected_with_format_png():
+    with rejects("quality needs format webp or jpeg"):
+        cog_tiles.open(SYNTHETIC / "rgb_zstd.tif", format="png", quality=80)
 
 
 @pytest.mark.parametrize(

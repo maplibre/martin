@@ -11,7 +11,7 @@ import cog_tiles
 cog = cog_tiles.open("s3://bucket/ortho.tif", options={"aws_region": "us-west-2"})
 cog.min_zoom, cog.max_zoom, cog.tile_size, cog.format, cog.bounds
 
-# One encoded tile, ready to serve or store (JPEG/WebP as stored, others as PNG).
+# One encoded tile, ready to serve or store (WebP unless `format` says otherwise).
 png = cog.tile(18, 41936, 101296)
 
 # Every tile in an area, fetched 64 at a time in the background, in arrival order.
@@ -66,8 +66,8 @@ cog = cog_tiles.open("s3://bucket/ortho.tif", format="jpeg", quality=90, backgro
 | `webp`   | 1 to 100 or `"lossless"`, 80 when unset  | kept exactly, even lossy                                       |
 | `jpeg`   | 1 to 100, 80 when unset                  | painted over `background`: a CSS color or `(r, g, b)`, white when unset |
 
-Without `format`, JPEG and WebP tiles are returned as stored and others as PNG. With it, every tile
-is decoded and encoded again, also JPEG and WebP tiles, so lossy tiles lose detail again.
+Without `format`, tiles are encoded as WebP. Every tile is decoded and encoded again, also JPEG and
+WebP tiles, so lossy tiles lose detail again.
 `tile_pixels` and `read` return the decoded pixels either way.
 
 ## What it reads

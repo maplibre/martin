@@ -25,21 +25,21 @@ def test_open_reports_the_tile_layout():
     cog = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif")
     assert isinstance(cog, cog_tiles.TileSource)
     assert (cog.min_zoom, cog.max_zoom, cog.tile_size) == (15, 16, 256)
-    assert (cog.format, cog.content_type) == ("jpg", "image/jpeg")
+    assert (cog.format, cog.content_type) == ("webp", "image/webp")
     west, south, east, north = cog.bounds
     assert west == pytest.approx(-0.10986328125)
     assert west < east
     assert south < north
 
 
-def test_a_jpeg_cog_returns_jpeg_tiles():
+def test_a_jpeg_cog_returns_webp_tiles():
     cog = cog_tiles.open(SYNTHETIC / "rgb_jpeg.tif")
-    assert cog.tile(16, 32_748, 21_794).startswith(b"\xff\xd8")
+    assert cog.tile(16, 32_748, 21_794)[8:12] == b"WEBP"
 
 
-def test_a_zstd_cog_returns_png_tiles():
+def test_a_zstd_cog_returns_webp_tiles():
     cog = cog_tiles.open(SYNTHETIC / "rgb_zstd.tif")
-    assert cog.tile(16, 32_748, 21_794).startswith(b"\x89PNG\r\n\x1a\n")
+    assert cog.tile(16, 32_748, 21_794)[8:12] == b"WEBP"
 
 
 def test_an_empty_tile_is_none():

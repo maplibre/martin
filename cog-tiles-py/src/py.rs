@@ -310,7 +310,7 @@ type CogArgs = (PathBuf, BTreeMap<String, String>);
 impl Cog {
     /// Opens the COG at `location`, the work that `open` and `open_async` wait for.
     fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
-        let encoding = self.encoding.encoding();
+        let encoding = Some(self.encoding.encoding());
         Ok(Source::open(parse_location(&self.location, &self.options)?, encoding))
     }
 
@@ -367,7 +367,7 @@ impl Mosaic {
         let root = Location::parse(&root, &pairs)?;
         let template = template.to_owned();
         let options = self.options;
-        let encoding = self.encoding.encoding();
+        let encoding = Some(self.encoding.encoding());
         Ok(async move { Source::open_mosaic(root, &template, options, encoding).await })
     }
 
@@ -557,8 +557,7 @@ impl TileIterator {
 ///
 /// `format` (`"png"`, `"webp"` or `"jpeg"`) re-encodes every tile, with `quality` from 1 to 100
 /// (80 when unset) or `"lossless"` for WebP, and JPEG painted over `background`, a CSS color or
-/// `(red, green, blue)` (white when unset). Without it, JPEG and WebP tiles are returned as stored
-/// and others as PNG.
+/// `(red, green, blue)` (white when unset). `format` is `"webp"` when unset.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (location, options = None, *, format = None, quality = None, background = None))]
@@ -785,12 +784,13 @@ impl<'py> FromPyObject<'_, 'py> for Background {
 }
 
 /// The tile format a source re-encodes to.
-#[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString, strum::VariantNames)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, strum::Display, strum::EnumString, strum::VariantNames)]
 #[strum(serialize_all = "lowercase")]
 pub enum Format {
     /// Lossless PNG.
     Png,
-    /// WebP, lossy or lossless.
+    /// WebP, lossy or lossless, the default.
+    #[default]
     Webp,
     /// Lossy JPEG, painted over a background where tiles are transparent.
     Jpeg,
@@ -808,12 +808,12 @@ impl<'py> FromPyObject<'_, 'py> for Format {
 }
 
 /// The `format`, `quality` and `background` a source re-encodes its tiles with.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct EncodingArgs {
     format: Option<Format>,
     quality: Option<Quality>,
     background: Option<Background>,
-    encoding: Option<TileEncoding>,
+    encoding: TileEncoding,
 }
 
 impl EncodingArgs {
@@ -825,36 +825,36 @@ impl EncodingArgs {
 
     /// The arguments as given to `open` or `open_mosaic`, rejecting a `quality` or `background` the `format` cannot use.
     fn new(format: Option<Format>, quality: Option<Quality>, background: Option<Background>) -> PyResult<Self> {
-        if quality.is_some() && !matches!(format, Some(Format::Webp | Format::Jpeg)) {
+        let used = format.unwrap_or_default();
+        if quality.is_some() && !matches!(used, Format::Webp | Format::Jpeg) {
             return Err(PyValueError::new_err("quality needs format webp or jpeg"));
         }
-        if background.is_some() && format != Some(Format::Jpeg) {
+        if background.is_some() && used != Format::Jpeg {
             return Err(PyValueError::new_err("background needs format jpeg"));
         }
         let level = |quality| match quality {
             Some(Quality::Level(level)) => level,
             _ => Self::DEFAULT_QUALITY,
         };
-        let encoding = match format {
-            None => None,
-            Some(Format::Png) => Some(TileEncoding::Png),
-            Some(Format::Webp) => Some(TileEncoding::Webp {
+        let encoding = match used {
+            Format::Png => TileEncoding::Png,
+            Format::Webp => TileEncoding::Webp {
                 quality: match quality {
                     Some(Quality::Lossless) => None,
                     quality => Some(level(quality)),
                 },
-            }),
-            Some(Format::Jpeg) if matches!(quality, Some(Quality::Lossless)) => {
+            },
+            Format::Jpeg if matches!(quality, Some(Quality::Lossless)) => {
                 return Err(PyValueError::new_err(
                     "JPEG has no lossless mode, so quality must be 1 to 100",
                 ));
             }
-            Some(Format::Jpeg) => {
+            Format::Jpeg => {
                 let (r, g, b) = background.map_or(Self::DEFAULT_BACKGROUND, |Background(rgb)| rgb);
-                Some(TileEncoding::Jpeg {
+                TileEncoding::Jpeg {
                     quality: level(quality),
                     background: [r, g, b],
-                })
+                }
             }
         };
         Ok(Self {
@@ -865,8 +865,8 @@ impl EncodingArgs {
         })
     }
 
-    /// The encoding these arguments ask for, or `None` to return tiles as stored.
-    fn encoding(&self) -> Option<TileEncoding> {
+    /// The encoding these arguments ask for.
+    fn encoding(&self) -> TileEncoding {
         self.encoding
     }
 
