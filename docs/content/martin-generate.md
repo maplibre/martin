@@ -157,10 +157,10 @@ Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`
 
 - `--memory` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
   with many threads the total can exceed `--memory`. More memory means fewer, longer sorted runs. Up to
-  256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
+  4096 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
   and writes the temporary data one more time.
 - The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows
-  with the zoom range and is usually several times the size of the input. Merging more than 256 runs
+  with the zoom range and is usually several times the size of the input. Merging more than 4096 runs
   needs room for one more copy.
 - `--temp-dir` takes the sorted runs in turn. Directories on separate disks spread the I/O.
 - `--threads` sets the number of render workers and encoders.
