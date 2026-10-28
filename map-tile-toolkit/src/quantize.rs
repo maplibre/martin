@@ -896,8 +896,8 @@ fn cell_size(lengths: &mut [i64], min: Fixed, max: Fixed, floor: i64) -> i64 {
         .max(floor)
 }
 
-/// Up to this many vertices, [`near_vertices`] checks every vertex against every edge: building the grid
-/// costs more than it saves.
+/// Up to this many vertices, [`near_vertices`] checks every vertex against every edge.
+/// Building the grid costs more than it saves for values below it.
 const GRID_MIN_VERTICES: usize = 32;
 
 /// Whether `test(v, a, b)` holds for every vertex `v` within a unit of an edge from vertex `a` to vertex
