@@ -166,7 +166,14 @@ async fn a_renderer_whose_still_image_fails_is_replaced() {
     }
 
     let cassette = Cassette::serving(UPSTREAMS).await;
-    let unknown_font = cassette.style(fixture("styles/unknown_font.json"));
+    let styles = tempfile::tempdir().expect("failed to create a temp dir");
+    let unknown_font = styles.path().join("unknown_font.json");
+    let style = std::fs::read_to_string(fixture("styles/unknown_font.json")).expect("failed to read the fixture");
+    std::fs::write(
+        &unknown_font,
+        style.replace("https://glyphs.invalid", &cassette.url("glyphs.invalid")),
+    )
+    .expect("failed to write the style");
     let unknown_font = unknown_font.display();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"

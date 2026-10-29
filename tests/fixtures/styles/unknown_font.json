@@ -1,24 +1,24 @@
 {
-  "version": 8,
-  "name": "Unknown font",
-  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-  "sources": {
-    "spot": {
-      "type": "geojson",
-      "data": {
-        "type": "Feature",
-        "properties": { "name": "spot" },
-        "geometry": { "type": "Point", "coordinates": [0, 0] }
-      }
-    }
-  },
+  "glyphs": "https://glyphs.invalid/font/{fontstack}/{range}.pbf",
   "layers": [
-    { "id": "background", "type": "background", "paint": { "background-color": "#ffffff" } },
+    { "id": "background", "paint": { "background-color": "#ffffff" }, "type": "background" },
     {
       "id": "label",
-      "type": "symbol",
+      "layout": { "text-field": ["get", "name"], "text-font": ["Nonexistent"] },
       "source": "spot",
-      "layout": { "text-field": ["get", "name"], "text-font": ["Nonexistent"] }
+      "type": "symbol"
     }
-  ]
+  ],
+  "name": "Unknown font",
+  "sources": {
+    "spot": {
+      "data": {
+        "geometry": { "coordinates": [0, 0], "type": "Point" },
+        "properties": { "name": "spot" },
+        "type": "Feature"
+      },
+      "type": "geojson"
+    }
+  },
+  "version": 8
 }
