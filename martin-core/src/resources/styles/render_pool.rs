@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::renderer::{Renderer, Runtime};
+use crate::resources::styles::renderer::{NATIVE_TIMEOUT, Renderer, Runtime};
 use crate::resources::styles::{StyleError, TileSize};
 
 /// A style to render: a file, or a style document already in memory.
@@ -157,7 +157,7 @@ impl RenderPools {
         renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
     ) -> Result<Self, StyleError> {
-        let runtime = Arc::new(Runtime::new(ambient_cache_bytes)?);
+        let runtime = Arc::new(Runtime::new(ambient_cache_bytes, NATIVE_TIMEOUT)?);
         let tile_runtime = Arc::clone(&runtime);
         Ok(Self {
             tile: RenderPool::new(workers, move || {
@@ -539,7 +539,7 @@ impl Worker for StaticWorker {
 
 /// Whether `result` came from a map that may never answer again (maplibre/maplibre-native-ffi#786).
 fn wedged(result: &Result<Image, StyleError>) -> bool {
-    matches!(result, Err(StyleError::RenderingError(_)))
+    matches!(result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. }))
 }
 
 /// Loads `style` into `renderer`, skipping the load if it is already the cached style.
@@ -574,7 +574,7 @@ impl<'r> RendererWithOverlay<'r> {
     /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
     /// guard drops.
     fn apply(renderer: &'r mut Renderer, spec: &OverlaySpec) -> Result<Self, StyleError> {
-        let applied = apply_to_style(spec, renderer).map_err(StyleError::OverlayApply)?;
+        let applied = apply_to_style(spec, renderer)?;
         Ok(Self {
             renderer,
             applied: Some(applied),
@@ -684,7 +684,7 @@ mod tests {
     #[tokio::test]
     async fn concurrent_tile_renders_all_succeed() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = Arc::new(
             RenderPool::new(NonZeroUsize::new(4), move || {
                 TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
@@ -724,7 +724,7 @@ mod tests {
     #[tokio::test]
     async fn one_worker_renders_each_pixel_ratio_at_its_own_size() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || {
             TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
         })
@@ -751,7 +751,7 @@ mod tests {
     #[tokio::test]
     async fn static_worker_renders_each_pixel_ratio_at_its_own_size() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
             .expect("spawn render pool");
 
@@ -780,7 +780,7 @@ mod tests {
         #[case] px: u32,
     ) {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || {
             TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
         })
@@ -811,7 +811,7 @@ mod tests {
     #[case::a_hit_outlives_an_older_style(&[0, 1, 0, 2], &[2, 0])]
     fn a_full_worker_keeps_the_most_recently_used_styles(#[case] requested: &[usize], #[case] kept: &[usize]) {
         let styles: [_; 3] = std::array::from_fn(|_| write_style());
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let mut worker = TileWorker::new(runtime, NonZeroUsize::new(2).expect("2 != 0"));
 
         for &i in requested {
@@ -828,7 +828,7 @@ mod tests {
     #[test]
     fn each_geometry_of_a_style_has_its_own_renderer() {
         let style = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
         let two_x = Geometry::Tile(TileSize::Px512, NonZeroU8::new(2).expect("2 != 0"));
 
@@ -842,7 +842,7 @@ mod tests {
 
     #[test]
     fn a_style_that_fails_to_load_takes_no_slot() {
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
 
         let result = worker.slot(&PathBuf::from("/nonexistent/style.json").into(), PX512);
@@ -858,7 +858,7 @@ mod tests {
             .tempfile()
             .expect("create style tempfile");
         std::fs::write(style.path(), "{ not a style").expect("write style");
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
 
         let err = worker.slot(&style.path().to_path_buf().into(), PX512).err();
@@ -870,7 +870,7 @@ mod tests {
     #[tokio::test]
     async fn static_worker_renders_each_size_at_its_own_size() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
             .expect("spawn render pool");
 
@@ -890,7 +890,7 @@ mod tests {
     #[tokio::test]
     async fn a_static_render_below_zoom_0_renders_as_zoom_0() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
             .expect("spawn render pool");
 
@@ -950,7 +950,7 @@ mod tests {
     #[tokio::test]
     async fn static_render_honours_custom_size() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
             .expect("spawn render pool");
         let style = style_file.path().to_path_buf();
@@ -967,7 +967,7 @@ mod tests {
     #[tokio::test]
     async fn a_style_in_memory_renders_as_its_file_does() {
         let style_file = write_style();
-        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let runtime = Arc::new(Runtime::new(None, NATIVE_TIMEOUT).expect("start runtime"));
         let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
             .expect("spawn render pool");
 

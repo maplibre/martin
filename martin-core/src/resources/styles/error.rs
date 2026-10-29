@@ -1,4 +1,7 @@
 #[cfg(all(feature = "rendering", target_os = "linux"))]
+use std::time::Duration;
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::overlay::ApplyError;
 
 /// Errors that can occur during style processing.
@@ -21,6 +24,16 @@ pub enum StyleError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
     RenderingError(#[from] maplibre_native_ffi::Error),
+
+    /// `MapLibre` did not answer a call within the time it is given.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("MapLibre did not answer within {}s: {call}", timeout.as_secs())]
+    Timeout {
+        /// The call that went unanswered.
+        call: &'static str,
+        /// How long it was waited for.
+        timeout: Duration,
+    },
 
     /// No graphics device can be created, so no renderer can be created.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
