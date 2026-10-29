@@ -56,17 +56,6 @@ pub fn apply_to_style(spec: &OverlaySpec, renderer: &Renderer) -> Result<Applied
     Ok(guard.commit())
 }
 
-/// Wraps a rejection by maplibre into [`ApplyError`] for the overlay item `id`, leaving any other failure as it is.
-fn rejected(id: String) -> impl FnOnce(StyleError) -> StyleError {
-    move |error| {
-        if let StyleError::RenderingError(error) = error {
-            StyleError::OverlayApply(ApplyError { id, error })
-        } else {
-            error
-        }
-    }
-}
-
 /// Which layer kinds a feature fans out to, in draw order:
 /// - A point draws a circle,
 /// - a line draws a line, and
@@ -148,7 +137,10 @@ impl<'r> OverlayGuard<'r> {
         let map = self.renderer.map();
         self.renderer
             .command(map.add_style_source_json(&source_id, &source.to_string()))
-            .map_err(rejected(format!("f{index}")))?;
+            .map_err(|e| match e {
+                StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}"), error }),
+                e => e,
+            })?;
         self.source_ids.push(source_id.clone());
 
         for kind in kinds {
@@ -156,7 +148,10 @@ impl<'r> OverlayGuard<'r> {
             let layer = layer_json(kind, &layer_id, &source_id, &props);
             self.renderer
                 .command(map.add_style_layer_json(&layer.to_string(), ""))
-                .map_err(rejected(format!("f{index}-{kind}")))?;
+                .map_err(|e| match e {
+                    StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}-{kind}"), error }),
+                    e => e,
+                })?;
             self.layer_ids.push(layer_id);
         }
 
