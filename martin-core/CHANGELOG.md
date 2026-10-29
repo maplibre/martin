@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/maplibre/martin/compare/martin-core-v0.14.0...martin-core-v0.15.0) - 2026-10-29
+
+### Added
+
+- *(cog)* open STAC API searches in the Python bindings ([#3828](https://github.com/maplibre/martin/pull/3828))
+- *(cog)* re-encode COG tiles as a configured format, quality and background ([#3822](https://github.com/maplibre/martin/pull/3822))
+- *(ogcapi)* serve the dataset and style maps as map tilesets ([#3806](https://github.com/maplibre/martin/pull/3806))
+- *(ogcapi)* serve raster collections as maps ([#3803](https://github.com/maplibre/martin/pull/3803))
+- *(cog)* serve the COGs a gdaltindex tile index lists ([#3820](https://github.com/maplibre/martin/pull/3820))
+- *(cog)* serve the imagery a STAC API finds for each tile ([#3815](https://github.com/maplibre/martin/pull/3815))
+- *(rendering)* [**breaking**] lossy WebP and a configurable WebP/JPEG quality for rendered images ([#3813](https://github.com/maplibre/martin/pull/3813))
+- *(martin)* review `martin test generate` cases in the terminal ([#3688](https://github.com/maplibre/martin/pull/3688))
+
+### Fixed
+
+- *(rendering)* do not reuse a static renderer for a nearby pixel ratio ([#3753](https://github.com/maplibre/martin/pull/3753))
+- *(core)* sources no longer advertise zooms above 30 in their TileJSON ([#3772](https://github.com/maplibre/martin/pull/3772))
+
+### Other
+
+- *(cog)* move the tile index and STAC index into cog-tiles ([#3826](https://github.com/maplibre/martin/pull/3826))
+- *(deps)* bump oxipng to 10.2.1 so the release PR's sprite test passes ([#3797](https://github.com/maplibre/martin/pull/3797))
+- *(deps)* bump spreet to 0.14, dropping the unmaintained ttf-parser and rustybuzz ([#3781](https://github.com/maplibre/martin/pull/3781))
+
 ## [0.14.0](https://github.com/maplibre/martin/compare/martin-core-v0.13.0...martin-core-v0.14.0) - 2026-10-22
 
 ### Added
