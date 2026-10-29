@@ -494,7 +494,7 @@ impl Worker for TileWorker {
             .slot(&req.style, geometry)?
             .renderer
             .render(geometry.camera(req.z, req.x, req.y));
-        if wedged(&result) {
+        if matches!(&result, Err(StyleError::RenderingError(_))) {
             self.slots.remove(0);
         }
         result
@@ -530,16 +530,11 @@ impl Worker for StaticWorker {
             }
         };
         let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
-        if wedged(&result) {
+        if matches!(&result, Err(StyleError::RenderingError(_))) {
             self.current = None;
         }
         result
     }
-}
-
-/// Whether `result` came from a map that may never answer again (maplibre/maplibre-native-ffi#786).
-fn wedged(result: &Result<Image, StyleError>) -> bool {
-    matches!(result, Err(StyleError::RenderingError(_)))
 }
 
 /// Loads `style` into `renderer`, skipping the load if it is already the cached style.
