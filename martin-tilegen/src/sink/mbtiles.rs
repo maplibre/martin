@@ -162,7 +162,6 @@ impl TileSink for MbtilesSink {
                     None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
                 };
             }
-            // After the hash, which writes `hash_algorithm`; `create_with` already applied an edited one.
             self.mbt
                 .edit_metadata(&mut self.conn, &self.options.set_meta, &self.options.delete_meta)
                 .await?;
