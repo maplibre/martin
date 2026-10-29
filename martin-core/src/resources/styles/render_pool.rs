@@ -537,11 +537,6 @@ impl Worker for StaticWorker {
     }
 }
 
-/// Whether `result` came from a map that may never answer again (maplibre/maplibre-native-ffi#786).
-fn wedged(result: &Result<Image, StyleError>) -> bool {
-    matches!(result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. }))
-}
-
 /// Loads `style` into `renderer`, skipping the load if it is already the cached style.
 ///
 /// `MapLibre` drops the active style the moment a new load begins, so a failed load
