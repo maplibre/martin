@@ -155,6 +155,9 @@ pub enum CogError {
     StacUserAgent {
         /// The user agent as given.
         user_agent: String,
+        /// Why it is not a valid header value.
+        #[source]
+        header: reqwest::header::InvalidHeaderValue,
     },
 
     /// A request to a STAC API fails.
@@ -306,6 +309,7 @@ pub enum CogError {
         /// The file's location as written in the index.
         location: String,
         /// Why it cannot be read.
+        #[source]
         error: Box<dyn std::error::Error + Send + Sync>,
     },
 

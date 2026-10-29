@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, TileIndex};
+use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, MAX_LATITUDE, TileIndex};
 use tilejson::{Bounds, Center, tilejson};
 
 use crate::CacheZoomRange;
@@ -57,7 +57,6 @@ impl CogSource {
             resolve,
         )
         .await?;
-        let [west, south, east, north] = index.bounds();
         let mosaic_options = IndexedMosaicOptions::new(options.min_zoom, options.bands)
             .with_max_zoom(options.max_zoom)
             .with_nodata(options.nodata)
@@ -66,6 +65,7 @@ impl CogSource {
             .with_file_idle_timeout(options.file_idle_timeout);
         let mosaic = AsyncIndexedMosaic::open_tile_index(index, mosaic_options).await?;
         let info = *mosaic.info();
+        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE]);
         let tilejson = tilejson! {
             tiles: vec![],
             bounds: Bounds::new(west, south, east, north),

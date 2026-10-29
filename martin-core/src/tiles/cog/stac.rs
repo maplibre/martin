@@ -3,7 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, StacBand, StacIndex, StacSearchOptions};
+use cog_tiles::{
+    AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, MAX_LATITUDE, StacBand, StacIndex, StacSearchOptions,
+};
 use tilejson::{Bounds, Center, tilejson};
 
 use crate::CacheZoomRange;
@@ -48,6 +50,13 @@ impl CogSource {
         resolve: HrefResolver,
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, CogError> {
+        if options.min_zoom < options.search.search_zoom {
+            return Err(cog_tiles::CogError::StacMinZoom {
+                min_zoom: options.min_zoom,
+                search_zoom: options.search.search_zoom,
+            }
+            .into());
+        }
         let location = format!("{}/collections/{}", options.search.url, options.search.collection);
         let (index, probe) = StacIndex::open(options.search, options.bands.as_deref(), resolve).await?;
         let mosaic_options = IndexedMosaicOptions::new(options.min_zoom, index.bands().to_vec())
@@ -58,7 +67,7 @@ impl CogSource {
             .with_file_idle_timeout(options.file_idle_timeout);
         let mosaic = AsyncIndexedMosaic::open_stac(index, &probe, mosaic_options).await?;
         let info = *mosaic.info();
-        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -85.051_129, 180.0, 85.051_129]);
+        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE]);
         let tilejson = tilejson! {
             tiles: vec![],
             bounds: Bounds::new(west, south, east, north),
@@ -489,6 +498,44 @@ mod tests {
             .unwrap();
 
         assert!(!tile.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_min_zoom_below_the_search_zoom_fails_before_reading_the_api() {
+        let server = MockServer::start().await;
+
+        let error = CogSource::new_stac(
+            "stac".to_owned(),
+            CogStacOptions {
+                search: StacSearchOptions {
+                    url: server.uri(),
+                    user_agent: "martin/test".to_owned(),
+                    collection: "ortho".to_owned(),
+                    asset: "image".to_owned(),
+                    datetime: None,
+                    query: None,
+                    order: StacOrder::Newest,
+                    search_zoom: 13,
+                    max_items_per_search: 1000,
+                    search_expiry: Duration::from_mins(1),
+                    max_cached_searches: 10,
+                },
+                min_zoom: 12,
+                max_zoom: None,
+                bands: None,
+                nodata: None,
+                max_cached_files: 10,
+                file_expiry: Duration::from_mins(1),
+                file_idle_timeout: None,
+            },
+            Arc::new(|_href: &str| Err("unused".into())),
+            CacheZoomRange::default(),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.to_string(), "The min zoom 12 is below the search zoom 13");
+        assert!(server.received_requests().await.unwrap().is_empty());
     }
 
     #[tokio::test]

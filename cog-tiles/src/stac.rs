@@ -147,15 +147,15 @@ impl MosaicIndex for StacIndex {
                 source: Box::new(source),
             })
     }
+
+    fn bounds(&self) -> Option<[f64; 4]> {
+        self.bounds
+    }
 }
 
 impl StacIndex {
-    /// Opens an index over `options`, resolving asset hrefs with `resolve`, and returns it with the
-    /// file of the first matching item, to open the mosaic with.
-    ///
-    /// The collection is read now for its extent and band names. `bands` selects the bands served:
-    /// one for gray, three for RGB. `None` serves the bands named `red`, `green` and `blue`, or the
-    /// first three if the asset does not name its bands.
+    /// Opens an index over `options` serving `bands` (`None`: `red`, `green`, `blue`, or the first
+    /// three), and returns it with its first matching item's file to open the mosaic with.
     ///
     /// # Errors
     /// Returns an error if the API cannot be read, the collection has no matching item, a band is
@@ -208,8 +208,9 @@ impl StacIndex {
             .default_headers(
                 [(
                     USER_AGENT,
-                    HeaderValue::from_str(&options.user_agent).map_err(|_invalid| CogError::StacUserAgent {
+                    HeaderValue::from_str(&options.user_agent).map_err(|header| CogError::StacUserAgent {
                         user_agent: options.user_agent.clone(),
+                        header,
                     })?,
                 )]
                 .into_iter()
@@ -413,8 +414,7 @@ impl StacIndex {
 }
 
 impl AsyncIndexedMosaic {
-    /// Opens a mosaic of the COGs `index` finds, opening `probe` (the file of its first item) now to
-    /// check that it can be served. The mosaic's bounds are the collection's, if it has any.
+    /// Opens a mosaic of the COGs `index` finds, checking now that `probe`, its first item's file, can be served.
     ///
     /// # Errors
     /// Returns an error if the min zoom is below the search zoom, or see [`open`](Self::open).
@@ -426,8 +426,7 @@ impl AsyncIndexedMosaic {
                 search_zoom,
             });
         }
-        let bounds = index.bounds;
-        Ok(Self::open(Arc::new(index), probe, options).await?.with_bounds(bounds))
+        Self::open(Arc::new(index), probe, options).await
     }
 }
 

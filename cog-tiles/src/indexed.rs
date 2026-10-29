@@ -31,6 +31,11 @@ pub trait MosaicIndex: Debug + Send + Sync {
     /// # Errors
     /// Returns an error if the index cannot be searched.
     async fn files_for(&self, coord: TileCoord) -> CogResult<Arc<[MosaicFile]>>;
+
+    /// `[west, south, east, north]` in degrees of everything the index can find, if it knows them.
+    fn bounds(&self) -> Option<[f64; 4]> {
+        None
+    }
 }
 
 /// One file an [`AsyncIndexedMosaic`] paints tiles from.
@@ -156,8 +161,6 @@ pub struct AsyncIndexedMosaic {
     nodata: Option<u8>,
     /// Mosaic metadata.
     info: IndexedMosaicInfo,
-    /// `[west, south, east, north]` in degrees, if the index knows them.
-    bounds: Option<[f64; 4]>,
 }
 
 impl AsyncIndexedMosaic {
@@ -195,7 +198,6 @@ impl AsyncIndexedMosaic {
                 tile_size: INDEXED_TILE_SIZE,
                 format: TileFormat::Png,
             },
-            bounds: None,
         };
         let reader = mosaic.reader(probe).await?;
         let [west, south, east, north] = probe.bounds;
@@ -213,18 +215,10 @@ impl AsyncIndexedMosaic {
         &self.info
     }
 
-    /// `[west, south, east, north]` in degrees, if the index knows them: the files' footprints of a
-    /// tile index, or the extent of a STAC collection. `None` for a mosaic opened with [`open`](Self::open).
+    /// `[west, south, east, north]` in degrees, as [`MosaicIndex::bounds`] gives them.
     #[must_use]
     pub fn bounds(&self) -> Option<[f64; 4]> {
-        self.bounds
-    }
-
-    /// This mosaic with `bounds`.
-    #[cfg(any(feature = "stac", feature = "tile-index"))]
-    pub(crate) fn with_bounds(mut self, bounds: Option<[f64; 4]>) -> Self {
-        self.bounds = bounds;
-        self
+        self.index.bounds()
     }
 
     /// Reads one tile as a PNG.

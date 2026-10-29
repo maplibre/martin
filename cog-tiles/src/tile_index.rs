@@ -47,6 +47,13 @@ impl MosaicIndex for TileIndex {
         hits.sort_unstable();
         Ok(hits.into_iter().map(|hit| self.files[hit as usize].clone()).collect())
     }
+
+    fn bounds(&self) -> Option<[f64; 4]> {
+        Some(self.files.iter().map(|file| file.bounds).fold(
+            [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY],
+            |[w, s, e, n], [fw, fs, fe, fn_]| [w.min(fw), s.min(fs), e.max(fe), n.max(fn_)],
+        ))
+    }
 }
 
 impl TileIndex {
@@ -143,29 +150,16 @@ impl TileIndex {
             files,
         })
     }
-
-    /// The union of every file's footprint bounding box, `[west, south, east, north]` in degrees.
-    #[must_use]
-    pub fn bounds(&self) -> [f64; 4] {
-        self.files.iter().map(|file| file.bounds).fold(
-            [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY],
-            |[w, s, e, n], [fw, fs, fe, fn_]| [w.min(fw), s.min(fs), e.max(fe), n.max(fn_)],
-        )
-    }
 }
 
 impl AsyncIndexedMosaic {
-    /// Opens a mosaic of the files `index` lists, opening its first file now to check that it can be
-    /// served. The mosaic's bounds are the union of the files' footprints.
+    /// Opens a mosaic of the files `index` lists, checking now that the first can be served.
     ///
     /// # Errors
     /// See [`open`](Self::open).
     pub async fn open_tile_index(index: TileIndex, options: IndexedMosaicOptions) -> CogResult<Self> {
         let probe = index.files[0].clone();
-        let bounds = index.bounds();
-        Ok(Self::open(Arc::new(index), &probe, options)
-            .await?
-            .with_bounds(Some(bounds)))
+        Self::open(Arc::new(index), &probe, options).await
     }
 }
 
