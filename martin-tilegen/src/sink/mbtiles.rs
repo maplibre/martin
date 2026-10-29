@@ -4,8 +4,8 @@ use std::thread;
 
 use mbtiles::sqlx::{AssertSqlSafe, SqliteConnection, raw_sql};
 use mbtiles::{
-    AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup, init_mbtiles_schema,
-    is_empty_database,
+    AGG_TILES_HASH, AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup,
+    init_mbtiles_schema, is_empty_database,
 };
 use tilejson::TileJSON;
 use tokio::runtime::Handle;
@@ -13,27 +13,67 @@ use tokio::runtime::Handle;
 use super::{EncodedTile, TileSink};
 use crate::{TileGenError, TileGenResult, TileOrder};
 
-const MBT_TYPE: MbtType = MbtType::Normalized {
-    hash_view: false,
-    schema: NormalizedSchema::DedupId,
-};
-
 /// Written batches waiting for the hashing thread.
 const HASH_QUEUE: usize = 2;
 
-/// Writes a new deduplicated (`DedupId`) `MBTiles` file through [`Mbtiles::bulk_write`], hashing the
-/// written tiles on another thread for `agg_tiles_hash`.
+/// How [`MbtilesSink::create_with`] lays out a new file and finishes its metadata.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MbtilesOptions {
+    /// The schema of the new file.
+    pub mbt_type: MbtType,
+    /// Whether [`TileSink::finish`] writes `agg_tiles_hash`, unless the metadata edits set or delete it.
+    pub agg_tiles_hash: bool,
+    /// Metadata values set after the generator's own.
+    pub set_meta: Vec<(String, String)>,
+    /// Metadata keys deleted after the generator wrote its own, which they may name.
+    pub delete_meta: Vec<String>,
+}
+
+impl Default for MbtilesOptions {
+    /// A deduplicated (`DedupId`) file with `agg_tiles_hash` and unedited metadata.
+    fn default() -> Self {
+        Self {
+            mbt_type: MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            },
+            agg_tiles_hash: true,
+            set_meta: Vec::new(),
+            delete_meta: Vec::new(),
+        }
+    }
+}
+
+impl MbtilesOptions {
+    /// Whether `finish` computes `agg_tiles_hash`: requested, and not set or deleted by the edits.
+    fn hashes(&self) -> bool {
+        self.agg_tiles_hash
+            && !self.delete_meta.iter().any(|key| key == AGG_TILES_HASH)
+            && !self.set_meta.iter().any(|(key, _)| key == AGG_TILES_HASH)
+    }
+}
+
+/// Writes a new `MBTiles` file through [`Mbtiles::bulk_write`], hashing the written tiles on
+/// another thread for `agg_tiles_hash`.
 /// The mbtiles crate is async, so the sink blocks on the tokio runtime it was created in.
 pub struct MbtilesSink {
     runtime: Handle,
     mbt: Mbtiles,
     conn: SqliteConnection,
     hasher: Option<AggTilesHasher>,
+    options: MbtilesOptions,
 }
 
 impl MbtilesSink {
+    /// A deduplicated (`DedupId`) file with `agg_tiles_hash`, as [`MbtilesOptions::default`].
+    ///
     /// Must be called on a blocking thread of a tokio runtime, e.g. inside [`tokio::task::spawn_blocking`].
     pub fn create(path: &Path) -> TileGenResult<Self> {
+        Self::create_with(path, MbtilesOptions::default())
+    }
+
+    /// Must be called on a blocking thread of a tokio runtime, e.g. inside [`tokio::task::spawn_blocking`].
+    pub fn create_with(path: &Path, options: MbtilesOptions) -> TileGenResult<Self> {
         let runtime = Handle::current();
         let mbt = Mbtiles::new(path)?;
         let (conn, algorithm) = runtime.block_on(async {
@@ -41,7 +81,7 @@ impl MbtilesSink {
             if !is_empty_database(&mut conn).await? {
                 return Err(TileGenError::OutputNotEmpty(path.to_path_buf()));
             }
-            init_mbtiles_schema(&mut conn, MBT_TYPE, false).await?;
+            init_mbtiles_schema(&mut conn, options.mbt_type, false).await?;
             raw_sql(AssertSqlSafe("PRAGMA page_size = 4096; VACUUM;"))
                 .execute(&mut conn)
                 .await
@@ -53,7 +93,8 @@ impl MbtilesSink {
             runtime,
             mbt,
             conn,
-            hasher: Some(AggTilesHasher::new(algorithm)),
+            hasher: options.hashes().then(|| AggTilesHasher::new(algorithm)),
+            options,
         })
     }
 }
@@ -69,6 +110,7 @@ impl TileSink for MbtilesSink {
             mbt,
             conn,
             hasher,
+            options,
         } = self;
         let mut running = hasher.take();
         let hashing_in = running.is_some();
@@ -84,7 +126,7 @@ impl TileSink for MbtilesSink {
                 }
                 running
             });
-            let write = mbt.bulk_write(conn, MBT_TYPE, CopyDuplicateMode::Abort, |writer| {
+            let write = mbt.bulk_write(conn, options.mbt_type, CopyDuplicateMode::Abort, |writer| {
                 for batch in batches {
                     let batch = batch?;
                     for tile in &batch {
@@ -110,10 +152,16 @@ impl TileSink for MbtilesSink {
     fn finish(mut self, metadata: &TileJSON) -> TileGenResult<()> {
         self.runtime.block_on(async {
             self.mbt.insert_metadata(&mut self.conn, metadata).await?;
-            match self.hasher {
-                Some(hasher) => self.mbt.finish_agg_tiles_hash(&mut self.conn, hasher).await?,
-                None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
-            };
+            // Before the hash, so that it uses an edited `hash_algorithm`.
+            self.mbt
+                .edit_metadata(&mut self.conn, &self.options.set_meta, &self.options.delete_meta)
+                .await?;
+            if self.options.hashes() {
+                match self.hasher {
+                    Some(hasher) => self.mbt.finish_agg_tiles_hash(&mut self.conn, hasher).await?,
+                    None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
+                };
+            }
             Ok(())
         })
     }
@@ -167,6 +215,111 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(blobs, 3);
+    }
+
+    #[tokio::test]
+    async fn writes_the_requested_schema_without_agg_tiles_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.mbtiles");
+        tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let options = MbtilesOptions {
+                    mbt_type: MbtType::Flat,
+                    agg_tiles_hash: false,
+                    ..MbtilesOptions::default()
+                };
+                let mut sink = MbtilesSink::create_with(&path, options).unwrap();
+                let batches = vec![Ok(vec![
+                    tile(1, 0, 1, b"fill", Some(1)),
+                    tile(1, 0, 0, b"fill", Some(1)),
+                ])];
+                sink.write_all(&mut batches.into_iter()).unwrap();
+                sink.finish(&tilejson::tilejson! { tiles: vec![] }).unwrap();
+            }
+        })
+        .await
+        .unwrap();
+
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), MbtType::Flat);
+        assert_eq!(mbt.get_agg_tiles_hash(&mut conn).await.unwrap(), None);
+        assert_eq!(mbt.get_tile(&mut conn, 1, 0, 0).await.unwrap().unwrap(), b"fill");
+    }
+
+    #[tokio::test]
+    async fn edits_metadata_before_hashing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.mbtiles");
+        tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let options = MbtilesOptions {
+                    set_meta: vec![
+                        ("name".to_owned(), "edited".to_owned()),
+                        ("hash_algorithm".to_owned(), "xxh3".to_owned()),
+                    ],
+                    delete_meta: vec!["format".to_owned()],
+                    ..MbtilesOptions::default()
+                };
+                let mut sink = MbtilesSink::create_with(&path, options).unwrap();
+                let batches = vec![Ok(vec![tile(0, 0, 0, b"root", None)])];
+                sink.write_all(&mut batches.into_iter()).unwrap();
+                let mut metadata = tilejson::tilejson! { tiles: vec![] };
+                metadata.name = Some("generated".to_owned());
+                metadata.other.insert("format".to_owned(), "pbf".into());
+                sink.finish(&metadata).unwrap();
+            }
+        })
+        .await
+        .unwrap();
+
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "name").await.unwrap().as_deref(),
+            Some("edited")
+        );
+        assert_eq!(mbt.get_metadata_value(&mut conn, "format").await.unwrap(), None);
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "hash_algorithm")
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("xxh3")
+        );
+    }
+
+    #[tokio::test]
+    async fn keeps_an_agg_tiles_hash_the_edits_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.mbtiles");
+        tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let options = MbtilesOptions {
+                    set_meta: vec![("agg_tiles_hash".to_owned(), "given".to_owned())],
+                    ..MbtilesOptions::default()
+                };
+                let mut sink = MbtilesSink::create_with(&path, options).unwrap();
+                let batches = vec![Ok(vec![tile(0, 0, 0, b"root", None)])];
+                sink.write_all(&mut batches.into_iter()).unwrap();
+                sink.finish(&tilejson::tilejson! { tiles: vec![] }).unwrap();
+            }
+        })
+        .await
+        .unwrap();
+
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        assert_eq!(
+            mbt.get_agg_tiles_hash(&mut conn).await.unwrap().as_deref(),
+            Some("given")
+        );
     }
 
     #[test]

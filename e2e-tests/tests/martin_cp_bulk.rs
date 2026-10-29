@@ -592,30 +592,147 @@ async fn refuses_encodings_martin_cannot_serve() {
 #[tokio::test]
 async fn refuses_options_only_tile_mode_reads() {
     let dir = temp_dir();
+    let mut log = String::new();
+    for args in [
+        &["--url-query", "a=1"][..],
+        &["--concurrency", "4"],
+        &["--on-duplicate", "override"],
+        &["--save-config", "saved.yaml"],
+        &["--max-feature-count", "10"],
+    ] {
+        let mut cp = MartinCp::bulk()
+            .with_postgres()
+            .arg("--output-file")
+            .arg(dir.path().join("out.mbtiles"));
+        for arg in args {
+            cp = cp.arg(arg);
+        }
+        log += &cp.run_expecting_failure().await;
+    }
+    insta::assert_snapshot!(log, @"
+    ERROR `--mode bulk` renders tables and views, and only function sources read `--url-query`
+    ERROR `--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads
+    ERROR `--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`
+    ERROR `--mode bulk` cannot save its configuration with `--save-config` yet
+     INFO Starting Martin tile generator martin.version=2.0.0-beta.4
+    ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`
+    ");
+}
+
+#[tokio::test]
+async fn refuses_max_feature_count_in_the_config() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              max_feature_count: 10
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"
+     INFO Starting Martin tile generator martin.version=2.0.0-beta.4
+    ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`
+    ");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_mbtiles_options_for_pmtiles_output() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.pmtiles");
     let log = MartinCp::bulk()
         .with_postgres()
         .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
-        .arg("--url-query")
-        .arg("a=1")
+        .arg(&output)
         .arg("--mbtiles-type")
         .arg("flat")
-        .arg("--on-duplicate")
-        .arg("override")
-        .arg("--concurrency")
-        .arg("4")
         .arg("--skip-agg-tiles-hash")
         .arg("--set-meta")
         .arg("name=x")
         .arg("--delete-meta")
         .arg("bounds")
-        .arg("--save-config")
-        .arg("saved.yaml")
-        .arg("--max-feature-count")
-        .arg("10")
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`, `--save-config`, `--max-feature-count`");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` reads `--mbtiles-type`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta` only for `.mbtiles` output");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn writes_the_mbtiles_type_and_metadata_edits() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--skip-agg-tiles-hash")
+        .arg("--set-meta")
+        .arg("name=edited")
+        .arg("--delete-meta")
+        .arg("generator")
+        .run()
+        .await;
+    let summary = MbtilesCli::new("summary").arg(&output).run().await;
+    insta::assert_snapshot!(metadata_listing(&output).await, @r#"
+    format = mlt
+    json = {
+      "vector_layers": [
+        {
+          "fields": {},
+          "id": "points1",
+          "maxzoom": 1,
+          "minzoom": 0
+        }
+      ]
+    }
+    maxzoom = 1
+    minzoom = 0
+    name = edited
+    "#);
+    insta::assert_snapshot!(summary.lines().find(|line| line.starts_with("Schema")).unwrap(), @"Schema:         flat");
 }
 
 #[tokio::test]

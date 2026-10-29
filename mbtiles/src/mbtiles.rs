@@ -29,6 +29,21 @@ pub enum MbtTypeCli {
     Cache,
 }
 
+impl From<MbtTypeCli> for MbtType {
+    /// The schema a new file of `value` gets; `normalized` deduplicates by id (`DedupId`).
+    fn from(value: MbtTypeCli) -> Self {
+        match value {
+            MbtTypeCli::Flat => Self::Flat,
+            MbtTypeCli::FlatWithHash => Self::FlatWithHash,
+            MbtTypeCli::Normalized => Self::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            },
+            MbtTypeCli::Cache => Self::Cache,
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
