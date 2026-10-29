@@ -13,6 +13,8 @@ __all__ = [
     "MAX_ZOOM",
     "Mosaic",
     "Raster",
+    "Stac",
+    "TileIndex",
     "TileIterator",
     "TileSource",
     "UnsupportedCogError",
@@ -20,6 +22,10 @@ __all__ = [
     "open_async",
     "open_mosaic",
     "open_mosaic_async",
+    "open_stac",
+    "open_stac_async",
+    "open_tile_index",
+    "open_tile_index_async",
 ]
 
 MAX_ZOOM: builtins.int
@@ -91,6 +97,20 @@ class Raster:
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
+class Stac(TileSource):
+    r"""
+    The COGs a STAC API finds for each tile, in any supported projection, reprojected onto Web Mercator.
+    """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class TileIndex(TileSource):
+    r"""
+    The COGs a `gdaltindex` tile index lists, in any supported projection, reprojected onto Web Mercator.
+    """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
 class TileIterator:
     r"""
     Encoded tiles as `(z, x, y, data)`, fetched in the background, for `for` and `async for`.
@@ -133,12 +153,12 @@ class TileSource:
     @property
     def bounds(self) -> typing.Optional[tuple[builtins.float, builtins.float, builtins.float, builtins.float]]:
         r"""
-        `(west, south, east, north)` in degrees, or `None` for a mosaic.
+        `(west, south, east, north)` in degrees, or `None` for a `Mosaic`.
         """
     @property
     def mercator_bounds(self) -> typing.Optional[tuple[builtins.float, builtins.float, builtins.float, builtins.float]]:
         r"""
-        `(min_x, min_y, max_x, max_y)` in EPSG:3857 meters, or `None` for a mosaic.
+        `(min_x, min_y, max_x, max_y)` in EPSG:3857 meters, or `None` for a `Mosaic`.
         """
     def tile(self, z: builtins.int, x: builtins.int, y: builtins.int) -> typing.Optional[bytes]:
         r"""
@@ -164,7 +184,7 @@ class TileSource:
         Use it with `for` or `async for`.
 
         `zoom` is one zoom or a sequence of them, all zooms of the source when `None`.
-        `bbox` is the source's bounds when `None`; a mosaic needs one.
+        `bbox` is the source's bounds when `None`; a `Mosaic` needs one.
         """
     def read(self, bbox: tuple[builtins.float, builtins.float, builtins.float, builtins.float], zoom: typing.Optional[builtins.int] = None, *, crs: typing.Literal['EPSG:4326', 'EPSG:3857'] = "EPSG:4326", concurrency: builtins.int = 64, max_pixels: builtins.int = 268435456) -> typing.Optional[Raster]:
         r"""
@@ -186,20 +206,25 @@ class UnsupportedCogError(CogTilesError):
     """
     ...
 
-def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
+def open(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Cog:
     r"""
     Opens one COG from a local path or a URL (`s3://`, `gs://`, `az://`, `https://`, `file://`).
 
     Object store credentials come from the usual environment variables (e.g. `AWS_REGION`,
     `AWS_ACCESS_KEY_ID`), overridden by `options` (e.g. `{"aws_skip_signature": "true"}`).
+
+    `format` (`"png"`, `"webp"` or `"jpeg"`) re-encodes every tile, with `quality` from 1 to 100
+    (80 when unset) or `"lossless"` for WebP, and JPEG painted over `background`, a CSS color or
+    `(red, green, blue)` (white when unset). Without it, JPEG and WebP tiles are returned as stored
+    and others as PNG.
     """
 
-async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Cog:
+async def open_async(location: builtins.str | os.PathLike | pathlib.Path, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Cog:
     r"""
     `open` for `asyncio`, reading the headers on background threads instead of the event loop.
     """
 
-def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
+def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Mosaic:
     r"""
     Opens a mosaic of COGs that each cover one tile at `file_zoom`, named by a template in
     `location`: `{quadkey}`, or `{x}` and `{y}` with an optional `{z}`, e.g.
@@ -209,9 +234,58 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
     One file is found by listing the location now; the others are opened on first use and kept
     for `file_expiry` seconds (or `file_idle_timeout` seconds unused), at most `max_cached_files`.
     Square files without `GeoTIFF` tags are placed on the tile in their file name.
+
+    `format`, `quality` and `background` re-encode every tile, as in `open`.
     """
 
-async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None) -> Mosaic:
+async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Mosaic:
     r"""
     `open_mosaic` for `asyncio`, listing and reading on background threads instead of the event loop.
+    """
+
+def open_stac(url: builtins.str, collection: builtins.str, asset: builtins.str, min_zoom: builtins.int, *, search_zoom: typing.Optional[builtins.int] = None, datetime: typing.Optional[builtins.str] = None, query: typing.Mapping[builtins.str, typing.Any] | None = None, order: typing.Literal['newest', 'oldest'] = 'newest', max_items_per_search: builtins.int = 1000, search_expiry: builtins.float = 86400.0, max_cached_searches: builtins.int = 10000, max_zoom: typing.Optional[builtins.int] = None, bands: typing.Sequence[builtins.int | builtins.str] | None = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Stac:
+    r"""
+    Opens the COGs a STAC API finds for each tile: the `asset` of the items in `collection`.
+
+    One search covers one tile at `search_zoom` (`min_zoom` when `None`) and serves every tile below
+    it; at most `max_items_per_search` items are read, and results are kept for `search_expiry`
+    seconds, at most `max_cached_searches`. `datetime` is a STAC interval, e.g.
+    `"2020-01-01T00:00:00Z/.."`, and `query` a STAC query extension object, e.g.
+    `{"eo:cloud_cover": {"lt": 10}}`. `order` paints the `"newest"` or `"oldest"` items first.
+
+    `bands` are the bands served, by number (counted from 1) or `eo:bands` name: one for gray, three
+    for RGB; `["red", "green", "blue"]` when `None`, or the first three if the asset does not name its
+    bands. The rest is as in `open_tile_index`: assets are read with `options`, and `format`,
+    `quality` and `background` re-encode every tile.
+
+    The collection is read now for its extent and band names, and its first matching item is opened.
+    """
+
+async def open_stac_async(url: builtins.str, collection: builtins.str, asset: builtins.str, min_zoom: builtins.int, *, search_zoom: typing.Optional[builtins.int] = None, datetime: typing.Optional[builtins.str] = None, query: typing.Mapping[builtins.str, typing.Any] | None = None, order: typing.Literal['newest', 'oldest'] = 'newest', max_items_per_search: builtins.int = 1000, search_expiry: builtins.float = 86400.0, max_cached_searches: builtins.int = 10000, max_zoom: typing.Optional[builtins.int] = None, bands: typing.Sequence[builtins.int | builtins.str] | None = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Stac:
+    r"""
+    `open_stac` for `asyncio`, reading the API and the first item on background threads instead of
+    the event loop.
+    """
+
+def open_tile_index(path: builtins.str | os.PathLike | pathlib.Path, min_zoom: builtins.int, *, layer: typing.Optional[builtins.str] = None, location_field: builtins.str = 'location', max_zoom: typing.Optional[builtins.int] = None, bands: typing.Optional[typing.Sequence[builtins.int]] = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> TileIndex:
+    r"""
+    Opens the COGs a `gdaltindex` tile index lists: a `GeoPackage` with one footprint and location
+    per file, e.g. `gdaltindex -f GPKG -t_srs EPSG:4326 index.gpkg *.tif`.
+
+    The files may be in Web Mercator or a UTM zone, tiled with overviews down to `min_zoom`; each
+    tile is painted from the files in the index's row order, reprojected with nearest-neighbour
+    resampling, as PNG with an alpha band. `layer` is the feature table to read, the only one when
+    `None`. `bands` are the bands served, counted from 1: one for gray, three for RGB.
+    `nodata` overrides each file's nodata value. `max_zoom` is the zoom at which the first file is
+    fully detailed when `None`.
+
+    Locations may be local paths (relative to the index), URLs, or GDAL `/vsis3/`, `/vsigs/`,
+    `/vsiaz/` or `/vsicurl/` paths, read with `options` as in `open`. The whole index is read now,
+    and its first file is opened. `format`, `quality` and `background` re-encode every tile, as in `open`.
+    """
+
+async def open_tile_index_async(path: builtins.str | os.PathLike | pathlib.Path, min_zoom: builtins.int, *, layer: typing.Optional[builtins.str] = None, location_field: builtins.str = 'location', max_zoom: typing.Optional[builtins.int] = None, bands: typing.Optional[typing.Sequence[builtins.int]] = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> TileIndex:
+    r"""
+    `open_tile_index` for `asyncio`, reading the index and the first file on background threads
+    instead of the event loop.
     """

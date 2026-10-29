@@ -287,23 +287,27 @@ pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
     }
 }
 
-/// Ensures that the log level for `martin_core` matches the log level for `replacement`.
+/// The library crates that log at the level of `martin`, unless `RUST_LOG` sets their own.
+const MIRRORED_CRATES: [&str; 2] = ["martin_core", "cog_tiles"];
+
+/// Ensures that the log levels of [`MIRRORED_CRATES`] match the level `RUST_LOG` gives `directive_prefix`, e.g. `martin=`.
 #[must_use]
-pub fn ensure_martin_core_log_level_matches(env_filter: Option<String>, replacement: &'static str) -> String {
-    if let Some(rust_log) = env_filter {
-        // If RUST_LOG is set and contains replacement (e.g., martin=) but not martin_core=, mirror the level
-        if rust_log.contains(replacement) && !rust_log.contains("martin_core=") {
-            if let Some(level) = rust_log.split(',').find_map(|s| s.strip_prefix(replacement)) {
-                format!("{rust_log},martin_core={level}")
-            } else {
-                rust_log
-            }
-        } else {
-            rust_log
-        }
-    } else {
-        format!("{replacement}info,martin_core=info")
-    }
+pub fn ensure_library_log_levels_match(env_filter: Option<String>, directive_prefix: &'static str) -> String {
+    let Some(rust_log) = env_filter else {
+        let mut filter = format!("{directive_prefix}info");
+        filter.extend(MIRRORED_CRATES.map(|krate| format!(",{krate}=info")));
+        return filter;
+    };
+    let Some(level) = rust_log.split(',').find_map(|s| s.strip_prefix(directive_prefix)) else {
+        return rust_log;
+    };
+    let unset = MIRRORED_CRATES
+        .into_iter()
+        .filter(|krate| !rust_log.split(',').any(|s| s.starts_with(&format!("{krate}="))))
+        .map(|krate| format!(",{krate}={level}"));
+    let mut filter = rust_log.clone();
+    filter.extend(unset);
+    filter
 }
 
 /// The filter for `filter`, or `debug` with a warning when it does not parse.
@@ -384,17 +388,64 @@ mod tests {
         assert_eq!(default, if cfg!(debug_assertions) { "Pretty" } else { "Compact" });
     }
 
-    #[rstest]
-    #[case::unset(None, "martin=info,martin_core=info")]
-    #[case::mirrored(Some("martin=debug"), "martin=debug,martin_core=debug")]
-    #[case::mirrored_in_list(Some("actix=warn,martin=trace"), "actix=warn,martin=trace,martin_core=trace")]
-    #[case::already_set(Some("martin=debug,martin_core=warn"), "martin=debug,martin_core=warn")]
-    #[case::unrelated(Some("actix=warn"), "actix=warn")]
-    #[case::not_a_directive(Some("martin"), "martin")]
-    #[case::embedded(Some("xmartin=debug"), "xmartin=debug")]
-    fn martin_core_level_mirrors_martin(#[case] env_filter: Option<&str>, #[case] expected: &str) {
-        let actual = ensure_martin_core_log_level_matches(env_filter.map(ToOwned::to_owned), "martin=");
-        assert_eq!(actual, expected);
+    #[test]
+    fn unset_rust_log_logs_every_crate_at_info() {
+        let actual = ensure_library_log_levels_match(None, "martin=");
+        assert_eq!(actual, "martin=info,martin_core=info,cog_tiles=info");
+    }
+
+    #[test]
+    fn martin_level_is_mirrored_to_the_libraries() {
+        let actual = ensure_library_log_levels_match(Some("martin=debug".to_owned()), "martin=");
+        assert_eq!(actual, "martin=debug,martin_core=debug,cog_tiles=debug");
+    }
+
+    #[test]
+    fn martin_level_is_mirrored_from_anywhere_in_the_list() {
+        let actual = ensure_library_log_levels_match(Some("actix=warn,martin=trace".to_owned()), "martin=");
+        assert_eq!(actual, "actix=warn,martin=trace,martin_core=trace,cog_tiles=trace");
+    }
+
+    #[test]
+    fn library_levels_set_in_rust_log_are_kept() {
+        let actual = ensure_library_log_levels_match(
+            Some("martin=debug,martin_core=warn,cog_tiles=error".to_owned()),
+            "martin=",
+        );
+        assert_eq!(actual, "martin=debug,martin_core=warn,cog_tiles=error");
+    }
+
+    #[test]
+    fn only_libraries_without_a_level_get_martins() {
+        let actual = ensure_library_log_levels_match(Some("martin=debug,martin_core=warn".to_owned()), "martin=");
+        assert_eq!(actual, "martin=debug,martin_core=warn,cog_tiles=debug");
+    }
+
+    #[test]
+    fn library_with_a_longer_name_does_not_count_as_set() {
+        let actual = ensure_library_log_levels_match(Some("martin=debug,xmartin_core=warn".to_owned()), "martin=");
+        assert_eq!(
+            actual,
+            "martin=debug,xmartin_core=warn,martin_core=debug,cog_tiles=debug"
+        );
+    }
+
+    #[test]
+    fn rust_log_without_a_martin_level_is_unchanged() {
+        let actual = ensure_library_log_levels_match(Some("actix=warn".to_owned()), "martin=");
+        assert_eq!(actual, "actix=warn");
+    }
+
+    #[test]
+    fn bare_martin_is_not_a_level() {
+        let actual = ensure_library_log_levels_match(Some("martin".to_owned()), "martin=");
+        assert_eq!(actual, "martin");
+    }
+
+    #[test]
+    fn crate_with_a_longer_name_is_not_martin() {
+        let actual = ensure_library_log_levels_match(Some("xmartin=debug".to_owned()), "martin=");
+        assert_eq!(actual, "xmartin=debug");
     }
 
     #[test]

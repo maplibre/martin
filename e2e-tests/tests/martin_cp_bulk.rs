@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-    temp_dir, tile_listing, tiles,
+    summary, summary_filters, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -590,32 +590,265 @@ async fn refuses_encodings_martin_cannot_serve() {
 }
 
 #[tokio::test]
-async fn refuses_options_only_tile_mode_reads() {
+async fn refuses_url_query() {
     let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
     let log = MartinCp::bulk()
         .with_postgres()
         .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
+        .arg(&output)
         .arg("--url-query")
         .arg("a=1")
-        .arg("--mbtiles-type")
-        .arg("flat")
-        .arg("--on-duplicate")
-        .arg("override")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` renders tables and views, and only function sources read `--url-query`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_concurrency_and_points_at_threads() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
         .arg("--concurrency")
         .arg("4")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_on_duplicate() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--on-duplicate")
+        .arg("override")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_save_config() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--save-config")
+        .arg(dir.path().join("saved.yaml"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot save its configuration with `--save-config` yet");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_max_feature_count_on_the_command_line() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-feature-count")
+        .arg("10")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_max_feature_count_in_the_config() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              max_feature_count: 10
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_mbtiles_options_for_pmtiles_output() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.pmtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--mbtiles-type")
+        .arg("flat")
         .arg("--skip-agg-tiles-hash")
         .arg("--set-meta")
         .arg("name=x")
         .arg("--delete-meta")
         .arg("bounds")
-        .arg("--save-config")
-        .arg("saved.yaml")
-        .arg("--max-feature-count")
-        .arg("10")
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--url-query`, `--mbtiles-type`, `--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`, `--save-config`, `--max-feature-count`");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` reads `--mbtiles-type`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta` only for `.mbtiles` output");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_an_unknown_hash_algorithm() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--set-meta")
+        .arg("hash_algorithm=bogus")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--set-meta hash_algorithm=bogus` is not one of md5, fnv1a, fnv1a-decimal, xxh64 or xxh3");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of the metadata and summary")]
+async fn writes_the_mbtiles_type_and_metadata_edits() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--mbtiles-type")
+        .arg("flat")
+        .arg("--skip-agg-tiles-hash")
+        .arg("--set-meta")
+        .arg("name=edited")
+        .arg("--delete-meta")
+        .arg("generator")
+        .run()
+        .await;
+    insta::assert_snapshot!(metadata_listing(&output).await, @r#"
+    format = mlt
+    json = {
+      "vector_layers": [
+        {
+          "fields": {},
+          "id": "points1",
+          "maxzoom": 1,
+          "minzoom": 0
+        }
+      ]
+    }
+    maxzoom = 1
+    minzoom = 0
+    name = edited
+    "#);
+    let summary = summary(&output).run_json().await;
+    insta::with_settings!({ filters => summary_filters() }, {
+        insta::assert_json_snapshot!(summary, @r#"
+        {
+          "avg_tile_size": 99.0,
+          "bbox": [
+            -180.0,
+            -85.0511287798,
+            180.0,
+            85.0511287798
+          ],
+          "file_path": "[TMP]",
+          "file_size": 0,
+          "max_tile_size": 177,
+          "max_zoom": 1,
+          "mbt_type": "Flat",
+          "min_tile_size": 71,
+          "min_zoom": 0,
+          "page_count": 0,
+          "page_size": 0,
+          "tile_count": 5,
+          "zoom_info": [
+            {
+              "avg_tile_size": 177.0,
+              "bbox": [
+                -180.0,
+                -85.0511287798,
+                180.0,
+                85.0511287798
+              ],
+              "max_tile_size": 177,
+              "min_tile_size": 177,
+              "tile_count": 1,
+              "zoom": 0
+            },
+            {
+              "avg_tile_size": 79.5,
+              "bbox": [
+                -180.0,
+                -85.0511287798,
+                180.0,
+                85.0511287798
+              ],
+              "max_tile_size": 96,
+              "min_tile_size": 71,
+              "tile_count": 4,
+              "zoom": 1
+            }
+          ]
+        }
+        "#);
+    });
 }
 
 #[tokio::test]

@@ -129,10 +129,10 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also apply, such as
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
-Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`,
-`--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`,
-`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads`
-and `--mvt-quirk`.
+`--mbtiles-type`, `--skip-agg-tiles-hash`, `--set-meta` and `--delete-meta` work as in tile mode,
+for `.mbtiles` output only. Bulk mode refuses `--url-query`, `--on-duplicate`, `--concurrency` (its
+workers are `--threads`), `--save-config`, and `max_feature_count` in the config or as
+`--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
@@ -157,10 +157,10 @@ Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`
 
 - `--memory` is split evenly over the render workers. Each gets at least 16 MiB and at most 4 GiB, so
   with many threads the total can exceed `--memory`. More memory means fewer, longer sorted runs. Up to
-  256 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
+  4096 runs are merged at once. With more, groups of runs are merged into longer ones first, which reads
   and writes the temporary data one more time.
 - The temporary data holds a piece of every feature for every tile it touches, at every zoom. It grows
-  with the zoom range and is usually several times the size of the input. Merging more than 256 runs
+  with the zoom range and is usually several times the size of the input. Merging more than 4096 runs
   needs room for one more copy.
 - `--temp-dir` takes the sorted runs in turn. Directories on separate disks spread the I/O.
 - `--threads` sets the number of render workers and encoders.

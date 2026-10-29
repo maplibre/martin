@@ -82,6 +82,7 @@ deny = [
     { crate = "freetype-rs:>0.35.0", reason = "newer releases depend on freetype-sys >0.20.1 which fails to compile on musl and Windows" },
     { crate = "sdf_glyph_renderer:>1.0.2", reason = "newer releases depend on freetype-rs >0.35.0 which fails to compile on musl and Windows" },
     { crate = "static-files:>0.2.5", reason = "0.3.x changes the generated asset format, but actix-web-static-files 4.1.1 still consumes static-files 0.2; mixing them breaks the webui asset embedding" },
+    { crate = "prettyplease:>0.2.37", reason = "0.3.x is built on syn 3, and bindgen 0.73 can resolve it next to syn 2, which then fails to compile (https://github.com/rust-lang/rust-bindgen/issues/3448)" },
 ]
 
 [sources]

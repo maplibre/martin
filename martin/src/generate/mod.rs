@@ -18,9 +18,10 @@ use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
 use martin_tilegen::plan::Untranslatable;
 use martin_tilegen::source::WkbError;
 use martin_tilegen::{
-    GenerateConfig, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError, TileGenResult,
-    generate,
+    GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
+    TileGenResult, generate,
 };
+use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
 use mlt_core::encoder::EncoderConfig;
 use postgres_protocol::escape::escape_identifier;
 use tilejson::{Bounds, tilejson};
@@ -31,7 +32,7 @@ use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
 use tracing::{debug, info, warn};
 
 use crate::StartupError;
-use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, PostgresArgs, SrvArgs};
+use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
 use crate::config::file::process::{MltProcessConfig, ProcessConfig};
@@ -48,6 +49,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PROGRESS_EVERY: Duration = Duration::from_secs(10);
 /// Per-worker sort buffers are kept between these: smaller spills too many runs, larger cannot be indexed.
 const BUFFER_BYTES: RangeInclusive<u64> = (16 << 20)..=(u32::MAX as u64);
+/// Runs are ranges of a few shared mapped temp files, so a wider merge only deepens the loser tree,
+/// while each intermediate merge rewrites its runs on one thread.
+const MAX_FAN_IN: usize = 4096;
 const DEFAULT_MEMORY: u64 = 2 << 30;
 const DEFAULT_MAX_ZOOM: u8 = 14;
 
@@ -65,30 +69,45 @@ struct GenerateOptions {
     threads: usize,
     mvt_preserve_ring_start: bool,
     mvt_keep_unused_keys: bool,
+    mbtiles: MbtilesOptions,
 }
 
 impl GenerateOptions {
     /// Takes the options bulk mode reads, and refuses the ones it would ignore.
-    fn new(args: CopyArgs, meta: &MetaArgs, pg: Option<&PostgresArgs>) -> GenerateResult<Self> {
-        let tile_only: Vec<&str> = [
-            ("--url-query", args.url_query.is_some()),
+    fn new(args: CopyArgs, meta: &MetaArgs) -> GenerateResult<Self> {
+        if args.url_query.is_some() {
+            return Err(GenerateError::UrlQuery);
+        }
+        if args.concurrency.is_some() {
+            return Err(GenerateError::Concurrency);
+        }
+        if args.on_duplicate.is_some() {
+            return Err(GenerateError::OnDuplicate);
+        }
+        if meta.save_config.is_some() {
+            return Err(GenerateError::SaveConfig);
+        }
+        let mbtiles_only: Vec<&str> = [
             ("--mbtiles-type", args.mbt_type.is_some()),
-            ("--on-duplicate", args.on_duplicate.is_some()),
-            ("--concurrency", args.concurrency.is_some()),
             ("--skip-agg-tiles-hash", args.skip_agg_tiles_hash),
             ("--set-meta", !args.set_meta.is_empty()),
             ("--delete-meta", !args.delete_meta.is_empty()),
-            ("--save-config", meta.save_config.is_some()),
-            (
-                "--max-feature-count",
-                pg.is_some_and(|pg| pg.max_feature_count.is_some()),
-            ),
         ]
         .into_iter()
         .filter_map(|(option, used)| used.then_some(option))
         .collect();
-        if !tile_only.is_empty() {
-            return Err(GenerateError::TileOnlyOptions(tile_only.join("`, `")));
+        if is_pmtiles(&args.output_file) && !mbtiles_only.is_empty() {
+            return Err(GenerateError::MbtilesOnly {
+                options: mbtiles_only.join("`, `"),
+            });
+        }
+        check_metadata_edit(&args.set_meta, &args.delete_meta).map_err(TileGenError::from)?;
+        if let Some((_, algorithm)) = args.set_meta.iter().find(|(key, _)| key == HASH_ALGORITHM)
+            && HashAlgorithm::parse(algorithm).is_none()
+        {
+            return Err(GenerateError::UnknownHashAlgorithm {
+                algorithm: algorithm.clone(),
+            });
         }
         let format = match args.format {
             None | Some(CopyFormat::MltV1) => TileFormat::Mlt,
@@ -138,6 +157,12 @@ impl GenerateOptions {
             threads,
             mvt_preserve_ring_start: args.mvt_quirks.contains(&MvtQuirk::PreserveRingStart),
             mvt_keep_unused_keys: args.mvt_quirks.contains(&MvtQuirk::KeepUnusedKeys),
+            mbtiles: MbtilesOptions {
+                mbt_type: MbtType::from(args.mbt_type.unwrap_or(MbtTypeCli::Normalized)),
+                agg_tiles_hash: !args.skip_agg_tiles_hash,
+                set_meta: args.set_meta,
+                delete_meta: args.delete_meta,
+            },
         })
     }
 }
@@ -163,8 +188,22 @@ pub enum GenerateError {
     TileGen(#[from] TileGenError),
     #[error(transparent)]
     Bbox(#[from] MartinCpError),
-    #[error("`--mode bulk` does not read `{0}`")]
-    TileOnlyOptions(String),
+    #[error("`--mode bulk` renders tables and views, and only function sources read `--url-query`")]
+    UrlQuery,
+    #[error("`--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads")]
+    Concurrency,
+    #[error("`--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`")]
+    OnDuplicate,
+    #[error("`--mode bulk` cannot save its configuration with `--save-config` yet")]
+    SaveConfig,
+    #[error(
+        "`--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`"
+    )]
+    MaxFeatureCount,
+    #[error("`--mode bulk` reads `{options}` only for `.mbtiles` output")]
+    MbtilesOnly { options: String },
+    #[error("`--set-meta hash_algorithm={algorithm}` is not one of md5, fnv1a, fnv1a-decimal, xxh64 or xxh3")]
+    UnknownHashAlgorithm { algorithm: String },
     #[error("`--mode bulk` takes at most one `--bbox`")]
     SeveralBboxes,
     #[error("`--mode bulk` renders a range of zooms; `--zoom-levels` must not skip a zoom")]
@@ -277,7 +316,7 @@ pub type GenerateResult<T> = Result<T, GenerateError>;
 
 /// Renders whole tables into the output file, as `martin cp --mode bulk`.
 pub async fn start(args: CopierArgs) -> GenerateResult<()> {
-    let options = GenerateOptions::new(args.copy, &args.meta, args.pg.as_ref())?;
+    let options = GenerateOptions::new(args.copy, &args.meta)?;
     info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
     let mut config = match &args.meta.config {
@@ -292,6 +331,9 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         pg: args.pg,
     }
     .merge_into_config(&mut config)?;
+    if config.postgres.iter().any(|pg| pg.max_feature_count.is_some()) {
+        return Err(GenerateError::MaxFeatureCount);
+    }
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
@@ -307,8 +349,8 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     let output = options.output_file;
     let mut interrupt = Interrupt::register()?;
     let sink = {
-        let (output, format) = (output.clone(), generate_config.format);
-        tokio::task::spawn_blocking(move || Output::create(&output, format, encoding)).await??
+        let (output, format, mbtiles) = (output.clone(), generate_config.format, options.mbtiles);
+        tokio::task::spawn_blocking(move || Output::create(&output, format, encoding, mbtiles)).await??
     };
 
     let progress = Arc::new(Progress::default());
@@ -397,11 +439,11 @@ enum Output {
 }
 
 impl Output {
-    fn create(path: &Path, format: TileFormat, encoding: Encoding) -> TileGenResult<Self> {
+    fn create(path: &Path, format: TileFormat, encoding: Encoding, mbtiles: MbtilesOptions) -> TileGenResult<Self> {
         if is_pmtiles(path) {
             PmtilesSink::create(path, format, encoding).map(Self::Pmtiles)
         } else {
-            MbtilesSink::create(path).map(Self::Mbtiles)
+            MbtilesSink::create_with(path, mbtiles).map(Self::Mbtiles)
         }
     }
 
@@ -445,7 +487,7 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         sort: SortConfig {
             temp_dirs: options.temp_dirs.clone(),
             buffer_bytes: usize::try_from(per_thread).unwrap_or(usize::MAX),
-            max_fan_in: 256,
+            max_fan_in: MAX_FAN_IN,
         },
         format: options.format,
         encoding: options.encoding,

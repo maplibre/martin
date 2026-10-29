@@ -33,8 +33,15 @@ pub fn to_py(error: CogError) -> PyErr {
         | CogError::InvalidBounds { .. }
         | CogError::WindowTooLarge { .. }
         | CogError::InvalidTemplate { .. }
-        | CogError::FileZoomTooHigh { .. } => PyValueError::new_err(message),
+        | CogError::FileZoomTooHigh { .. }
+        | CogError::MosaicBands { .. }
+        | CogError::TileIndexLayer { .. }
+        | CogError::TileIndexNoLayer { .. }
+        | CogError::StacBand { .. }
+        | CogError::StacMinZoom { .. }
+        | CogError::StacUserAgent { .. } => PyValueError::new_err(message),
         CogError::Backend { source, .. } if is_not_found(source.as_ref()) => PyFileNotFoundError::new_err(message),
+        CogError::TileIndexRead { path, .. } if !path.exists() => PyFileNotFoundError::new_err(message),
         _ => CogTilesError::new_err(message),
     }
 }

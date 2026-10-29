@@ -1,4 +1,11 @@
 #![expect(clippy::print_stderr, reason = "binary entrypoint reports startup errors to stderr")]
+#![cfg_attr(
+    target_os = "macos",
+    allow(
+        linker_messages,
+        reason = "remove once closed: https://github.com/rust-lang/rust/issues/159105"
+    )
+)]
 
 use std::env;
 use std::process::ExitCode;
@@ -27,7 +34,7 @@ use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 #[cfg(feature = "unstable-generate")]
 use martin::generate::spec;
-use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_library_log_levels_match, init_tracing};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use martin::mesa_shader_cache::{MESA_SHADER_CACHE_DIR, MesaShaderCache};
 #[cfg(feature = "_tiles")]
@@ -242,7 +249,7 @@ fn main() -> ExitCode {
 #[hotpath::main]
 async fn run(#[cfg(all(feature = "rendering", target_os = "linux"))] mesa_shader_cache: &MesaShaderCache) -> ExitCode {
     let args = Args::parse();
-    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    let filter = ensure_library_log_levels_match(env::var("RUST_LOG").ok(), "martin=");
 
     #[cfg(feature = "mbtiles")]
     if let Some(Command::Cp(copy_args)) = args.command {
@@ -265,7 +272,7 @@ async fn run(#[cfg(all(feature = "rendering", target_os = "linux"))] mesa_shader
         let log_format = LogFormat::from_env();
         let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "martin=error".to_owned());
         init_tracing(
-            &ensure_martin_core_log_level_matches(Some(rust_log), "martin="),
+            &ensure_library_log_levels_match(Some(rust_log), "martin="),
             log_format,
             false,
         );

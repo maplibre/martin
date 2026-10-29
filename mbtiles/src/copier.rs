@@ -96,17 +96,7 @@ impl MbtilesCopier {
     }
 
     pub(crate) fn dst_type(&self) -> Option<MbtType> {
-        self.dst_type.or_else(|| {
-            self.dst_type_cli.map(|t| match t {
-                MbtTypeCli::Flat => Flat,
-                MbtTypeCli::FlatWithHash => FlatWithHash,
-                MbtTypeCli::Normalized => Normalized {
-                    hash_view: false,
-                    schema: NormalizedSchema::DedupId,
-                },
-                MbtTypeCli::Cache => Cache,
-            })
-        })
+        self.dst_type.or_else(|| self.dst_type_cli.map(MbtType::from))
     }
 }
 
