@@ -23,11 +23,11 @@ pub use crate::generate::{GenerateConfig, LayerSliceErrors, Progress, Summary, g
 pub use crate::phase1::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, project};
 pub use crate::phase2::TileFormat;
 pub use crate::plan::{ExprErrors, LayerGrid};
-#[cfg(feature = "mbtiles")]
-pub use crate::sink::MbtilesSink;
 #[cfg(feature = "pmtiles")]
 pub use crate::sink::PmtilesSink;
 pub use crate::sink::{EncodedTile, TileSink};
+#[cfg(feature = "mbtiles")]
+pub use crate::sink::{MbtilesOptions, MbtilesSink};
 pub use crate::sort::SortConfig;
 pub use crate::tile::{MAX_ZOOM, TileId, TileOrder};
 

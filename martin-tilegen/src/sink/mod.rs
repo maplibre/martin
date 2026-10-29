@@ -9,7 +9,7 @@ use martin_tile_utils::TileCoord;
 use tilejson::TileJSON;
 
 #[cfg(feature = "mbtiles")]
-pub use crate::sink::mbtiles::MbtilesSink;
+pub use crate::sink::mbtiles::{MbtilesOptions, MbtilesSink};
 #[cfg(feature = "pmtiles")]
 pub use crate::sink::pmtiles::PmtilesSink;
 use crate::{TileGenResult, TileOrder};
