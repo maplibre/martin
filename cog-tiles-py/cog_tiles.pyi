@@ -13,6 +13,7 @@ __all__ = [
     "MAX_ZOOM",
     "Mosaic",
     "Raster",
+    "Stac",
     "TileIndex",
     "TileIterator",
     "TileSource",
@@ -21,6 +22,8 @@ __all__ = [
     "open_async",
     "open_mosaic",
     "open_mosaic_async",
+    "open_stac",
+    "open_stac_async",
     "open_tile_index",
     "open_tile_index_async",
 ]
@@ -91,6 +94,13 @@ class Raster:
         Always `"EPSG:3857"`.
         """
     def __array__(self, dtype: typing.Optional[typing.Any] = None, copy: typing.Optional[builtins.bool] = None) -> numpy.ndarray: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class Stac(TileSource):
+    r"""
+    The COGs a STAC API finds for each tile, in any supported projection, reprojected onto Web Mercator.
+    """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -231,6 +241,30 @@ def open_mosaic(location: builtins.str, file_zoom: builtins.int, max_cached_file
 async def open_mosaic_async(location: builtins.str, file_zoom: builtins.int, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, *, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Mosaic:
     r"""
     `open_mosaic` for `asyncio`, listing and reading on background threads instead of the event loop.
+    """
+
+def open_stac(url: builtins.str, collection: builtins.str, asset: builtins.str, min_zoom: builtins.int, *, search_zoom: typing.Optional[builtins.int] = None, datetime: typing.Optional[builtins.str] = None, query: typing.Mapping[builtins.str, typing.Any] | None = None, order: typing.Literal['newest', 'oldest'] = 'newest', max_items_per_search: builtins.int = 1000, search_expiry: builtins.float = 86400.0, max_cached_searches: builtins.int = 10000, max_zoom: typing.Optional[builtins.int] = None, bands: typing.Sequence[builtins.int | builtins.str] | None = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Stac:
+    r"""
+    Opens the COGs a STAC API finds for each tile: the `asset` of the items in `collection`.
+
+    One search covers one tile at `search_zoom` (`min_zoom` when `None`) and serves every tile below
+    it; at most `max_items_per_search` items are read, and results are kept for `search_expiry`
+    seconds, at most `max_cached_searches`. `datetime` is a STAC interval, e.g.
+    `"2020-01-01T00:00:00Z/.."`, and `query` a STAC query extension object, e.g.
+    `{"eo:cloud_cover": {"lt": 10}}`. `order` paints the `"newest"` or `"oldest"` items first.
+
+    `bands` are the bands served, by number (counted from 1) or `eo:bands` name: one for gray, three
+    for RGB; `["red", "green", "blue"]` when `None`, or the first three if the asset does not name its
+    bands. The rest is as in `open_tile_index`: assets are read with `options`, and `format`,
+    `quality` and `background` re-encode every tile.
+
+    The collection is read now for its extent and band names, and its first matching item is opened.
+    """
+
+async def open_stac_async(url: builtins.str, collection: builtins.str, asset: builtins.str, min_zoom: builtins.int, *, search_zoom: typing.Optional[builtins.int] = None, datetime: typing.Optional[builtins.str] = None, query: typing.Mapping[builtins.str, typing.Any] | None = None, order: typing.Literal['newest', 'oldest'] = 'newest', max_items_per_search: builtins.int = 1000, search_expiry: builtins.float = 86400.0, max_cached_searches: builtins.int = 10000, max_zoom: typing.Optional[builtins.int] = None, bands: typing.Sequence[builtins.int | builtins.str] | None = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> Stac:
+    r"""
+    `open_stac` for `asyncio`, reading the API and the first item on background threads instead of
+    the event loop.
     """
 
 def open_tile_index(path: builtins.str | os.PathLike | pathlib.Path, min_zoom: builtins.int, *, layer: typing.Optional[builtins.str] = None, location_field: builtins.str = 'location', max_zoom: typing.Optional[builtins.int] = None, bands: typing.Optional[typing.Sequence[builtins.int]] = None, nodata: typing.Optional[builtins.int] = None, max_cached_files: builtins.int = 1000, file_expiry: builtins.float = 600.0, file_idle_timeout: typing.Optional[builtins.float] = None, options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None, format: typing.Literal['png', 'webp', 'jpeg'] | None = None, quality: builtins.int | typing.Literal['lossless'] | None = None, background: builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None = None) -> TileIndex:

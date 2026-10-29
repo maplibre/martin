@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ pub const DEFAULT_SEARCH_EXPIRY: Duration = Duration::from_hours(24);
 pub const DEFAULT_MAX_CACHED_SEARCHES: u64 = 10_000;
 
 /// How many items one search reads by default.
-pub const DEFAULT_MAX_ITEMS_PER_SEARCH: usize = 1000;
+pub const DEFAULT_MAX_ITEMS_PER_SEARCH: NonZeroUsize = NonZeroUsize::new(1000).expect("1000 != 0");
 
 /// Items asked for per page of search results.
 const PAGE_SIZE: usize = 250;
@@ -95,7 +96,7 @@ pub struct StacSearchOptions {
     /// One search covers one tile at this zoom, and serves every tile below it.
     pub search_zoom: u8,
     /// The most items one search reads, kept or skipped; the rest of its pages are not fetched.
-    pub max_items_per_search: usize,
+    pub max_items_per_search: NonZeroUsize,
     /// How long a search result is kept before searching again.
     pub search_expiry: Duration,
     /// The most search results kept at once.
@@ -157,7 +158,7 @@ impl StacSearchOptions {
         );
         body.insert(
             "limit".to_owned(),
-            Value::from(PAGE_SIZE.min(self.max_items_per_search)),
+            Value::from(PAGE_SIZE.min(self.max_items_per_search.get())),
         );
         body
     }
@@ -300,7 +301,7 @@ impl StacIndex {
             url: self.search_url.clone(),
             body: self.options.search_body(Some([west, south, east, north])),
         };
-        let max_items = self.options.max_items_per_search;
+        let max_items = self.options.max_items_per_search.get();
         let mut files = Vec::new();
         let mut skipped = 0_usize;
         let mut read = 0_usize;

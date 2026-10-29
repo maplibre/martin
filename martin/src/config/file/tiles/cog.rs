@@ -482,9 +482,7 @@ impl CogStacSource {
                     Some(StacOrderConfig::Newest) | None => StacOrder::Newest,
                 },
                 search_zoom: self.search_zoom.unwrap_or(self.minzoom),
-                max_items_per_search: self
-                    .max_items_per_search
-                    .map_or(DEFAULT_MAX_ITEMS_PER_SEARCH, NonZeroUsize::get),
+                max_items_per_search: self.max_items_per_search.unwrap_or(DEFAULT_MAX_ITEMS_PER_SEARCH),
                 search_expiry: self.search_expiry.unwrap_or(DEFAULT_SEARCH_EXPIRY),
                 max_cached_searches: self.max_cached_searches.unwrap_or(DEFAULT_MAX_CACHED_SEARCHES),
             },
