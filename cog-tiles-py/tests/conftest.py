@@ -8,12 +8,13 @@ SYNTHETIC = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "cog" /
 
 
 class RangeServer(ThreadingHTTPServer):
-    """Serves the synthetic COGs over HTTP range requests. While `holding`, each GET waits for `released`."""
+    """Serves the files under `root` over HTTP range requests. While `holding`, each GET waits for `released`."""
 
     daemon_threads = True
 
-    def __init__(self):
+    def __init__(self, root=SYNTHETIC):
         super().__init__(("127.0.0.1", 0), RangeHandler)
+        self.root = root
         self.holding = False
         self.held = threading.Event()
         self.released = threading.Event()
@@ -26,10 +27,10 @@ class RangeServer(ThreadingHTTPServer):
 
 class RangeHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
-        self.send_headers(200, (SYNTHETIC / self.path.lstrip("/")).stat().st_size)
+        self.send_headers(200, (self.server.root / self.path.lstrip("/")).stat().st_size)
 
     def do_GET(self):
-        data = (SYNTHETIC / self.path.lstrip("/")).read_bytes()
+        data = (self.server.root / self.path.lstrip("/")).read_bytes()
         self.server.gets += 1
         if self.server.holding:
             self.server.held.set()
@@ -50,11 +51,20 @@ class RangeHandler(BaseHTTPRequestHandler):
         pass
 
 
-@pytest.fixture
-def server():
-    server = RangeServer()
+def serve(root):
+    server = RangeServer(root)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield server
     server.released.set()
     server.shutdown()
     server.server_close()
+
+
+@pytest.fixture
+def server():
+    yield from serve(SYNTHETIC)
+
+
+@pytest.fixture
+def fixture_server():
+    yield from serve(SYNTHETIC.parent)

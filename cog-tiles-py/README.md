@@ -37,6 +37,22 @@ Templates use `{quadkey}`, or `{x}` and `{y}` with an optional `{z}` (`{-y}` cou
 bottom, as in TMS). One file is found by listing the location when it is opened; the others are
 opened on first use and cached.
 
+Files in Web Mercator or a UTM zone, listed by a `gdaltindex` tile index and reprojected onto
+Web Mercator tiles:
+
+```python
+# gdaltindex -f GPKG -t_srs EPSG:4326 naip.gpkg *.tif
+naip = cog_tiles.open_tile_index("naip.gpkg", min_zoom=12, nodata=0)
+naip.bounds  # the union of the files' footprints
+png = naip.tile(14, 2619, 6334)
+```
+
+The whole index is read when it is opened. Each tile is painted from the files that touch it, in the
+index's row order, so a pixel takes the first file's data; it is a PNG with an alpha band that is
+transparent where no file has data. `bands` picks the bands served, counted from 1 (`[1, 2, 3]` by
+default, or one band for gray). Locations may be paths relative to the index, URLs, or GDAL
+`/vsis3/`, `/vsigs/`, `/vsiaz/` and `/vsicurl/` paths, read with `options` as in `open`.
+
 With `asyncio`, e.g. in a tile server, every call that waits has an `_async` twin:
 
 ```python
@@ -99,7 +115,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
   with `crs="EPSG:3857"`. A raster covers the whole pixels the bbox touches; `raster.bounds` is
   the snapped extent. Pixels without data are 0, and a bbox without any data returns `None`.
 * `read` refuses rasters over `max_pixels` (16384 x 16384 by default).
-* `Cog` and `Mosaic` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
+* `Cog`, `Mosaic` and `TileIndex` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
   `DataLoader` workers. Forked processes get their own I/O threads.
 * Object store credentials come from the usual environment variables (`AWS_*`, `GOOGLE_*`,
   `AZURE_*`); `options` overrides them with
