@@ -6,6 +6,64 @@ The format is based on [Keep a Changelog](<https://keepachangelog.com/en/1.0.0/>
 
 ## \[Unreleased\]
 
+## [2.0.0-beta.5](<https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.4...martin-v2.0.0-beta.5>) - 2026-10-29
+
+> \[!NOTE\] This is the fifth beta of Martin 2.0. It has one breaking change relative to [2.0.0-beta.4](<https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.4>), listed below. If you are coming from 1.x, read the [migration guide](<https://maplibre.org/martin/migration-guide/>) first.
+
+### Breaking changes
+
+- Rendered WebP tiles and static images are lossy at quality 80 instead of lossless, and JPEG goes from quality 75 to 80 ([\#3813](<https://github.com/maplibre/martin/pull/3813>)). The median rendered WebP tile went from 62.6 KB to 10.3 KB. Bytes and `ETag`s change once on upgrade. Set `styles.rendering.quality: { webp: lossless, jpeg: 75 }` for the previous output. See [quality](<https://maplibre.org/martin/sources-styles/rendering/#quality>).
+
+### Added
+
+- Martin serves its tiles, styles and rendered maps through the [OGC API](<https://maplibre.org/martin/ogc-api/>) under `/ogc`, for tools that only speak OGC, such as GDAL. It is in the default build, as the `ogcapi` feature. OGC API - Tiles serves every tile source as a collection, with tilesets and tile matrix sets ([\#3763](<https://github.com/maplibre/martin/pull/3763>), [\#3764](<https://github.com/maplibre/martin/pull/3764>)). OGC API - Styles lists the styles ([\#3800](<https://github.com/maplibre/martin/pull/3800>)), and `/ogc/api` serves the OpenAPI 3.1 definition ([\#3801](<https://github.com/maplibre/martin/pull/3801>)). With rendering enabled, OGC API - Maps draws styles and raster sources as PNG, JPEG or GeoTIFF images and map tiles ([\#3802](<https://github.com/maplibre/martin/pull/3802>), [\#3803](<https://github.com/maplibre/martin/pull/3803>), [\#3804](<https://github.com/maplibre/martin/pull/3804>), [\#3805](<https://github.com/maplibre/martin/pull/3805>), [\#3806](<https://github.com/maplibre/martin/pull/3806>)). The official OGC test suites run against Martin in CI ([\#3765](<https://github.com/maplibre/martin/pull/3765>), [\#3771](<https://github.com/maplibre/martin/pull/3771>), [\#3799](<https://github.com/maplibre/martin/pull/3799>)).
+- `cog.stac` serves the imagery a STAC API such as [Earth Search](<https://earth-search.aws.element84.com/v1>) finds for each tile as one source, reprojected from each scene's UTM zone to Web Mercator ([\#3814](<https://github.com/maplibre/martin/pull/3814>), [\#3815](<https://github.com/maplibre/martin/pull/3815>), [\#3816](<https://github.com/maplibre/martin/pull/3816>)). See [Imagery from a STAC API](<https://maplibre.org/martin/sources-cog-files/#imagery-from-a-stac-api>).
+
+```yaml
+cog:
+  aws_request_payer: true
+  stac:
+    naip:
+      url: https://earth-search.aws.element84.com/v1
+      collection: naip
+      asset: image
+      minzoom: 13
+```
+
+- `cog.tile_index` serves the COGs a `gdaltindex` GeoPackage lists as one source ([\#3820](<https://github.com/maplibre/martin/pull/3820>)). See [Imagery listed by a tile index](<https://maplibre.org/martin/sources-cog-files/#imagery-listed-by-a-tile-index>) and the [NAIP recipe](<https://maplibre.org/martin/recipe-cog-naip/>).
+- COG sources re-encode their tiles with `format` (`png`, `webp` or `jpeg`), `quality` and `background` ([\#3822](<https://github.com/maplibre/martin/pull/3822>), [\#3823](<https://github.com/maplibre/martin/pull/3823>)). WebP at quality 80 is 5 to 12 times smaller than PNG on NAIP. See [Tile format](<https://maplibre.org/martin/sources-cog-files/#tile-format>).
+- COGs stored in uncompressed strips are served, cut into 256 px tiles, and overviews can be pages that halve in size. A mosaic file without GeoTIFF tags is placed at its mosaic tile ([\#3728](<https://github.com/maplibre/martin/pull/3728>)).
+- `martin cp --delete-meta KEY` deletes a metadata key, next to `--set-meta` ([\#1081](<https://github.com/maplibre/martin/issues/1081>), [\#3777](<https://github.com/maplibre/martin/pull/3777>)). `mbtiles meta-update` takes both flags ([\#3755](<https://github.com/maplibre/martin/pull/3755>)).
+- FreeBSD 14.0+ binaries for x86\_64 and aarch64, and an `x86_64-unknown-freebsd-legacycpu` tarball ([\#3783](<https://github.com/maplibre/martin/pull/3783>)).
+- `--features fips` builds Martin with FIPS 140-3 compliant TLS. No release binary is built with it. See [installation](<https://maplibre.org/martin/installation/>) ([\#3809](<https://github.com/maplibre/martin/pull/3809>)).
+
+### Fixed
+
+- `--order-by` no longer breaks tables without an id column, which includes every auto-published table unless `id_columns` is set. Before, all their tiles failed with an SQL syntax error ([\#3762](<https://github.com/maplibre/martin/pull/3762>)).
+- Table `properties` keep the order the config lists them in. Before, they were sorted by name ([\#3810](<https://github.com/maplibre/martin/pull/3810>)).
+- A source no longer advertises zooms above 30 in its TileJSON. It is capped with a warning naming the source ([\#3772](<https://github.com/maplibre/martin/pull/3772>)).
+- A static image with a fractional pixel ratio, such as `@1.005x`, has its own size. Before, a cached `@1x` renderer answered it ([\#3753](<https://github.com/maplibre/martin/pull/3753>)).
+- Rendered image encodes stay limited to the number of cores when clients disconnect, for example while a map is panned quickly ([\#3750](<https://github.com/maplibre/martin/pull/3750>)).
+- A configuration error inside a `pmtiles`, `mbtiles`, `cog`, `geojson`, `styles`, `sprites` or `fonts` section points at the bad value instead of the section's first key ([\#3748](<https://github.com/maplibre/martin/pull/3748>)).
+
+### Unstable
+
+> \[!WARNING\] None of this is in the release binaries. It needs a build with `--features unstable-generate`, and its configuration may still change.
+
+- [`martin test`](<https://maplibre.org/martin/martin-test/>) renders real rows through the `layers` of table sources in bulk mode, and keeps the result in a spec file ([\#3685](<https://github.com/maplibre/martin/pull/3685>), [\#3686](<https://github.com/maplibre/martin/pull/3686>), [\#3688](<https://github.com/maplibre/martin/pull/3688>), [\#3696](<https://github.com/maplibre/martin/pull/3696>), [\#3697](<https://github.com/maplibre/martin/pull/3697>), [\#3741](<https://github.com/maplibre/martin/pull/3741>), [\#3749](<https://github.com/maplibre/martin/pull/3749>)). `generate` finds a row for each path a feature can take through a layer, and reviews new and changed cases in the terminal. `run` shows how the cases changed after a change to the layers.
+- Bulk mode matches tile mode more closely: halves round to even ([\#3766](<https://github.com/maplibre/martin/pull/3766>), [\#3778](<https://github.com/maplibre/martin/pull/3778>)), what lies on a tile's buffer edge is kept ([\#3767](<https://github.com/maplibre/martin/pull/3767>)), tiles for points and unclipped features are picked from the source geometry ([\#3780](<https://github.com/maplibre/martin/pull/3780>)), simplification keeps the first of equally far vertices ([\#3779](<https://github.com/maplibre/martin/pull/3779>)), unclipped features are whole in every tile any part reaches ([\#3731](<https://github.com/maplibre/martin/pull/3731>)), MultiPolygon parts that round onto each other merge ([\#3752](<https://github.com/maplibre/martin/pull/3752>)), a multipoint with an `EMPTY` part is kept ([\#3751](<https://github.com/maplibre/martin/pull/3751>)), and MLT is encoded with the configured `convert_to_mlt` settings ([\#3761](<https://github.com/maplibre/martin/pull/3761>)).
+- A polygon ring in a tile that gets its whole polygon starts where `ST_AsMVTGeom` starts it. [`--mvt-quirk`](<https://maplibre.org/martin/martin-generate/#mvt-quirks>) `preserve-ring-start` keeps the source start, and `keep-unused-keys` lists every key the config gives a layer, as `ST_AsMVT` does ([\#3811](<https://github.com/maplibre/martin/pull/3811>), [\#3812](<https://github.com/maplibre/martin/pull/3812>)).
+- Bulk mode stops on a geometry a tile cannot hold, such as a `GEOMETRYCOLLECTION` or `TRIANGLE`, naming the source and feature and printing a query that counts such rows. Before, it skipped them or drew a wrong point ([\#3756](<https://github.com/maplibre/martin/pull/3756>), [\#3757](<https://github.com/maplibre/martin/pull/3757>)).
+- Bulk mode reads `--mbtiles-type`, `--skip-agg-tiles-hash`, `--set-meta` and `--delete-meta`. The flags it cannot read each get their own reason, and a config with `max_feature_count` is refused instead of silently ignored ([\#3840](<https://github.com/maplibre/martin/pull/3840>)).
+- Bulk mode is faster on a Germany extract: CEL comparisons and boolean logic skip the interpreter (layered -9.6%) ([\#3830](<https://github.com/maplibre/martin/pull/3830>)), up to 4096 sort runs merge at once instead of 256 (plain -4.8%) ([\#3831](<https://github.com/maplibre/martin/pull/3831>)), and small polygons are checked without a grid (render CPU -8%) ([\#3832](<https://github.com/maplibre/martin/pull/3832>)).
+- DuckDB sources (`unstable-duckdb`) no longer publish a configured table a second time, nor take the id of a broken one, so `points.1` can become `points` ([\#3692](<https://github.com/maplibre/martin/pull/3692>)).
+
+### Other
+
+- *(docs)* the OGC API and `martin test` with diagrams, five top-level tabs and a fuller troubleshooting page ([\#3773](<https://github.com/maplibre/martin/pull/3773>), [\#3741](<https://github.com/maplibre/martin/pull/3741>), [\#3743](<https://github.com/maplibre/martin/pull/3743>))
+- *(deps)* update `mlt-core` to 0.22.1, `spreet` to 0.14 (dropping the unmaintained `ttf-parser` and `rustybuzz`), `oxipng`, `similar`, `vt100`, `roxmltree`, the Docker images and the pre-commit hooks, and bump `ctutils` past RUSTSEC-2026-0385 ([\#3833](<https://github.com/maplibre/martin/pull/3833>), [\#3781](<https://github.com/maplibre/martin/pull/3781>), [\#3797](<https://github.com/maplibre/martin/pull/3797>), [\#3790](<https://github.com/maplibre/martin/pull/3790>), [\#3789](<https://github.com/maplibre/martin/pull/3789>), [\#3788](<https://github.com/maplibre/martin/pull/3788>), [\#3792](<https://github.com/maplibre/martin/pull/3792>), [\#3791](<https://github.com/maplibre/martin/pull/3791>), [\#3784](<https://github.com/maplibre/martin/pull/3784>), [\#3785](<https://github.com/maplibre/martin/pull/3785>), [\#3754](<https://github.com/maplibre/martin/pull/3754>), [\#3740](<https://github.com/maplibre/martin/pull/3740>), [\#3730](<https://github.com/maplibre/martin/pull/3730>), [\#3798](<https://github.com/maplibre/martin/pull/3798>), [\#3839](<https://github.com/maplibre/martin/pull/3839>))
+- *(ci)* faster and more reliable CI and benchmarks ([\#3793](<https://github.com/maplibre/martin/pull/3793>), [\#3760](<https://github.com/maplibre/martin/pull/3760>), [\#3782](<https://github.com/maplibre/martin/pull/3782>), [\#3739](<https://github.com/maplibre/martin/pull/3739>), [\#3747](<https://github.com/maplibre/martin/pull/3747>), [\#3774](<https://github.com/maplibre/martin/pull/3774>), [\#3775](<https://github.com/maplibre/martin/pull/3775>), [\#3794](<https://github.com/maplibre/martin/pull/3794>), [\#3795](<https://github.com/maplibre/martin/pull/3795>), [\#3796](<https://github.com/maplibre/martin/pull/3796>), [\#3819](<https://github.com/maplibre/martin/pull/3819>), [\#3835](<https://github.com/maplibre/martin/pull/3835>), [\#3836](<https://github.com/maplibre/martin/pull/3836>), [\#3837](<https://github.com/maplibre/martin/pull/3837>))
+
 ## [2.0.0-beta.4](<https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.3...martin-v2.0.0-beta.4>) - 2026-10-22
 
 > \[!NOTE\] This is the fourth beta of Martin 2.0. It has four breaking changes relative to [2.0.0-beta.3](<https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.3>), listed below. If you are coming from 1.x, read the [migration guide](<https://maplibre.org/martin/migration-guide/>) first.

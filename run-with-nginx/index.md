@@ -16,7 +16,7 @@ services:
       - martin
 
   martin:
-    image: ghcr.io/maplibre/martin:2.0.0-beta.4
+    image: ghcr.io/maplibre/martin:2.0.0-beta.5
     restart: unless-stopped
     command:
       - postgres://postgres:password@db/db
