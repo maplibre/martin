@@ -21,7 +21,7 @@ use martin_tilegen::{
     GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
     TileGenResult, generate,
 };
-use mbtiles::{MbtType, MbtTypeCli, check_metadata_edit};
+use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
 use mlt_core::encoder::EncoderConfig;
 use postgres_protocol::escape::escape_identifier;
 use tilejson::{Bounds, tilejson};
@@ -102,6 +102,13 @@ impl GenerateOptions {
             });
         }
         check_metadata_edit(&args.set_meta, &args.delete_meta).map_err(TileGenError::from)?;
+        if let Some((_, algorithm)) = args.set_meta.iter().find(|(key, _)| key == HASH_ALGORITHM)
+            && HashAlgorithm::parse(algorithm).is_none()
+        {
+            return Err(GenerateError::UnknownHashAlgorithm {
+                algorithm: algorithm.clone(),
+            });
+        }
         let format = match args.format {
             None | Some(CopyFormat::MltV1) => TileFormat::Mlt,
             Some(CopyFormat::Mvt) => TileFormat::Mvt,
@@ -195,6 +202,8 @@ pub enum GenerateError {
     MaxFeatureCount,
     #[error("`--mode bulk` reads `{options}` only for `.mbtiles` output")]
     MbtilesOnly { options: String },
+    #[error("`--set-meta hash_algorithm={algorithm}` is not one of md5, fnv1a, fnv1a-decimal, xxh64 or xxh3")]
+    UnknownHashAlgorithm { algorithm: String },
     #[error("`--mode bulk` takes at most one `--bbox`")]
     SeveralBboxes,
     #[error("`--mode bulk` renders a range of zooms; `--zoom-levels` must not skip a zoom")]

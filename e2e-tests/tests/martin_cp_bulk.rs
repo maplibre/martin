@@ -727,6 +727,22 @@ async fn refuses_mbtiles_options_for_pmtiles_output() {
 }
 
 #[tokio::test]
+async fn refuses_an_unknown_hash_algorithm() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--set-meta")
+        .arg("hash_algorithm=bogus")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--set-meta hash_algorithm=bogus` is not one of md5, fnv1a, fnv1a-decimal, xxh64 or xxh3");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
 #[expect(clippy::too_many_lines, reason = "inline snapshots of the metadata and summary")]
 async fn writes_the_mbtiles_type_and_metadata_edits() {
     let dir = temp_dir();

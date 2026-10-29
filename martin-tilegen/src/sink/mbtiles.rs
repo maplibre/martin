@@ -4,7 +4,7 @@ use std::thread;
 
 use mbtiles::sqlx::{AssertSqlSafe, SqliteConnection, raw_sql};
 use mbtiles::{
-    AGG_TILES_HASH, AggTilesHasher, CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileDedup,
+    AGG_TILES_HASH, AggTilesHasher, CopyDuplicateMode, HASH_ALGORITHM, MbtType, Mbtiles, NormalizedSchema, TileDedup,
     init_mbtiles_schema, is_empty_database,
 };
 use tilejson::TileJSON;
@@ -86,6 +86,10 @@ impl MbtilesSink {
                 .execute(&mut conn)
                 .await
                 .map_err(mbtiles::MbtError::from)?;
+            // Before any tile, so that the per-tile hashes of a hashed schema use an edited algorithm.
+            if let Some((_, value)) = options.set_meta.iter().find(|(key, _)| key == HASH_ALGORITHM) {
+                mbt.set_metadata_value(&mut conn, HASH_ALGORITHM, value).await?;
+            }
             let algorithm = mbt.get_hash_algorithm(&mut conn).await?;
             Ok((conn, algorithm))
         })?;
@@ -256,6 +260,7 @@ mod tests {
             let path = path.clone();
             move || {
                 let options = MbtilesOptions {
+                    mbt_type: MbtType::FlatWithHash,
                     set_meta: vec![
                         ("name".to_owned(), "edited".to_owned()),
                         ("hash_algorithm".to_owned(), "xxh3".to_owned()),
