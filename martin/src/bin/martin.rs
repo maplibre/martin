@@ -1,6 +1,5 @@
 #![expect(clippy::print_stderr, reason = "binary entrypoint reports startup errors to stderr")]
-// Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/159105
-#![cfg_attr(target_os = "macos", allow(linker_messages))]
+#![cfg_attr(target_os = "macos", expect(linker_messages, reason = "remove once closed: https://github.com/rust-lang/rust/issues/159105"))]
 
 use std::env;
 #[cfg(feature = "tui")]
