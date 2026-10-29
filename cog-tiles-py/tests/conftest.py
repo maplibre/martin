@@ -120,7 +120,7 @@ class StacHandler(BaseHTTPRequestHandler):
         for request in (CASSETTE / f"{self.path.lstrip('/')}.post").glob("*.request.json"):
             if canonical(json.loads(request.read_text())) == canonical(body):
                 return self.reply(request.with_name(request.name.replace(".request", "")).read_text())
-        self.reply(None)
+        return self.reply(None)
 
     def reply(self, body, status=200):
         if body is None:

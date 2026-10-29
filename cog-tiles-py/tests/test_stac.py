@@ -4,6 +4,7 @@ import json
 import pickle
 import re
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import pytest
@@ -78,6 +79,14 @@ def test_bands_are_selected_by_name_or_number(stac):
 def test_invalid_stac_sources_are_rejected(stac, arguments, error, message):
     with pytest.raises(error, match=re.escape(message)):
         cog_tiles.open_stac(f"{stac.url}/v1", "naip", "image", 13, options=HTTP, **{**NAIP, **arguments})
+
+
+def test_the_query_can_be_any_mapping(stac):
+    arguments = {**NAIP, "query": MappingProxyType(NAIP["query"])}
+    naip = cog_tiles.open_stac(f"{stac.url}/v1", "naip", "image", 13, max_zoom=15, options=HTTP, **arguments)
+    assert stac.searches[-1]["query"] == NAIP["query"]
+    tile = decode(naip.tile(14, 2619, 6334))
+    np.testing.assert_array_equal(tile, np.asarray(Image.open(EXPECTED / "14_2619_6334.png")))
 
 
 def test_a_collection_without_items_is_rejected(stac):

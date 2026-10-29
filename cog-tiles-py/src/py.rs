@@ -14,8 +14,9 @@ use numpy::ndarray::Array3;
 use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
 use pyo3::exceptions::{PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::{PyBytes, PyDict, PyMapping, PyString};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::task::AbortOnDropHandle;
 
@@ -514,7 +515,7 @@ struct SearchArgs {
     datetime: Option<String>,
     /// The query as JSON text, so a pickled `Stac` restores its own copy.
     query: Option<String>,
-    order: String,
+    order: Order,
     max_items_per_search: usize,
     search_expiry: f64,
     max_cached_searches: u64,
@@ -531,14 +532,9 @@ impl Stac {
     /// Reads the collection and opens its first matching item, the work that `open_stac` and
     /// `open_stac_async` wait for.
     fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
-        let order = match self.search.order.as_str() {
-            "newest" => StacOrder::Newest,
-            "oldest" => StacOrder::Oldest,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "order must be \"newest\" or \"oldest\", not {other:?}"
-                )));
-            }
+        let order = match self.search.order {
+            Order::Newest => StacOrder::Newest,
+            Order::Oldest => StacOrder::Oldest,
         };
         let query = self
             .search
@@ -603,7 +599,7 @@ impl Stac {
         keywords.set_item("search_zoom", this.search.search_zoom)?;
         keywords.set_item("datetime", &this.search.datetime)?;
         keywords.set_item("query", query)?;
-        keywords.set_item("order", &this.search.order)?;
+        keywords.set_item("order", this.search.order)?;
         keywords.set_item("max_items_per_search", this.search.max_items_per_search)?;
         keywords.set_item("search_expiry", this.search.search_expiry)?;
         keywords.set_item("max_cached_searches", this.search.max_cached_searches)?;
@@ -1112,7 +1108,7 @@ pub async fn open_tile_index_async(
     search_zoom = None,
     datetime = None,
     query = None,
-    order = "newest".to_owned(),
+    order = Order::Newest,
     max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH,
     search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
     max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
@@ -1138,7 +1134,7 @@ pub fn open_stac(
     datetime: Option<String>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, typing.Any] | None", imports = ("builtins", "typing")))]
     query: Option<Py<PyAny>>,
-    #[gen_stub(override_type(type_repr = "typing.Literal['newest', 'oldest']", imports = ("typing")))] order: String,
+    order: Order,
     max_items_per_search: usize,
     search_expiry: f64,
     max_cached_searches: u64,
@@ -1200,7 +1196,7 @@ pub fn open_stac(
     search_zoom = None,
     datetime = None,
     query = None,
-    order = "newest".to_owned(),
+    order = Order::Newest,
     max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH,
     search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
     max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
@@ -1225,7 +1221,7 @@ pub async fn open_stac_async(
     datetime: Option<String>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, typing.Any] | None", imports = ("builtins", "typing")))]
     query: Option<Py<PyAny>>,
-    #[gen_stub(override_type(type_repr = "typing.Literal['newest', 'oldest']", imports = ("typing")))] order: String,
+    order: Order,
     max_items_per_search: usize,
     search_expiry: f64,
     max_cached_searches: u64,
@@ -1274,9 +1270,13 @@ pub async fn open_stac_async(
     Python::attach(|py| stac.into_py(py, source))
 }
 
-/// `value` as JSON text.
+/// `value`, any mapping, as JSON text.
 fn to_json(value: &Py<PyAny>) -> PyResult<String> {
-    Python::attach(|py| py.import("json")?.call_method1("dumps", (value,))?.extract())
+    Python::attach(|py| {
+        let dict = PyDict::new(py);
+        dict.update(value.bind(py).cast::<PyMapping>()?)?;
+        py.import("json")?.call_method1("dumps", (dict,))?.extract()
+    })
 }
 
 /// `bands` counted from 1, counted from 0.
@@ -1391,6 +1391,44 @@ impl<'py> FromPyObject<'_, 'py> for Format {
         name.parse().map_err(|_unknown| {
             PyValueError::new_err(format!("format must be \"png\", \"webp\" or \"jpeg\", not {name:?}"))
         })
+    }
+}
+
+/// Which STAC items cover a pixel first, by their `datetime`.
+#[derive(Clone, Copy, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum Order {
+    /// The newest item is painted first.
+    Newest,
+    /// The oldest item is painted first.
+    Oldest,
+}
+
+impl<'py> FromPyObject<'_, 'py> for Order {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        let name: String = value.extract()?;
+        name.parse()
+            .map_err(|_unknown| PyValueError::new_err(format!("order must be \"newest\" or \"oldest\", not {name:?}")))
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Order {
+    type Target = PyString;
+    type Output = Bound<'py, PyString>;
+    type Error = std::convert::Infallible;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(PyString::new(py, &self.to_string()))
+    }
+}
+
+impl PyStubType for Order {
+    fn type_output() -> TypeInfo {
+        let mut info = TypeInfo::unqualified("typing.Literal['newest', 'oldest']");
+        info.import.insert("typing".into());
+        info
     }
 }
 
