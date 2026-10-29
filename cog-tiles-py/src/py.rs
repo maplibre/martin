@@ -574,9 +574,9 @@ impl Stac {
         let encoding = self.encoding.encoding();
         let resolve = href_resolver(self.store_options.clone().into_iter().collect());
         Ok(async move {
-            let (index, probe) = StacIndex::open(search, bands.as_deref(), resolve).await?;
+            let index = StacIndex::open(search, bands.as_deref(), resolve).await?;
             options.bands = index.bands().to_vec();
-            let mosaic = AsyncIndexedMosaic::open_stac(index, &probe, options).await?;
+            let mosaic = AsyncIndexedMosaic::open_stac(index, options).await?;
             Ok(Source::indexed(mosaic, encoding))
         })
     }
