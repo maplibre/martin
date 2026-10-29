@@ -2,20 +2,22 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use cog_tiles::{
-    AsyncIndexedMosaic, CogResult, IndexedMosaicOptions, MosaicOptions, PixelWindow, TileCoord, TileEncoding,
-    TilePixels, lnglat_to_mercator,
+    AsyncIndexedMosaic, CogResult, IndexedMosaicOptions, MosaicOptions, PixelWindow, StacIndex, StacOrder,
+    StacSearchOptions, TileCoord, TileEncoding, TilePixels, lnglat_to_mercator,
 };
 use numpy::ndarray::Array3;
 use numpy::{IntoPyArray as _, PyArray3, PyUntypedArrayMethods as _};
 use pyo3::exceptions::{PyStopAsyncIteration, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::{PyBytes, PyDict, PyMapping, PyString};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
+use pyo3_stub_gen::{PyStubType, TypeInfo};
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::task::AbortOnDropHandle;
 
@@ -489,6 +491,164 @@ impl TileIndex {
     }
 }
 
+/// The COGs a STAC API finds for each tile, in any supported projection, reprojected onto Web Mercator.
+#[gen_stub_pyclass]
+#[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
+pub struct Stac {
+    /// The STAC API root.
+    url: String,
+    /// The collection searched.
+    collection: String,
+    /// The key of the asset read from each item.
+    asset: String,
+    /// The lowest zoom served.
+    min_zoom: u8,
+    /// How the STAC API is searched.
+    search: SearchArgs,
+    /// The selected bands, red, green and blue when `None`.
+    bands: Option<Vec<Band>>,
+    /// The mosaic options shared with `open_tile_index`.
+    index: IndexArgs,
+    /// The object store options assets are read with.
+    store_options: BTreeMap<String, String>,
+    /// How tiles are re-encoded.
+    encoding: EncodingArgs,
+}
+
+/// The positional arguments `open_stac` is called with to restore a pickled STAC source.
+type StacArgs = (String, String, String, u8);
+
+/// How a STAC API is searched.
+#[derive(Clone)]
+struct SearchArgs {
+    /// The zoom one search covers a tile of, `min_zoom` when `None`.
+    search_zoom: Option<u8>,
+    /// The STAC `datetime` interval items must fall in.
+    datetime: Option<String>,
+    /// The STAC query as JSON text.
+    query: Option<String>,
+    /// Which items are painted first.
+    order: Order,
+    /// The most items one search reads.
+    max_items_per_search: NonZeroUsize,
+    /// Seconds a search result is kept.
+    search_expiry: f64,
+    /// The most search results kept at once.
+    max_cached_searches: u64,
+}
+
+/// One band of a STAC asset, by number (counted from 1) or by `eo:bands` name.
+#[derive(Clone, FromPyObject, IntoPyObject)]
+pub enum Band {
+    /// The band number, counted from 1.
+    Number(usize),
+    /// The band's `eo:bands` name.
+    Name(String),
+}
+
+impl Stac {
+    /// Reads the collection and opens its first matching item, the work that `open_stac` and
+    /// `open_stac_async` wait for.
+    fn open_source(&self) -> PyResult<impl Future<Output = CogResult<Source>> + Send + 'static> {
+        let order = match self.search.order {
+            Order::Newest => StacOrder::Newest,
+            Order::Oldest => StacOrder::Oldest,
+        };
+        let query = self
+            .search
+            .query
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|e| PyValueError::new_err(format!("query: {e}")))?;
+        let search = StacSearchOptions {
+            url: self.url.clone(),
+            user_agent: concat!("cog-tiles-py/", env!("CARGO_PKG_VERSION")).to_owned(),
+            collection: self.collection.clone(),
+            asset: self.asset.clone(),
+            datetime: self.search.datetime.clone(),
+            query,
+            order,
+            search_zoom: self.search.search_zoom.unwrap_or(self.min_zoom),
+            max_items_per_search: self.search.max_items_per_search,
+            search_expiry: seconds(self.search.search_expiry)?,
+            max_cached_searches: self.search.max_cached_searches,
+        };
+        let bands: Option<Vec<cog_tiles::StacBand>> = self.bands.as_ref().map(|bands| {
+            bands
+                .iter()
+                .map(|band| match band {
+                    Band::Number(number) => cog_tiles::StacBand::Number(*number),
+                    Band::Name(name) => cog_tiles::StacBand::Name(name.clone()),
+                })
+                .collect()
+        });
+        let mut options = self.index.options(self.min_zoom, Vec::new())?;
+        let encoding = self.encoding.encoding();
+        let resolve = href_resolver(self.store_options.clone().into_iter().collect());
+        Ok(async move {
+            let index = StacIndex::open(search, bands.as_deref(), resolve).await?;
+            options.bands = index.bands().to_vec();
+            let mosaic = AsyncIndexedMosaic::open_stac(index, options).await?;
+            Ok(Source::indexed(mosaic, encoding))
+        })
+    }
+
+    /// The Python object for this STAC source, read through `source`.
+    fn into_py(self, py: Python<'_>, source: Source) -> PyResult<Py<Self>> {
+        Py::new(py, PyClassInitializer::from(TileSource::new(source)).add_subclass(self))
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl Stac {
+    #[gen_stub(skip)]
+    fn __reduce__<'py>(slf: &Bound<'py, Self>) -> PyResult<(Bound<'py, PyAny>, StacArgs)> {
+        let this = slf.get();
+        let py = slf.py();
+        let keywords = this.encoding.keywords(py)?;
+        this.index.add_keywords(&keywords)?;
+        let query = match &this.search.query {
+            Some(query) => Some(py.import("json")?.call_method1("loads", (query,))?),
+            None => None,
+        };
+        keywords.set_item("search_zoom", this.search.search_zoom)?;
+        keywords.set_item("datetime", &this.search.datetime)?;
+        keywords.set_item("query", query)?;
+        keywords.set_item("order", this.search.order)?;
+        keywords.set_item("max_items_per_search", this.search.max_items_per_search.get())?;
+        keywords.set_item("search_expiry", this.search.search_expiry)?;
+        keywords.set_item("max_cached_searches", this.search.max_cached_searches)?;
+        keywords.set_item("bands", this.bands.clone())?;
+        keywords.set_item("options", &this.store_options)?;
+        let open = with_keywords(py, "open_stac", &keywords)?;
+        Ok((
+            open,
+            (
+                this.url.clone(),
+                this.collection.clone(),
+                this.asset.clone(),
+                this.min_zoom,
+            ),
+        ))
+    }
+
+    fn __repr__(slf: &Bound<'_, Self>) -> String {
+        let layout = slf.as_super().get().layout;
+        let this = slf.get();
+        format!(
+            "Stac({:?}, collection={:?}, asset={:?}, zooms={}..={}, format={:?})",
+            this.url,
+            this.collection,
+            this.asset,
+            layout.min_zoom,
+            layout.max_zoom,
+            layout.format.extension(),
+        )
+    }
+}
+
 /// The zooms, nodata and file cache of a mosaic found by an index.
 #[derive(Clone)]
 struct IndexArgs {
@@ -940,6 +1100,202 @@ pub async fn open_tile_index_async(
     Python::attach(|py| index.into_py(py, source))
 }
 
+/// Opens the COGs a STAC API finds for each tile: the `asset` of the items in `collection`.
+///
+/// One search covers one tile at `search_zoom` (`min_zoom` when `None`) and serves every tile below
+/// it; at most `max_items_per_search` items are read, and results are kept for `search_expiry`
+/// seconds, at most `max_cached_searches`. `datetime` is a STAC interval, e.g.
+/// `"2020-01-01T00:00:00Z/.."`, and `query` a STAC query extension object, e.g.
+/// `{"eo:cloud_cover": {"lt": 10}}`. `order` paints the `"newest"` or `"oldest"` items first.
+///
+/// `bands` are the bands served, by number (counted from 1) or `eo:bands` name: one for gray, three
+/// for RGB; `["red", "green", "blue"]` when `None`, or the first three if the asset does not name its
+/// bands. The rest is as in `open_tile_index`: assets are read with `options`, and `format`,
+/// `quality` and `background` re-encode every tile.
+///
+/// The collection is read now for its extent and band names, and its first matching item is opened.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (
+    url,
+    collection,
+    asset,
+    min_zoom,
+    *,
+    search_zoom = None,
+    datetime = None,
+    query = None,
+    order = Order::Newest,
+    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH.get(),
+    search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
+    max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
+    max_zoom = None,
+    bands = None,
+    nodata = None,
+    max_cached_files = cog_tiles::DEFAULT_MAX_CACHED_FILES,
+    file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
+    file_idle_timeout = None,
+    options = None,
+    format = None,
+    quality = None,
+    background = None,
+))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
+pub fn open_stac(
+    py: Python<'_>,
+    url: String,
+    collection: String,
+    asset: String,
+    min_zoom: u8,
+    search_zoom: Option<u8>,
+    datetime: Option<String>,
+    #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, typing.Any] | None", imports = ("builtins", "typing")))]
+    query: Option<Py<PyAny>>,
+    order: Order,
+    max_items_per_search: usize,
+    search_expiry: f64,
+    max_cached_searches: u64,
+    max_zoom: Option<u8>,
+    #[gen_stub(override_type(type_repr = "typing.Sequence[builtins.int | builtins.str] | None", imports = ("builtins", "typing")))]
+    bands: Option<Vec<Band>>,
+    nodata: Option<u8>,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<Format>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<Stac>> {
+    let query = query.map(|query| to_json(&query)).transpose()?;
+    let stac = Stac {
+        url,
+        collection,
+        asset,
+        min_zoom,
+        search: SearchArgs {
+            search_zoom,
+            datetime,
+            query,
+            order,
+            max_items_per_search: at_least_one(max_items_per_search)?,
+            search_expiry,
+            max_cached_searches,
+        },
+        bands,
+        index: IndexArgs {
+            max_zoom,
+            nodata,
+            max_cached_files,
+            file_expiry,
+            file_idle_timeout,
+        },
+        store_options: options.unwrap_or_default(),
+        encoding: EncodingArgs::new(format, quality, background)?,
+    };
+    let source = wait(py, stac.open_source()?)?.map_err(to_py)?;
+    stac.into_py(py, source)
+}
+
+/// `open_stac` for `asyncio`, reading the API and the first item on background threads instead of
+/// the event loop.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (
+    url,
+    collection,
+    asset,
+    min_zoom,
+    *,
+    search_zoom = None,
+    datetime = None,
+    query = None,
+    order = Order::Newest,
+    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH.get(),
+    search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
+    max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
+    max_zoom = None,
+    bands = None,
+    nodata = None,
+    max_cached_files = cog_tiles::DEFAULT_MAX_CACHED_FILES,
+    file_expiry = cog_tiles::DEFAULT_FILE_EXPIRY.as_secs_f64(),
+    file_idle_timeout = None,
+    options = None,
+    format = None,
+    quality = None,
+    background = None,
+))]
+#[expect(clippy::too_many_arguments, reason = "the arguments of a Python function")]
+pub async fn open_stac_async(
+    url: String,
+    collection: String,
+    asset: String,
+    min_zoom: u8,
+    search_zoom: Option<u8>,
+    datetime: Option<String>,
+    #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, typing.Any] | None", imports = ("builtins", "typing")))]
+    query: Option<Py<PyAny>>,
+    order: Order,
+    max_items_per_search: usize,
+    search_expiry: f64,
+    max_cached_searches: u64,
+    max_zoom: Option<u8>,
+    #[gen_stub(override_type(type_repr = "typing.Sequence[builtins.int | builtins.str] | None", imports = ("builtins", "typing")))]
+    bands: Option<Vec<Band>>,
+    nodata: Option<u8>,
+    max_cached_files: u64,
+    file_expiry: f64,
+    file_idle_timeout: Option<f64>,
+    options: Option<BTreeMap<String, String>>,
+    #[gen_stub(override_type(type_repr = "typing.Literal['png', 'webp', 'jpeg'] | None", imports = ("typing")))]
+    format: Option<Format>,
+    #[gen_stub(override_type(type_repr = "builtins.int | typing.Literal['lossless'] | None", imports = ("builtins", "typing")))]
+    quality: Option<Quality>,
+    #[gen_stub(override_type(type_repr = "builtins.str | tuple[builtins.int, builtins.int, builtins.int] | None", imports = ("builtins")))]
+    background: Option<Background>,
+) -> PyResult<Py<Stac>> {
+    let query = query.map(|query| to_json(&query)).transpose()?;
+    let stac = Stac {
+        url,
+        collection,
+        asset,
+        min_zoom,
+        search: SearchArgs {
+            search_zoom,
+            datetime,
+            query,
+            order,
+            max_items_per_search: at_least_one(max_items_per_search)?,
+            search_expiry,
+            max_cached_searches,
+        },
+        bands,
+        index: IndexArgs {
+            max_zoom,
+            nodata,
+            max_cached_files,
+            file_expiry,
+            file_idle_timeout,
+        },
+        store_options: options.unwrap_or_default(),
+        encoding: EncodingArgs::new(format, quality, background)?,
+    };
+    let source = spawn(stac.open_source()?).await?.map_err(to_py)?;
+    Python::attach(|py| stac.into_py(py, source))
+}
+
+/// `value`, any mapping, as JSON text.
+fn to_json(value: &Py<PyAny>) -> PyResult<String> {
+    Python::attach(|py| {
+        let dict = PyDict::new(py);
+        dict.update(value.bind(py).cast::<PyMapping>()?)?;
+        py.import("json")?.call_method1("dumps", (dict,))?.extract()
+    })
+}
+
 /// `bands` counted from 1, counted from 0.
 fn from_one(bands: &[usize]) -> PyResult<Vec<usize>> {
     bands
@@ -949,6 +1305,12 @@ fn from_one(bands: &[usize]) -> PyResult<Vec<usize>> {
                 .ok_or_else(|| PyValueError::new_err("bands are counted from 1"))
         })
         .collect()
+}
+
+/// `max_items_per_search` if it is not 0.
+fn at_least_one(max_items_per_search: usize) -> PyResult<NonZeroUsize> {
+    NonZeroUsize::new(max_items_per_search)
+        .ok_or_else(|| PyValueError::new_err("max_items_per_search must be at least 1"))
 }
 
 /// `value` seconds as a duration.
@@ -1052,6 +1414,44 @@ impl<'py> FromPyObject<'_, 'py> for Format {
         name.parse().map_err(|_unknown| {
             PyValueError::new_err(format!("format must be \"png\", \"webp\" or \"jpeg\", not {name:?}"))
         })
+    }
+}
+
+/// Which STAC items cover a pixel first, by their `datetime`.
+#[derive(Clone, Copy, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum Order {
+    /// The newest item is painted first.
+    Newest,
+    /// The oldest item is painted first.
+    Oldest,
+}
+
+impl<'py> FromPyObject<'_, 'py> for Order {
+    type Error = PyErr;
+
+    fn extract(value: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        let name: String = value.extract()?;
+        name.parse()
+            .map_err(|_unknown| PyValueError::new_err(format!("order must be \"newest\" or \"oldest\", not {name:?}")))
+    }
+}
+
+impl<'py> IntoPyObject<'py> for Order {
+    type Target = PyString;
+    type Output = Bound<'py, PyString>;
+    type Error = std::convert::Infallible;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(PyString::new(py, &self.to_string()))
+    }
+}
+
+impl PyStubType for Order {
+    fn type_output() -> TypeInfo {
+        let mut info = TypeInfo::unqualified("typing.Literal['newest', 'oldest']");
+        info.import.insert("typing".into());
+        info
     }
 }
 
