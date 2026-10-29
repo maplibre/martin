@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/martin/compare/cog-tiles-v0.2.0...cog-tiles-v0.3.0) - 2026-10-29
+
+### Added
+
+- *(cog)* open STAC API searches in the Python bindings ([#3828](https://github.com/maplibre/martin/pull/3828))
+- *(cog)* re-encode COG tiles as a configured format, quality and background ([#3822](https://github.com/maplibre/martin/pull/3822))
+- *(cog-tiles)* reproject UTM COGs into an indexed mosaic ([#3814](https://github.com/maplibre/martin/pull/3814))
+
+### Other
+
+- *(cog)* move the tile index and STAC index into cog-tiles ([#3826](https://github.com/maplibre/martin/pull/3826))
+
 ## [0.2.0](https://github.com/maplibre/martin/compare/cog-tiles-v0.1.2...cog-tiles-v0.2.0) - 2026-10-22
 
 ### Added
