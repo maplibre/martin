@@ -921,6 +921,7 @@ update-lockfile: fetch
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
     cargo update --precise 1.0.2 sdf_glyph_renderer
+    cargo update --precise 0.2.37 prettyplease
 
 # Validate that all required development tools are installed
 validate-tools:
