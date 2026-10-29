@@ -490,9 +490,14 @@ impl Worker for TileWorker {
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
         let geometry = Geometry::of(&req);
-        self.slot(&req.style, geometry)?
+        let result = self
+            .slot(&req.style, geometry)?
             .renderer
-            .render(geometry.camera(req.z, req.x, req.y))
+            .render(geometry.camera(req.z, req.x, req.y));
+        if wedged(&result) {
+            self.slots.remove(0);
+        }
+        result
     }
 }
 
@@ -524,9 +529,17 @@ impl Worker for StaticWorker {
                 current.insert(StaticRenderer::new(&self.runtime, width, height, params.pixel_ratio)?)
             }
         };
-        renderer.resize(width, height)?;
-        renderer.render(&params)
+        let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
+        if wedged(&result) {
+            self.current = None;
+        }
+        result
     }
+}
+
+/// Whether `result` came from a map that may never answer again (maplibre/maplibre-native-ffi#786).
+fn wedged(result: &Result<Image, StyleError>) -> bool {
+    matches!(result, Err(StyleError::RenderingError(_)))
 }
 
 /// Loads `style` into `renderer`, skipping the load if it is already the cached style.
@@ -633,6 +646,7 @@ impl StaticRenderer {
 mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
 
     use rstest::rstest;
 
@@ -659,12 +673,35 @@ mod tests {
         ]
     }"##;
 
+    const LABEL_STYLE: &str = r##"{
+        "version": 8,
+        "glyphs": "http://127.0.0.1:{port}/{fontstack}/{range}.pbf",
+        "sources": {
+            "spot": {
+                "type": "geojson",
+                "data": {
+                    "type": "Feature",
+                    "properties": {"name": "spot"},
+                    "geometry": {"type": "Point", "coordinates": [0, 0]}
+                }
+            }
+        },
+        "layers": [
+            {"id": "bg", "type": "background", "paint": {"background-color": "#ffffff"}},
+            {"id": "label", "type": "symbol", "source": "spot", "layout": {"text-field": ["get", "name"], "text-font": ["Open Sans Regular"]}}
+        ]
+    }"##;
+
     fn write_style() -> tempfile::NamedTempFile {
+        write_style_json(POLY_STYLE)
+    }
+
+    fn write_style_json(json: &str) -> tempfile::NamedTempFile {
         let style_file = tempfile::Builder::new()
             .suffix(".json")
             .tempfile()
             .expect("create style tempfile");
-        std::fs::write(style_file.path(), POLY_STYLE).expect("write style");
+        std::fs::write(style_file.path(), json).expect("write style");
         style_file
     }
 
@@ -968,5 +1005,51 @@ mod tests {
             .expect("render the document");
 
         assert_eq!(in_memory, from_file);
+    }
+
+    #[tokio::test]
+    async fn a_tile_renderer_whose_still_image_fails_is_replaced() {
+        let glyphs = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a glyph server");
+        let port = glyphs.local_addr().expect("glyph server address").port();
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&requests);
+        thread::spawn(move || {
+            for mut stream in glyphs.incoming().flatten() {
+                let _ = std::io::Read::read(&mut stream, &mut [0; 4096]);
+                counted.fetch_add(1, Ordering::SeqCst);
+                let _ = std::io::Write::write_all(
+                    &mut stream,
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                );
+            }
+        });
+        let style_file = write_style_json(&LABEL_STYLE.replace("{port}", &port.to_string()));
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
+        let request = || TileRequest {
+            style: style_file.path().to_path_buf().into(),
+            z: 0,
+            x: 0,
+            y: 0,
+            tile_size: TileSize::Px512,
+            pixel_ratio: NonZeroU8::MIN,
+        };
+
+        let first = tokio::time::timeout(Duration::from_secs(30), pool.render(request()))
+            .await
+            .expect("the first render answers");
+        assert!(matches!(first, Err(StyleError::RenderingError(_))), "{first:?}");
+        let requested_before = requests.load(Ordering::SeqCst);
+        let second = tokio::time::timeout(Duration::from_secs(30), pool.render(request()))
+            .await
+            .expect("the second render answers");
+        assert!(matches!(second, Err(StyleError::RenderingError(_))), "{second:?}");
+        assert!(
+            requests.load(Ordering::SeqCst) > requested_before,
+            "a fresh renderer asks for the glyphs again"
+        );
     }
 }
