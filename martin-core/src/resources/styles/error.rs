@@ -27,7 +27,7 @@ pub enum StyleError {
 
     /// `MapLibre` did not answer a call within the time it is given.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    #[error("MapLibre did not answer within {}s: {call}", timeout.as_secs())]
+    #[error("MapLibre did not answer within {timeout:?}: {call}")]
     Timeout {
         /// The call that went unanswered.
         call: &'static str,

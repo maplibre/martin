@@ -22,7 +22,7 @@ use tracing::{error, info, warn};
 use crate::resources::styles::StyleError;
 
 /// How long a call into `MapLibre` may take before its renderer is given up on.
-pub(crate) const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
+const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// A `MapLibre` runtime and graphics device shared by every renderer of a pool, with one ambient cache.
 pub struct Runtime {
@@ -32,8 +32,6 @@ pub struct Runtime {
     device: GraphicsDeviceHandle,
     /// Style-load listeners, by the id of the map they listen to.
     listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
-    /// How long each call into `MapLibre` gets to answer.
-    timeout: Duration,
 }
 
 impl std::fmt::Debug for Runtime {
@@ -48,7 +46,7 @@ impl Drop for Runtime {
         let signal = Arc::new(Signal::default());
         let Some(handle) = self.handle.take() else { return };
         let released = (handle.release())
-            .map(|released| block_on(&signal, released, self.timeout, "runtime release"))
+            .map(|released| block_on(&signal, released, "runtime release"))
             .map_err(|(_, err)| StyleError::from(err));
         if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release the MapLibre runtime");
@@ -58,12 +56,12 @@ impl Drop for Runtime {
 
 impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
-    /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it) and whose calls into `MapLibre` get `timeout` to answer.
+    /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
     ///
     /// # Errors
     ///
     /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
-    pub fn new(ambient_cache_bytes: Option<u64>, timeout: Duration) -> Result<Self, StyleError> {
+    pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
         forward_logs();
         let device = GraphicsDeviceHandle::create(None).map_err(|err| StyleError::GraphicsUnavailable {
             reason: err.to_string(),
@@ -81,17 +79,11 @@ impl Runtime {
                 }
             }
         });
-        block_on(
-            &signal,
-            handle.set_event_handler(handler)?,
-            timeout,
-            "event handler setup",
-        )?;
+        block_on(&signal, handle.set_event_handler(handler)?, "event handler setup")?;
         if let Some(bytes) = ambient_cache_bytes {
             block_on(
                 &signal,
                 handle.set_maximum_ambient_cache_size(bytes)?,
-                timeout,
                 "ambient cache setup",
             )?;
         }
@@ -99,7 +91,6 @@ impl Runtime {
             handle: Releasable(Some(handle)),
             device,
             listeners,
-            timeout,
         })
     }
 }
@@ -225,7 +216,7 @@ impl Renderer {
             ..MapOptions::new(extent)
         };
         let (map, created) = runtime.handle.create_map(&options)?;
-        block_on(&signal, created, runtime.timeout, "map creation")?;
+        block_on(&signal, created, "map creation")?;
 
         let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
         let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
@@ -243,7 +234,7 @@ impl Renderer {
             style,
             signal,
         };
-        block_on(&renderer.signal, attached, runtime.timeout, "render target attachment")?;
+        block_on(&renderer.signal, attached, "render target attachment")?;
         Ok(renderer)
     }
 
@@ -277,11 +268,10 @@ impl Renderer {
         &self,
         set: impl FnOnce(&MapHandle) -> maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
     ) -> Result<(), StyleError> {
-        let timeout = self.runtime.timeout;
-        let until = Instant::now() + timeout;
+        let until = Instant::now() + NATIVE_TIMEOUT;
         self.style.begin();
         // A failed style command loads nothing, so no outcome would ever arrive.
-        let set = match block_on(&self.signal, set(&self.map)?, timeout, "style command") {
+        let set = match block_on(&self.signal, set(&self.map)?, "style command") {
             Ok(set) => set,
             Err(StyleError::RenderingError(err)) => {
                 return Err(StyleError::StyleLoadError {
@@ -295,7 +285,7 @@ impl Renderer {
             Some(StyleOutcome::Failed(message)) => Err(StyleError::StyleLoadError { message }),
             None => Err(StyleError::Timeout {
                 call: "style load",
-                timeout,
+                timeout: NATIVE_TIMEOUT,
             }),
         }
     }
@@ -306,7 +296,6 @@ impl Renderer {
         block_on(
             &self.signal,
             self.session.resize(LogicalExtent::new(width, height, scale_factor))?,
-            self.runtime.timeout,
             "resize",
         )?;
         Ok(())
@@ -322,7 +311,7 @@ impl Renderer {
         &self,
         command: maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
     ) -> Result<(), StyleError> {
-        block_on(&self.signal, command?, self.runtime.timeout, "style command")?;
+        block_on(&self.signal, command?, "style command")?;
         Ok(())
     }
 
@@ -333,11 +322,10 @@ impl Renderer {
             camera,
             ..CameraUpdate::default()
         })?;
-        let timeout = self.runtime.timeout;
-        block_on(&self.signal, self.map.request_still_image()?, timeout, "still image")?;
+        block_on(&self.signal, self.map.request_still_image()?, "still image")?;
         // Frame results queue up on the session until drained, and the still image needs none of them.
         self.session.drain_frame_results()?;
-        let readback = block_on(&self.signal, self.session.read_texture()?, timeout, "texture readback")?;
+        let readback = block_on(&self.signal, self.session.read_texture()?, "texture readback")?;
         Ok(unpremultiply(readback))
     }
 }
@@ -346,16 +334,15 @@ impl Drop for Renderer {
     /// Detaches and releases the session, then the map, waiting for each, so no native
     /// worker still draws when the runtime or the process goes away.
     fn drop(&mut self) {
-        let timeout = self.runtime.timeout;
         let detached = (self.session.detach())
-            .map(|detached| block_on(&self.signal, detached, timeout, "render session detach"))
+            .map(|detached| block_on(&self.signal, detached, "render session detach"))
             .map_err(StyleError::from);
         if let Err(err) | Ok(Err(err)) = detached {
             warn!(error = %err, "Failed to detach a render session");
         }
         if let Some(session) = self.session.take() {
             let released = (session.release())
-                .map(|released| block_on(&self.signal, released, timeout, "render session release"))
+                .map(|released| block_on(&self.signal, released, "render session release"))
                 .map_err(|(_, err)| StyleError::from(err));
             if let Err(err) | Ok(Err(err)) = released {
                 warn!(error = %err, "Failed to release a render session");
@@ -364,7 +351,7 @@ impl Drop for Renderer {
         let Some(map) = self.map.take() else { return };
         let id = map.id();
         let released = (map.release())
-            .map(|released| block_on(&self.signal, released, timeout, "map release"))
+            .map(|released| block_on(&self.signal, released, "map release"))
             .map_err(|(_, err)| StyleError::from(err));
         if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release a map");
@@ -465,17 +452,16 @@ impl Wake for Signal {
     }
 }
 
-/// Blocks the calling thread until `future` resolves, sleeping on `signal` between polls, or fails `call` once `timeout` has passed.
+/// Blocks the calling thread until `future` resolves, sleeping on `signal` between polls, or fails `call` once [`NATIVE_TIMEOUT`] has passed.
 fn block_on<T, E>(
     signal: &Arc<Signal>,
     mut future: impl Future<Output = Result<T, E>> + Unpin,
-    timeout: Duration,
     call: &'static str,
 ) -> Result<T, StyleError>
 where
     StyleError: From<E>,
 {
-    let until = Instant::now() + timeout;
+    let until = Instant::now() + NATIVE_TIMEOUT;
     let waker = Waker::from(Arc::clone(signal));
     let mut context = Context::from_waker(&waker);
     loop {
@@ -484,7 +470,10 @@ where
             return Ok(output?);
         }
         if Instant::now() >= until {
-            return Err(StyleError::Timeout { call, timeout });
+            return Err(StyleError::Timeout {
+                call,
+                timeout: NATIVE_TIMEOUT,
+            });
         }
         signal.wait_past(seen, until);
     }
