@@ -172,6 +172,7 @@ tilelive
 tileserver
 tileset
 tilesets
+tmpfs
 toon
 tui
 unclipped
