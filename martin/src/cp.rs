@@ -912,15 +912,7 @@ async fn init_schema(
     args: &CopyArgs,
 ) -> MartinCpResult<MbtType> {
     Ok(if is_empty_database(&mut *conn).await? {
-        let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
-            MbtTypeCli::Flat => MbtType::Flat,
-            MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-            MbtTypeCli::Normalized => MbtType::Normalized {
-                hash_view: false,
-                schema: mbtiles::NormalizedSchema::DedupId,
-            },
-            MbtTypeCli::Cache => MbtType::Cache,
-        };
+        let mbt_type = MbtType::from(args.mbt_type.unwrap_or(MbtTypeCli::Normalized));
         init_mbtiles_schema(&mut *conn, mbt_type, false).await?;
         let mut tj = merge_tilejson(sources, String::new());
         tj.other.insert(

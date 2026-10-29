@@ -129,10 +129,10 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also apply, such as
 `--config` and `--pool-size`. A configuration file and connection strings cannot be combined.
 
-Bulk mode refuses the `martin cp` options it does not read: `--url-query`, `--mbtiles-type`,
-`--on-duplicate`, `--concurrency`, `--skip-agg-tiles-hash`, `--set-meta`, `--delete-meta`,
-`--save-config` and `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads`
-and `--mvt-quirk`.
+`--mbtiles-type`, `--skip-agg-tiles-hash`, `--set-meta` and `--delete-meta` work as in tile mode,
+for `.mbtiles` output only. Bulk mode refuses `--url-query`, `--on-duplicate`, `--concurrency` (its
+workers are `--threads`), `--save-config`, and `max_feature_count` in the config or as
+`--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
