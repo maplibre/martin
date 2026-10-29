@@ -52,7 +52,7 @@ permissions:
 jobs:
   zizmor:
     if: inputs.run-actions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       security-events: write
@@ -66,7 +66,7 @@ jobs:
         uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
   audit:
     if: inputs.run-cargo-deps
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -88,7 +88,7 @@ jobs:
           # RUSTSEC-2026-0253 = lru@0.7.8 pop() panic safety; pulled in by tracing-log's interest-cache, whose keys never panic on drop
           # RUSTSEC-2025-0075,0080,0081,0090,0098,0100 = unic-* unmaintained; pinned by pyo3-stub-gen 0.23.1 (latest) -> rustpython-parser 0.4, only in cog-tiles-py
   dependency-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -111,7 +111,7 @@ jobs:
   codeql:
     name: CodeQL (${{ matrix.language }})
     if: inputs.codeql-languages != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       # required for all workflows
