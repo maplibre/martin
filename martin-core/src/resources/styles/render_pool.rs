@@ -490,9 +490,14 @@ impl Worker for TileWorker {
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
         let geometry = Geometry::of(&req);
-        self.slot(&req.style, geometry)?
+        let result = self
+            .slot(&req.style, geometry)?
             .renderer
-            .render(geometry.camera(req.z, req.x, req.y))
+            .render(geometry.camera(req.z, req.x, req.y));
+        if matches!(&result, Err(StyleError::RenderingError(_))) {
+            self.slots.remove(0);
+        }
+        result
     }
 }
 
@@ -524,8 +529,11 @@ impl Worker for StaticWorker {
                 current.insert(StaticRenderer::new(&self.runtime, width, height, params.pixel_ratio)?)
             }
         };
-        renderer.resize(width, height)?;
-        renderer.render(&params)
+        let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
+        if matches!(&result, Err(StyleError::RenderingError(_))) {
+            self.current = None;
+        }
+        result
     }
 }
 

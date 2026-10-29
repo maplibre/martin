@@ -7,6 +7,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use image::{ColorType, ImageFormat};
 use indoc::formatdoc;
@@ -155,6 +156,56 @@ async fn maplibre_logs_under_its_own_target() {
         ");
     });
     cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn a_renderer_whose_still_image_fails_is_replaced() {
+    async fn glyph_requests(cassette: &Cassette) -> usize {
+        let log = cassette.request_log().await;
+        log.lines().filter(|line| line.contains("/font/Nonexistent/")).count()
+    }
+
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let styles = tempfile::tempdir().expect("failed to create a temp dir");
+    let unknown_font = styles.path().join("unknown_font.json");
+    let style = std::fs::read_to_string(fixture("styles/unknown_font.json")).expect("failed to read the fixture");
+    std::fs::write(
+        &unknown_font,
+        style.replace("https://glyphs.invalid", &cassette.url("glyphs.invalid")),
+    )
+    .expect("failed to write the style");
+    let unknown_font = unknown_font.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                unknown_font: {unknown_font}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let first = tokio::time::timeout(Duration::from_secs(30), martin.get("/style/unknown_font/0/0/0.png"))
+        .await
+        .expect("the first render answers");
+    assert_eq!(first.status(), 500, "{}", first.text());
+    let requested_before = glyph_requests(&cassette).await;
+    assert!(requested_before > 0, "the glyph range was requested");
+
+    let second = tokio::time::timeout(Duration::from_secs(30), martin.get("/style/unknown_font/0/0/0.png"))
+        .await
+        .expect("the second render answers");
+    assert_eq!(second.status(), 500, "{}", second.text());
+    assert!(
+        glyph_requests(&cassette).await > requested_before,
+        "a fresh renderer asks for the glyphs again"
+    );
+
+    martin.assert_log_contains("Failed to render style");
+    martin.stop().await;
 }
 
 #[rstest]
