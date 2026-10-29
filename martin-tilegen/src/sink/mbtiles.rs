@@ -156,16 +156,16 @@ impl TileSink for MbtilesSink {
     fn finish(mut self, metadata: &TileJSON) -> TileGenResult<()> {
         self.runtime.block_on(async {
             self.mbt.insert_metadata(&mut self.conn, metadata).await?;
-            // Before the hash, so that it uses an edited `hash_algorithm`.
-            self.mbt
-                .edit_metadata(&mut self.conn, &self.options.set_meta, &self.options.delete_meta)
-                .await?;
             if self.options.hashes() {
                 match self.hasher {
                     Some(hasher) => self.mbt.finish_agg_tiles_hash(&mut self.conn, hasher).await?,
                     None => self.mbt.update_agg_tiles_hash(&mut self.conn).await?,
                 };
             }
+            // After the hash, which writes `hash_algorithm`; `create_with` already applied an edited one.
+            self.mbt
+                .edit_metadata(&mut self.conn, &self.options.set_meta, &self.options.delete_meta)
+                .await?;
             Ok(())
         })
     }
@@ -253,7 +253,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn edits_metadata_before_hashing() {
+    async fn hashes_tiles_with_an_edited_hash_algorithm() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("out.mbtiles");
         tokio::task::spawn_blocking({
@@ -297,6 +297,34 @@ mod tests {
                 .as_deref(),
             Some("xxh3")
         );
+    }
+
+    #[tokio::test]
+    async fn a_hash_algorithm_the_edits_delete_stays_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.mbtiles");
+        tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let options = MbtilesOptions {
+                    delete_meta: vec!["hash_algorithm".to_owned()],
+                    ..MbtilesOptions::default()
+                };
+                let mut sink = MbtilesSink::create_with(&path, options).unwrap();
+                let batches = vec![Ok(vec![tile(0, 0, 0, b"root", None)])];
+                sink.write_all(&mut batches.into_iter()).unwrap();
+                sink.finish(&tilejson::tilejson! { tiles: vec![] }).unwrap();
+            }
+        })
+        .await
+        .unwrap();
+
+        let mbt = Mbtiles::new(&path).unwrap();
+        let mut conn = mbt.open_readonly().await.unwrap();
+        mbt.validate(&mut conn, IntegrityCheckType::Full, AggHashType::Verify)
+            .await
+            .unwrap();
+        assert_eq!(mbt.get_metadata_value(&mut conn, "hash_algorithm").await.unwrap(), None);
     }
 
     #[tokio::test]
