@@ -183,17 +183,17 @@ impl Renderer {
             ..MapOptions::new(extent)
         };
         let (map, created) = runtime.handle.create_map(&options)?;
+        block_on(&signal, created)?;
+
+        let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
+        let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
+        let (session, attached) = map.attach_graphics_device_texture(&runtime.device, &descriptor, &attach)?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(map.id(), Arc::clone(&style));
-        block_on(&signal, created)?;
-
-        let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
-        let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
-        let (session, attached) = map.attach_graphics_device_texture(&runtime.device, &descriptor, &attach)?;
         let renderer = Self {
             runtime: Arc::clone(runtime),
             map: Releasable(Some(map)),
