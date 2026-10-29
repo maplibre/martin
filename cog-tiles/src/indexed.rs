@@ -18,6 +18,10 @@ use crate::{
 /// The width and height of every tile of an [`AsyncIndexedMosaic`].
 pub const INDEXED_TILE_SIZE: u32 = 256;
 
+/// Turns an asset `href` into the store and path it is read from.
+pub type HrefResolver =
+    Arc<dyn Fn(&str) -> Result<(Arc<dyn ObjectStore>, Path), Box<dyn std::error::Error + Send + Sync>> + Send + Sync>;
+
 /// Finds the files that may hold a tile, e.g. by searching a STAC catalog.
 #[async_trait::async_trait]
 pub trait MosaicIndex: Debug + Send + Sync {
@@ -27,6 +31,11 @@ pub trait MosaicIndex: Debug + Send + Sync {
     /// # Errors
     /// Returns an error if the index cannot be searched.
     async fn files_for(&self, coord: TileCoord) -> CogResult<Arc<[MosaicFile]>>;
+
+    /// `[west, south, east, north]` in degrees of everything the index can find, if it knows them.
+    fn bounds(&self) -> Option<[f64; 4]> {
+        None
+    }
 }
 
 /// One file an [`AsyncIndexedMosaic`] paints tiles from.
@@ -204,6 +213,12 @@ impl AsyncIndexedMosaic {
     #[must_use]
     pub fn info(&self) -> &IndexedMosaicInfo {
         &self.info
+    }
+
+    /// `[west, south, east, north]` in degrees, as [`MosaicIndex::bounds`] gives them.
+    #[must_use]
+    pub fn bounds(&self) -> Option<[f64; 4]> {
+        self.index.bounds()
     }
 
     /// Reads one tile as a PNG.

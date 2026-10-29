@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use futures::stream::{self, StreamExt as _};
 use martin_core::tiles::cog::{
-    CogMosaicOptions, CogSource, CogStacOptions, CogTileIndexOptions, DEFAULT_LOCATION_FIELD, HrefResolver, StacBand,
+    CogMosaicOptions, CogSource, CogStacOptions, CogTileIndexOptions, DEFAULT_LOCATION_FIELD,
+    DEFAULT_MAX_CACHED_SEARCHES, DEFAULT_MAX_ITEMS_PER_SEARCH, DEFAULT_SEARCH_EXPIRY, HrefResolver, StacBand,
     StacOrder, StacSearchOptions, TileEncoding,
 };
 use martin_core::tiles::{BackendSource, BoxedSource};
@@ -333,15 +334,6 @@ impl CogMosaicSource {
     }
 }
 
-/// Default for [`CogStacSource::search_expiry`].
-pub const DEFAULT_STAC_SEARCH_EXPIRY: Duration = Duration::from_hours(24);
-
-/// Default for [`CogStacSource::max_cached_searches`].
-pub const DEFAULT_STAC_CACHED_SEARCHES: u64 = 10_000;
-
-/// Default for [`CogStacSource::max_items_per_search`].
-pub const DEFAULT_STAC_ITEMS_PER_SEARCH: usize = 1000;
-
 /// A source that serves the COGs a STAC API finds for each tile, reprojected onto Web Mercator.
 ///
 /// Each search covers one tile at `search_zoom` and serves every tile below it. A tile is painted
@@ -480,6 +472,7 @@ impl CogStacSource {
         CogStacOptions {
             search: StacSearchOptions {
                 url: self.url.clone(),
+                user_agent: concat!("martin/", env!("CARGO_PKG_VERSION")).to_owned(),
                 collection: self.collection.clone(),
                 asset: self.asset.clone(),
                 datetime: self.datetime.clone(),
@@ -491,9 +484,9 @@ impl CogStacSource {
                 search_zoom: self.search_zoom.unwrap_or(self.minzoom),
                 max_items_per_search: self
                     .max_items_per_search
-                    .map_or(DEFAULT_STAC_ITEMS_PER_SEARCH, NonZeroUsize::get),
-                search_expiry: self.search_expiry.unwrap_or(DEFAULT_STAC_SEARCH_EXPIRY),
-                max_cached_searches: self.max_cached_searches.unwrap_or(DEFAULT_STAC_CACHED_SEARCHES),
+                    .map_or(DEFAULT_MAX_ITEMS_PER_SEARCH, NonZeroUsize::get),
+                search_expiry: self.search_expiry.unwrap_or(DEFAULT_SEARCH_EXPIRY),
+                max_cached_searches: self.max_cached_searches.unwrap_or(DEFAULT_MAX_CACHED_SEARCHES),
             },
             min_zoom: self.minzoom,
             max_zoom: self.maxzoom,

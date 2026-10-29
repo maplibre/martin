@@ -17,8 +17,12 @@ mod metadata;
 mod mosaic;
 mod pixels;
 mod reader;
+#[cfg(feature = "stac")]
+mod stac;
 mod template;
 mod tile;
+#[cfg(feature = "tile-index")]
+mod tile_index;
 #[cfg(feature = "mosaic")]
 mod warp;
 
@@ -35,7 +39,8 @@ pub use crate::encode::TileEncoding;
 pub use crate::error::{Chunking, CogError, CogResult, SkippedImage, UnsupportedReason};
 #[cfg(feature = "mosaic")]
 pub use crate::indexed::{
-    AsyncIndexedMosaic, INDEXED_TILE_SIZE, IndexedMosaicInfo, IndexedMosaicOptions, MosaicFile, MosaicIndex,
+    AsyncIndexedMosaic, HrefResolver, INDEXED_TILE_SIZE, IndexedMosaicInfo, IndexedMosaicOptions, MosaicFile,
+    MosaicIndex,
 };
 #[cfg(feature = "mosaic")]
 pub use crate::mosaic::{
@@ -43,8 +48,15 @@ pub use crate::mosaic::{
 };
 pub use crate::pixels::{PixelWindow, TilePixels};
 pub use crate::reader::{AsyncCogReader, CogInfo, DEFAULT_PREFETCH, TileFormat};
+#[cfg(feature = "stac")]
+pub use crate::stac::{
+    DEFAULT_MAX_CACHED_SEARCHES, DEFAULT_MAX_ITEMS_PER_SEARCH, DEFAULT_SEARCH_EXPIRY, StacBand, StacIndex, StacOrder,
+    StacSearchOptions,
+};
 pub use crate::template::{KeyTemplate, MosaicTemplateError};
 pub use crate::tile::{
     EARTH_CIRCUMFERENCE, HALF_EARTH, MAX_LATITUDE, MAX_ZOOM, TileCoord, lnglat_to_mercator, mercator_to_lnglat,
     resolution, tile_extent,
 };
+#[cfg(feature = "tile-index")]
+pub use crate::tile_index::{DEFAULT_LOCATION_FIELD, TileIndex};

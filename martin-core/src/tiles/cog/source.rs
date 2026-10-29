@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cog_tiles::{
-    AsyncBackend as _, AsyncCogMosaic, AsyncCogReader, AsyncIndexedMosaic, CogInfo, FileBackend, ObjectStoreBackend,
-    TileEncoding, TileFormat, TilePixels,
+    AsyncBackend as _, AsyncCogMosaic, AsyncCogReader, AsyncIndexedMosaic, CogInfo, FileBackend, MAX_LATITUDE,
+    ObjectStoreBackend, TileEncoding, TileFormat, TilePixels,
 };
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
@@ -163,6 +163,36 @@ impl CogSource {
             maxzoom: info.max_zoom,
         };
         Self::with_layout(id, tiles, tilejson, (info.tile_size, info.format), location, cache_zoom)
+    }
+
+    /// Finishes a source over `mosaic`, centered on its bounds or, if it has none, on the world.
+    pub(super) fn from_indexed(
+        id: String,
+        mosaic: AsyncIndexedMosaic,
+        location: String,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, CogError> {
+        let info = *mosaic.info();
+        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE]);
+        let tilejson = tilejson! {
+            tiles: vec![],
+            bounds: Bounds::new(west, south, east, north),
+            center: Center {
+                longitude: f64::midpoint(west, east),
+                latitude: f64::midpoint(south, north),
+                zoom: info.min_zoom,
+            },
+            minzoom: info.min_zoom,
+            maxzoom: info.max_zoom,
+        };
+        Self::with_layout(
+            id,
+            CogTiles::Indexed(Arc::new(mosaic)),
+            tilejson,
+            (info.tile_size, info.format),
+            location,
+            cache_zoom,
+        )
     }
 
     /// Finishes a source whose `TileJSON` has its zoom range set, adding the tile layout to it.
