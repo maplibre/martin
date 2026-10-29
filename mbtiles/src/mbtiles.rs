@@ -30,7 +30,6 @@ pub enum MbtTypeCli {
 }
 
 impl From<MbtTypeCli> for MbtType {
-    /// The schema a new file of `value` gets; `normalized` deduplicates by id (`DedupId`).
     fn from(value: MbtTypeCli) -> Self {
         match value {
             MbtTypeCli::Flat => Self::Flat,

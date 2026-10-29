@@ -53,8 +53,8 @@ impl MbtilesOptions {
     }
 }
 
-/// Writes a new `MBTiles` file through [`Mbtiles::bulk_write`], hashing the written tiles on
-/// another thread for `agg_tiles_hash`.
+/// Writes a new `MBTiles` file through [`Mbtiles::bulk_write`], hashing the written tiles on another thread for `agg_tiles_hash`.
+///
 /// The mbtiles crate is async, so the sink blocks on the tokio runtime it was created in.
 pub struct MbtilesSink {
     runtime: Handle,
