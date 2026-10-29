@@ -146,7 +146,7 @@ In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png
 
 Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
 Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
-A renderer whose still image fails, or that does not answer within a minute, is dropped too, so the next request for its style starts from a fresh map.
+A renderer that does not answer within a minute is dropped too, so the next request for its style starts from a fresh map.
 With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.

@@ -494,7 +494,7 @@ impl Worker for TileWorker {
             .slot(&req.style, geometry)?
             .renderer
             .render(geometry.camera(req.z, req.x, req.y));
-        if matches!(&result, Err(StyleError::RenderingError(_))) {
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
             self.slots.remove(0);
         }
         result
@@ -530,7 +530,7 @@ impl Worker for StaticWorker {
             }
         };
         let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
-        if matches!(&result, Err(StyleError::RenderingError(_))) {
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
             self.current = None;
         }
         result
