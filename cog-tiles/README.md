@@ -103,9 +103,9 @@ use cog_tiles::{AsyncIndexedMosaic, DEFAULT_LOCATION_FIELD, IndexedMosaicOptions
 let index = TileIndex::open("naip.gpkg".as_ref(), None, DEFAULT_LOCATION_FIELD, &resolve).await?;
 let naip = AsyncIndexedMosaic::open_tile_index(index, IndexedMosaicOptions::new(12, vec![0, 1, 2])).await?;
 
-let (index, first) = StacIndex::open(search, None, resolve).await?;
+let index = StacIndex::open(search, None, resolve).await?;
 let options = IndexedMosaicOptions::new(13, index.bands().to_vec());
-let stac = AsyncIndexedMosaic::open_stac(index, &first, options).await?;
+let stac = AsyncIndexedMosaic::open_stac(index, options).await?;
 # Ok(())
 # }
 ```

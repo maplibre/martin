@@ -1,15 +1,13 @@
 //! A COG source over a tile index: a `GeoPackage` with one footprint and location per file, as written by `gdaltindex`.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, MAX_LATITUDE, TileIndex};
-use tilejson::{Bounds, Center, tilejson};
+use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, TileIndex};
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
-use crate::tiles::cog::source::{CogSource, CogTiles};
+use crate::tiles::cog::source::CogSource;
 
 /// A source over the files of a tile index: where the index is, and how to paint.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,26 +62,6 @@ impl CogSource {
             .with_file_expiry(options.file_expiry)
             .with_file_idle_timeout(options.file_idle_timeout);
         let mosaic = AsyncIndexedMosaic::open_tile_index(index, mosaic_options).await?;
-        let info = *mosaic.info();
-        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE]);
-        let tilejson = tilejson! {
-            tiles: vec![],
-            bounds: Bounds::new(west, south, east, north),
-            center: Center {
-                longitude: f64::midpoint(west, east),
-                latitude: f64::midpoint(south, north),
-                zoom: info.min_zoom,
-            },
-            minzoom: info.min_zoom,
-            maxzoom: info.max_zoom,
-        };
-        Self::with_layout(
-            id,
-            CogTiles::Indexed(Arc::new(mosaic)),
-            tilejson,
-            (info.tile_size, info.format),
-            options.path.display().to_string(),
-            cache_zoom,
-        )
+        Self::from_indexed(id, mosaic, options.path.display().to_string(), cache_zoom)
     }
 }

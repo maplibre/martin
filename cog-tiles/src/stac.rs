@@ -110,17 +110,96 @@ pub struct StacIndex {
     search_url: String,
     /// What to search and how.
     options: StacSearchOptions,
-    /// Turns asset hrefs into stores.
-    resolve: HrefResolver,
-    /// The selected sample indexes with the `eo:bands` entry each was chosen by, which every
-    /// asset that names its bands must match.
-    band_layout: Vec<(usize, EoBand)>,
+    /// Turns each item's asset into a file.
+    assets: AssetFiles,
     /// Search results by tile at the search zoom.
     searches: Cache<TileCoord, Arc<[MosaicFile]>>,
     /// The selected bands, counted from 0.
     bands: Vec<usize>,
     /// The collection's overall bbox in degrees, if it has one.
     bounds: Option<[f64; 4]>,
+    /// The file of the first matching item, opened first to check that the mosaic can be served.
+    probe: MosaicFile,
+}
+
+/// Turns the asset of an item into a file.
+struct AssetFiles {
+    /// Turns asset hrefs into stores.
+    resolve: HrefResolver,
+    /// The selected sample indexes with the `eo:bands` entry each was chosen by, which every
+    /// asset that names its bands must match.
+    band_layout: Vec<(usize, EoBand)>,
+}
+
+impl StacSearchOptions {
+    /// The search request body: the filters, the order, and the bbox if any.
+    fn search_body(&self, bbox: Option<[f64; 4]>) -> Map<String, Value> {
+        let direction = self.order.direction();
+        let mut body = Map::new();
+        body.insert("collections".to_owned(), json!([self.collection]));
+        if let Some(bbox) = bbox {
+            body.insert("bbox".to_owned(), json!(bbox));
+        }
+        if let Some(datetime) = &self.datetime {
+            body.insert("datetime".to_owned(), Value::from(datetime.clone()));
+        }
+        if let Some(query) = &self.query {
+            body.insert("query".to_owned(), Value::Object(query.clone()));
+        }
+        // Sorting by `id` too keeps items of the same `datetime` in one order across pages:
+        // Earth Search pages by the sort keys alone, and drops items whose keys tie.
+        body.insert(
+            "sortby".to_owned(),
+            json!([
+                {"field": "properties.datetime", "direction": direction},
+                {"field": "id", "direction": direction},
+            ]),
+        );
+        body.insert(
+            "limit".to_owned(),
+            Value::from(PAGE_SIZE.min(self.max_items_per_search)),
+        );
+        body
+    }
+}
+
+impl AssetFiles {
+    /// The file of `item`'s asset `key`, or `None` (with a debug log) if it has no bbox or no such
+    /// asset, or its href cannot be resolved.
+    fn file(&self, item: &Item, key: &str) -> Option<MosaicFile> {
+        let bounds = item.bounds()?;
+        let Some(asset) = item.assets.get(key) else {
+            tracing::debug!(stac.item = item.id, asset = key, "STAC item has no such asset");
+            return None;
+        };
+        if let Some(names) = &asset.eo_bands
+            && let Some((band, _)) = self
+                .band_layout
+                .iter()
+                .find(|(band, expected)| names.get(*band).is_none_or(|name| !name.same(expected)))
+        {
+            tracing::debug!(
+                stac.item = item.id,
+                asset = key,
+                band = band + 1,
+                "STAC asset orders its bands unlike the first item"
+            );
+            return None;
+        }
+        match (self.resolve)(&asset.href) {
+            Ok((store, path)) => Some(MosaicFile {
+                cache_key: without_fragment(&asset.href).into(),
+                location: without_query(&asset.href).into(),
+                store,
+                path,
+                bounds,
+            }),
+            Err(error) => {
+                tracing::warn!(stac.item = item.id, href = asset.href, %error, "Cannot read a STAC asset");
+                None
+            }
+        }
+    }
 }
 
 impl fmt::Debug for StacIndex {
@@ -155,7 +234,7 @@ impl MosaicIndex for StacIndex {
 
 impl StacIndex {
     /// Opens an index over `options` serving `bands` (`None`: `red`, `green`, `blue`, or the first
-    /// three), and returns it with its first matching item's file to open the mosaic with.
+    /// three), reading the collection and its first matching item now.
     ///
     /// # Errors
     /// Returns an error if the API cannot be read, the collection has no matching item, a band is
@@ -164,62 +243,31 @@ impl StacIndex {
         options: StacSearchOptions,
         bands: Option<&[StacBand]>,
         resolve: HrefResolver,
-    ) -> CogResult<(Self, MosaicFile)> {
-        let asset_key = options.asset.clone();
-        let mut index = Self::new(options, resolve)?;
-        let collection = index.collection().await?;
-        let first = index.first_item().await?;
-        let names = [collection.item_assets.get(&asset_key), first.assets.get(&asset_key)]
-            .into_iter()
-            .flatten()
-            .find_map(|asset| asset.eo_bands.clone());
-        index.bands = select_bands(bands, names.as_deref(), &asset_key)?;
-        index.band_layout = index
-            .bands
-            .iter()
-            .filter_map(|&band| Some((band, names.as_deref()?.get(band)?.clone())))
-            .collect();
-        index.bounds = collection.bounds();
-        let probe = index.file(&first).ok_or_else(|| CogError::StacUnusableItem {
-            item: first.id.clone(),
-            asset: asset_key,
-        })?;
-        Ok((index, probe))
-    }
-
-    /// The selected bands, counted from 0, to open the mosaic with.
-    #[must_use]
-    pub fn bands(&self) -> &[usize] {
-        &self.bands
-    }
-
-    /// An index over `options`, resolving asset hrefs with `resolve`.
-    fn new(options: StacSearchOptions, resolve: HrefResolver) -> CogResult<Self> {
-        let api = options.url.clone();
-        let client = reqwest::Client::builder()
-            .timeout(REQUEST_TIMEOUT)
-            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
-                if attempt.previous().len() < MAX_REDIRECTS && same_origin(attempt.url().as_str(), &api) {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
-            .default_headers(
-                [(
-                    USER_AGENT,
-                    HeaderValue::from_str(&options.user_agent).map_err(|header| CogError::StacUserAgent {
-                        user_agent: options.user_agent.clone(),
-                        header,
-                    })?,
-                )]
-                .into_iter()
+    ) -> CogResult<Self> {
+        let client = client(&options)?;
+        let search_url = format!("{}/search", options.url.trim_end_matches('/'));
+        let collection = read_collection(&client, &options).await?;
+        let first = first_item(&client, &search_url, &options).await?;
+        let names = [
+            collection.item_assets.get(&options.asset),
+            first.assets.get(&options.asset),
+        ]
+        .into_iter()
+        .flatten()
+        .find_map(|asset| asset.eo_bands.clone());
+        let bands = select_bands(bands, names.as_deref(), &options.asset)?;
+        let assets = AssetFiles {
+            resolve,
+            band_layout: bands
+                .iter()
+                .filter_map(|&band| Some((band, names.as_deref()?.get(band)?.clone())))
                 .collect(),
-            )
-            .build()
-            .map_err(|source| CogError::StacRequest {
-                url: options.url.clone(),
-                source,
+        };
+        let probe = assets
+            .file(&first, &options.asset)
+            .ok_or_else(|| CogError::StacUnusableItem {
+                item: first.id.clone(),
+                asset: options.asset.clone(),
             })?;
         let searches = Cache::builder()
             .max_capacity(options.max_cached_searches)
@@ -227,36 +275,20 @@ impl StacIndex {
             .build();
         Ok(Self {
             client,
-            search_url: format!("{}/search", options.url.trim_end_matches('/')),
+            search_url,
             options,
-            resolve,
-            band_layout: Vec::new(),
+            assets,
             searches,
-            bands: Vec::new(),
-            bounds: None,
+            bands,
+            bounds: collection.bounds(),
+            probe,
         })
     }
 
-    /// The collection's metadata.
-    async fn collection(&self) -> CogResult<Collection> {
-        let url = format!(
-            "{}/collections/{}",
-            self.options.url.trim_end_matches('/'),
-            self.options.collection
-        );
-        let response = self.client.get(&url).send().await;
-        read_json(&url, response).await
-    }
-
-    /// The first item of the collection that matches the filters.
-    async fn first_item(&self) -> CogResult<Item> {
-        let mut body = self.search_body(None);
-        body.insert("limit".to_owned(), Value::from(1));
-        let page: ItemCollection = self.post(&self.search_url, &body).await?;
-        page.features.into_iter().next().ok_or_else(|| CogError::StacEmpty {
-            url: self.search_url.clone(),
-            collection: self.options.collection.clone(),
-        })
+    /// The selected bands, counted from 0, to open the mosaic with.
+    #[must_use]
+    pub fn bands(&self) -> &[usize] {
+        &self.bands
     }
 
     /// Searches every page of the items over `cell`, up to the item limit.
@@ -266,7 +298,7 @@ impl StacIndex {
         let [east, north] = mercator_to_lnglat(max_x, max_y);
         let mut request = Request::Post {
             url: self.search_url.clone(),
-            body: self.search_body(Some([west, south, east, north])),
+            body: self.options.search_body(Some([west, south, east, north])),
         };
         let max_items = self.options.max_items_per_search;
         let mut files = Vec::new();
@@ -275,7 +307,7 @@ impl StacIndex {
         let mut seen = 0_usize;
         let truncated = 'pages: loop {
             let page: ItemCollection = match &request {
-                Request::Post { url, body } => self.post(url, body).await?,
+                Request::Post { url, body } => post(&self.client, url, body).await?,
                 Request::Get { url } => read_json(url, self.client.get(url).send().await).await?,
             };
             let page_len = page.features.len();
@@ -286,7 +318,7 @@ impl StacIndex {
                     break 'pages true;
                 }
                 read += 1;
-                match self.file(&item) {
+                match self.assets.file(&item, &self.options.asset) {
                     Some(file) => files.push(file),
                     None => skipped += 1,
                 }
@@ -330,95 +362,14 @@ impl StacIndex {
         }
         Ok(files.into())
     }
-
-    /// The search request body: the filters, the order, and the bbox if any.
-    fn search_body(&self, bbox: Option<[f64; 4]>) -> Map<String, Value> {
-        let direction = self.options.order.direction();
-        let mut body = Map::new();
-        body.insert("collections".to_owned(), json!([self.options.collection]));
-        if let Some(bbox) = bbox {
-            body.insert("bbox".to_owned(), json!(bbox));
-        }
-        if let Some(datetime) = &self.options.datetime {
-            body.insert("datetime".to_owned(), Value::from(datetime.clone()));
-        }
-        if let Some(query) = &self.options.query {
-            body.insert("query".to_owned(), Value::Object(query.clone()));
-        }
-        // Sorting by `id` too keeps items of the same `datetime` in one order across pages:
-        // Earth Search pages by the sort keys alone, and drops items whose keys tie.
-        body.insert(
-            "sortby".to_owned(),
-            json!([
-                {"field": "properties.datetime", "direction": direction},
-                {"field": "id", "direction": direction},
-            ]),
-        );
-        body.insert(
-            "limit".to_owned(),
-            Value::from(PAGE_SIZE.min(self.options.max_items_per_search)),
-        );
-        body
-    }
-
-    /// POSTs `body` as JSON to `url`.
-    async fn post<T: DeserializeOwned>(&self, url: &str, body: &Map<String, Value>) -> CogResult<T> {
-        let request = self
-            .client
-            .post(url)
-            .header(CONTENT_TYPE, "application/json")
-            .body(Value::Object(body.clone()).to_string());
-        read_json(url, request.send().await).await
-    }
-
-    /// The file of `item`'s asset, or `None` (with a debug log) if it has no bbox or no such asset,
-    /// or its href cannot be resolved.
-    fn file(&self, item: &Item) -> Option<MosaicFile> {
-        let bounds = item.bounds()?;
-        let Some(asset) = item.assets.get(&self.options.asset) else {
-            tracing::debug!(
-                stac.item = item.id,
-                asset = self.options.asset,
-                "STAC item has no such asset"
-            );
-            return None;
-        };
-        if let Some(names) = &asset.eo_bands
-            && let Some((band, _)) = self
-                .band_layout
-                .iter()
-                .find(|(band, expected)| names.get(*band).is_none_or(|name| !name.same(expected)))
-        {
-            tracing::debug!(
-                stac.item = item.id,
-                asset = self.options.asset,
-                band = band + 1,
-                "STAC asset orders its bands unlike the first item"
-            );
-            return None;
-        }
-        match (self.resolve)(&asset.href) {
-            Ok((store, path)) => Some(MosaicFile {
-                cache_key: without_fragment(&asset.href).into(),
-                location: without_query(&asset.href).into(),
-                store,
-                path,
-                bounds,
-            }),
-            Err(error) => {
-                tracing::warn!(stac.item = item.id, href = asset.href, %error, "Cannot read a STAC asset");
-                None
-            }
-        }
-    }
 }
 
 impl AsyncIndexedMosaic {
-    /// Opens a mosaic of the COGs `index` finds, checking now that `probe`, its first item's file, can be served.
+    /// Opens a mosaic of the COGs `index` finds, checking now that its first item's file can be served.
     ///
     /// # Errors
     /// Returns an error if the min zoom is below the search zoom, or see [`open`](Self::open).
-    pub async fn open_stac(index: StacIndex, probe: &MosaicFile, options: IndexedMosaicOptions) -> CogResult<Self> {
+    pub async fn open_stac(index: StacIndex, options: IndexedMosaicOptions) -> CogResult<Self> {
         let search_zoom = index.options.search_zoom;
         if options.min_zoom < search_zoom {
             return Err(CogError::StacMinZoom {
@@ -426,8 +377,69 @@ impl AsyncIndexedMosaic {
                 search_zoom,
             });
         }
-        Self::open(Arc::new(index), probe, options).await
+        let probe = index.probe.clone();
+        Self::open(Arc::new(index), &probe, options).await
     }
+}
+
+/// An HTTP client for the STAC API at `options.url`, sending `options.user_agent`.
+fn client(options: &StacSearchOptions) -> CogResult<reqwest::Client> {
+    let api = options.url.clone();
+    reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+            if attempt.previous().len() < MAX_REDIRECTS && same_origin(attempt.url().as_str(), &api) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
+        .default_headers(
+            [(
+                USER_AGENT,
+                HeaderValue::from_str(&options.user_agent).map_err(|header| CogError::StacUserAgent {
+                    user_agent: options.user_agent.clone(),
+                    header,
+                })?,
+            )]
+            .into_iter()
+            .collect(),
+        )
+        .build()
+        .map_err(|source| CogError::StacRequest {
+            url: options.url.clone(),
+            source,
+        })
+}
+
+/// The metadata of the collection `options` searches.
+async fn read_collection(client: &reqwest::Client, options: &StacSearchOptions) -> CogResult<Collection> {
+    let url = format!(
+        "{}/collections/{}",
+        options.url.trim_end_matches('/'),
+        options.collection
+    );
+    read_json(&url, client.get(&url).send().await).await
+}
+
+/// The first item at `search_url` that matches the filters of `options`.
+async fn first_item(client: &reqwest::Client, search_url: &str, options: &StacSearchOptions) -> CogResult<Item> {
+    let mut body = options.search_body(None);
+    body.insert("limit".to_owned(), Value::from(1));
+    let page: ItemCollection = post(client, search_url, &body).await?;
+    page.features.into_iter().next().ok_or_else(|| CogError::StacEmpty {
+        url: search_url.to_owned(),
+        collection: options.collection.clone(),
+    })
+}
+
+/// POSTs `body` as JSON to `url`.
+async fn post<T: DeserializeOwned>(client: &reqwest::Client, url: &str, body: &Map<String, Value>) -> CogResult<T> {
+    let request = client
+        .post(url)
+        .header(CONTENT_TYPE, "application/json")
+        .body(Value::Object(body.clone()).to_string());
+    read_json(url, request.send().await).await
 }
 
 /// The 0-based sample indexes of `bands`, by the asset's `eo:bands` `names` if any.

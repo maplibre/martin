@@ -1,16 +1,12 @@
 //! Tile sources over the COGs a STAC API finds for each tile, reprojected onto Web Mercator.
 
-use std::sync::Arc;
 use std::time::Duration;
 
-use cog_tiles::{
-    AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, MAX_LATITUDE, StacBand, StacIndex, StacSearchOptions,
-};
-use tilejson::{Bounds, Center, tilejson};
+use cog_tiles::{AsyncIndexedMosaic, HrefResolver, IndexedMosaicOptions, StacBand, StacIndex, StacSearchOptions};
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
-use crate::tiles::cog::source::{CogSource, CogTiles};
+use crate::tiles::cog::source::CogSource;
 
 /// A source over the COGs a STAC API finds for each tile: what to search, and how to paint.
 #[derive(Clone, Debug, PartialEq)]
@@ -58,35 +54,15 @@ impl CogSource {
             .into());
         }
         let location = format!("{}/collections/{}", options.search.url, options.search.collection);
-        let (index, probe) = StacIndex::open(options.search, options.bands.as_deref(), resolve).await?;
+        let index = StacIndex::open(options.search, options.bands.as_deref(), resolve).await?;
         let mosaic_options = IndexedMosaicOptions::new(options.min_zoom, index.bands().to_vec())
             .with_max_zoom(options.max_zoom)
             .with_nodata(options.nodata)
             .with_max_cached_files(options.max_cached_files)
             .with_file_expiry(options.file_expiry)
             .with_file_idle_timeout(options.file_idle_timeout);
-        let mosaic = AsyncIndexedMosaic::open_stac(index, &probe, mosaic_options).await?;
-        let info = *mosaic.info();
-        let [west, south, east, north] = mosaic.bounds().unwrap_or([-180.0, -MAX_LATITUDE, 180.0, MAX_LATITUDE]);
-        let tilejson = tilejson! {
-            tiles: vec![],
-            bounds: Bounds::new(west, south, east, north),
-            center: Center {
-                longitude: f64::midpoint(west, east),
-                latitude: f64::midpoint(south, north),
-                zoom: info.min_zoom,
-            },
-            minzoom: info.min_zoom,
-            maxzoom: info.max_zoom,
-        };
-        Self::with_layout(
-            id,
-            CogTiles::Indexed(Arc::new(mosaic)),
-            tilejson,
-            (info.tile_size, info.format),
-            location,
-            cache_zoom,
-        )
+        let mosaic = AsyncIndexedMosaic::open_stac(index, mosaic_options).await?;
+        Self::from_indexed(id, mosaic, location, cache_zoom)
     }
 }
 
