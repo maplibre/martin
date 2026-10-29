@@ -174,6 +174,11 @@ docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.4
 
 Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
 
+## Logs
+
+MapLibre logs its own messages under the `maplibre_native` target, which `RUST_LOG` hides unless it names that target.
+`RUST_LOG=martin=info,maplibre_native=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
+
 ## Static images
 
 !!! info
