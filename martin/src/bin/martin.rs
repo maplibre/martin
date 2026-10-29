@@ -1,5 +1,11 @@
 #![expect(clippy::print_stderr, reason = "binary entrypoint reports startup errors to stderr")]
-#![cfg_attr(target_os = "macos", expect(linker_messages, reason = "remove once closed: https://github.com/rust-lang/rust/issues/159105"))]
+#![cfg_attr(
+    target_os = "macos",
+    expect(
+        linker_messages,
+        reason = "remove once closed: https://github.com/rust-lang/rust/issues/159105"
+    )
+)]
 
 use std::env;
 #[cfg(feature = "tui")]
