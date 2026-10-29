@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-    temp_dir, tile_listing, tiles,
+    summary, summary_filters, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -590,33 +590,84 @@ async fn refuses_encodings_martin_cannot_serve() {
 }
 
 #[tokio::test]
-async fn refuses_options_only_tile_mode_reads() {
+async fn refuses_url_query() {
     let dir = temp_dir();
-    let mut log = String::new();
-    for args in [
-        &["--url-query", "a=1"][..],
-        &["--concurrency", "4"],
-        &["--on-duplicate", "override"],
-        &["--save-config", "saved.yaml"],
-        &["--max-feature-count", "10"],
-    ] {
-        let mut cp = MartinCp::bulk()
-            .with_postgres()
-            .arg("--output-file")
-            .arg(dir.path().join("out.mbtiles"));
-        for arg in args {
-            cp = cp.arg(arg);
-        }
-        log += &cp.run_expecting_failure().await;
-    }
-    insta::assert_snapshot!(log, @"
-    ERROR `--mode bulk` renders tables and views, and only function sources read `--url-query`
-    ERROR `--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads
-    ERROR `--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`
-    ERROR `--mode bulk` cannot save its configuration with `--save-config` yet
-     INFO Starting Martin tile generator martin.version=2.0.0-beta.4
-    ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`
-    ");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--url-query")
+        .arg("a=1")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` renders tables and views, and only function sources read `--url-query`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_concurrency_and_points_at_threads() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--concurrency")
+        .arg("4")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_on_duplicate() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--on-duplicate")
+        .arg("override")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_save_config() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--save-config")
+        .arg(dir.path().join("saved.yaml"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot save its configuration with `--save-config` yet");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn refuses_max_feature_count_on_the_command_line() {
+    let dir = temp_dir();
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-feature-count")
+        .arg("10")
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`");
+    assert!(!output.exists());
 }
 
 #[tokio::test]
@@ -642,6 +693,7 @@ async fn refuses_max_feature_count_in_the_config() {
     .expect("failed to write the config");
     let output = dir.path().join("out.mbtiles");
     let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
         .with_postgres()
         .arg("--config")
         .arg(&config)
@@ -649,10 +701,7 @@ async fn refuses_max_feature_count_in_the_config() {
         .arg(&output)
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"
-     INFO Starting Martin tile generator martin.version=2.0.0-beta.4
-    ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`
-    ");
+    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`");
     assert!(!output.exists());
 }
 
@@ -678,6 +727,7 @@ async fn refuses_mbtiles_options_for_pmtiles_output() {
 }
 
 #[tokio::test]
+#[expect(clippy::too_many_lines, reason = "inline snapshots of the metadata and summary")]
 async fn writes_the_mbtiles_type_and_metadata_edits() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
@@ -715,7 +765,6 @@ async fn writes_the_mbtiles_type_and_metadata_edits() {
         .arg("generator")
         .run()
         .await;
-    let summary = MbtilesCli::new("summary").arg(&output).run().await;
     insta::assert_snapshot!(metadata_listing(&output).await, @r#"
     format = mlt
     json = {
@@ -732,7 +781,58 @@ async fn writes_the_mbtiles_type_and_metadata_edits() {
     minzoom = 0
     name = edited
     "#);
-    insta::assert_snapshot!(summary.lines().find(|line| line.starts_with("Schema")).unwrap(), @"Schema:         flat");
+    let summary = summary(&output).run_json().await;
+    insta::with_settings!({ filters => summary_filters() }, {
+        insta::assert_json_snapshot!(summary, @r#"
+        {
+          "avg_tile_size": 99.0,
+          "bbox": [
+            -180.0,
+            -85.0511287798,
+            180.0,
+            85.0511287798
+          ],
+          "file_path": "[TMP]",
+          "file_size": 0,
+          "max_tile_size": 177,
+          "max_zoom": 1,
+          "mbt_type": "Flat",
+          "min_tile_size": 71,
+          "min_zoom": 0,
+          "page_count": 0,
+          "page_size": 0,
+          "tile_count": 5,
+          "zoom_info": [
+            {
+              "avg_tile_size": 177.0,
+              "bbox": [
+                -180.0,
+                -85.0511287798,
+                180.0,
+                85.0511287798
+              ],
+              "max_tile_size": 177,
+              "min_tile_size": 177,
+              "tile_count": 1,
+              "zoom": 0
+            },
+            {
+              "avg_tile_size": 79.5,
+              "bbox": [
+                -180.0,
+                -85.0511287798,
+                180.0,
+                85.0511287798
+              ],
+              "max_tile_size": 96,
+              "min_tile_size": 71,
+              "tile_count": 4,
+              "zoom": 1
+            }
+          ]
+        }
+        "#);
+    });
 }
 
 #[tokio::test]
