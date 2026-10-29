@@ -218,3 +218,12 @@ def test_open_stac_async_opens_the_same_source(stac):
     )
     tile = decode(asyncio.run(naip.tile_async(14, 2619, 6334)))
     np.testing.assert_array_equal(tile, np.asarray(Image.open(EXPECTED / "14_2619_6334.png")))
+
+
+def test_zero_max_items_per_search_is_rejected(stac):
+    with pytest.raises(ValueError, match=re.escape("max_items_per_search must be at least 1")):
+        cog_tiles.open_stac(
+            f"{stac.url}/v1", "naip", "image", 13, max_items_per_search=0, datetime="2020-01-01T00:00:00Z/..",
+            query={"naip:state": {"eq": "ca"}}, nodata=0, options={"allow_http": "true"},
+        )
+    assert stac.searches == []

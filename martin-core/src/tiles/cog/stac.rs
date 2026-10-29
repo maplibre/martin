@@ -68,6 +68,7 @@ impl CogSource {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -114,7 +115,7 @@ mod tests {
                     query: None,
                     order: StacOrder::Newest,
                     search_zoom: 13,
-                    max_items_per_search: 1000,
+                    max_items_per_search: NonZeroUsize::new(1000).unwrap(),
                     search_expiry: Duration::from_mins(1),
                     max_cached_searches: 10,
                 },
@@ -307,7 +308,7 @@ mod tests {
                     query: None,
                     order: StacOrder::Newest,
                     search_zoom: 13,
-                    max_items_per_search: 3,
+                    max_items_per_search: NonZeroUsize::new(3).unwrap(),
                     search_expiry: Duration::from_mins(1),
                     max_cached_searches: 10,
                 },
@@ -492,7 +493,7 @@ mod tests {
                     query: None,
                     order: StacOrder::Newest,
                     search_zoom: 13,
-                    max_items_per_search: 1000,
+                    max_items_per_search: NonZeroUsize::new(1000).unwrap(),
                     search_expiry: Duration::from_mins(1),
                     max_cached_searches: 10,
                 },
@@ -534,7 +535,7 @@ mod tests {
                     query: None,
                     order: StacOrder::Newest,
                     search_zoom: 13,
-                    max_items_per_search: 1000,
+                    max_items_per_search: NonZeroUsize::new(1000).unwrap(),
                     search_expiry: Duration::from_mins(1),
                     max_cached_searches: 10,
                 },

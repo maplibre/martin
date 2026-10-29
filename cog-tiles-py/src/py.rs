@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -529,7 +530,7 @@ struct SearchArgs {
     /// Which items are painted first.
     order: Order,
     /// The most items one search reads.
-    max_items_per_search: usize,
+    max_items_per_search: NonZeroUsize,
     /// Seconds a search result is kept.
     search_expiry: f64,
     /// The most search results kept at once.
@@ -616,7 +617,7 @@ impl Stac {
         keywords.set_item("datetime", &this.search.datetime)?;
         keywords.set_item("query", query)?;
         keywords.set_item("order", this.search.order)?;
-        keywords.set_item("max_items_per_search", this.search.max_items_per_search)?;
+        keywords.set_item("max_items_per_search", this.search.max_items_per_search.get())?;
         keywords.set_item("search_expiry", this.search.search_expiry)?;
         keywords.set_item("max_cached_searches", this.search.max_cached_searches)?;
         keywords.set_item("bands", this.bands.clone())?;
@@ -1125,7 +1126,7 @@ pub async fn open_tile_index_async(
     datetime = None,
     query = None,
     order = Order::Newest,
-    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH,
+    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH.get(),
     search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
     max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
     max_zoom = None,
@@ -1180,7 +1181,7 @@ pub fn open_stac(
             datetime,
             query,
             order,
-            max_items_per_search,
+            max_items_per_search: at_least_one(max_items_per_search)?,
             search_expiry,
             max_cached_searches,
         },
@@ -1213,7 +1214,7 @@ pub fn open_stac(
     datetime = None,
     query = None,
     order = Order::Newest,
-    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH,
+    max_items_per_search = cog_tiles::DEFAULT_MAX_ITEMS_PER_SEARCH.get(),
     search_expiry = cog_tiles::DEFAULT_SEARCH_EXPIRY.as_secs_f64(),
     max_cached_searches = cog_tiles::DEFAULT_MAX_CACHED_SEARCHES,
     max_zoom = None,
@@ -1267,7 +1268,7 @@ pub async fn open_stac_async(
             datetime,
             query,
             order,
-            max_items_per_search,
+            max_items_per_search: at_least_one(max_items_per_search)?,
             search_expiry,
             max_cached_searches,
         },
@@ -1304,6 +1305,12 @@ fn from_one(bands: &[usize]) -> PyResult<Vec<usize>> {
                 .ok_or_else(|| PyValueError::new_err("bands are counted from 1"))
         })
         .collect()
+}
+
+/// `max_items_per_search` if it is not 0.
+fn at_least_one(max_items_per_search: usize) -> PyResult<NonZeroUsize> {
+    NonZeroUsize::new(max_items_per_search)
+        .ok_or_else(|| PyValueError::new_err("max_items_per_search must be at least 1"))
 }
 
 /// `value` seconds as a duration.
