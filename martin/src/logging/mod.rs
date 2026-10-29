@@ -290,16 +290,15 @@ pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
 /// The library crates that log at the level of `martin`, unless `RUST_LOG` sets their own.
 const MIRRORED_CRATES: [&str; 2] = ["martin_core", "cog_tiles"];
 
-/// Ensures that the log levels of [`MIRRORED_CRATES`] match the log level for `replacement`.
+/// Ensures that the log levels of [`MIRRORED_CRATES`] match the level `RUST_LOG` gives `directive_prefix`, e.g. `martin=`.
 #[must_use]
-pub fn ensure_library_log_levels_match(env_filter: Option<String>, replacement: &'static str) -> String {
+pub fn ensure_library_log_levels_match(env_filter: Option<String>, directive_prefix: &'static str) -> String {
     let Some(rust_log) = env_filter else {
-        let mut filter = format!("{replacement}info");
+        let mut filter = format!("{directive_prefix}info");
         filter.extend(MIRRORED_CRATES.map(|krate| format!(",{krate}=info")));
         return filter;
     };
-    // If RUST_LOG has a replacement directive (e.g., martin=debug), mirror its level to every crate it leaves unset
-    let Some(level) = rust_log.split(',').find_map(|s| s.strip_prefix(replacement)) else {
+    let Some(level) = rust_log.split(',').find_map(|s| s.strip_prefix(directive_prefix)) else {
         return rust_log;
     };
     let unset = MIRRORED_CRATES
