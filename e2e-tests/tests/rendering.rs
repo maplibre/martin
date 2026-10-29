@@ -41,13 +41,6 @@ fn webp_encoding(body: &[u8]) -> &'static str {
     if webp.is_lossy() { "Lossy" } else { "Lossless" }
 }
 
-/// Stop martin and consume the log lines rendering always emits, leaving the log clean for the
-/// assertion dropping a [`Martin`] makes.
-async fn stop_and_take_rendering_log(martin: &mut Martin) {
-    martin.stop().await;
-    martin.take_log_lines("[Render]");
-}
-
 fn reference(group: &str, name: &str) -> PathBuf {
     fixture(group).join(name)
 }
@@ -90,7 +83,7 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     assert_eq!(response.image_format(), ImageFormat::Png);
     assert_eq!(response.image_size(), (512, 512));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -120,9 +113,46 @@ async fn mesa_caches_shaders_in_a_private_directory_when_its_default_is_read_onl
 
     assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     insta::with_settings!({filters => vec![(r"mesa\.shader_cache_dir=\S+", "mesa.shader_cache_dir=[DIR]")]}, {
         insta::assert_snapshot!(martin.take_log_lines("shader cache").join("\n"), @" INFO Mesa's shader cache directory is not writable, caching shaders in a private directory until Martin exits; set MESA_SHADER_CACHE_DIR to keep them across restarts mesa.default_dir=/proc/self mesa.shader_cache_dir=[DIR]");
+    });
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn maplibre_logs_under_its_own_target() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .env("RUST_LOG", "martin=info,maplibre_native=info")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    for path in [
+        "/style/maplibre_demo/static/0,0,0/200x200.png",
+        "/style/maplibre_demo/0/0/0.png",
+        "/style/maplibre_demo/3/4/2.png",
+    ] {
+        assert_eq!(martin.get(path).await.status(), 200, "{path}");
+    }
+
+    martin.stop().await;
+    insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
+        insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
+        INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
+        ");
     });
     cassette.assert_no_misses();
 }
@@ -157,7 +187,7 @@ async fn a_style_renders_as_a_jpeg_tile(#[case] path: &str) {
     assert_eq!(response.image_format(), ImageFormat::Jpeg);
     assert_eq!(response.image_size(), (512, 512));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -193,7 +223,7 @@ async fn a_rendered_tile_matches_its_reference(#[case] style: &str, #[case] tile
     let name = format!("{style}_{}.{extension}", tile.replace('/', "_"));
     assert_image_matches(reference(TILE_REFERENCES, &name), &body);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -223,7 +253,7 @@ async fn a_rendered_tile_is_served_as_an_image() {
         insta::assert_snapshot!(response.headers_snapshot());
     });
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -260,7 +290,7 @@ async fn a_render_fetches_what_the_style_points_at() {
     fetched.dedup();
     insta::assert_snapshot!(fetched.join("\n"));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -293,7 +323,7 @@ async fn the_jpeg_extension_redirects_to_jpg(#[case] path: &str, #[case] target:
     assert_eq!(response.status(), 301);
     assert_eq!(response.header("location"), Some(target));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -322,7 +352,7 @@ async fn an_unknown_style_renders_nothing() {
     assert_eq!(response.status(), 404);
     assert_eq!(response.text(), "No such style exists");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -354,7 +384,7 @@ async fn coordinates_outside_their_zoom_render_nothing(#[case] path: &str) {
     assert_eq!(response.status(), 400);
     assert_eq!(response.text(), "Invalid tile coordinates for zoom level");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -391,7 +421,7 @@ async fn a_malformed_pixel_ratio_is_not_found(#[case] path: &str) {
     let response = martin.get(path).await;
     assert_eq!(response.status(), 404);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -424,7 +454,7 @@ async fn a_pixel_ratio_tile_that_is_not_served_is_a_bad_request(#[case] path: &s
     assert_eq!(response.status(), 400);
     assert_eq!(response.text(), reason);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -460,7 +490,7 @@ async fn a_pixel_ratio_multiplies_the_tile_size(#[case] path: &str, #[case] size
     assert_eq!(response.status(), 200, "{path} did not render");
     assert_eq!(response.image_size(), (size, size));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -507,7 +537,7 @@ async fn tiles_of_mixed_pixel_ratios_requested_at_once_each_render_at_their_size
         assert_eq!(response.image_size(), (*size, *size), "{path}");
     }
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -540,7 +570,7 @@ async fn configured_pixel_ratios_limit_the_tiles() {
     assert_eq!(two_x.status(), 400);
     assert_eq!(two_x.text(), "Pixel ratio @2x is not served, only @1x, @3x");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -609,7 +639,7 @@ async fn a_configured_tile_size_sizes_the_tiles(#[case] path: &str, #[case] size
     assert_eq!(response.status(), 200, "{path} did not render");
     assert_eq!(response.image_size(), (size, size));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -671,7 +701,7 @@ async fn one_renderer_per_worker_still_renders_each_style() {
         assert_image_matches(reference(TILE_REFERENCES, &format!("{style}_0_0_0.png")), &body);
     }
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -720,7 +750,7 @@ async fn the_ambient_cache_answers_a_reloaded_renderer(#[case] ambient_cache: &s
         "times maplibre_demo's tile was fetched; requests:\n{log}"
     );
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -749,7 +779,7 @@ async fn neighbouring_tiles_render_differently() {
     let east = martin.get("/style/maplibre_demo/1/1/0.png").await;
     assert_ne!(west.body(), east.body());
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -795,7 +825,7 @@ async fn tiles_requested_at_once_each_render_their_own_coordinates() {
     let bodies = rendered.iter().map(TestResponse::body).collect::<HashSet<_>>();
     assert_eq!(bodies.len(), paths.len(), "the tiles are not all different");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -825,7 +855,7 @@ async fn a_static_image_renders_as_a_jpeg() {
     assert_eq!(response.header("content-type"), Some("image/jpeg"));
     assert_eq!(response.image_format(), ImageFormat::Jpeg);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -861,7 +891,7 @@ async fn a_static_image_matches_its_reference(#[case] camera: &str, #[case] name
     let body = rendered(&martin, &format!("/style/maplibre_demo/static/{camera}.png")).await;
     assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -896,7 +926,7 @@ async fn a_camera_option_changes_the_static_image(#[case] one: &str, #[case] oth
     let other = rendered(&martin, &format!("/style/maplibre_demo/static/{other}.png")).await;
     assert_images_differ(&one, &other);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -925,7 +955,7 @@ async fn a_static_image_below_zoom_0_renders_as_zoom_0() {
     let below_zoom_0 = rendered(&martin, "/style/maplibre_demo/static/0,0,-4/200x200.png").await;
     assert_images_alike(&at_zoom_0, &below_zoom_0);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -954,7 +984,7 @@ async fn a_bounding_box_frames_what_a_center_and_zoom_frame() {
     let center = rendered(&martin, "/style/maplibre_demo/static/0,0,2.16/200x200.png").await;
     assert_images_alike(&bbox, &center);
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -984,7 +1014,7 @@ async fn a_doubled_pixel_ratio_doubles_the_static_image() {
     assert_eq!(one_x.image_size(), (100, 100));
     assert_eq!(two_x.image_size(), (200, 200));
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1055,7 +1085,7 @@ async fn rendered_pngs_are_indexed_by_default() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1086,7 +1116,7 @@ async fn the_rendering_shorthand_indexes_pngs_too() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1120,7 +1150,7 @@ async fn a_disabled_png_palette_keeps_rgba() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1155,7 +1185,7 @@ async fn a_small_png_palette_packs_fewer_bits() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1222,7 +1252,7 @@ async fn rendered_webps_are_lossy_by_default() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1256,7 +1286,7 @@ async fn a_lossless_webp_quality_keeps_webps_lossless() {
     /style/maplibre_demo/0/0/0.jpg: 200 image/jpeg -
     ");
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1289,7 +1319,7 @@ async fn a_lower_quality_serves_smaller_images() {
         for path in QUALITY_PATHS {
             responses.push(martin.get(path).await);
         }
-        stop_and_take_rendering_log(&mut martin).await;
+        martin.stop().await;
         served.push(responses);
     }
 
@@ -1388,7 +1418,7 @@ async fn a_post_without_overlays_renders_the_base_map(#[case] body: &[u8]) {
     assert_eq!(response.status(), 200);
     assert_image_matches(reference(CAMERA_REFERENCES, "center_z0.png"), response.body());
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
@@ -1427,7 +1457,7 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
         response.body(),
     );
 
-    stop_and_take_rendering_log(&mut martin).await;
+    martin.stop().await;
     cassette.assert_no_misses();
 }
 
