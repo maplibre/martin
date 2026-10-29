@@ -85,8 +85,6 @@ def canonical(value):
 
 
 class StacServer(ThreadingHTTPServer):
-    """Replays the recorded Earth Search answers, its links pointed here and its NAIP assets at `files`."""
-
     daemon_threads = True
 
     def __init__(self, files):

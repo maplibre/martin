@@ -494,14 +494,23 @@ impl TileIndex {
 #[gen_stub_pyclass]
 #[pyclass(frozen, extends = TileSource, module = "cog_tiles")]
 pub struct Stac {
+    /// The STAC API root.
     url: String,
+    /// The collection searched.
     collection: String,
+    /// The key of the asset read from each item.
     asset: String,
+    /// The lowest zoom served.
     min_zoom: u8,
+    /// How the STAC API is searched.
     search: SearchArgs,
+    /// The selected bands, red, green and blue when `None`.
     bands: Option<Vec<Band>>,
+    /// The mosaic options shared with `open_tile_index`.
     index: IndexArgs,
+    /// The object store options assets are read with.
     store_options: BTreeMap<String, String>,
+    /// How tiles are re-encoded.
     encoding: EncodingArgs,
 }
 
@@ -511,20 +520,28 @@ type StacArgs = (String, String, String, u8);
 /// How a STAC API is searched.
 #[derive(Clone)]
 struct SearchArgs {
+    /// The zoom one search covers a tile of, `min_zoom` when `None`.
     search_zoom: Option<u8>,
+    /// The STAC `datetime` interval items must fall in.
     datetime: Option<String>,
-    /// The query as JSON text, so a pickled `Stac` restores its own copy.
+    /// The STAC query as JSON text.
     query: Option<String>,
+    /// Which items are painted first.
     order: Order,
+    /// The most items one search reads.
     max_items_per_search: usize,
+    /// Seconds a search result is kept.
     search_expiry: f64,
+    /// The most search results kept at once.
     max_cached_searches: u64,
 }
 
 /// One band of a STAC asset, by number (counted from 1) or by `eo:bands` name.
 #[derive(Clone, FromPyObject, IntoPyObject)]
 pub enum Band {
+    /// The band number, counted from 1.
     Number(usize),
+    /// The band's `eo:bands` name.
     Name(String),
 }
 
@@ -565,7 +582,6 @@ impl Stac {
                 })
                 .collect()
         });
-        // The bands are known once the collection is read, so the options are built without them first.
         let mut options = self.index.options(self.min_zoom, Vec::new())?;
         let encoding = self.encoding.encoding();
         let resolve = href_resolver(self.store_options.clone().into_iter().collect());
