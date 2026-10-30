@@ -2272,15 +2272,6 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convert_case"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
@@ -3128,28 +3119,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fba3fe847045ecff794b9c138293a80db914678c453ad63fbf0c6a9eb6e00b22"
 dependencies = [
  "encoding_rs",
-]
-
-[[package]]
-name = "enum-display"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40f4d8927f0f19dc99da4506dca2b26f6c2a089887cf2cc424df114f3a2585ab"
-dependencies = [
- "enum-display-macro",
-]
-
-[[package]]
-name = "enum-display-macro"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e2e13c29d91e61ec78280847036d13cdc585e75ea2458274362d5d8467f1641"
-dependencies = [
- "convert_case 0.6.0",
- "proc-macro2",
- "quote",
- "regex",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -5868,7 +5837,6 @@ dependencies = [
  "csscolorparser 0.9.0",
  "dashmap",
  "duckdb",
- "enum-display",
  "flate2",
  "fnv",
  "futures",
@@ -5962,7 +5930,6 @@ dependencies = [
  "dashmap",
  "deadpool 0.13.1",
  "deadpool-postgres",
- "derive-debug",
  "duckdb",
  "env_logger",
  "flume",
@@ -6167,7 +6134,6 @@ dependencies = [
  "bytesize",
  "clap",
  "criterion",
- "enum-display",
  "flate2",
  "flume",
  "fnv",
@@ -6191,6 +6157,7 @@ dependencies = [
  "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
+ "strum 0.28.0",
  "tempfile",
  "thiserror 2.0.21",
  "tilejson",

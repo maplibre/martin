@@ -1,4 +1,3 @@
-use enum_display::EnumDisplay;
 use martin_tile_utils::TileInfo;
 use sqlx::{SqliteExecutor, query};
 use tracing::{debug, info, warn};
@@ -8,8 +7,8 @@ use crate::errors::MbtResult;
 use crate::update::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::{Mbtiles, compute_min_max_zoom};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum UpdateZoomType {
     /// Reset the minzoom and maxzoom metadata values to match the content of the tiles table

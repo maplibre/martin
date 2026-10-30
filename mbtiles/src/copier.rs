@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use enum_display::EnumDisplay;
 use itertools::Itertools as _;
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use serde::{Deserialize, Serialize};
@@ -23,8 +22,8 @@ use crate::{
     create_tiles_with_hash_view, invert_y_value, reset_db_settings,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum CopyDuplicateMode {
     Override,

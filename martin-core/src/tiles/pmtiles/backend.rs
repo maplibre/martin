@@ -1,5 +1,6 @@
 //! Byte-range backends behind a [`PmtilesSource`](super::PmtilesSource).
 
+use std::fmt;
 use std::fs::Metadata;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt as _;
@@ -7,7 +8,6 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use bytes::Bytes;
-use derive_debug::Dbg;
 use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult};
 
 /// Reads a local `PMTiles` file through a memory map.
@@ -15,12 +15,20 @@ use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, Pm
 /// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
 /// The mapping is not read once the file changed underneath it.
 /// Reads copy their bytes out of the mapping.
-#[derive(Dbg)]
 pub(crate) struct PmtFileBackend {
-    #[dbg(skip)]
     mmap: MmapBackend,
     path: PathBuf,
     version: (u64, u128, u64),
+}
+
+impl fmt::Debug for PmtFileBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { mmap: _, path, version } = self;
+        f.debug_struct("PmtFileBackend")
+            .field("path", path)
+            .field("version", version)
+            .finish_non_exhaustive()
+    }
 }
 
 impl PmtFileBackend {

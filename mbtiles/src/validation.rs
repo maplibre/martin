@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::str::from_utf8;
 
-use enum_display::EnumDisplay;
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -217,8 +216,8 @@ impl NormalizedSchema {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, strum::Display, Serialize)]
+#[strum(serialize_all = "kebab-case")]
 pub enum MbtType {
     /// Flat `MBTiles` file without any hash values
     ///
@@ -278,8 +277,8 @@ impl MbtType {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum IntegrityCheckType {
     #[default]
@@ -288,8 +287,8 @@ pub enum IntegrityCheckType {
     Off,
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum AggHashType {
     /// Verify that the aggregate tiles hash value in the metadata table matches the computed value. Used by default.

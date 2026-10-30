@@ -4,7 +4,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::Instant;
 
-use enum_display::EnumDisplay;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
@@ -18,8 +17,8 @@ use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
 use crate::{HashAlgorithm, MbtError, MbtResult, MbtType, Mbtiles};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum PatchTypeCli {
     /// Patch file will contain the entire tile if it is different from the source
@@ -31,8 +30,8 @@ pub enum PatchTypeCli {
     BinDiffRaw,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 pub enum PatchType {
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
     BinDiffGz,
