@@ -2189,7 +2189,7 @@
         },
         "context_per_worker": {
           "description": "Draw the renderers of each worker in one graphics context, taking turns, instead of one context each.\nSaves memory per renderer: about 14 MiB with Mesa's `llvmpipe`. \\[default: false\\]",
-          "examples": [true],
+          "examples": [false],
           "type": ["boolean", "null"]
         },
         "enabled": {
