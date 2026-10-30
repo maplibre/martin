@@ -65,7 +65,7 @@ jobs:
   sdist:
     name: Source distribution
     if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'python-cog-tiles-v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout sources
@@ -87,7 +87,7 @@ jobs:
     name: Publish to PyPI
     needs: [ wheels, sdist ]
     if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'python-cog-tiles-v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
       name: pypi
