@@ -152,6 +152,7 @@ async fn maplibre_logs_under_its_own_target() {
     insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
         insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
         INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
         INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
         ");
     });
@@ -273,6 +274,43 @@ async fn a_rendered_tile_matches_its_reference(#[case] style: &str, #[case] tile
     let body = rendered(&martin, &format!("/style/{style}/{tile}.{extension}")).await;
     let name = format!("{style}_{}.{extension}", tile.replace('/', "_"));
     assert_image_matches(reference(TILE_REFERENCES, &name), &body);
+
+    martin.stop().await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
+async fn renderers_sharing_a_context_match_their_references() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    // One worker, so every renderer after the first draws in a context another one left behind.
+    for (style, tile) in [
+        ("maplibre_demo", "0/0/0"),
+        ("maptiler_basic", "0/0/0"),
+        ("maplibre_demo", "1/0/0"),
+        ("maplibre_demo", "0/0/0"),
+    ] {
+        let body = rendered(&martin, &format!("/style/{style}/{tile}.png")).await;
+        let name = format!("{style}_{}.png", tile.replace('/', "_"));
+        assert_image_matches(reference(TILE_REFERENCES, &name), &body);
+    }
 
     martin.stop().await;
     cassette.assert_no_misses();

@@ -151,6 +151,7 @@ With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
 Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+A worker renders one image at a time, so its renderers take turns in one graphics context instead of holding one each.
 
 ### Ambient cache
 
