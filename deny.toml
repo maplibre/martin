@@ -95,9 +95,7 @@ unknown-registry = "deny"
 unknown-git = "deny"
 
 # If git deps are ever needed, they must be explicitly allowed here
-allow-git = [
-  "https://github.com/CommanderStorm/wkb",
-]
+allow-git = []
 
 [graph]
 targets = [
