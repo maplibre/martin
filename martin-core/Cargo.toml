@@ -134,7 +134,6 @@ contour = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
-derive-debug.workspace = true
 duckdb = { workspace = true, optional = true }
 flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }

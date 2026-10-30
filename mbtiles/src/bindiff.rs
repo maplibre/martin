@@ -4,7 +4,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 use std::time::Instant;
 
-use enum_display::EnumDisplay;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
@@ -15,11 +14,10 @@ use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
-use crate::PatchType::{BinDiffGz, BinDiffRaw};
 use crate::{HashAlgorithm, MbtError, MbtResult, MbtType, Mbtiles};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum PatchTypeCli {
     /// Patch file will contain the entire tile if it is different from the source
@@ -31,8 +29,8 @@ pub enum PatchTypeCli {
     BinDiffRaw,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 pub enum PatchType {
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as gzipped blobs, decoding them before diffing.
     BinDiffGz,
@@ -44,8 +42,8 @@ impl From<PatchTypeCli> for Option<PatchType> {
     fn from(cli: PatchTypeCli) -> Self {
         match cli {
             PatchTypeCli::Whole => None,
-            PatchTypeCli::BinDiffGz => Some(BinDiffGz),
-            PatchTypeCli::BinDiffRaw => Some(BinDiffRaw),
+            PatchTypeCli::BinDiffGz => Some(PatchType::BinDiffGz),
+            PatchTypeCli::BinDiffRaw => Some(PatchType::BinDiffRaw),
         }
     }
 }
@@ -237,7 +235,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
-        if self.patch_type == BinDiffGz {
+        if self.patch_type == PatchType::BinDiffGz {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
                 error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?;
@@ -356,7 +354,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     }
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
-        let old_tile = if self.patch_type == BinDiffGz {
+        let old_tile = if self.patch_type == PatchType::BinDiffGz {
             decode_gzip(&value.old_tile).inspect_err(|e| {
                 error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?
@@ -380,7 +378,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             });
         }
 
-        if self.patch_type == BinDiffGz {
+        if self.patch_type == PatchType::BinDiffGz {
             new_tile = encode_gzip(&new_tile)?;
         }
 
@@ -423,8 +421,8 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
 #[must_use]
 pub const fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     match patch_type {
-        BinDiffRaw => "bsdiffraw",
-        BinDiffGz => "bsdiffrawgz",
+        PatchType::BinDiffRaw => "bsdiffraw",
+        PatchType::BinDiffGz => "bsdiffrawgz",
     }
 }
 
@@ -455,7 +453,10 @@ pub async fn get_patch_type<T>(conn: &mut T) -> MbtResult<Option<PatchType>>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
-    for (tbl, pt) in [("bsdiffraw", BinDiffRaw), ("bsdiffrawgz", BinDiffGz)] {
+    for (tbl, pt) in [
+        ("bsdiffraw", PatchType::BinDiffRaw),
+        ("bsdiffrawgz", PatchType::BinDiffGz),
+    ] {
         //  'bsdiffraw' or 'bsdiffrawgz' table or view columns and their types are as expected:
         //  5 columns (zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash).
         //  The order is not important

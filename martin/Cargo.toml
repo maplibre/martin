@@ -144,7 +144,7 @@ pmtiles = [
 postgres = [
     "dep:cql2",
     "martin-core/postgres",
-    "dep:enum-display",
+    "dep:strum",
     "dep:json-patch",
     "dep:postgis",
     "dep:postgres-protocol",
@@ -184,7 +184,7 @@ unstable-duckdb = [
     "dep:cql2",
     "martin-core/unstable-duckdb",
     "dep:duckdb",
-    "dep:enum-display",
+    "dep:strum",
     "_tiles",
 ]
 hotpath = [
@@ -222,7 +222,6 @@ crossterm = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 duckdb = { workspace = true, optional = true }
-enum-display = { workspace = true, optional = true }
 fnv = { workspace = true, optional = true }
 futures.workspace = true
 geojson = { workspace = true, optional = true }

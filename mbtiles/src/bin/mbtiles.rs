@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
-use enum_display::EnumDisplay;
 use indicatif::{ProgressState, ProgressStyle};
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, HashAlgorithm, IntegrityCheckType, MbtError, MbtResult, MbtTypeCli,
@@ -43,8 +42,8 @@ pub struct Args {
     command: Commands,
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display, ValueEnum)]
+#[strum(serialize_all = "kebab-case")]
 pub enum OutputFormat {
     #[default]
     Text,
