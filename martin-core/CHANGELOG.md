@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/maplibre/martin/compare/martin-core-v0.15.0...martin-core-v0.15.1) - 2026-10-30
+
+### Other
+
+- *(deps)* replace enum-display and derive-debug, both still on syn 1 ([#3854](https://github.com/maplibre/martin/pull/3854))
+
 ## [0.15.0](https://github.com/maplibre/martin/compare/martin-core-v0.14.0...martin-core-v0.15.0) - 2026-10-29
 
 ### Added

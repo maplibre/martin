@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/maplibre/martin/compare/martin-tilegen-v0.1.2...martin-tilegen-v0.1.3) - 2026-10-30
+
+### Other
+
+- *(deps)* drop the wkb git patch so the workspace publishes ([#3853](https://github.com/maplibre/martin/pull/3853))
+
 ## [0.1.2](https://github.com/maplibre/martin/compare/martin-tilegen-v0.1.1...martin-tilegen-v0.1.2) - 2026-10-29
 
 ### Added

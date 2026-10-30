@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.3](https://github.com/maplibre/martin/compare/mbtiles-v0.21.2...mbtiles-v0.21.3) - 2026-10-30
+
+### Other
+
+- *(deps)* replace enum-display and derive-debug, both still on syn 1 ([#3854](https://github.com/maplibre/martin/pull/3854))
+
 ## [0.21.2](https://github.com/maplibre/martin/compare/mbtiles-v0.21.1...mbtiles-v0.21.2) - 2026-10-29
 
 ### Added
