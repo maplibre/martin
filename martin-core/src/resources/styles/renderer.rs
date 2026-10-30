@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle,
+    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle, GraphicsDeviceOptions,
     GraphicsDeviceTextureDescriptor, LogHandler, LogSeverity, LogicalExtent, MapHandle, MapMode, MapOptions,
     NativeFuture, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag,
     RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult, set_log_callback,
@@ -24,12 +24,14 @@ use crate::resources::styles::StyleError;
 /// How long a call into `MapLibre` may take before its renderer is given up on.
 const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// A `MapLibre` runtime and graphics device shared by every renderer of a pool, with one ambient cache.
+/// A `MapLibre` runtime shared by every renderer of a pool, with one ambient cache.
 pub struct Runtime {
     /// The native runtime.
     handle: Releasable<RuntimeHandle>,
-    /// The device every renderer's texture lives on.
+    /// The device the renderers' textures live on, unless each worker has its own.
     device: GraphicsDeviceHandle,
+    /// Whether each worker draws its renderers on a device of its own, in one graphics context.
+    context_per_worker: bool,
     /// Style-load listeners, by the id of the map they listen to.
     listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
 }
@@ -58,14 +60,15 @@ impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
     /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
     ///
+    /// With `context_per_worker`, each worker creates a device of its own for its renderers (see [`WorkerDevice`]).
+    ///
     /// # Errors
     ///
     /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
-    pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
+    pub fn new(ambient_cache_bytes: Option<u64>, context_per_worker: bool) -> Result<Self, StyleError> {
         forward_logs();
-        let device = GraphicsDeviceHandle::create(None).map_err(|err| StyleError::GraphicsUnavailable {
-            reason: err.to_string(),
-        })?;
+        // Also created with `context_per_worker`, so a host without graphics fails at startup.
+        let device = create_device(false)?;
         let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
@@ -90,8 +93,58 @@ impl Runtime {
         Ok(Self {
             handle: Releasable(Some(handle)),
             device,
+            context_per_worker,
             listeners,
         })
+    }
+}
+
+/// Creates a graphics device whose texture sessions, with `single_context`, take turns in one graphics context.
+fn create_device(single_context: bool) -> Result<GraphicsDeviceHandle, StyleError> {
+    let options = GraphicsDeviceOptions {
+        single_context: Some(single_context),
+        ..GraphicsDeviceOptions::default()
+    };
+    GraphicsDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+        reason: err.to_string(),
+    })
+}
+
+/// The device one worker's renderers are drawn on.
+///
+/// A worker renders one image at a time, so with `context_per_worker` its renderers can take turns
+/// in one graphics context instead of holding one each. With Mesa's `llvmpipe` that saves about
+/// 14 MiB per renderer. The device is created on the worker's first renderer.
+#[derive(Debug)]
+pub struct WorkerDevice {
+    runtime: Arc<Runtime>,
+    own: Option<GraphicsDeviceHandle>,
+}
+
+impl WorkerDevice {
+    /// The device for a new worker of a pool of `runtime`.
+    #[must_use]
+    pub fn new(runtime: Arc<Runtime>) -> Self {
+        Self { runtime, own: None }
+    }
+
+    /// Creates a renderer on this worker's device. See [`Renderer::new`].
+    pub fn renderer(
+        &mut self,
+        mode: MapMode,
+        width: u32,
+        height: u32,
+        pixel_ratio: f64,
+    ) -> Result<Renderer, StyleError> {
+        let device: &GraphicsDeviceHandle = if self.runtime.context_per_worker {
+            match &mut self.own {
+                Some(own) => own,
+                own => own.insert(create_device(true)?),
+            }
+        } else {
+            &self.runtime.device
+        };
+        Renderer::new(&self.runtime, device, mode, width, height, pixel_ratio)
     }
 }
 
@@ -200,9 +253,10 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio`.
+    /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio` into a texture on `device`.
     pub fn new(
         runtime: &Arc<Runtime>,
+        device: &GraphicsDeviceHandle,
         mode: MapMode,
         width: u32,
         height: u32,
@@ -220,7 +274,7 @@ impl Renderer {
 
         let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
         let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
-        let (session, attached) = map.attach_graphics_device_texture(&runtime.device, &descriptor, &attach)?;
+        let (session, attached) = map.attach_graphics_device_texture(device, &descriptor, &attach)?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners

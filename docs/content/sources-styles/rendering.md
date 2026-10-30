@@ -39,7 +39,7 @@ styles:
 
 Renders run on a dedicated thread pool.
 `rendering: true` sizes it from the logical CPU count, clamped to `2..=8`.
-The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps, the [tile size](#tile-size), the [pixel ratios](#pixel-ratio) tiles and static images are served at, and the size of the [ambient cache](#ambient-cache):
+The long form sets the number of render threads explicitly, how many [renderers](#renderers-per-worker) each keeps and whether they [share a graphics context](#context-per-worker), the [tile size](#tile-size), the [pixel ratios](#pixel-ratio) tiles and static images are served at, and the size of the [ambient cache](#ambient-cache):
 
 ```yaml
 styles:
@@ -48,6 +48,8 @@ styles:
         workers: 4
         # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
         renderers_per_worker: 8
+        # Draw each worker's renderers in one graphics context [default: false]
+        context_per_worker: false
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512
         # Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]
@@ -151,6 +153,12 @@ With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
 Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+
+### Context per worker
+
+By default, every renderer draws in a graphics context of its own.
+A worker renders one image at a time, so with `context_per_worker: true` its renderers take turns in one context instead.
+On the CPU, each context costs Mesa (`llvmpipe`) about 14 MiB, so this cuts the memory of every renderer by about that much, without slowing rendering down.
 
 ### Ambient cache
 

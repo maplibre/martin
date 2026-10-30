@@ -277,12 +277,14 @@ impl StyleSources {
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
+        context_per_worker: bool,
     ) -> Result<(), StyleError> {
         self.pools = Some(RenderPools::new(
             workers,
             tile_size,
             renderers_per_worker,
             ambient_cache_bytes,
+            context_per_worker,
         )?);
         Ok(())
     }

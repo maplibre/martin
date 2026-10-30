@@ -279,6 +279,48 @@ async fn a_rendered_tile_matches_its_reference(#[case] style: &str, #[case] tile
 }
 
 #[tokio::test]
+async fn renderers_sharing_a_context_match_their_references() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maptiler_basic = cassette.style(fixture("styles/src2/maptiler_basic.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let maptiler_basic = maptiler_basic.display();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+                context_per_worker: true
+              sources:
+                maplibre_demo: {maplibre_demo}
+                maptiler_basic: {maptiler_basic}
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    // One worker, so every renderer after the first draws in a context another one left behind.
+    for (style, tile) in [
+        ("maplibre_demo", "0/0/0"),
+        ("maptiler_basic", "0/0/0"),
+        ("maplibre_demo", "1/0/0"),
+        ("maplibre_demo", "0/0/0"),
+    ] {
+        let body = rendered(&martin, &format!("/style/{style}/{tile}.png")).await;
+        let name = format!("{style}_{}.png", tile.replace('/', "_"));
+        assert_image_matches(reference(TILE_REFERENCES, &name), &body);
+    }
+    for (camera, name) in [("0,0,3/200x200", "center_z3"), ("0,0,0/200x200", "center_z0")] {
+        let body = rendered(&martin, &format!("/style/maplibre_demo/static/{camera}.png")).await;
+        assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
+    }
+
+    martin.stop().await;
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
 async fn a_rendered_tile_is_served_as_an_image() {
     let cassette = Cassette::serving(UPSTREAMS).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
