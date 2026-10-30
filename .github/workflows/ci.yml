@@ -24,7 +24,7 @@ permissions:
 jobs:
   changes:
     name: Decide which suites this change can affect
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -266,7 +266,7 @@ jobs:
       - security
       - release
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions: {}
     steps:

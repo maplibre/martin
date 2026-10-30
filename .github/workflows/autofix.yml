@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   changes:
     name: Decide which jobs this change can affect
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -48,7 +48,7 @@ jobs:
 
   fmt:
     name: Format and sync lock files
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -86,7 +86,7 @@ jobs:
 
   gen-schemas:
     name: Generate config + OpenAPI schemas + UI types + Python stub
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -121,6 +121,7 @@ jobs:
 
   bless:
     name: Bless test output
+    # TODO: 26.04 once rendering moves to maplibre-native-ffi; bless-rendering segfaults in libuv 1.51
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
