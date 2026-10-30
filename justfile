@@ -787,7 +787,7 @@ test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
 
 # Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
 test-doc *args: fetch
-    cargo test --doc --workspace --exclude map-tile-toolkit {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py {{args}}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')

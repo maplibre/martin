@@ -20,7 +20,7 @@ jobs:
     # `gen-schemas` job in `.github/workflows/autofix.yml`, which regenerates
     # and commits them on every PR push - so this job only needs to read the
     # committed files, no Rust toolchain required.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - name: Checkout sources

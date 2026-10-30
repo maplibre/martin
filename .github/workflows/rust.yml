@@ -54,7 +54,7 @@ jobs:
       matrix:
         # 1. Linux-only for PRs (faster feedback)
         # 2. Run on all three OS platforms when merging to main
-        os: ${{ github.ref == 'refs/heads/main' && fromJSON('["ubuntu-24.04", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-24.04"]') }}
+        os: ${{ github.ref == 'refs/heads/main' && fromJSON('["ubuntu-26.04", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-26.04"]') }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,18 +63,18 @@ jobs:
         with:
           tools: 'just,nextest'
           cache: true
-          coverage: ${{ matrix.os == 'ubuntu-24.04' }}
+          coverage: ${{ matrix.os == 'ubuntu-26.04' }}
       - name: Run the unit tests
         run: just test-packages-ci
       - run: just test-doc
-      - if: matrix.os == 'ubuntu-24.04'
+      - if: matrix.os == 'ubuntu-26.04'
         uses: $/.github/actions/upload-coverage
         with: { suite: unit }
   test-cog:
     name: COG GeoTIFF tests
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs:
       - lint-rust
@@ -95,7 +95,7 @@ jobs:
     if: inputs.run-cog-py
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     needs:
       - lint-rust
@@ -120,7 +120,7 @@ jobs:
     name: DuckDB GeoParquet tests
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs:
       - lint-rust
@@ -138,6 +138,7 @@ jobs:
     name: Style rendering tests
     permissions:
       contents: read
+    # TODO: 26.04 once rendering moves to maplibre-native-ffi; the prebuilt maplibre_native amalgam segfaults in libuv 1.51
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     needs:
@@ -156,7 +157,7 @@ jobs:
     name: OGC API - Tiles conformance
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs: [ build-x86_64-unknown-linux-gnu ]
     steps:
@@ -180,6 +181,7 @@ jobs:
     name: OGC API - Maps conformance
     permissions:
       contents: read
+    # TODO: 26.04 once rendering moves to maplibre-native-ffi; the prebuilt maplibre_native amalgam segfaults in libuv 1.51
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     needs:
@@ -196,7 +198,7 @@ jobs:
     name: Lint the Rust code
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - name: Checkout sources
@@ -214,7 +216,7 @@ jobs:
     # before the cheaper clippy run has had a chance to fail fast.
     needs:
       - lint-rust
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -231,7 +233,7 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - name: Checkout sources
@@ -245,7 +247,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-linux-musl
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
@@ -253,7 +255,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-musl
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
@@ -262,7 +264,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-musl
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       legacy_cpu: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
@@ -273,7 +275,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-freebsd
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
@@ -282,7 +284,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-freebsd
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       legacy_cpu: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
@@ -292,13 +294,13 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-freebsd
-      os: ubuntu-24.04
+      os: ubuntu-26.04
       zig: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   docker-legacycpu:
     name: Publish the legacycpu Docker image
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     needs: [ build-x86_64-unknown-linux-musl-legacycpu ]
     if: |
@@ -375,7 +377,7 @@ jobs:
 
   docker-build-test:
     name: Build and test docker images (${{ matrix.variant }})
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu, build-aarch64-unknown-linux-gnu-full, build-x86_64-unknown-linux-gnu-full ]
     if: |
@@ -649,6 +651,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-gnu
+      # 24.04 keeps the glibc floor of the released binaries at 2.39
       os: ubuntu-24.04
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
       pgo: ${{ github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')) }}
@@ -667,6 +670,7 @@ jobs:
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-gnu
+      # 24.04 keeps the glibc floor of the released binaries at 2.39
       os: ubuntu-24.04
       full: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
@@ -682,7 +686,7 @@ jobs:
 
   test-aws-lambda:
     name: Test AWS Lambda
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -700,7 +704,7 @@ jobs:
 
   test-freebsd:
     name: Test the ${{ matrix.build }} binaries on FreeBSD ${{ matrix.release }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -797,7 +801,7 @@ jobs:
 
   test-svc-pg:
     name: Test against PostGIS variants
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -968,7 +972,7 @@ jobs:
     # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
     # which is all the testcontainers crate needs.
     name: Unit test against RustFS (S3-compatible)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -988,7 +992,7 @@ jobs:
     name: Test publishing via cargo-publish
     permissions:
       contents: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     # A from-scratch package and build of the whole workspace. What it guards
     # is the release itself, so on pull requests it only runs for the one
@@ -1007,7 +1011,7 @@ jobs:
 
   coverage:
     name: Merge and upload code coverage
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs:
       - unit-test-rust
