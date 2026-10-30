@@ -123,6 +123,7 @@ rendering = [
     "dep:image",
     "dep:png",
     "dep:quantizr",
+    "dep:tempfile",
     "dep:tiff",
     "dep:webp",
 ]
@@ -260,6 +261,7 @@ similar = { workspace = true, optional = true }
 smallvec = { version = "1.15", features = ["const_new", "union"] }
 static-files = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true

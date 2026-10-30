@@ -500,8 +500,10 @@ async fn render_with_overlays(
                     .body(format!("Overlay application failed: {err}"))
             }
             other @ (StyleError::IoError(_)
-            | StyleError::StyleLoadError(_)
+            | StyleError::StyleLoadError { .. }
             | StyleError::RenderingError(_)
+            | StyleError::Timeout { .. }
+            | StyleError::GraphicsUnavailable { .. }
             | StyleError::FailedToSendRequest
             | StyleError::FailedToReceiveResponse
             | StyleError::RenderingPanicked) => {

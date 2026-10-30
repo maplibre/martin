@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 

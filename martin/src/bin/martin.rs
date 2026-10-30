@@ -8,6 +8,7 @@
 )]
 
 use std::env;
+use std::process::ExitCode;
 #[cfg(feature = "tui")]
 use std::sync::Arc;
 
@@ -34,6 +35,8 @@ use martin::config::primitives::env::OsEnv;
 #[cfg(feature = "unstable-generate")]
 use martin::generate::spec;
 use martin::logging::{LogFormat, ensure_library_log_levels_match, init_tracing};
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin::mesa_shader_cache::{MESA_SHADER_CACHE_DIR, MesaShaderCache};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
@@ -219,9 +222,32 @@ where
     }
 }
 
-#[tokio::main]
+fn main() -> ExitCode {
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    let mesa_shader_cache = MesaShaderCache::detect();
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    if let Some(dir) = mesa_shader_cache.private_dir() {
+        // SAFETY: the tokio runtime is not built yet, so no other thread can read the environment while it changes.
+        unsafe { env::set_var(MESA_SHADER_CACHE_DIR, dir) };
+    }
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build the tokio runtime");
+    let code = runtime.block_on(run(
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
+        &mesa_shader_cache,
+    ));
+    if code != ExitCode::SUCCESS {
+        // Exit right away, as `process::exit` did, instead of waiting for blocking tasks still running.
+        runtime.shutdown_background();
+    }
+    code
+}
+
 #[hotpath::main]
-async fn main() {
+async fn run(#[cfg(all(feature = "rendering", target_os = "linux"))] mesa_shader_cache: &MesaShaderCache) -> ExitCode {
     let args = Args::parse();
     let filter = ensure_library_log_levels_match(env::var("RUST_LOG").ok(), "martin=");
 
@@ -236,9 +262,9 @@ async fn main() {
             } else {
                 eprintln!("{rendered}");
             }
-            std::process::exit(1);
+            return ExitCode::FAILURE;
         }
-        return;
+        return ExitCode::SUCCESS;
     }
 
     #[cfg(feature = "unstable-generate")]
@@ -251,11 +277,11 @@ async fn main() {
             false,
         );
         match Box::pin(spec::start(test_args)).await {
-            Ok(true) => return,
-            Ok(false) => std::process::exit(1),
+            Ok(true) => return ExitCode::SUCCESS,
+            Ok(false) => return ExitCode::FAILURE,
             Err(e) => {
                 eprintln!("{}", e.render_diagnostic_with(log_format));
-                std::process::exit(2);
+                return ExitCode::from(2);
             }
         }
     }
@@ -278,6 +304,8 @@ async fn main() {
     };
     #[cfg(not(feature = "tui"))]
     init_tracing(&filter, log_format, false);
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    mesa_shader_cache.log();
 
     let started = start(
         args,
@@ -297,6 +325,7 @@ async fn main() {
         } else {
             eprintln!("{rendered}");
         }
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
+    ExitCode::SUCCESS
 }

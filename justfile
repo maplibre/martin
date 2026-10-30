@@ -39,9 +39,6 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 # Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
 release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
 
-# Download the prebuilt maplibre_native core amalgam instead of compiling the ~1 GB C++ core from source.
-# Set MLN_PRECOMPILE=0 to build maplibre_native from source instead.
-export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 
@@ -331,7 +328,7 @@ pgo-train binary:
     wait "$server"
     trap - EXIT
 
-# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
+# Build `-full` binaries (adds rendering). Linux gnu only.
 build-release-full target: fetch
     #!/usr/bin/env bash
     set -euo pipefail
@@ -341,15 +338,15 @@ build-release-full target: fetch
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
-# Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
-# and maplibre_native pre-built libraries require newer glibc.
+# Note: the rendering feature is not packaged yet, although its prebuilt MapLibre library only needs
+# glibc 2.35, which the ubuntu-22.04 build has.
 build-deb output: fetch (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for these targets.
+# Note: the rendering feature is excluded; maplibre-native-ffi publishes no FreeBSD library and musl is not wired up yet.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-zig target: fetch
@@ -537,41 +534,20 @@ help:
     @echo ""
     @echo "Full list: just --list"
 
-# Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
+# Install what rendering needs at runtime (Ubuntu/Debian): EGL, OpenGL ES, and Mesa's drivers, whose llvmpipe renders without a GPU.
+# Building needs nothing extra; the MapLibre library is downloaded prebuilt.
 [linux]
-install-dependencies backend='vulkan':
+install-dependencies:
     sudo apt-get update
-    sudo apt-get install -y \
-      {{if backend == 'opengl' {'libgl1-mesa-dev libglu1-mesa-dev'} else {''} }} \
-      {{if backend == 'vulkan' {'mesa-vulkan-drivers glslang-dev'} else {''} }} \
-      build-essential \
-      libcurl4-openssl-dev \
-      libglfw3-dev \
-      libicu-dev \
-      libjpeg-dev \
-      libpng-dev \
-      libuv1-dev \
-      libwebp-dev \
-      libz-dev
+    sudo apt-get install -y libegl1 libgles2 libegl-mesa0
 
-# Install macOS dependencies via Homebrew
 [macos]
-install-dependencies backend='vulkan':
-    brew install \
-        {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
-        curl \
-        glfw \
-        icu4c \
-        jpeg-turbo \
-        libpng \
-        libuv \
-        webp \
-        zlib
+install-dependencies:
+    @echo "rendering styles is only supported on Linux"
 
-# Install Windows dependencies
 [windows]
-install-dependencies backend='vulkan':
-    @echo "rendering styles is not currently supported on windows"
+install-dependencies:
+    @echo "rendering styles is only supported on Linux"
 
 # Run common lints
 lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck

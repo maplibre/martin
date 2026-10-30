@@ -1,0 +1,24 @@
+{
+  "glyphs": "https://glyphs.invalid/font/{fontstack}/{range}.pbf",
+  "layers": [
+    { "id": "background", "paint": { "background-color": "#ffffff" }, "type": "background" },
+    {
+      "id": "label",
+      "layout": { "text-field": ["get", "name"], "text-font": ["Nonexistent"] },
+      "source": "spot",
+      "type": "symbol"
+    }
+  ],
+  "name": "Unknown font",
+  "sources": {
+    "spot": {
+      "data": {
+        "geometry": { "coordinates": [0, 0], "type": "Point" },
+        "properties": { "name": "spot" },
+        "type": "Feature"
+      },
+      "type": "geojson"
+    }
+  },
+  "version": 8
+}

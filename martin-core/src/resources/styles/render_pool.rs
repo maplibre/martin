@@ -1,16 +1,17 @@
-use std::num::{NonZeroU8, NonZeroU32, NonZeroUsize};
+use std::f64::consts::PI;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use maplibre_native::{
-    CameraUpdate, Image, ImageRenderer, ImageRendererBuilder, LatLng, ResourceOptions, Static, Tile,
-};
+use image::RgbaImage as Image;
+use maplibre_native_ffi::{CameraOptions, LatLng, MapMode};
 use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
+use crate::resources::styles::renderer::{Renderer, Runtime};
 use crate::resources::styles::{StyleError, TileSize};
 
 /// A style to render: a file, or a style document already in memory.
@@ -30,12 +31,11 @@ impl From<PathBuf> for RenderStyle {
 
 impl RenderStyle {
     /// Loads this style into `renderer`, waiting until it has loaded.
-    fn load<S>(&self, renderer: &mut ImageRenderer<S>) -> Result<(), StyleError> {
+    fn load(&self, renderer: &mut Renderer) -> Result<(), StyleError> {
         match self {
-            Self::Path(path) => renderer.load_style_from_path(path)?.wait()?,
-            Self::Json(json) => renderer.load_style_from_json_str(json.as_ref()).wait()?,
+            Self::Path(path) => renderer.load_style(path),
+            Self::Json(json) => renderer.load_style_json(json),
         }
-        Ok(())
     }
 }
 
@@ -58,7 +58,7 @@ pub struct RenderParams {
     lat: f64,
     /// Camera target longitude in degrees (WGS84).
     lon: f64,
-    /// Map zoom level.
+    /// Map zoom level, at least 0.
     zoom: f64,
     /// Logical output width in pixels.
     width: u32,
@@ -77,7 +77,7 @@ pub struct RenderParams {
 }
 
 impl RenderParams {
-    /// Start a render request at `(lat, lon, zoom)` against `style`.
+    /// Start a render request at `(lat, lon, zoom)` against `style`, rendering a `zoom` below 0 as zoom 0.
     /// Size defaults to 512×512×1; orientation defaults to north-up flat.
     #[must_use]
     pub fn new(style: impl Into<RenderStyle>, lat: f64, lon: f64, zoom: f64) -> Self {
@@ -85,7 +85,7 @@ impl RenderParams {
             style: style.into(),
             lat,
             lon,
-            zoom,
+            zoom: zoom.max(0.0),
             width: 512,
             height: 512,
             pixel_ratio: NonZeroU8::MIN,
@@ -144,24 +144,27 @@ impl RenderPools {
     /// and tile geometry.
     ///
     /// `ambient_cache_bytes` caps `MapLibre`'s cache of the resources renderers fetch
-    /// over the network; `Some(0)` disables it and `None` keeps `MapLibre`'s default.
+    /// over the network, shared by both pools; `Some(0)` disables it and `None` keeps `MapLibre`'s default.
     ///
     /// # Errors
     ///
-    /// Returns the OS error from [`thread::Builder::spawn`] if a worker thread
-    /// cannot be started.
+    /// Returns [`StyleError::GraphicsUnavailable`] if no graphics device can be created,
+    /// [`StyleError::RenderingError`] if `MapLibre` cannot start, and
+    /// [`StyleError::IoError`] if a worker thread cannot be started.
     pub fn new(
         workers: Option<NonZeroUsize>,
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
-    ) -> Result<Self, std::io::Error> {
+    ) -> Result<Self, StyleError> {
+        let runtime = Arc::new(Runtime::new(ambient_cache_bytes)?);
+        let tile_runtime = Arc::clone(&runtime);
         Ok(Self {
             tile: RenderPool::new(workers, move || {
-                TileWorker::new(renderers_per_worker).with_ambient_cache(ambient_cache_bytes)
+                TileWorker::new(Arc::clone(&tile_runtime), renderers_per_worker)
             })?,
             tile_size,
-            free: RenderPool::new(workers, move || StaticWorker::new(ambient_cache_bytes))?,
+            free: RenderPool::new(workers, move || StaticWorker::new(Arc::clone(&runtime)))?,
         })
     }
 
@@ -349,8 +352,8 @@ fn worker_loop<W: Worker>(rx: &flume::Receiver<Msg<W::Request>>, new_worker: &dy
 /// A render backend bound to a single worker thread.
 ///
 /// A [`RenderPool`] builds one `Worker` per thread (with its constructor) and feeds it
-/// requests. Implementors own a `MapLibre` renderer, which is `!Send`, so it is
-/// created on - and never leaves - its worker thread.
+/// requests. Implementors own `MapLibre` renderers, which render one request at a time,
+/// so each worker thread renders one request at a time too.
 trait Worker: 'static {
     /// Short name for thread names and log fields (e.g. `tile`, `static`).
     const NAME: &'static str;
@@ -375,8 +378,8 @@ struct TileRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Geometry {
     Tile(TileSize, NonZeroU8),
-    /// `MapLibre` cannot zoom out below 0 (`RenderingError::TileZoomTooLow`), so the
-    /// 256 px world tile is the 512 px one drawn at half the pixel ratio.
+    /// `MapLibre` cannot zoom out below 0, so the 256 px world tile is the
+    /// 512 px one drawn at half the pixel ratio.
     World256(NonZeroU8),
 }
 
@@ -389,26 +392,40 @@ impl Geometry {
         }
     }
 
-    fn renderer(self, ambient_cache_bytes: Option<u64>) -> ImageRenderer<Tile> {
-        let (size, pixel_ratio) = match self {
-            Self::Tile(size, ratio) => (size, f32::from(ratio.get())),
-            Self::World256(ratio) => (TileSize::Px512, f32::from(ratio.get()) / 2.0),
-        };
-        renderer_builder(ambient_cache_bytes)
-            .with_size(size.px(), size.px())
-            .with_pixel_ratio(pixel_ratio)
-            .build_tile_renderer()
+    /// The logical tile size and pixel ratio the renderer draws at.
+    fn extent(self) -> (TileSize, f64) {
+        match self {
+            Self::Tile(size, ratio) => (size, f64::from(ratio.get())),
+            Self::World256(ratio) => (TileSize::Px512, f64::from(ratio.get()) / 2.0),
+        }
+    }
+
+    fn renderer(self, runtime: &Arc<Runtime>) -> Result<Renderer, StyleError> {
+        let (size, pixel_ratio) = self.extent();
+        Renderer::new(runtime, MapMode::Tile, size.px().get(), size.px().get(), pixel_ratio)
+    }
+
+    /// The camera that frames tile `z`/`x`/`y` in a renderer of this geometry.
+    ///
+    /// `MapLibre` zoom levels are based on 512 px tiles, so a 256 px tile at `z` is drawn at map zoom `z - 1`.
+    fn camera(self, z: u8, x: u32, y: u32) -> CameraOptions {
+        let (size, _) = self.extent();
+        CameraOptions {
+            center: Some(tile_center(z, x, y)),
+            zoom: Some(f64::from(z) - (512.0 / f64::from(size.px().get())).log2()),
+            bearing: Some(0.0),
+            pitch: Some(0.0),
+            ..CameraOptions::default()
+        }
     }
 }
 
-/// A renderer builder whose ambient cache holds up to `ambient_cache_bytes`
-/// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
-fn renderer_builder(ambient_cache_bytes: Option<u64>) -> ImageRendererBuilder {
-    let builder = ImageRendererBuilder::default();
-    match ambient_cache_bytes {
-        Some(bytes) => builder.with_resource_options(ResourceOptions::default().with_maximum_cache_size(bytes)),
-        None => builder,
-    }
+/// The WGS84 center of slippy tile `z`/`x`/`y`.
+fn tile_center(z: u8, x: u32, y: u32) -> LatLng {
+    let n = f64::from(1_u32 << z);
+    let lng = (f64::from(x) + 0.5) / n * 360.0 - 180.0;
+    let lat = (PI * (1.0 - 2.0 * (f64::from(y) + 0.5) / n)).sinh().atan().to_degrees();
+    LatLng::new(lat, lng)
 }
 
 /// How many renderers a tile worker keeps loaded when none is configured.
@@ -418,31 +435,26 @@ pub const DEFAULT_RENDERERS_PER_WORKER: NonZeroUsize = NonZeroUsize::new(8).expe
 struct TileSlot {
     style: RenderStyle,
     geometry: Geometry,
-    renderer: ImageRenderer<Tile>,
+    renderer: Renderer,
 }
 
-/// Worker that renders slippy tiles via the tile renderer.
+/// Worker that renders slippy tiles via tile-mode maps.
 ///
 /// Keeps up to `capacity` renderers, one per style and geometry, most recently used first,
 /// so mixed traffic does not reload a style on every request.
 struct TileWorker {
+    runtime: Arc<Runtime>,
     capacity: NonZeroUsize,
-    ambient_cache_bytes: Option<u64>,
     slots: Vec<TileSlot>,
 }
 
 impl TileWorker {
-    fn new(capacity: NonZeroUsize) -> Self {
+    fn new(runtime: Arc<Runtime>, capacity: NonZeroUsize) -> Self {
         Self {
+            runtime,
             capacity,
-            ambient_cache_bytes: None,
             slots: Vec::new(),
         }
-    }
-
-    fn with_ambient_cache(mut self, ambient_cache_bytes: Option<u64>) -> Self {
-        self.ambient_cache_bytes = ambient_cache_bytes;
-        self
     }
 
     /// Moves the renderer for `style` and `geometry` to the front, loading it if needed.
@@ -456,7 +468,7 @@ impl TileWorker {
             // so the `truncate` below always drops the least recently used renderer.
             self.slots[..=i].rotate_right(1);
         } else {
-            let mut renderer = geometry.renderer(self.ambient_cache_bytes);
+            let mut renderer = geometry.renderer(&self.runtime)?;
             style.load(&mut renderer)?;
             self.slots.truncate(self.capacity.get() - 1);
             self.slots.insert(
@@ -477,27 +489,28 @@ impl Worker for TileWorker {
     type Request = TileRequest;
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
-        self.slot(&req.style, Geometry::of(&req))?
+        let geometry = Geometry::of(&req);
+        let result = self
+            .slot(&req.style, geometry)?
             .renderer
-            .render_tile(req.z, req.x, req.y)
-            .map_err(StyleError::RenderingError)
+            .render(geometry.camera(req.z, req.x, req.y));
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
+            self.slots.remove(0);
+        }
+        result
     }
 }
 
-/// Worker that renders free-camera images via the static renderer.
-#[derive(Default)]
+/// Worker that renders free-camera images via a static-mode map.
 struct StaticWorker {
-    /// Rebuilt whenever the requested output geometry changes.
+    runtime: Arc<Runtime>,
+    /// Rebuilt whenever the requested pixel ratio changes, and resized when only the size does.
     current: Option<StaticRenderer>,
-    ambient_cache_bytes: Option<u64>,
 }
 
 impl StaticWorker {
-    fn new(ambient_cache_bytes: Option<u64>) -> Self {
-        Self {
-            current: None,
-            ambient_cache_bytes,
-        }
+    fn new(runtime: Arc<Runtime>) -> Self {
+        Self { runtime, current: None }
     }
 }
 
@@ -506,15 +519,21 @@ impl Worker for StaticWorker {
     type Request = RenderParams;
 
     fn render(&mut self, params: RenderParams) -> Result<Image, StyleError> {
-        if !self.current.as_ref().is_some_and(|r| r.matches(&params)) {
-            self.current = Some(StaticRenderer::new(
-                params.width,
-                params.height,
-                params.pixel_ratio,
-                self.ambient_cache_bytes,
-            ));
+        let width = params.width.max(1);
+        let height = params.height.max(1);
+        let renderer = match &mut self.current {
+            Some(current) if current.pixel_ratio == params.pixel_ratio => current,
+            current => {
+                // A failed build leaves no renderer rather than one of the wrong pixel ratio.
+                *current = None;
+                current.insert(StaticRenderer::new(&self.runtime, width, height, params.pixel_ratio)?)
+            }
+        };
+        let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
+            self.current = None;
         }
-        self.current.as_mut().expect("just built").render(&params)
+        result
     }
 }
 
@@ -524,8 +543,8 @@ impl Worker for StaticWorker {
 /// here (early `?` return) must leave the cache empty.
 /// Otherwise the next request for the previously-loaded style would skip reloading
 /// and render against the now-missing style.
-fn load_style_cached<S>(
-    renderer: &mut ImageRenderer<S>,
+fn load_style_cached(
+    renderer: &mut Renderer,
     cached: &mut Option<RenderStyle>,
     style: &RenderStyle,
 ) -> Result<(), StyleError> {
@@ -542,18 +561,15 @@ fn load_style_cached<S>(
 /// even on an early return or panic -- so the cached style returns to a clean
 /// base for the next request.
 struct RendererWithOverlay<'r> {
-    renderer: &'r mut ImageRenderer<Static>,
+    renderer: &'r mut Renderer,
     applied: Option<AppliedOverlay>,
 }
 
 impl<'r> RendererWithOverlay<'r> {
     /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
     /// guard drops.
-    fn apply(renderer: &'r mut ImageRenderer<Static>, spec: &OverlaySpec) -> Result<Self, StyleError> {
-        let applied = {
-            let mut style = renderer.style();
-            apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?
-        };
+    fn apply(renderer: &'r mut Renderer, spec: &OverlaySpec) -> Result<Self, StyleError> {
+        let applied = apply_to_style(spec, renderer)?;
         Ok(Self {
             renderer,
             applied: Some(applied),
@@ -561,7 +577,7 @@ impl<'r> RendererWithOverlay<'r> {
     }
 
     /// The renderer carrying the applied overlay, for issuing render calls.
-    const fn renderer(&mut self) -> &mut ImageRenderer<Static> {
+    const fn renderer(&mut self) -> &mut Renderer {
         self.renderer
     }
 }
@@ -569,15 +585,14 @@ impl<'r> RendererWithOverlay<'r> {
 impl Drop for RendererWithOverlay<'_> {
     fn drop(&mut self) {
         if let Some(applied) = self.applied.take() {
-            let mut style = self.renderer.style();
-            applied.remove_from(&mut style);
+            applied.remove_from(self.renderer.map());
         }
     }
 }
 
-/// A free-camera renderer pinned to a fixed output geometry, with its cached style.
+/// A free-camera renderer at a fixed pixel ratio, with its cached style.
 struct StaticRenderer {
-    renderer: ImageRenderer<Static>,
+    renderer: Renderer,
     width: u32,
     height: u32,
     pixel_ratio: NonZeroU8,
@@ -585,54 +600,40 @@ struct StaticRenderer {
 }
 
 impl StaticRenderer {
-    fn new(width: u32, height: u32, pixel_ratio: NonZeroU8, ambient_cache_bytes: Option<u64>) -> Self {
-        let w = NonZeroU32::new(width).unwrap_or(NonZeroU32::MIN);
-        let h = NonZeroU32::new(height).unwrap_or(NonZeroU32::MIN);
-        Self {
-            renderer: renderer_builder(ambient_cache_bytes)
-                .with_pixel_ratio(f32::from(pixel_ratio.get()))
-                .with_size(w, h)
-                .build_static_renderer(),
+    fn new(runtime: &Arc<Runtime>, width: u32, height: u32, pixel_ratio: NonZeroU8) -> Result<Self, StyleError> {
+        Ok(Self {
+            renderer: Renderer::new(runtime, MapMode::Static, width, height, f64::from(pixel_ratio.get()))?,
             width,
             height,
             pixel_ratio,
             loaded_style: None,
-        }
+        })
     }
 
-    /// Whether this renderer's build-time geometry matches `params`.
-    fn matches(&self, params: &RenderParams) -> bool {
-        self.width == params.width && self.height == params.height && self.pixel_ratio == params.pixel_ratio
+    /// Resizes to `width` x `height` unless it already is that size.
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), StyleError> {
+        if (self.width, self.height) != (width, height) {
+            self.renderer.resize(width, height)?;
+            (self.width, self.height) = (width, height);
+        }
+        Ok(())
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
         load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
-        let camera = CameraUpdate::new()
-            .center(LatLng {
-                lat: params.lat,
-                lng: params.lon,
-            })
-            .zoom(params.zoom)
-            .bearing(params.bearing)
-            .pitch(params.pitch);
-
-        let render_once = |r: &mut ImageRenderer<Static>| r.render_static(&camera).map_err(StyleError::RenderingError);
+        let camera = CameraOptions {
+            center: Some(LatLng::new(params.lat, params.lon)),
+            zoom: Some(params.zoom),
+            bearing: Some(params.bearing),
+            pitch: Some(params.pitch),
+            ..CameraOptions::default()
+        };
 
         if params.overlays.is_empty() {
-            // No overlay: a single render captures the fully-tiled frame.
-            return render_once(&mut self.renderer);
+            return self.renderer.render(camera);
         }
-
-        // The overlay's GeoJSON source only tiles once the pipeline has rendered
-        // at least once; adding it before any render leaves it blank.
-        let _ = render_once(&mut self.renderer);
-
         let mut overlay = RendererWithOverlay::apply(&mut self.renderer, &params.overlays)?;
-        let renderer = overlay.renderer();
-
-        // The source tiles synchronously, so this first render after `add_source`
-        // already captures the overlay.
-        render_once(renderer)
+        overlay.renderer().render(camera)
     }
 }
 
@@ -678,9 +679,12 @@ mod tests {
     #[tokio::test]
     async fn concurrent_tile_renders_all_succeed() {
         let style_file = write_style();
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
         let pool = Arc::new(
-            RenderPool::new(NonZeroUsize::new(4), || TileWorker::new(DEFAULT_RENDERERS_PER_WORKER))
-                .expect("spawn render pool"),
+            RenderPool::new(NonZeroUsize::new(4), move || {
+                TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
+            })
+            .expect("spawn render pool"),
         );
         let style = style_file.path().to_path_buf();
 
@@ -705,7 +709,7 @@ mod tests {
 
         for h in handles {
             let image = h.await.expect("task").expect("render");
-            let img = image.as_image();
+            let img = &image;
             assert_eq!((img.width(), img.height()), (512, 512));
             let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
             assert!(unique.len() > 1, "image is blank");
@@ -715,8 +719,11 @@ mod tests {
     #[tokio::test]
     async fn one_worker_renders_each_pixel_ratio_at_its_own_size() {
         let style_file = write_style();
-        let pool = RenderPool::new(NonZeroUsize::new(1), || TileWorker::new(DEFAULT_RENDERERS_PER_WORKER))
-            .expect("spawn render pool");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
         let style = style_file.path().to_path_buf();
 
         for (pixel_ratio, px) in [(1, 512), (2, 1024), (1, 512), (3, 1536), (2, 1024)] {
@@ -731,7 +738,7 @@ mod tests {
                 })
                 .await
                 .expect("render");
-            let img = image.as_image();
+            let img = &image;
             assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
     }
@@ -739,14 +746,16 @@ mod tests {
     #[tokio::test]
     async fn static_worker_renders_each_pixel_ratio_at_its_own_size() {
         let style_file = write_style();
-        let pool = RenderPool::new(NonZeroUsize::new(1), || StaticWorker::new(None)).expect("spawn render pool");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
 
         for (ratio, px) in [(1, 100), (1, 100), (2, 200), (1, 100)] {
             let pixel_ratio = NonZeroU8::new(ratio).expect("non-zero");
             let params =
                 RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(100, 100, pixel_ratio);
             let image = pool.render(params).await.expect("render");
-            let img = image.as_image();
+            let img = &image;
             assert_eq!((img.width(), img.height()), (px, px), "@{pixel_ratio}x");
         }
     }
@@ -766,8 +775,11 @@ mod tests {
         #[case] px: u32,
     ) {
         let style_file = write_style();
-        let pool = RenderPool::new(NonZeroUsize::new(1), || TileWorker::new(DEFAULT_RENDERERS_PER_WORKER))
-            .expect("spawn render pool");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
 
         let image = pool
             .render(TileRequest {
@@ -781,7 +793,7 @@ mod tests {
             .await
             .expect("render");
 
-        let img = image.as_image();
+        let img = &image;
         assert_eq!((img.width(), img.height()), (px, px));
     }
 
@@ -794,7 +806,8 @@ mod tests {
     #[case::a_hit_outlives_an_older_style(&[0, 1, 0, 2], &[2, 0])]
     fn a_full_worker_keeps_the_most_recently_used_styles(#[case] requested: &[usize], #[case] kept: &[usize]) {
         let styles: [_; 3] = std::array::from_fn(|_| write_style());
-        let mut worker = TileWorker::new(NonZeroUsize::new(2).expect("2 != 0"));
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let mut worker = TileWorker::new(runtime, NonZeroUsize::new(2).expect("2 != 0"));
 
         for &i in requested {
             worker
@@ -810,7 +823,8 @@ mod tests {
     #[test]
     fn each_geometry_of_a_style_has_its_own_renderer() {
         let style = write_style();
-        let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
         let two_x = Geometry::Tile(TileSize::Px512, NonZeroU8::new(2).expect("2 != 0"));
 
         let style = style.path().to_path_buf().into();
@@ -823,12 +837,72 @@ mod tests {
 
     #[test]
     fn a_style_that_fails_to_load_takes_no_slot() {
-        let mut worker = TileWorker::new(DEFAULT_RENDERERS_PER_WORKER);
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
 
         let result = worker.slot(&PathBuf::from("/nonexistent/style.json").into(), PX512);
 
         assert!(result.is_err());
         assert!(worker.slots.is_empty());
+    }
+
+    #[test]
+    fn a_style_maplibre_rejects_takes_no_slot() {
+        let style = tempfile::Builder::new()
+            .suffix(".json")
+            .tempfile()
+            .expect("create style tempfile");
+        std::fs::write(style.path(), "{ not a style").expect("write style");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
+
+        let err = worker.slot(&style.path().to_path_buf().into(), PX512).err();
+
+        assert!(matches!(err, Some(StyleError::StyleLoadError { .. })), "{err:?}");
+        assert!(worker.slots.is_empty());
+    }
+
+    #[tokio::test]
+    async fn static_worker_renders_each_size_at_its_own_size() {
+        let style_file = write_style();
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+
+        for (width, height) in [(100, 100), (300, 50), (100, 100), (64, 640)] {
+            let params = RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(
+                width,
+                height,
+                NonZeroU8::MIN,
+            );
+            let image = pool.render(params).await.expect("render");
+            assert_eq!((image.width(), image.height()), (width, height));
+            let unique: std::collections::HashSet<_> = image.pixels().copied().collect();
+            assert!(unique.len() > 1, "{width}x{height} is blank");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_static_render_below_zoom_0_renders_as_zoom_0() {
+        let style_file = write_style();
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+
+        let at_zoom_0 = pool
+            .render(
+                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(256, 128, NonZeroU8::MIN),
+            )
+            .await
+            .expect("render at zoom 0");
+        let below_zoom_0 = pool
+            .render(
+                RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, -2.0).with_size(256, 128, NonZeroU8::MIN),
+            )
+            .await
+            .expect("render at zoom -2");
+
+        assert!(at_zoom_0 == below_zoom_0, "zoom -2 renders differently from zoom 0");
     }
 
     struct FlakyWorker;
@@ -871,13 +945,15 @@ mod tests {
     #[tokio::test]
     async fn static_render_honours_custom_size() {
         let style_file = write_style();
-        let pool = RenderPool::new(NonZeroUsize::new(1), StaticWorker::default).expect("spawn render pool");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
         let style = style_file.path().to_path_buf();
 
         let params = RenderParams::new(style, 0.0, 0.0, 2.0).with_size(256, 384, NonZeroU8::MIN);
         let image = pool.render(params).await.expect("render");
 
-        let img = image.as_image();
+        let img = &image;
         assert_eq!((img.width(), img.height()), (256, 384));
         let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
         assert!(unique.len() > 1, "image is blank");
@@ -886,7 +962,9 @@ mod tests {
     #[tokio::test]
     async fn a_style_in_memory_renders_as_its_file_does() {
         let style_file = write_style();
-        let pool = RenderPool::new(NonZeroUsize::new(1), StaticWorker::default).expect("spawn render pool");
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
 
         let from_file = pool
             .render(RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 2.0))
@@ -897,6 +975,6 @@ mod tests {
             .await
             .expect("render the document");
 
-        assert_eq!(in_memory.as_image(), from_file.as_image());
+        assert_eq!(in_memory, from_file);
     }
 }

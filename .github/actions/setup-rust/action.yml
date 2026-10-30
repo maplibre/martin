@@ -13,7 +13,7 @@ inputs:
     description: Comma-separated tools to install via taiki-e/install-action, e.g. "just,cargo-binstall". Empty to skip.
     default: "just"
   rendering:
-    description: Install the system dependencies needed to build maplibre-native. No-op on non-Linux runners.
+    description: Install the system libraries style rendering needs at runtime. No-op on non-Linux runners.
     default: "false"
   cache:
     description: >-

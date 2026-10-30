@@ -205,7 +205,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { components: clippy rustfmt, rendering: true, cache: true }
+        with: { components: clippy rustfmt, cache: true }
       - run: just clippy
   check-features:
     name: Check feature matrix (${{ matrix.partition }})
@@ -227,7 +227,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true, cache: true, cache-key: 'partition-${{ strategy.job-index }}' }
+        with: { cache: true, cache-key: 'partition-${{ strategy.job-index }}' }
       - run: just check --partition ${{ matrix.partition }}
   lint-rust-dependencies:
     name: Lint Rust dependencies
@@ -398,7 +398,7 @@ jobs:
           - variant: full
             suffix: '-full'
             flavor: suffix=-full,onlatest=true
-            extra_packages: mesa-vulkan-drivers libcurl4 libglfw3 libicu74 libjpeg-turbo8 libpng16-16t64 libuv1 libwebp7
+            extra_packages: libegl1 libgles2 libegl-mesa0
             description: Martin tile server with server-side style rendering (batteries-included)
     permissions:
       id-token: write
@@ -561,7 +561,8 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          mkdir -p "$TMPDIR/mesa-shader-cache"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e MESA_SHADER_CACHE_DIR=$TMPDIR/mesa-shader-cache -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -579,7 +580,8 @@ jobs:
           # directories they build their own in, so the workspace and the temp directory are
           # mounted where the host has them. The container runs as the runner so that the files
           # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
+          mkdir -p "$TMPDIR/mesa-shader-cache"
+          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e MESA_SHADER_CACHE_DIR=$TMPDIR/mesa-shader-cache -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
           export MARTIN_BIN="docker run $RUN $TAG"
           export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
           cargo nextest run --package martin-e2e-tests --features test-pg
@@ -1003,7 +1005,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,cargo-binstall', rendering: true }
+        with: { tools: 'just,cargo-binstall' }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
       - name: Test cargo-binstall metadata

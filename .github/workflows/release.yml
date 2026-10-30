@@ -215,7 +215,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true }
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
@@ -303,5 +302,3 @@ jobs:
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
-          MLN_PRECOMPILE: 1

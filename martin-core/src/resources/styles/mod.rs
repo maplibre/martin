@@ -21,10 +21,6 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use maplibre_native::Image as StaticImage;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -37,6 +33,13 @@ pub use error::StyleError;
 /// Worker pool for map image rendering.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
+/// One `MapLibre` map rendering still images.
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub(crate) mod renderer;
+
+/// A rendered tile or static image, in straight (not premultiplied) RGBA.
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub type StaticImage = image::RgbaImage;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -205,7 +208,13 @@ impl StyleSources {
 
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render(&self, style: impl Into<RenderStyle>, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+    pub async fn render(
+        &self,
+        style: impl Into<RenderStyle>,
+        z: u8,
+        x: u32,
+        y: u32,
+    ) -> Result<StaticImage, StyleError> {
         self.render_with_pixel_ratio(style, z, x, y, NonZeroU8::MIN).await
     }
 
@@ -218,7 +227,7 @@ impl StyleSources {
         x: u32,
         y: u32,
         pixel_ratio: NonZeroU8,
-    ) -> Result<Image, StyleError> {
+    ) -> Result<StaticImage, StyleError> {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
@@ -236,7 +245,7 @@ impl StyleSources {
         y: u32,
         tile_size: TileSize,
         pixel_ratio: NonZeroU8,
-    ) -> Result<Image, StyleError> {
+    ) -> Result<StaticImage, StyleError> {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
@@ -246,7 +255,7 @@ impl StyleSources {
 
     /// Render a map image with free camera control.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
+    pub async fn render_static(&self, params: RenderParams) -> Result<StaticImage, StyleError> {
         self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
@@ -260,8 +269,7 @@ impl StyleSources {
     ///
     /// # Errors
     ///
-    /// Returns the OS error from [`std::thread::Builder::spawn`] if a worker
-    /// thread cannot be started.
+    /// Returns the [`StyleError`] from [`RenderPools::new`] if the pools cannot start.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub fn enable_rendering(
         &mut self,
@@ -269,7 +277,7 @@ impl StyleSources {
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<(), StyleError> {
         self.pools = Some(RenderPools::new(
             workers,
             tile_size,
