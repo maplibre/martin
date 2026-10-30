@@ -70,7 +70,7 @@ pub struct RendererConfig {
     /// Draw the renderers of each worker in one graphics context, taking turns, instead of one context each.
     /// Saves memory per renderer: about 14 MiB with Mesa's `llvmpipe`. \[default: false\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
     pub context_per_worker: Option<bool>,
 
     /// Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.
