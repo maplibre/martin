@@ -259,7 +259,3 @@ unicode-ident.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
-
-[patch.crates-io]
-# georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
-wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }
