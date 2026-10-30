@@ -67,12 +67,6 @@ pub struct RendererConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &50))]
     pub ambient_cache_size_mb: Option<u64>,
 
-    /// Draw the renderers of each worker in one graphics context, taking turns, instead of one context each.
-    /// Saves memory per renderer: about 14 MiB with Mesa's `llvmpipe`. \[default: false\]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &false))]
-    pub context_per_worker: Option<bool>,
-
     /// Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.
     /// \[default: \[1, 2\]\]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -223,7 +217,7 @@ impl StyleConfig {
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
                 results
-                    .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER, None, false)
+                    .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER, None)
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
@@ -234,7 +228,6 @@ impl StyleConfig {
                         o.tile_size.unwrap_or_default(),
                         o.renderers_per_worker.unwrap_or(DEFAULT_RENDERERS_PER_WORKER),
                         o.ambient_cache_bytes(),
-                        o.context_per_worker.unwrap_or_default(),
                     )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_pixel_ratios(o.pixel_ratios.unwrap_or_default());

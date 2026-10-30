@@ -152,7 +152,9 @@ async fn maplibre_logs_under_its_own_target() {
     insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
         insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
         INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
         INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
         ");
     });
     cassette.assert_no_misses();
@@ -291,7 +293,6 @@ async fn renderers_sharing_a_context_match_their_references() {
               rendering:
                 enabled: true
                 workers: 1
-                context_per_worker: true
               sources:
                 maplibre_demo: {maplibre_demo}
                 maptiler_basic: {maptiler_basic}

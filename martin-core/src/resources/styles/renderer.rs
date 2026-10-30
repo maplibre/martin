@@ -28,10 +28,6 @@ const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
 pub struct Runtime {
     /// The native runtime.
     handle: Releasable<RuntimeHandle>,
-    /// The device the renderers' textures live on, unless each worker has its own.
-    device: GraphicsDeviceHandle,
-    /// Whether each worker draws its renderers on a device of its own, in one graphics context.
-    context_per_worker: bool,
     /// Style-load listeners, by the id of the map they listen to.
     listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
 }
@@ -60,15 +56,13 @@ impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
     /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
     ///
-    /// With `context_per_worker`, each worker creates a device of its own for its renderers (see [`WorkerDevice`]).
-    ///
     /// # Errors
     ///
     /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
-    pub fn new(ambient_cache_bytes: Option<u64>, context_per_worker: bool) -> Result<Self, StyleError> {
+    pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
         forward_logs();
-        // Also created with `context_per_worker`, so a host without graphics fails at startup.
-        let device = create_device(false)?;
+        // Workers create their own devices lazily; this one only makes a host without graphics fail at startup.
+        create_device(None)?;
         let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
@@ -92,40 +86,32 @@ impl Runtime {
         }
         Ok(Self {
             handle: Releasable(Some(handle)),
-            device,
-            context_per_worker,
             listeners,
         })
     }
 }
 
-/// Creates a graphics device whose texture sessions, with `single_context`, take turns in one graphics context.
-fn create_device(single_context: bool) -> Result<GraphicsDeviceHandle, StyleError> {
-    let options = GraphicsDeviceOptions {
-        single_context: Some(single_context),
-        ..GraphicsDeviceOptions::default()
-    };
-    GraphicsDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+fn create_device(options: Option<&GraphicsDeviceOptions>) -> Result<GraphicsDeviceHandle, StyleError> {
+    GraphicsDeviceHandle::create(options).map_err(|err| StyleError::GraphicsUnavailable {
         reason: err.to_string(),
     })
 }
 
-/// The device one worker's renderers are drawn on.
+/// One worker's graphics device, created with `single_context` on the worker's thread by its first renderer.
 ///
-/// A worker renders one image at a time, so with `context_per_worker` its renderers can take turns
-/// in one graphics context instead of holding one each. With Mesa's `llvmpipe` that saves about
-/// 14 MiB per renderer. The device is created on the worker's first renderer.
+/// `single_context` requires that the device's sessions never render at the same time, which holds because a
+/// worker renders one image at a time.
 #[derive(Debug)]
 pub struct WorkerDevice {
     runtime: Arc<Runtime>,
-    own: Option<GraphicsDeviceHandle>,
+    device: Option<GraphicsDeviceHandle>,
 }
 
 impl WorkerDevice {
     /// The device for a new worker of a pool of `runtime`.
     #[must_use]
     pub fn new(runtime: Arc<Runtime>) -> Self {
-        Self { runtime, own: None }
+        Self { runtime, device: None }
     }
 
     /// Creates a renderer on this worker's device. See [`Renderer::new`].
@@ -136,13 +122,12 @@ impl WorkerDevice {
         height: u32,
         pixel_ratio: f64,
     ) -> Result<Renderer, StyleError> {
-        let device: &GraphicsDeviceHandle = if self.runtime.context_per_worker {
-            match &mut self.own {
-                Some(own) => own,
-                own => own.insert(create_device(true)?),
-            }
-        } else {
-            &self.runtime.device
+        let device = match &mut self.device {
+            Some(device) => device,
+            device => device.insert(create_device(Some(&GraphicsDeviceOptions {
+                single_context: Some(true),
+                ..GraphicsDeviceOptions::default()
+            }))?),
         };
         Renderer::new(&self.runtime, device, mode, width, height, pixel_ratio)
     }

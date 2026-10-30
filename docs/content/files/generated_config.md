@@ -617,9 +617,6 @@ styles:
     # Size in MB of `MapLibre`'s cache of the tiles, glyphs and sprites renderers fetch over the network (0 to disable).
     # Disable it when every source of the styles is served by Martin itself.
     ambient_cache_size_mb: 50
-    # Draw the renderers of each worker in one graphics context, taking turns, instead of one context each.
-    # Saves memory per renderer: about 14 MiB with Mesa's `llvmpipe`. [default: false]
-    context_per_worker: false
     enabled: false
     # Whole-number `@{n}x` pixel ratios served, each 1 to 4. Others are answered with `400 Bad Request`.
     # [default: [1, 2]]
