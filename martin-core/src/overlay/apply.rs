@@ -138,7 +138,10 @@ impl<'r> OverlayGuard<'r> {
         self.renderer
             .command(map.add_style_source_json(&source_id, &source.to_string()))
             .map_err(|e| match e {
-                StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}"), error }),
+                StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError {
+                    id: format!("f{index}"),
+                    error,
+                }),
                 e => e,
             })?;
         self.source_ids.push(source_id.clone());
@@ -149,7 +152,10 @@ impl<'r> OverlayGuard<'r> {
             self.renderer
                 .command(map.add_style_layer_json(&layer.to_string(), ""))
                 .map_err(|e| match e {
-                    StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}-{kind}"), error }),
+                    StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError {
+                        id: format!("f{index}-{kind}"),
+                        error,
+                    }),
                     e => e,
                 })?;
             self.layer_ids.push(layer_id);
