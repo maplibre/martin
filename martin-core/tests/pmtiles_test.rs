@@ -736,3 +736,50 @@ async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
     assert_ne!(after, before);
     assert_eq!(after, expected);
 }
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn tiles_read_partly_out_of_the_page_cache_match_the_archive() {
+    let fixture = Bytes::from(std::fs::read(fixtures_dir().join("png.pmtiles")).expect("fixture file exists"));
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("tempdir on disk");
+    let path = dir.path().join("png.pmtiles");
+    std::fs::write(&path, &fixture).expect("copy the archive");
+    let file = std::fs::File::open(&path).expect("open the copy");
+    file.sync_all().expect("flush the copy to disk");
+    let half = fixture.len() as u64 / 2 / 4096 * 4096;
+    rustix::fs::fadvise(&file, half, None, rustix::fs::Advice::DontNeed)
+        .expect("drop the second half from the page cache");
+
+    let store = InMemory::new();
+    let store_path = object_store::path::Path::from("png.pmtiles");
+    store
+        .put(&store_path, PutPayload::from(fixture))
+        .await
+        .expect("upload the archive");
+    let expected = PmtilesSource::new(
+        test_cache_bytes(0),
+        "from_store".to_owned(),
+        Box::new(store),
+        store_path,
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("open the archive from the store");
+    let local = PmtilesSource::new_local(
+        test_cache_bytes(0),
+        "from_file".to_owned(),
+        path,
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("open the archive from the file");
+
+    for (z, x, y) in [(1, 1, 0), (1, 1, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)] {
+        let coord = TileCoord::new_unchecked(z, x, y);
+        assert_eq!(
+            local.get_tile(coord, None).await.expect("read from the file"),
+            expected.get_tile(coord, None).await.expect("read from the store"),
+            "{coord}"
+        );
+    }
+}
