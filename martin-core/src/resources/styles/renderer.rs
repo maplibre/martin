@@ -89,7 +89,7 @@ impl Runtime {
     }
 }
 
-/// One worker's graphics device, created with `single_context` on the worker's thread when the worker starts.
+/// One worker's graphics device, created with `single_context` when the worker is built.
 ///
 /// `single_context` requires that the device's sessions never render at the same time, which holds because a
 /// worker renders one image at a time.

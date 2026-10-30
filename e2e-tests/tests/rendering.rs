@@ -149,14 +149,11 @@ async fn maplibre_logs_under_its_own_target() {
     }
 
     martin.stop().await;
-    // The tile and static workers create their devices at the same time, so their lines interleave.
-    let mut lines = martin.take_log_lines("maplibre.");
-    lines.sort();
     insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
-        insta::assert_snapshot!(lines.join("\n"), @"
+        insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
+        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
         INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
         ");
     });
     cassette.assert_no_misses();

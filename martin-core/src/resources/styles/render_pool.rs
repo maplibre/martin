@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::{Arc, mpsc};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use image::RgbaImage as Image;
@@ -272,32 +272,25 @@ impl<W: Worker> RenderPool<W> {
     /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
     /// count clamped to 2..=8.
     ///
-    /// Each worker is built on its own thread, and this returns once all of them are built,
-    /// or with the first error if any of them cannot be, after stopping the others.
+    /// Fails with the first worker that cannot be built, after stopping the ones already started.
     fn new<F>(workers: Option<NonZeroUsize>, new_worker: F) -> Result<Self, StyleError>
     where
         F: Fn() -> Result<W, StyleError> + Clone + Send + 'static,
     {
         let workers = workers.unwrap_or_else(default_worker_count);
         let (requests, rx) = flume::bounded::<Msg<W::Request>>(workers.get() * WORKER_QUEUE_DEPTH);
-        let (started_tx, started) = mpsc::channel();
         let mut inner = Inner {
             requests,
             workers: Vec::with_capacity(workers.get()),
         };
         for i in 0..workers.get() {
+            let worker = new_worker()?;
             let rx = rx.clone();
             let new_worker = new_worker.clone();
-            let started_tx = started_tx.clone();
             let handle = thread::Builder::new()
                 .name(format!("render-{}-{i}", W::NAME))
-                .spawn(move || worker_loop(&rx, &new_worker, started_tx))?;
+                .spawn(move || worker_loop(worker, &rx, &new_worker))?;
             inner.workers.push(handle);
-        }
-        drop(started_tx);
-        for _ in 0..workers.get() {
-            // A worker that panics while being built drops its sender without reporting.
-            started.recv().map_err(|_err| StyleError::RenderingPanicked)??;
         }
 
         info!(workers = workers.get(), kind = W::NAME, "Started style render pool");
@@ -327,19 +320,10 @@ fn default_worker_count() -> NonZeroUsize {
 }
 
 fn worker_loop<W: Worker>(
+    mut worker: W,
     rx: &flume::Receiver<Msg<W::Request>>,
     new_worker: &dyn Fn() -> Result<W, StyleError>,
-    started: mpsc::Sender<Result<(), StyleError>>,
 ) {
-    let mut worker = match new_worker() {
-        Ok(worker) => worker,
-        Err(err) => {
-            let _ = started.send(Err(err));
-            return;
-        }
-    };
-    let _ = started.send(Ok(()));
-    drop(started);
     while let Ok(msg) = rx.recv() {
         match msg {
             Msg::Render(request, response) => {
@@ -381,7 +365,7 @@ fn worker_loop<W: Worker>(
 /// A [`RenderPool`] builds one `Worker` per thread (with its constructor) and feeds it
 /// requests. Implementors own `MapLibre` renderers, which render one request at a time,
 /// so each worker thread renders one request at a time too.
-trait Worker: 'static {
+trait Worker: Send + 'static {
     /// Short name for thread names and log fields (e.g. `tile`, `static`).
     const NAME: &'static str;
     /// The request payload this worker renders.
