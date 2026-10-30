@@ -5962,6 +5962,7 @@ dependencies = [
  "regex",
  "reqwest 0.13.5",
  "rstest",
+ "rustix 1.1.6",
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile",

@@ -1,55 +1,105 @@
 //! Byte-range backends behind a [`PmtilesSource`](super::PmtilesSource).
 
-use std::fmt;
-use std::fs::Metadata;
+use std::fs::{File, Metadata};
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt as _;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use bytes::Bytes;
-use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult};
+use pmtiles::{AsyncBackend, BackendResponse, ObjectStoreBackend, PmtError, PmtResult};
 
-/// Reads a local `PMTiles` file through a memory map.
+/// Reads a local `PMTiles` file with positional reads.
 ///
 /// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
-/// The mapping is not read once the file changed underneath it.
-/// Reads copy their bytes out of the mapping.
+/// Bytes already in the page cache are read on the calling thread.
+/// A read that has to wait for the disk runs on Tokio's blocking pool.
+#[derive(Debug)]
 pub(crate) struct PmtFileBackend {
-    mmap: MmapBackend,
+    file: Arc<File>,
     path: PathBuf,
     version: (u64, u128, u64),
 }
 
-impl fmt::Debug for PmtFileBackend {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { mmap: _, path, version } = self;
-        f.debug_struct("PmtFileBackend")
-            .field("path", path)
-            .field("version", version)
-            .finish_non_exhaustive()
-    }
-}
-
 impl PmtFileBackend {
-    /// Maps `path` for reading.
+    /// Opens `path` for reading.
     pub(crate) async fn open(path: impl Into<PathBuf>) -> PmtResult<Self> {
         let path = path.into();
-        let mmap = MmapBackend::try_from(&path).await?;
-        let version = data_version(&std::fs::metadata(&path)?);
-        Ok(Self { mmap, path, version })
+        let (file, version) = tokio::task::spawn_blocking({
+            let path = path.clone();
+            move || {
+                let file = File::open(&path)?;
+                let version = data_version(&file.metadata()?);
+                Ok::<_, io::Error>((file, version))
+            }
+        })
+        .await
+        .map_err(io::Error::other)??;
+        Ok(Self {
+            file: Arc::new(file),
+            path,
+            version,
+        })
     }
 }
 
 impl AsyncBackend for PmtFileBackend {
     async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
-        if data_version(&std::fs::metadata(&self.path)?) != self.version {
+        let meta = std::fs::metadata(&self.path)?;
+        if data_version(&meta) != self.version {
             return Err(PmtError::SourceModified);
         }
-        let response = self.mmap.read(offset, length).await?;
-        let bytes = Bytes::copy_from_slice(&response.bytes);
-        Ok(BackendResponse::new(bytes))
+        let offset = offset as u64;
+        let length = length.min(usize::try_from(meta.len().saturating_sub(offset)).unwrap_or(usize::MAX));
+        let mut buf = vec![0; length];
+        let cached = read_cached(&self.file, &mut buf, offset);
+        if cached < length {
+            let file = Arc::clone(&self.file);
+            buf = tokio::task::spawn_blocking(move || {
+                read_exact_at(&file, &mut buf[cached..], offset + cached as u64).map(|()| buf)
+            })
+            .await
+            .map_err(io::Error::other)??;
+        }
+        Ok(BackendResponse::new(Bytes::from(buf)))
     }
+}
+
+/// Reads into `buf` from `offset` only what the page cache holds and returns the number of bytes read.
+#[cfg(target_os = "linux")]
+fn read_cached(file: &File, buf: &mut [u8], offset: u64) -> usize {
+    use rustix::io::{ReadWriteFlags, preadv2};
+    preadv2(file, &mut [io::IoSliceMut::new(buf)], offset, ReadWriteFlags::NOWAIT).unwrap_or(0)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn read_cached(_file: &File, _buf: &mut [u8], _offset: u64) -> usize {
+    0
+}
+
+#[cfg(unix)]
+fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<()> {
+    use std::os::unix::fs::FileExt as _;
+    file.read_exact_at(buf, offset)
+}
+
+#[cfg(windows)]
+fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> {
+    use std::os::windows::fs::FileExt as _;
+    while !buf.is_empty() {
+        match file.seek_read(buf, offset) {
+            Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+            Ok(n) => {
+                buf = &mut buf[n..];
+                offset += n as u64;
+            }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 /// The inode, modification time and size of the file.
