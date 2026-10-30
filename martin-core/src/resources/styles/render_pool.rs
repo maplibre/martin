@@ -494,7 +494,7 @@ impl Worker for TileWorker {
             .slot(&req.style, geometry)?
             .renderer
             .render(geometry.camera(req.z, req.x, req.y));
-        if matches!(&result, Err(StyleError::RenderingError(_))) {
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
             self.slots.remove(0);
         }
         result
@@ -530,7 +530,7 @@ impl Worker for StaticWorker {
             }
         };
         let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
-        if matches!(&result, Err(StyleError::RenderingError(_))) {
+        if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
             self.current = None;
         }
         result
@@ -569,7 +569,7 @@ impl<'r> RendererWithOverlay<'r> {
     /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
     /// guard drops.
     fn apply(renderer: &'r mut Renderer, spec: &OverlaySpec) -> Result<Self, StyleError> {
-        let applied = apply_to_style(spec, renderer).map_err(StyleError::OverlayApply)?;
+        let applied = apply_to_style(spec, renderer)?;
         Ok(Self {
             renderer,
             applied: Some(applied),

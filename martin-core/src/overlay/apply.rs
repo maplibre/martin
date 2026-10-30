@@ -5,6 +5,7 @@ use maplibre_native_ffi::MapHandle;
 use serde_json::{Map, Value, json};
 
 use crate::overlay::{ApplyError, Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec};
+use crate::resources::styles::StyleError;
 use crate::resources::styles::renderer::Renderer;
 
 /// Prefix prepended to every synthetic source/layer id before it reaches maplibre.
@@ -46,8 +47,8 @@ fn remove(map: &MapHandle, layer_ids: Vec<String>, source_ids: Vec<String>) {
 ///
 /// # Errors
 ///
-/// Returns [`ApplyError`] when maplibre rejects a source or layer.
-pub fn apply_to_style(spec: &OverlaySpec, renderer: &Renderer) -> Result<AppliedOverlay, ApplyError> {
+/// Returns [`StyleError::OverlayApply`] when maplibre rejects a source or layer, and the renderer's own error when a call fails otherwise.
+pub fn apply_to_style(spec: &OverlaySpec, renderer: &Renderer) -> Result<AppliedOverlay, StyleError> {
     let mut guard = OverlayGuard::new(renderer);
     for (index, feature) in spec.features.iter().enumerate() {
         guard.apply_feature(index, feature)?;
@@ -119,7 +120,7 @@ impl<'r> OverlayGuard<'r> {
         }
     }
 
-    fn apply_feature(&mut self, index: usize, feature: &OverlayFeature) -> Result<(), ApplyError> {
+    fn apply_feature(&mut self, index: usize, feature: &OverlayFeature) -> Result<(), StyleError> {
         let props = feature.properties.clone().unwrap_or_default();
         let kinds = layer_kinds(feature.geometry.as_ref(), &props);
         if kinds.is_empty() {
@@ -136,9 +137,9 @@ impl<'r> OverlayGuard<'r> {
         let map = self.renderer.map();
         self.renderer
             .command(map.add_style_source_json(&source_id, &source.to_string()))
-            .map_err(|error| ApplyError {
-                id: format!("f{index}"),
-                error,
+            .map_err(|e| match e {
+                StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}"), error }),
+                e => e,
             })?;
         self.source_ids.push(source_id.clone());
 
@@ -147,9 +148,9 @@ impl<'r> OverlayGuard<'r> {
             let layer = layer_json(kind, &layer_id, &source_id, &props);
             self.renderer
                 .command(map.add_style_layer_json(&layer.to_string(), ""))
-                .map_err(|error| ApplyError {
-                    id: format!("f{index}-{kind}"),
-                    error,
+                .map_err(|e| match e {
+                    StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError { id: format!("f{index}-{kind}"), error }),
+                    e => e,
                 })?;
             self.layer_ids.push(layer_id);
         }
