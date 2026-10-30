@@ -320,17 +320,29 @@ fn default_worker_count() -> NonZeroUsize {
 }
 
 fn worker_loop<W: Worker>(
-    mut worker: W,
+    worker: W,
     rx: &flume::Receiver<Msg<W::Request>>,
     new_worker: &dyn Fn() -> Result<W, StyleError>,
 ) {
+    // Empty after a panic, until the next request builds a new worker.
+    let mut worker = Some(worker);
     while let Ok(msg) = rx.recv() {
         match msg {
             Msg::Render(request, response) => {
-                // A panic would take the worker with it and the pool never spawns another.
-                // The renderer is rebuilt afterwards, which is what makes the unwind safe to catch.
-                let result = match panic::catch_unwind(AssertUnwindSafe(|| worker.render(request))) {
-                    Ok(result) => result,
+                let mut built = match worker.take().map_or_else(new_worker, Ok) {
+                    Ok(built) => built,
+                    Err(err) => {
+                        let _ = response.send(Err(err));
+                        continue;
+                    }
+                };
+                // A panic would take the thread with it and the pool never spawns another.
+                // The worker is dropped afterwards, which is what makes the unwind safe to catch.
+                let result = match panic::catch_unwind(AssertUnwindSafe(|| built.render(request))) {
+                    Ok(result) => {
+                        worker = Some(built);
+                        result
+                    }
                     Err(payload) => {
                         let message = payload
                             .downcast_ref::<&str>()
@@ -340,16 +352,8 @@ fn worker_loop<W: Worker>(
                         error!(
                             kind = W::NAME,
                             panic = message,
-                            "Render worker panicked, replacing its renderer"
+                            "Render worker panicked, replacing it for the next request"
                         );
-                        match new_worker() {
-                            Ok(new) => worker = new,
-                            Err(err) => {
-                                error!(kind = W::NAME, error = %err, "Failed to replace a panicked render worker, stopping it");
-                                let _ = response.send(Err(StyleError::RenderingPanicked));
-                                return;
-                            }
-                        }
                         Err(StyleError::RenderingPanicked)
                     }
                 };
@@ -1002,6 +1006,31 @@ mod tests {
         let after = pool.render(false).await;
         assert!(matches!(after, Err(StyleError::RenderingIsDisabled)), "{after:?}");
         assert_eq!(WORKERS_BUILT.load(Ordering::SeqCst), before + 1);
+    }
+
+    #[tokio::test]
+    async fn a_worker_that_cannot_be_replaced_answers_with_why_until_it_can() {
+        let built = Arc::new(AtomicUsize::new(0));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            if built.fetch_add(1, Ordering::SeqCst) == 1 {
+                Err(StyleError::GraphicsUnavailable {
+                    reason: "no device".to_owned(),
+                })
+            } else {
+                Ok(FlakyWorker)
+            }
+        })
+        .expect("spawn render pool");
+
+        let panicked = pool.render(true).await;
+        assert!(matches!(panicked, Err(StyleError::RenderingPanicked)), "{panicked:?}");
+        let unavailable = pool.render(false).await;
+        assert!(
+            matches!(unavailable, Err(StyleError::GraphicsUnavailable { .. })),
+            "{unavailable:?}"
+        );
+        let rebuilt = pool.render(false).await;
+        assert!(matches!(rebuilt, Err(StyleError::RenderingIsDisabled)), "{rebuilt:?}");
     }
 
     #[tokio::test]
