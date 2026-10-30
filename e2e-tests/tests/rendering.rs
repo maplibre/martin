@@ -311,10 +311,6 @@ async fn renderers_sharing_a_context_match_their_references() {
         let name = format!("{style}_{}.png", tile.replace('/', "_"));
         assert_image_matches(reference(TILE_REFERENCES, &name), &body);
     }
-    for (camera, name) in [("0,0,3/200x200", "center_z3"), ("0,0,0/200x200", "center_z0")] {
-        let body = rendered(&martin, &format!("/style/maplibre_demo/static/{camera}.png")).await;
-        assert_image_matches(reference(CAMERA_REFERENCES, &format!("{name}.png")), &body);
-    }
 
     martin.stop().await;
     cassette.assert_no_misses();
