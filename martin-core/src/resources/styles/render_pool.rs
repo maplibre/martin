@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
 use std::thread::{self, JoinHandle};
 
 use image::RgbaImage as Image;
@@ -271,30 +271,38 @@ impl<W: Worker> RenderPool<W> {
     ///
     /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
     /// count clamped to 2..=8.
-    fn new<F>(workers: Option<NonZeroUsize>, new_worker: F) -> Result<Self, std::io::Error>
+    ///
+    /// Each worker is built on its own thread, and this returns once all of them are built,
+    /// or with the first error if any of them cannot be, after stopping the others.
+    fn new<F>(workers: Option<NonZeroUsize>, new_worker: F) -> Result<Self, StyleError>
     where
-        F: Fn() -> W + Clone + Send + 'static,
+        F: Fn() -> Result<W, StyleError> + Clone + Send + 'static,
     {
         let workers = workers.unwrap_or_else(default_worker_count);
         let (requests, rx) = flume::bounded::<Msg<W::Request>>(workers.get() * WORKER_QUEUE_DEPTH);
-        let mut handles = Vec::with_capacity(workers.get());
+        let (started_tx, started) = mpsc::channel();
+        let mut inner = Inner {
+            requests,
+            workers: Vec::with_capacity(workers.get()),
+        };
         for i in 0..workers.get() {
             let rx = rx.clone();
             let new_worker = new_worker.clone();
+            let started_tx = started_tx.clone();
             let handle = thread::Builder::new()
                 .name(format!("render-{}-{i}", W::NAME))
-                .spawn(move || worker_loop(&rx, &new_worker))?;
-            handles.push(handle);
+                .spawn(move || worker_loop(&rx, &new_worker, started_tx))?;
+            inner.workers.push(handle);
+        }
+        drop(started_tx);
+        for _ in 0..workers.get() {
+            // A worker that panics while being built drops its sender without reporting.
+            started.recv().map_err(|_err| StyleError::RenderingPanicked)??;
         }
 
         info!(workers = workers.get(), kind = W::NAME, "Started style render pool");
 
-        Ok(Self {
-            inner: Arc::new(Inner {
-                requests,
-                workers: handles,
-            }),
-        })
+        Ok(Self { inner: Arc::new(inner) })
     }
 
     /// Dispatch a request to a worker and await its rendered image.
@@ -318,8 +326,20 @@ fn default_worker_count() -> NonZeroUsize {
     thread::available_parallelism().unwrap_or(MIN).clamp(MIN, MAX)
 }
 
-fn worker_loop<W: Worker>(rx: &flume::Receiver<Msg<W::Request>>, new_worker: &dyn Fn() -> W) {
-    let mut worker = new_worker();
+fn worker_loop<W: Worker>(
+    rx: &flume::Receiver<Msg<W::Request>>,
+    new_worker: &dyn Fn() -> Result<W, StyleError>,
+    started: mpsc::Sender<Result<(), StyleError>>,
+) {
+    let mut worker = match new_worker() {
+        Ok(worker) => worker,
+        Err(err) => {
+            let _ = started.send(Err(err));
+            return;
+        }
+    };
+    let _ = started.send(Ok(()));
+    drop(started);
     while let Ok(msg) = rx.recv() {
         match msg {
             Msg::Render(request, response) => {
@@ -338,7 +358,14 @@ fn worker_loop<W: Worker>(rx: &flume::Receiver<Msg<W::Request>>, new_worker: &dy
                             panic = message,
                             "Render worker panicked, replacing its renderer"
                         );
-                        worker = new_worker();
+                        match new_worker() {
+                            Ok(new) => worker = new,
+                            Err(err) => {
+                                error!(kind = W::NAME, error = %err, "Failed to replace a panicked render worker, stopping it");
+                                let _ = response.send(Err(StyleError::RenderingPanicked));
+                                return;
+                            }
+                        }
                         Err(StyleError::RenderingPanicked)
                     }
                 };
@@ -400,7 +427,7 @@ impl Geometry {
         }
     }
 
-    fn renderer(self, device: &mut WorkerDevice) -> Result<Renderer, StyleError> {
+    fn renderer(self, device: &WorkerDevice) -> Result<Renderer, StyleError> {
         let (size, pixel_ratio) = self.extent();
         device.renderer(MapMode::Tile, size.px().get(), size.px().get(), pixel_ratio)
     }
@@ -449,12 +476,12 @@ struct TileWorker {
 }
 
 impl TileWorker {
-    fn new(runtime: Arc<Runtime>, capacity: NonZeroUsize) -> Self {
-        Self {
-            device: WorkerDevice::new(runtime),
+    fn new(runtime: Arc<Runtime>, capacity: NonZeroUsize) -> Result<Self, StyleError> {
+        Ok(Self {
+            device: WorkerDevice::new(runtime)?,
             capacity,
             slots: Vec::new(),
-        }
+        })
     }
 
     /// Moves the renderer for `style` and `geometry` to the front, loading it if needed.
@@ -468,7 +495,7 @@ impl TileWorker {
             // so the `truncate` below always drops the least recently used renderer.
             self.slots[..=i].rotate_right(1);
         } else {
-            let mut renderer = geometry.renderer(&mut self.device)?;
+            let mut renderer = geometry.renderer(&self.device)?;
             style.load(&mut renderer)?;
             self.slots.truncate(self.capacity.get() - 1);
             self.slots.insert(
@@ -509,11 +536,11 @@ struct StaticWorker {
 }
 
 impl StaticWorker {
-    fn new(runtime: Arc<Runtime>) -> Self {
-        Self {
-            device: WorkerDevice::new(runtime),
+    fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
+        Ok(Self {
+            device: WorkerDevice::new(runtime)?,
             current: None,
-        }
+        })
     }
 }
 
@@ -529,12 +556,7 @@ impl Worker for StaticWorker {
             current => {
                 // A failed build leaves no renderer rather than one of the wrong pixel ratio.
                 *current = None;
-                current.insert(StaticRenderer::new(
-                    &mut self.device,
-                    width,
-                    height,
-                    params.pixel_ratio,
-                )?)
+                current.insert(StaticRenderer::new(&self.device, width, height, params.pixel_ratio)?)
             }
         };
         let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
@@ -608,7 +630,7 @@ struct StaticRenderer {
 }
 
 impl StaticRenderer {
-    fn new(device: &mut WorkerDevice, width: u32, height: u32, pixel_ratio: NonZeroU8) -> Result<Self, StyleError> {
+    fn new(device: &WorkerDevice, width: u32, height: u32, pixel_ratio: NonZeroU8) -> Result<Self, StyleError> {
         Ok(Self {
             renderer: device.renderer(MapMode::Static, width, height, f64::from(pixel_ratio.get()))?,
             width,
@@ -785,12 +807,13 @@ mod tests {
         let alone: Vec<_> = requests
             .iter()
             .map(|&(pixel_ratio, z)| {
-                let mut worker = TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER);
+                let mut worker =
+                    TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
                 worker.render(request(pixel_ratio, z)).expect("render alone")
             })
             .collect();
 
-        let mut worker = TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER);
+        let mut worker = TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
         for (&(pixel_ratio, z), alone) in requests.iter().zip(&alone) {
             let image = worker.render(request(pixel_ratio, z)).expect("render in turn");
             assert!(
@@ -847,7 +870,7 @@ mod tests {
     fn a_full_worker_keeps_the_most_recently_used_styles(#[case] requested: &[usize], #[case] kept: &[usize]) {
         let styles: [_; 3] = std::array::from_fn(|_| write_style());
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let mut worker = TileWorker::new(runtime, NonZeroUsize::new(2).expect("2 != 0"));
+        let mut worker = TileWorker::new(runtime, NonZeroUsize::new(2).expect("2 != 0")).expect("start worker");
 
         for &i in requested {
             worker
@@ -864,7 +887,7 @@ mod tests {
     fn each_geometry_of_a_style_has_its_own_renderer() {
         let style = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
         let two_x = Geometry::Tile(TileSize::Px512, NonZeroU8::new(2).expect("2 != 0"));
 
         let style = style.path().to_path_buf().into();
@@ -878,7 +901,7 @@ mod tests {
     #[test]
     fn a_style_that_fails_to_load_takes_no_slot() {
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
 
         let result = worker.slot(&PathBuf::from("/nonexistent/style.json").into(), PX512);
 
@@ -894,7 +917,7 @@ mod tests {
             .expect("create style tempfile");
         std::fs::write(style.path(), "{ not a style").expect("write style");
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER);
+        let mut worker = TileWorker::new(runtime, DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
 
         let err = worker.slot(&style.path().to_path_buf().into(), PX512).err();
 
@@ -947,13 +970,6 @@ mod tests {
 
     struct FlakyWorker;
 
-    impl Default for FlakyWorker {
-        fn default() -> Self {
-            WORKERS_BUILT.fetch_add(1, Ordering::SeqCst);
-            Self
-        }
-    }
-
     static WORKERS_BUILT: AtomicUsize = AtomicUsize::new(0);
 
     impl Worker for FlakyWorker {
@@ -967,9 +983,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_worker_that_cannot_start_fails_the_pool() {
+        let built = Arc::new(AtomicUsize::new(0));
+        let result = RenderPool::new(NonZeroUsize::new(2), move || {
+            if built.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(FlakyWorker)
+            } else {
+                Err(StyleError::GraphicsUnavailable {
+                    reason: "no device".to_owned(),
+                })
+            }
+        });
+        assert!(
+            matches!(result, Err(StyleError::GraphicsUnavailable { .. })),
+            "{result:?}"
+        );
+    }
+
     #[tokio::test]
     async fn a_panicking_request_does_not_take_the_worker_with_it() {
-        let pool = RenderPool::new(NonZeroUsize::new(1), FlakyWorker::default).expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), || {
+            WORKERS_BUILT.fetch_add(1, Ordering::SeqCst);
+            Ok(FlakyWorker)
+        })
+        .expect("spawn render pool");
         let first = pool.render(false).await;
         assert!(matches!(first, Err(StyleError::RenderingIsDisabled)), "{first:?}");
         let before = WORKERS_BUILT.load(Ordering::SeqCst);

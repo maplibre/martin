@@ -58,11 +58,9 @@ impl Runtime {
     ///
     /// # Errors
     ///
-    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
+    /// Returns [`StyleError::RenderingError`] when `MapLibre` cannot start.
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
         forward_logs();
-        // Workers create their own devices lazily; this one only makes a host without graphics fail at startup.
-        create_device(None)?;
         let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
@@ -91,45 +89,36 @@ impl Runtime {
     }
 }
 
-fn create_device(options: Option<&GraphicsDeviceOptions>) -> Result<GraphicsDeviceHandle, StyleError> {
-    GraphicsDeviceHandle::create(options).map_err(|err| StyleError::GraphicsUnavailable {
-        reason: err.to_string(),
-    })
-}
-
-/// One worker's graphics device, created with `single_context` on the worker's thread by its first renderer.
+/// One worker's graphics device, created with `single_context` on the worker's thread when the worker starts.
 ///
 /// `single_context` requires that the device's sessions never render at the same time, which holds because a
 /// worker renders one image at a time.
 #[derive(Debug)]
 pub struct WorkerDevice {
     runtime: Arc<Runtime>,
-    device: Option<GraphicsDeviceHandle>,
+    device: GraphicsDeviceHandle,
 }
 
 impl WorkerDevice {
-    /// The device for a new worker of a pool of `runtime`.
-    #[must_use]
-    pub fn new(runtime: Arc<Runtime>) -> Self {
-        Self { runtime, device: None }
+    /// Creates the device for a new worker of a pool of `runtime`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
+    pub fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
+        let options = GraphicsDeviceOptions {
+            single_context: Some(true),
+            ..GraphicsDeviceOptions::default()
+        };
+        let device = GraphicsDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+            reason: err.to_string(),
+        })?;
+        Ok(Self { runtime, device })
     }
 
     /// Creates a renderer on this worker's device. See [`Renderer::new`].
-    pub fn renderer(
-        &mut self,
-        mode: MapMode,
-        width: u32,
-        height: u32,
-        pixel_ratio: f64,
-    ) -> Result<Renderer, StyleError> {
-        let device = match &mut self.device {
-            Some(device) => device,
-            device => device.insert(create_device(Some(&GraphicsDeviceOptions {
-                single_context: Some(true),
-                ..GraphicsDeviceOptions::default()
-            }))?),
-        };
-        Renderer::new(&self.runtime, device, mode, width, height, pixel_ratio)
+    pub fn renderer(&self, mode: MapMode, width: u32, height: u32, pixel_ratio: f64) -> Result<Renderer, StyleError> {
+        Renderer::new(&self.runtime, &self.device, mode, width, height, pixel_ratio)
     }
 }
 
