@@ -37,6 +37,37 @@ Templates use `{quadkey}`, or `{x}` and `{y}` with an optional `{z}` (`{-y}` cou
 bottom, as in TMS). One file is found by listing the location when it is opened; the others are
 opened on first use and cached.
 
+Files in Web Mercator or a UTM zone, listed by a `gdaltindex` tile index and reprojected onto
+Web Mercator tiles:
+
+```python
+# gdaltindex -f GPKG -t_srs EPSG:4326 naip.gpkg *.tif
+naip = cog_tiles.open_tile_index("naip.gpkg", min_zoom=12, nodata=0)
+naip.bounds  # the union of the files' footprints
+png = naip.tile(14, 2619, 6334)
+```
+
+The whole index is read when it is opened. Each tile is painted from the files that touch it, in the
+index's row order, so a pixel takes the first file's data; it is a PNG with an alpha band that is
+transparent where no file has data. `bands` picks the bands served, counted from 1 (`[1, 2, 3]` by
+default, or one band for gray). Locations may be paths relative to the index, URLs, or GDAL
+`/vsis3/`, `/vsigs/`, `/vsiaz/` and `/vsicurl/` paths, read with `options` as in `open`.
+
+Or the items a STAC API finds for each tile:
+
+```python
+naip = cog_tiles.open_stac(
+    "https://earth-search.aws.element84.com/v1", "naip", "image", min_zoom=13,
+    datetime="2020-01-01T00:00:00Z/..", query={"naip:state": {"eq": "ca"}}, nodata=0,
+    options={"aws_request_payer": "true"},
+)
+```
+
+One search covers a tile at `search_zoom` (`min_zoom` by default) and serves every tile below it;
+results are cached for `search_expiry` seconds. Items are painted newest first (`order="oldest"`
+for the other way), each pixel from the first item with data for it. `bands` selects bands by
+number or `eo:bands` name, `["red", "green", "blue"]` by default.
+
 With `asyncio`, e.g. in a tile server, every call that waits has an `_async` twin:
 
 ```python
@@ -49,6 +80,26 @@ async for z, x, y, data in cog.tiles(bbox, zoom=18):
 
 The fetches run on background threads, so awaited calls neither block the event loop nor hold a
 thread each.
+
+## Tile format
+
+`format`, `quality` and `background` re-encode every tile, on `open` and `open_mosaic` alike:
+
+```python
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="webp", quality=80)
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="webp", quality="lossless")
+cog = cog_tiles.open("s3://bucket/ortho.tif", format="jpeg", quality=90, background="black")
+```
+
+| `format` | `quality`                                | transparency                                                   |
+|----------|------------------------------------------|----------------------------------------------------------------|
+| `png`    | -                                        | kept                                                           |
+| `webp`   | 1 to 100 or `"lossless"`, 80 when unset  | kept exactly, even lossy                                       |
+| `jpeg`   | 1 to 100, 80 when unset                  | painted over `background`: a CSS color or `(r, g, b)`, white when unset |
+
+Without `format`, JPEG and WebP tiles are returned as stored and others as PNG. With it, every tile
+is decoded and encoded again, also JPEG and WebP tiles, so lossy tiles lose detail again.
+`tile_pixels` and `read` return the decoded pixels either way.
 
 ## What it reads
 
@@ -66,7 +117,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
 
 * All I/O and decoding runs in Rust with the GIL released; `read` and `tiles` keep `concurrency`
   requests in flight (64 by default) and decode on every core.
-* Wheels cover CPython 3.10 and later, including free-threaded CPython from 3.15t on.
+* Wheels cover CPython 3.11 and later, including free-threaded CPython from 3.15t on.
 * Headers are read once when opening: one request for a typical file, or one per IFD if IFDs come after
   the pixel data. Each tile is one range read. Tiles in the same row of a striped file share one read.
 * `tile_pixels` and `read` hand their buffer to NumPy without copying.
@@ -79,7 +130,7 @@ e.g. `open_mosaic("s3://bucket/{quadkey}_rgb.tif", 16)`.
   with `crs="EPSG:3857"`. A raster covers the whole pixels the bbox touches; `raster.bounds` is
   the snapped extent. Pixels without data are 0, and a bbox without any data returns `None`.
 * `read` refuses rasters over `max_pixels` (16384 x 16384 by default).
-* `Cog` and `Mosaic` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
+* `Cog`, `Mosaic`, `TileIndex` and `Stac` objects pickle by reopening, so they work in `multiprocessing` and PyTorch
   `DataLoader` workers. Forked processes get their own I/O threads.
 * Object store credentials come from the usual environment variables (`AWS_*`, `GOOGLE_*`,
   `AZURE_*`); `options` overrides them with

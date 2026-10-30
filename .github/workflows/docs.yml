@@ -14,7 +14,7 @@ permissions:
 jobs:
   build-docs:
     name: Build Docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: write

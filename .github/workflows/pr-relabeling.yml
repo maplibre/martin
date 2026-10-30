@@ -16,7 +16,7 @@ permissions: {}
 
 jobs:
   remove-bless:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       pull-requests: write

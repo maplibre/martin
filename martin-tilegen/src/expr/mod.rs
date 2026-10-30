@@ -6,6 +6,7 @@
 mod coerce;
 mod compile;
 mod env;
+mod fast;
 mod pushdown;
 mod role;
 mod sort;

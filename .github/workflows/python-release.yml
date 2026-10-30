@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.14 builds the abi3 wheel for CPython 3.10 to 3.14
+        # 3.14 builds the abi3 wheel for CPython 3.11 to 3.14
         # 3.15t builds the abi3t wheel for every CPython from 3.15 on, free-threaded or not
         python: [ '3.14', '3.15t' ]
         platform:
@@ -65,7 +65,7 @@ jobs:
   sdist:
     name: Source distribution
     if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'python-cog-tiles-v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout sources
@@ -87,7 +87,7 @@ jobs:
     name: Publish to PyPI
     needs: [ wheels, sdist ]
     if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'python-cog-tiles-v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
       name: pypi

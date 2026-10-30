@@ -1,6 +1,6 @@
 [package]
 name = "cog-tiles"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Read web map tiles from Cloud Optimized GeoTIFFs (COG) in local files or object stores, fetching only the bytes each tile needs"
 keywords = ["cog", "geotiff", "tiles", "webmercator", "gis"]
@@ -29,23 +29,33 @@ jpeg = ["png", "dep:image"]
 # Read mosaics of many COGs, each named after the tile it covers (e.g. `{quadkey}.tif`),
 # or found per tile by an index and reprojected from UTM.
 mosaic = ["fs", "png", "object-store", "dep:tracing"]
+# Find a mosaic's files for each tile by searching a STAC API.
+stac = ["mosaic", "dep:reqwest", "dep:serde", "dep:serde_json"]
+# Find a mosaic's files for each tile in a `gdaltindex` tile index (a GeoPackage).
+tile-index = ["mosaic", "dep:geo-index", "dep:sqlx", "dep:url"]
 
 #### These features are for the internal usage only
 # This is a list of features we use in docs.rs, CI and other places where we want everything.
-__all = ["fs", "png", "object-store", "mosaic", "webp", "jpeg"]
+__all = ["fs", "png", "object-store", "mosaic", "stac", "tile-index", "webp", "jpeg"]
 
 [dependencies]
 async-tiff.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 futures.workspace = true
+geo-index = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 tracing = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 webp = { workspace = true, optional = true }
 
 [dev-dependencies]

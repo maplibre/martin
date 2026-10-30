@@ -44,6 +44,10 @@
       "pattern": "^https://nav.tum.de"
     },
     {
+      "__comment__": "shields.io times out on its badge images (ETIMEDOUT, which markdown-link-check does not retry), which fails every docs build that includes the badges on the index page",
+      "pattern": "^https://img.shields.io"
+    },
+    {
       "__comment__": "DigitalOcean drops the checker's connection (socket hang up) on its product pages, which fails every docs build that links the managed Postgres recipe",
       "pattern": "^https://[a-z]+.digitalocean.com"
     }

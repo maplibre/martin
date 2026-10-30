@@ -1,6 +1,6 @@
 [package]
 name = "martin-tilegen"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Bulk vector tile generation engine: renders features once per zoom, external-sorts the pieces, and assembles MLT/MVT tilesets"
 keywords = ["maps", "tiles", "mvt", "mlt", "tileserver"]
@@ -59,6 +59,7 @@ pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
 serde_json = { workspace = true, optional = true }
+strum.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "cog-tiles-py"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Python bindings for cog-tiles: web map tiles and stitched rasters from tile-aligned Cloud Optimized GeoTIFFs"
 publish = false
@@ -29,12 +29,15 @@ stub-gen = []
 
 [dependencies]
 bytes.workspace = true
-cog-tiles = { workspace = true, features = ["mosaic", "webp"] }
+cog-tiles = { workspace = true, features = ["jpeg", "mosaic", "stac", "tile-index", "webp"] }
+csscolorparser.workspace = true
 futures.workspace = true
 numpy.workspace = true
 object_store.workspace = true
-pyo3 = { workspace = true, features = ["abi3-py310", "abi3t", "experimental-async"] }
+pyo3 = { workspace = true, features = ["abi3-py311", "abi3t", "experimental-async"] }
 pyo3-stub-gen.workspace = true
+serde_json.workspace = true
+strum.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
 tokio-util = { workspace = true, features = ["rt"] }
 url.workspace = true

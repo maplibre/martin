@@ -101,10 +101,15 @@ impl<S> Clone for FeatureView<'_, S> {
 impl<S> Copy for FeatureView<'_, S> {}
 
 impl<'a, S: AsRef<str>> FeatureView<'a, S> {
-    fn prop(&self, key: KeyId) -> Option<PropValueRef<'a>> {
+    pub(super) fn prop(&self, key: KeyId) -> Option<PropValueRef<'a>> {
         let &(generation, pos) = self.slots.get(key.index())?;
         let props: &'a [(KeyId, Prop<S>)] = self.props;
         (generation == self.generation).then(|| props[pos as usize].1.as_ref())
+    }
+
+    /// The key `name` names, if the table has one.
+    pub(super) fn key(&self, name: &str) -> Option<KeyId> {
+        self.keys.get(name)
     }
 
     fn lookup_val(&self, key: &dyn Val) -> Result<Option<PropValueRef<'a>>, ExecutionError> {

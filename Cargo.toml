@@ -108,7 +108,7 @@ bytestring = "1.5"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.2.0", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "cog-tiles", version = "0.3.0", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
@@ -148,17 +148,17 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.3.4" }
+map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.0" }
 maplibre-native-ffi = "0.202610.3"
-martin-config-macros = { path = "./martin-config-macros", version = "0.1.4" }
-martin-core = { path = "./martin-core", version = "0.14.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.1" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.1.1", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.21.1" }
+martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
+martin-core = { path = "./martin-core", version = "0.15.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.2" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.1.2", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.21.2" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.22.0", default-features = false }
+mlt-core = { version = "0.22.1", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"

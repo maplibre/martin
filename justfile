@@ -466,7 +466,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.4 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.5 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -897,6 +897,7 @@ update-lockfile: fetch
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
     cargo update --precise 1.0.2 sdf_glyph_renderer
+    cargo update --precise 0.2.37 prettyplease
 
 # Validate that all required development tools are installed
 validate-tools:
