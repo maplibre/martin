@@ -139,6 +139,8 @@ index.html
 </html>
 ```
 
+![The finished self-hosted basemap of Monaco](<https://maplibre.org/martin/images/selfhosted-basemap.png>)
+
 The page loads the style from Martin, and the style pulls the tiles, glyphs, and sprites from Martin. The complete map is served from your machine.
 
 > [!NOTE]

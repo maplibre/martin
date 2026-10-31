@@ -11,6 +11,10 @@ patches and validates MBTiles archives.
 
 # Getting Started
 
+![Martin](<https://raw.githubusercontent.com/maplibre/martin/main/logo.png>)
+
+[![docs.rs docs](<https://docs.rs/martin/badge.svg>)](<https://docs.rs/martin>) [![join our community](<https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack>)](<https://slack.openstreetmap.us/>) [![GitHub](<https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github>)](<https://github.com/maplibre/martin>) [![crates.io version](<https://img.shields.io/crates/v/martin.svg>)](<https://crates.io/crates/martin>) [![CI build](<https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg>)](<https://github.com/maplibre/martin/actions>) [![OpenSSF Best Practices](<https://www.bestpractices.dev/projects/11613/badge>)](<https://www.bestpractices.dev/projects/11613>)
+
 Martin is a tile server optimized for speed and heavy traffic, written in [Rust](<https://github.com/rust-lang/rust>).
 
 - **Quick Start**
@@ -38,7 +42,9 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   ---
 
   A single binary on a server, in [Docker](<https://maplibre.org/martin/run-with-docker/index.md>), on [AWS Lambda](<https://maplibre.org/martin/run-with-lambda/index.md>), or behind [NGINX](<https://maplibre.org/martin/run-with-nginx/index.md>) and [Apache](<https://maplibre.org/martin/run-with-apache/index.md>).
-- **Terminal &amp; web UI**
+- ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](<https://maplibre.org/martin/images/tui-dashboard.webp>)
+
+  **Terminal &amp; web UI**
 
   ---
 
@@ -140,10 +146,10 @@ See [quick start with QGIS](<https://maplibre.org/martin/quick-start-qgis/index.
 # View map with QGIS
 
 1. Download, install, and run [QGIS](<https://qgis.org/en/site/forusers/download.html>) for your platform
-2. Add a new `Vector Tiles` connection
-3. In the `Vector Tile Connection` dialog, give it some name and the URL of the Martin server, e.g. `http://localhost:3000/world_cities/{z}/{x}/{y}` and click `OK`.
-4. In the QGIS browser panel (left), double-click the newly added connection, or right-click it and click on `Add Layer to Project`.
-5. The map should now be visible in the QGIS map view.
+2. Add a new `Vector Tiles` connection ![alt text](<https://maplibre.org/martin/images/qgis/add_vector_tile.png>)
+3. In the `Vector Tile Connection` dialog, give it some name and the URL of the Martin server, e.g. `http://localhost:3000/world_cities/{z}/{x}/{y}` and click `OK`. ![alt text](<https://maplibre.org/martin/images/qgis/add_vector_tile_options.png>)
+4. In the QGIS browser panel (left), double-click the newly added connection, or right-click it and click on `Add Layer to Project`. ![alt text](<https://maplibre.org/martin/images/qgis/add_to_layers.png>)
+5. The map should now be visible in the QGIS map view. ![alt text](<https://maplibre.org/martin/images/qgis/shows_in_the_map.png>)
 
 ### Prerequisites
 
@@ -4494,6 +4500,10 @@ A hillshade is the grey relief image a map overlays over its basemap, multiplyin
 
 Unlike [contours](<https://maplibre.org/martin/postprocessing/contour/index.md>), the output is **raster, not vector**: the client overlays the hillshade, but cannot adjust it further (unless opted into via `allow_request_overrides`).
 
+![amazon normal-map tiles in mapzen encoding](<https://elevation-tiles-prod.s3.amazonaws.com/normal/10/163/396.png>)
+
+![postprocessed tile](<https://maplibre.org/martin/images/postprocess/hillshade.webp>)
+
 ## Configuration
 
 Set `convert_to_hillshade` on the source serving the normal maps:
@@ -4613,6 +4623,10 @@ Unlike [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/index.m
 > **Pair this with [MLT](<https://maplibre.org/martin/postprocessing/mlt/index.md>)**
 >
 > A contour tile is thousands of long linestrings over one layer with two columns, one of them a boolean and the other a small integer that repeats across every line at the same height. That is close to the best case for MLT's columnar encoding, so `convert_to_mlt` pays off more here than on a typical vector source.
+
+![amazon terrarium elevation tiles in mapzen encoding](<https://elevation-tiles-prod.s3.amazonaws.com/terrarium/12/2135/1457.png>)
+
+![the contours traced from it, with major lines bolded and labelled with their elevation](<https://maplibre.org/martin/images/postprocess/contour.webp>)
 
 ## Configuration
 
@@ -4754,6 +4768,8 @@ Martin uses [MapLibre sprites API](<https://maplibre.org/maplibre-style-spec/spr
 You can use the `/catalog` api to see all the `<sprite_id>`s with their contained sprites.
 
 ##### Sprite PNG
+
+![sprite](<https://maplibre.org/martin/images/sources-sprites.png>)
 
 `GET /sprite/<sprite_id>.png` endpoint contains a single PNG sprite image that combines all sources images. Additionally, there is a high DPI version available at `GET /sprite/<sprite_id>@2x.png`.
 
@@ -5142,6 +5158,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
 }
 ```
 
+![Pastel-blue diagonal stroke over the demo basemap](<https://maplibre.org/martin/images/static-overlay/line_color.png>)
+
 #### Fill
 
 ```json
@@ -5164,6 +5182,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
   }]
 }
 ```
+
+![Filled red square polygon](<https://maplibre.org/martin/images/static-overlay/fill_color.png>)
 
 #### Fill opacity (alpha blending)
 
@@ -5193,6 +5213,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
 }
 ```
 
+![Two semi-transparent brand-color rectangles overlapping](<https://maplibre.org/martin/images/static-overlay/fill_opacity.png>)
+
 #### Circle (marker)
 
 ```json
@@ -5211,6 +5233,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
   }]
 }
 ```
+
+![Primary-colored circle marker at the equator/prime meridian](<https://maplibre.org/martin/images/static-overlay/circle_color.png>)
 
 # Font Sources
 
@@ -5685,6 +5709,8 @@ index.html
 </html>
 ```
 
+![The finished self-hosted basemap of Monaco](<https://maplibre.org/martin/images/selfhosted-basemap.png>)
+
 The page loads the style from Martin, and the style pulls the tiles, glyphs, and sprites from Martin. The complete map is served from your machine.
 
 > [!NOTE]
@@ -6019,16 +6045,16 @@ Maputnik is now online, so lets load martins tiles into it.
 
 1. Visit [`http://localhost:8888`](<http://localhost:8888>)
 2. You first need a style:
-3. Click `Open`
-4. Select a style you like (we are going to choose `Maptiler Basic`)
+3. Click `Open` ![where in the UI the "Open" button can be found](<https://maplibre.org/martin/images/maputnik/open.png>)
+4. Select a style you like (we are going to choose `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
 5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
-6. Click `Data Sources`
-7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`:
-8. Now, lets zoom into monaco:
+6. Click `Data Sources` ![how to change the datasource](<https://maplibre.org/martin/images/maputnik/change-datasource.png>)
+7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`: ![how to add the tilejson](<https://maplibre.org/martin/images/maputnik/add-tilejson.png>)
+8. Now, lets zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
 9. And finally, lets add a circle layer for our yachts:
-10. Click `Add Layer`
-11. Configure the layer as follows:
-12. And style it as:
+10. Click `Add Layer` ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-layer.png>)
+11. Configure the layer as follows: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/configure-layer.png>)
+12. And style it as: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-yachts-layer.png>)
 
     **json configuration (click to expand)**
 
@@ -6895,6 +6921,8 @@ postgres:
 
 Paths are the distinct, interesting cases this configuration can produce.
 
+![martin test generate finds a row for 6 of 10 paths, renders 3 new cases, and writes the spec](<https://maplibre.org/martin/images/generate/test-generate.gif>)
+
 A row on several paths is one case. `NO ROW`: no row takes the path.
 
 ## Spec file
@@ -6929,11 +6957,15 @@ cases:
 
 After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:
 
+![martin test run fails roads 1, whose zooms changed from 6-14 to 7-14](<https://maplibre.org/martin/images/generate/test-run.gif>)
+
 `run` exits with `0` when all cases pass, `1` otherwise, and `2` on an error.
 
 ## Generating
 
 In a terminal, `generate` opens a review. `--accept` writes every case instead. Without a terminal, it writes a new spec, or prints the diffs of an existing one and exits with `1`. A `--max-zoom` other than the spec's cannot keep its cases as they are, so the review only writes once each changed and gone case is accepted.
+
+![martin test generate reviews the changed case, accepts it, and writes the spec](<https://maplibre.org/martin/images/generate/test-review.gif>)
 
 # Working with MBTiles archives
 
@@ -9434,7 +9466,7 @@ It is still early and not currently entirely plumbed through the system, but it 
 
 We added the core machinery for static (single-image) rendering.
 
-This allows you to do static rendering such as for example this OG-image showing the :
+This allows you to do static rendering such as for example this OG-image showing the : ![OG-image](<https://nav.tum.de/api/locations/mi/preview>)
 
 Done in [\#2804](<https://github.com/maplibre/martin/pull/2804>).
 
@@ -9832,6 +9864,8 @@ Done in [\#2412](<https://github.com/maplibre/martin/pull/2412>), [\#2426](<http
 ### Click to copy when clicking on various IDs in the UI
 
 When clicking on various IDs in the UI, a click to copy feature is now available.
+
+![image](<https://github.com/user-attachments/assets/6d062bb1-18f1-4827-a378-44b141eb11d5>)
 
 Done in [\#2427](<https://github.com/maplibre/martin/pull/2427>) by @todtb
 

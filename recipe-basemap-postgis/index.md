@@ -100,16 +100,16 @@ Maputnik is now online, so lets load martins tiles into it.
 
 1. Visit [`http://localhost:8888`](<http://localhost:8888>)
 2. You first need a style:
-3. Click `Open`
-4. Select a style you like (we are going to choose `Maptiler Basic`)
+3. Click `Open` ![where in the UI the "Open" button can be found](<https://maplibre.org/martin/images/maputnik/open.png>)
+4. Select a style you like (we are going to choose `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
 5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
-6. Click `Data Sources`
-7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`:
-8. Now, lets zoom into monaco:
+6. Click `Data Sources` ![how to change the datasource](<https://maplibre.org/martin/images/maputnik/change-datasource.png>)
+7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`: ![how to add the tilejson](<https://maplibre.org/martin/images/maputnik/add-tilejson.png>)
+8. Now, lets zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
 9. And finally, lets add a circle layer for our yachts:
-10. Click `Add Layer`
-11. Configure the layer as follows:
-12. And style it as:
+10. Click `Add Layer` ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-layer.png>)
+11. Configure the layer as follows: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/configure-layer.png>)
+12. And style it as: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-yachts-layer.png>)
 
     **json configuration (click to expand)**
 

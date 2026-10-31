@@ -53,6 +53,8 @@ postgres:
 
 Paths are the distinct, interesting cases this configuration can produce.
 
+![martin test generate finds a row for 6 of 10 paths, renders 3 new cases, and writes the spec](<https://maplibre.org/martin/images/generate/test-generate.gif>)
+
 A row on several paths is one case. `NO ROW`: no row takes the path.
 
 ## Spec file
@@ -87,8 +89,12 @@ cases:
 
 After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:
 
+![martin test run fails roads 1, whose zooms changed from 6-14 to 7-14](<https://maplibre.org/martin/images/generate/test-run.gif>)
+
 `run` exits with `0` when all cases pass, `1` otherwise, and `2` on an error.
 
 ## Generating
 
 In a terminal, `generate` opens a review. `--accept` writes every case instead. Without a terminal, it writes a new spec, or prints the diffs of an existing one and exits with `1`. A `--max-zoom` other than the spec's cannot keep its cases as they are, so the review only writes once each changed and gone case is accepted.
+
+![martin test generate reviews the changed case, accepts it, and writes the spec](<https://maplibre.org/martin/images/generate/test-review.gif>)

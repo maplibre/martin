@@ -4,6 +4,10 @@ A hillshade is the grey relief image a map overlays over its basemap, multiplyin
 
 Unlike [contours](<https://maplibre.org/martin/postprocessing/contour/index.md>), the output is **raster, not vector**: the client overlays the hillshade, but cannot adjust it further (unless opted into via `allow_request_overrides`).
 
+![amazon normal-map tiles in mapzen encoding](<https://elevation-tiles-prod.s3.amazonaws.com/normal/10/163/396.png>)
+
+![postprocessed tile](<https://maplibre.org/martin/images/postprocess/hillshade.webp>)
+
 ## Configuration
 
 Set `convert_to_hillshade` on the source serving the normal maps:

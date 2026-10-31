@@ -251,6 +251,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
 }
 ```
 
+![Pastel-blue diagonal stroke over the demo basemap](<https://maplibre.org/martin/images/static-overlay/line_color.png>)
+
 #### Fill
 
 ```json
@@ -273,6 +275,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
   }]
 }
 ```
+
+![Filled red square polygon](<https://maplibre.org/martin/images/static-overlay/fill_color.png>)
 
 #### Fill opacity (alpha blending)
 
@@ -302,6 +306,8 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
 }
 ```
 
+![Two semi-transparent brand-color rectangles overlapping](<https://maplibre.org/martin/images/static-overlay/fill_opacity.png>)
+
 #### Circle (marker)
 
 ```json
@@ -320,3 +326,5 @@ All examples below render the same camera (`/static/0,0,2/200x200.png`) against 
   }]
 }
 ```
+
+![Primary-colored circle marker at the equator/prime meridian](<https://maplibre.org/martin/images/static-overlay/circle_color.png>)

@@ -10,6 +10,10 @@ Unlike [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/index.m
 >
 > A contour tile is thousands of long linestrings over one layer with two columns, one of them a boolean and the other a small integer that repeats across every line at the same height. That is close to the best case for MLT's columnar encoding, so `convert_to_mlt` pays off more here than on a typical vector source.
 
+![amazon terrarium elevation tiles in mapzen encoding](<https://elevation-tiles-prod.s3.amazonaws.com/terrarium/12/2135/1457.png>)
+
+![the contours traced from it, with major lines bolded and labelled with their elevation](<https://maplibre.org/martin/images/postprocess/contour.webp>)
+
 ## Configuration
 
 Set `convert_to_contour` on the source serving the elevation tiles:

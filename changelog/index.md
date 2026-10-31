@@ -654,7 +654,7 @@ It is still early and not currently entirely plumbed through the system, but it 
 
 We added the core machinery for static (single-image) rendering.
 
-This allows you to do static rendering such as for example this OG-image showing the :
+This allows you to do static rendering such as for example this OG-image showing the : ![OG-image](<https://nav.tum.de/api/locations/mi/preview>)
 
 Done in [\#2804](<https://github.com/maplibre/martin/pull/2804>).
 
@@ -1052,6 +1052,8 @@ Done in [\#2412](<https://github.com/maplibre/martin/pull/2412>), [\#2426](<http
 ### Click to copy when clicking on various IDs in the UI
 
 When clicking on various IDs in the UI, a click to copy feature is now available.
+
+![image](<https://github.com/user-attachments/assets/6d062bb1-18f1-4827-a378-44b141eb11d5>)
 
 Done in [\#2427](<https://github.com/maplibre/martin/pull/2427>) by @todtb
 

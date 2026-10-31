@@ -1,3 +1,7 @@
+![Martin](<https://raw.githubusercontent.com/maplibre/martin/main/logo.png>)
+
+[![docs.rs docs](<https://docs.rs/martin/badge.svg>)](<https://docs.rs/martin>) [![join our community](<https://img.shields.io/badge/Slack-%23maplibre--martin-blueviolet?logo=slack>)](<https://slack.openstreetmap.us/>) [![GitHub](<https://img.shields.io/badge/github-maplibre/martin-8da0cb?logo=github>)](<https://github.com/maplibre/martin>) [![crates.io version](<https://img.shields.io/crates/v/martin.svg>)](<https://crates.io/crates/martin>) [![CI build](<https://github.com/maplibre/martin/actions/workflows/ci.yml/badge.svg>)](<https://github.com/maplibre/martin/actions>) [![OpenSSF Best Practices](<https://www.bestpractices.dev/projects/11613/badge>)](<https://www.bestpractices.dev/projects/11613>)
+
 Martin is a tile server optimized for speed and heavy traffic, written in [Rust](<https://github.com/rust-lang/rust>).
 
 - **Quick Start**
@@ -25,7 +29,9 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   ---
 
   A single binary on a server, in [Docker](<https://maplibre.org/martin/run-with-docker/index.md>), on [AWS Lambda](<https://maplibre.org/martin/run-with-lambda/index.md>), or behind [NGINX](<https://maplibre.org/martin/run-with-nginx/index.md>) and [Apache](<https://maplibre.org/martin/run-with-apache/index.md>).
-- **Terminal &amp; web UI**
+- ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](<https://maplibre.org/martin/images/tui-dashboard.webp>)
+
+  **Terminal &amp; web UI**
 
   ---
 
