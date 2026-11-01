@@ -271,7 +271,7 @@ jobs:
         name: Setup Node.js
         continue-on-error: true
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: 24 }
+        with: { node-version: 26 }
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
       # which autofix.yml otherwise pushes after it.
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
