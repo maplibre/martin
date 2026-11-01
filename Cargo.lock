@@ -6026,7 +6026,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tiff",
  "tokio",
- "vt100 0.17.0",
+ "vt100 0.18.1",
  "windows-sys 0.61.2",
  "wiremock",
 ]
@@ -10004,7 +10004,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
  "windows-sys 0.61.2",
@@ -11198,9 +11198,9 @@ dependencies = [
 
 [[package]]
 name = "vt100"
-version = "0.17.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e8e54ec9993c500979d6771157fc4a8b47e460fddc430dd5c66a74fc6865b07"
+checksum = "eb05cdd19ae8707bf6a0a269972c07e6358103a7079faec749dec318a5b3dc23"
 dependencies = [
  "itoa",
  "unicode-width 0.2.3",
