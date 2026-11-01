@@ -51,8 +51,6 @@ runs:
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}${{ inputs.cache-key }}
-    # Workaround for duckdb/duckdb-rs#935, remove once a libduckdb-sys release with the fix is in the lockfile.
-    # rust-cache restores target/duckdb-sources without its files, and libduckdb-sys can't build from that.
     - if: inputs.cache == 'true' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       shell: bash
       run: rm -rf target/duckdb-sources target/*/duckdb-sources
