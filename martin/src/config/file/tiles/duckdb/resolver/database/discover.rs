@@ -62,7 +62,7 @@ async fn read_macros(pool: &DuckDBPool, database_label: &str) -> DuckDbSourceRes
                  FROM duckdb_functions() \
                  WHERE NOT internal \
                    AND function_type = 'table_macro' \
-                   AND list_transform(parameters, p -> lower(p)) = ['z', 'x', 'y'] \
+                   AND list_transform(parameters, lambda p: lower(p)) = ['z', 'x', 'y'] \
                  ORDER BY schema_name, function_name";
     let label = database_label.to_owned();
     pool.generate_tile(move |conn| {

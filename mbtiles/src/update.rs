@@ -1,15 +1,13 @@
-use enum_display::EnumDisplay;
 use martin_tile_utils::TileInfo;
 use sqlx::{SqliteExecutor, query};
 use tracing::{debug, info, warn};
 
 use crate::MbtError::InvalidZoomValue;
 use crate::errors::MbtResult;
-use crate::update::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::{Mbtiles, compute_min_max_zoom};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum UpdateZoomType {
     /// Reset the minzoom and maxzoom metadata values to match the content of the tiles table
@@ -46,14 +44,14 @@ impl Mbtiles {
                         meta_zoom,
                         "Metadata zoom value is already set to correct value"
                     );
-                } else if update_zoom == Skip {
+                } else if update_zoom == UpdateZoomType::Skip {
                     info!(
                         metadata.name = %zoom_name,
                         meta_zoom,
                         calc_zoom,
                         "Metadata zoom value differs from computed value; skipping update"
                     );
-                } else if is_outside_range || update_zoom == Reset {
+                } else if is_outside_range || update_zoom == UpdateZoomType::Reset {
                     info!(
                         metadata.name = %zoom_name,
                         meta_zoom,
@@ -146,10 +144,10 @@ impl Mbtiles {
                 self.set_zoom_value(&mut *conn, false, min_zoom, update_zoom).await?;
                 self.set_zoom_value(&mut *conn, true, max_zoom, update_zoom).await?;
             }
-            (GrowOnly | Skip, None) => {
+            (UpdateZoomType::GrowOnly | UpdateZoomType::Skip, None) => {
                 info!("No tiles found in the tiles table, skipping metadata min/max zoom update");
             }
-            (Reset, None) => {
+            (UpdateZoomType::Reset, None) => {
                 info!("No tiles found in the tiles table, deleting minzoom and maxzoom if exist");
                 self.delete_metadata_value(&mut *conn, "minzoom").await?;
                 self.delete_metadata_value(&mut *conn, "maxzoom").await?;
