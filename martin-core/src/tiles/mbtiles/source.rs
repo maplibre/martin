@@ -60,10 +60,14 @@ fn is_sqlite_busy(err: &MbtError) -> bool {
 impl MbtSource {
     /// Creates a new `MBTiles` source from the given file path.
     pub async fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, MbtilesError> {
-        let mbt = MbtilesPool::open_readonly(&path)
+        let (mbt, warnings) = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| MbtilesError::IoError(e, path.clone()))?;
+
+        for warning in warnings {
+            warn!(source.id = %id, mbtiles.file = %path.display(), "{warning}");
+        }
 
         // Attempt to fetch metadata with backoff
         let start_delay = Duration::from_millis(50);

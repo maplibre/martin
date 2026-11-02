@@ -13,7 +13,7 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash, InvalidTileIndex,
 };
 use crate::bindiff::get_patch_type;
-use crate::errors::{MbtError, MbtResult};
+use crate::errors::{MbtError, MbtResult, MbtWarning};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
     AggTilesHasher, Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
@@ -562,6 +562,26 @@ impl Mbtiles {
         Ok(typ)
     }
 
+    /// Detect the layout, returning recoverable schema findings as warnings.
+    ///
+    /// Unlike [`Self::detect_type`], a missing coordinate uniqueness constraint
+    /// returns [`MbtWarning::NoUniquenessConstraint`] instead of an error.
+    /// Unsupported layouts and database errors still fail detection.
+    #[hotpath::measure]
+    pub async fn detect_type_with_warnings<T>(&self, conn: &mut T) -> MbtResult<(MbtType, Vec<MbtWarning>)>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        debug!(mbtiles.file = %self, "Detecting MBTiles type");
+        let typ = self.detect_layout(&mut *conn).await?;
+        let warnings = match self.check_for_uniqueness_constraint(&mut *conn, typ).await {
+            Ok(()) => Vec::new(),
+            Err(MbtError::NoUniquenessConstraint(filepath)) => vec![MbtWarning::NoUniquenessConstraint(filepath)],
+            Err(error) => return Err(error),
+        };
+        Ok((typ, warnings))
+    }
+
     /// Detects the table layout without checking the tile index.
     async fn detect_layout<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
@@ -1070,21 +1090,52 @@ pub(crate) mod tests {
     use crate::mbtiles::tests::open;
     use crate::metadata::anonymous_mbtiles;
 
+    #[rstest]
+    #[case("")]
+    #[case("CREATE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);")]
+    #[actix_rt::test]
+    async fn detect_type_missing_uniqueness(#[case] index: &str) {
+        let script = format!(
+            "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB); CREATE TABLE metadata (name TEXT, value TEXT); {index}"
+        );
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let (typ, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert_eq!(typ, MbtType::Flat);
+        assert_eq!(
+            warnings,
+            vec![MbtWarning::NoUniquenessConstraint(mbt.filepath().to_owned())]
+        );
+        assert_matches!(
+            mbt.detect_type(&mut conn).await,
+            Err(MbtError::NoUniquenessConstraint(_))
+        );
+        assert_matches!(
+            mbt.validate(&mut conn, IntegrityCheckType::Off, AggHashType::Off).await,
+            Err(MbtError::NoUniquenessConstraint(_))
+        );
+    }
+
     #[actix_rt::test]
     async fn detect_type() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::Flat);
 
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::FlatWithHash);
 
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(
             res,
             MbtType::Normalized {
@@ -1095,7 +1146,9 @@ pub(crate) mod tests {
 
         let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(
             res,
             MbtType::Normalized {
@@ -1106,12 +1159,30 @@ pub(crate) mod tests {
 
         let (mbt, mut conn) = anonymous_mbtiles("").await;
         mbt.create_cache_schema(&mut conn, false).await.unwrap();
-        let res = mbt.detect_type(&mut conn).await.unwrap();
+        let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::Cache);
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
-        let res = mbt.detect_type(&mut conn).await;
+        let res = mbt.detect_type_with_warnings(&mut conn).await;
         assert_matches!(res, Err(MbtError::InvalidDataFormat(_)));
+    }
+
+    #[rstest]
+    #[case("zoom_level, tile_column, tile_row")]
+    #[case("tile_row, zoom_level, tile_column")]
+    #[actix_rt::test]
+    async fn detect_type_unique_index(#[case] columns: &str) {
+        let script = format!(
+            "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);
+             CREATE UNIQUE INDEX tile_index ON tiles ({columns});"
+        );
+        let (mbt, mut conn) = anonymous_mbtiles(&script).await;
+        let (typ, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
+        assert_eq!(typ, MbtType::Flat);
+        assert!(warnings.is_empty());
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), typ);
     }
 
     #[actix_rt::test]

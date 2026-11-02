@@ -24,7 +24,7 @@ use crate::{Mbtiles, compute_min_max_zoom};
 /// use mbtiles::MbtilesPool;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+/// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
 /// let metadata = pool.get_metadata().await?;
 /// let tile_info = pool.detect_format(&metadata.tilejson).await?;
 ///

@@ -15,7 +15,7 @@ use sqlx::{
 use tracing::debug;
 
 use crate::bindiff::PatchType;
-use crate::errors::{MbtError, MbtResult};
+use crate::errors::{MbtError, MbtResult, MbtWarning};
 use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
@@ -300,6 +300,18 @@ impl Mbtiles {
         debug!(mbtiles.file = %self, "Opening as readonly");
         let opt = SqliteConnectOptions::new().filename(self.filepath()).read_only(true);
         Self::open_int(&opt).await
+    }
+
+    /// Open for reading and inspect the schema, returning recoverable findings.
+    ///
+    /// A missing coordinate uniqueness constraint is returned as a warning.
+    /// Unsupported layouts and database errors remain errors. This does not run
+    /// integrity, coordinate, or tile hash validation; use [`Self::validate`] for that.
+    #[hotpath::measure]
+    pub async fn open_readonly_with_warnings(&self) -> MbtResult<(SqliteConnection, Vec<MbtWarning>)> {
+        let mut conn = self.open_readonly().await?;
+        let (_, warnings) = self.detect_type_with_warnings(&mut conn).await?;
+        Ok((conn, warnings))
     }
 
     async fn open_int(opt: &SqliteConnectOptions) -> Result<SqliteConnection, MbtError> {
@@ -807,6 +819,67 @@ fn register_fnv1a_decimal(conn: &sqlite_hashes::rusqlite::Connection) -> sqlite_
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn opening_errors_are_not_warnings() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("invalid.mbtiles");
+        let mbt = Mbtiles::new(&file).unwrap();
+        assert!(!file.exists());
+        assert!(matches!(
+            mbt.open_readonly_with_warnings().await,
+            Err(MbtError::SqlxError(_))
+        ));
+        assert!(matches!(
+            crate::MbtilesPool::open_readonly(&file).await,
+            Err(MbtError::SqlxError(_))
+        ));
+
+        std::fs::write(&file, "not a SQLite database").unwrap();
+        assert!(matches!(
+            mbt.open_readonly_with_warnings().await,
+            Err(MbtError::SqlxError(_))
+        ));
+        assert!(matches!(
+            crate::MbtilesPool::open_readonly(&file).await,
+            Err(MbtError::SqlxError(_))
+        ));
+
+        std::fs::remove_file(&file).unwrap();
+        let mut conn = mbt.open_or_new().await.unwrap();
+        query("CREATE TABLE unrelated (value TEXT)")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        assert!(matches!(
+            mbt.open_readonly_with_warnings().await,
+            Err(MbtError::InvalidDataFormat(_))
+        ));
+        assert!(matches!(
+            crate::MbtilesPool::open_readonly(&file).await,
+            Err(MbtError::InvalidDataFormat(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn open_readonly_with_warnings() {
+        let (mbt, _conn, _file) = crate::temp_named_mbtiles(
+            "open_readonly_with_warnings",
+            "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);
+             INSERT INTO tiles VALUES (0, 0, 0, x'01');",
+        )
+        .await;
+        let (mut conn, warnings) = mbt.open_readonly_with_warnings().await.unwrap();
+        assert_eq!(
+            warnings,
+            vec![MbtWarning::NoUniquenessConstraint(mbt.filepath().to_owned())]
+        );
+        assert_eq!(mbt.get_tile(&mut conn, 0, 0, 0).await.unwrap(), Some(vec![1]));
+        assert!(matches!(
+            mbt.detect_type(&mut conn).await,
+            Err(MbtError::NoUniquenessConstraint(_))
+        ));
+    }
 
     pub async fn open(filepath: &str) -> MbtResult<(SqliteConnection, Mbtiles)> {
         let mbt = Mbtiles::new(filepath)?;

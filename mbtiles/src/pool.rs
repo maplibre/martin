@@ -8,7 +8,7 @@ use tilejson::TileJSON;
 #[cfg(test)]
 use crate::NormalizedSchema;
 use crate::errors::MbtResult;
-use crate::{MbtType, Mbtiles, Metadata};
+use crate::{MbtType, MbtWarning, Mbtiles, Metadata};
 
 /// Connection pool for concurrent read access to an `MBTiles` file.
 ///
@@ -31,7 +31,7 @@ use crate::{MbtType, Mbtiles, Metadata};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Open file with connection pool
-/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+/// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
 ///
 /// // Get metadata (automatically acquires connection from pool)
 /// let metadata = pool.get_metadata().await?;
@@ -51,7 +51,7 @@ use crate::{MbtType, Mbtiles, Metadata};
 /// use mbtiles::MbtilesPool;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+/// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
 ///
 /// // Spawn multiple concurrent tile requests
 /// let mut handles = vec![];
@@ -97,6 +97,11 @@ impl MbtilesPool {
     /// - The file does not exist
     /// - The file is not a valid `SQLite` database
     /// - The connection pool cannot be created
+    /// - The database does not use a recognized `MBTiles` layout
+    ///
+    /// Returns the pool and any recoverable schema warnings. Missing coordinate
+    /// uniqueness is reported as [`MbtWarning::NoUniquenessConstraint`]. This does
+    /// not run integrity, coordinate, or tile hash validation.
     ///
     /// # Examples
     ///
@@ -105,7 +110,7 @@ impl MbtilesPool {
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// // Open for concurrent tile serving
-    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    /// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
     ///
     /// // Pool automatically manages connections for all operations
     /// let metadata = pool.get_metadata().await?;
@@ -114,14 +119,18 @@ impl MbtilesPool {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
+    pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<(Self, Vec<MbtWarning>)> {
         let mbtiles = Mbtiles::new(filepath)?;
         let opt = SqliteConnectOptions::new().filename(mbtiles.filepath()).read_only(true);
         let pool = SqlitePoolOptions::new()
             .test_before_acquire(false)
             .connect_with(opt)
             .await?;
-        Ok(Self { mbtiles, pool })
+        let (_, warnings) = {
+            let mut conn = pool.acquire().await?;
+            mbtiles.detect_type_with_warnings(&mut *conn).await?
+        };
+        Ok((Self { mbtiles, pool }, warnings))
     }
 
     /// Retrieves the metadata for the `MBTiles` file.
@@ -143,7 +152,7 @@ impl MbtilesPool {
     /// use mbtiles::MbtilesPool;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    /// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
     /// let metadata = pool.get_metadata().await?;
     ///
     /// println!("Tileset: {}", metadata.tilejson.name.unwrap_or_default());
@@ -178,7 +187,7 @@ impl MbtilesPool {
     /// use mbtiles::{MbtilesPool, MbtType};
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let pool = MbtilesPool::open_readonly("tiles.mbtiles").await?;
+    /// let (pool, warnings) = MbtilesPool::open_readonly("tiles.mbtiles").await?;
     /// let mbt_type = pool.detect_type().await?;
     ///
     /// match mbt_type {
@@ -217,7 +226,7 @@ impl MbtilesPool {
     /// use mbtiles::MbtilesPool;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    /// let (pool, warnings) = MbtilesPool::open_readonly("world.mbtiles").await?;
     /// let metadata = pool.get_metadata().await?;
     ///
     /// if let Some(tile_info) = pool.detect_format(&metadata.tilejson).await? {
@@ -270,7 +279,8 @@ impl MbtilesPool {
     /// use std::sync::Arc;
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let pool = Arc::new(MbtilesPool::open_readonly("tiles.mbtiles").await?);
+    /// let (pool, warnings) = MbtilesPool::open_readonly("tiles.mbtiles").await?;
+    /// let pool = Arc::new(pool);
     ///
     /// // Can be called concurrently from multiple tasks
     /// let pool1 = Arc::clone(&pool);
@@ -328,11 +338,43 @@ mod tests {
     use crate::metadata::temp_named_mbtiles;
 
     #[tokio::test]
+    async fn open_without_warnings() {
+        for (name, script, typ) in [
+            (
+                "pool_flat",
+                include_str!("../../tests/fixtures/mbtiles/world_cities.sql"),
+                MbtType::Flat,
+            ),
+            (
+                "pool_dedup_id",
+                include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql"),
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::DedupId,
+                },
+            ),
+            ("pool_cache", "", MbtType::Cache),
+        ] {
+            let (mbt, mut conn, file) = temp_named_mbtiles(name, script).await;
+            if typ == MbtType::Cache {
+                mbt.create_cache_schema(&mut conn, false).await.unwrap();
+            }
+            let (pool, warnings) = MbtilesPool::open_readonly(file).await.unwrap();
+            assert!(warnings.is_empty());
+            assert_eq!(pool.detect_type().await.unwrap(), typ);
+        }
+    }
+
+    #[tokio::test]
     async fn metadata_invalid() {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert_eq!(
+            warnings,
+            vec![MbtWarning::NoUniquenessConstraint(file.to_str().unwrap().to_owned())]
+        );
         // invalid type
         pool.detect_type().await.unwrap_err();
         let metadata = pool.get_metadata().await.unwrap();
@@ -368,7 +410,11 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert_eq!(
+            warnings,
+            vec![MbtWarning::NoUniquenessConstraint(file.to_str().unwrap().to_owned())]
+        );
         pool.detect_type().await.unwrap_err();
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
@@ -392,7 +438,11 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_invalid_type", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert_eq!(
+            warnings,
+            vec![MbtWarning::NoUniquenessConstraint(file.to_str().unwrap().to_owned())]
+        );
 
         // invalid type => cannot hash properly, but can get tile
         pool.detect_type().await.unwrap_err();
@@ -422,7 +472,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_normalized", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -455,7 +506,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_normalized", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -485,7 +537,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -534,7 +587,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_flat_with_hash", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -660,7 +714,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_flat_with_hash", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
@@ -684,7 +739,8 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_flat_with_hash", script).await;
 
-        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
+        assert!(warnings.is_empty());
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert_ne!(t1, b"");

@@ -5,6 +5,15 @@ use sqlite_hashes::rusqlite;
 
 use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtType};
 
+/// A recoverable finding when inspecting an `MBTiles` file for reading.
+#[non_exhaustive]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+pub enum MbtWarning {
+    /// Tile coordinates are not protected by a unique index or primary key.
+    #[error("The file {0} does not have the required uniqueness constraint")]
+    NoUniquenessConstraint(String),
+}
+
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
