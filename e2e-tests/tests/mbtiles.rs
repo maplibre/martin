@@ -627,3 +627,35 @@ async fn a_source_without_a_tile_index_is_served_with_a_warning() {
     martin.stop().await;
     martin.assert_log_contains("Table tiles has no index on (zoom_level, tile_column, tile_row)");
 }
+
+#[tokio::test]
+async fn a_source_with_a_non_unique_tile_index_is_served_with_a_warning() {
+    use sqlx::Connection as _;
+
+    let dir = tempfile::tempdir().expect("failed to create a temp dir");
+    let path = mbtiles_fixture(dir.path(), "world_cities").await;
+    let mut conn = sqlx::SqliteConnection::connect(&format!("sqlite://{}", path.display()))
+        .await
+        .expect("failed to open the fixture");
+    sqlx::query("DROP INDEX tile_index; CREATE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row)")
+        .execute(&mut conn)
+        .await
+        .expect("failed to replace the tile index");
+    conn.close().await.expect("failed to close the fixture");
+
+    let mut martin = Martin::builder()
+        .arg(&path)
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let tile = martin.get("/world_cities/0/0/0").await;
+    assert_eq!(tile.status(), 200);
+
+    martin.stop().await;
+    let warnings = martin
+        .take_log_lines("uniqueness constraint")
+        .join("\n")
+        .replace(&path.display().to_string(), "[PATH]");
+    insta::assert_snapshot!(warnings, @" WARN resolve:resolve_tile_sources: The file [PATH] does not have the required uniqueness constraint source.id=world_cities");
+}
