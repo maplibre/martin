@@ -58,7 +58,6 @@ anyhow = { workspace = true, optional = true }
 bytes.workspace = true
 bytesize = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
-enum-display.workspace = true
 flume.workspace = true
 fnv.workspace = true
 futures.workspace = true
@@ -79,6 +78,7 @@ size_format.workspace = true
 sqlite-compressions.workspace = true
 sqlite-hashes.workspace = true
 sqlx.workspace = true
+strum.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["fs", "rt-multi-thread"] }

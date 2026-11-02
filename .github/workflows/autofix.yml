@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   changes:
     name: Decide which jobs this change can affect
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -48,7 +48,7 @@ jobs:
 
   fmt:
     name: Format and sync lock files
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -64,7 +64,7 @@ jobs:
         with: { components: rustfmt, tools: 'just,cargo-sort@2.1.3' } # 2.1.4 was re-published and no longer matches install-action's checksum
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: 24 }
+        with: { node-version: 26 }
       - name: Install uv
         uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
@@ -86,7 +86,7 @@ jobs:
 
   gen-schemas:
     name: Generate config + OpenAPI schemas + UI types + Python stub
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
@@ -123,6 +123,7 @@ jobs:
 
   bless:
     name: Bless test output
+    # TODO: 26.04 once rendering moves to maplibre-native-ffi; bless-rendering segfaults in libuv 1.51
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:

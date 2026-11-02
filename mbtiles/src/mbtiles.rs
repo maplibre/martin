@@ -3,7 +3,6 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 use std::pin::Pin;
 
-use enum_display::EnumDisplay;
 use futures::Stream;
 use martin_tile_utils::{Tile, TileCoord};
 use serde::{Deserialize, Serialize};
@@ -19,8 +18,8 @@ use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
 use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum MbtTypeCli {
     Flat,
@@ -43,8 +42,8 @@ impl From<MbtTypeCli> for MbtType {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
-#[enum_display(case = "Kebab")]
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum CopyType {
     #[default]

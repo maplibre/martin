@@ -118,9 +118,7 @@ csscolorparser = "0.9"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
-derive-debug = "0.1.2"
-duckdb = { version = ">=1.10503.1, <1.20000", features = ["bundled", "parquet"] }
-enum-display = "0.2"
+duckdb = { version = ">=1.10503.1, <1.20001", features = ["bundled", "parquet"] }
 env_logger = "0.11"
 flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
 flume = "0.12"
@@ -162,7 +160,7 @@ mlt-core = { version = "0.22.1", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
-numpy = "0.29"
+numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
@@ -179,7 +177,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 proc-macro2 = "1"
 prometheus = { version = "0.14", default-features = false }
-pyo3 = "0.29"
+pyo3 = "0.30"
 pyo3-stub-gen = { version = "0.23.1", default-features = false, features = ["infer_signature", "numpy"] }
 quantizr = "1.4"
 quote = "1"
@@ -230,7 +228,7 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
-vt100 = "0.17.0"
+vt100 = "0.18.0"
 walkdir = "2.5.0"
 webp = { version = "0.3.1", default-features = false }
 wincode = "0.6.2"
@@ -259,7 +257,3 @@ unicode-ident.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
-
-[patch.crates-io]
-# georust/wkb#104: reject type codes 8 and above instead of reading a TRIANGLE as a point
-wkb = { git = "https://github.com/CommanderStorm/wkb", rev = "b5e52669e3c1b488a7846c8d02369e3758ce6e8c" }

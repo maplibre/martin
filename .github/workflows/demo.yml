@@ -14,7 +14,7 @@ permissions:
 jobs:
   build-demo:
     name: Build the demo images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read

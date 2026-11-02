@@ -1,9 +1,9 @@
 //! `PMTiles` tile source implementations.
 
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
@@ -30,22 +30,31 @@ enum PmtLocation {
 }
 
 /// A source for `PMTiles` files on the local filesystem or in an [`ObjectStore`]
-#[derive(Clone, Dbg)]
+#[derive(Clone)]
 pub struct PmtilesSource {
     id: String,
-    #[dbg(skip)]
     pmtiles: Arc<AsyncPmTilesReader<PmtBackend, PmtCacheInstance>>,
-    #[dbg(skip)]
     tilejson: TileJSON,
-    #[dbg(skip)]
     tile_info: TileInfo,
-    #[dbg(skip)]
     cache_zoom: CacheZoomRange,
 
-    #[dbg(skip)]
     location: PmtLocation,
-    #[dbg(skip)]
     pmt_cache: PmtCacheInstance,
+}
+
+impl fmt::Debug for PmtilesSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            id,
+            pmtiles: _,
+            tilejson: _,
+            tile_info: _,
+            cache_zoom: _,
+            location: _,
+            pmt_cache: _,
+        } = self;
+        f.debug_struct("PmtilesSource").field("id", id).finish_non_exhaustive()
+    }
 }
 
 impl PmtilesSource {

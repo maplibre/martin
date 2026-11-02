@@ -166,7 +166,7 @@ mod tests {
                 Ok(conn
                     .execute_batch(&format!(
                         "SET enable_profiling='json';\
-                         SET custom_profiling_settings='{{\"OPERATOR_TYPE\":\"true\"}}';\
+                         SET tracked_metrics=['operator.type'];\
                          SET profiling_output={profile_path};"
                     ))
                     .and_then(|()| {
@@ -183,13 +183,15 @@ mod tests {
         let profile = std::fs::read_to_string(&profile).expect("profiling output");
         let profile = serde_json::from_str::<serde_json::Value>(&profile).expect("json profile");
         let mut operators = Vec::new();
-        collect_operators(&profile, &mut operators);
+        for root in profile["operator"].as_array().into_iter().flatten() {
+            collect_operators(root, &mut operators);
+        }
 
         (tile.map_or(0, |tile| tile.len()), operators)
     }
 
     fn collect_operators(node: &serde_json::Value, out: &mut Vec<String>) {
-        if let Some(operator) = node["operator_type"].as_str() {
+        if let Some(operator) = node["type"].as_str() {
             out.push(operator.to_owned());
         }
         for child in node["children"].as_array().into_iter().flatten() {
