@@ -360,7 +360,7 @@ mod tests {
                 mbt.create_cache_schema(&mut conn, false).await.unwrap();
             }
             let (pool, warnings) = MbtilesPool::open_readonly(file).await.unwrap();
-            assert!(warnings.is_empty());
+            assert_eq!(warnings, []);
             assert_eq!(pool.detect_type().await.unwrap(), typ);
         }
     }
@@ -473,7 +473,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_normalized", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -507,7 +507,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_normalized", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -538,7 +538,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized {
@@ -588,7 +588,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_flat_with_hash", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -715,7 +715,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_flat_with_hash", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
@@ -740,7 +740,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_flat_with_hash", script).await;
 
         let (pool, warnings) = MbtilesPool::open_readonly(&file).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert_ne!(t1, b"");

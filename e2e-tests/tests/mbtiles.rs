@@ -626,4 +626,5 @@ async fn a_source_without_a_tile_index_is_served_with_a_warning() {
 
     martin.stop().await;
     martin.assert_log_contains("Table tiles has no index on (zoom_level, tile_column, tile_row)");
+    martin.assert_log_contains("does not have the required uniqueness constraint");
 }

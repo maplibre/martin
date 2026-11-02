@@ -1120,21 +1120,21 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::Flat);
 
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::FlatWithHash);
 
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(
             res,
@@ -1147,7 +1147,7 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(
             res,
@@ -1160,7 +1160,7 @@ pub(crate) mod tests {
         let (mbt, mut conn) = anonymous_mbtiles("").await;
         mbt.create_cache_schema(&mut conn, false).await.unwrap();
         let (res, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), res);
         assert_eq!(res, MbtType::Cache);
 
@@ -1181,7 +1181,7 @@ pub(crate) mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(&script).await;
         let (typ, warnings) = mbt.detect_type_with_warnings(&mut conn).await.unwrap();
         assert_eq!(typ, MbtType::Flat);
-        assert!(warnings.is_empty());
+        assert_eq!(warnings, []);
         assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), typ);
     }
 
