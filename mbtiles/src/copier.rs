@@ -153,7 +153,7 @@ impl MbtileCopierInt {
     #[hotpath::measure]
     async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
-        let src_type = self.src_mbt.detect_type(&mut conn).await?;
+        let src_type = self.src_mbt.detect_type_strict(&mut conn).await?;
         let src_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
         conn.close().await?;
 
@@ -193,7 +193,7 @@ impl MbtileCopierInt {
         let dst_type = if is_empty_db {
             self.options.dst_type().unwrap_or(src_type)
         } else {
-            self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
+            self.validate_dst_type(self.dst_mbt.detect_type_strict(&mut conn).await?)?
         };
 
         info!(
@@ -1111,7 +1111,7 @@ mod tests {
         assert_eq!(
             Mbtiles::new(dst_filepath)
                 .unwrap()
-                .detect_type(&mut dst_conn)
+                .detect_type_strict(&mut dst_conn)
                 .await
                 .unwrap(),
             expected_dst_type
@@ -1284,7 +1284,7 @@ mod tests {
         assert_eq!(
             Mbtiles::new(dst_file)
                 .unwrap()
-                .detect_type(&mut dst_conn)
+                .detect_type_strict(&mut dst_conn)
                 .await
                 .unwrap(),
             DEDUP_ID
@@ -1401,7 +1401,10 @@ mod tests {
         .await
         .unwrap();
         let diff_mbt = Mbtiles::new(&diff_file).unwrap();
-        assert_eq!(diff_mbt.detect_type(&mut diff_conn).await.unwrap(), NORM_WITHOUT_VIEW);
+        assert_eq!(
+            diff_mbt.detect_type_strict(&mut diff_conn).await.unwrap(),
+            NORM_WITHOUT_VIEW
+        );
         diff_mbt.check_each_tile_hash(&mut diff_conn).await.unwrap();
 
         let patched_file = PathBuf::from("file:patched_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared");
@@ -1418,7 +1421,7 @@ mod tests {
         .unwrap();
         let patched_mbt = Mbtiles::new(patched_file).unwrap();
         assert_eq!(
-            patched_mbt.detect_type(&mut patched_conn).await.unwrap(),
+            patched_mbt.detect_type_strict(&mut patched_conn).await.unwrap(),
             NORM_WITHOUT_VIEW
         );
         patched_mbt.check_each_tile_hash(&mut patched_conn).await.unwrap();

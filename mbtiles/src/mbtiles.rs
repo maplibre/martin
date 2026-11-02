@@ -15,7 +15,7 @@ use sqlx::{
 use tracing::debug;
 
 use crate::bindiff::PatchType;
-use crate::errors::{MbtError, MbtResult, MbtWarning};
+use crate::errors::{MbtError, MbtResult};
 use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
@@ -302,18 +302,6 @@ impl Mbtiles {
         Self::open_int(&opt).await
     }
 
-    /// Open for reading and inspect the schema, returning recoverable findings.
-    ///
-    /// A missing coordinate uniqueness constraint is returned as a warning.
-    /// Unsupported layouts and database errors remain errors. This does not run
-    /// integrity, coordinate, or tile hash validation; use [`Self::validate`] for that.
-    #[hotpath::measure]
-    pub async fn open_readonly_with_warnings(&self) -> MbtResult<(SqliteConnection, Vec<MbtWarning>)> {
-        let mut conn = self.open_readonly().await?;
-        let (_, warnings) = self.detect_type_with_warnings(&mut conn).await?;
-        Ok((conn, warnings))
-    }
-
     async fn open_int(opt: &SqliteConnectOptions) -> Result<SqliteConnection, MbtError> {
         let mut conn = SqliteConnection::connect_with(opt).await?;
         attach_sqlite_fn(&mut conn).await?;
@@ -531,7 +519,7 @@ impl Mbtiles {
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let mbt = Mbtiles::new("tiles.mbtiles")?;
     /// let mut conn = mbt.open_readonly().await?;
-    /// let mbt_type = mbt.detect_type(&mut conn).await?;
+    /// let mbt_type = mbt.detect_type_strict(&mut conn).await?;
     ///
     /// match mbt.get_tile_and_hash(&mut conn, mbt_type, 4, 5, 6).await? {
     ///     Some((data, Some(hash))) => {
@@ -604,7 +592,7 @@ impl Mbtiles {
     /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
     /// let mut conn = mbtiles.open().await.unwrap();
     ///
-    /// let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+    /// let mbt_type = mbtiles.detect_type_strict(&mut conn).await.unwrap();
     /// let batch = vec![
     ///     (0, 0, 0, vec![0, 1, 2, 3]),
     ///     (0, 1, 0, vec![4, 5, 6, 7]),
@@ -827,19 +815,11 @@ pub(crate) mod tests {
         let mbt = Mbtiles::new(&file).unwrap();
         assert!(!file.exists());
         assert!(matches!(
-            mbt.open_readonly_with_warnings().await,
-            Err(MbtError::SqlxError(_))
-        ));
-        assert!(matches!(
             crate::MbtilesPool::open_readonly(&file).await,
             Err(MbtError::SqlxError(_))
         ));
 
         std::fs::write(&file, "not a SQLite database").unwrap();
-        assert!(matches!(
-            mbt.open_readonly_with_warnings().await,
-            Err(MbtError::SqlxError(_))
-        ));
         assert!(matches!(
             crate::MbtilesPool::open_readonly(&file).await,
             Err(MbtError::SqlxError(_))
@@ -852,7 +832,7 @@ pub(crate) mod tests {
             .await
             .unwrap();
         assert!(matches!(
-            mbt.open_readonly_with_warnings().await,
+            mbt.detect_type(&mut conn).await,
             Err(MbtError::InvalidDataFormat(_))
         ));
         assert!(matches!(
@@ -862,21 +842,21 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn open_readonly_with_warnings() {
-        let (mbt, _conn, _file) = crate::temp_named_mbtiles(
-            "open_readonly_with_warnings",
+    async fn detect_type_warns_where_strict_rejects() {
+        let (mbt, mut conn, _file) = crate::temp_named_mbtiles(
+            "detect_type_warns_where_strict_rejects",
             "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);
              INSERT INTO tiles VALUES (0, 0, 0, x'01');",
         )
         .await;
-        let (mut conn, warnings) = mbt.open_readonly_with_warnings().await.unwrap();
+        let (_, warnings) = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(
             warnings,
-            vec![MbtWarning::NoUniquenessConstraint(mbt.filepath().to_owned())]
+            vec![crate::MbtWarning::NoUniquenessConstraint(mbt.filepath().to_owned())]
         );
         assert_eq!(mbt.get_tile(&mut conn, 0, 0, 0).await.unwrap(), Some(vec![1]));
         assert!(matches!(
-            mbt.detect_type(&mut conn).await,
+            mbt.detect_type_strict(&mut conn).await,
             Err(MbtError::NoUniquenessConstraint(_))
         ));
     }

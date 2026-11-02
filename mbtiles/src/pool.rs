@@ -128,7 +128,7 @@ impl MbtilesPool {
             .await?;
         let (_, warnings) = {
             let mut conn = pool.acquire().await?;
-            mbtiles.detect_type_with_warnings(&mut *conn).await?
+            mbtiles.detect_type(&mut *conn).await?
         };
         Ok((Self { mbtiles, pool }, warnings))
     }
@@ -202,7 +202,7 @@ impl MbtilesPool {
     #[hotpath::measure]
     pub async fn detect_type(&self) -> MbtResult<MbtType> {
         let mut conn = self.pool.acquire().await?;
-        self.mbtiles.detect_type(&mut *conn).await
+        self.mbtiles.detect_type_strict(&mut *conn).await
     }
 
     /// Detects the tile format and encoding from the `MBTiles` file.

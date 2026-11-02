@@ -35,14 +35,13 @@ It will also verify that the `metadata` table/view exists, and that it has the e
 
 The Rust library can open a recognized schema for reading even when its tile coordinates lack a uniqueness constraint.
 `MbtilesPool::open_readonly` returns `(pool, Vec<MbtWarning>)`, and
-`Mbtiles::open_readonly_with_warnings` returns `(connection, Vec<MbtWarning>)`.
-`Mbtiles::detect_type_with_warnings` similarly returns `(MbtType, Vec<MbtWarning>)` for an existing connection.
+`Mbtiles::detect_type` returns `(MbtType, Vec<MbtWarning>)` for an existing connection.
 Each returns `MbtWarning::NoUniquenessConstraint` with the affected file path when the constraint is missing;
 files with the expected unique coordinate index return an empty warning vector.
 Martin logs each returned warning with the source ID and file path.
 
 These opening checks inspect the schema, without running full validation. Unsupported layouts and database errors
-remain errors. `Mbtiles::detect_type` and `mbtiles validate` remain strict and reject a missing uniqueness constraint.
+remain errors. `Mbtiles::detect_type_strict` and `mbtiles validate` reject a missing uniqueness constraint.
 Integrity failures, invalid coordinates, and incorrect tile hashes remain validation errors.
 `Mbtiles::new` still only stores a path without performing file I/O, and the existing connection-opening APIs
 still support empty databases used as output destinations.

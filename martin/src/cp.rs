@@ -943,7 +943,7 @@ async fn init_schema(
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {
-        mbt.detect_type(&mut *conn).await?
+        mbt.detect_type_strict(&mut *conn).await?
     })
 }
 
