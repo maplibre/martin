@@ -21,7 +21,7 @@ mod copier;
 pub use crate::copier::{CopyDuplicateMode, MbtilesCopier};
 
 mod errors;
-pub use crate::errors::{MbtError, MbtResult};
+pub use crate::errors::{MbtError, MbtResult, MbtWarning};
 
 mod mbtiles;
 pub use crate::mbtiles::{CopyType, MbtTypeCli, Mbtiles};

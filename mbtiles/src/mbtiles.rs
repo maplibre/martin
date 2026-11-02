@@ -519,7 +519,7 @@ impl Mbtiles {
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let mbt = Mbtiles::new("tiles.mbtiles")?;
     /// let mut conn = mbt.open_readonly().await?;
-    /// let mbt_type = mbt.detect_type(&mut conn).await?;
+    /// let (mbt_type, _warnings) = mbt.detect_type(&mut conn).await?;
     ///
     /// match mbt.get_tile_and_hash(&mut conn, mbt_type, 4, 5, 6).await? {
     ///     Some((data, Some(hash))) => {
@@ -592,7 +592,7 @@ impl Mbtiles {
     /// let mbtiles = Mbtiles::new("example.mbtiles").unwrap();
     /// let mut conn = mbtiles.open().await.unwrap();
     ///
-    /// let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+    /// let mbt_type = mbtiles.detect_writable_type(&mut conn).await.unwrap();
     /// let batch = vec![
     ///     (0, 0, 0, vec![0, 1, 2, 3]),
     ///     (0, 1, 0, vec![4, 5, 6, 7]),
