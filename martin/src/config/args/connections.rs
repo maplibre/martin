@@ -59,6 +59,9 @@ impl Arguments {
             }
             let state = handle(name);
             self.state[i] = match state {
+                // Ignoring must not undo an earlier consumer's share: a directory shared by e.g.
+                // pmtiles is still claimed when a later consumer (duckdb) skips directories.
+                State::Ignore if matches!(self.state[i], State::Share(())) => State::Share(()),
                 State::Ignore => State::Ignore,
                 State::Share(v) => {
                     result.push(v);
