@@ -56,6 +56,7 @@ fn resolve_geoparquet_entry(
         GeoParquetLocation::Remote(url) => DuckDBPool::new_remote_geoparquet(
             source_id.clone(),
             url.clone(),
+            None,
             pool_size,
             entry.settings.threads,
             entry.settings.memory_limit_mb,
