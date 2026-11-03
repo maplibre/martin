@@ -93,6 +93,7 @@ impl DuckDbDatabaseEntry {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbTableEntry {
     /// Schema the table lives in. Defaults to `main`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"main"))]
     pub schema: Option<String>,
     /// Table name.
     pub table: String,
@@ -125,6 +126,7 @@ impl DuckDbTableEntry {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbMacroEntry {
     /// Schema the macro lives in. Defaults to `main`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"main"))]
     pub schema: Option<String>,
     /// Macro name.
     pub r#macro: String,
