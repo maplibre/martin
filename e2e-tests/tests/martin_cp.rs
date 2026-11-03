@@ -171,6 +171,31 @@ async fn copies_the_only_source_when_none_is_named() {
 }
 
 #[tokio::test]
+async fn refuses_a_destination_without_a_unique_index() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = mbtiles_fixture(dir.path(), "webp-no-primary").await;
+
+    let stderr = MartinCp::new()
+        .env("RUST_LOG", "error")
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--on-duplicate")
+        .arg("override")
+        .run_expecting_failure()
+        .await;
+
+    let dir_path = regex::escape(&dir.path().display().to_string());
+    let filters = vec![(dir_path.as_str(), "[DIR]"), (r"\[DIR\]\\", "[DIR]/")];
+    insta::with_settings!({ filters => filters }, {
+        insta::assert_snapshot!(stderr, @"ERROR The file [DIR]/webp-no-primary.mbtiles does not have the required uniqueness constraint");
+    });
+}
+
+#[tokio::test]
 async fn deletes_metadata_after_computing_it() {
     let dir = temp_dir();
     let source = mbtiles_fixture(dir.path(), "world_cities").await;

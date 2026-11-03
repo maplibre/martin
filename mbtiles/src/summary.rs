@@ -116,7 +116,7 @@ impl Mbtiles {
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
-        let mbt_type = self.detect_type(&mut *conn).await?;
+        let (mbt_type, _) = self.detect_type(&mut *conn).await?;
         let file_size = PathBuf::from_str(self.filepath())
             .ok()
             .and_then(|p| p.metadata().ok())

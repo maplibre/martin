@@ -240,3 +240,19 @@ pub enum MbtError {
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;
+
+/// Problems found while opening a file that do not stop it from being read.
+#[non_exhaustive]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+pub enum MbtWarning {
+    #[error("The file {0} does not have the required uniqueness constraint")]
+    NoUniquenessConstraint(String),
+}
+
+impl From<MbtWarning> for MbtError {
+    fn from(warning: MbtWarning) -> Self {
+        match warning {
+            MbtWarning::NoUniquenessConstraint(path) => Self::NoUniquenessConstraint(path),
+        }
+    }
+}

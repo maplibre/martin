@@ -13,7 +13,7 @@ use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash, InvalidTileIndex,
 };
 use crate::bindiff::get_patch_type;
-use crate::errors::{MbtError, MbtResult};
+use crate::errors::{MbtError, MbtResult, MbtWarning};
 use crate::mbtiles::PatchFileInfo;
 use crate::{
     AggTilesHasher, Mbtiles, has_tiles_with_hash, invert_y_value, is_cache_tables_type,
@@ -330,6 +330,8 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         self.check_integrity(&mut *conn, check_type).await?;
+        // validation is what people run before writing into a file, so it stays strict
+        self.detect_writable_type(&mut *conn).await?;
         self.check_tiles_type_validity(&mut *conn).await?;
         self.check_each_tile_hash(&mut *conn).await?;
         match agg_hash {
@@ -549,17 +551,43 @@ impl Mbtiles {
     /// Detect the type of the `MBTiles` file.
     ///
     /// See [`MbtType`] for more information.
+    ///
+    /// Problems that do not stop the file from being read, like a missing unique tile index,
+    /// are logged and returned as warnings. Callers that write into the file should treat
+    /// [`MbtWarning::NoUniquenessConstraint`] as an error, since conflict handling needs it.
     #[hotpath::measure]
-    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
+    pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<(MbtType, Vec<MbtWarning>)>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         debug!(mbtiles.file = %self, "Detecting MBTiles type");
         let typ = self.detect_layout(&mut *conn).await?;
 
-        self.check_for_uniqueness_constraint(&mut *conn, typ).await?;
+        let warnings: Vec<_> = self
+            .check_for_uniqueness_constraint(&mut *conn, typ)
+            .await?
+            .into_iter()
+            .collect();
+        for warning in &warnings {
+            warn!(mbtiles.file = %self, "{warning}");
+        }
 
-        Ok(typ)
+        Ok((typ, warnings))
+    }
+
+    /// Like [`detect_type`](Self::detect_type), but fails on warnings that make writing unsafe:
+    /// without a unique tile index, `INSERT OR REPLACE` / `OR IGNORE` add duplicate tiles,
+    /// so that returns [`MbtError::NoUniquenessConstraint`].
+    #[hotpath::measure]
+    pub async fn detect_writable_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let typ = self.detect_layout(&mut *conn).await?;
+        match self.check_for_uniqueness_constraint(&mut *conn, typ).await? {
+            Some(warning) => Err(warning.into()),
+            None => Ok(typ),
+        }
     }
 
     /// Detects the table layout without checking the tile index.
@@ -589,7 +617,7 @@ impl Mbtiles {
     }
 
     /// The table that lookups by tile coordinate read from.
-    const fn tile_table(mbt_type: MbtType) -> &'static str {
+    pub(crate) const fn tile_table(mbt_type: MbtType) -> &'static str {
         match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
@@ -624,7 +652,11 @@ impl Mbtiles {
         Ok(Some(table_name))
     }
 
-    async fn check_for_uniqueness_constraint<T>(&self, conn: &mut T, mbt_type: MbtType) -> MbtResult<()>
+    pub(crate) async fn check_for_uniqueness_constraint<T>(
+        &self,
+        conn: &mut T,
+        mbt_type: MbtType,
+    ) -> MbtResult<Option<MbtWarning>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -656,11 +688,11 @@ impl Mbtiles {
                 .next()
                 .is_none()
             {
-                return Ok(());
+                return Ok(None);
             }
         }
 
-        Err(MbtError::NoUniquenessConstraint(self.filepath().to_owned()))
+        Ok(Some(MbtWarning::NoUniquenessConstraint(self.filepath().to_owned())))
     }
 
     /// Perform `SQLite` internal integrity check
@@ -863,7 +895,7 @@ LIMIT 1;"
         // Note that hex() always returns upper-case HEX values
         let algorithm = self.get_hash_algorithm(&mut *conn).await?;
         let computed = algorithm.sql_hash("tile_data");
-        let sql = match self.detect_type(&mut *conn).await? {
+        let sql = match self.detect_type(&mut *conn).await?.0 {
             MbtType::Flat => {
                 info!(
                     mbtiles.file = %self,
@@ -961,7 +993,7 @@ LIMIT 1;"
 
     pub async fn examine_diff(&self, conn: &mut SqliteConnection) -> MbtResult<PatchFileInfo> {
         let info = PatchFileInfo {
-            mbt_type: self.detect_type(&mut *conn).await?,
+            mbt_type: self.detect_type(&mut *conn).await?.0,
             agg_tiles_hash: self.get_agg_tiles_hash(&mut *conn).await?,
             agg_tiles_hash_before_apply: self.get_metadata_value(&mut *conn, AGG_TILES_HASH_BEFORE_APPLY).await?,
             agg_tiles_hash_after_apply: self.get_metadata_value(&mut *conn, AGG_TILES_HASH_AFTER_APPLY).await?,
@@ -1074,44 +1106,92 @@ pub(crate) mod tests {
     async fn detect_type() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::Flat);
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), (MbtType::Flat, vec![]));
 
         let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::FlatWithHash);
+        assert_eq!(
+            mbt.detect_type(&mut conn).await.unwrap(),
+            (MbtType::FlatWithHash, vec![])
+        );
 
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(
-            res,
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::Hash
-            }
+            mbt.detect_type(&mut conn).await.unwrap(),
+            (
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash
+                },
+                vec![]
+            )
         );
 
         let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(
-            res,
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::DedupId
-            }
+            mbt.detect_type(&mut conn).await.unwrap(),
+            (
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::DedupId
+                },
+                vec![]
+            )
         );
 
         let (mbt, mut conn) = anonymous_mbtiles("").await;
         mbt.create_cache_schema(&mut conn, false).await.unwrap();
-        let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::Cache);
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), (MbtType::Cache, vec![]));
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
         assert_matches!(res, Err(MbtError::InvalidDataFormat(_)));
+    }
+
+    #[actix_rt::test]
+    async fn detect_type_without_unique_index_warns() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let (typ, warnings) = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(typ, MbtType::Flat);
+        insta::assert_debug_snapshot!(warnings, @r#"
+        [
+            NoUniquenessConstraint(
+                ":memory:",
+            ),
+        ]
+        "#);
+    }
+
+    #[actix_rt::test]
+    async fn validate_without_unique_index_fails() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt
+            .validate(&mut conn, IntegrityCheckType::Quick, AggHashType::Off)
+            .await;
+        assert_matches!(res, Err(MbtError::NoUniquenessConstraint(_)));
+    }
+
+    #[actix_rt::test]
+    async fn detect_type_with_non_unique_index_warns() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        query("CREATE INDEX tiles_idx ON tiles (zoom_level, tile_column, tile_row)")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+        let (typ, warnings) = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(typ, MbtType::Flat);
+        insta::assert_debug_snapshot!(warnings, @r#"
+        [
+            NoUniquenessConstraint(
+                ":memory:",
+            ),
+        ]
+        "#);
     }
 
     #[actix_rt::test]

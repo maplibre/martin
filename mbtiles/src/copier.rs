@@ -153,7 +153,7 @@ impl MbtileCopierInt {
     #[hotpath::measure]
     async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
-        let src_type = self.src_mbt.detect_type(&mut conn).await?;
+        let (src_type, _) = self.src_mbt.detect_type(&mut conn).await?;
         let src_algorithm = self.src_mbt.get_hash_algorithm(&mut conn).await?;
         conn.close().await?;
 
@@ -193,7 +193,7 @@ impl MbtileCopierInt {
         let dst_type = if is_empty_db {
             self.options.dst_type().unwrap_or(src_type)
         } else {
-            self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
+            self.validate_dst_type(self.dst_mbt.detect_writable_type(&mut conn).await?)?
         };
 
         info!(
@@ -715,6 +715,27 @@ impl MbtileCopierInt {
                 };
                 query(AssertSqlSafe(sql)).execute(&mut *conn).await?;
             }
+            // a source without the unique tile index must not pass that on to the copy
+            if self
+                .dst_mbt
+                .check_for_uniqueness_constraint(&mut *conn, dst)
+                .await?
+                .is_some()
+            {
+                let table = Mbtiles::tile_table(dst);
+                // the copied schema may already use this name for a non-unique index
+                let mut name = format!("{table}_unique_tile");
+                while query("SELECT 1 FROM main.sqlite_schema WHERE name = ?")
+                    .bind(&name)
+                    .fetch_optional(&mut *conn)
+                    .await?
+                    .is_some()
+                {
+                    name.push('_');
+                }
+                let sql = format!("CREATE UNIQUE INDEX {name} ON {table} (zoom_level, tile_column, tile_row)");
+                query(AssertSqlSafe(sql)).execute(&mut *conn).await?;
+            }
             if dst.normalized_schema() == Some(NormalizedSchema::Hash) {
                 // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
                 create_tiles_with_hash_view(&mut *conn).await?;
@@ -1113,7 +1134,8 @@ mod tests {
                 .unwrap()
                 .detect_type(&mut dst_conn)
                 .await
-                .unwrap(),
+                .unwrap()
+                .0,
             expected_dst_type
         );
 
@@ -1286,7 +1308,8 @@ mod tests {
                 .unwrap()
                 .detect_type(&mut dst_conn)
                 .await
-                .unwrap(),
+                .unwrap()
+                .0,
             DEDUP_ID
         );
         src_mbt.attach_to(&mut dst_conn, "testSrcDb").await.unwrap();
@@ -1401,7 +1424,10 @@ mod tests {
         .await
         .unwrap();
         let diff_mbt = Mbtiles::new(&diff_file).unwrap();
-        assert_eq!(diff_mbt.detect_type(&mut diff_conn).await.unwrap(), NORM_WITHOUT_VIEW);
+        assert_eq!(
+            diff_mbt.detect_type(&mut diff_conn).await.unwrap(),
+            (NORM_WITHOUT_VIEW, vec![])
+        );
         diff_mbt.check_each_tile_hash(&mut diff_conn).await.unwrap();
 
         let patched_file = PathBuf::from("file:patched_diff_and_patch_from_dedup_id_mem_db?mode=memory&cache=shared");
@@ -1419,7 +1445,7 @@ mod tests {
         let patched_mbt = Mbtiles::new(patched_file).unwrap();
         assert_eq!(
             patched_mbt.detect_type(&mut patched_conn).await.unwrap(),
-            NORM_WITHOUT_VIEW
+            (NORM_WITHOUT_VIEW, vec![])
         );
         patched_mbt.check_each_tile_hash(&mut patched_conn).await.unwrap();
     }
@@ -1622,6 +1648,64 @@ mod tests {
         };
 
         assert_matches!(opt.run().await.unwrap_err(), MbtError::RusqliteError(..));
+    }
+
+    #[actix_rt::test]
+    async fn copy_from_source_without_unique_index() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (_mbt, _conn, src) = temp_named_mbtiles("src_copy_without_unique_index_mem_db", script).await;
+
+        let mut dst_conn = MbtilesCopier {
+            src_file: src,
+            dst_file: PathBuf::from("file:dst_copy_without_unique_index_mem_db?mode=memory&cache=shared"),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert_eq!(get_one::<i64>(&mut dst_conn, "SELECT COUNT(*) FROM tiles").await, 1);
+        let dst = Mbtiles::new("file:dst_copy_without_unique_index_mem_db?mode=memory&cache=shared").unwrap();
+        assert_eq!(dst.detect_type(&mut dst_conn).await.unwrap(), (Flat, vec![]));
+    }
+
+    #[actix_rt::test]
+    async fn copy_from_source_with_a_non_unique_index_named_like_ours() {
+        let script = format!(
+            "{}\nCREATE INDEX tiles_unique_tile ON tiles (zoom_level, tile_column, tile_row);",
+            include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql")
+        );
+        let (_mbt, _conn, src) = temp_named_mbtiles("src_copy_index_name_taken_mem_db", &script).await;
+
+        let mut dst_conn = MbtilesCopier {
+            src_file: src,
+            dst_file: PathBuf::from("file:dst_copy_index_name_taken_mem_db?mode=memory&cache=shared"),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let dst = Mbtiles::new("file:dst_copy_index_name_taken_mem_db?mode=memory&cache=shared").unwrap();
+        assert_eq!(dst.detect_type(&mut dst_conn).await.unwrap(), (Flat, vec![]));
+    }
+
+    #[actix_rt::test]
+    async fn copy_into_destination_without_unique_index_fails() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src) = temp_named_mbtiles("src_copy_into_no_unique_index_mem_db", script).await;
+
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (_mbt, _conn, dst) = temp_named_mbtiles("dst_copy_into_no_unique_index_mem_db", script).await;
+
+        let opt = MbtilesCopier {
+            src_file: src,
+            dst_file: dst,
+            on_duplicate: Some(CopyDuplicateMode::Override),
+            ..Default::default()
+        };
+
+        assert_matches!(opt.run().await.unwrap_err(), MbtError::NoUniquenessConstraint(_));
     }
 
     #[rstest]
