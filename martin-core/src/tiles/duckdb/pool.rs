@@ -4,14 +4,17 @@ use std::fmt::{self, Display, Formatter};
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::Arc;
 
 use deadpool::managed::{Manager, Metrics, Pool, RecycleResult};
 use duckdb::{AccessMode, Config, Connection};
+use tracing::warn;
 use url::Url;
 
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError;
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError::{
-    ApplySetting, CreateSecret, HealthCheck, InvalidThreadCount, LoadExtension, Open,
+    ApplySetting, CreateSecret, HealthCheck, InvalidThreadCount, LoadExtension, LoadSecret, Open,
 };
 use crate::tiles::duckdb::{DuckDBError, DuckDBResult};
 
@@ -59,11 +62,12 @@ impl DuckDBPool {
 
     /// Creates an in-memory pool for a remote `GeoParquet` source.
     ///
-    /// When `secret` is set, every connection creates it before reading `url`.
+    /// When `secret` is set, every connection creates its current value before reading `url`,
+    /// and re-creates it on checkout whenever the provider hands out a different one.
     pub fn new_remote_geoparquet(
         id: String,
         url: Url,
-        secret: Option<DuckDBSecret>,
+        secret: Option<Arc<dyn DuckDBSecretProvider>>,
         pool_size: usize,
         threads: Option<NonZeroUsize>,
         memory_limit_mb: Option<NonZeroUsize>,
@@ -105,7 +109,7 @@ impl DuckDBPool {
             .get()
             .await
             .map_err(|e| DuckDBError::DuckDBPoolConnError(e, self.id.clone()))?;
-        tokio::task::spawn_blocking(move || f(&mut conn))
+        tokio::task::spawn_blocking(move || f(&mut conn.conn))
             .await
             .map_err(|e| DuckDBError::DuckDBTaskJoinError(e, "using DuckDB connection"))?
     }
@@ -119,9 +123,16 @@ impl DuckDBPool {
 
 #[derive(Clone, Debug)]
 pub enum DuckDBPoolTarget {
-    DatabaseFile { path: PathBuf },
-    GeoParquetLocal { path: PathBuf },
-    GeoParquetRemote { url: Url, secret: Option<DuckDBSecret> },
+    DatabaseFile {
+        path: PathBuf,
+    },
+    GeoParquetLocal {
+        path: PathBuf,
+    },
+    GeoParquetRemote {
+        url: Url,
+        secret: Option<Arc<dyn DuckDBSecretProvider>>,
+    },
 }
 
 impl Display for DuckDBPoolTarget {
@@ -130,6 +141,21 @@ impl Display for DuckDBPoolTarget {
             Self::DatabaseFile { path } | Self::GeoParquetLocal { path } => Display::fmt(&path.display(), formatter),
             Self::GeoParquetRemote { url, .. } => Display::fmt(url, formatter),
         }
+    }
+}
+
+/// Hands a remote pool the [`DuckDBSecret`] its connections should hold right now.
+///
+/// The pool asks on every connection checkout, so an implementation backed by expiring
+/// credentials must cache them and only refresh near expiry.
+pub trait DuckDBSecretProvider: fmt::Debug + Send + Sync {
+    /// The current secret; the error is a human-readable reason.
+    fn secret(&self) -> Pin<Box<dyn Future<Output = Result<DuckDBSecret, String>> + Send + '_>>;
+}
+
+impl DuckDBSecretProvider for DuckDBSecret {
+    fn secret(&self) -> Pin<Box<dyn Future<Output = Result<DuckDBSecret, String>> + Send + '_>> {
+        Box::pin(std::future::ready(Ok(self.clone())))
     }
 }
 
@@ -209,6 +235,13 @@ impl fmt::Debug for DuckDBSecret {
     }
 }
 
+/// A pooled connection and the secret it currently holds, if any.
+#[derive(Debug)]
+struct DuckDBConnection {
+    conn: Connection,
+    secret: Option<DuckDBSecret>,
+}
+
 // Deadpool manager responsible for opening and bootstrapping DuckDB connections.
 #[derive(Clone, Debug)]
 struct DuckDBPoolManager {
@@ -236,7 +269,24 @@ impl DuckDBPoolManager {
         Ok(())
     }
 
-    fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
+    fn secret_provider(&self) -> Option<&Arc<dyn DuckDBSecretProvider>> {
+        match &self.target {
+            DuckDBPoolTarget::GeoParquetRemote { secret, .. } => secret.as_ref(),
+            DuckDBPoolTarget::DatabaseFile { .. } | DuckDBPoolTarget::GeoParquetLocal { .. } => None,
+        }
+    }
+
+    fn create_secret(&self, conn: &Connection, secret: &DuckDBSecret) -> Result<(), DuckDBPoolManagerError> {
+        // The secret lives in this connection's in-memory catalog only, so it needs no
+        // SCOPE: nothing else reads through this connection.
+        conn.execute_batch(&secret.create_statement())
+            .map_err(|source| CreateSecret {
+                source: source.into(),
+                target: self.target.clone().into(),
+            })
+    }
+
+    fn open_ready_connection(&self, secret: Option<DuckDBSecret>) -> Result<DuckDBConnection, DuckDBPoolManagerError> {
         // File-backed pools are opened read-only. In-memory GeoParquet pools cannot use
         // AccessMode::ReadOnly - DuckDB rejects "in-memory database in read-only mode".
         let config = match &self.target {
@@ -294,48 +344,61 @@ impl DuckDBPoolManager {
         };
 
         self.load_extension(&conn, "spatial")?;
-        if let DuckDBPoolTarget::GeoParquetRemote { secret, .. } = &self.target {
+        if matches!(self.target, DuckDBPoolTarget::GeoParquetRemote { .. }) {
             self.load_extension(&conn, "httpfs")?;
-            if let Some(secret) = secret {
-                // The secret lives in this connection's in-memory catalog only, so it needs no
-                // SCOPE: nothing else reads through this connection.
-                conn.execute_batch(&secret.create_statement())
-                    .map_err(|source| CreateSecret {
-                        source: source.into(),
-                        target: self.target.clone().into(),
-                    })?;
-            }
+        }
+        if let Some(secret) = &secret {
+            self.create_secret(&conn, secret)?;
         }
 
-        Ok(conn)
+        Ok(DuckDBConnection { conn, secret })
     }
 }
 
 impl Manager for DuckDBPoolManager {
-    type Type = Connection;
+    type Type = DuckDBConnection;
     type Error = DuckDBPoolManagerError;
 
     // This method offloads connection creation to a blocking thread.
     fn create(&self) -> impl Future<Output = Result<Self::Type, Self::Error>> + Send {
         let manager = self.clone();
         async move {
-            tokio::task::spawn_blocking(move || manager.open_ready_connection())
+            let secret = match manager.secret_provider() {
+                Some(provider) => Some(provider.secret().await.map_err(|reason| LoadSecret {
+                    reason,
+                    target: manager.target.clone().into(),
+                })?),
+                None => None,
+            };
+            tokio::task::spawn_blocking(move || manager.open_ready_connection(secret))
                 .await
                 .map_err(DuckDBPoolManagerError::from)?
         }
     }
 
-    fn recycle(
-        &self,
-        conn: &mut Self::Type,
-        _metrics: &Metrics,
-    ) -> impl Future<Output = RecycleResult<Self::Error>> + Send {
-        std::future::ready(conn.execute_batch("SELECT 1").map_err(|source| {
+    // Re-creates the secret when its provider has moved on, e.g. to refreshed temporary credentials.
+    async fn recycle(&self, conn: &mut Self::Type, _metrics: &Metrics) -> RecycleResult<Self::Error> {
+        if let Some(provider) = self.secret_provider() {
+            match provider.secret().await {
+                Ok(secret) if conn.secret.as_ref() != Some(&secret) => {
+                    self.create_secret(&conn.conn, &secret)?;
+                    conn.secret = Some(secret);
+                }
+                Ok(_) => {}
+                // The held secret may still be valid; keep serving with it.
+                Err(reason) => warn!(
+                    target = %self.target,
+                    %reason,
+                    "Unable to refresh DuckDB secret, keeping the current one"
+                ),
+            }
+        }
+        conn.conn.execute_batch("SELECT 1").map_err(|source| {
             HealthCheck {
                 source: source.into(),
                 target: self.target.clone().into(),
             }
             .into()
-        }))
+        })
     }
 }

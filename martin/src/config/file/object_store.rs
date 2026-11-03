@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::str::FromStr as _;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 #[cfg(test)]
 use aws_config::profile::ProfileFileRegionProvider;
@@ -302,7 +303,7 @@ impl ObjectStoreConfig {
                 "Credentials from profile are ignored because request signing is disabled."
             );
         } else if let Some(provider) = sdk_config.credentials_provider() {
-            self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider { provider }));
+            self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider::new(provider)));
         }
     }
 
@@ -485,6 +486,10 @@ impl ObjectStoreConfig {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use aws_credential_types::Credentials;
+    use aws_credential_types::credential_fn::provide_credentials_fn;
 
     use rstest::rstest;
     use serde_json::json;
@@ -568,6 +573,38 @@ mod tests {
         }
         "#);
     }
+
+    /// A provider that counts its calls and hands out credentials expiring `lifetime` from now.
+    fn counting_provider(lifetime: Option<Duration>) -> (AwsSdkCredentialProvider, Arc<AtomicUsize>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&calls);
+        let provider = SharedCredentialsProvider::new(provide_credentials_fn(move || {
+            let call = counter.fetch_add(1, Ordering::SeqCst);
+            async move {
+                Ok(Credentials::new(
+                    format!("id-{call}"),
+                    "secret",
+                    Some("token".to_owned()),
+                    lifetime.map(|lifetime| SystemTime::now() + lifetime),
+                    "test",
+                ))
+            }
+        }));
+        (AwsSdkCredentialProvider::new(provider), calls)
+    }
+
+    #[rstest]
+    #[case::never_expires(None, 1)]
+    #[case::expires_later(Some(Duration::from_secs(3600)), 1)]
+    #[case::expires_within_margin(Some(Duration::from_secs(60)), 2)]
+    #[tokio::test]
+    async fn sdk_credentials_are_cached_until_near_expiry(#[case] lifetime: Option<Duration>, #[case] fetches: usize) {
+        let (provider, calls) = counting_provider(lifetime);
+        provider.get_credential().await.unwrap();
+        let second = provider.get_credential().await.unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), fetches);
+        assert_eq!(second.key_id, format!("id-{}", fetches - 1));
+    }
 }
 
 /// Shared object-store HTTP client cache.
@@ -584,9 +621,26 @@ impl HttpConnector for SharedHttpClients {
     }
 }
 
+/// Credentials from an AWS SDK provider, cached until shortly before they expire.
+///
+/// The SDK's own chain does not cache (SDK clients do that in their identity cache), so
+/// without this every request would re-run e.g. an STS `AssumeRole` or SSO lookup.
 #[derive(Debug)]
 pub struct AwsSdkCredentialProvider {
     provider: SharedCredentialsProvider,
+    cached: tokio::sync::Mutex<Option<(Arc<AwsCredential>, Option<SystemTime>)>>,
+}
+
+impl AwsSdkCredentialProvider {
+    /// How long before expiry cached credentials are replaced.
+    const REFRESH_MARGIN: Duration = Duration::from_mins(5);
+
+    fn new(provider: SharedCredentialsProvider) -> Self {
+        Self {
+            provider,
+            cached: tokio::sync::Mutex::default(),
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -594,6 +648,13 @@ impl CredentialProvider for AwsSdkCredentialProvider {
     type Credential = AwsCredential;
 
     async fn get_credential(&self) -> object_store::Result<Arc<Self::Credential>> {
+        // Held across the fetch so concurrent callers wait for one refresh instead of each starting one.
+        let mut cached = self.cached.lock().await;
+        if let Some((credential, expiry)) = cached.as_ref()
+            && expiry.is_none_or(|expiry| SystemTime::now() + Self::REFRESH_MARGIN < expiry)
+        {
+            return Ok(Arc::clone(credential));
+        }
         let credentials = self
             .provider
             .provide_credentials()
@@ -602,11 +663,13 @@ impl CredentialProvider for AwsSdkCredentialProvider {
                 store: "S3",
                 source: Box::new(source),
             })?;
-        Ok(Arc::new(AwsCredential {
+        let credential = Arc::new(AwsCredential {
             key_id: credentials.access_key_id().to_owned(),
             secret_key: credentials.secret_access_key().to_owned(),
             token: credentials.session_token().map(str::to_owned),
-        }))
+        });
+        *cached = Some((Arc::clone(&credential), credentials.expiry()));
+        Ok(credential)
     }
 }
 

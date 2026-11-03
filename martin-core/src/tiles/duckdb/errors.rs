@@ -65,6 +65,15 @@ pub enum DuckDBPoolManagerError {
         target: Box<DuckDBPoolTarget>,
     },
 
+    /// The source's secret provider could not produce a `DuckDBSecret`.
+    #[error("Unable to load DuckDB secret for {target}: {reason}")]
+    LoadSecret {
+        /// Why the provider failed.
+        reason: String,
+        /// Source target.
+        target: Box<DuckDBPoolTarget>,
+    },
+
     /// Thread count cannot be represented as a `DuckDB` setting value.
     #[error("Unable to apply DuckDB setting threads={0}: value is too large")]
     InvalidThreadCount(usize),

@@ -2,6 +2,6 @@ mod errors;
 pub use crate::tiles::duckdb::errors::{DuckDBError, DuckDBResult};
 
 mod pool;
-pub use pool::{DuckDBPool, DuckDBSecret};
+pub use pool::{DuckDBPool, DuckDBSecret, DuckDBSecretProvider};
 mod source;
 pub use crate::tiles::duckdb::source::{DuckDBSource, DuckDBSqlInfo};

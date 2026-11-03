@@ -48,11 +48,13 @@ async fn build_geoparquet_pool(
             entry.settings.memory_limit_mb,
         ),
         GeoParquetLocation::Remote(url) => {
-            let secret = s3_secret(&entry.object_store, url).await?;
+            let secret = s3_secret(&entry.object_store, url)?;
             if let Some(secret) = &secret {
+                // Also surfaces unusable profile credentials now rather than on the first tile.
+                let current = secret.secret().await?;
                 debug!(
                     source.id = %source_id,
-                    secret.params = ?secret.param_names().collect::<Vec<_>>(),
+                    secret.params = ?current.param_names().collect::<Vec<_>>(),
                     "Using DuckDB S3 secret"
                 );
             }

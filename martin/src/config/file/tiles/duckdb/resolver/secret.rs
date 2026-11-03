@@ -1,7 +1,11 @@
 //! Maps a remote `GeoParquet` source's object-store settings onto a `DuckDB` S3 secret.
 
-use martin_core::tiles::duckdb::DuckDBSecret;
-use object_store::aws::AmazonS3ConfigKey;
+use std::fmt;
+use std::pin::Pin;
+use std::sync::Arc;
+
+use martin_core::tiles::duckdb::{DuckDBSecret, DuckDBSecretProvider};
+use object_store::aws::{AmazonS3ConfigKey, AwsCredentialProvider};
 use object_store::client::ClientConfigKey;
 use url::Url;
 
@@ -11,11 +15,16 @@ use crate::config::file::ObjectStoreConfig;
 ///
 /// `None` for a non-`s3://` URL, or when nothing is configured: `DuckDB`'s own defaults then
 /// apply. Explicit `access_key_id`/`secret_access_key`/`session_token` win over credentials
-/// from a `profile`, which are fetched once, here; `skip_signature` drops credentials entirely.
-pub(crate) async fn s3_secret(config: &ObjectStoreConfig, url: &Url) -> Result<Option<DuckDBSecret>, String> {
+/// from a `profile`, which the provider re-reads so pools pick up refreshed temporary
+/// credentials; `skip_signature` drops credentials entirely.
+pub(crate) fn s3_secret(
+    config: &ObjectStoreConfig,
+    url: &Url,
+) -> Result<Option<Arc<dyn DuckDBSecretProvider>>, String> {
     if url.scheme() != "s3" {
         return Ok(None);
     }
+    let bucket = url.host_str().map(str::to_owned);
 
     let mut settings = S3Settings::default();
     for (key, value) in &config.options {
@@ -27,21 +36,55 @@ pub(crate) async fn s3_secret(config: &ObjectStoreConfig, url: &Url) -> Result<O
 
     if !settings.skip_signature
         && settings.key_id.is_none()
-        && let Some(provider) = &config.aws_credentials
+        && let Some(credentials) = &config.aws_credentials
     {
-        let credential = provider
-            .get_credential()
-            .await
-            .map_err(|error| format!("unable to load S3 credentials from profile: {error}"))?;
-        settings.key_id = Some(credential.key_id.clone());
-        settings.secret = Some(credential.secret_key.clone());
-        settings.session_token.clone_from(&credential.token);
+        return Ok(Some(Arc::new(ProfileSecret {
+            settings,
+            bucket,
+            credentials: Arc::clone(credentials),
+        })));
     }
 
-    settings.into_secret(url.host_str())
+    let secret = settings.into_secret(bucket.as_deref())?;
+    Ok(secret.map(|secret| Arc::new(secret) as Arc<dyn DuckDBSecretProvider>))
 }
 
-#[derive(Default)]
+/// An S3 secret whose credentials come from a `profile`, rebuilt from whatever the
+/// (caching) credential provider currently holds.
+struct ProfileSecret {
+    settings: S3Settings,
+    bucket: Option<String>,
+    credentials: AwsCredentialProvider,
+}
+
+impl fmt::Debug for ProfileSecret {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ProfileSecret")
+            .field("bucket", &self.bucket)
+            .finish_non_exhaustive()
+    }
+}
+
+impl DuckDBSecretProvider for ProfileSecret {
+    fn secret(&self) -> Pin<Box<dyn Future<Output = Result<DuckDBSecret, String>> + Send + '_>> {
+        Box::pin(async move {
+            let credential = self
+                .credentials
+                .get_credential()
+                .await
+                .map_err(|error| format!("unable to load S3 credentials from profile: {error}"))?;
+            let mut settings = self.settings.clone();
+            settings.key_id = Some(credential.key_id.clone());
+            settings.secret = Some(credential.secret_key.clone());
+            settings.session_token.clone_from(&credential.token);
+            let secret = settings.into_secret(self.bucket.as_deref())?;
+            Ok(secret.expect("a secret with a key id is never empty"))
+        })
+    }
+}
+
+#[derive(Clone, Default)]
 struct S3Settings {
     key_id: Option<String>,
     secret: Option<String>,
@@ -154,6 +197,10 @@ fn is_truthy(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use object_store::CredentialProvider;
+    use object_store::aws::AwsCredential;
     use rstest::rstest;
 
     use super::*;
@@ -170,7 +217,8 @@ mod tests {
     }
 
     async fn secret(values: &[(&str, &str)], url: &str) -> Option<DuckDBSecret> {
-        s3_secret(&config(values), &Url::parse(url).unwrap()).await.unwrap()
+        let provider = s3_secret(&config(values), &Url::parse(url).unwrap()).unwrap()?;
+        Some(provider.secret().await.unwrap())
     }
 
     #[tokio::test]
@@ -220,13 +268,48 @@ mod tests {
         assert_eq!(secret.param_names().collect::<Vec<_>>(), ["REGION"]);
     }
 
-    #[tokio::test]
-    async fn plain_http_endpoint_needs_allow_http() {
+    #[test]
+    fn plain_http_endpoint_needs_allow_http() {
         let url = Url::parse("s3://bucket/a.parquet").unwrap();
         let refused = config(&[("aws_endpoint", "http://localhost:9000")]);
-        s3_secret(&refused, &url).await.unwrap_err();
+        s3_secret(&refused, &url).unwrap_err();
         let allowed = config(&[("aws_endpoint", "http://localhost:9000"), ("allow_http", "true")]);
-        assert!(s3_secret(&allowed, &url).await.unwrap().is_some());
+        assert!(s3_secret(&allowed, &url).unwrap().is_some());
+    }
+
+    /// Hands out a new key id on every call, like a profile whose temporary credentials rotate.
+    #[derive(Debug, Default)]
+    struct RotatingCredentials(AtomicUsize);
+
+    #[async_trait::async_trait]
+    impl CredentialProvider for RotatingCredentials {
+        type Credential = AwsCredential;
+
+        async fn get_credential(&self) -> object_store::Result<Arc<Self::Credential>> {
+            let call = self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(Arc::new(AwsCredential {
+                key_id: format!("id-{call}"),
+                secret_key: "key".to_owned(),
+                token: Some("token".to_owned()),
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn profile_secret_follows_refreshed_credentials() {
+        let mut config = config(&[("region", "eu-west-1")]);
+        config.aws_credentials = Some(Arc::new(RotatingCredentials::default()));
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+
+        let first = provider.secret().await.unwrap();
+        let second = provider.secret().await.unwrap();
+        assert_eq!(
+            first.param_names().collect::<Vec<_>>(),
+            ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
+        );
+        assert_ne!(first, second);
     }
 
     #[rstest]
