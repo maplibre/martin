@@ -84,29 +84,35 @@ cargo binstall martin
 martin --help
 ```
 
-#### Verify binary release provenance
+#### Verify Release Integrity & Provenance
 
-Binary releases include a `provenance.json` attestation bundle for the packaged archives and Debian packages.
-Using the [GitHub CLI](https://cli.github.com/), verify a downloaded asset before extracting or installing it:
+Starting with recent releases, binaries and packages are signed via GitHub Actions artifact attestations.
+You can verify that a downloaded asset was built by MapLibre's official CI workflow and has not been tampered with by a third party.
 
-```bash
-gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
-    --repo maplibre/martin \
-    --signer-workflow maplibre/martin/.github/workflows/release.yml
-```
+=== "Online (GitHub CLI)"
 
-To use the `provenance.json` bundle downloaded from the same release:
+    Verify directly against GitHub's attestation API:
 
-```bash
-gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
-    --repo maplibre/martin \
-    --signer-workflow maplibre/martin/.github/workflows/release.yml \
-    --bundle provenance.json
-```
+    ```bash
+    gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+        --repo maplibre/martin \
+        --signer-workflow maplibre/martin/.github/workflows/release.yml
+    ```
 
-The same commands work for the other release archives and Debian packages by substituting the asset filename.
-Verification checks the asset's digest and its GitHub Actions build provenance.
-It does not enumerate crate versions or provide a dependency SBOM, and it does not apply to older releases without attestations.
+    Replace `martin-x86_64-unknown-linux-gnu.tar.gz` with the archive or `.deb` package you downloaded.
+
+=== "Offline / Air-Gapped (`provenance.json`)"
+
+    Download the `provenance.json` bundle alongside your release asset to verify without network access:
+
+    ```bash
+    gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+        --repo maplibre/martin \
+        --signer-workflow maplibre/martin/.github/workflows/release.yml \
+        --bundle provenance.json
+    ```
+
+    Replace `martin-x86_64-unknown-linux-gnu.tar.gz` with the archive or `.deb` package you downloaded.
 
 ### From package
 
