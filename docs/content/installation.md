@@ -84,6 +84,30 @@ cargo binstall martin
 martin --help
 ```
 
+#### Verify binary release provenance
+
+Binary releases include a `provenance.json` attestation bundle for the packaged archives and Debian packages.
+Using the [GitHub CLI](https://cli.github.com/), verify a downloaded asset before extracting or installing it:
+
+```bash
+gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+    --repo maplibre/martin \
+    --signer-workflow maplibre/martin/.github/workflows/release.yml
+```
+
+To use the `provenance.json` bundle downloaded from the same release:
+
+```bash
+gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+    --repo maplibre/martin \
+    --signer-workflow maplibre/martin/.github/workflows/release.yml \
+    --bundle provenance.json
+```
+
+The same commands work for the other release archives and Debian packages by substituting the asset filename.
+Verification checks the asset's digest and its GitHub Actions build provenance.
+It does not enumerate crate versions or provide a dependency SBOM, and it does not apply to older releases without attestations.
+
 ### From package
 
 To install with apt source and others, we need your help
