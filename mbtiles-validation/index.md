@@ -14,6 +14,8 @@ The `validate` command will run `PRAGMA integrity_check` on the file, and will f
 
 The `validate` command will verify that the `tiles` table/view exists, and that it has the expected columns and indexes. It will also verify that the `metadata` table/view exists, and that it has the expected columns and indexes.
 
+A missing unique index on `(zoom_level, tile_column, tile_row)` fails validation. Other commands still read such a file and print a warning, but refuse to write into it, since duplicate tiles could be inserted. `mbtiles copy` adds the missing index to its output.
+
 ## Per-tile validation
 
 If the `.mbtiles` file uses [flat\_with\_hash](<https://maplibre.org/martin/mbtiles-schema/#flat-with-hash>) or [hash-based normalized](<https://maplibre.org/martin/mbtiles-schema/#hash-based-normalized-schema>) schema, the `validate` command will verify that the hash of the `tile_data` column matches the `tile_hash` or `tile_id` columns (depending on the schema). The hash is computed with the file's [hash algorithm](<#hash-algorithm>).

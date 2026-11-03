@@ -1822,6 +1822,9 @@ Default is <code>quick</code>.</p>
 <h2 id="schema-check">Schema check</h2>
 <p>The <code>validate</code> command will verify that the <code>tiles</code> table/view exists, and that it has the expected columns and indexes.
 It will also verify that the <code>metadata</code> table/view exists, and that it has the expected columns and indexes.</p>
+<p>A missing unique index on <code>(zoom_level, tile_column, tile_row)</code> fails validation.
+Other commands still read such a file and print a warning, but refuse to write into it,
+since duplicate tiles could be inserted. <code>mbtiles copy</code> adds the missing index to its output.</p>
 <h2 id="per-tile-validation">Per-tile validation</h2>
 <p>If the <code>.mbtiles</code> file uses <a href="../mbtiles-schema/#flat-with-hash">flat_with_hash</a>
 or <a href="../mbtiles-schema/#hash-based-normalized-schema">hash-based normalized</a> schema, the <code>validate</code> command will verify that the hash of
