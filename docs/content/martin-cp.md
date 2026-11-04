@@ -82,7 +82,7 @@ You should also consider
 
 - `tile` requests every tile from the source, as the tile server does.
 - `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets.
-  It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](martin-generate.md).
+  See [Generating Tilesets](martin-generate.md).
 - `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
 
 Each mode refuses the options only the other one reads.

@@ -207,16 +207,15 @@ bless:
 
 # Run insta snapshot tests and save their output as the new expected output.
 bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    {{insta_test}} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    {{insta_test}} --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    {{insta_test}} --package martin-e2e-tests --features test-pg,test-mlt-v2 {{args}}
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    {{insta_test}} --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
+    {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
 
@@ -402,7 +401,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-generate {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -699,8 +698,7 @@ test: fetch start
 
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
-    cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
-    cargo nextest run --features test-pg,unstable-generate,unstable-mlt-v2 --no-default-features --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
+    cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
@@ -762,7 +760,7 @@ test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin/unstable-generate,martin-e2e-tests/test-generate,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
@@ -772,20 +770,20 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     {{just}} toolkit::test
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
-    cargo nextest run --package martin-core --features unstable-generate
+    cargo nextest run --package martin-core
     cargo nextest run --package martin-tilegen
-    cargo nextest run --package martin --features unstable-mlt-v2,unstable-generate
+    cargo nextest run --package martin --features unstable-mlt-v2
     {{just}} test-e2e
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    cargo nextest run --package martin-e2e-tests --features test-generate,test-mlt-v2 {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo nextest run --package martin-e2e-tests --features test-mlt-v2 {{args}}
 
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
 
 # Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
 test-doc *args: fetch
@@ -885,7 +883,7 @@ test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc
 
 # Run all tests using an SSL connection to a test database
 test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets") test-pg test-doc
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
 
 # Install the nextest test runner if not already installed.
 [private]
@@ -907,8 +905,8 @@ test-ssl-cert: start-ssl-cert (cargo-install 'cargo-nextest')
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
     {{just}} test-cargo --all-targets
     {{just}} test-doc
-    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2,martin/unstable-generate
-    cargo nextest run --package martin-e2e-tests --features test-generate,test-pg
+    cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
+    cargo nextest run --package martin-e2e-tests --features test-pg
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update: fetch

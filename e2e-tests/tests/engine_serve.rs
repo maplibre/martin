@@ -1,5 +1,5 @@
 //! Table sources with `layers`, served by Martin's engine.
-#![cfg(all(feature = "test-pg", feature = "test-generate"))]
+#![cfg(feature = "test-pg")]
 
 use indoc::indoc;
 use martin_e2e_tests::Martin;
