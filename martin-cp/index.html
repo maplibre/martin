@@ -2237,7 +2237,7 @@ This means that even sparse sources can usually be fairly performant.</p>
 <ul>
 <li><code>tile</code> requests every tile from the source, as the tile server does.</li>
 <li><code>bulk</code> reads each table once and renders every zoom itself, which is much faster for whole tilesets.
-  It is unstable and only built with the <code>unstable-generate</code> feature. See <a href="../martin-generate/">Generating Tilesets</a>.</li>
+  See <a href="../martin-generate/">Generating Tilesets</a>.</li>
 <li><code>auto</code> is the default. It picks <code>tile</code> for now, and will pick <code>bulk</code> for every run it can handle.</li>
 </ul>
 <p>Each mode refuses the options only the other one reads.</p>

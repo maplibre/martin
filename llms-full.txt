@@ -2677,11 +2677,7 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 >
 > **Not released or fully implemented**
 >
-> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
->
-> ```bash
-> cargo build --package martin --bin martin --features unstable-generate
-> ```
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet.
 >
 > Not implemented yet:
 >
@@ -6589,7 +6585,7 @@ You should also consider
 `--mode` chooses how `martin cp` produces the tiles:
 
 - `tile` requests every tile from the source, as the tile server does.
-- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
 - `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
 
 Each mode refuses the options only the other one reads.
@@ -6759,11 +6755,7 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 >
 > **Not released or fully implemented**
 >
-> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
->
-> ```bash
-> cargo build --package martin --bin martin --features unstable-generate
-> ```
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet.
 >
 > Not implemented yet:
 >
@@ -6897,11 +6889,7 @@ Tables are read over one connection per two threads, and no more than the pool's
 >
 > **Not released**
 >
-> `martin test` is not in any release yet, and its spec file may still change. It is only built with the `unstable-generate` feature:
->
-> ```bash
-> cargo install --path martin --locked --features unstable-generate
-> ```
+> `martin test` is not in any release yet, and its spec file may still change.
 
 `martin test` renders real rows through the [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) of table sources in [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>), and keeps the result in a spec file.
 
@@ -8397,11 +8385,7 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 >
 > **Not released or fully implemented**
 >
-> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
->
-> ```bash
-> cargo build --package martin --bin martin --features unstable-generate
-> ```
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet.
 >
 > Not implemented yet:
 >

@@ -67,7 +67,7 @@ You should also consider
 `--mode` chooses how `martin cp` produces the tiles:
 
 - `tile` requests every tile from the source, as the tile server does.
-- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. It is unstable and only built with the `unstable-generate` feature. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
+- `bulk` reads each table once and renders every zoom itself, which is much faster for whole tilesets. See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/index.md>).
 - `auto` is the default. It picks `tile` for now, and will pick `bulk` for every run it can handle.
 
 Each mode refuses the options only the other one reads.

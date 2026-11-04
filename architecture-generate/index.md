@@ -4,11 +4,7 @@
 >
 > **Not released or fully implemented**
 >
-> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet. It is only built with the `unstable-generate` feature:
->
-> ```bash
-> cargo build --package martin --bin martin --features unstable-generate
-> ```
+> The bulk mode of `martin cp` is not in any release yet, and parts of what these pages describe are not implemented yet.
 >
 > Not implemented yet:
 >
