@@ -90,7 +90,7 @@ jobs:
             echo "has_assets=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Use the published binaries for the Homebrew checksums
-        if: github.event_name == 'release' && steps.release.outputs.has_assets == 'true'
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && steps.release.outputs.has_assets == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
@@ -100,6 +100,7 @@ jobs:
           gh release download "$RELEASE_TAG_NAME" --dir target/files
 
       - name: Create Homebrew config
+        if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'martin-v')
         run: |
           set -x
 
@@ -120,16 +121,17 @@ jobs:
           GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name || 'not-a-release' }}
 
       - name: Save Homebrew Config
+        if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'martin-v')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Generate SLSA build provenance attestation
-        if: github.event_name == 'release' && steps.release.outputs.has_assets == 'false'
+        if: ${{ github.event_name == 'release' && (startsWith(github.event.release.tag_name, 'martin-v') || startsWith(github.event.release.tag_name, 'mbtiles-v')) && steps.release.outputs.has_assets == 'false' }}
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
-        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && steps.release.outputs.has_assets == 'false' }}
+        if: ${{ github.event_name == 'release' && (startsWith(github.event.release.tag_name, 'martin-v') || startsWith(github.event.release.tag_name, 'mbtiles-v')) && steps.release.outputs.has_assets == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
@@ -137,16 +139,22 @@ jobs:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           set -euo pipefail
-          if ! compgen -G "target/files/*" > /dev/null; then
-            echo "No release artifacts matched target/files/*" >&2
+          shopt -s nullglob
+          case "$RELEASE_TAG_NAME" in
+            martin-v*) assets=(target/files/martin-* target/files/*.deb) ;;
+            mbtiles-v*) assets=(target/files/mbtiles-*) ;;
+            *) echo "Unsupported release tag: $RELEASE_TAG_NAME" >&2; exit 1 ;;
+          esac
+          if ((${#assets[@]} == 0)); then
+            echo "No release artifacts matched $RELEASE_TAG_NAME" >&2
             exit 1
           fi
           cp "$ATTESTATION_BUNDLE" target/provenance.json
-          gh release upload "$RELEASE_TAG_NAME" target/files/* target/provenance.json --clobber
-          if [[ "$RELEASE_IS_PRERELEASE" == true ]]; then latest=false; else latest=true; fi
+          gh release upload "$RELEASE_TAG_NAME" "${assets[@]}" target/provenance.json --clobber
+          if [[ "$RELEASE_TAG_NAME" == martin-v* && "$RELEASE_IS_PRERELEASE" != true ]]; then latest=true; else latest=false; fi
           gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest="$latest"
       - name: Publish without artifacts
-        if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
+        if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') && !startsWith(github.event.release.tag_name, 'mbtiles-v') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
@@ -164,7 +172,7 @@ jobs:
         #   Access Metadata: Read-only
         #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: maplibre/homebrew-martin
@@ -173,6 +181,7 @@ jobs:
           persist-credentials: false
 
       - name: Create Homebrew formula
+        if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'martin-v')
         uses: cuchi/jinja2-action@8bd801365a8d36a0b20f45ee969161685de7785a # master
         with:
           template: .github/files/homebrew.martin.rb.j2
@@ -262,8 +271,14 @@ jobs:
               echo "$tag has no draft release to publish, skipping"
               continue
             fi
-            if [[ "$tag" == martin-v* || "$tag" == mbtiles-v* ]]; then
-              gh release upload "$tag" target/files/* target/provenance.json --clobber
+            shopt -s nullglob
+            case "$tag" in
+              martin-v*) assets=(target/files/martin-* target/files/*.deb) ;;
+              mbtiles-v*) assets=(target/files/mbtiles-*) ;;
+              *) assets=() ;;
+            esac
+            if ((${#assets[@]})); then
+              gh release upload "$tag" "${assets[@]}" target/provenance.json --clobber
             fi
             if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
             gh release edit "$tag" --verify-tag --draft=false --latest="$latest"
