@@ -281,13 +281,13 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use crate::{MosaicIndex as _, TileCoord};
     use object_store::ObjectStore;
     use object_store::memory::InMemory;
     use object_store::path::Path;
-    use sqlx::{ConnectOptions as _, sqlite::SqliteConnectOptions};
+    use sqlx::ConnectOptions as _;
+    use sqlx::sqlite::SqliteConnectOptions;
 
-    use crate::{HrefResolver, TileIndex};
+    use crate::{HrefResolver, MosaicIndex as _, TileCoord, TileIndex};
 
     fn fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/cog/tile_index/naip.gpkg")

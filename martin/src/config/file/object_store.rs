@@ -142,7 +142,10 @@ fn is_credential_option(key: &str) -> bool {
 fn is_credential_discovery_option(key: &str) -> bool {
     key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
         AWS_CREDENTIAL_DISCOVERY_KEYS.contains(&key)
-            || matches!(key, AmazonS3ConfigKey::MetadataEndpoint | AmazonS3ConfigKey::ImdsV1Fallback)
+            || matches!(
+                key,
+                AmazonS3ConfigKey::MetadataEndpoint | AmazonS3ConfigKey::ImdsV1Fallback
+            )
     })
 }
 
@@ -369,6 +372,8 @@ impl ObjectStoreConfig {
 
     /// Builds the store for `url`, sharing HTTP connection pools across sources.
     #[expect(clippy::wildcard_enum_match_arm, reason = "ObjectStoreScheme is non-exhaustive")]
+    // Only PMTiles and COG sources build stores; DuckDB uses just the settings.
+    #[cfg_attr(not(any(feature = "pmtiles", feature = "cog")), allow(dead_code))]
     pub(crate) fn parse_url_opts(
         &self,
         url: &Url,
@@ -526,7 +531,6 @@ mod tests {
 
     use aws_credential_types::Credentials;
     use aws_credential_types::credential_fn::provide_credentials_fn;
-
     use rstest::rstest;
     use serde_json::json;
 
@@ -675,7 +679,10 @@ mod tests {
         own.inherit(&shared);
 
         assert_eq!(
-            own.options.keys().map(|key| canonical_option_key(key)).collect::<Vec<_>>(),
+            own.options
+                .keys()
+                .map(|key| canonical_option_key(key))
+                .collect::<Vec<_>>(),
             ["aws_container_credentials_relative_uri"]
         );
     }

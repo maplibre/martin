@@ -349,7 +349,10 @@ mod tests {
         let full_uri = format!("{}/credentials", server.uri());
         let config = config(&[
             ("container_credentials_full_uri", full_uri.as_str()),
-            ("container_authorization_token_file", token_file.path().to_str().unwrap()),
+            (
+                "container_authorization_token_file",
+                token_file.path().to_str().unwrap(),
+            ),
             ("region", "eu-west-1"),
         ]);
         let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())

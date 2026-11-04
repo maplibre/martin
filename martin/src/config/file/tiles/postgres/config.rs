@@ -9,8 +9,7 @@ use tilejson::TileJSON;
 #[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
 use super::{FuncInfoSources, Srid, TableInfoSources};
-use crate::config::args::BoundsCalcType;
-use crate::config::args::OrderByType;
+use crate::config::args::{BoundsCalcType, OrderByType};
 #[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{

@@ -325,11 +325,11 @@ impl Analyzer<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::props::{KeyId, Prop};
     use rstest::rstest;
 
     use super::*;
     use crate::expr::{ExprKeys, PropSlots};
+    use crate::props::{KeyId, Prop};
 
     #[rstest]
     #[case::select("feature.name.upperAscii()", Value::from("BERLIN "))]

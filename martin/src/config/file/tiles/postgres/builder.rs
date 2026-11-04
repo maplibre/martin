@@ -6,8 +6,7 @@ use martin_core::tiles::{BackendSource, BoxedSource};
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD_ID};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::config::args::BoundsCalcType;
-use crate::config::args::OrderByType;
+use crate::config::args::{BoundsCalcType, OrderByType};
 use crate::config::file::postgres::auto_publish::{
     AutoPublish, Catalog, Decision, IdColumnOutcome, Merged, SkipReason, Transform,
 };

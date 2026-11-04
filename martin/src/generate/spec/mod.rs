@@ -357,7 +357,6 @@ async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
-
     use martin_tilegen::plan::{Condition, Shape};
     use martin_tilegen::source::MemorySource;
 
