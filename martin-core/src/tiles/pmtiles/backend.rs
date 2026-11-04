@@ -42,7 +42,7 @@ impl PmtFileBackend {
 }
 
 impl AsyncBackend for PmtFileBackend {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
         if data_version(&std::fs::metadata(&self.path)?) != self.version {
             return Err(PmtError::SourceModified);
         }
@@ -78,7 +78,7 @@ pub(crate) enum PmtBackend {
 }
 
 impl AsyncBackend for PmtBackend {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
         match self {
             Self::File(backend) => backend.read(offset, length).await,
             Self::ObjectStore(backend) => backend.read(offset, length).await,
