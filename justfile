@@ -591,12 +591,14 @@ package-assets target:
     mkdir -p target/files
     cd target/{{target}}
     if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
-        7z a ../files/martin-{{target}}.zip martin.exe mbtiles.exe
+        cp ../../martin.spdx.json .
+        7z a ../files/martin-{{target}}.zip martin.exe mbtiles.exe martin.spdx.json
     elif [[ '{{target}}' == 'debian-x86_64' ]]; then
         mv *.deb ../files/
     else
         chmod +x martin mbtiles
-        tar czvf ../files/martin-{{target}}.tar.gz martin mbtiles
+        cp ../../martin.spdx.json .
+        tar czvf ../files/martin-{{target}}.tar.gz martin mbtiles martin.spdx.json
     fi
     cd ../..
 
