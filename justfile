@@ -921,6 +921,8 @@ update-lockfile: fetch
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
     cargo update --precise 1.0.2 sdf_glyph_renderer
+    # keeps bindgen's syn and prettyplease on the same major, remove once closed: https://github.com/rust-lang/rust-bindgen/issues/3448
+    cargo update -p bindgen
 
 # Validate that all required development tools are installed
 validate-tools:
