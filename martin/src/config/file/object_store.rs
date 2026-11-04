@@ -311,22 +311,23 @@ impl ObjectStoreConfig {
     /// Fills every option `self` leaves unset, and the AWS credential provider, from `shared`.
     ///
     /// Options are matched by their canonical name, so `aws_region` here shadows a shared
-    /// `region`. With its own `profile`, `self` keeps the profile's credentials and takes no
-    /// credential keys from `shared`.
+    /// `region`. Credentials are inherited as a group: with its own `profile` or any credential
+    /// key, `self` takes no credential keys and no credential provider from `shared`, so a
+    /// shared `session_token` never pairs with a source's own key pair.
     pub(crate) fn inherit(&mut self, shared: &Self) {
-        let own_profile = self.profile.is_some();
+        let own_credentials = self.profile.is_some() || self.options.keys().any(|key| is_credential_option(key));
         let own_keys = self
             .options
             .keys()
             .map(|key| canonical_option_key(key))
             .collect::<Vec<_>>();
         for (key, value) in &shared.options {
-            if own_keys.contains(&canonical_option_key(key)) || (own_profile && is_credential_option(key)) {
+            if own_keys.contains(&canonical_option_key(key)) || (own_credentials && is_credential_option(key)) {
                 continue;
             }
             self.options.insert(key.clone(), value.clone());
         }
-        if !own_profile && self.aws_credentials.is_none() {
+        if !own_credentials && self.aws_credentials.is_none() {
             self.aws_credentials.clone_from(&shared.aws_credentials);
         }
     }
@@ -591,6 +592,40 @@ mod tests {
             }
         }));
         (AwsSdkCredentialProvider::new(provider), calls)
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    #[test]
+    fn own_key_pair_inherits_no_shared_credentials() {
+        let mut shared = prepared([
+            ("access_key_id", json!("shared-id")),
+            ("secret_access_key", json!("shared-key")),
+            ("session_token", json!("shared-token")),
+            ("region", json!("eu-west-1")),
+        ]);
+        let (provider, _) = counting_provider(None);
+        shared.aws_credentials = Some(Arc::new(provider));
+        let mut own = prepared([
+            ("access_key_id", json!("own-id")),
+            ("secret_access_key", json!("own-key")),
+        ]);
+
+        own.inherit(&shared);
+
+        let options = own
+            .options
+            .iter()
+            .map(|(key, value)| (canonical_option_key(key), value.as_str()))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            options,
+            BTreeMap::from([
+                ("aws_access_key_id".to_owned(), "own-id"),
+                ("aws_region".to_owned(), "eu-west-1"),
+                ("aws_secret_access_key".to_owned(), "own-key"),
+            ])
+        );
+        assert!(own.aws_credentials.is_none());
     }
 
     #[rstest]
