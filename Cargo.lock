@@ -4205,6 +4205,15 @@ version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b4af2b5ecf2650278fe33b0e49b68c8c484d2306475c127628316dea740cf5c"
 dependencies = [
+ "hotpath-macros 0.29.2",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0cbf39e82270ed8cce255dd96e30c4aa8a9267ef3ba864e3c57c412df4a4110"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -4220,7 +4229,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros",
+ "hotpath-macros 0.31.0",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4240,15 +4249,21 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.29.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5cceb6c15fbaaeb00b51acc7be7fad533d0b56cb422b1cfc16cf9ca1624d33a"
+checksum = "e0ae88d6d97d01f99a1d77b7d0cc714e7d0885f2078b39059c3e5d29d9eff70b"
 
 [[package]]
 name = "hotpath-macros"
 version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c0a42eb299ebb7ec6b9161489e5bf132603a34ca12cecadb8490937aa0492a"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5a7e8b29565b482e149d84ca6ab933102fb54a93966d90aeafc58d7e26be451"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5768,7 +5783,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.31.0",
  "insta",
  "serde_json",
  "stats_alloc",
@@ -5837,7 +5852,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.31.0",
  "humantime-serde",
  "image",
  "indexmap 2.14.2",
@@ -5935,7 +5950,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.31.0",
  "humantime",
  "image",
  "insta",
@@ -6035,7 +6050,7 @@ dependencies = [
  "brotli 9.1.1",
  "bytes",
  "flate2",
- "hotpath",
+ "hotpath 0.31.0",
  "rstest",
  "serde",
  "serde_json",
@@ -6057,7 +6072,7 @@ dependencies = [
  "geo",
  "geo-traits",
  "geo-types",
- "hotpath",
+ "hotpath 0.31.0",
  "insta",
  "lasso",
  "map-tile-toolkit",
@@ -6134,7 +6149,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath",
+ "hotpath 0.31.0",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -6314,7 +6329,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.29.2",
  "integer-encoding",
  "num-traits",
  "num_enum",
