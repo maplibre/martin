@@ -107,6 +107,15 @@
       enabled: false,
     },
     {
+      // The rendering jobs stay on ubuntu-24.04 (#3852): on 26.04 the prebuilt
+      // maplibre_native amalgam segfaults in libuv 1.51. Drop this once rendering
+      // goes through maplibre-native-ffi (#3849).
+      matchDatasources: ['github-runners'],
+      matchPackageNames: ['ubuntu'],
+      matchCurrentValue: '24.04',
+      enabled: false,
+    },
+    {
       // static-files 0.3 breaks the Rust build across nearly every target (#2973);
       // fixing it needs upstream changes we don't have capacity to contribute right now.
       matchManagers: ['cargo'],

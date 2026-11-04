@@ -2,6 +2,7 @@
 
 use std::ffi::OsString;
 use std::io::{Read as _, Write};
+use std::num::NonZeroU16;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
@@ -13,10 +14,10 @@ use sqlx::{AssertSqlSafe, Connection as _, PgConnection};
 use crate::binary_argv;
 
 /// Rows of the terminal the review runs in.
-const ROWS: u16 = 16;
+const ROWS: NonZeroU16 = NonZeroU16::new(16).expect("16 != 0");
 
 /// Columns of the terminal the review runs in.
-const COLUMNS: u16 = 100;
+const COLUMNS: NonZeroU16 = NonZeroU16::new(100).expect("100 != 0");
 
 /// How long the screen stays unchanged before it counts as drawn.
 const SETTLED: Duration = Duration::from_millis(200);
@@ -97,8 +98,8 @@ impl MartinTestReview {
     pub fn start(dir: &Path, args: &[&str]) -> Self {
         let pty = native_pty_system()
             .openpty(PtySize {
-                rows: ROWS,
-                cols: COLUMNS,
+                rows: ROWS.get(),
+                cols: COLUMNS.get(),
                 pixel_width: 0,
                 pixel_height: 0,
             })
@@ -151,8 +152,8 @@ impl MartinTestReview {
                 let drawn = self.drawn.lock().unwrap_or_else(PoisonError::into_inner);
                 let screen = drawn.terminal.screen();
                 let rows: Vec<String> = screen
-                    .rows(0, COLUMNS)
-                    .map(|row| format!("\"{row:<width$}\"", width = usize::from(COLUMNS)))
+                    .rows(0, COLUMNS.get())
+                    .map(|row| format!("\"{row:<width$}\"", width = usize::from(COLUMNS.get())))
                     .collect();
                 let screen = rows.join("\n");
                 if screen.contains(text) && drawn.at.elapsed() >= SETTLED {

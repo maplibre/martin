@@ -20,7 +20,7 @@ use rstest::rstest;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
-const TTL_CACHE_OFFSET: usize = 0;
+const TTL_CACHE_OFFSET: u64 = 0;
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
 const CACHE_SIZE_10MB: u64 = 10 * 1024 * 1024;
 const EXPIRY_BUFFER: Duration = Duration::from_secs(1);
@@ -620,14 +620,14 @@ async fn wait_and_flush(cache: &PmtCacheInstance, duration: Duration) {
     cache.sync().await;
 }
 
-async fn dir_insert(cache: &PmtCacheInstance, offset: usize) {
+async fn dir_insert(cache: &PmtCacheInstance, offset: u64) {
     cache
         .get_dir_entry_or_insert(offset, ttl_tile_id(), async move { create_test_directory() })
         .await
         .unwrap();
 }
 
-async fn dir_assert_hit(cache: &PmtCacheInstance, offset: usize) {
+async fn dir_assert_hit(cache: &PmtCacheInstance, offset: u64) {
     let result = cache
         .get_dir_entry_or_insert(offset, ttl_tile_id(), async {
             panic!("expected cache hit, but fetcher was called");
@@ -637,7 +637,7 @@ async fn dir_assert_hit(cache: &PmtCacheInstance, offset: usize) {
     assert!(result.is_some(), "expected directory entry, got None");
 }
 
-async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
+async fn dir_assert_miss(cache: &PmtCacheInstance, offset: u64) {
     let (tx, mut rx) = oneshot::channel();
     cache
         .get_dir_entry_or_insert(offset, ttl_tile_id(), async move {

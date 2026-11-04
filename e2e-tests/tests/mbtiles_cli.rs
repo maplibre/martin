@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, metadata, temp_dir, tiles};
+use martin_e2e_tests::{GZIP_MAGIC, MbtilesCli, Tile, mbtiles_fixture, metadata, temp_dir, tile_listing, tiles};
 use rstest::rstest;
 
 fn tile_tree(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -405,4 +405,46 @@ async fn meta_update_rejects_a_key_both_set_and_deleted() {
 
     assert!(output.contains("name"), "output:\n{output}");
     assert_eq!(metadata(&file).await, before);
+}
+
+#[tokio::test]
+async fn summary_warns_on_a_missing_unique_index() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "webp-no-primary").await;
+
+    let output = MbtilesCli::new("summary").arg(&source).run().await;
+
+    let dir_path = regex::escape(&dir.path().display().to_string());
+    // the page geometry depends on the sqlite build that wrote the file
+    let filters = vec![
+        (dir_path.as_str(), "[DIR]"),
+        (r"\[DIR\]\\", "[DIR]/"),
+        (r"(?m)^(File size|SQL page size|SQL page count): .*$", "$1: [N]"),
+    ];
+    insta::with_settings!({ filters => filters }, {
+        insta::assert_snapshot!(output, @"
+        File path:      [DIR]/webp-no-primary.mbtiles
+        Schema:         flat
+        File size: [N]
+        SQL page size: [N]
+        SQL page count: [N]
+
+         Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
+            0 |         1 |       23B |       23B |       23B | -180,-85,180,85
+
+         WARN The file [DIR]/webp-no-primary.mbtiles does not have the required uniqueness constraint mbtiles.file=[DIR]/webp-no-primary.mbtiles
+        ");
+    });
+}
+
+#[tokio::test]
+async fn copy_reads_a_source_without_a_unique_index() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "webp-no-primary").await;
+    let copied = dir.path().join("copied.mbtiles");
+
+    MbtilesCli::new("copy").arg(&source).arg(&copied).run().await;
+
+    assert_eq!(tiles(&source).await, tiles(&copied).await);
+    insta::assert_snapshot!(tile_listing(&copied).await, @"0/0/0 23 bytes");
 }

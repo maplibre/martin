@@ -168,7 +168,7 @@ where
     pub async fn run(self) -> MbtResult<TranscodeStats> {
         let src = Mbtiles::new(&self.src_file)?;
         let mut src_conn = src.open_readonly().await?;
-        let src_type = src.detect_type(&mut src_conn).await?;
+        let (src_type, _) = src.detect_type(&mut src_conn).await?;
         let dst_type = self.dst_type.unwrap_or(src_type);
         if matches!(src_type, MbtType::Cache) || matches!(dst_type, MbtType::Cache) {
             return Err(MbtError::TranscodeError(

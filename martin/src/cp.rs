@@ -943,7 +943,8 @@ async fn init_schema(
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {
-        mbt.detect_type(&mut *conn).await?
+        // tiles are written with conflict handling, which needs the unique tile index
+        mbt.detect_writable_type(&mut *conn).await?
     })
 }
 

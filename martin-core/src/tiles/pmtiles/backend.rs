@@ -46,12 +46,11 @@ impl PmtFileBackend {
 }
 
 impl AsyncBackend for PmtFileBackend {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
         let meta = std::fs::metadata(&self.path)?;
         if data_version(&meta) != self.version {
             return Err(PmtError::SourceModified);
         }
-        let offset = offset as u64;
         let length = length.min(usize::try_from(meta.len().saturating_sub(offset)).unwrap_or(usize::MAX));
         let mut buf = vec![0; length];
         let cached = read_cached(&self.file, &mut buf, offset);
@@ -128,7 +127,7 @@ pub(crate) enum PmtBackend {
 }
 
 impl AsyncBackend for PmtBackend {
-    async fn read(&self, offset: usize, length: usize) -> PmtResult<BackendResponse> {
+    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
         match self {
             Self::File(backend) => backend.read(offset, length).await,
             Self::ObjectStore(backend) => backend.read(offset, length).await,
