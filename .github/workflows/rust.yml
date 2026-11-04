@@ -555,15 +555,9 @@ jobs:
       - name: Test linux/arm64 Docker image
         if: contains(env.DOCKER_TEST_PLATFORMS, 'arm64')
         run: |
-          PLATFORM=linux/arm64
           TAG=${{ github.repository }}:linux${{ matrix.suffix }}
-          # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
-          # directories they build their own in, so the workspace and the temp directory are
-          # mounted where the host has them. The container runs as the runner so that the files
-          # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
-          export MARTIN_BIN="docker run $RUN $TAG"
-          export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN=".github/files/docker-bin.sh linux/arm64 $TAG /usr/local/bin/martin"
+          export MBTILES_BIN=".github/files/docker-bin.sh linux/arm64 $TAG /usr/local/bin/mbtiles"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           TMPDIR: /tmp
@@ -573,15 +567,9 @@ jobs:
           MARTIN_E2E_READY_TIMEOUT: 300
       - name: End-to-end tests against the linux/amd64 Docker image
         run: |
-          PLATFORM=linux/amd64
           TAG=${{ github.repository }}:linux${{ matrix.suffix }}
-          # The tests hand martin absolute paths, both to checked-in fixtures and to the temp
-          # directories they build their own in, so the workspace and the temp directory are
-          # mounted where the host has them. The container runs as the runner so that the files
-          # it writes into those directories stay ours to read and delete.
-          RUN="--rm --net host --platform $PLATFORM --user $(id -u):$(id -g) -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -v $PWD:$PWD -v $TMPDIR:$TMPDIR -w $PWD"
-          export MARTIN_BIN="docker run $RUN $TAG"
-          export MBTILES_BIN="docker run $RUN --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/martin"
+          export MBTILES_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/mbtiles"
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           TMPDIR: /tmp
@@ -867,6 +855,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
+      - name: Free disk space for the restored build cache plus the PR's rebuilt crates
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
       - name: Set up sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust

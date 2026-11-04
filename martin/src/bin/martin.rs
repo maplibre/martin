@@ -31,7 +31,7 @@ use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
-#[cfg(feature = "unstable-generate")]
+#[cfg(feature = "postgres")]
 use martin::generate::spec;
 use martin::logging::{LogFormat, ensure_library_log_levels_match, init_tracing};
 #[cfg(feature = "_tiles")]
@@ -241,7 +241,7 @@ async fn main() {
         return;
     }
 
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     if let Some(Command::Test(test_args)) = args.command {
         let log_format = LogFormat::from_env();
         let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "martin=error".to_owned());

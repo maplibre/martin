@@ -47,12 +47,13 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
-unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen", "tokio/rt"]
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:futures",
     "dep:geo-traits",
     "dep:humantime",
+    "dep:martin-tilegen",
     "dep:mlt-core",
     "dep:postgres",
     "dep:regex",
@@ -64,6 +65,7 @@ postgres = [
     "dep:serde_json",
     "dep:url",
     "dep:tokio",
+    "tokio/rt",
     "tokio/sync",
     "tokio/time",
     "compact_str/sqlx-postgres",

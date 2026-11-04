@@ -1,5 +1,5 @@
 //! `martin cp --mode bulk`, which renders whole tables in one pass.
-#![cfg(all(feature = "test-pg", feature = "test-generate"))]
+#![cfg(feature = "test-pg")]
 
 use std::fs;
 
