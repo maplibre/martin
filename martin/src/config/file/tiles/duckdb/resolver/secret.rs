@@ -15,9 +15,10 @@ use crate::config::file::ObjectStoreConfig;
 ///
 /// `None` for a non-`s3://` URL, or when no credentials, region, endpoint or addressing style
 /// is configured: `DuckDB`'s own defaults then apply. Explicit
-/// `access_key_id`/`secret_access_key`/`session_token` win over credentials from a `profile`,
-/// which the provider re-reads so pools pick up refreshed temporary credentials;
-/// `skip_signature` drops credentials entirely.
+/// `access_key_id`/`secret_access_key`/`session_token` win over credentials from a `profile`
+/// or from credential-discovery options (web identity, container or instance metadata), which
+/// the provider re-reads so pools pick up refreshed temporary credentials; `skip_signature`
+/// drops credentials entirely.
 pub(crate) fn s3_secret(
     config: &ObjectStoreConfig,
     url: &Url,
@@ -35,46 +36,51 @@ pub(crate) fn s3_secret(
         settings.set(key, value);
     }
 
-    if !settings.skip_signature
-        && settings.key_id.is_none()
-        && let Some(credentials) = &config.aws_credentials
-    {
-        return Ok(Some(Arc::new(ProfileSecret {
-            settings,
-            bucket,
-            credentials: Arc::clone(credentials),
-        })));
+    if !settings.skip_signature && settings.key_id.is_none() {
+        let credentials = match &config.aws_credentials {
+            Some(credentials) => Some(Arc::clone(credentials)),
+            None => config
+                .discovered_aws_credentials(url)
+                .map_err(|error| format!("unable to set up S3 credential discovery: {error}"))?,
+        };
+        if let Some(credentials) = credentials {
+            return Ok(Some(Arc::new(ProvidedSecret {
+                settings,
+                bucket,
+                credentials,
+            })));
+        }
     }
 
     let secret = settings.into_secret(bucket.as_deref())?;
     Ok(secret.map(|secret| Arc::new(secret) as Arc<dyn DuckDBSecretProvider>))
 }
 
-/// An S3 secret whose credentials come from a `profile`, rebuilt from whatever the
-/// (caching) credential provider currently holds.
-struct ProfileSecret {
+/// An S3 secret whose credentials come from a `profile` or from credential discovery,
+/// rebuilt from whatever the (caching) credential provider currently holds.
+struct ProvidedSecret {
     settings: S3Settings,
     bucket: Option<String>,
     credentials: AwsCredentialProvider,
 }
 
-impl fmt::Debug for ProfileSecret {
+impl fmt::Debug for ProvidedSecret {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("ProfileSecret")
+            .debug_struct("ProvidedSecret")
             .field("bucket", &self.bucket)
             .finish_non_exhaustive()
     }
 }
 
-impl DuckDBSecretProvider for ProfileSecret {
+impl DuckDBSecretProvider for ProvidedSecret {
     fn secret(&self) -> Pin<Box<dyn Future<Output = Result<DuckDBSecret, String>> + Send + '_>> {
         Box::pin(async move {
             let credential = self
                 .credentials
                 .get_credential()
                 .await
-                .map_err(|error| format!("unable to load S3 credentials from profile: {error}"))?;
+                .map_err(|error| format!("unable to load S3 credentials: {error}"))?;
             let mut settings = self.settings.clone();
             settings.key_id = Some(credential.key_id.clone());
             settings.secret = Some(credential.secret_key.clone());
@@ -203,6 +209,8 @@ mod tests {
     use object_store::CredentialProvider;
     use object_store::aws::AwsCredential;
     use rstest::rstest;
+    use wiremock::matchers::{header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
     use crate::config::file::UnrecognizedValues;
@@ -321,6 +329,40 @@ mod tests {
             ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
         );
         assert_ne!(first, second);
+    }
+
+    #[tokio::test]
+    async fn discovered_container_credentials_sign_the_secret() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/credentials"))
+            .and(header("Authorization", "pod-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"AccessKeyId":"id","SecretAccessKey":"key","Token":"token","Expiration":"2100-01-01T00:00:00Z"}"#,
+            ))
+            // object_store caches the credentials until they expire
+            .expect(1)
+            .mount(&server)
+            .await;
+        let token_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(token_file.path(), "pod-token").unwrap();
+        let full_uri = format!("{}/credentials", server.uri());
+        let config = config(&[
+            ("container_credentials_full_uri", full_uri.as_str()),
+            ("container_authorization_token_file", token_file.path().to_str().unwrap()),
+            ("region", "eu-west-1"),
+        ]);
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+
+        let first = provider.secret().await.unwrap();
+        let second = provider.secret().await.unwrap();
+        assert_eq!(
+            first.param_names().collect::<Vec<_>>(),
+            ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
+        );
+        assert_eq!(first, second);
     }
 
     #[rstest]

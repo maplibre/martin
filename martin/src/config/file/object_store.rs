@@ -125,13 +125,24 @@ fn canonical_option_key(key: &str) -> String {
         .unwrap_or_else(|_| key.to_owned())
 }
 
+/// Any S3 credential setting: a static key pair or token, or a credential-discovery option.
 #[cfg(feature = "unstable-duckdb")]
 fn is_credential_option(key: &str) -> bool {
+    is_credential_discovery_option(key)
+        || key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
+            matches!(
+                key,
+                AmazonS3ConfigKey::AccessKeyId | AmazonS3ConfigKey::SecretAccessKey | AmazonS3ConfigKey::Token
+            )
+        })
+}
+
+/// An option `object_store` resolves credentials from: web identity, container or instance metadata.
+#[cfg(feature = "unstable-duckdb")]
+fn is_credential_discovery_option(key: &str) -> bool {
     key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
-        matches!(
-            key,
-            AmazonS3ConfigKey::AccessKeyId | AmazonS3ConfigKey::SecretAccessKey | AmazonS3ConfigKey::Token
-        )
+        AWS_CREDENTIAL_DISCOVERY_KEYS.contains(&key)
+            || matches!(key, AmazonS3ConfigKey::MetadataEndpoint | AmazonS3ConfigKey::ImdsV1Fallback)
     })
 }
 
@@ -330,6 +341,30 @@ impl ObjectStoreConfig {
         if !own_credentials && self.aws_credentials.is_none() {
             self.aws_credentials.clone_from(&shared.aws_credentials);
         }
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    /// The credential provider `object_store` builds for the S3 `url` from the configured
+    /// credential-discovery options, the same one a remote `PMTiles` source would sign with.
+    ///
+    /// `None` when no such option is set, so a source without any never probes instance metadata.
+    pub(crate) fn discovered_aws_credentials(&self, url: &Url) -> object_store::Result<Option<AwsCredentialProvider>> {
+        if !self.options.keys().any(|key| is_credential_discovery_option(key)) {
+            return Ok(None);
+        }
+        let store = self
+            .options
+            .iter()
+            .fold(
+                AmazonS3Builder::new().with_url(url.to_string()),
+                |builder, (key, value)| match key.parse() {
+                    Ok(key) => builder.with_config(key, value),
+                    Err(_) => builder,
+                },
+            )
+            .with_http_connector(self.http_clients.clone())
+            .build()?;
+        Ok(Some(Arc::clone(store.credentials())))
     }
 
     /// Builds the store for `url`, sharing HTTP connection pools across sources.
@@ -626,6 +661,23 @@ mod tests {
             ])
         );
         assert!(own.aws_credentials.is_none());
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    #[test]
+    fn own_discovery_option_inherits_no_shared_key_pair() {
+        let shared = prepared([
+            ("access_key_id", json!("shared-id")),
+            ("secret_access_key", json!("shared-key")),
+        ]);
+        let mut own = prepared([("container_credentials_relative_uri", json!("/v2/credentials"))]);
+
+        own.inherit(&shared);
+
+        assert_eq!(
+            own.options.keys().map(|key| canonical_option_key(key)).collect::<Vec<_>>(),
+            ["aws_container_credentials_relative_uri"]
+        );
     }
 
     #[rstest]
