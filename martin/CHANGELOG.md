@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.6](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.5...martin-v2.0.0-beta.6) - 2026-11-04
+
+### Added
+
+- *(mbtiles)* [**breaking**] warn instead of failing on a missing unique tile index ([#3871](https://github.com/maplibre/martin/pull/3871))
+
+### Fixed
+
+- *(deps)* update npm dependencies ([#3880](https://github.com/maplibre/martin/pull/3880))
+- *(duckdb)* support DuckDB 2.0 (fixes release PR) ([#3864](https://github.com/maplibre/martin/pull/3864))
+- *(deps)* update dependency maplibre-gl to v6.16.0 ([#3863](https://github.com/maplibre/martin/pull/3863))
+
+### Other
+
+- *(deps)* replace enum-display and derive-debug, both still on syn 1 ([#3854](https://github.com/maplibre/martin/pull/3854))
+- *(deps)* update rust crate pmtiles to 0.26.0 ([#3879](https://github.com/maplibre/martin/pull/3879))
+- update Cargo.toml dependencies
+
 ## [2.0.0-beta.5](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.4...martin-v2.0.0-beta.5) - 2026-10-29
 
 > [!NOTE]
