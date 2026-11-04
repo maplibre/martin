@@ -115,7 +115,7 @@ impl PmtCacheInstance {
 impl pmtiles::DirectoryCache for PmtCacheInstance {
     async fn get_dir_entry_or_insert(
         &self,
-        offset: usize,
+        offset: u64,
         tile_id: pmtiles::TileId,
         fetcher: impl Future<Output = pmtiles::PmtResult<pmtiles::Directory>> + Send,
     ) -> pmtiles::PmtResult<Option<pmtiles::DirEntry>> {
@@ -141,7 +141,7 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
                 .with_label_values(&["pmtiles_directory", result, zoom])
                 .inc();
         }
-        Ok(entry.into_value().find_tile_id(tile_id).cloned())
+        Ok(entry.into_value().find_tile_id(tile_id).copied())
     }
 }
 
@@ -149,11 +149,11 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 struct PmtCacheKey {
     id: usize,
-    offset: usize,
+    offset: u64,
 }
 
 impl PmtCacheKey {
-    const fn new(id: usize, offset: usize) -> Self {
+    const fn new(id: usize, offset: u64) -> Self {
         Self { id, offset }
     }
 }
