@@ -855,6 +855,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
+      - name: Free disk space for the restored build cache plus the PR's rebuilt crates
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
       - name: Set up sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
