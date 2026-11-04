@@ -13,10 +13,11 @@ use crate::config::file::ObjectStoreConfig;
 
 /// The `DuckDB` S3 secret for `url`, built from the same keys a remote `PMTiles` source takes.
 ///
-/// `None` for a non-`s3://` URL, or when nothing is configured: `DuckDB`'s own defaults then
-/// apply. Explicit `access_key_id`/`secret_access_key`/`session_token` win over credentials
-/// from a `profile`, which the provider re-reads so pools pick up refreshed temporary
-/// credentials; `skip_signature` drops credentials entirely.
+/// `None` for a non-`s3://` URL, or when no credentials, region, endpoint or addressing style
+/// is configured: `DuckDB`'s own defaults then apply. Explicit
+/// `access_key_id`/`secret_access_key`/`session_token` win over credentials from a `profile`,
+/// which the provider re-reads so pools pick up refreshed temporary credentials;
+/// `skip_signature` drops credentials entirely.
 pub(crate) fn s3_secret(
     config: &ObjectStoreConfig,
     url: &Url,
@@ -130,7 +131,7 @@ impl S3Settings {
         } else {
             (self.key_id, self.secret, self.session_token)
         };
-        if key_id.is_none() && region.is_none() && self.endpoint.is_none() {
+        if key_id.is_none() && region.is_none() && self.endpoint.is_none() && self.virtual_hosted_style.is_none() {
             return Ok(None);
         }
 
@@ -254,6 +255,16 @@ mod tests {
             ],
         }
         "#);
+    }
+
+    #[rstest]
+    #[case::path_style("false")]
+    #[case::virtual_hosted("true")]
+    #[tokio::test]
+    async fn url_style_alone_makes_a_secret(#[case] vhost: &str) {
+        let values = [("virtual_hosted_style_request", vhost)];
+        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        assert_eq!(secret.param_names().collect::<Vec<_>>(), ["URL_STYLE"]);
     }
 
     #[tokio::test]
