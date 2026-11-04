@@ -137,6 +137,9 @@ jobs:
       with:
         languages: ${{ matrix.language }}
         build-mode: none
+    - name: Free disk space for the Rust extractor's cargo cache
+      if: matrix.language == 'rust'
+      run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
     - name: Restore the Rust extractor's cargo cache
       if: matrix.language == 'rust'
       id: cargo-cache
