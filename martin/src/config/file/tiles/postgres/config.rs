@@ -6,12 +6,10 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-#[cfg(feature = "unstable-generate")]
 use super::deserialize_checked_tables;
 use super::{FuncInfoSources, Srid, TableInfoSources};
 use crate::config::args::BoundsCalcType;
 use crate::config::args::OrderByType;
-#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileGrids,
@@ -152,15 +150,11 @@ pub struct PostgresConfig {
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Default `prefetch` for tables tiled by Martin's engine:
     /// a cache miss renders the aligned N×N block holding the tile and caches all of it (unstable)
-    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prefetch: Option<tiling::Prefetch>,
     /// Associative arrays of table sources
-    #[cfg_attr(
-        feature = "unstable-generate",
-        serde(default, deserialize_with = "deserialize_checked_tables")
-    )]
+    #[serde(default, deserialize_with = "deserialize_checked_tables")]
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
@@ -214,7 +208,6 @@ impl Default for PostgresConfig {
             retry_timeout: None,
             reload_interval: DEFAULT_RELOAD_INTERVAL,
             auto_publish: OptBoolObj::default(),
-            #[cfg(feature = "unstable-generate")]
             prefetch: None,
             tables: None,
             functions: None,
@@ -501,7 +494,6 @@ mod tests {
         assert_eq!(&config, expected);
     }
 
-    #[cfg(feature = "unstable-generate")]
     #[test]
     fn a_pg_table_with_layers_is_tiled_by_the_engine() {
         let config = parse_cfg(indoc! {"
@@ -533,7 +525,6 @@ mod tests {
         assert!(config.get_unrecognized_keys().is_empty());
     }
 
-    #[cfg(feature = "unstable-generate")]
     #[test]
     fn a_pg_table_names_its_layer_one_way_only() {
         let err = parse_config(
@@ -557,7 +548,6 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `layer_id` names the layer PostGIS tiles; with `layers`, each layer is named by its key, so drop `layer_id` at line 4, column 5");
     }
 
-    #[cfg(feature = "unstable-generate")]
     #[test]
     fn a_pg_prefetch_above_16_tiles_per_side_is_rejected() {
         let err = parse_config(
@@ -573,7 +563,6 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: invalid value: integer `17`, expected from 1 to 16 tiles per side at line 3, column 3");
     }
 
-    #[cfg(feature = "unstable-generate")]
     #[test]
     fn a_pg_table_prefetch_without_layers_is_rejected() {
         let err = parse_config(

@@ -191,9 +191,7 @@ impl PostgresAutoDiscoveryBuilder {
             tile_grids.insert(name.to_owned(), resolve_tile_grid(&pool, grid).await?);
         }
 
-        #[cfg_attr(not(feature = "unstable-generate"), expect(unused_mut))]
         let mut tables = config.tables.clone().unwrap_or_default();
-        #[cfg(feature = "unstable-generate")]
         for info in tables.values_mut() {
             info.prefetch = info.prefetch.or(config.prefetch);
         }
@@ -220,7 +218,6 @@ impl PostgresAutoDiscoveryBuilder {
         self.auto_bounds
     }
 
-    #[cfg(feature = "unstable-generate")]
     #[must_use]
     pub fn pool(&self) -> &PostgresPool {
         &self.pool
@@ -399,7 +396,6 @@ impl PostgresAutoDiscoveryBuilder {
                     PostgresTiler::Sql(pg_sql) => {
                         trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
                     }
-                    #[cfg(feature = "unstable-generate")]
                     PostgresTiler::Engine(engine) => {
                         trace!(source.id = %id, sql = ?engine.sql_queries, "source feature queries");
                     }

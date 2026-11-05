@@ -9,7 +9,6 @@ use tracing::{info, warn};
 
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
 use crate::config::file::tiles::postgres::PostgresInfo;
-#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiling;
 use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
 #[cfg(feature = "_tiles")]
@@ -98,13 +97,11 @@ pub struct TableInfo {
 
     /// A cache miss renders the aligned N×N block holding the tile and caches all of it.
     /// Only applies with `layers` (unstable)
-    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prefetch: Option<tiling::Prefetch>,
 
     /// Output layers, keyed by name. With `layers`, Martin's engine tiles the table instead of `ST_AsMVT` (unstable)
-    #[cfg(feature = "unstable-generate")]
     #[doc(hidden)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub layers: Option<Box<tiling::Layers>>,
@@ -159,7 +156,6 @@ pub struct TableInfo {
     pub discovered: Box<DiscoveredTable>,
 }
 
-#[cfg(feature = "unstable-generate")]
 pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<TableInfoSources>, D::Error> {
@@ -250,7 +246,6 @@ impl PostgresInfo for TableInfo {
             other: BTreeMap::default(),
         };
         tilejson.vector_layers = Some(vec![layer]);
-        #[cfg(feature = "unstable-generate")]
         if let Some(layers) = &self.layers {
             tilejson.vector_layers = Some(
                 layers
