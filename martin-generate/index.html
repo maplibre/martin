@@ -2191,17 +2191,16 @@
 
 <h1 id="generating-tilesets">Generating Tilesets</h1>
 <div class="admonition warning">
-<p class="admonition-title">Not released or fully implemented</p>
-<p>The bulk mode of <code>martin cp</code> is not in any release yet, and parts of what these pages describe are not
-implemented yet.</p>
-<p>Not implemented yet:</p>
+<p class="admonition-title">Not fully implemented</p>
+<p>The bulk mode of <code>martin cp</code> is in the release binaries since 2.0.0-beta.6, but parts of what these
+pages describe are not implemented yet, and the configuration of <code>layers</code> may still change.</p>
 <ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Rendering points, lines and polygons, with fill ranges for covered tiles</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Tile grouping, MLT and MVT encoding, compression and deduplication</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Planning tables into layers and running a whole generation end to end</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Rendering points, lines and polygons, with fill ranges for covered tiles</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Tile grouping, MLT and MVT encoding, compression and deduplication</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Planning tables into layers and running a whole generation end to end</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> other than <code>point</code>, <code>line</code> and <code>polygon</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>tile</code> operations (<code>merge_lines</code>, <code>merge_polygons</code>, <code>merge_multi</code>, <code>label_grid</code>, <code>dedup_by</code>, <code>limit</code>)</li>

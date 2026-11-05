@@ -2,9 +2,9 @@
 
 > [!WARNING]
 >
-> **Not released**
+> **Unstable**
 >
-> `martin test` is not in any release yet, and its spec file may still change.
+> `martin test` is in the release binaries since 2.0.0-beta.6, but its spec file may still change.
 
 `martin test` renders real rows through the [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) of table sources in [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>), and keeps the result in a spec file.
 
