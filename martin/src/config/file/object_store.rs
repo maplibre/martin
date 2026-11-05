@@ -556,20 +556,25 @@ mod tests {
     }
 
     #[test]
-    fn saved_options_redact_s3_customer_keys_and_proxy_credentials() {
+    fn saved_options_redact_s3_customer_keys() {
         let config = prepared([
             ("aws_sse_customer_key_base64", json!("first-secret")),
             ("sse_customer_key_base64", json!("second-secret")),
         ]);
         assert_eq!(serde_json::to_value(config).unwrap(), json!({}));
+    }
 
-        for key in ["proxy_url", "aws_proxy_url", "google_proxy_url", "azure_proxy_url"] {
-            let config = prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
-            assert_eq!(
-                serde_json::to_value(config).unwrap(),
-                json!({key: "http://proxy.example.com:8080/"})
-            );
-        }
+    #[rstest]
+    #[case::proxy_url("proxy_url")]
+    #[case::aws_proxy_url("aws_proxy_url")]
+    #[case::google_proxy_url("google_proxy_url")]
+    #[case::azure_proxy_url("azure_proxy_url")]
+    fn saved_options_redact_proxy_credentials(#[case] key: &'static str) {
+        let config = prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
+        assert_eq!(
+            serde_json::to_value(config).unwrap(),
+            json!({key: "http://proxy.example.com:8080/"})
+        );
     }
 
     #[test]
@@ -596,7 +601,6 @@ mod tests {
         "#);
     }
 
-    /// A provider that counts its calls and hands out credentials expiring `lifetime` from now.
     fn counting_provider(lifetime: Option<Duration>) -> (AwsSdkCredentialProvider, Arc<AtomicUsize>) {
         let calls = Arc::new(AtomicUsize::new(0));
         let counter = Arc::clone(&calls);
@@ -624,8 +628,9 @@ mod tests {
             ("session_token", json!("shared-token")),
             ("region", json!("eu-west-1")),
         ]);
-        let (provider, _) = counting_provider(None);
-        shared.aws_credentials = Some(Arc::new(provider));
+        shared.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider::new(SharedCredentialsProvider::new(
+            Credentials::new("shared-id", "shared-key", None, None, "test"),
+        ))));
         let mut own = ObjectStoreConfig::default();
         let mut unrecognized = [
             ("access_key_id", json!("own-id")),

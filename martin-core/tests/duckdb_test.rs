@@ -442,19 +442,11 @@ async fn a_remote_pool_creates_a_secret_whose_values_contain_quotes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_remote_pool_replaces_the_secret_when_the_provider_hands_out_a_new_one() {
+async fn a_remote_pool_creates_the_secret_from_the_provider_on_first_checkout() {
     let secrets = ScriptedSecrets(std::sync::Mutex::new(
-        [
-            Ok(DuckDBSecret::new("s3")
-                .with_str("KEY_ID", "first")
-                .with_str("SECRET", "s")),
-            Ok(DuckDBSecret::new("s3")
-                .with_str("KEY_ID", "first")
-                .with_str("SECRET", "s")),
-            Ok(DuckDBSecret::new("s3")
-                .with_str("KEY_ID", "second")
-                .with_str("SECRET", "s")),
-        ]
+        [Ok(DuckDBSecret::new("s3")
+            .with_str("KEY_ID", "first")
+            .with_str("SECRET", "s"))]
         .into(),
     ));
     let pool = DuckDBPool::new_remote_geoparquet(
@@ -479,6 +471,32 @@ async fn a_remote_pool_replaces_the_secret_when_the_provider_hands_out_a_new_one
         .await
         .expect("secret query succeeds");
     insta::assert_snapshot!(created, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_remote_pool_keeps_the_secret_when_the_provider_hands_out_the_same_one() {
+    let secrets = ScriptedSecrets(std::sync::Mutex::new(
+        [
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+        ]
+        .into(),
+    ));
+    let pool = DuckDBPool::new_remote_geoparquet(
+        POOL_ID.to_owned(),
+        Url::parse("s3://bucket/points.parquet").expect("valid url"),
+        Some(Arc::new(secrets)),
+        1,
+        NonZeroUsize::new(1),
+        None,
+    )
+    .expect("remote pool created");
+
+    pool.generate_tile(|_| Ok(())).await.expect("first checkout succeeds");
 
     let unchanged = pool
         .generate_tile(|conn| {
@@ -492,6 +510,32 @@ async fn a_remote_pool_replaces_the_secret_when_the_provider_hands_out_a_new_one
         .await
         .expect("secret query succeeds");
     insta::assert_snapshot!(unchanged, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_remote_pool_replaces_the_secret_when_the_provider_hands_out_a_new_one() {
+    let secrets = ScriptedSecrets(std::sync::Mutex::new(
+        [
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "second")
+                .with_str("SECRET", "s")),
+        ]
+        .into(),
+    ));
+    let pool = DuckDBPool::new_remote_geoparquet(
+        POOL_ID.to_owned(),
+        Url::parse("s3://bucket/points.parquet").expect("valid url"),
+        Some(Arc::new(secrets)),
+        1,
+        NonZeroUsize::new(1),
+        None,
+    )
+    .expect("remote pool created");
+
+    pool.generate_tile(|_| Ok(())).await.expect("first checkout succeeds");
 
     let refreshed = pool
         .generate_tile(|conn| {
@@ -528,18 +572,7 @@ async fn a_remote_pool_keeps_the_held_secret_when_the_provider_fails() {
     )
     .expect("remote pool created");
 
-    let created = pool
-        .generate_tile(|conn| {
-            conn.query_row(
-                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .map_err(map_duckdb_error)
-        })
-        .await
-        .expect("secret query succeeds");
-    insta::assert_snapshot!(created, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+    pool.generate_tile(|_| Ok(())).await.expect("first checkout succeeds");
 
     let after_failure = pool
         .generate_tile(|conn| {

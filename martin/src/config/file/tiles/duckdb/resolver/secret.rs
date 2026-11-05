@@ -186,6 +186,7 @@ fn duckdb_endpoint(endpoint: &str, bucket: Option<&str>, vhost: bool) -> (String
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use indoc::indoc;
     use object_store::CredentialProvider;
     use object_store::aws::AwsCredential;
     use rstest::rstest;
@@ -195,41 +196,45 @@ mod tests {
     use super::*;
     use crate::config::file::UnrecognizedValues;
 
-    fn config(values: &[(&str, &str)]) -> ObjectStoreConfig {
-        let mut unrecognized = values
-            .iter()
-            .map(|(key, value)| ((*key).to_owned(), serde_json::json!(value)))
-            .collect::<UnrecognizedValues>();
+    #[test]
+    fn nothing_configured_leaves_duckdb_defaults() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str("{}").unwrap();
         let mut config = ObjectStoreConfig::default();
         config.prepare(&mut unrecognized, "duckdb");
-        config
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap()).unwrap();
+        assert!(provider.is_none());
     }
 
-    async fn secret(values: &[(&str, &str)], url: &str) -> Option<DuckDBSecret> {
-        let provider = s3_secret(&config(values), &Url::parse(url).unwrap()).unwrap()?;
-        Some(provider.secret().await.unwrap())
-    }
+    #[test]
+    fn non_s3_urls_get_no_secret() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_region: eu-west-1
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
 
-    #[tokio::test]
-    async fn nothing_configured_leaves_duckdb_defaults() {
-        assert_eq!(secret(&[], "s3://bucket/a.parquet").await, None);
-    }
-
-    #[tokio::test]
-    async fn non_s3_urls_get_no_secret() {
-        let values = [("aws_region", "eu-west-1")];
-        assert_eq!(secret(&values, "https://host/a.parquet").await, None);
+        let provider = s3_secret(&config, &Url::parse("https://host/a.parquet").unwrap()).unwrap();
+        assert!(provider.is_none());
     }
 
     #[tokio::test]
     async fn custom_endpoint_is_path_style_without_scheme() {
-        let values = [
-            ("aws_access_key_id", "id"),
-            ("secret_access_key", "key"),
-            ("region", "auto"),
-            ("aws_endpoint", "https://t3.storage.dev"),
-        ];
-        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_access_key_id: id
+            secret_access_key: key
+            region: auto
+            aws_endpoint: https://t3.storage.dev
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let secret = provider.secret().await.unwrap();
         insta::assert_debug_snapshot!(secret, @r#"
         DuckDBSecret {
             secret_type: "s3",
@@ -250,40 +255,94 @@ mod tests {
     #[case::virtual_hosted("true")]
     #[tokio::test]
     async fn url_style_alone_makes_a_secret(#[case] vhost: &str) {
-        let values = [("virtual_hosted_style_request", vhost)];
-        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        let mut unrecognized: UnrecognizedValues =
+            serde_saphyr::from_str(&format!("virtual_hosted_style_request: {vhost}\n")).unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let secret = provider.secret().await.unwrap();
         assert_eq!(secret.param_names().collect::<Vec<_>>(), ["URL_STYLE"]);
     }
 
     #[tokio::test]
     async fn skip_signature_drops_credentials() {
-        let values = [
-            ("aws_access_key_id", "id"),
-            ("secret_access_key", "key"),
-            ("region", "us-east-1"),
-            ("skip_signature", "true"),
-        ];
-        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_access_key_id: id
+            secret_access_key: key
+            region: us-east-1
+            skip_signature: true
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let secret = provider.secret().await.unwrap();
         assert_eq!(secret.param_names().collect::<Vec<_>>(), ["REGION"]);
     }
 
     #[test]
-    fn plain_http_endpoint_needs_allow_http() {
-        let url = Url::parse("s3://bucket/a.parquet").unwrap();
-        let refused = config(&[("aws_endpoint", "http://localhost:9000")]);
-        s3_secret(&refused, &url).unwrap_err();
-        let allowed = config(&[("aws_endpoint", "http://localhost:9000"), ("allow_http", "true")]);
-        assert!(s3_secret(&allowed, &url).unwrap().is_some());
+    fn plain_http_endpoint_is_refused_without_allow_http() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_endpoint: http://localhost:9000
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let error = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap()).unwrap_err();
+        insta::assert_snapshot!(error, @"plain http S3 endpoint is refused unless `allow_http` is set to `true`");
+    }
+
+    #[test]
+    fn plain_http_endpoint_is_accepted_with_allow_http() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_endpoint: http://localhost:9000
+            allow_http: true
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap()).unwrap();
+        assert!(provider.is_some());
+    }
+
+    #[test]
+    fn static_keys_on_a_plain_http_endpoint_need_allow_http() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            aws_access_key_id: id
+            secret_access_key: key
+            aws_endpoint: http://localhost:9000
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let error = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap()).unwrap_err();
+        insta::assert_snapshot!(error, @"plain http S3 endpoint is refused unless `allow_http` is set to `true`");
     }
 
     #[tokio::test]
     async fn s3_endpoint_wins_over_endpoint() {
-        let values = [
-            ("region", "eu-west-1"),
-            ("endpoint", "https://a.example"),
-            ("aws_endpoint_url_s3", "https://b.example"),
-        ];
-        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            region: eu-west-1
+            endpoint: https://a.example
+            aws_endpoint_url_s3: https://b.example
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let secret = provider.secret().await.unwrap();
         assert_eq!(
             secret,
             DuckDBSecret::new("s3")
@@ -294,18 +353,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn static_keys_on_a_plain_http_endpoint_need_allow_http() {
-        let url = Url::parse("s3://bucket/a.parquet").unwrap();
-        let refused = config(&[
-            ("aws_access_key_id", "id"),
-            ("secret_access_key", "key"),
-            ("aws_endpoint", "http://localhost:9000"),
-        ]);
-        insta::assert_snapshot!(s3_secret(&refused, &url).unwrap_err(), @"plain http S3 endpoint is refused unless `allow_http` is set to `true`");
-    }
-
-    /// Hands out a new key id on every call, like a profile whose temporary credentials rotate.
     #[derive(Debug, Default)]
     struct RotatingCredentials(AtomicUsize);
 
@@ -324,19 +371,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn profile_secret_follows_refreshed_credentials() {
-        let mut config = config(&[("region", "eu-west-1")]);
+    async fn profile_secret_carries_the_session_token() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            region: eu-west-1
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
         config.aws_credentials = Some(Arc::new(RotatingCredentials::default()));
+
         let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
             .unwrap()
             .unwrap();
-
-        let first = provider.secret().await.unwrap();
-        let second = provider.secret().await.unwrap();
+        let secret = provider.secret().await.unwrap();
         assert_eq!(
-            first.param_names().collect::<Vec<_>>(),
+            secret.param_names().collect::<Vec<_>>(),
             ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
         );
+    }
+
+    #[tokio::test]
+    async fn profile_secret_follows_refreshed_credentials() {
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(indoc! {"
+            region: eu-west-1
+        "})
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+        config.aws_credentials = Some(Arc::new(RotatingCredentials::default()));
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let first = provider.secret().await.unwrap();
+        let second = provider.secret().await.unwrap();
         assert_ne!(first, second);
     }
 
@@ -349,31 +417,57 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_string(
                 r#"{"AccessKeyId":"id","SecretAccessKey":"key","Token":"token","Expiration":"2100-01-01T00:00:00Z"}"#,
             ))
-            // object_store caches the credentials until they expire
+            .mount(&server)
+            .await;
+        let token_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(token_file.path(), "pod-token").unwrap();
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(&format!(
+            "container_credentials_full_uri: {}/credentials\ncontainer_authorization_token_file: {}\nregion: eu-west-1\n",
+            server.uri(),
+            token_file.path().display(),
+        ))
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
+        let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
+            .unwrap()
+            .unwrap();
+        let secret = provider.secret().await.unwrap();
+        assert_eq!(
+            secret.param_names().collect::<Vec<_>>(),
+            ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
+        );
+    }
+
+    #[tokio::test]
+    async fn discovered_container_credentials_are_fetched_once_until_they_expire() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/credentials"))
+            .and(header("Authorization", "pod-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"AccessKeyId":"id","SecretAccessKey":"key","Token":"token","Expiration":"2100-01-01T00:00:00Z"}"#,
+            ))
             .expect(1)
             .mount(&server)
             .await;
         let token_file = tempfile::NamedTempFile::new().unwrap();
         std::fs::write(token_file.path(), "pod-token").unwrap();
-        let full_uri = format!("{}/credentials", server.uri());
-        let config = config(&[
-            ("container_credentials_full_uri", full_uri.as_str()),
-            (
-                "container_authorization_token_file",
-                token_file.path().to_str().unwrap(),
-            ),
-            ("region", "eu-west-1"),
-        ]);
+        let mut unrecognized: UnrecognizedValues = serde_saphyr::from_str(&format!(
+            "container_credentials_full_uri: {}/credentials\ncontainer_authorization_token_file: {}\nregion: eu-west-1\n",
+            server.uri(),
+            token_file.path().display(),
+        ))
+        .unwrap();
+        let mut config = ObjectStoreConfig::default();
+        config.prepare(&mut unrecognized, "duckdb");
+
         let provider = s3_secret(&config, &Url::parse("s3://bucket/a.parquet").unwrap())
             .unwrap()
             .unwrap();
-
         let first = provider.secret().await.unwrap();
         let second = provider.secret().await.unwrap();
-        assert_eq!(
-            first.param_names().collect::<Vec<_>>(),
-            ["KEY_ID", "SECRET", "SESSION_TOKEN", "REGION"]
-        );
         assert_eq!(first, second);
     }
 
