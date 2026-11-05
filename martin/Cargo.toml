@@ -106,11 +106,9 @@ default = [
 ]
 cog = [
     "martin-core/cog",
-    "dep:aws-config",
-    "dep:aws-credential-types",
     "dep:csscolorparser",
-    "dep:object_store",
     "dep:xxhash-rust",
+    "_object_store",
     "_tiles",
     "_file_kinds",
 ]
@@ -134,10 +132,8 @@ ogcapi = ["_tiles"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
-    "dep:aws-config",
-    "dep:aws-credential-types",
-    "dep:object_store",
     "dep:xxhash-rust",
+    "_object_store",
     "_tiles",
     "_file_kinds",
 ]
@@ -167,6 +163,8 @@ unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
 _file_kinds = []
+# Remote object-store settings shared by pmtiles, cog and duckdb sources
+_object_store = ["dep:aws-config", "dep:aws-credential-types", "dep:object_store"]
 unstable-schemas = [
     "dep:schemars",
     "schemars/indexmap2",
@@ -179,6 +177,7 @@ unstable-duckdb = [
     "martin-core/unstable-duckdb",
     "dep:duckdb",
     "dep:strum",
+    "_object_store",
     "_tiles",
 ]
 hotpath = [

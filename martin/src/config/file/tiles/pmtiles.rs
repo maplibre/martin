@@ -413,4 +413,19 @@ mod tests {
             );
         }
     }
+
+    #[rstest]
+    #[case::true_word("true")]
+    #[case::one("1")]
+    #[case::yes("yes")]
+    #[case::on("on")]
+    #[tokio::test]
+    async fn profile_credentials_are_not_loaded_when_signing_is_disabled(#[case] skip_signature: &str) {
+        let (_dir, files) = profile_files();
+        let mut config: PmtConfig =
+            serde_saphyr::from_str(&format!("aws_profile: staging\nskip_signature: {skip_signature}\n")).unwrap();
+        config.aws_profile_files = Some(files);
+        config.finalize().await.unwrap();
+        assert!(config.aws_credentials.is_none());
+    }
 }

@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::str::FromStr as _;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 #[cfg(test)]
 use aws_config::profile::ProfileFileRegionProvider;
@@ -108,6 +109,49 @@ fn is_sensitive_option(key: &str) -> bool {
     )
 }
 
+#[cfg(feature = "unstable-duckdb")]
+/// The name `object_store` itself knows `key` by, e.g. `region` for `aws_region`.
+fn canonical_option_key(key: &str) -> String {
+    key.parse::<AmazonS3ConfigKey>()
+        .map(|key| key.as_ref().to_owned())
+        .or_else(|_| {
+            key.parse::<object_store::gcp::GoogleConfigKey>()
+                .map(|key| key.as_ref().to_owned())
+        })
+        .or_else(|_| {
+            key.parse::<object_store::azure::AzureConfigKey>()
+                .map(|key| key.as_ref().to_owned())
+        })
+        .unwrap_or_else(|_| key.to_owned())
+}
+
+/// Any S3 credential setting: a static key pair or token, or a credential-discovery option.
+fn is_credential_option(key: &str) -> bool {
+    is_credential_discovery_option(key)
+        || key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
+            matches!(
+                key,
+                AmazonS3ConfigKey::AccessKeyId | AmazonS3ConfigKey::SecretAccessKey | AmazonS3ConfigKey::Token
+            )
+        })
+}
+
+/// An option `object_store` resolves credentials from: web identity, container or instance metadata.
+fn is_credential_discovery_option(key: &str) -> bool {
+    key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
+        AWS_CREDENTIAL_DISCOVERY_KEYS.contains(&key)
+            || matches!(
+                key,
+                AmazonS3ConfigKey::MetadataEndpoint | AmazonS3ConfigKey::ImdsV1Fallback
+            )
+    })
+}
+
+/// Legacy from `object_store`: a copy of its private bool parser, so the options Martin reads itself (`allow_http`, `skip_signature`, `virtual_hosted_style_request`) accept the same spellings (`1`, `true`, `on`, `yes`, `y`) that `object_store` accepts when it receives them.
+pub(crate) fn is_truthy(value: &str) -> bool {
+    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
+}
+
 fn is_proxy_option(key: &str) -> bool {
     matches!(key.parse::<ClientConfigKey>(), Ok(ClientConfigKey::ProxyUrl))
         || key
@@ -146,6 +190,8 @@ impl PartialEq for ObjectStoreConfig {
         self.profile == other.profile && self.options == other.options
     }
 }
+
+impl Eq for ObjectStoreConfig {}
 
 impl ObjectStoreConfig {
     pub(crate) fn serialized_len(&self) -> usize {
@@ -221,41 +267,11 @@ impl ObjectStoreConfig {
             self.options.insert("region".to_owned(), region.as_ref().to_owned());
         }
 
-        let has_explicit_credentials = [
-            "access_key_id",
-            "aws_access_key_id",
-            "secret_access_key",
-            "aws_secret_access_key",
-            "session_token",
-            "aws_session_token",
-            "token",
-            "aws_token",
-            "web_identity_token_file",
-            "aws_web_identity_token_file",
-            "role_arn",
-            "aws_role_arn",
-            "role_session_name",
-            "aws_role_session_name",
-            "container_credentials_relative_uri",
-            "aws_container_credentials_relative_uri",
-            "container_credentials_full_uri",
-            "aws_container_credentials_full_uri",
-            "container_authorization_token_file",
-            "aws_container_authorization_token_file",
-            "metadata_endpoint",
-            "aws_metadata_endpoint",
-            "imdsv1_fallback",
-            "aws_imdsv1_fallback",
-            "endpoint_url_sts",
-            "aws_endpoint_url_sts",
-        ]
-        .iter()
-        .any(|key| self.options.contains_key(*key));
-        let skips_signature = ["skip_signature", "aws_skip_signature"].iter().any(|key| {
-            self.options
-                .get(*key)
-                .is_some_and(|value| value.eq_ignore_ascii_case("true") || value == "1")
-        });
+        let has_explicit_credentials = self.options.keys().any(|key| is_credential_option(key));
+        let skips_signature = self
+            .options
+            .iter()
+            .any(|(key, value)| matches!(key.parse(), Ok(AmazonS3ConfigKey::SkipSignature)) && is_truthy(value));
 
         if has_explicit_credentials {
             if namespace == "pmtiles" {
@@ -274,12 +290,81 @@ impl ObjectStoreConfig {
                 "Credentials from profile are ignored because request signing is disabled."
             );
         } else if let Some(provider) = sdk_config.credentials_provider() {
-            self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider { provider }));
+            self.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider::new(provider)));
+        }
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    /// Finishes a source's own settings: takes its object-store keys out of `unrecognized`, loads
+    /// its own `profile` if it has one, then fills the rest from `shared`.
+    pub(crate) async fn finalize_source(
+        &mut self,
+        unrecognized: &mut UnrecognizedValues,
+        namespace: &'static str,
+        shared: &Self,
+    ) {
+        self.prepare(unrecognized, namespace);
+        if self.profile.is_some() {
+            self.finalize_runtime(namespace).await;
+        }
+        self.inherit(shared);
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    /// Fills every option `self` leaves unset, and the AWS credential provider, from `shared`.
+    ///
+    /// Options are matched by their canonical name, so `aws_region` here shadows a shared
+    /// `region`. Credentials are inherited as a group: with its own `profile` or any credential
+    /// key, `self` takes no credential keys and no credential provider from `shared`, so a
+    /// shared `session_token` never pairs with a source's own key pair.
+    fn inherit(&mut self, shared: &Self) {
+        let own_credentials = self.profile.is_some() || self.options.keys().any(|key| is_credential_option(key));
+        let own_keys = self
+            .options
+            .keys()
+            .map(|key| canonical_option_key(key))
+            .collect::<Vec<_>>();
+        for (key, value) in &shared.options {
+            if own_keys.contains(&canonical_option_key(key)) || (own_credentials && is_credential_option(key)) {
+                continue;
+            }
+            self.options.insert(key.clone(), value.clone());
+        }
+        if !own_credentials && self.aws_credentials.is_none() {
+            self.aws_credentials.clone_from(&shared.aws_credentials);
+        }
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    /// Whether any S3 credential is configured: static keys, a `profile`, or a credential-discovery option.
+    pub(crate) fn has_aws_credentials(&self) -> bool {
+        self.aws_credentials.is_some() || self.options.keys().any(|key| is_credential_option(key))
+    }
+
+    /// The S3 builder for `url` with every configured option, the `profile` credentials and the
+    /// shared HTTP connection pools.
+    pub(crate) fn s3_builder(&self, url: &Url) -> AmazonS3Builder {
+        let builder = self
+            .options
+            .iter()
+            .fold(
+                AmazonS3Builder::new().with_url(url.to_string()),
+                |builder, (key, value)| match key.parse() {
+                    Ok(key) => builder.with_config(key, value),
+                    Err(_) => builder,
+                },
+            )
+            .with_http_connector(self.http_clients.clone());
+        match &self.aws_credentials {
+            Some(credentials) => builder.with_credentials(Arc::clone(credentials)),
+            None => builder,
         }
     }
 
     /// Builds the store for `url`, sharing HTTP connection pools across sources.
     #[expect(clippy::wildcard_enum_match_arm, reason = "ObjectStoreScheme is non-exhaustive")]
+    // Only PMTiles and COG sources build stores; DuckDB uses just the settings.
+    #[cfg_attr(not(any(feature = "pmtiles", feature = "cog")), allow(dead_code))]
     pub(crate) fn parse_url_opts(
         &self,
         url: &Url,
@@ -301,20 +386,11 @@ impl ObjectStoreConfig {
 
         let (scheme, path) = ObjectStoreScheme::parse(url)?;
         let store: Box<dyn ObjectStore> = match scheme {
-            ObjectStoreScheme::AmazonS3 => {
-                let mut builder = with_options!(AmazonS3Builder, url);
-                if let Some(credentials) = &self.aws_credentials {
-                    builder = builder.with_credentials(Arc::clone(credentials));
-                }
-                Box::new(builder.build()?)
-            }
+            ObjectStoreScheme::AmazonS3 => Box::new(self.s3_builder(url).build()?),
             ObjectStoreScheme::GoogleCloudStorage => Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?),
             ObjectStoreScheme::MicrosoftAzure => Box::new(with_options!(MicrosoftAzureBuilder, url).build()?),
             ObjectStoreScheme::Http => {
-                // object_store keeps its boolean parser private, these are the spellings it accepts
-                let allow_http = self.options.get("allow_http").is_some_and(|value| {
-                    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
-                });
+                let allow_http = self.options.get("allow_http").is_some_and(|value| is_truthy(value));
                 if url.scheme() == "http" && !allow_http {
                     return Err(object_store::Error::Generic {
                         store: "HttpStore",
@@ -433,7 +509,10 @@ impl ObjectStoreConfig {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use aws_credential_types::Credentials;
+    use aws_credential_types::credential_fn::provide_credentials_fn;
     use rstest::rstest;
     use serde_json::json;
 
@@ -477,20 +556,25 @@ mod tests {
     }
 
     #[test]
-    fn saved_options_redact_s3_customer_keys_and_proxy_credentials() {
+    fn saved_options_redact_s3_customer_keys() {
         let config = prepared([
             ("aws_sse_customer_key_base64", json!("first-secret")),
             ("sse_customer_key_base64", json!("second-secret")),
         ]);
         assert_eq!(serde_json::to_value(config).unwrap(), json!({}));
+    }
 
-        for key in ["proxy_url", "aws_proxy_url", "google_proxy_url", "azure_proxy_url"] {
-            let config = prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
-            assert_eq!(
-                serde_json::to_value(config).unwrap(),
-                json!({key: "http://proxy.example.com:8080/"})
-            );
-        }
+    #[rstest]
+    #[case::proxy_url("proxy_url")]
+    #[case::aws_proxy_url("aws_proxy_url")]
+    #[case::google_proxy_url("google_proxy_url")]
+    #[case::azure_proxy_url("azure_proxy_url")]
+    fn saved_options_redact_proxy_credentials(#[case] key: &'static str) {
+        let config = prepared([(key, json!("http://proxy-user:proxy-password@proxy.example.com:8080"))]);
+        assert_eq!(
+            serde_json::to_value(config).unwrap(),
+            json!({key: "http://proxy.example.com:8080/"})
+        );
     }
 
     #[test]
@@ -516,6 +600,98 @@ mod tests {
         }
         "#);
     }
+
+    fn counting_provider(lifetime: Option<Duration>) -> (AwsSdkCredentialProvider, Arc<AtomicUsize>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counter = Arc::clone(&calls);
+        let provider = SharedCredentialsProvider::new(provide_credentials_fn(move || {
+            let call = counter.fetch_add(1, Ordering::SeqCst);
+            async move {
+                Ok(Credentials::new(
+                    format!("id-{call}"),
+                    "secret",
+                    Some("token".to_owned()),
+                    lifetime.map(|lifetime| SystemTime::now() + lifetime),
+                    "test",
+                ))
+            }
+        }));
+        (AwsSdkCredentialProvider::new(provider), calls)
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    #[tokio::test]
+    async fn own_key_pair_inherits_no_shared_credentials() {
+        let mut shared = prepared([
+            ("access_key_id", json!("shared-id")),
+            ("secret_access_key", json!("shared-key")),
+            ("session_token", json!("shared-token")),
+            ("region", json!("eu-west-1")),
+        ]);
+        shared.aws_credentials = Some(Arc::new(AwsSdkCredentialProvider::new(SharedCredentialsProvider::new(
+            Credentials::new("shared-id", "shared-key", None, None, "test"),
+        ))));
+        let mut own = ObjectStoreConfig::default();
+        let mut unrecognized = [
+            ("access_key_id", json!("own-id")),
+            ("secret_access_key", json!("own-key")),
+        ]
+        .into_iter()
+        .collect();
+
+        own.finalize_source(&mut unrecognized, "duckdb.sources", &shared).await;
+
+        let options = own
+            .options
+            .iter()
+            .map(|(key, value)| (canonical_option_key(key), value.as_str()))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            options,
+            BTreeMap::from([
+                ("aws_access_key_id".to_owned(), "own-id"),
+                ("aws_region".to_owned(), "eu-west-1"),
+                ("aws_secret_access_key".to_owned(), "own-key"),
+            ])
+        );
+        assert!(own.aws_credentials.is_none());
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
+    #[tokio::test]
+    async fn own_discovery_option_inherits_no_shared_key_pair() {
+        let shared = prepared([
+            ("access_key_id", json!("shared-id")),
+            ("secret_access_key", json!("shared-key")),
+        ]);
+        let mut own = ObjectStoreConfig::default();
+        let mut unrecognized = [("container_credentials_relative_uri", json!("/v2/credentials"))]
+            .into_iter()
+            .collect();
+
+        own.finalize_source(&mut unrecognized, "duckdb.sources", &shared).await;
+
+        assert_eq!(
+            own.options
+                .keys()
+                .map(|key| canonical_option_key(key))
+                .collect::<Vec<_>>(),
+            ["aws_container_credentials_relative_uri"]
+        );
+    }
+
+    #[rstest]
+    #[case::never_expires(None, 1)]
+    #[case::expires_later(Some(Duration::from_secs(3600)), 1)]
+    #[case::expires_within_margin(Some(Duration::from_secs(60)), 2)]
+    #[tokio::test]
+    async fn sdk_credentials_are_cached_until_near_expiry(#[case] lifetime: Option<Duration>, #[case] fetches: usize) {
+        let (provider, calls) = counting_provider(lifetime);
+        provider.get_credential().await.unwrap();
+        let second = provider.get_credential().await.unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), fetches);
+        assert_eq!(second.key_id, format!("id-{}", fetches - 1));
+    }
 }
 
 /// Shared object-store HTTP client cache.
@@ -532,9 +708,26 @@ impl HttpConnector for SharedHttpClients {
     }
 }
 
+/// Credentials from an AWS SDK provider, cached until shortly before they expire.
+///
+/// The SDK's own chain does not cache (SDK clients do that in their identity cache), so
+/// without this every request would re-run e.g. an STS `AssumeRole` or SSO lookup.
 #[derive(Debug)]
 pub struct AwsSdkCredentialProvider {
     provider: SharedCredentialsProvider,
+    cached: tokio::sync::Mutex<Option<(Arc<AwsCredential>, Option<SystemTime>)>>,
+}
+
+impl AwsSdkCredentialProvider {
+    /// How long before expiry cached credentials are replaced.
+    const REFRESH_MARGIN: Duration = Duration::from_mins(5);
+
+    fn new(provider: SharedCredentialsProvider) -> Self {
+        Self {
+            provider,
+            cached: tokio::sync::Mutex::default(),
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -542,6 +735,13 @@ impl CredentialProvider for AwsSdkCredentialProvider {
     type Credential = AwsCredential;
 
     async fn get_credential(&self) -> object_store::Result<Arc<Self::Credential>> {
+        // Held across the fetch so concurrent callers wait for one refresh instead of each starting one.
+        let mut cached = self.cached.lock().await;
+        if let Some((credential, expiry)) = cached.as_ref()
+            && expiry.is_none_or(|expiry| SystemTime::now() + Self::REFRESH_MARGIN < expiry)
+        {
+            return Ok(Arc::clone(credential));
+        }
         let credentials = self
             .provider
             .provide_credentials()
@@ -550,11 +750,13 @@ impl CredentialProvider for AwsSdkCredentialProvider {
                 store: "S3",
                 source: Box::new(source),
             })?;
-        Ok(Arc::new(AwsCredential {
+        let credential = Arc::new(AwsCredential {
             key_id: credentials.access_key_id().to_owned(),
             secret_key: credentials.secret_access_key().to_owned(),
             token: credentials.session_token().map(str::to_owned),
-        }))
+        });
+        *cached = Some((Arc::clone(&credential), credentials.expiry()));
+        Ok(credential)
     }
 }
 
