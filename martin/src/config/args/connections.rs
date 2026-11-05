@@ -59,6 +59,8 @@ impl Arguments {
             }
             let state = handle(name);
             self.state[i] = match state {
+                // A later consumer ignoring a path keeps an earlier consumer's share.
+                State::Ignore if matches!(self.state[i], State::Share(())) => State::Share(()),
                 State::Ignore => State::Ignore,
                 State::Share(v) => {
                     result.push(v);
@@ -86,5 +88,49 @@ impl Arguments {
         } else {
             Err(ArgsError::UnrecognizableConnections(unrecognized))
         }
+    }
+}
+
+#[cfg(test)]
+#[cfg(any(
+    feature = "postgres",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "processing",
+    feature = "cog",
+    feature = "unstable-duckdb"
+))]
+mod tests {
+    use std::assert_matches;
+
+    use super::*;
+
+    #[test]
+    fn shared_path_stays_claimed_when_a_later_consumer_ignores_it() {
+        let mut args = Arguments::new(vec!["tiles/".to_owned()]);
+        let shared = args.process(|v| State::Share(v.to_owned()));
+        args.process::<String, _>(|_| State::Ignore);
+        assert_eq!(shared, vec!["tiles/"]);
+        args.check().unwrap();
+    }
+
+    #[test]
+    fn ignored_path_stays_claimed_when_a_later_consumer_shares_it() {
+        let mut args = Arguments::new(vec!["tiles/".to_owned()]);
+        args.process::<String, _>(|_| State::Ignore);
+        let shared = args.process(|v| State::Share(v.to_owned()));
+        assert_eq!(shared, vec!["tiles/"]);
+        args.check().unwrap();
+    }
+
+    #[test]
+    fn path_every_consumer_ignores_is_unrecognized() {
+        let mut args = Arguments::new(vec!["tiles/".to_owned()]);
+        args.process::<String, _>(|_| State::Ignore);
+        args.process::<String, _>(|_| State::Ignore);
+        assert_matches!(
+            args.check(),
+            Err(ArgsError::UnrecognizableConnections(v)) if v == vec!["tiles/"]
+        );
     }
 }
