@@ -786,18 +786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-compression"
-version = "0.4.52"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ad47a740fb906fffdd891e8b6d5fde2511600f7bfaebd68939fa08a14999459"
-dependencies = [
- "compression-codecs",
- "compression-core",
- "pin-project-lite",
- "tokio",
-]
-
-[[package]]
 name = "async-lock"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2221,23 +2209,6 @@ dependencies = [
  "static_assertions",
  "zmij",
 ]
-
-[[package]]
-name = "compression-codecs"
-version = "0.4.47"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84f840cff84d10085260e460023934d0af699e71212b09b2a41452e8bd9cda43"
-dependencies = [
- "compression-core",
- "flate2",
- "memchr",
-]
-
-[[package]]
-name = "compression-core"
-version = "0.4.34"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ebdda89edc534bf8d5dd2857562633b6495557e5846552ade994b99ed13c36a"
 
 [[package]]
 name = "console"
@@ -7423,17 +7394,17 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.26.0"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f05bc08aeb67c0080be8414535e761981a98bc1bee46a4bed7db63e212565c4"
+checksum = "d73f059cb673e2db1f04b606d8122fc530a9c536c2af2fb3bf3c45f7b5f50ab8"
 dependencies = [
- "async-compression",
  "bytes",
  "fast_hilbert",
  "flate2",
  "integer-encoding",
  "memmap2",
  "object_store",
+ "rustix",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

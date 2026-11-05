@@ -7,23 +7,20 @@ use std::os::unix::fs::MetadataExt as _;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use bytes::Bytes;
-use pmtiles::{AsyncBackend, BackendResponse, MmapBackend, ObjectStoreBackend, PmtError, PmtResult};
+use pmtiles::{AsyncBackend, BackendResponse, FileBackend, ObjectStoreBackend, PmtError, PmtResult};
 
-/// Reads a local `PMTiles` file through a memory map.
+/// Reads a local `PMTiles` file through a [`FileBackend`].
 ///
 /// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
-/// The mapping is not read once the file changed underneath it.
-/// Reads copy their bytes out of the mapping.
 pub(crate) struct PmtFileBackend {
-    mmap: MmapBackend,
+    file: FileBackend,
     path: PathBuf,
     version: (u64, u128, u64),
 }
 
 impl fmt::Debug for PmtFileBackend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { mmap: _, path, version } = self;
+        let Self { file: _, path, version } = self;
         f.debug_struct("PmtFileBackend")
             .field("path", path)
             .field("version", version)
@@ -32,12 +29,12 @@ impl fmt::Debug for PmtFileBackend {
 }
 
 impl PmtFileBackend {
-    /// Maps `path` for reading.
+    /// Opens `path` for reading.
     pub(crate) async fn open(path: impl Into<PathBuf>) -> PmtResult<Self> {
         let path = path.into();
-        let mmap = MmapBackend::try_from(&path).await?;
+        let file = FileBackend::try_from(&path).await?;
         let version = data_version(&std::fs::metadata(&path)?);
-        Ok(Self { mmap, path, version })
+        Ok(Self { file, path, version })
     }
 }
 
@@ -46,9 +43,7 @@ impl AsyncBackend for PmtFileBackend {
         if data_version(&std::fs::metadata(&self.path)?) != self.version {
             return Err(PmtError::SourceModified);
         }
-        let response = self.mmap.read(offset, length).await?;
-        let bytes = Bytes::copy_from_slice(&response.bytes);
-        Ok(BackendResponse::new(bytes))
+        self.file.read(offset, length).await
     }
 }
 
