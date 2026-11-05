@@ -1,5 +1,5 @@
 //! The review of `martin test generate` in a terminal.
-#![cfg(all(feature = "test-pg", feature = "test-generate"))]
+#![cfg(feature = "test-pg")]
 
 use std::fs;
 

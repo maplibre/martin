@@ -134,7 +134,7 @@ impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for H
     }
 }
 
-#[cfg(any(feature = "postgres", feature = "unstable-generate"))]
+#[cfg(feature = "postgres")]
 impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for indexmap::IndexMap<K, V, S> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         for (key, value) in self {

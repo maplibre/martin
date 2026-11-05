@@ -7,7 +7,7 @@
 pub mod config;
 #[cfg(feature = "mbtiles")]
 pub mod cp;
-#[cfg(feature = "unstable-generate")]
+#[cfg(feature = "postgres")]
 pub mod generate;
 pub mod logging;
 
