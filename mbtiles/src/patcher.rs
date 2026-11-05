@@ -54,6 +54,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     conn.close().await?;
 
     let mut conn = base_mbt.open().await?;
+    // the patch is written in place with INSERT OR REPLACE, which needs the unique tile index
+    base_mbt.detect_writable_type(&mut conn).await?;
     let base_info = base_mbt.examine_diff(&mut conn).await?;
     if matches!(base_info.mbt_type, Cache) {
         return Err(MbtError::UnsupportedCopyOperation {
@@ -283,6 +285,18 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[actix_rt::test]
+    async fn apply_patch_to_base_without_unique_index_fails() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (_mbt, _conn, base_file) = temp_named_mbtiles("base_without_unique_index_mem", script).await;
+
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("patch_onto_no_unique_index_mem", script).await;
+
+        let err = apply_patch(base_file, patch_file, true).await.unwrap_err();
+        assert!(matches!(err, MbtError::NoUniquenessConstraint(_)), "{err:?}");
     }
 
     #[actix_rt::test]

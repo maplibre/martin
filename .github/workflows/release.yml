@@ -55,6 +55,14 @@ jobs:
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        with:
+          path: .
+          output-file: martin.spdx.json
+          format: spdx-json
+          upload-artifact: false
+          upload-release-assets: false
       - name: Download build artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { pattern: 'build-*', path: 'target' }
@@ -125,6 +133,7 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         if: github.event_name == 'release' && steps.release.outputs.has_assets == 'false'
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
@@ -133,13 +142,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
           RELEASE_IS_PRERELEASE: ${{ github.event.release.prerelease }}
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           set -euo pipefail
           if ! compgen -G "target/files/*" > /dev/null; then
             echo "No release artifacts matched target/files/*" >&2
             exit 1
           fi
-          gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
+          cp "$ATTESTATION_BUNDLE" target/provenance.json
+          gh release upload "$RELEASE_TAG_NAME" target/files/* target/provenance.json --clobber
           if [[ "$RELEASE_IS_PRERELEASE" == true ]]; then latest=false; else latest=true; fi
           gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest="$latest"
       - name: Publish without artifacts
@@ -239,6 +250,7 @@ jobs:
         with: { name: 'release-files', path: 'target/files' }
       - name: Generate SLSA build provenance attestation
         if: ${{ steps.release.outputs.releases_created == 'true' }}
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with: { subject-path: 'target/files/*' }
       - name: Attach the binaries and publish the drafted releases
@@ -248,8 +260,10 @@ jobs:
           # and the Homebrew PR. Events created with GITHUB_TOKEN start no workflow.
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           RELEASES: ${{ steps.release.outputs.releases }}
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           set -euo pipefail
+          cp "$ATTESTATION_BUNDLE" target/provenance.json
           for tag in $(jq -r '.[].tag' <<< "$RELEASES"); do
             state=$(gh release view "$tag" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' || true)
             if [[ "$state" != "true "* ]]; then
@@ -257,7 +271,7 @@ jobs:
               continue
             fi
             if [[ "$tag" == martin-v* || "$tag" == mbtiles-v* ]]; then
-              gh release upload "$tag" target/files/* --clobber
+              gh release upload "$tag" target/files/* target/provenance.json --clobber
             fi
             if [[ "$tag" == martin-v* && "$state" == "true false" ]]; then latest=true; else latest=false; fi
             gh release edit "$tag" --verify-tag --draft=false --latest="$latest"

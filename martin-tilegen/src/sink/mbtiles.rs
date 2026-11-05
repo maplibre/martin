@@ -246,7 +246,7 @@ mod tests {
 
         let mbt = Mbtiles::new(&path).unwrap();
         let mut conn = mbt.open_readonly().await.unwrap();
-        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), MbtType::Flat);
+        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), (MbtType::Flat, vec![]));
         assert_eq!(mbt.get_agg_tiles_hash(&mut conn).await.unwrap(), None);
         assert_eq!(mbt.get_tile(&mut conn, 1, 0, 0).await.unwrap().unwrap(), b"fill");
     }

@@ -59,7 +59,6 @@ async fn refuses_a_copy_without_zooms() {
     insta::assert_snapshot!(log, @"ERROR Set the zooms to copy with `--max-zoom` or `--zoom-levels`");
 }
 
-#[cfg(feature = "test-generate")]
 #[tokio::test]
 async fn tile_mode_refuses_options_only_bulk_mode_reads() {
     let dir = temp_dir();
@@ -168,6 +167,31 @@ async fn copies_the_only_source_when_none_is_named() {
         insta::assert_snapshot!("only_source_metadata", metadata);
     });
     validate(&output).await;
+}
+
+#[tokio::test]
+async fn refuses_a_destination_without_a_unique_index() {
+    let dir = temp_dir();
+    let source = mbtiles_fixture(dir.path(), "world_cities").await;
+    let output = mbtiles_fixture(dir.path(), "webp-no-primary").await;
+
+    let stderr = MartinCp::new()
+        .env("RUST_LOG", "error")
+        .arg(&source)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--on-duplicate")
+        .arg("override")
+        .run_expecting_failure()
+        .await;
+
+    let dir_path = regex::escape(&dir.path().display().to_string());
+    let filters = vec![(dir_path.as_str(), "[DIR]"), (r"\[DIR\]\\", "[DIR]/")];
+    insta::with_settings!({ filters => filters }, {
+        insta::assert_snapshot!(stderr, @"ERROR The file [DIR]/webp-no-primary.mbtiles does not have the required uniqueness constraint");
+    });
 }
 
 #[tokio::test]

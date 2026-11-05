@@ -70,7 +70,7 @@ async fn mbtiles_stream_tiles() {
             ]
         );
         // counter test: mbtiles must contain all tiles
-        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap().0;
         for coord in coords {
             assert!(
                 mbtiles
@@ -101,7 +101,7 @@ async fn mbtiles_stream_tiles() {
         );
 
         // counter test: mbtiles must contain all tiles
-        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+        let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap().0;
         for (coord, _) in tiles {
             assert!(
                 mbtiles
@@ -131,7 +131,7 @@ async fn mbtiles_stream_errors() {
     // Counter test: mbtiles must contain all tiles
     // the re-inverted y coordinate yielding 4 would be -1.
     // This is impossible to achieve without overflows.
-    let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap();
+    let mbt_type = mbtiles.detect_type(&mut conn).await.unwrap().0;
     for y in 0..=20 {
         assert!(!mbtiles.contains(&mut conn, mbt_type, 2, y, 0).await.unwrap());
     }

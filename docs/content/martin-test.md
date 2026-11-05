@@ -9,13 +9,8 @@ tags:
 
 # Testing Layers
 
-!!! warning "Not released"
-    `martin test` is not in any release yet, and its spec file may still change.
-    It is only built with the `unstable-generate` feature:
-
-    ```bash
-    cargo install --path martin --locked --features unstable-generate
-    ```
+!!! warning "Unstable"
+    `martin test` is in the release binaries since 2.0.0-beta.6, but its spec file may still change.
 
 `martin test` renders real rows through the [`layers`](sources-pg-layers.md) of table sources in
 [bulk mode](martin-generate.md), and keeps the result in a spec file.

@@ -42,7 +42,7 @@ pub use crate::config::file::hillshade::{
 
 pub mod process;
 
-#[cfg(feature = "unstable-generate")]
+#[cfg(feature = "postgres")]
 #[doc(hidden)]
 pub mod tiling;
 

@@ -31,6 +31,10 @@ Default is `quick`.
 The `validate` command will verify that the `tiles` table/view exists, and that it has the expected columns and indexes.
 It will also verify that the `metadata` table/view exists, and that it has the expected columns and indexes.
 
+A missing unique index on `(zoom_level, tile_column, tile_row)` fails validation.
+Other commands still read such a file and print a warning, but refuse to write into it,
+since duplicate tiles could be inserted. `mbtiles copy` adds the missing index to its output.
+
 ## Per-tile validation
 
 If the `.mbtiles` file uses [flat_with_hash](mbtiles-schema.md#flat-with-hash)

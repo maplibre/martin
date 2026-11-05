@@ -667,7 +667,7 @@ impl<'a> DynTileSource<'a> {
                 .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
         };
         let compute = || async move {
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             if let (Some(cache), true) = (self.cache, cache_zoom)
                 && let Some(block) = src.get_tile_block(xyz).await?
             {
@@ -684,7 +684,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     /// Caches every tile of a prefetched `block` but `xyz`, and returns that one.
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     async fn cache_neighbours(
         &self,
         cache: &TileCache,

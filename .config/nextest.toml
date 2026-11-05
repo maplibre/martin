@@ -13,3 +13,8 @@ postgres = { max-threads = 4 }
 [[profile.default.overrides]]
 filter = 'binary(/^pg_/)'
 test-group = 'postgres'
+
+# the quick bounds give up after DEFAULT_BOUNDS_TIMEOUT (5s), which other tests sharing the cpus can push them past
+[[profile.default.overrides]]
+filter = 'test(/duckdb::resolver::bounds::tests::/)'
+threads-required = 'num-test-threads'
