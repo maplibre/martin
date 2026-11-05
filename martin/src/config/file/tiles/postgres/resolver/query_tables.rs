@@ -5,16 +5,12 @@ use std::num::NonZeroU32;
 
 use futures::pin_mut;
 use indexmap::IndexMap;
-#[cfg(feature = "unstable-generate")]
-use martin_core::tiles::postgres::PostgresError::EngineTable;
-use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
+use martin_core::tiles::postgres::PostgresError::{CannotTransform, EngineTable, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler, is_typed_property,
 };
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
-#[cfg(feature = "unstable-generate")]
 use martin_tilegen::plan::Condition;
-#[cfg(feature = "unstable-generate")]
 use martin_tilegen::source::Crs;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -25,9 +21,7 @@ use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, OrderByType};
 use crate::config::file::postgres::{DiscoveredTable, PgTileGrid, PostgresInfo as _, TableInfo};
-#[cfg(feature = "unstable-generate")]
 use crate::config::file::tiles::postgres::resolver::condition::condition_sql;
-#[cfg(feature = "unstable-generate")]
 use crate::generate::serve::engine_info;
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
@@ -263,7 +257,6 @@ pub async fn table_to_query(
         }
     }
 
-    #[cfg(feature = "unstable-generate")]
     if info.layers.is_some() {
         if !grid.is_web_mercator() {
             let reason = format!("tile grid `{}` is not Web Mercator", grid.grid().id());
@@ -557,7 +550,6 @@ pub fn row_filter(info: &TableInfo, keyword: &str) -> PostgresResult<String> {
 }
 
 /// The query `martin cp --mode bulk` streams a whole table with.
-#[cfg(feature = "unstable-generate")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScanSql {
     pub sql: String,
@@ -574,7 +566,6 @@ pub struct ScanSql {
 /// Of the table's properties, only those in `columns` are selected, in table order.
 /// `condition` keeps only the rows matching it.
 /// `bbox` (WGS84) keeps only features intersecting it.
-#[cfg(feature = "unstable-generate")]
 pub fn scan_sql(
     info: &TableInfo,
     columns: &[String],
@@ -640,7 +631,6 @@ pub fn scan_sql(
 /// either of two Web Mercator envelopes, `$1..$4` and `$5..$8` (`xmin, ymin, xmax, ymax`). The second
 /// envelope is the part of the area past the antimeridian. Rows come in the database's order: only a
 /// `max_feature_count` with an `order_by` and an id sorts them, to choose which are kept.
-#[cfg(feature = "unstable-generate")]
 pub fn engine_sql(
     info: &TableInfo,
     columns: &[String],

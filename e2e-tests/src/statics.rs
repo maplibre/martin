@@ -143,6 +143,22 @@ impl StaticFiles {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// The `name` header of every request this server answered, in order; `None` where it was absent.
+    pub async fn header_values(&self, name: &str) -> Vec<Option<String>> {
+        self.server
+            .received_requests()
+            .await
+            .expect("wiremock records requests unless that is turned off")
+            .iter()
+            .map(|request| {
+                request
+                    .headers
+                    .get(name)
+                    .map(|value| value.to_str().unwrap_or("[not utf-8]").to_owned())
+            })
+            .collect()
+    }
 }
 
 fn read(file: &Path) -> Vec<u8> {

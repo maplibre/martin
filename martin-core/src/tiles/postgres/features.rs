@@ -4,7 +4,6 @@ use std::ops::Range;
 
 use compact_str::CompactString;
 use deadpool_postgres::tokio_postgres::Row;
-#[cfg(feature = "unstable-generate")]
 use martin_tilegen::plan::{ColumnDef, ValueKind};
 use mlt_core::PropValue;
 use mlt_core::geo_types::Geometry;
@@ -116,7 +115,6 @@ impl PropType {
 }
 
 /// A scanned column of this `PostgreSQL` type, as a plan sees it.
-#[cfg(feature = "unstable-generate")]
 #[must_use]
 pub fn column_def(column: String, pg_type: &str) -> ColumnDef {
     let kind = match PropType::of(pg_type) {

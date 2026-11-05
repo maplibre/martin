@@ -78,17 +78,17 @@ pub struct CopyArgs {
     #[arg(long, value_enum, default_value_t = CopyMode::Auto)]
     pub mode: CopyMode,
     /// Name of the source to copy from. Not required if there is only one source.
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "")]
     #[cfg_attr(
-        feature = "unstable-generate",
+        feature = "postgres",
         doc = "In bulk mode, a comma-separated list of table sources, all of them by default."
     )]
     #[arg(short, long)]
     pub source: Option<String>,
     /// Path to the mbtiles file to copy to.
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "")]
     #[cfg_attr(
-        feature = "unstable-generate",
+        feature = "postgres",
         doc = "In bulk mode, an `.mbtiles` file that is new or empty, or a new `.pmtiles` archive."
     )]
     #[arg(short, long)]
@@ -104,9 +104,9 @@ pub struct CopyArgs {
     /// If set to multiple values like `gzip,br`, the first encoding is used,
     /// or re-encode if the tile is already encoded and that encoding is not listed.
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG. [DEFAULT: gzip]
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "")]
     #[cfg_attr(
-        feature = "unstable-generate",
+        feature = "postgres",
         doc = "In bulk mode, one compression: `gzip`, `zlib` or `none` for `MBTiles`; `gzip`, `br`, `zstd` or `none` for MVT in `PMTiles`; only `none` for MLT in `PMTiles`. Defaults to `none` for MLT in `PMTiles`, otherwise `gzip`."
     )]
     #[arg(long, alias = "encodings")]
@@ -116,11 +116,8 @@ pub struct CopyArgs {
     /// A vector source converts between MVT and MLT unless `convert_to_{mlt,mvt}` turns
     /// that off, and a source that can neither produce nor convert to this format fails the copy.
     /// Defaults to what the source produces.
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
-    #[cfg_attr(
-        feature = "unstable-generate",
-        doc = "In bulk mode, `mvt` or `mlt`, and `mlt` by default."
-    )]
+    #[cfg_attr(feature = "postgres", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "In bulk mode, `mvt` or `mlt`, and `mlt` by default.")]
     #[arg(long, value_name = "FORMAT", value_enum)]
     pub format: Option<CopyFormat>,
     /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
@@ -134,35 +131,29 @@ pub struct CopyArgs {
     /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
     ///
     /// For a source on a tile grid other than Web Mercator the bounds are `min_x,min_y,max_x,max_y` in the grid's CRS units, and the whole grid is copied if omitted.
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "")]
     #[cfg_attr(
-        feature = "unstable-generate",
+        feature = "postgres",
         doc = "In bulk mode, at most one box. Each tile it touches holds every feature the tile covers, so at zoom 0 the whole world is read. The whole world if omitted."
     )]
     #[arg(long)]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy. [DEFAULT: 0]
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
-    #[cfg_attr(
-        feature = "unstable-generate",
-        doc = "In bulk mode, a source's own `minzoom` raises it."
-    )]
+    #[cfg_attr(feature = "postgres", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "In bulk mode, a source's own `minzoom` raises it.")]
     #[arg(long, alias = "minzoom", conflicts_with("zoom_levels"))]
     pub min_zoom: Option<u8>,
     /// Maximum zoom level to copy. Required unless `--zoom-levels` is given.
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "")]
     #[cfg_attr(
-        feature = "unstable-generate",
+        feature = "postgres",
         doc = "In bulk mode, a source's own `maxzoom` lowers it, and it defaults to 14."
     )]
     #[arg(long, alias = "maxzoom", conflicts_with("zoom_levels"))]
     pub max_zoom: Option<u8>,
     /// List of zoom levels to copy
-    #[cfg_attr(feature = "unstable-generate", doc = "")]
-    #[cfg_attr(
-        feature = "unstable-generate",
-        doc = "In bulk mode, the levels must not skip a zoom."
-    )]
+    #[cfg_attr(feature = "postgres", doc = "")]
+    #[cfg_attr(feature = "postgres", doc = "In bulk mode, the levels must not skip a zoom.")]
     #[arg(short, long, alias = "zooms", value_delimiter = ',')]
     pub zoom_levels: Vec<u8>,
     /// Skip generating a global hash for mbtiles validation. By default, the `agg_tiles_hash` metadata value is computed and updated.
@@ -175,19 +166,19 @@ pub struct CopyArgs {
     #[arg(long, value_name = "KEY")]
     pub delete_meta: Vec<String>,
     /// Bulk mode: memory for sorting, e.g. `512MB` or `2GiB`, split over the threads. A bare number is in MB. [DEFAULT: 2GiB]
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     #[arg(long, value_parser = crate::config::args::parse_byte_size)]
     pub memory: Option<u64>,
     /// Bulk mode: directories for temporary sorted runs, used round-robin. Defaults to the system temp directory.
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     #[arg(long)]
     pub temp_dir: Vec<PathBuf>,
     /// Bulk mode: worker threads. Defaults to the number of CPUs.
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     #[arg(long)]
     pub threads: Option<NonZeroUsize>,
     /// Bulk mode, MVT only: a way to encode MVT tiles other than the default. Can be specified multiple times.
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     #[arg(long = "mvt-quirk", value_name = "QUIRK")]
     pub mvt_quirks: Vec<MvtQuirk>,
 }
@@ -202,7 +193,7 @@ pub enum CopyMode {
     #[default]
     Auto,
     /// Read each table once and render every zoom from it. `PostgreSQL` table sources only.
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     Bulk,
 }
 
@@ -241,7 +232,7 @@ impl CopyFormat {
 }
 
 /// A way bulk mode can encode MVT tiles other than its default.
-#[cfg(feature = "unstable-generate")]
+#[cfg(feature = "postgres")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MvtQuirk {
@@ -271,13 +262,13 @@ impl Default for CopyArgs {
             skip_agg_tiles_hash: true,
             set_meta: Vec::new(),
             delete_meta: Vec::new(),
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             memory: None,
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             temp_dir: Vec::new(),
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             threads: None,
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             mvt_quirks: Vec::new(),
         }
     }
@@ -287,7 +278,7 @@ impl Default for CopyArgs {
 pub async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     match copy_args.copy.mode {
         CopyMode::Tile | CopyMode::Auto => Box::pin(copy_tiles(copy_args)).await,
-        #[cfg(feature = "unstable-generate")]
+        #[cfg(feature = "postgres")]
         CopyMode::Bulk => Ok(Box::pin(crate::generate::start(copy_args)).await.map_err(Box::new)?),
     }
 }
@@ -339,7 +330,7 @@ async fn copy_tiles(copy_args: CopierArgs) -> MartinCpResult<()> {
 
 /// Refuses the options that only bulk mode reads, a copy without zooms, and a key both set and deleted.
 fn check_tile_mode_args(args: &CopyArgs) -> MartinCpResult<()> {
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     {
         let bulk_only: Vec<&str> = [
             ("--memory", args.memory.is_some()),
@@ -451,7 +442,7 @@ pub enum MartinCpError {
     NoZooms,
     #[error("Only `--mode bulk` reads `{0}`")]
     BulkOnlyOptions(String),
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     #[error(transparent)]
     Generate(#[from] Box<crate::generate::GenerateError>),
     #[error(
@@ -943,7 +934,8 @@ async fn init_schema(
         mbt.insert_metadata(&mut *conn, &tj).await?;
         mbt_type
     } else {
-        mbt.detect_type(&mut *conn).await?
+        // tiles are written with conflict handling, which needs the unique tile index
+        mbt.detect_writable_type(&mut *conn).await?
     })
 }
 
@@ -953,7 +945,7 @@ impl MartinCpError {
     pub fn render_diagnostic_with(self, log_format: LogFormat) -> String {
         match self {
             Self::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
-            #[cfg(feature = "unstable-generate")]
+            #[cfg(feature = "postgres")]
             Self::Generate(err) => err.render_diagnostic_with(log_format),
             other @ (Self::EncodingParse(_)
             | Self::Tile(_)

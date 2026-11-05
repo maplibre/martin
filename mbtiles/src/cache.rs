@@ -319,7 +319,10 @@ mod tests {
     async fn detected_as_cache() {
         let (mbt, mut conn) = cache().await;
         assert!(mbt.is_cache(&mut conn).await.unwrap());
-        assert_eq!(mbt.detect_type(&mut conn).await.unwrap(), crate::MbtType::Cache);
+        assert_eq!(
+            mbt.detect_type(&mut conn).await.unwrap(),
+            (crate::MbtType::Cache, vec![])
+        );
     }
 
     #[tokio::test]

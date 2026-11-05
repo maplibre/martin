@@ -7,7 +7,7 @@ use tilejson::TileJSON;
 
 #[cfg(test)]
 use crate::NormalizedSchema;
-use crate::errors::MbtResult;
+use crate::errors::{MbtResult, MbtWarning};
 use crate::{MbtType, Mbtiles, Metadata};
 
 /// Connection pool for concurrent read access to an `MBTiles` file.
@@ -179,7 +179,7 @@ impl MbtilesPool {
     ///
     /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// let pool = MbtilesPool::open_readonly("tiles.mbtiles").await?;
-    /// let mbt_type = pool.detect_type().await?;
+    /// let (mbt_type, _warnings) = pool.detect_type().await?;
     ///
     /// match mbt_type {
     ///     MbtType::Flat => println!("Simple flat schema"),
@@ -191,7 +191,7 @@ impl MbtilesPool {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn detect_type(&self) -> MbtResult<MbtType> {
+    pub async fn detect_type(&self) -> MbtResult<(MbtType, Vec<MbtWarning>)> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.detect_type(&mut *conn).await
     }
@@ -333,8 +333,16 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        // invalid type
-        pool.detect_type().await.unwrap_err();
+        // no unique tile index => readable, with a warning
+        let (mbt_type, warnings) = pool.detect_type().await.unwrap();
+        assert_eq!(mbt_type, MbtType::Flat);
+        insta::assert_debug_snapshot!(warnings, @r#"
+        [
+            NoUniquenessConstraint(
+                "file:test_metadata_invalid?mode=memory&cache=shared",
+            ),
+        ]
+        "#);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_invalid?mode=memory&cache=shared"
@@ -369,7 +377,15 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        pool.detect_type().await.unwrap_err();
+        let (mbt_type, warnings) = pool.detect_type().await.unwrap();
+        assert_eq!(mbt_type, MbtType::Flat);
+        insta::assert_debug_snapshot!(warnings, @r#"
+        [
+            NoUniquenessConstraint(
+                "file:test_contains_invalid?mode=memory&cache=shared",
+            ),
+        ]
+        "#);
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
         for error_mbt_type in [
@@ -394,8 +410,16 @@ mod tests {
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
 
-        // invalid type => cannot hash properly, but can get tile
-        pool.detect_type().await.unwrap_err();
+        // no unique tile index => warns, but can get tile
+        let (mbt_type, warnings) = pool.detect_type().await.unwrap();
+        assert_eq!(mbt_type, MbtType::Flat);
+        insta::assert_debug_snapshot!(warnings, @r#"
+        [
+            NoUniquenessConstraint(
+                "file:test_invalid_type?mode=memory&cache=shared",
+            ),
+        ]
+        "#);
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert_ne!(t1, b"");
         // this is an access and then md5 hash => should not fail
@@ -425,10 +449,13 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::Hash
-            }
+            (
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash
+                },
+                vec![]
+            )
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -458,10 +485,13 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::Hash
-            }
+            (
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash
+                },
+                vec![]
+            )
         );
 
         for working_mbt_type in [
@@ -488,10 +518,13 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized {
-                hash_view: false,
-                schema: NormalizedSchema::Hash
-            }
+            (
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash
+                },
+                vec![]
+            )
         );
 
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
@@ -535,7 +568,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_flat_with_hash", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
+        assert_eq!(pool.detect_type().await.unwrap(), (MbtType::FlatWithHash, vec![]));
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_flat_with_hash?mode=memory&cache=shared"
@@ -661,7 +694,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_flat_with_hash", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
+        assert_eq!(pool.detect_type().await.unwrap(), (MbtType::FlatWithHash, vec![]));
         for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
         }
@@ -685,7 +718,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_flat_with_hash", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
+        assert_eq!(pool.detect_type().await.unwrap(), (MbtType::FlatWithHash, vec![]));
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert_ne!(t1, b"");
 

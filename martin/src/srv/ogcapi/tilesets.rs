@@ -1,9 +1,9 @@
+use std::ops::RangeInclusive;
+
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use std::ops::RangeInclusive;
-
 use martin_tile_utils::{MAX_ZOOM, TileGrid};
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;

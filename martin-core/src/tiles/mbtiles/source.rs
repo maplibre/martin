@@ -1,10 +1,9 @@
 //! `MBTiles` tile source implementation.
 
-use std::fmt;
-use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fmt, io};
 
 use backon::{FibonacciBuilder, Retryable as _};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
@@ -94,7 +93,15 @@ impl MbtSource {
                 "Table {table} has no index on (zoom_level, tile_column, tile_row), so every tile lookup scans it. \
                  Create one with: CREATE UNIQUE INDEX {table}_index ON {table} (zoom_level, tile_column, tile_row)"
             ),
-            Ok(None) => {}
+            // an index exists, but it may not be unique
+            Ok(None) => match mbt.detect_type().await {
+                Ok((_, warnings)) => {
+                    for warning in warnings {
+                        warn!(source.id = %id, "{warning}");
+                    }
+                }
+                Err(e) => debug!(source.id = %id, error = %e, "Could not detect the MBTiles type"),
+            },
             Err(e) => debug!(source.id = %id, error = %e, "Could not check the tile index"),
         }
 

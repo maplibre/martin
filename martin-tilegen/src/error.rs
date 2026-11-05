@@ -1,6 +1,6 @@
-use crate::source::SourceError;
 use martin_tile_utils::TileCoord;
 
+use crate::source::SourceError;
 use crate::tile::MAX_ZOOM;
 
 pub type TileGenResult<T> = Result<T, TileGenError>;

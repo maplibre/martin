@@ -28,7 +28,7 @@ export DATABASE_URL=postgres://user:password@host:port/db  # secret!
 docker run -p 3000:3000 \
            -e DATABASE_URL \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:2.0.0-beta.5 \
+           ghcr.io/maplibre/martin:2.0.0-beta.6 \
            --config /config/config.yaml
 ```
 
@@ -83,6 +83,36 @@ cargo install cargo-binstall
 cargo binstall martin
 martin --help
 ```
+
+#### Verify Release Integrity & Provenance
+
+Starting with recent releases, binaries and packages are signed via GitHub Actions artifact attestations.
+You can verify that a downloaded asset was built by MapLibre's official CI workflow and has not been tampered with by a third party.
+
+=== "Online (GitHub CLI)"
+
+    Verify directly against GitHub's attestation API:
+
+    ```bash
+    gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+        --repo maplibre/martin \
+        --signer-workflow maplibre/martin/.github/workflows/release.yml
+    ```
+
+    Replace `martin-x86_64-unknown-linux-gnu.tar.gz` with the archive or `.deb` package you downloaded.
+
+=== "Offline / Air-Gapped (`provenance.json`)"
+
+    Download the `provenance.json` bundle alongside your release asset to verify without network access:
+
+    ```bash
+    gh attestation verify martin-x86_64-unknown-linux-gnu.tar.gz \
+        --repo maplibre/martin \
+        --signer-workflow maplibre/martin/.github/workflows/release.yml \
+        --bundle provenance.json
+    ```
+
+    Replace `martin-x86_64-unknown-linux-gnu.tar.gz` with the archive or `.deb` package you downloaded.
 
 ### From package
 

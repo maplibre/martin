@@ -9,13 +9,13 @@ use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
 use crate::CacheZoomRange;
-#[cfg(feature = "unstable-generate")]
-use crate::tiles::postgres::PostgresEngineInfo;
 use crate::tiles::postgres::PostgresError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::tiles::postgres::features::features_from_rows;
 use crate::tiles::postgres::pool::ActiveQueryGuard;
 use crate::tiles::postgres::utils::query_to_json;
-use crate::tiles::postgres::{ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures};
+use crate::tiles::postgres::{
+    ActiveQueryRegistry, PostgresEngineInfo, PostgresError, PostgresPool, PostgresTileFeatures,
+};
 use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 
@@ -37,7 +37,6 @@ pub enum PostgresTiler {
     /// A query that returns the tile itself: `ST_AsMVT` over a table, or a function.
     Sql(PostgresSqlInfo),
     /// A query that returns a table's features, which Martin's engine renders into its `layers`.
-    #[cfg(feature = "unstable-generate")]
     Engine(PostgresEngineInfo),
 }
 
@@ -111,7 +110,6 @@ impl PostgresSource {
     }
 }
 
-#[cfg(feature = "unstable-generate")]
 impl PostgresSource {
     /// Every tile of the block a cache miss of `xyz` renders, `xyz` among them, or `None` when the
     /// source does not prefetch.
@@ -168,7 +166,6 @@ impl Source for PostgresSource {
     async fn get_tile(&self, xyz: TileCoord, url_query: Option<&UrlQuery>) -> MartinCoreResult<TileData> {
         let info = match &self.tiler {
             PostgresTiler::Sql(info) => info.for_query(url_query),
-            #[cfg(feature = "unstable-generate")]
             PostgresTiler::Engine(engine) => {
                 return Ok(engine.render_tile(&self.pool, &self.id, xyz).await?);
             }
@@ -210,14 +207,9 @@ impl PostgresSource {
     }
 
     /// The tile query, `None` when the engine renders the tiles.
-    #[cfg_attr(
-        not(feature = "unstable-generate"),
-        expect(clippy::unnecessary_wraps, reason = "only the engine has no tile query")
-    )]
     fn sql(&self) -> Option<&PostgresSqlInfo> {
         match &self.tiler {
             PostgresTiler::Sql(info) => Some(info),
-            #[cfg(feature = "unstable-generate")]
             PostgresTiler::Engine(_) => None,
         }
     }

@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "2.0.0-beta.5"
+version = "2.0.0-beta.6"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -106,11 +106,9 @@ default = [
 ]
 cog = [
     "martin-core/cog",
-    "dep:aws-config",
-    "dep:aws-credential-types",
     "dep:csscolorparser",
-    "dep:object_store",
     "dep:xxhash-rust",
+    "_object_store",
     "_tiles",
     "_file_kinds",
 ]
@@ -135,45 +133,39 @@ ogcapi = ["_tiles"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
-    "dep:aws-config",
-    "dep:aws-credential-types",
-    "dep:object_store",
     "dep:xxhash-rust",
+    "_object_store",
     "_tiles",
     "_file_kinds",
 ]
 postgres = [
+    "dep:cel",
     "dep:cql2",
     "martin-core/postgres",
+    "dep:martin-tilegen",
+    "martin-tilegen/mbtiles",
+    "martin-tilegen/pmtiles",
     "dep:strum",
     "dep:json-patch",
     "dep:postgis",
     "dep:postgres-protocol",
+    "dep:similar",
+    "dep:wkt",
     "dep:xxhash-rust",
     "dep:indexmap",
+    "mbtiles",
     "_tiles",
 ]
 processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-generate = [
-    "_tiles",
-    "mbtiles",
-    "postgres",
-    "martin-core/unstable-generate",
-    "dep:cel",
-    "dep:indexmap",
-    "dep:martin-tilegen",
-    "dep:similar",
-    "dep:wkt",
-    "martin-tilegen/mbtiles",
-    "martin-tilegen/pmtiles",
-]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []
 _file_kinds = []
+# Remote object-store settings shared by pmtiles, cog and duckdb sources
+_object_store = ["dep:aws-config", "dep:aws-credential-types", "dep:object_store"]
 unstable-schemas = [
     "dep:schemars",
     "schemars/indexmap2",
@@ -186,6 +178,7 @@ unstable-duckdb = [
     "martin-core/unstable-duckdb",
     "dep:duckdb",
     "dep:strum",
+    "_object_store",
     "_tiles",
 ]
 hotpath = [

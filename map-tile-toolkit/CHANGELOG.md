@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.4.0...map-tile-toolkit-v0.4.1) - 2026-11-04
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.4.0](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.3.4...map-tile-toolkit-v0.4.0) - 2026-10-29
 
 ### Fixed

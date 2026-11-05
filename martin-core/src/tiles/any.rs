@@ -350,7 +350,7 @@ impl AnySource {
     ///
     /// `None` means this source renders one tile at a time, and the caller has to fall back to
     /// [`get_tile_with_etag`](Self::get_tile_with_etag).
-    #[cfg(feature = "unstable-generate")]
+    #[cfg(feature = "postgres")]
     pub async fn get_tile_block(&self, xyz: TileCoord) -> MartinCoreResult<Option<Vec<(TileCoord, Tile)>>> {
         match self {
             Self::Backend(backend) => match backend.as_postgres() {

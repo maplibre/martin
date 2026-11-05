@@ -105,7 +105,7 @@ impl PmtilesSource {
             ),
             PmtLocation::ObjectStore { store, path } => (store.to_string(), path.clone()),
         };
-        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
+        let reader = AsyncPmTilesReader::try_from_source_and_cache(backend, cache.clone())
             .await
             .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_name.clone()))?;
 

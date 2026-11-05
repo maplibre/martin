@@ -14,9 +14,9 @@ pub use deserialize_fields::*;
 
 mod main;
 pub use main::*;
-#[cfg(any(feature = "pmtiles", feature = "cog"))]
+#[cfg(feature = "_object_store")]
 mod object_store;
-#[cfg(any(feature = "pmtiles", feature = "cog"))]
+#[cfg(feature = "_object_store")]
 pub(crate) use crate::config::file::object_store::ObjectStoreConfig;
 pub mod cache;
 pub mod cors;
@@ -42,7 +42,7 @@ pub use crate::config::file::hillshade::{
 
 pub mod process;
 
-#[cfg(feature = "unstable-generate")]
+#[cfg(feature = "postgres")]
 #[doc(hidden)]
 pub mod tiling;
 

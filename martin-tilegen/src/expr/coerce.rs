@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::props::Prop;
 use cel::objects::ValueType;
 use cel::{ExecutionError, Value};
+
+use crate::props::Prop;
 
 pub(super) fn mismatch(value: &Value, want: &str) -> ExecutionError {
     ExecutionError::UnexpectedType {
@@ -94,11 +95,11 @@ pub(super) fn to_id(value: &Value) -> Result<Option<u64>, ExecutionError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::props::KeyId;
     use rstest::rstest;
 
     use super::*;
     use crate::expr::{CompiledExpr, ExprKeys, PropSlots};
+    use crate::props::KeyId;
 
     #[rstest]
     #[case::null(Value::Null, Ok(false))]

@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -47,12 +47,13 @@ processing = [
     "dep:tokio",
     "tokio/fs",
 ]
-unstable-generate = ["postgres", "dep:futures", "dep:martin-tilegen", "tokio/rt"]
 metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
+    "dep:futures",
     "dep:geo-traits",
     "dep:humantime",
+    "dep:martin-tilegen",
     "dep:mlt-core",
     "dep:postgres",
     "dep:regex",
@@ -64,6 +65,7 @@ postgres = [
     "dep:serde_json",
     "dep:url",
     "dep:tokio",
+    "tokio/rt",
     "tokio/sync",
     "tokio/time",
     "compact_str/sqlx-postgres",
@@ -161,7 +163,7 @@ mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
-pmtiles = { workspace = true, optional = true, features = ["tilejson", "object-store", "mmap-async-tokio"] }
+pmtiles = { workspace = true, optional = true, features = ["tilejson", "object-store", "file-async-tokio"] }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
