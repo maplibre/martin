@@ -13,9 +13,8 @@ mod retry_timeout;
 pub use crate::tiles::postgres::retry_timeout::RetryTimeout;
 
 mod features;
-pub use crate::tiles::postgres::features::column_def;
 pub use crate::tiles::postgres::features::{
-    PostgresFeature, PostgresProperty, PostgresTileFeatures, is_typed_property,
+    PostgresFeature, PostgresProperty, PostgresTileFeatures, column_def, is_typed_property,
 };
 
 mod mlt_encoder;

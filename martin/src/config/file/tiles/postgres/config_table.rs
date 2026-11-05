@@ -9,8 +9,7 @@ use tracing::{info, warn};
 
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
 use crate::config::file::tiles::postgres::PostgresInfo;
-use crate::config::file::tiling;
-use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{CacheControlHeader, CachePolicy, CollectUnrecognizedKeys, UnrecognizedValues, tiling};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 

@@ -5,8 +5,7 @@ use std::num::NonZeroU32;
 
 use futures::pin_mut;
 use indexmap::IndexMap;
-use martin_core::tiles::postgres::PostgresError::EngineTable;
-use martin_core::tiles::postgres::PostgresError::{CannotTransform, InvalidFilter, PostgresError};
+use martin_core::tiles::postgres::PostgresError::{CannotTransform, EngineTable, InvalidFilter, PostgresError};
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler, is_typed_property,
 };
