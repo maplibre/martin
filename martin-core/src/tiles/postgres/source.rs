@@ -9,12 +9,13 @@ use tilejson::TileJSON;
 use tracing::{debug, instrument};
 
 use crate::CacheZoomRange;
-use crate::tiles::postgres::PostgresEngineInfo;
 use crate::tiles::postgres::PostgresError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::tiles::postgres::features::features_from_rows;
 use crate::tiles::postgres::pool::ActiveQueryGuard;
 use crate::tiles::postgres::utils::query_to_json;
-use crate::tiles::postgres::{ActiveQueryRegistry, PostgresError, PostgresPool, PostgresTileFeatures};
+use crate::tiles::postgres::{
+    ActiveQueryRegistry, PostgresEngineInfo, PostgresError, PostgresPool, PostgresTileFeatures,
+};
 use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreResult, Source, Tile, UrlQuery};
 

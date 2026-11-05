@@ -1,8 +1,7 @@
+use std::fmt;
 use std::ops::Range;
 
 use async_tiff::error::AsyncTiffError;
-use std::fmt;
-
 use async_tiff::tags::{Compression, PhotometricInterpretation, SampleFormat, Tag};
 
 use crate::{TileCoord, TileFormat};

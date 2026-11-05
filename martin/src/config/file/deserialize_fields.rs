@@ -1,6 +1,5 @@
-use serde::de::MapAccess;
-
 pub use martin_config_macros::DeserializeFields;
+use serde::de::MapAccess;
 
 /// Reads a struct one field at a time from a map that also holds other keys.
 pub trait DeserializeFields {

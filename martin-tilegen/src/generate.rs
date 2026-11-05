@@ -3,7 +3,6 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
-use crate::source::{FeatureBatch, FeatureSource, SourceError};
 use hotpath::wrap::flume::{Receiver, Sender};
 use martin_tile_utils::Encoding;
 use tilejson::TileJSON;
@@ -13,6 +12,7 @@ use crate::phase2::{TileEncoder, TileEncoding};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{ExprErrors, Plan};
 use crate::sort::{SortConfig, Sorter, TileRecords};
+use crate::source::{FeatureBatch, FeatureSource, SourceError};
 use crate::{TileFormat, TileGenError, TileGenResult, TileOrder, TileSink};
 
 #[derive(Clone, Debug)]

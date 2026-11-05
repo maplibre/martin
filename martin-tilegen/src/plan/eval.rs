@@ -5,8 +5,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::RangeInclusive;
 use std::sync::atomic::Ordering;
 
-use crate::props::{KeyId, KeyInterner, KeyNames, Prop, SourceStr};
-use crate::source::SourceFeature;
 use tracing::warn;
 
 use super::{
@@ -14,7 +12,9 @@ use super::{
     PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
+use crate::props::{KeyId, KeyInterner, KeyNames, Prop, SourceStr};
 use crate::sort::record::EncodedProps;
+use crate::source::SourceFeature;
 use crate::{Feature, FeatureGeom, RenderLayer, TileGenError, TileGenResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
