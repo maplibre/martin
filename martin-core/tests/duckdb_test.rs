@@ -2,15 +2,20 @@
 
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::Arc;
 
 use duckdb::{Connection, params};
 use futures::future::join_all;
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
-use martin_core::tiles::duckdb::{DuckDBError, DuckDBPool, DuckDBResult, DuckDBSource, DuckDBSqlInfo};
+use martin_core::tiles::duckdb::{
+    DuckDBError, DuckDBPool, DuckDBResult, DuckDBSecret, DuckDBSecretProvider, DuckDBSource, DuckDBSqlInfo,
+};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use tempfile::TempDir;
 use tilejson::tilejson;
+use url::Url;
 
 const SOURCE_ID: &str = "duckdb-test-source";
 const POOL_ID: &str = "duckdb-test-pool";
@@ -388,4 +393,164 @@ async fn concurrent_tile_requests_from_different_coordinates() {
         let expected = format!("tile_z{}_x{}_y{}", coord.z(), coord.x(), coord.y());
         assert_eq!(results[i], expected.as_bytes(), "tile mismatch at coord {i}");
     }
+}
+
+#[derive(Debug)]
+struct ScriptedSecrets(std::sync::Mutex<std::collections::VecDeque<Result<DuckDBSecret, String>>>);
+
+impl DuckDBSecretProvider for ScriptedSecrets {
+    fn secret(&self) -> Pin<Box<dyn Future<Output = Result<DuckDBSecret, String>> + Send + '_>> {
+        let next = self
+            .0
+            .lock()
+            .expect("an unpoisoned script")
+            .pop_front()
+            .expect("a scripted secret for every checkout");
+        Box::pin(async move { next })
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_remote_pool_creates_a_secret_whose_values_contain_quotes() {
+    let secret = DuckDBSecret::new("s3")
+        .with_str("KEY_ID", "it's-a-key")
+        .with_str("SECRET", "it's-a-secret")
+        .with_str("REGION", "eu-'central'-1")
+        .with_bool("USE_SSL", false);
+    let pool = DuckDBPool::new_remote_geoparquet(
+        POOL_ID.to_owned(),
+        Url::parse("s3://bucket/points.parquet").expect("valid url"),
+        Some(Arc::new(secret)),
+        1,
+        NonZeroUsize::new(1),
+        None,
+    )
+    .expect("remote pool created");
+
+    let created = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(created, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=it's-a-key;region=eu-'central'-1;secret=redacted;use_ssl=false");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_remote_pool_replaces_the_secret_when_the_provider_hands_out_a_new_one() {
+    let secrets = ScriptedSecrets(std::sync::Mutex::new(
+        [
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "second")
+                .with_str("SECRET", "s")),
+        ]
+        .into(),
+    ));
+    let pool = DuckDBPool::new_remote_geoparquet(
+        POOL_ID.to_owned(),
+        Url::parse("s3://bucket/points.parquet").expect("valid url"),
+        Some(Arc::new(secrets)),
+        1,
+        NonZeroUsize::new(1),
+        None,
+    )
+    .expect("remote pool created");
+
+    let created = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(created, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+
+    let unchanged = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(unchanged, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+
+    let refreshed = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(refreshed, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=second;secret=redacted");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_remote_pool_keeps_the_held_secret_when_the_provider_fails() {
+    let secrets = ScriptedSecrets(std::sync::Mutex::new(
+        [
+            Ok(DuckDBSecret::new("s3")
+                .with_str("KEY_ID", "first")
+                .with_str("SECRET", "s")),
+            Err("token endpoint unreachable".to_owned()),
+        ]
+        .into(),
+    ));
+    let pool = DuckDBPool::new_remote_geoparquet(
+        POOL_ID.to_owned(),
+        Url::parse("s3://bucket/points.parquet").expect("valid url"),
+        Some(Arc::new(secrets)),
+        1,
+        NonZeroUsize::new(1),
+        None,
+    )
+    .expect("remote pool created");
+
+    let created = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(created, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
+
+    let after_failure = pool
+        .generate_tile(|conn| {
+            conn.query_row(
+                "SELECT secret_string FROM duckdb_secrets() WHERE name = 'martin'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(map_duckdb_error)
+        })
+        .await
+        .expect("secret query succeeds");
+    insta::assert_snapshot!(after_failure, @"name=martin;type=s3;provider=config;serializable=true;scope=s3://,s3n://,s3a://;key_id=first;secret=redacted");
 }

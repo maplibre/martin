@@ -7,7 +7,7 @@
 use std::fs;
 
 use indoc::{formatdoc, indoc};
-use martin_e2e_tests::{Martin, MartinBuilder, StartError, WatchedDir, fixture, mlt_dump};
+use martin_e2e_tests::{Martin, MartinBuilder, StartError, StaticFiles, WatchedDir, fixture, mlt_dump};
 use rstest::rstest;
 use tempfile::TempDir;
 
@@ -1301,4 +1301,112 @@ async fn an_empty_duckdb_filter_stops_martin_at_startup() {
         log.contains("Filter '' is not valid CQL2:"),
         "expected invalid cql2 log, got: {log}"
     );
+}
+
+#[tokio::test]
+async fn an_unsigned_s3_geoparquet_is_read_through_the_endpoint_without_credentials() {
+    let statics =
+        StaticFiles::serving(&[("bucket/polygons.parquet", fixture("duckdb/geoparquet_polygons.parquet"))]).await;
+    let dir = temp_dir();
+    let mut martin = start_with_config(
+        &dir,
+        &formatdoc! {"
+            duckdb:
+              sources:
+                - geoparquet: s3://bucket/polygons.parquet
+                  endpoint: {endpoint}
+                  allow_http: true
+                  skip_signature: true
+                  region: us-east-1
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+            ",
+            endpoint = statics.base_url(),
+        },
+    )
+    .await;
+
+    let tile = martin.get("/polygons/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    insta::assert_snapshot!(tile.mvt_dump(), @r#"
+    layer: 0
+      name: polygons
+      version: 2
+      extent: 4096
+      feature: 0
+        id: (none)
+        geometry: RING[count=5](3982 3380,4160 3380,4160 3631,3982 3631,3982 3380)[OUTER]
+        properties:
+          id = 1 (int)
+          name = "boundary_span"
+      feature: 1
+        id: (none)
+        geometry: RING[count=5](3186 3631,2958 3631,2958 3380,3186 3380,3186 3631)[OUTER]
+        properties:
+          id = 2 (int)
+          name = "inside_west"
+    "#);
+    let mut authorizations = statics
+        .header_values("authorization")
+        .await
+        .into_iter()
+        .map(|value| value.unwrap_or_else(|| "[none]".to_owned()))
+        .collect::<Vec<_>>();
+    authorizations.sort_unstable();
+    authorizations.dedup();
+    insta::assert_snapshot!(authorizations.join("\n"), @"[none]");
+
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_signed_s3_geoparquet_signs_with_the_duckdb_level_keys() {
+    let statics =
+        StaticFiles::serving(&[("bucket/polygons.parquet", fixture("duckdb/geoparquet_polygons.parquet"))]).await;
+    let dir = temp_dir();
+    let mut martin = start_with_config(
+        &dir,
+        &formatdoc! {"
+            duckdb:
+              endpoint: {endpoint}
+              allow_http: true
+              access_key_id: AKIDE2ETEST
+              secret_access_key: e2e-secret
+              sources:
+                - geoparquet: s3://bucket/polygons.parquet
+                  layer_id: polygons
+                  geometry_column: geom
+                  srid: 4326
+                  minzoom: 0
+                  maxzoom: 14
+            ",
+            endpoint = statics.base_url(),
+        },
+    )
+    .await;
+
+    let tile = martin.get("/polygons/1/0/0").await;
+    assert_eq!(tile.status(), 200);
+    let mut scopes = statics
+        .header_values("authorization")
+        .await
+        .into_iter()
+        .map(|value| {
+            let value = value.unwrap_or_else(|| "[none]".to_owned());
+            let credential = value.split(", ").next().unwrap_or_default().to_owned();
+            let mut parts = credential.split('/').map(str::to_owned).collect::<Vec<_>>();
+            if parts.len() > 1 {
+                parts[1] = "[DATE]".to_owned();
+            }
+            parts.join("/")
+        })
+        .collect::<Vec<_>>();
+    scopes.sort_unstable();
+    scopes.dedup();
+    insta::assert_snapshot!(scopes.join("\n"), @"AWS4-HMAC-SHA256 Credential=AKIDE2ETEST/[DATE]/eu-central-1/s3/aws4_request");
+
+    martin.stop().await;
 }
