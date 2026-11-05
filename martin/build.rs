@@ -1,5 +1,4 @@
-// All panicking code below is gated on `feature = "webui"`; without it this
-// expectation would go unfulfilled and fail the `warnings = "deny"` build.
+// Only `webui` code panics, so the expectation is unfulfilled without it.
 #![cfg_attr(
     feature = "webui",
     expect(
