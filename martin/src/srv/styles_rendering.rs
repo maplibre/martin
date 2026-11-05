@@ -339,10 +339,9 @@ pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpRespons
 #[cfg(test)]
 mod tests {
     use image::ColorType;
+    use martin_core::styles::LossyQuality;
     use rstest::rstest;
     use tokio::sync::oneshot;
-
-    use martin_core::styles::LossyQuality;
 
     use super::*;
 

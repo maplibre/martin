@@ -6,14 +6,11 @@ use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
-use super::deserialize_checked_tables;
-use super::{FuncInfoSources, Srid, TableInfoSources};
-use crate::config::args::BoundsCalcType;
-use crate::config::args::OrderByType;
-use crate::config::file::tiling;
+use super::{FuncInfoSources, Srid, TableInfoSources, deserialize_checked_tables};
+use crate::config::args::{BoundsCalcType, OrderByType};
 use crate::config::file::{
     CachePolicy, CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileGrids,
-    UnrecognizedValues,
+    UnrecognizedValues, tiling,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
