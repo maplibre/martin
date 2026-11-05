@@ -3,8 +3,9 @@
 use std::cmp::Ordering;
 use std::num::NonZeroU32;
 
-use crate::props::{KeyId, KeyNames};
 use mlt_core::{PropKind, PropValueRef};
+
+use crate::props::{KeyId, KeyNames};
 
 fn index_u32(len: usize) -> u32 {
     u32::try_from(len).expect("fewer than 2^32 columns")
@@ -104,9 +105,8 @@ fn column_order(names: &KeyNames, a: KeyId, b: KeyId) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    use crate::props::KeyInterner;
-
     use super::*;
+    use crate::props::KeyInterner;
 
     #[test]
     fn known_keys_come_first_in_declaration_order() {

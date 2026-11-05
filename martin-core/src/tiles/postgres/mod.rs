@@ -13,10 +13,8 @@ mod retry_timeout;
 pub use crate::tiles::postgres::retry_timeout::RetryTimeout;
 
 mod features;
-#[cfg(feature = "unstable-generate")]
-pub use crate::tiles::postgres::features::column_def;
 pub use crate::tiles::postgres::features::{
-    PostgresFeature, PostgresProperty, PostgresTileFeatures, is_typed_property,
+    PostgresFeature, PostgresProperty, PostgresTileFeatures, column_def, is_typed_property,
 };
 
 mod mlt_encoder;
@@ -25,17 +23,12 @@ pub use crate::tiles::postgres::mlt_encoder::{encode_features_as_mlt, keeps_meas
 mod source;
 pub use crate::tiles::postgres::source::{PostgresRowQuery, PostgresSource, PostgresSqlInfo, PostgresTiler};
 
-#[cfg(feature = "unstable-generate")]
 mod engine;
-#[cfg(feature = "unstable-generate")]
 pub use crate::tiles::postgres::engine::PostgresEngineInfo;
 
-#[cfg(feature = "unstable-generate")]
 mod scan;
-#[cfg(feature = "unstable-generate")]
 pub use deadpool_postgres::Object as PooledConnection;
 
-#[cfg(feature = "unstable-generate")]
 pub use crate::tiles::postgres::scan::{
     ScanLayout, export_snapshot, heap_blocks, open_scan_connection, open_scan_connections, open_snapshot_connection,
     scan_features,

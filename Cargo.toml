@@ -129,7 +129,7 @@ geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.29.2"
+hotpath = "0.31.0"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -146,13 +146,13 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.0" }
+map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
 maplibre_native = "0.10.0"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./martin-core", version = "0.15.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.2" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.1.2", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.21.2" }
+martin-core = { path = "./martin-core", version = "0.16.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.2.0", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.22.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }

@@ -3,11 +3,11 @@
 use std::fmt::Write as _;
 use std::ops::Range;
 
-use crate::props::{KeyId, KeyNames};
 use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
+use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{LayerGrid, TileGenResult};
@@ -239,12 +239,12 @@ fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &Ge
 
 #[cfg(test)]
 mod tests {
-    use crate::props::KeyInterner;
     use mlt_core::encoder::{EncoderConfig, Network, Profile};
     use mlt_core::geo_types::{Geometry, LineString, MultiLineString, Point};
     use mlt_core::{Decoder, Parser, PropValue, TileLayer};
 
     use super::*;
+    use crate::props::KeyInterner;
     use crate::sort::record::{EncodedProps, Geom, encode};
 
     const GRID: LayerGrid = LayerGrid {

@@ -1,4 +1,4 @@
-#![cfg(all(feature = "test-pg", feature = "unstable-generate"))]
+#![cfg(feature = "test-pg")]
 #![expect(clippy::panic, clippy::unwrap_used)]
 
 use std::collections::BTreeMap;

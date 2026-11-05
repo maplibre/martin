@@ -4,16 +4,6 @@ use std::num::{NonZeroI32, NonZeroU8, NonZeroU32, NonZeroU64, NonZeroUsize};
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[cfg(feature = "cog")]
-use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
-#[cfg(feature = "postgres")]
-use crate::config::file::postgres::Srid;
-#[cfg(feature = "postgres")]
-use crate::config::primitives::FunctionIdFormat;
-#[cfg(feature = "unstable-duckdb")]
-use crate::config::primitives::MacroIdFormat;
-#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
-use crate::config::primitives::TableIdFormat;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::RetryTimeout;
 use serde::{Deserialize, Serialize};
@@ -26,7 +16,17 @@ use crate::config::args::OrderByType;
 use crate::config::args::PreferredEncoding;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+#[cfg(feature = "cog")]
+use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::Srid;
 use crate::config::file::{OnInvalid, UnrecognizedKeys};
+#[cfg(feature = "postgres")]
+use crate::config::primitives::FunctionIdFormat;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::primitives::MacroIdFormat;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+use crate::config::primitives::TableIdFormat;
 
 /// Configuration keys that were present in a config section but not recognized by any known field.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,7 +134,7 @@ impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for H
     }
 }
 
-#[cfg(any(feature = "postgres", feature = "unstable-generate"))]
+#[cfg(feature = "postgres")]
 impl<K: AsRef<str>, V: CollectUnrecognizedKeys, S> CollectUnrecognizedKeys for indexmap::IndexMap<K, V, S> {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         for (key, value) in self {

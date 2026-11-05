@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0](https://github.com/maplibre/martin/compare/mbtiles-v0.21.2...mbtiles-v0.22.0) - 2026-11-04
+
+### Added
+
+- *(mbtiles)* [**breaking**] warn instead of failing on a missing unique tile index ([#3871](https://github.com/maplibre/martin/pull/3871))
+
+### Other
+
+- *(deps)* replace enum-display and derive-debug, both still on syn 1 ([#3854](https://github.com/maplibre/martin/pull/3854))
+- update Cargo.toml dependencies
+
 ## [0.21.2](https://github.com/maplibre/martin/compare/mbtiles-v0.21.1...mbtiles-v0.21.2) - 2026-10-29
 
 ### Added

@@ -59,7 +59,6 @@ async fn refuses_a_copy_without_zooms() {
     insta::assert_snapshot!(log, @"ERROR Set the zooms to copy with `--max-zoom` or `--zoom-levels`");
 }
 
-#[cfg(feature = "test-generate")]
 #[tokio::test]
 async fn tile_mode_refuses_options_only_bulk_mode_reads() {
     let dir = temp_dir();

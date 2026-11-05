@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.6](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.5...martin-v2.0.0-beta.6) - 2026-11-04
+
+> [!NOTE]
+> This is the sixth beta of Martin 2.0. It has one breaking change relative to [2.0.0-beta.5](https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.5), listed below.
+> If you are coming from 1.x, read the [migration guide](https://maplibre.org/martin/migration-guide/) first.
+
+### Breaking changes
+
+- The `unstable-generate` cargo feature is gone. Bulk mode, table `layers` and `martin test` are built with `postgres`, which now also enables `mbtiles` ([#3891](https://github.com/maplibre/martin/pull/3891)).
+  Builds that pass `--features unstable-generate` fail and pass `postgres` instead. Default builds, release binaries and Docker images need no change.
+
+### Added
+
+- The release binaries and Docker images include [`martin cp --mode bulk`](https://maplibre.org/martin/martin-generate/), which reads each table once and builds the whole tileset itself, as MBTiles or PMTiles. They also include table [`layers`](https://maplibre.org/martin/sources-pg-layers/) and [`martin test`](https://maplibre.org/martin/martin-test/) ([#3891](https://github.com/maplibre/martin/pull/3891)).
+  On a Germany extract (zooms 0 to 14, 16 threads), bulk mode built a tileset with one layer per table in under 2 minutes, where tile mode took about 20. PostgreSQL used about 100 CPU seconds instead of 10,300. With `layers`, the same data takes about 1 minute.
+  `--mode auto` still picks `tile`, and the configuration of `layers` may still change.
+
+  ```bash
+  martin cp --mode bulk --output-file germany.pmtiles --max-zoom 14 postgres://localhost/osm
+  ```
+
+- Release archives include an SPDX SBOM, `martin.spdx.json` ([#3888](https://github.com/maplibre/martin/pull/3888)). Each release also has a `provenance.json` attestation bundle, so `gh attestation verify --bundle` checks a download without network access. See [installation](https://maplibre.org/martin/installation/) ([#3874](https://github.com/maplibre/martin/pull/3874)).
+
+### Fixed
+
+- `mbtiles summary`, and `mbtiles copy` from an MBTiles file without a unique tile index, print a warning instead of failing. `mbtiles copy` adds the index to its output, so it repairs the file. Martin logs a warning when it serves such a file, and writing into one still fails ([#782](https://github.com/maplibre/martin/issues/782), [#3870](https://github.com/maplibre/martin/issues/3870), [#3871](https://github.com/maplibre/martin/pull/3871)).
+
+### Unstable
+
+> [!WARNING]
+> None of this is in the release binaries. It needs a build with `--features unstable-duckdb`, and its configuration may still change.
+
+- DuckDB sources work with DuckDB 2.0. Before, discovery failed on it and auto-publish found no tables ([#3864](https://github.com/maplibre/martin/pull/3864)).
+
+### Other
+
+- *(deps)* update `pmtiles` to 0.26, `duckdb` to allow 2.0, `vt100` to 0.18, `hotpath`, `maplibre-gl` to 6.16 and the frontend's npm dependencies, the PostGIS image, the pre-commit hooks and the GitHub Actions, and drop the last crates still on `syn` 1 and the `wkb` git patch ([#3879](https://github.com/maplibre/martin/pull/3879), [#3860](https://github.com/maplibre/martin/pull/3860), [#3865](https://github.com/maplibre/martin/pull/3865), [#3878](https://github.com/maplibre/martin/pull/3878), [#3863](https://github.com/maplibre/martin/pull/3863), [#3880](https://github.com/maplibre/martin/pull/3880), [#3875](https://github.com/maplibre/martin/pull/3875), [#3876](https://github.com/maplibre/martin/pull/3876), [#3877](https://github.com/maplibre/martin/pull/3877), [#3862](https://github.com/maplibre/martin/pull/3862), [#3881](https://github.com/maplibre/martin/pull/3881), [#3854](https://github.com/maplibre/martin/pull/3854), [#3853](https://github.com/maplibre/martin/pull/3853), [#3883](https://github.com/maplibre/martin/pull/3883), [#3890](https://github.com/maplibre/martin/pull/3890))
+- *(ci)* more reliable CI ([#3866](https://github.com/maplibre/martin/pull/3866), [#3867](https://github.com/maplibre/martin/pull/3867), [#3884](https://github.com/maplibre/martin/pull/3884), [#3885](https://github.com/maplibre/martin/pull/3885))
+
 ## [2.0.0-beta.5](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.4...martin-v2.0.0-beta.5) - 2026-10-29
 
 > [!NOTE]
