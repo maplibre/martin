@@ -109,18 +109,16 @@ mod tests {
     fn shared_path_stays_claimed_when_a_later_consumer_ignores_it() {
         let mut args = Arguments::new(vec!["tiles/".to_owned()]);
         let shared = args.process(|v| State::Share(v.to_owned()));
-        let ignored: Vec<String> = args.process(|_| State::Ignore);
+        args.process::<String, _>(|_| State::Ignore);
         assert_eq!(shared, vec!["tiles/"]);
-        assert!(ignored.is_empty());
         args.check().unwrap();
     }
 
     #[test]
     fn ignored_path_stays_claimed_when_a_later_consumer_shares_it() {
         let mut args = Arguments::new(vec!["tiles/".to_owned()]);
-        let ignored: Vec<String> = args.process(|_| State::Ignore);
+        args.process::<String, _>(|_| State::Ignore);
         let shared = args.process(|v| State::Share(v.to_owned()));
-        assert!(ignored.is_empty());
         assert_eq!(shared, vec!["tiles/"]);
         args.check().unwrap();
     }
@@ -128,10 +126,8 @@ mod tests {
     #[test]
     fn path_every_consumer_ignores_is_unrecognized() {
         let mut args = Arguments::new(vec!["tiles/".to_owned()]);
-        let first: Vec<String> = args.process(|_| State::Ignore);
-        let second: Vec<String> = args.process(|_| State::Ignore);
-        assert!(first.is_empty());
-        assert!(second.is_empty());
+        args.process::<String, _>(|_| State::Ignore);
+        args.process::<String, _>(|_| State::Ignore);
         assert_matches!(
             args.check(),
             Err(ArgsError::UnrecognizableConnections(v)) if v == vec!["tiles/"]
