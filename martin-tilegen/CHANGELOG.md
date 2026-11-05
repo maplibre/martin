@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/maplibre/martin/compare/martin-tilegen-v0.1.2...martin-tilegen-v0.2.0) - 2026-11-04
+
+### Added
+
+- *(mbtiles)* [**breaking**] warn instead of failing on a missing unique tile index ([#3871](https://github.com/maplibre/martin/pull/3871))
+
+### Other
+
+- *(deps)* drop the wkb git patch so the workspace publishes ([#3853](https://github.com/maplibre/martin/pull/3853))
+
 ## [0.1.2](https://github.com/maplibre/martin/compare/martin-tilegen-v0.1.1...martin-tilegen-v0.1.2) - 2026-10-29
 
 ### Added
