@@ -336,15 +336,15 @@ impl ObjectStoreConfig {
     }
 
     #[cfg(feature = "unstable-duckdb")]
-    /// The credential provider `object_store` builds for the S3 `url` from the configured
-    /// credential-discovery options, the same one a remote `PMTiles` source would sign with.
-    ///
-    /// `None` when no such option is set, so a source without any never probes instance metadata.
-    pub(crate) fn discovered_aws_credentials(&self, url: &Url) -> object_store::Result<Option<AwsCredentialProvider>> {
-        if !self.options.keys().any(|key| is_credential_discovery_option(key)) {
-            return Ok(None);
-        }
-        let store = self
+    /// Whether any S3 credential is configured: static keys, a `profile`, or a credential-discovery option.
+    pub(crate) fn has_aws_credentials(&self) -> bool {
+        self.aws_credentials.is_some() || self.options.keys().any(|key| is_credential_option(key))
+    }
+
+    /// The S3 builder for `url` with every configured option, the `profile` credentials and the
+    /// shared HTTP connection pools.
+    pub(crate) fn s3_builder(&self, url: &Url) -> AmazonS3Builder {
+        let builder = self
             .options
             .iter()
             .fold(
@@ -354,9 +354,11 @@ impl ObjectStoreConfig {
                     Err(_) => builder,
                 },
             )
-            .with_http_connector(self.http_clients.clone())
-            .build()?;
-        Ok(Some(Arc::clone(store.credentials())))
+            .with_http_connector(self.http_clients.clone());
+        match &self.aws_credentials {
+            Some(credentials) => builder.with_credentials(Arc::clone(credentials)),
+            None => builder,
+        }
     }
 
     /// Builds the store for `url`, sharing HTTP connection pools across sources.
@@ -384,13 +386,7 @@ impl ObjectStoreConfig {
 
         let (scheme, path) = ObjectStoreScheme::parse(url)?;
         let store: Box<dyn ObjectStore> = match scheme {
-            ObjectStoreScheme::AmazonS3 => {
-                let mut builder = with_options!(AmazonS3Builder, url);
-                if let Some(credentials) = &self.aws_credentials {
-                    builder = builder.with_credentials(Arc::clone(credentials));
-                }
-                Box::new(builder.build()?)
-            }
+            ObjectStoreScheme::AmazonS3 => Box::new(self.s3_builder(url).build()?),
             ObjectStoreScheme::GoogleCloudStorage => Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?),
             ObjectStoreScheme::MicrosoftAzure => Box::new(with_options!(MicrosoftAzureBuilder, url).build()?),
             ObjectStoreScheme::Http => {

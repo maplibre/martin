@@ -5,21 +5,20 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use martin_core::tiles::duckdb::{DuckDBSecret, DuckDBSecretProvider};
-use object_store::aws::{AmazonS3ConfigKey, AwsCredentialProvider};
+use object_store::aws::{AmazonS3Builder, AmazonS3ConfigKey, AwsCredentialProvider};
 use object_store::client::ClientConfigKey;
 use url::Url;
 
 use crate::config::file::ObjectStoreConfig;
 use crate::config::file::object_store::is_truthy;
 
-/// The `DuckDB` S3 secret for `url`, built from the same keys a remote `PMTiles` source takes.
+/// The `DuckDB` S3 secret for `url`, read from the same `AmazonS3Builder` a remote `PMTiles` source builds.
 ///
 /// `None` for a non-`s3://` URL, or when no credentials, region, endpoint or addressing style
-/// is configured: `DuckDB`'s own defaults then apply. Explicit
-/// `access_key_id`/`secret_access_key`/`session_token` win over credentials from a `profile`
-/// or from credential-discovery options (web identity, container or instance metadata), which
-/// the provider re-reads so pools pick up refreshed temporary credentials; `skip_signature`
-/// drops credentials entirely.
+/// is configured: `DuckDB`'s own defaults then apply. With any credential setting (static keys,
+/// a `profile`, or a credential-discovery option) the secret is re-read from the builder's
+/// credential provider, so pools pick up refreshed temporary credentials; without one, instance
+/// metadata is never asked. `skip_signature` drops credentials entirely.
 pub(crate) fn s3_secret(
     config: &ObjectStoreConfig,
     url: &Url,
@@ -28,37 +27,25 @@ pub(crate) fn s3_secret(
         return Ok(None);
     }
     let bucket = url.host_str().map(str::to_owned);
+    let builder = config.s3_builder(url);
+    let settings = S3Settings::read(&builder, config, bucket.as_deref())?;
 
-    let mut settings = S3Settings::default();
-    for (key, value) in &config.options {
-        let Ok(key) = key.parse::<AmazonS3ConfigKey>() else {
-            continue;
-        };
-        settings.set(key, value);
+    if !settings.skip_signature && config.has_aws_credentials() {
+        let store = builder
+            .build()
+            .map_err(|error| format!("unable to set up S3 credentials: {error}"))?;
+        return Ok(Some(Arc::new(ProvidedSecret {
+            settings,
+            bucket,
+            credentials: Arc::clone(store.credentials()),
+        })));
     }
 
-    if !settings.skip_signature && settings.key_id.is_none() {
-        let credentials = match &config.aws_credentials {
-            Some(credentials) => Some(Arc::clone(credentials)),
-            None => config
-                .discovered_aws_credentials(url)
-                .map_err(|error| format!("unable to set up S3 credential discovery: {error}"))?,
-        };
-        if let Some(credentials) = credentials {
-            return Ok(Some(Arc::new(ProvidedSecret {
-                settings,
-                bucket,
-                credentials,
-            })));
-        }
-    }
-
-    let secret = settings.into_secret(bucket.as_deref())?;
+    let secret = settings.into_secret(bucket.as_deref());
     Ok(secret.map(|secret| Arc::new(secret) as Arc<dyn DuckDBSecretProvider>))
 }
 
-/// An S3 secret whose credentials come from a `profile` or from credential discovery,
-/// rebuilt from whatever the (caching) credential provider currently holds.
+/// An S3 secret rebuilt from whatever the builder's (caching) credential provider currently holds.
 struct ProvidedSecret {
     settings: S3Settings,
     bucket: Option<String>,
@@ -86,73 +73,73 @@ impl DuckDBSecretProvider for ProvidedSecret {
             settings.key_id = Some(credential.key_id.clone());
             settings.secret = Some(credential.secret_key.clone());
             settings.session_token.clone_from(&credential.token);
-            let secret = settings.into_secret(self.bucket.as_deref())?;
-            Ok(secret.expect("a secret with a key id is never empty"))
+            Ok(settings
+                .into_secret(self.bucket.as_deref())
+                .expect("a secret with a key id is never empty"))
         })
     }
 }
 
+/// The settings `DuckDB`'s S3 secret takes, as the builder resolved them.
 #[derive(Clone, Default)]
 struct S3Settings {
     key_id: Option<String>,
     secret: Option<String>,
     session_token: Option<String>,
     region: Option<String>,
-    default_region: Option<String>,
     endpoint: Option<String>,
     virtual_hosted_style: Option<bool>,
     skip_signature: bool,
-    allow_http: bool,
 }
 
 impl S3Settings {
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "AmazonS3ConfigKey is non-exhaustive; other keys have no DuckDB equivalent"
-    )]
-    fn set(&mut self, key: AmazonS3ConfigKey, value: &str) {
-        match key {
-            AmazonS3ConfigKey::AccessKeyId => self.key_id = Some(value.to_owned()),
-            AmazonS3ConfigKey::SecretAccessKey => self.secret = Some(value.to_owned()),
-            AmazonS3ConfigKey::Token => self.session_token = Some(value.to_owned()),
-            AmazonS3ConfigKey::Region => self.region = Some(value.to_owned()),
-            AmazonS3ConfigKey::DefaultRegion => self.default_region = Some(value.to_owned()),
-            AmazonS3ConfigKey::Endpoint | AmazonS3ConfigKey::S3Endpoint => {
-                self.endpoint = Some(value.to_owned());
+    /// Reads the settings from `builder`; fails for a plain `http` endpoint without `allow_http`.
+    fn read(builder: &AmazonS3Builder, config: &ObjectStoreConfig, bucket: Option<&str>) -> Result<Self, String> {
+        let flag = |key: AmazonS3ConfigKey| builder.get_config_value(&key).is_some_and(|value| is_truthy(&value));
+        // The builder reports an unset addressing style as `false`; only a configured one is sent.
+        let virtual_hosted_style = config
+            .options
+            .keys()
+            .any(|key| matches!(key.parse(), Ok(AmazonS3ConfigKey::VirtualHostedStyleRequest)))
+            .then(|| flag(AmazonS3ConfigKey::VirtualHostedStyleRequest));
+        let settings = Self {
+            region: builder.get_config_value(&AmazonS3ConfigKey::Region),
+            endpoint: builder
+                .get_config_value(&AmazonS3ConfigKey::S3Endpoint)
+                .or_else(|| builder.get_config_value(&AmazonS3ConfigKey::Endpoint)),
+            virtual_hosted_style,
+            skip_signature: flag(AmazonS3ConfigKey::SkipSignature),
+            ..Self::default()
+        };
+        if let Some(endpoint) = &settings.endpoint {
+            let (_, use_ssl) = duckdb_endpoint(endpoint, bucket, settings.virtual_hosted_style.unwrap_or(false));
+            if use_ssl == Some(false) && !flag(AmazonS3ConfigKey::Client(ClientConfigKey::AllowHttp)) {
+                return Err("plain http S3 endpoint is refused unless `allow_http` is set to `true`".to_owned());
             }
-            AmazonS3ConfigKey::VirtualHostedStyleRequest => {
-                self.virtual_hosted_style = Some(is_truthy(value));
-            }
-            AmazonS3ConfigKey::SkipSignature => self.skip_signature = is_truthy(value),
-            AmazonS3ConfigKey::Client(ClientConfigKey::AllowHttp) => {
-                self.allow_http = is_truthy(value);
-            }
-            _ => {}
         }
+        Ok(settings)
     }
 
-    fn into_secret(self, bucket: Option<&str>) -> Result<Option<DuckDBSecret>, String> {
-        let region = self.region.or(self.default_region);
-        let (key_id, secret, session_token) = if self.skip_signature {
-            (None, None, None)
-        } else {
-            (self.key_id, self.secret, self.session_token)
-        };
-        if key_id.is_none() && region.is_none() && self.endpoint.is_none() && self.virtual_hosted_style.is_none() {
-            return Ok(None);
+    fn into_secret(self, bucket: Option<&str>) -> Option<DuckDBSecret> {
+        if self.key_id.is_none()
+            && self.region.is_none()
+            && self.endpoint.is_none()
+            && self.virtual_hosted_style.is_none()
+        {
+            return None;
         }
 
         let mut duckdb = DuckDBSecret::new("s3");
-        if let Some(key_id) = key_id {
+        if let Some(key_id) = self.key_id {
             duckdb = duckdb.with_str("KEY_ID", key_id);
         }
-        if let Some(secret) = secret {
+        if let Some(secret) = self.secret {
             duckdb = duckdb.with_str("SECRET", secret);
         }
-        if let Some(session_token) = session_token {
+        if let Some(session_token) = self.session_token {
             duckdb = duckdb.with_str("SESSION_TOKEN", session_token);
         }
-        if let Some(region) = region {
+        if let Some(region) = self.region {
             duckdb = duckdb.with_str("REGION", region);
         }
         if let Some(endpoint) = &self.endpoint {
@@ -160,9 +147,6 @@ impl S3Settings {
             // DuckDB defaults to virtual-hosted style; keep object_store's behaviour.
             let vhost = self.virtual_hosted_style.unwrap_or(false);
             let (endpoint, use_ssl) = duckdb_endpoint(endpoint, bucket, vhost);
-            if use_ssl == Some(false) && !self.allow_http {
-                return Err("plain http S3 endpoint is refused unless `allow_http` is set to `true`".to_owned());
-            }
             duckdb = duckdb
                 .with_str("ENDPOINT", endpoint)
                 .with_str("URL_STYLE", if vhost { "vhost" } else { "path" });
@@ -172,7 +156,7 @@ impl S3Settings {
         } else if let Some(vhost) = self.virtual_hosted_style {
             duckdb = duckdb.with_str("URL_STYLE", if vhost { "vhost" } else { "path" });
         }
-        Ok(Some(duckdb))
+        Some(duckdb)
     }
 }
 
@@ -290,6 +274,35 @@ mod tests {
         s3_secret(&refused, &url).unwrap_err();
         let allowed = config(&[("aws_endpoint", "http://localhost:9000"), ("allow_http", "true")]);
         assert!(s3_secret(&allowed, &url).unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn s3_endpoint_wins_over_endpoint() {
+        let values = [
+            ("region", "eu-west-1"),
+            ("endpoint", "https://a.example"),
+            ("aws_endpoint_url_s3", "https://b.example"),
+        ];
+        let secret = secret(&values, "s3://bucket/a.parquet").await.unwrap();
+        assert_eq!(
+            secret,
+            DuckDBSecret::new("s3")
+                .with_str("REGION", "eu-west-1")
+                .with_str("ENDPOINT", "b.example")
+                .with_str("URL_STYLE", "path")
+                .with_bool("USE_SSL", true)
+        );
+    }
+
+    #[test]
+    fn static_keys_on_a_plain_http_endpoint_need_allow_http() {
+        let url = Url::parse("s3://bucket/a.parquet").unwrap();
+        let refused = config(&[
+            ("aws_access_key_id", "id"),
+            ("secret_access_key", "key"),
+            ("aws_endpoint", "http://localhost:9000"),
+        ]);
+        insta::assert_snapshot!(s3_secret(&refused, &url).unwrap_err(), @"plain http S3 endpoint is refused unless `allow_http` is set to `true`");
     }
 
     /// Hands out a new key id on every call, like a profile whose temporary credentials rotate.
