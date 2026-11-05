@@ -10,6 +10,7 @@ use object_store::client::ClientConfigKey;
 use url::Url;
 
 use crate::config::file::ObjectStoreConfig;
+use crate::config::file::object_store::is_truthy;
 
 /// The `DuckDB` S3 secret for `url`, built from the same keys a remote `PMTiles` source takes.
 ///
@@ -195,11 +196,6 @@ fn duckdb_endpoint(endpoint: &str, bucket: Option<&str>, vhost: bool) -> (String
     }
     out.push_str(url.path().trim_end_matches('/'));
     (out, Some(url.scheme() != "http"))
-}
-
-/// `object_store` keeps its boolean parser private; these are the spellings it accepts.
-fn is_truthy(value: &str) -> bool {
-    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
 }
 
 #[cfg(test)]

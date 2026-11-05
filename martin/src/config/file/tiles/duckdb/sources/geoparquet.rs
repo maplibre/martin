@@ -132,18 +132,6 @@ impl GeoParquetEntry {
         self.location = Some(GeoParquetLocation::from_config(&self.geoparquet)?);
         Ok(())
     }
-
-    /// Claims this source's object-store keys, then fills the rest from the `duckdb` level.
-    ///
-    /// Only a source with its own `profile` resolves AWS settings itself; the others share
-    /// what the `duckdb` level already resolved from the environment and its profile.
-    pub(crate) async fn finalize_object_store(&mut self, shared: &ObjectStoreConfig) {
-        self.object_store.prepare(&mut self.unrecognized, "duckdb.sources");
-        if self.object_store.profile.is_some() {
-            self.object_store.finalize_runtime("duckdb.sources").await;
-        }
-        self.object_store.inherit(shared);
-    }
 }
 
 #[cfg(test)]

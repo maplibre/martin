@@ -126,7 +126,6 @@ fn canonical_option_key(key: &str) -> String {
 }
 
 /// Any S3 credential setting: a static key pair or token, or a credential-discovery option.
-#[cfg(feature = "unstable-duckdb")]
 fn is_credential_option(key: &str) -> bool {
     is_credential_discovery_option(key)
         || key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
@@ -138,7 +137,6 @@ fn is_credential_option(key: &str) -> bool {
 }
 
 /// An option `object_store` resolves credentials from: web identity, container or instance metadata.
-#[cfg(feature = "unstable-duckdb")]
 fn is_credential_discovery_option(key: &str) -> bool {
     key.parse::<AmazonS3ConfigKey>().is_ok_and(|key| {
         AWS_CREDENTIAL_DISCOVERY_KEYS.contains(&key)
@@ -147,6 +145,11 @@ fn is_credential_discovery_option(key: &str) -> bool {
                 AmazonS3ConfigKey::MetadataEndpoint | AmazonS3ConfigKey::ImdsV1Fallback
             )
     })
+}
+
+/// Legacy from `object_store`: a copy of its private bool parser, so the options Martin reads itself (`allow_http`, `skip_signature`, `virtual_hosted_style_request`) accept the same spellings (`1`, `true`, `on`, `yes`, `y`) that `object_store` accepts when it receives them.
+pub(crate) fn is_truthy(value: &str) -> bool {
+    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
 }
 
 fn is_proxy_option(key: &str) -> bool {
@@ -264,41 +267,11 @@ impl ObjectStoreConfig {
             self.options.insert("region".to_owned(), region.as_ref().to_owned());
         }
 
-        let has_explicit_credentials = [
-            "access_key_id",
-            "aws_access_key_id",
-            "secret_access_key",
-            "aws_secret_access_key",
-            "session_token",
-            "aws_session_token",
-            "token",
-            "aws_token",
-            "web_identity_token_file",
-            "aws_web_identity_token_file",
-            "role_arn",
-            "aws_role_arn",
-            "role_session_name",
-            "aws_role_session_name",
-            "container_credentials_relative_uri",
-            "aws_container_credentials_relative_uri",
-            "container_credentials_full_uri",
-            "aws_container_credentials_full_uri",
-            "container_authorization_token_file",
-            "aws_container_authorization_token_file",
-            "metadata_endpoint",
-            "aws_metadata_endpoint",
-            "imdsv1_fallback",
-            "aws_imdsv1_fallback",
-            "endpoint_url_sts",
-            "aws_endpoint_url_sts",
-        ]
-        .iter()
-        .any(|key| self.options.contains_key(*key));
-        let skips_signature = ["skip_signature", "aws_skip_signature"].iter().any(|key| {
-            self.options
-                .get(*key)
-                .is_some_and(|value| value.eq_ignore_ascii_case("true") || value == "1")
-        });
+        let has_explicit_credentials = self.options.keys().any(|key| is_credential_option(key));
+        let skips_signature = self
+            .options
+            .iter()
+            .any(|(key, value)| matches!(key.parse(), Ok(AmazonS3ConfigKey::SkipSignature)) && is_truthy(value));
 
         if has_explicit_credentials {
             if namespace == "pmtiles" {
@@ -322,13 +295,29 @@ impl ObjectStoreConfig {
     }
 
     #[cfg(feature = "unstable-duckdb")]
+    /// Finishes a source's own settings: takes its object-store keys out of `unrecognized`, loads
+    /// its own `profile` if it has one, then fills the rest from `shared`.
+    pub(crate) async fn finalize_source(
+        &mut self,
+        unrecognized: &mut UnrecognizedValues,
+        namespace: &'static str,
+        shared: &Self,
+    ) {
+        self.prepare(unrecognized, namespace);
+        if self.profile.is_some() {
+            self.finalize_runtime(namespace).await;
+        }
+        self.inherit(shared);
+    }
+
+    #[cfg(feature = "unstable-duckdb")]
     /// Fills every option `self` leaves unset, and the AWS credential provider, from `shared`.
     ///
     /// Options are matched by their canonical name, so `aws_region` here shadows a shared
     /// `region`. Credentials are inherited as a group: with its own `profile` or any credential
     /// key, `self` takes no credential keys and no credential provider from `shared`, so a
     /// shared `session_token` never pairs with a source's own key pair.
-    pub(crate) fn inherit(&mut self, shared: &Self) {
+    fn inherit(&mut self, shared: &Self) {
         let own_credentials = self.profile.is_some() || self.options.keys().any(|key| is_credential_option(key));
         let own_keys = self
             .options
@@ -405,10 +394,7 @@ impl ObjectStoreConfig {
             ObjectStoreScheme::GoogleCloudStorage => Box::new(with_options!(GoogleCloudStorageBuilder, url).build()?),
             ObjectStoreScheme::MicrosoftAzure => Box::new(with_options!(MicrosoftAzureBuilder, url).build()?),
             ObjectStoreScheme::Http => {
-                // object_store keeps its boolean parser private, these are the spellings it accepts
-                let allow_http = self.options.get("allow_http").is_some_and(|value| {
-                    matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "yes" | "y")
-                });
+                let allow_http = self.options.get("allow_http").is_some_and(|value| is_truthy(value));
                 if url.scheme() == "http" && !allow_http {
                     return Err(object_store::Error::Generic {
                         store: "HttpStore",
@@ -634,8 +620,8 @@ mod tests {
     }
 
     #[cfg(feature = "unstable-duckdb")]
-    #[test]
-    fn own_key_pair_inherits_no_shared_credentials() {
+    #[tokio::test]
+    async fn own_key_pair_inherits_no_shared_credentials() {
         let mut shared = prepared([
             ("access_key_id", json!("shared-id")),
             ("secret_access_key", json!("shared-key")),
@@ -644,12 +630,15 @@ mod tests {
         ]);
         let (provider, _) = counting_provider(None);
         shared.aws_credentials = Some(Arc::new(provider));
-        let mut own = prepared([
+        let mut own = ObjectStoreConfig::default();
+        let mut unrecognized = [
             ("access_key_id", json!("own-id")),
             ("secret_access_key", json!("own-key")),
-        ]);
+        ]
+        .into_iter()
+        .collect();
 
-        own.inherit(&shared);
+        own.finalize_source(&mut unrecognized, "duckdb.sources", &shared).await;
 
         let options = own
             .options
@@ -668,15 +657,18 @@ mod tests {
     }
 
     #[cfg(feature = "unstable-duckdb")]
-    #[test]
-    fn own_discovery_option_inherits_no_shared_key_pair() {
+    #[tokio::test]
+    async fn own_discovery_option_inherits_no_shared_key_pair() {
         let shared = prepared([
             ("access_key_id", json!("shared-id")),
             ("secret_access_key", json!("shared-key")),
         ]);
-        let mut own = prepared([("container_credentials_relative_uri", json!("/v2/credentials"))]);
+        let mut own = ObjectStoreConfig::default();
+        let mut unrecognized = [("container_credentials_relative_uri", json!("/v2/credentials"))]
+            .into_iter()
+            .collect();
 
-        own.inherit(&shared);
+        own.finalize_source(&mut unrecognized, "duckdb.sources", &shared).await;
 
         assert_eq!(
             own.options

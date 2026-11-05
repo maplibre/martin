@@ -125,7 +125,10 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
             source.finalize()?;
             source.apply_defaults(defaults);
             if let DuckDbSourceEntry::GeoParquet(entry) = source {
-                entry.finalize_object_store(&self.object_store).await;
+                entry
+                    .object_store
+                    .finalize_source(&mut entry.unrecognized, "duckdb.sources", &self.object_store)
+                    .await;
             }
         }
         Ok(())
