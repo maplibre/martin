@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle,
+    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle, GraphicsDeviceOptions,
     GraphicsDeviceTextureDescriptor, LogHandler, LogSeverity, LogicalExtent, MapHandle, MapMode, MapOptions,
     NativeFuture, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag,
     RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult, set_log_callback,
@@ -24,12 +24,10 @@ use crate::resources::styles::StyleError;
 /// How long a call into `MapLibre` may take before its renderer is given up on.
 const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// A `MapLibre` runtime and graphics device shared by every renderer of a pool, with one ambient cache.
+/// A `MapLibre` runtime shared by every renderer of a pool, with one ambient cache.
 pub struct Runtime {
     /// The native runtime.
     handle: Releasable<RuntimeHandle>,
-    /// The device every renderer's texture lives on.
-    device: GraphicsDeviceHandle,
     /// Style-load listeners, by the id of the map they listen to.
     listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
 }
@@ -60,12 +58,9 @@ impl Runtime {
     ///
     /// # Errors
     ///
-    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
+    /// Returns [`StyleError::RenderingError`] when `MapLibre` cannot start.
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
         forward_logs();
-        let device = GraphicsDeviceHandle::create(None).map_err(|err| StyleError::GraphicsUnavailable {
-            reason: err.to_string(),
-        })?;
         let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
@@ -89,9 +84,41 @@ impl Runtime {
         }
         Ok(Self {
             handle: Releasable(Some(handle)),
-            device,
             listeners,
         })
+    }
+}
+
+/// One worker's graphics device, created with `single_context` when the worker is built.
+///
+/// `single_context` requires that the device's sessions never render at the same time, which holds because a
+/// worker renders one image at a time.
+#[derive(Debug)]
+pub struct WorkerDevice {
+    runtime: Arc<Runtime>,
+    device: GraphicsDeviceHandle,
+}
+
+impl WorkerDevice {
+    /// Creates the device for a new worker of a pool of `runtime`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
+    pub fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
+        let options = GraphicsDeviceOptions {
+            single_context: Some(true),
+            ..GraphicsDeviceOptions::default()
+        };
+        let device = GraphicsDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+            reason: err.to_string(),
+        })?;
+        Ok(Self { runtime, device })
+    }
+
+    /// Creates a renderer on this worker's device. See [`Renderer::new`].
+    pub fn renderer(&self, mode: MapMode, width: u32, height: u32, pixel_ratio: f64) -> Result<Renderer, StyleError> {
+        Renderer::new(&self.runtime, &self.device, mode, width, height, pixel_ratio)
     }
 }
 
@@ -200,9 +227,10 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio`.
+    /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio` into a texture on `device`.
     pub fn new(
         runtime: &Arc<Runtime>,
+        device: &GraphicsDeviceHandle,
         mode: MapMode,
         width: u32,
         height: u32,
@@ -220,7 +248,7 @@ impl Renderer {
 
         let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
         let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
-        let (session, attached) = map.attach_graphics_device_texture(&runtime.device, &descriptor, &attach)?;
+        let (session, attached) = map.attach_graphics_device_texture(device, &descriptor, &attach)?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners
