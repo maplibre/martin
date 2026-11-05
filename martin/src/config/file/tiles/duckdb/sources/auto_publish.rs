@@ -77,11 +77,14 @@ pub struct DuckDbCfgPublishTables {
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "one_or_many::OneOrMany<String>"))]
     pub id_columns: Vec<String>,
     /// Controls if geometries should be clipped or encoded as is \[default: true\]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
     /// Buffer distance in tile coordinate space to optionally clip geometries,
     /// optional, default to 64
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: Option<u32>,
     /// Tile extent in tile coordinate space, optional, default to 4096
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: Option<NonZeroU32>,
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
