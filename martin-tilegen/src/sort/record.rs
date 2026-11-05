@@ -4,12 +4,12 @@
 
 #![expect(clippy::mem_forget, reason = "the wincode SchemaRead derive forgets its drop guard")]
 
-use crate::props::KeyId;
 use mlt_core::PropValueRef;
 use wincode::config::{Configuration, PREALLOCATION_SIZE_LIMIT_DISABLED};
 use wincode::len::BincodeLen;
 use wincode::{SchemaRead, SchemaWrite};
 
+use crate::props::KeyId;
 use crate::{TileGenError, TileGenResult};
 
 pub type Vertex = [i32; 2];

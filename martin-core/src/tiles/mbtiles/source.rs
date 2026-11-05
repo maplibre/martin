@@ -1,10 +1,9 @@
 //! `MBTiles` tile source implementation.
 
-use std::fmt;
-use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fmt, io};
 
 use backon::{FibonacciBuilder, Retryable as _};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
