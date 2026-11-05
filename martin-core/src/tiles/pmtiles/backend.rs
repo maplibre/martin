@@ -32,8 +32,8 @@ impl PmtFileBackend {
     /// Opens `path` for reading.
     pub(crate) async fn open(path: impl Into<PathBuf>) -> PmtResult<Self> {
         let path = path.into();
-        let file = FileBackend::try_from(&path).await?;
         let version = data_version(&std::fs::metadata(&path)?);
+        let file = FileBackend::try_from(&path).await?;
         Ok(Self { file, path, version })
     }
 }
