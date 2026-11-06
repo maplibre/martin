@@ -6,6 +6,7 @@ mod limit;
 mod line_merge;
 mod merge_lines;
 mod merge_multi;
+mod merge_polygons;
 
 use std::cell::RefCell;
 use std::ops::Range;
@@ -334,6 +335,7 @@ impl<'a> TileOps<'a> {
         for op in self.active() {
             match op {
                 PlannedOp::MergeLines(op) => merge_lines::apply(tile, op, features)?,
+                PlannedOp::MergePolygons(op) => merge_polygons::apply(tile, op, features)?,
                 PlannedOp::DedupBy { keys, distance } => {
                     if let Some(exprs) = self.exprs {
                         dedup_by::apply(tile, exprs, keys, *distance, features, scratch)?;
