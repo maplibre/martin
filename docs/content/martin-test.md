@@ -92,6 +92,19 @@ cases:
    the row no longer matches.
 2. What bulk mode writes: one entry per feature and layer, with its zooms and attributes.
 
+A layer with [`per_tile` operations](sources-pg-layers.md#per-tile-operations) also gets a `per_tile` list:
+the tiles each operation ran on, and the features it took and kept there. A changed count fails the case
+like a changed output.
+
+```yaml
+  per_tile:
+  - layer: shops
+    op: label_grid
+    tiles: 9
+    features_in: 9
+    features_out: 13  # a multi-point splits into its points
+```
+
 ## Running
 
 After changing `minzoom` to `"class == 'primary' ? 7 : 12"`:

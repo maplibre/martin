@@ -1905,3 +1905,181 @@ async fn sigterm_removes_the_partial_output() {
         .collect();
     insta::assert_debug_snapshot!(left, @"[]");
 }
+
+#[tokio::test]
+async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  buffer: 1024
+                  properties:
+                    gid: int4
+                  layers:
+                    merged:
+                      attributes:
+                        kind: 'gid % 2'
+                      sort_by: [gid]
+                      per_tile:
+                        label_grid: { size: 64, limit: 2 }
+                        merge_lines: { group_by: [kind] }
+                        merge_polygons: { distance: 1 }
+                        dedup_by: { keys: [kind], maxzoom: 0 }
+                        merge_multi: { geometry: [point] }
+                        limit: 5
+        "},
+    )
+    .expect("failed to write the config");
+    let mut logs = Vec::new();
+    for (threads, file) in [
+        ("1", "one.mbtiles"),
+        ("8", "eight.mbtiles"),
+        ("1", "one.pmtiles"),
+        ("8", "eight.pmtiles"),
+    ] {
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join(file))
+            .arg("--max-zoom")
+            .arg("8")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--threads")
+            .arg(threads)
+            .run()
+            .await;
+        let ran: Vec<&str> = log.lines().filter(|line| line.contains("Ran `per_tile.")).collect();
+        logs.push(ran.join("\n"));
+    }
+    let one = dir.path().join("one.mbtiles");
+    MbtilesCli::new("validate").arg(&one).run().await;
+    assert_eq!(tiles(dir.path().join("eight.mbtiles")).await, tiles(&one).await);
+    assert_pmtiles_matches_mbtiles(dir.path().join("one.pmtiles"), &one).await;
+    assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
+    assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
+    insta::assert_snapshot!(logs[0], @"
+    INFO Ran `per_tile.label_grid` layer.id=merged tiles=91 features.input=822 features.output=695
+    INFO Ran `per_tile.merge_lines` layer.id=merged tiles=1182 features.input=3824 features.output=3707
+    INFO Ran `per_tile.merge_polygons` layer.id=merged tiles=1182 features.input=3707 features.output=2713
+    INFO Ran `per_tile.dedup_by` layer.id=merged tiles=1 features.input=12 features.output=2
+    INFO Ran `per_tile.merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
+    INFO Ran `per_tile.limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
+    ");
+    let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
+    insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
+    layer merged extent 4096
+      id=Some(1) geom=POINT(2048 2048) props=[kind=U32(Some(1))]
+      id=Some(2) geom=POINT(2025 2025) props=[kind=U32(Some(0))]
+    ");
+}
+
+#[tokio::test]
+async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
+    use geo::{MapCoords as _, Validation as _};
+    use mlt_core::mvt::mvt_to_feature_collection;
+
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  buffer: 1024
+                  properties:
+                    gid: int4
+                  layers:
+                    merged:
+                      attributes:
+                        kind: 'gid % 2'
+                      sort_by: [gid]
+                      per_tile:
+                        label_grid: { size: 64, limit: 2 }
+                        merge_lines: { group_by: [kind] }
+                        merge_polygons: { distance: 1 }
+                        dedup_by: { keys: [kind], maxzoom: 0 }
+                        merge_multi: { geometry: [point] }
+                        limit: 5
+        "},
+    )
+    .expect("failed to write the config");
+    for (threads, file) in [("1", "one.mbtiles"), ("8", "eight.mbtiles")] {
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join(file))
+            .arg("--format")
+            .arg("mvt")
+            .arg("--max-zoom")
+            .arg("8")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--threads")
+            .arg(threads)
+            .run()
+            .await;
+    }
+    let one = tiles(dir.path().join("one.mbtiles")).await;
+    assert_eq!(tiles(dir.path().join("eight.mbtiles")).await, one);
+    let mut kinds = std::collections::BTreeMap::<&str, usize>::new();
+    let kind = |geometry: &geo::Geometry<f64>| match geometry {
+        geo::Geometry::Point(_) => "point",
+        geo::Geometry::MultiPoint(_) => "multi-point",
+        geo::Geometry::LineString(_) => "line",
+        geo::Geometry::MultiLineString(_) => "multi-line",
+        geo::Geometry::Polygon(_) => "polygon",
+        geo::Geometry::MultiPolygon(_) => "multi-polygon",
+        geo::Geometry::Line(_)
+        | geo::Geometry::Rect(_)
+        | geo::Geometry::Triangle(_)
+        | geo::Geometry::GeometryCollection(_) => "other",
+    };
+    for (z, x, y, data) in &one {
+        for feature in mvt_to_feature_collection(data).expect("a valid MVT tile").features {
+            let geometry = feature.geometry.map_coords(|c| geo::Coord {
+                x: f64::from(c.x),
+                y: f64::from(c.y),
+            });
+            assert!(geometry.is_valid(), "{z}/{x}/{y}: {geometry:?}");
+            *kinds.entry(kind(&geometry)).or_default() += 1;
+        }
+    }
+    insta::assert_debug_snapshot!(kinds, @r#"
+    {
+        "line": 437,
+        "multi-line": 99,
+        "multi-point": 35,
+        "multi-polygon": 61,
+        "point": 130,
+        "polygon": 1845,
+    }
+    "#);
+}

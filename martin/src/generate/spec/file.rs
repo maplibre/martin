@@ -33,6 +33,9 @@ pub struct Case {
     /// Its key column selects the row.
     pub input: BTreeMap<String, Value>,
     pub output: Vec<Output>,
+    /// What each per-tile operation of the layers did to the row's features, over all its tiles.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub per_tile: Vec<OpCount>,
 }
 
 impl Case {
@@ -79,6 +82,30 @@ pub struct Output {
     pub zooms: Zooms,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub attributes: BTreeMap<String, Attribute>,
+}
+
+/// What one per-tile operation of one layer did to a case, summed over the tiles it ran on.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpCount {
+    /// The layer's name.
+    pub layer: String,
+    /// The operation's key in the config.
+    pub op: String,
+    /// Tiles of the layer the operation ran on.
+    pub tiles: u64,
+    /// Features the operation took, over those tiles.
+    pub features_in: u64,
+    /// Features the operation kept or made, over those tiles.
+    pub features_out: u64,
+    /// Groups a merge could not make valid, which kept their features.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub groups_failed: u64,
+}
+
+/// Whether `count` is zero, so serde leaves it out.
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde passes a reference")]
+const fn is_zero(count: &u64) -> bool {
+    *count == 0
 }
 
 /// The kind of a feature's geometry.
@@ -157,27 +184,35 @@ pub fn yaml(value: &impl Serialize) -> String {
     serde_saphyr::to_string_with_options(value, options).expect("spec values serialize")
 }
 
-/// The features of a case as YAML, to diff.
+/// The features of a case, and what its per-tile operations did, as YAML, to diff.
 #[must_use]
-pub fn output_yaml(output: &[Output]) -> String {
-    if output.is_empty() {
-        "(no feature in any layer)\n".to_owned()
-    } else {
-        yaml(&output)
+pub fn output_yaml(output: &[Output], per_tile: &[OpCount]) -> String {
+    #[derive(Serialize)]
+    struct Shown<'a> {
+        output: &'a [Output],
+        per_tile: &'a [OpCount],
+    }
+    match (output.is_empty(), per_tile.is_empty()) {
+        (true, true) => "(no feature in any layer)\n".to_owned(),
+        (false, true) => yaml(&output),
+        (_, false) => yaml(&Shown { output, per_tile }),
     }
 }
 
-/// The input and features of a case as YAML, to diff.
+/// The input and features of a case, and what its per-tile operations did, as YAML, to diff.
 #[must_use]
 pub fn case_yaml(case: &Case) -> String {
     #[derive(Serialize)]
     struct Shown<'a> {
         input: &'a BTreeMap<String, Value>,
         output: &'a [Output],
+        #[serde(skip_serializing_if = "<[OpCount]>::is_empty")]
+        per_tile: &'a [OpCount],
     }
     yaml(&Shown {
         input: &case.input,
         output: &case.output,
+        per_tile: &case.per_tile,
     })
 }
 

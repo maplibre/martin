@@ -285,6 +285,16 @@ Since operations keep the first features of the list, `sort_by` decides which fe
 layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see
 [Draw order](#draw-order).
 
+After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it
+took and kept, and warns about groups a merge could not make valid:
+
+```text
+INFO Ran `per_tile.merge_lines` layer.id=roads tiles=22 features.input=264 features.output=202
+```
+
+The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of
+`--format mvt` for layers with a `sort_by`.
+
 ### `label_grid`
 
 Thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it covers,
@@ -366,7 +376,7 @@ clipped to the tile and `buffer`. With a `distance`, they are grown by half of i
 again, which joins polygons closer than `distance`. Holes smaller than `min_hole_area` are then filled,
 polygons smaller than `min_area` dropped, and the result snapped to the tile grid. Each group becomes
 one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its
-features as they were, and the first such group is logged.
+features as they were, and the first such group is logged. The run summary counts them.
 
 ```yaml
 per_tile:

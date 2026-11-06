@@ -19,12 +19,12 @@ use crate::sort::record::{GeomBuf, GeomKind, Vertex};
 /// polygons clipped to the tile and buffer, unioned, joined across gaps narrower than `distance`, with
 /// small holes filled and small polygons dropped, snapped to the tile grid. A group with nothing left is
 /// dropped. A group whose union cannot be made valid keeps its features as they were, and the first
-/// such group is logged. Other features pass through.
+/// such group is logged. Other features pass through. Returns the number of groups that kept theirs.
 pub(super) fn apply(
     tile: &LayerTile<'_, '_>,
     op: &MergePolygons,
     features: &mut Vec<TileFeature>,
-) -> TileGenResult<()> {
+) -> TileGenResult<u64> {
     let mut groups: BTreeMap<_, usize> = BTreeMap::new();
     let mut members: Vec<(Vec<MultiPolygon<f64>>, Option<u64>)> = Vec::new();
     let mut slots: Vec<(TileFeature, Option<usize>)> = Vec::with_capacity(features.len());
@@ -69,6 +69,7 @@ pub(super) fn apply(
             merged
         })
         .collect();
+    let failed = merged.iter().filter(|merged| merged.is_none()).count() as u64;
     let mut placed = vec![false; members.len()];
     for (mut feature, group) in slots {
         let Some(group) = group else {
@@ -94,7 +95,7 @@ pub(super) fn apply(
             }
         }
     }
-    Ok(())
+    Ok(failed)
 }
 
 /// The union of `shapes` inside `window`, as a polygon geometry on the tile grid, or `None` if snapping

@@ -24,7 +24,7 @@ pub(super) fn apply(
     features: &mut Vec<TileFeature>,
     scratch: &mut OpScratch,
 ) -> TileGenResult<()> {
-    let OpScratch { slots, errors } = scratch;
+    let OpScratch { slots, errors, .. } = scratch;
     if errors.len() < exprs.plan.exprs.len() {
         errors.resize(exprs.plan.exprs.len(), 0);
     }

@@ -20,9 +20,9 @@ pub use map_tile_toolkit::ClipMode;
 
 pub use crate::block::render_block;
 pub use crate::error::{TileGenError, TileGenResult};
-pub use crate::generate::{GenerateConfig, LayerSliceErrors, Summary, generate};
+pub use crate::generate::{GenerateConfig, LayerSliceErrors, OpSummary, Summary, generate};
 pub use crate::phase1::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, project};
-pub use crate::phase2::TileFormat;
+pub use crate::phase2::{OpCounts, OpKind, TileFormat};
 pub use crate::plan::{ExprErrors, LayerGrid};
 pub use crate::progress::{Activity, Progress, Role, Stage, ThreadTime};
 #[cfg(feature = "pmtiles")]
