@@ -81,12 +81,14 @@ pub(super) fn apply(
             Some(geom) => {
                 placed[group] = true;
                 if !geom.vertices.is_empty() {
-                    feature.point = None;
-                    feature.merged = Some(Box::new(Merged {
-                        kind: GeomKind::Polygon,
-                        geom: geom.clone(),
-                        id: members[group].1,
-                    }));
+                    tile.set_merged(
+                        &mut feature,
+                        Merged {
+                            kind: GeomKind::Polygon,
+                            geom: geom.clone(),
+                            id: members[group].1,
+                        },
+                    );
                     features.push(feature);
                 }
             }

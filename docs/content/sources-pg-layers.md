@@ -362,9 +362,9 @@ junctions and drops short stubs and loops, which `merge_lines` does not.
 
 ### `merge_polygons`
 
-Unions the polygons of a group, such as adjacent landuse areas of one kind, as Planetiler's
+Unions the polygons of a group, such as adjacent land use areas of one kind, as Planetiler's
 `mergeNearbyPolygons` does, or `mergeOverlappingPolygons` with `distance: 0`. The polygons are first
-clipped to the tile and `buffer`. With a `distance`, they are grown by half of it, unioned and shrunk
+clipped to the tile and `buffer`. With a `distance`, they are grown by half of it, merged and shrunk
 again, which joins polygons closer than `distance`. Holes smaller than `min_hole_area` are then filled,
 polygons smaller than `min_area` dropped, and the result snapped to the tile grid. Each group becomes
 one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its
@@ -379,14 +379,14 @@ merge_polygons:
   group_by: [kind]
 ```
 
-| Option               | Default            | Meaning                                                      |
-|----------------------|--------------------|--------------------------------------------------------------|
-| `min_area`           | 0                  | Square pixels; smaller merged polygons are dropped           |
-| `min_hole_area`      | 0                  | Square pixels; smaller holes are filled                      |
-| `distance`           | 0                  | Pixels; closer polygons are joined, 0 joins touching ones    |
-| `buffer`             | the layer's buffer | Pixels around the tile kept after merging                    |
-| `group_by`           | every attribute    | The attributes polygons must share                           |
-| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                |
+| Option               | Default            | Meaning                                                        |
+|----------------------|--------------------|----------------------------------------------------------------|
+| `min_area`           | 0                  | Square pixels; smaller merged polygons are dropped             |
+| `min_hole_area`      | 0                  | Square pixels; smaller holes are filled                        |
+| `distance`           | 0                  | Pixels; closer polygons are joined, 0 joins touching ones      |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `group_by`           | every attribute    | The attributes polygons must share                             |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                  |
 
 A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.
 
