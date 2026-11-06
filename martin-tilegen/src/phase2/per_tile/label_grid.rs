@@ -13,32 +13,22 @@ use crate::sort::record::{GeomBuf, GeomKind, Record};
 pub(crate) struct Counts {
     /// Kept points per label grid group.
     kept: HashMap<u64, u32>,
-    /// Per group, what the feature being split decided in the first of its records holding that group.
-    feature: HashMap<u64, Decided>,
-}
-
-/// What a feature's first record holding a group decided for that group's points.
-struct Decided {
-    /// The record that decided.
-    record: usize,
-    /// How many of its points in the group it kept, always its first ones.
-    kept: u32,
-    /// The later record whose points in the group are being matched to those decisions.
-    matching: usize,
-    /// How many of that record's points in the group came so far.
-    seen: u32,
+    /// Whether the feature being split kept each of its source points, by x modulo the world width, y and
+    /// group, so every wrapped copy of a point shares the choice.
+    feature: HashMap<(i64, i32, u64), bool>,
 }
 
 /// Splits gridded features into one feature per point, as Planetiler renders a gridded multi-point, and
 /// drops each point once its group already holds as many kept points as its own limit. One counter per
 /// group: points of different grid sizes share it when their groups are equal, as in Planetiler. A
-/// wrapped copy, a later record of the same feature in the same group, repeats the first record's choice
-/// for that group instead of counting again.
+/// wrapped copy of a point, in another record of the same feature `world` tile units away, is kept or
+/// dropped with the point instead of counting again.
 pub(crate) fn apply(
     decoded: &[(Seq, Record<'_>)],
     features: &mut Vec<TileFeature>,
     counts: &mut Counts,
     geom: &mut GeomBuf,
+    world: i64,
 ) -> TileGenResult<()> {
     let limit_of = |feature: &TileFeature| match decoded[feature.first()].1.kind {
         GeomKind::GriddedPoint { limit } => Some(limit),
@@ -71,32 +61,10 @@ pub(crate) fn apply(
                     keep
                 };
                 let keep = if wrapped {
-                    match choices.entry(group) {
-                        Entry::Vacant(slot) => {
-                            let keep = count();
-                            slot.insert(Decided {
-                                record,
-                                kept: u32::from(keep),
-                                matching: record,
-                                seen: 0,
-                            });
-                            keep
-                        }
-                        Entry::Occupied(mut slot) => {
-                            let decision = slot.get_mut();
-                            if decision.record == record {
-                                let keep = count();
-                                decision.kept += u32::from(keep);
-                                keep
-                            } else {
-                                if decision.matching != record {
-                                    decision.matching = record;
-                                    decision.seen = 0;
-                                }
-                                decision.seen += 1;
-                                decision.seen <= decision.kept
-                            }
-                        }
+                    let [x, y] = vertex;
+                    match choices.entry((i64::from(x).rem_euclid(world), y, group)) {
+                        Entry::Occupied(choice) => *choice.get(),
+                        Entry::Vacant(slot) => *slot.insert(count()),
                     }
                 } else {
                     count()
