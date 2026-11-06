@@ -1,5 +1,6 @@
 //! Builds one layer of one tile from the records the merge yields for it.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -7,7 +8,7 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
-use super::per_tile::{Shape, TileFeature, TileOps, label_grid};
+use super::per_tile::{LayerTile, TileFeature, TileOps, label_grid};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -66,7 +67,14 @@ impl LayerAssembler {
         let mut props = Vec::new();
         group_features(&decoded, &mut props, features)?;
         label_grid::apply(&decoded, features, counts, geom, i64::from(grid.extent) << ops.zoom())?;
-        ops.apply(features);
+        let tile = LayerTile {
+            decoded: &decoded,
+            props: &props,
+            names,
+            grid,
+            merged: RefCell::default(),
+        };
+        ops.apply(&tile, features)?;
 
         columns.clear();
         for feature in features.iter() {
@@ -100,24 +108,10 @@ impl LayerAssembler {
         }
 
         for tile_feature in features.iter() {
-            let first = &decoded[tile_feature.first()].1;
-            geom.clear();
-            match tile_feature.shape {
-                Shape::Point(vertex) => geom.vertices.push(vertex),
-                Shape::Records => {
-                    for (_, piece) in &decoded[tile_feature.records()] {
-                        match piece.kind {
-                            GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
-                            GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon => {
-                                piece.append_geometry(geom)?;
-                            }
-                        }
-                    }
-                }
-            }
-            let mut feature = layer.feature(geometry_type(first.kind, geom));
-            feature.id(first.id);
-            write_geometry(&mut feature, first.kind, geom)?;
+            let (kind, id) = tile.geometry(tile_feature, geom)?;
+            let mut feature = layer.feature(geometry_type(kind, geom));
+            feature.id(id);
+            write_geometry(&mut feature, kind, geom)?;
             for &(key, value) in &props[tile_feature.props()] {
                 let Some(pos) = columns.position(key) else {
                     continue;
@@ -201,14 +195,6 @@ fn scalar<'a>(value: &PropValue) -> Option<PropValueRef<'a>> {
         PropValue::F64(v) => v.map(PropValueRef::F64),
         PropValue::Str(_) => None,
     }
-}
-
-fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
-    #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
-    let (lo, hi) = (-(grid.buffer as i32), (grid.extent + grid.buffer) as i32);
-    geom.polygons.push(1);
-    geom.parts.push(4);
-    geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
 }
 
 /// A single geometry unless the feature's pieces made several of them.

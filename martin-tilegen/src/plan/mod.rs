@@ -50,6 +50,13 @@ pub enum PlanError {
 
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
+
+    #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
+    UnknownGroupBy {
+        layer: String,
+        op: &'static str,
+        attribute: String,
+    },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -183,6 +190,13 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
+    /// Combines the features of a group and type into one multi-geometry, with the parts in draw order.
+    MergeMulti {
+        /// The types to combine; others pass through.
+        geometry: Vec<GeometryType>,
+        /// Output attributes that must be equal, a missing one counting as `null`; all of them if `None`.
+        group_by: Option<Vec<String>>,
+    },
     /// Keeps the first `count` features and drops the rest.
     Limit { count: u32 },
 }
@@ -191,6 +205,7 @@ impl TileOp {
     /// Position in the fixed order operations run in.
     fn rank(&self) -> u8 {
         match self {
+            Self::MergeMulti { .. } => 4,
             Self::Limit { .. } => 5,
         }
     }
@@ -665,6 +680,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
+    check_group_by(&def, &keys, compiler.dynamic_props)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -701,6 +717,28 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         fallback,
         sort_by,
     })
+}
+
+/// Every `group_by` attribute of the layer's operations is one the layer writes: one of `keys`, or, when
+/// it copies every property of a table with dynamic ones, perhaps one of those.
+fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Result<(), PlanError> {
+    if dynamic_props && def.attributes == AttributesDef::All {
+        return Ok(());
+    }
+    for op in &def.per_tile {
+        let (name, group_by) = match &op.op {
+            TileOp::MergeMulti { group_by, .. } => ("merge_multi", group_by),
+            TileOp::Limit { .. } => continue,
+        };
+        if let Some(attribute) = group_by.iter().flatten().find(|name| !keys.contains(name)) {
+            return Err(PlanError::UnknownGroupBy {
+                layer: def.name.clone(),
+                op: name,
+                attribute: attribute.clone(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// `ops` in the order they run, each clamped into `zooms`, without those outside them.
