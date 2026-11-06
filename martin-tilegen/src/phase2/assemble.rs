@@ -65,7 +65,7 @@ impl LayerAssembler {
 
         let mut props = Vec::new();
         group_features(&decoded, &mut props, features)?;
-        label_grid::apply(&decoded, features, counts, geom)?;
+        label_grid::apply(&decoded, features, counts, geom, i64::from(grid.extent) << ops.zoom())?;
         ops.apply(features);
 
         columns.clear();

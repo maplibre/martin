@@ -83,6 +83,11 @@ impl<'a> TileOps<'a> {
         Self { ops, zoom }
     }
 
+    /// The zoom of the tile they run on.
+    pub(crate) fn zoom(self) -> u8 {
+        self.zoom
+    }
+
     /// The operations that run at this zoom, in order.
     fn active(self) -> impl Iterator<Item = &'a TileOp> {
         self.ops

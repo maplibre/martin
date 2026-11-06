@@ -537,6 +537,69 @@ fn a_label_grid_counts_multi_point_points_rounded_together_in_their_own_squares(
 }
 
 #[test]
+fn a_label_grid_keeps_the_wrapped_copy_of_the_point_it_keeps_when_only_some_points_wrap() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(7),
+            geometry: Geometry::Points(vec![Coord { x: -144.0, y: 0.0 }, Coord { x: -179.64, y: 0.0 }]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            label_grid: vec![LabelGridDef {
+                zooms: 0..=0,
+                size: 64.0,
+                limit: NonZeroU32::new(1).unwrap(),
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                7,
+            ),
+            "POINT(4100 2048)",
+        ),
+        (
+            Some(
+                7,
+            ),
+            "POINT(4 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_rule_replaces_the_layer_label_grid_and_an_empty_one_turns_it_off() {
     let points = [
         (1, 10.0, "town"),
