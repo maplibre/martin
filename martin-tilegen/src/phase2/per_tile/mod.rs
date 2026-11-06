@@ -3,6 +3,8 @@
 mod dedup_by;
 pub(crate) mod label_grid;
 mod limit;
+mod line_merge;
+mod merge_lines;
 mod merge_multi;
 
 use std::cell::RefCell;
@@ -331,6 +333,7 @@ impl<'a> TileOps<'a> {
     ) -> TileGenResult<()> {
         for op in self.active() {
             match op {
+                PlannedOp::MergeLines(op) => merge_lines::apply(tile, op, features)?,
                 PlannedOp::DedupBy { keys, distance } => {
                     if let Some(exprs) = self.exprs {
                         dedup_by::apply(tile, exprs, keys, *distance, features, scratch)?;

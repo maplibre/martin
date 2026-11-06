@@ -10,7 +10,7 @@ use martin_tilegen::plan::{
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
-use martin_tilegen::{LayerGrid, TileFormat, render_block};
+use martin_tilegen::{LayerGrid, PixelThreshold, TileFormat, render_block};
 use mlt_core::{Decoder, Parser};
 
 const GRID: LayerGrid = LayerGrid {
@@ -1630,4 +1630,429 @@ fn dedup_by_keys_read_output_attributes_by_their_output_names() {
         })
         .collect();
     assert_eq!(ids, [Some(1)]);
+}
+
+#[test]
+fn merge_lines_joins_two_lines_sharing_an_end() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"a\"))] LINESTRING(2048 2048,2162 2048,2276 2048)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_keeps_the_three_lines_of_a_junction() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (1e+01, 1e+01)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"a\"))] MULTILINESTRING((2048 2048,2162 2048),(2162 2048,2276 2048),(2162 2048,2162 1934))",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_keeps_lines_of_different_groups_apart() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("b".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"a\"))] LINESTRING(2048 2048,2162 2048)",
+        "Some(2) [Str(Some(\"b\"))] LINESTRING(2162 2048,2276 2048)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_drops_short_merged_lines_but_keeps_a_long_line_of_short_pieces() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 2e+01), (1e+00, 2e+01)])]),
+                props: vec![(KeyId::new(0), Prop::Str("short".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+00, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+00, 0e+00), (2e+00, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+            },
+            SourceFeature {
+                id: Some(4),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(2e+00, 0e+00), (3e+00, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+            },
+            SourceFeature {
+                id: Some(5),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(3e+00, 0e+00), (4e+00, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+            },
+            SourceFeature {
+                id: Some(6),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(4e+00, 0e+00), (5e+00, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 2.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"long\"))] LINESTRING(2048 2048,2059 2048,2071 2048,2082 2048,2094 2048,2105 2048)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_simplifies_merged_lines_by_its_tolerance() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![
+                    (0e+00, 0e+00),
+                    (5e+00, 0.3),
+                    (1e+01, 0e+00),
+                ])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 1.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"a\"))] LINESTRING(2048 2048,2276 2048)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_clips_merged_lines_to_the_tile_and_its_buffer() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Lines(vec![LineString::from(vec![(-1e+01, 1e+01), (3e+01, 1e+01)])]),
+            props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("class".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 1..=1,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: Some(1.0),
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("roads", 1..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(1, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"a\"))] LINESTRING(3868 3867,4112 3867)",
+    ]
+    "#);
 }
