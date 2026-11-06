@@ -74,6 +74,7 @@ jpegxl
 justfiles
 keepalives
 LAEA
+lavapipe
 libwebp
 linestring
 linestrings

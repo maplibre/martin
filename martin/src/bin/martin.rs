@@ -223,6 +223,8 @@ where
 }
 
 fn main() -> ExitCode {
+    // Parsed first: clap exits on `--help` or a bad argument without dropping a private shader cache directory.
+    let args = Args::parse();
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     let mesa_shader_cache = MesaShaderCache::detect();
     #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -236,6 +238,7 @@ fn main() -> ExitCode {
         .build()
         .expect("failed to build the tokio runtime");
     let code = runtime.block_on(run(
+        args,
         #[cfg(all(feature = "rendering", target_os = "linux"))]
         &mesa_shader_cache,
     ));
@@ -247,8 +250,10 @@ fn main() -> ExitCode {
 }
 
 #[hotpath::main]
-async fn run(#[cfg(all(feature = "rendering", target_os = "linux"))] mesa_shader_cache: &MesaShaderCache) -> ExitCode {
-    let args = Args::parse();
+async fn run(
+    args: Args,
+    #[cfg(all(feature = "rendering", target_os = "linux"))] mesa_shader_cache: &MesaShaderCache,
+) -> ExitCode {
     let filter = ensure_library_log_levels_match(env::var("RUST_LOG").ok(), "martin=");
 
     #[cfg(feature = "mbtiles")]
