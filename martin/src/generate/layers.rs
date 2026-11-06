@@ -342,15 +342,7 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
 
 fn unsupported(layer: &Layer) -> Option<String> {
     let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
-    let per_tile = &layer.per_tile;
-    let op = [("merge_polygons", per_tile.merge_polygons.is_some())]
-        .into_iter()
-        .find_map(|(op, set)| set.then_some(op));
-    if let Some(geometry) = geometry {
-        Some(format!("`geometry: {geometry}`"))
-    } else {
-        op.map(|op| format!("`per_tile: {op}`"))
-    }
+    geometry.map(|geometry| format!("`geometry: {geometry}`"))
 }
 
 /// The layer's `per_tile` operations within `zooms`, warning about each one that has none of them, each
@@ -405,6 +397,25 @@ fn lower_per_tile(
                 min_length: merge.min_length.map_or(0.0, Pixels::get),
                 tolerance: merge.tolerance.map_or(0.0, Pixels::get),
                 buffer: clamp_buffer("merge_lines", merge.buffer),
+                group_by: merge.group_by.clone(),
+            },
+        );
+    }
+    for merge in per_tile.merge_polygons.iter().flat_map(ByZoomRange::iter) {
+        if let Some(geometry) = geometry.filter(|g| *g != GeometryType::Polygon) {
+            warn!(
+                "`per_tile.merge_polygons` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_polygons",
+            merge.zooms,
+            TileOp::MergePolygons {
+                min_area: merge.min_area.map_or(0.0, Pixels::get),
+                min_hole_area: merge.min_hole_area.map_or(0.0, Pixels::get),
+                distance: merge.distance.map_or(0.0, Pixels::get),
+                buffer: merge.buffer.map(Pixels::get),
                 group_by: merge.group_by.clone(),
             },
         );
@@ -1242,11 +1253,7 @@ mod tests {
 
     #[test]
     fn unsupported_settings_are_rejected() {
-        let layers = [
-            "roads: { geometry: centroid }",
-            "roads: { geometry: label_point }",
-            "roads: { per_tile: { merge_polygons: {} } }",
-        ];
+        let layers = ["roads: { geometry: centroid }", "roads: { geometry: label_point }"];
         let errors: Vec<String> = layers
             .iter()
             .map(|layers| {
@@ -1258,7 +1265,6 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
-        layer `roads`: `per_tile: merge_polygons` is not supported by `--mode bulk` yet
         ");
     }
 
@@ -1623,5 +1629,42 @@ mod tests {
             insta::assert_snapshot!(warnings.join("\n"), @"`per_tile.merge_lines` of layer `areas` in source `roads_source` never acts on its polygon features");
             Ok(())
         });
+    }
+
+    #[test]
+    fn merge_polygons_lowers_with_zero_defaults() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: landuse
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  landuse:
+                    per_tile:
+                      merge_polygons: { maxzoom: 12, min_area: 4, distance: 0.5, group_by: [kind] }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergePolygons {
+                    min_area: 4.0,
+                    min_hole_area: 0.0,
+                    distance: 0.5,
+                    buffer: None,
+                    group_by: Some(
+                        [
+                            "kind",
+                        ],
+                    ),
+                },
+            },
+        ]
+        "#);
     }
 }
