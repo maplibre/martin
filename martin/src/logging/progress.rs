@@ -32,6 +32,12 @@ impl LogBackoff {
     }
 }
 
+/// Whether progress is drawn as a bar rather than logged: both stdout and stderr are terminals.
+pub(crate) fn is_interactive() -> bool {
+    use std::io::IsTerminal as _;
+    std::io::stdout().is_terminal() && std::io::stderr().is_terminal()
+}
+
 enum MaybeInteractiveProgressBar {
     Interactive(ProgressBar),
     NonInteractive {
@@ -43,7 +49,7 @@ enum MaybeInteractiveProgressBar {
 }
 impl MaybeInteractiveProgressBar {
     fn new(total_size: u64) -> Self {
-        if Self::is_interactive() {
+        if is_interactive() {
             let bar = ProgressBar::new(total_size);
             bar.set_style(
           ProgressStyle::default_bar()
@@ -61,10 +67,6 @@ impl MaybeInteractiveProgressBar {
                 current_size: AtomicU64::new(0),
             }
         }
-    }
-    fn is_interactive() -> bool {
-        use std::io::IsTerminal as _;
-        std::io::stdout().is_terminal() && std::io::stderr().is_terminal()
     }
     fn increment(&self, amount: u64) {
         match self {

@@ -5,6 +5,7 @@ use martin_tile_utils::{Encoding, TileRect};
 use crate::phase1::RenderWorker;
 use crate::phase2::{TileEncoder, TileEncoding};
 use crate::plan::Plan;
+use crate::progress::Progress;
 use crate::sort::Sorter;
 use crate::source::FeatureBatch;
 use crate::{EncodedTile, Summary, TileFormat, TileGenResult, TileOrder};
@@ -33,7 +34,8 @@ pub fn render_block(
     }
     let totals = worker.finish()?;
 
-    let (encoding, batches) = TileEncoding::start(plan, sorter, format, encoding, order, BATCH_TILES, false)?;
+    let batches = sorter.into_tiles(BATCH_TILES, &Progress::default())?;
+    let (encoding, batches) = TileEncoding::start(plan, batches, format, encoding, order, false);
     let mut encoder = TileEncoder::default();
     let mut tiles = Vec::new();
     for batch in batches {

@@ -770,6 +770,30 @@ async fn a_snapshot_source_leaves_the_exporting_connection_its_slot_of_the_pool(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_table_source_estimates_its_rows_from_the_query_plan() {
+    let mut config = PostgresConfig {
+        connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),
+        ..PostgresConfig::default()
+    };
+    config.finalize().await.unwrap();
+    let builder = PostgresAutoDiscoveryBuilder::new(
+        &config,
+        IdResolver::new(&[]),
+        CachePolicy::default(),
+        &TileGrids::default(),
+    )
+    .await
+    .unwrap();
+    let (specs, _) = builder.discover().await.unwrap();
+    let specs: BTreeMap<String, SourceSpec> = specs.into_iter().collect();
+    let table = lower("points1", table_info(&specs, "points1"));
+    let source = PgScanSource::new(builder.pool().clone(), vec![table], PgScanSource::PARTITION_BLOCKS)
+        .await
+        .unwrap();
+    assert!(source.estimated_features().is_some_and(|rows| rows > 0));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_snapshot_source_in_a_pool_of_one_fails_to_open_a_reader_instead_of_waiting() {
     let mut config = PostgresConfig {
         connection_string: Some(std::env::var("DATABASE_URL").expect("DATABASE_URL")),

@@ -96,6 +96,14 @@ impl TileBatches {
     }
 }
 
+impl TileBatches {
+    /// Records in every run, and how many of them the batches so far took.
+    #[must_use]
+    pub fn records(&self) -> (u64, u64) {
+        (self.grouper.merger.merged(), self.grouper.merger.records())
+    }
+}
+
 impl Iterator for TileBatches {
     type Item = TileGenResult<Vec<TileRecords>>;
 
@@ -194,6 +202,7 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use crate::Progress;
     use crate::TileId;
     use crate::sort::record::{EncodedProps, Geom, encode};
     use crate::sort::{LayerId, SortConfig, SortKey, Sorter};
@@ -236,7 +245,7 @@ mod tests {
         let sorter = sorter(dir.path());
         sorter.buffer().finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         let none: [(u64, Vec<(u8, u64)>); 0] = [];
         assert_eq!(tiles, none);
@@ -254,7 +263,7 @@ mod tests {
         buffer.push(key(1, 0, 5), &point).unwrap();
         buffer.finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         assert_eq!(tiles, [(1, vec![(0, 5), (0, 8), (1, 7)]), (9, vec![(0, 2)])]);
     }
@@ -273,7 +282,7 @@ mod tests {
         first.finish().unwrap();
         second.finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         assert_eq!(tiles, [(1, vec![(0, 3), (0, 4), (1, 1), (1, 2)])]);
     }
@@ -286,7 +295,7 @@ mod tests {
         buffer.push(key(2, 1, 3), &record(Geom::FillRange { end: 6 })).unwrap();
         buffer.finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         assert_eq!(
             tiles,
@@ -308,7 +317,7 @@ mod tests {
         buffer.push(key(4, 0, 2), &record(Geom::Points(&[[0, 0]]))).unwrap();
         buffer.finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         assert_eq!(tiles, [(2, vec![(0, 1)]), (4, vec![(0, 2)])]);
     }
@@ -325,7 +334,7 @@ mod tests {
         buffer.push(key(7, 0, 2), &point).unwrap();
         buffer.finish().unwrap();
 
-        let tiles = drain(TileGrouper::new(sorter.merge().unwrap()));
+        let tiles = drain(TileGrouper::new(sorter.merge(&Progress::default()).unwrap()));
 
         assert_eq!(
             tiles,
@@ -348,7 +357,7 @@ mod tests {
         buffer.push(key(1, 0, 2), &point).unwrap();
         buffer.push(key(2, 0, 3), &point).unwrap();
         buffer.finish().unwrap();
-        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let mut grouper = TileGrouper::new(sorter.merge(&Progress::default()).unwrap());
         let mut tile = TileRecords::default();
 
         assert!(grouper.next_tile(&mut tile).unwrap());
@@ -374,7 +383,7 @@ mod tests {
         buffer.push(key(5, 0, 6), &point).unwrap();
         buffer.finish().unwrap();
 
-        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let mut grouper = TileGrouper::new(sorter.merge(&Progress::default()).unwrap());
         let batches: Vec<Vec<u64>> = (0..3)
             .map(|_| {
                 let batch = grouper.next_batch(256, 2 * point.len()).unwrap();
@@ -397,7 +406,7 @@ mod tests {
         buffer.push(key(2, 0, 4), &point).unwrap();
         buffer.finish().unwrap();
 
-        let mut grouper = TileGrouper::new(sorter.merge().unwrap());
+        let mut grouper = TileGrouper::new(sorter.merge(&Progress::default()).unwrap());
         let batches: Vec<Vec<u64>> = (0..3)
             .map(|_| {
                 let batch = grouper.next_batch(256, 2 * point.len()).unwrap();
@@ -420,7 +429,7 @@ mod tests {
         buffer.finish().unwrap();
 
         let batches: Vec<Vec<u64>> = sorter
-            .into_tiles(2)
+            .into_tiles(2, &Progress::default())
             .unwrap()
             .map(|batch| batch.unwrap().iter().map(|tile| tile.tile_id).collect())
             .collect();

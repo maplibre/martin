@@ -1,6 +1,6 @@
 //! Runs a whole generation: render every feature into sorted runs, then merge, encode and write tiles.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread::{self, ScopedJoinHandle};
 
 use hotpath::wrap::flume::{Receiver, Sender};
@@ -11,9 +11,10 @@ use crate::phase1::{RenderTotals, RenderWorker};
 use crate::phase2::{TileEncoder, TileEncoding};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{ExprErrors, Plan};
-use crate::sort::{SortConfig, Sorter, TileRecords};
+use crate::progress::{Activity, Progress, Role, Stage, Tracker};
+use crate::sort::{SortConfig, Sorter, TileBatches, TileRecords};
 use crate::source::{FeatureBatch, FeatureSource, SourceError};
-use crate::{TileFormat, TileGenError, TileGenResult, TileOrder, TileSink};
+use crate::{EncodedTile, TileFormat, TileGenError, TileGenResult, TileOrder, TileSink};
 
 #[derive(Clone, Debug)]
 pub struct GenerateConfig {
@@ -58,15 +59,6 @@ pub struct LayerSliceErrors {
     pub error: String,
 }
 
-/// Live counters another thread can report while a generation runs.
-#[derive(Debug, Default)]
-pub struct Progress {
-    pub features: AtomicU64,
-    pub tiles: AtomicU64,
-    /// Set when rendering is done and tiles are being merged, encoded and written.
-    pub writing: AtomicBool,
-}
-
 /// Generates every tile of `plan` from `source` into `sink`. `metadata` is completed with the zooms, `format` and
 /// `vector_layers` the run produced, then stored once all tiles are written.
 pub fn generate<S: FeatureSource, K: TileSink>(
@@ -78,6 +70,11 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     progress: &Progress,
 ) -> TileGenResult<Summary> {
     let order = sink.tile_order();
+    progress.set_partitions(source.partitions());
+    if let Some(features) = source.estimated_features() {
+        progress.set_estimated_features(features);
+    }
+    progress.enter(Stage::Render);
 
     let sorter = Sorter::new(config.sort.clone())?;
     let wagyu_ring_starts = !config.mvt_preserve_ring_start && matches!(config.format, TileFormat::Mvt);
@@ -90,25 +87,30 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         wagyu_ring_starts,
         progress,
     )?;
-    progress.writing.store(true, Ordering::Relaxed);
 
-    let (encoding, batches) = TileEncoding::start(
+    let batches = sorter.into_tiles(config.batch_tiles, progress)?;
+    let (encoding, mut batches) = TileEncoding::start(
         plan,
-        sorter,
+        batches,
         config.format,
         config.encoding,
         order,
-        config.batch_tiles,
         config.mvt_keep_unused_keys,
-    )?;
+    );
+    progress.set_records(batches.records().1);
+    progress.enter(Stage::Write);
+    let [merge_thread] = progress.track(Role::Merge, 1)[..] else {
+        unreachable!("one merge thread is tracked")
+    };
     let ((sink, tiles), encoders) = pipeline::run(
         config.threads,
         config.window.max(1),
+        progress,
         |submit: &BatchSender<Vec<TileRecords>, _>| {
-            for batch in batches {
-                submit.send(batch?)?;
-            }
-            Ok(())
+            merge_thread.set(Activity::Busy);
+            let merged = merge_batches(&mut batches, submit, merge_thread, progress);
+            merge_thread.set(Activity::Done);
+            merged
         },
         TileEncoder::default,
         |encoder, batch| encoding.encode(encoder, batch),
@@ -117,26 +119,47 @@ pub fn generate<S: FeatureSource, K: TileSink>(
             sink.write_all(&mut batches.inspect(|batch| {
                 if let Ok(batch) = batch {
                     tiles += batch.len() as u64;
-                    progress.tiles.fetch_add(batch.len() as u64, Ordering::Relaxed);
+                    let bytes = batch.iter().map(|tile| tile.data.len() as u64).sum();
+                    progress.add_tiles(batch.len() as u64, bytes);
                 }
             }))?;
             Ok((sink, tiles))
         },
     )?;
 
+    progress.enter(Stage::Finish);
     encoding.complete_metadata(&mut metadata, &encoders);
     sink.finish(&metadata)?;
+    progress.enter(Stage::Done);
     Ok(totals.into_summary(plan, tiles))
+}
+
+/// Hands every batch to the encoders, `merger` blocked while they have no room.
+fn merge_batches(
+    batches: &mut TileBatches,
+    submit: &BatchSender<Vec<TileRecords>, Vec<EncodedTile>>,
+    merger: Tracker<'_>,
+    progress: &Progress,
+) -> TileGenResult<()> {
+    while let Some(batch) = batches.next() {
+        let batch = batch?;
+        progress.set_merged_records(batches.records().0);
+        merger.during(Activity::Blocked, || submit.send(batch))?;
+    }
+    Ok(())
 }
 
 type FeatureTx = Sender<FeatureBatch>;
 type FeatureRx = Receiver<FeatureBatch>;
 
-fn send_features(tx: &FeatureTx, batch: FeatureBatch) -> Result<(), SourceError> {
-    hotpath::measure_block!(
-        { "reader_send" },
-        tx.send(batch).map_err(|_closed| SourceError::Stopped)
-    )
+/// Sends `batch` to the render workers, `reader` blocked while they have no room.
+fn send_features(tx: &FeatureTx, batch: FeatureBatch, reader: Tracker<'_>) -> Result<(), SourceError> {
+    reader.during(Activity::Blocked, || {
+        hotpath::measure_block!(
+            { "reader_send" },
+            tx.send(batch).map_err(|_closed| SourceError::Stopped)
+        )
+    })
 }
 
 fn feature_channel(capacity: usize) -> (FeatureTx, FeatureRx) {
@@ -164,42 +187,62 @@ fn render_all<S: FeatureSource>(
 
     let (next_partition, failed, fail) = (&next_partition, &failed, &fail);
     thread::scope(|scope| {
-        let readers: Vec<_> = source
-            .open_readers(threads.min(partitions as usize))?
+        let readers = source.open_readers(threads.min(partitions as usize))?;
+        let reader_trackers = progress.track(Role::Read, readers.len());
+        let readers: Vec<_> = readers
             .into_iter()
+            .zip(reader_trackers)
             .enumerate()
-            .map(|(i, mut reader)| {
+            .map(|(i, (mut reader, tracker))| {
                 let tx = tx.clone();
                 spawn_named(scope, "reader", i, move || -> TileGenResult<()> {
                     let tx = tx;
-                    loop {
+                    tracker.set(Activity::Busy);
+                    let read = loop {
                         let partition = next_partition.fetch_add(1, Ordering::Relaxed);
                         if partition >= partitions || failed.load(Ordering::Relaxed) {
-                            return Ok(());
+                            break Ok(());
                         }
-                        reader
-                            .read(partition, plan.table_keys(), &mut |batch| send_features(&tx, batch))
-                            .map_err(|err| fail(err.into()))?;
-                    }
+                        if let Err(err) = reader.read(partition, plan.table_keys(), &mut |batch| {
+                            send_features(&tx, batch, tracker)
+                        }) {
+                            break Err(fail(err.into()));
+                        }
+                        progress.add_partition();
+                    };
+                    tracker.set(Activity::Done);
+                    read
                 })
             })
             .collect();
         drop(tx);
-        let workers: Vec<_> = (0..threads)
-            .map(|i| {
+        let workers: Vec<_> = progress
+            .track(Role::Render, threads)
+            .into_iter()
+            .enumerate()
+            .map(|(i, tracker)| {
                 let rx = rx.clone();
-                spawn_named(scope, "render", i, || -> TileGenResult<RenderTotals> {
+                spawn_named(scope, "render", i, move || -> TileGenResult<RenderTotals> {
                     let mut worker = RenderWorker::new(plan, sorter, order, None, wagyu_ring_starts);
-                    for mut batch in rx {
-                        if failed.load(Ordering::Relaxed) {
-                            break;
+                    let rendered = (|| {
+                        loop {
+                            tracker.set(Activity::Idle);
+                            let Ok(mut batch) = rx.recv() else { break };
+                            tracker.set(Activity::Busy);
+                            if failed.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            worker.render_batch(&mut batch)?;
+                            progress.add_features(batch.features.len() as u64);
+                            progress.set_runs(sorter.spilled());
                         }
-                        worker.render_batch(&mut batch).map_err(fail)?;
-                        progress
-                            .features
-                            .fetch_add(batch.features.len() as u64, Ordering::Relaxed);
-                    }
-                    worker.finish().map_err(fail)
+                        tracker.set(Activity::Busy);
+                        let totals = worker.finish()?;
+                        progress.set_runs(sorter.spilled());
+                        Ok(totals)
+                    })();
+                    tracker.set(Activity::Done);
+                    rendered.map_err(fail)
                 })
             })
             .collect();

@@ -53,6 +53,8 @@ This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 
 `--source`, every source is rendered. Sources come from the same connection strings or
 [configuration file](config-file/index.md) as for the tile server.
 
+![martin cp --mode bulk prepares 2 tables, renders 7.5M features, then writes 1.3M tiles](images/generate/bulk-progress.gif)
+
 === "PostgreSQL"
 
     Only table sources can be rendered, not function sources. All of them must come from one

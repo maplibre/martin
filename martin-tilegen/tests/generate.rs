@@ -4,6 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::time::Duration;
 
 use geo::CoordsIter as _;
 use geo_types::{Coord, LineString, Polygon};
@@ -14,8 +15,9 @@ use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceError, SourceFeature, SourceResult,
 };
 use martin_tilegen::{
-    ClipMode, EncodedTile, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink, PixelThreshold,
-    Progress, SortConfig, Summary, TileFormat, TileGenResult, TileOrder, TileSink, generate,
+    Activity, ClipMode, EncodedTile, ExprErrors, GenerateConfig, LayerGrid, LayerSliceErrors, MbtilesSink,
+    PixelThreshold, Progress, Role, SortConfig, Stage, Summary, TileFormat, TileGenResult, TileOrder, TileSink,
+    generate,
 };
 use mbtiles::Mbtiles;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
@@ -936,4 +938,57 @@ fn malformed_wkb_of_a_feature_without_id_fails_the_generation_naming_its_row() {
         errors[0],
         @"the feature in row 41 of source partition 3: cannot read the WKB: failed to fill whole buffer"
     );
+}
+
+#[test]
+fn a_finished_generation_reports_every_stage_and_thread_done() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = GenerateConfig {
+        threads: 3,
+        sort: SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 16 << 10,
+            max_fan_in: 2,
+        },
+        format: TileFormat::Mlt,
+        encoding: Encoding::Gzip,
+        batch_tiles: 7,
+        window: 3,
+        mvt_preserve_ring_start: false,
+        mvt_keep_unused_keys: false,
+    };
+    let progress = Progress::default();
+    let summary = generate(
+        &source(),
+        &plan(),
+        Discard,
+        &config,
+        tilejson::tilejson! { tiles: vec![] },
+        &progress,
+    )
+    .unwrap();
+
+    assert_eq!(progress.stage(), Stage::Done);
+    assert!(Stage::ALL.iter().all(|&stage| progress.stage_started(stage).is_some()));
+    assert_eq!(progress.partitions(), (7, 7));
+    assert_eq!(progress.features(), summary.features);
+    assert_eq!(progress.estimated_features(), Some(progress.features()));
+    assert_eq!(progress.tiles(), summary.tiles);
+    let (runs, spilled) = progress.runs();
+    assert!(runs > 2 && spilled > 0, "{runs} runs of {spilled} bytes");
+    let (combined, to_combine) = progress.combined();
+    assert!(to_combine > 0);
+    assert_eq!(combined, to_combine);
+    let (merged, records) = progress.merged();
+    assert!(records > 0);
+    assert_eq!(merged, records);
+    for role in Role::ALL {
+        let threads = progress.threads(role).unwrap();
+        assert!(!threads.is_empty(), "{role:?}");
+        assert!(
+            threads.iter().all(|t| t.now == Some(Activity::Done)),
+            "{role:?}: {threads:?}"
+        );
+        assert!(threads.iter().any(|t| t.busy > Duration::ZERO), "{role:?}: {threads:?}");
+    }
 }

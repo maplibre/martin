@@ -10,12 +10,13 @@ mod run;
 use std::mem;
 use std::ops::Range;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use run::{Run, RunWriter, SpillFile};
 
+use crate::progress::{Progress, Stage};
 pub use crate::sort::group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
 pub use crate::sort::key::{LayerId, Seq, SortKey};
 pub use crate::sort::merge::Merger;
@@ -46,6 +47,8 @@ pub struct Sorter {
     spill: Spill,
     runs: Mutex<Vec<Run>>,
     next_run: AtomicU32,
+    /// Bytes of every run spilled so far.
+    spilled_bytes: AtomicU64,
 }
 
 /// Where full buffers spill their sorted runs.
@@ -73,6 +76,7 @@ impl Sorter {
             spill: Spill::Disk(config),
             runs: Mutex::default(),
             next_run: AtomicU32::default(),
+            spilled_bytes: AtomicU64::default(),
         })
     }
 
@@ -83,6 +87,7 @@ impl Sorter {
             spill: Spill::Memory,
             runs: Mutex::default(),
             next_run: AtomicU32::default(),
+            spilled_bytes: AtomicU64::default(),
         }
     }
 
@@ -91,9 +96,18 @@ impl Sorter {
         SortBuffer::new(self)
     }
 
+    /// Runs spilled so far, and their bytes.
+    #[must_use]
+    pub fn spilled(&self) -> (u64, u64) {
+        (
+            u64::from(self.next_run.load(Ordering::Relaxed)),
+            self.spilled_bytes.load(Ordering::Relaxed),
+        )
+    }
+
     /// Call after every [`SortBuffer`] was finished. Temp files are first merged down to
-    /// `max_fan_in` runs; runs in memory are all merged at once.
-    pub fn merge(mut self) -> TileGenResult<Merger> {
+    /// `max_fan_in` runs, counting the records combined in `progress`; runs in memory are all merged at once.
+    pub fn merge(mut self, progress: &Progress) -> TileGenResult<Merger> {
         let mut runs = mem::take(self.runs.get_mut().unwrap_or_else(PoisonError::into_inner));
         runs.sort_unstable_by_key(|run| run.index);
         let Spill::Disk(config) = &self.spill else {
@@ -101,12 +115,14 @@ impl Sorter {
         };
         let fan_in = config.max_fan_in;
         while let Some(span) = cheapest_span(&runs, fan_in) {
+            progress.enter(Stage::Combine);
+            progress.add_combine_records(runs[span.clone()].iter().map(Run::records).sum());
             let merged = runs
                 .drain(span.clone())
                 .collect::<Vec<_>>()
                 .into_par_iter()
                 .chunks(fan_in)
-                .map(|group| merge_group(config, group))
+                .map(|group| merge_group(config, group, progress))
                 .collect::<TileGenResult<Vec<_>>>()?;
             runs.splice(span.start..span.start, merged);
         }
@@ -114,19 +130,29 @@ impl Sorter {
     }
 
     /// Call after every [`SortBuffer`] was finished: the tiles, in batches of `batch_tiles`.
-    pub fn into_tiles(self, batch_tiles: usize) -> TileGenResult<TileBatches> {
-        Ok(TileBatches::new(TileGrouper::new(self.merge()?), batch_tiles))
+    /// Records combined into longer runs first are counted in `progress`.
+    pub fn into_tiles(self, batch_tiles: usize, progress: &Progress) -> TileGenResult<TileBatches> {
+        Ok(TileBatches::new(TileGrouper::new(self.merge(progress)?), batch_tiles))
     }
 }
 
-/// Merges `group` into one new temp file.
-fn merge_group(config: &SortConfig, group: Vec<Run>) -> TileGenResult<Run> {
+/// Records a combining merge takes before counting them in the progress.
+const COMBINE_REPORT_RECORDS: u64 = 1 << 16;
+
+/// Merges `group` into one new temp file, counting its records in `progress`.
+fn merge_group(config: &SortConfig, group: Vec<Run>, progress: &Progress) -> TileGenResult<Run> {
     let mut out = RunWriter::append(temp_file(config, group[0].index)?, group[0].index)?;
     let mut merger = Merger::new(group)?;
+    let mut reported = 0;
     while let Some((key, record)) = merger.peek() {
         out.write(key, record)?;
         merger.advance()?;
+        if merger.merged() - reported >= COMBINE_REPORT_RECORDS {
+            progress.add_combined_records(merger.merged() - reported);
+            reported = merger.merged();
+        }
     }
+    progress.add_combined_records(merger.merged() - reported);
     out.finish()
 }
 
@@ -243,6 +269,7 @@ impl<'a> SortBuffer<'a> {
             }
             Spill::Memory => Run::in_memory(index, mem::take(&mut self.data), mem::take(&mut self.entries)),
         };
+        sorter.spilled_bytes.fetch_add(run.bytes, Ordering::Relaxed);
         sorter.runs.lock().unwrap_or_else(PoisonError::into_inner).push(run);
         self.seq_sorted = true;
         Ok(())
@@ -314,7 +341,7 @@ pub(crate) mod tests {
             let mut expected = input;
             expected.sort_by_key(|(key, _)| *key);
             assert_eq!(
-                drain(sorter.merge().unwrap()),
+                drain(sorter.merge(&Progress::default()).unwrap()),
                 expected,
                 "buffer={buffer_bytes} fan_in={fan_in}"
             );
@@ -349,7 +376,7 @@ pub(crate) mod tests {
         });
         let mut expected = workers.concat();
         expected.sort_by_key(|(key, _)| *key);
-        assert_eq!(drain(sorter.merge().unwrap()), expected);
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), expected);
     }
 
     #[test]
@@ -369,7 +396,7 @@ pub(crate) mod tests {
         }
         let mut expected = input;
         expected.sort_by_key(|(key, _)| *key);
-        assert_eq!(drain(sorter.merge().unwrap()), expected);
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), expected);
     }
 
     #[cfg(unix)]
@@ -389,7 +416,7 @@ pub(crate) mod tests {
         buffer.finish().unwrap();
         let mut expected = input;
         expected.sort_by_key(|(key, _)| *key);
-        assert_eq!(drain(sorter.merge().unwrap()), expected);
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), expected);
     }
 
     #[test]
@@ -397,7 +424,7 @@ pub(crate) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sorter = sorter(&dir, 1000, 2);
         sorter.buffer().finish().unwrap();
-        assert_eq!(drain(sorter.merge().unwrap()), Vec::new());
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), Vec::new());
     }
 
     #[test]
@@ -427,7 +454,7 @@ pub(crate) mod tests {
         });
         let mut expected = workers.concat();
         expected.sort_by_key(|(key, _)| *key);
-        assert_eq!(drain(sorter.merge().unwrap()), expected);
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), expected);
     }
 
     #[test]
@@ -446,14 +473,14 @@ pub(crate) mod tests {
         }
         let mut expected = input;
         expected.sort_by_key(|(key, _)| *key);
-        assert_eq!(drain(sorter.merge().unwrap()), expected);
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), expected);
     }
 
     #[test]
     fn an_empty_memory_sorter_yields_nothing() {
         let sorter = Sorter::in_memory();
         sorter.buffer().finish().unwrap();
-        assert_eq!(drain(sorter.merge().unwrap()), Vec::new());
+        assert_eq!(drain(sorter.merge(&Progress::default()).unwrap()), Vec::new());
     }
 
     #[test]

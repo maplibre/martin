@@ -2,6 +2,7 @@
 
 pub mod layers;
 pub mod postgres;
+mod progress;
 pub mod serve;
 pub mod spec;
 
@@ -10,8 +11,7 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
@@ -42,11 +42,11 @@ use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
 use crate::generate::layers::{LowerOptions, lower_table};
 use crate::generate::postgres::{PgScanSource, ScanTable};
+use crate::generate::progress::Monitor;
 use crate::logging::LogFormat;
 use crate::srv::RESERVED_KEYWORDS;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const PROGRESS_EVERY: Duration = Duration::from_secs(10);
 /// Per-worker sort buffers are kept between these: smaller spills too many runs, larger cannot be indexed.
 const BUFFER_BYTES: RangeInclusive<u64> = (16 << 20)..=(u32::MAX as u64);
 /// Runs are ranges of a few shared mapped temp files, so a wider merge only deepens the loser tree,
@@ -319,6 +319,8 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     let options = GenerateOptions::new(args.copy, &args.meta)?;
     info!(martin.version = %VERSION, "Starting Martin tile generator");
     let started = Instant::now();
+    let progress = Arc::new(Progress::default());
+    let monitor = Monitor::start(Arc::clone(&progress));
     let mut config = match &args.meta.config {
         Some(path) => read_config(path, &OsEnv)?,
         None => Config::default(),
@@ -338,6 +340,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.warn_unrecognized_keys();
 
     let (pool, scans) = select_sources(&config, &options).await?;
+    monitor.set_tables(scans.len());
     let geometry_finders: Vec<(String, String)> = scans
         .iter()
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
@@ -353,8 +356,6 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         tokio::task::spawn_blocking(move || Output::create(&output, format, encoding, mbtiles)).await??
     };
 
-    let progress = Arc::new(Progress::default());
-    let reporter = tokio::spawn(report(Arc::clone(&progress)));
     let task = tokio::task::spawn_blocking({
         let progress = Arc::clone(&progress);
         move || -> GenerateResult<Summary> { Ok(sink.generate(&source, &generate_config, metadata, &progress)?) }
@@ -363,7 +364,11 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),
         () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
     };
-    reporter.abort();
+    if result.is_ok() {
+        monitor.finish().await;
+    } else {
+        drop(monitor);
+    }
     let summary = result
         .map_err(|err| explain_feature_geometry(err, &geometry_finders))
         .inspect_err(|_| remove_output(&output))?;
@@ -642,24 +647,6 @@ impl Interrupt {
         tokio::select! {
             _ = self.ctrl_c.recv() => {}
             _ = self.ctrl_break.recv() => {}
-        }
-    }
-}
-
-async fn report(progress: Arc<Progress>) {
-    let mut interval = tokio::time::interval(PROGRESS_EVERY);
-    interval.tick().await;
-    loop {
-        interval.tick().await;
-        let features = progress.features.load(Ordering::Relaxed);
-        if progress.writing.load(Ordering::Relaxed) {
-            info!(
-                features,
-                tiles = progress.tiles.load(Ordering::Relaxed),
-                "Rendered features and written tiles"
-            );
-        } else {
-            info!(features, "Rendered features");
         }
     }
 }

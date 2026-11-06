@@ -11,16 +11,26 @@ use crate::sort::SortKey;
 pub struct Merger {
     readers: Vec<RunReader>,
     tree: LoserTree,
+    /// Records in every run.
+    records: u64,
+    /// Records moved past so far.
+    merged: u64,
 }
 
 impl Merger {
     pub(super) fn new(runs: Vec<Run>) -> TileGenResult<Self> {
+        let records = runs.iter().map(Run::records).sum();
         let readers = runs
             .into_iter()
             .map(RunReader::open)
             .collect::<TileGenResult<Vec<_>>>()?;
         let tree = LoserTree::new(readers.len(), |a, b| precedes(&readers, a, b));
-        Ok(Self { readers, tree })
+        Ok(Self {
+            readers,
+            tree,
+            records,
+            merged: 0,
+        })
     }
 
     /// The next record; it stays borrowable until [`advance`](Self::advance).
@@ -30,9 +40,22 @@ impl Merger {
         reader.head().map(|key| (key, reader.record()))
     }
 
+    /// Records in every run.
+    #[must_use]
+    pub fn records(&self) -> u64 {
+        self.records
+    }
+
+    /// Records moved past so far.
+    #[must_use]
+    pub fn merged(&self) -> u64 {
+        self.merged
+    }
+
     /// Moves past the record [`peek`](Self::peek) returns.
     pub fn advance(&mut self) -> TileGenResult<()> {
         if let Some(winner) = self.tree.winner() {
+            self.merged += 1;
             self.readers[winner].advance()?;
             let readers = &self.readers;
             self.tree.replay(winner, |a, b| precedes(readers, a, b));
