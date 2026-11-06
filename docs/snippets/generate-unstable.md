@@ -10,4 +10,5 @@
     - [x] Layers with CEL expressions, `rules` and `sort_by`
     - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
     - [ ] `geometry` other than `point`, `line` and `polygon`
-    - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+    - [x] [`per_tile` operations](sources-pg-layers.md#per-tile-operations): `limit`
+    - [ ] `per_tile` operations `label_grid`, `merge_lines`, `merge_polygons`, `dedup_by` and `merge_multi`

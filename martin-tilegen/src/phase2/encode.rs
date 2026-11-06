@@ -12,6 +12,8 @@ use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
+use crate::phase2::per_tile::TileOps;
+use crate::plan::TileOpDef;
 use crate::props::KeyNames;
 use crate::sort::{LayerRecordRef, Seq, TileRecords};
 use crate::{EncodedTile, LayerGrid, TileGenResult, TileId, TileOrder};
@@ -36,6 +38,8 @@ pub struct LayerInfo {
     pub name: String,
     pub grid: LayerGrid,
     pub encoder: EncoderConfig,
+    /// The layer's per-tile operations, in the order they run.
+    pub per_tile: Vec<TileOpDef>,
 }
 
 /// Everything that is the same for every tile of a run.
@@ -155,12 +159,14 @@ impl TileEncoder {
         for records in batch {
             let coord = settings.order.tile_coord(TileId::new(records.tile_id)?)?;
             let previous = match self.previous.take() {
-                Some(previous) if previous.records.same_content(&records) => {
+                Some(previous) if previous.tile.coord.z() == coord.z() && previous.records.same_content(&records) => {
                     self.reuse(previous, records, coord, dedup)
                 }
                 _ => self.encode_fresh(settings, records, coord, dedup)?,
             };
-            out.push(previous.tile.clone());
+            if !previous.features.is_empty() {
+                out.push(previous.tile.clone());
+            }
             self.previous = Some(previous);
         }
         Ok(out)
@@ -225,7 +231,11 @@ impl TileEncoder {
             }
             let info = &settings.layers[usize::from(layer)];
             let names = &settings.keys[usize::from(layer)];
-            let assembled = self.assembler.assemble(&info.name, info.grid, names, &records)?;
+            let ops = TileOps::new(&info.per_tile, zoom);
+            let assembled = self.assembler.assemble(&info.name, info.grid, names, &records, ops)?;
+            if assembled.layer.feature_count() == 0 {
+                continue;
+            }
             let count = self.stats[usize::from(layer)].record(zoom, &assembled, names);
             features.push((layer, count));
             match settings.format {
@@ -255,6 +265,7 @@ mod tests {
 
     use super::*;
     use crate::TileGenError;
+    use crate::plan::TileOp;
     use crate::props::KeyInterner;
     use crate::sort::record::{EncodedProps, Geom, encode};
 
@@ -266,6 +277,7 @@ mod tests {
                 buffer: 64,
             },
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+            per_tile: Vec::new(),
         }
     }
 
@@ -412,6 +424,44 @@ mod tests {
         assert_eq!(tiles[0].dedup_key, tiles[1].dedup_key);
         assert_eq!(tiles[0].data, tiles[1].data);
         assert_ne!(tiles[0].coord, tiles[1].coord);
+    }
+
+    #[test]
+    fn a_tile_of_another_zoom_with_the_same_records_is_encoded_again() {
+        let interner = KeyInterner::new::<&str>([]);
+        let mut tiles = Vec::new();
+        for tile_id in [0, 1] {
+            let mut tile = TileRecords::new(tile_id);
+            tile.push_record(0, Seq::new(0, 1).unwrap(), &feature(1, &[], &interner));
+            tile.push_record(0, Seq::new(0, 2).unwrap(), &feature(2, &[], &interner));
+            tiles.push(tile);
+        }
+        let keys = [interner.freeze()];
+        let layers = [LayerInfo {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Limit { count: 1 },
+            }],
+            ..layer("pois")
+        }];
+        let settings = EncodeSettings {
+            layers: &layers,
+            keys: &keys,
+            format: TileFormat::Mlt,
+            encoding: Encoding::Uncompressed,
+            order: TileOrder::Tms,
+            mvt_keep_unused_keys: false,
+        };
+
+        let encoded = TileEncoder::default()
+            .encode_batch(&settings, &DedupIndex::default(), tiles)
+            .unwrap();
+
+        let counts: Vec<_> = encoded
+            .iter()
+            .map(|tile| (tile.coord.z(), mlt_layers(&tile.data)[0].features().len()))
+            .collect();
+        assert_eq!(counts, [(0, 1), (1, 2)]);
     }
 
     #[test]

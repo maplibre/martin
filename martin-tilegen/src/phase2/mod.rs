@@ -3,6 +3,7 @@
 mod assemble;
 mod columns;
 mod encode;
+mod per_tile;
 
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
@@ -21,6 +22,7 @@ use crate::{EncodedTile, TileGenResult, TileOrder};
 pub(crate) mod internals {
     pub use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
     pub use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
+    pub use crate::phase2::per_tile::TileOps;
 }
 
 /// Encodes grouped tiles of a rendered plan, shared by every encoder thread.

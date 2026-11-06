@@ -80,6 +80,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
                 buffer: 64,
             },
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+            per_tile: Vec::new(),
         }];
         let settings = EncodeSettings {
             layers: &layers,

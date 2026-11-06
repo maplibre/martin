@@ -28,8 +28,19 @@ pub enum TilingConfigError {
     CatchAllNotLast,
     #[error("`rules` needs at least one rule with a `where`")]
     NoConditionalRule,
-    #[error("pick one of `min_length` (pixels) or `min_length_m` (metres)")]
-    PixelAndMetreLength,
-    #[error("`label_grid` needs a `limit`, a `rank_attribute`, or both")]
-    LabelGridWithoutKeep,
+    #[error(
+        "zooms {first_min}..={first_max} and {second_min}..={second_max} overlap; at each zoom at most one entry may run"
+    )]
+    OverlappingZooms {
+        first_min: u8,
+        first_max: u8,
+        second_min: u8,
+        second_max: u8,
+    },
+    #[error("`size` must be more than 0 pixels")]
+    GridSizeNotPositive,
+    #[error("table `{0}`: `per_tile` is a layer key; move it under one of `layers`")]
+    PerTileOnTable(String),
+    #[error("`per_tile` acts on a whole tile, so it is set on the layer, not in a rule")]
+    PerTileInRule,
 }
