@@ -347,13 +347,13 @@ merge_lines:
   - { minzoom: 11, maxzoom: 13, min_length: 0.25, group_by: [class] }
 ```
 
-| Option               | Default            | Meaning                                                   |
-|----------------------|--------------------|-----------------------------------------------------------|
-| `min_length`         | 0                  | Pixels; shorter merged lines are dropped                  |
-| `tolerance`          | 0                  | Pixels; simplifies the merged lines, 0 keeps every vertex |
-| `buffer`             | the layer's buffer | Pixels around the tile kept after merging                 |
-| `group_by`           | every attribute    | The attributes lines must share                           |
-| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                             |
+| Option               | Default            | Meaning                                                        |
+|----------------------|--------------------|----------------------------------------------------------------|
+| `min_length`         | 0                  | Pixels; shorter merged lines are dropped                       |
+| `tolerance`          | 0                  | Pixels; simplifies the merged lines, 0 keeps every vertex      |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `group_by`           | every attribute    | The attributes lines must share                                |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                  |
 
 Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through
 junctions and drops short stubs and loops, which `merge_lines` does not.

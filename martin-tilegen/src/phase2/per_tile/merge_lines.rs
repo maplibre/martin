@@ -50,12 +50,14 @@ pub(super) fn apply(tile: &LayerTile<'_, '_>, op: &MergeLines, features: &mut Ve
         .map(|(mut first, parts, id)| {
             let geom = merged_lines(&parts, op, tile, &mut simplifier);
             (!geom.vertices.is_empty()).then(|| {
-                first.point = None;
-                first.merged = Some(Box::new(Merged {
-                    kind: GeomKind::Line,
-                    geom,
-                    id,
-                }));
+                tile.set_merged(
+                    &mut first,
+                    Merged {
+                        kind: GeomKind::Line,
+                        geom,
+                        id,
+                    },
+                );
                 first
             })
         })
