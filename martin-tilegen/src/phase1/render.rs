@@ -565,15 +565,14 @@ impl Renderer {
         self.groups.clear();
         for &c in points {
             let [x, y] = quantize(c, shift, world)?;
-            // Quadratic, as multipoints are usually small.
-            let index = self
-                .vertices
-                .iter()
-                .position(|v| *v == Coord { x, y })
+            let group = label_grid.and_then(|g| label_grid::group(g, zoom, c));
+            // Quadratic, as multipoints are usually small. Points rounded together stay apart in
+            // different label grid squares.
+            let index = (0..self.vertices.len())
+                .position(|i| self.vertices[i] == Coord { x, y } && self.groups.get(i).copied() == group)
                 .unwrap_or_else(|| {
                     self.vertices.push(Coord { x, y });
-                    self.groups
-                        .extend(label_grid.and_then(|g| label_grid::group(g, zoom, c)));
+                    self.groups.extend(group);
                     self.vertices.len() - 1
                 });
             let at = to_grid(c, shift, world);
