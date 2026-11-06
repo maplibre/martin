@@ -12,7 +12,7 @@ use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
-use crate::phase2::per_tile::{OutputExprs, TileOps};
+use crate::phase2::per_tile::{LayerOpCounts, OutputExprs, TileOps};
 use crate::plan::PlannedTileOp;
 use crate::props::KeyNames;
 use crate::sort::{LayerRecordRef, Seq, TileRecords};
@@ -151,6 +151,8 @@ pub struct TileEncoder {
     assembler: LayerAssembler,
     previous: Option<Previous>,
     pub stats: Vec<LayerStats>,
+    /// What the per-tile operations did, by layer.
+    ops: Vec<LayerOpCounts>,
 }
 
 struct Previous {
@@ -158,6 +160,8 @@ struct Previous {
     tile: EncodedTile,
     /// Features per layer, so a reused tile still counts in the statistics of its own zoom.
     features: Vec<(u8, u64)>,
+    /// What the operations did per layer, so a reused tile still counts as if encoded again.
+    ops: Vec<(u8, LayerOpCounts)>,
 }
 
 impl TileEncoder {
@@ -165,6 +169,20 @@ impl TileEncoder {
     #[must_use]
     pub fn expr_errors(&self) -> &[u64] {
         &self.assembler.ops.errors
+    }
+
+    /// What the per-tile operations did, by layer; shorter than the layers if the last ones had none.
+    pub(crate) fn op_counts(&self) -> &[LayerOpCounts] {
+        &self.ops
+    }
+
+    /// Adds what the operations did to one layer of one tile.
+    fn add_op_counts(&mut self, layer: u8, counts: &LayerOpCounts) {
+        let layer = usize::from(layer);
+        if self.ops.len() <= layer {
+            self.ops.resize_with(layer + 1, LayerOpCounts::default);
+        }
+        self.ops[layer].add(counts);
     }
 
     #[hotpath::measure]
@@ -207,10 +225,14 @@ impl TileEncoder {
         for &(layer, features) in &previous.features {
             self.stats[usize::from(layer)].add_features(coord.z(), features);
         }
+        for (layer, counts) in &previous.ops {
+            self.add_op_counts(*layer, counts);
+        }
         Previous {
             records,
             tile: EncodedTile { coord, ..previous.tile },
             features: previous.features,
+            ops: previous.ops,
         }
     }
 
@@ -221,8 +243,11 @@ impl TileEncoder {
         coord: TileCoord,
         dedup: &DedupIndex,
     ) -> TileGenResult<Previous> {
-        let mut features = Vec::new();
-        let data = self.encode_tile(settings, &records, coord.z(), &mut features)?;
+        let (mut features, mut ops) = (Vec::new(), Vec::new());
+        let data = self.encode_tile(settings, &records, coord.z(), &mut features, &mut ops)?;
+        for (layer, counts) in &ops {
+            self.add_op_counts(*layer, counts);
+        }
         let key = if records.is_fill_only() { dedup.key(&data) } else { None };
         Ok(Previous {
             records,
@@ -232,6 +257,7 @@ impl TileEncoder {
                 dedup_key: key,
             },
             features,
+            ops,
         })
     }
 
@@ -241,6 +267,7 @@ impl TileEncoder {
         tile: &TileRecords,
         zoom: u8,
         features: &mut Vec<(u8, u64)>,
+        ops: &mut Vec<(u8, LayerOpCounts)>,
     ) -> TileGenResult<Vec<u8>> {
         let mut mlt = Vec::new();
         let mut mvt = MvtTileBuilder::new();
@@ -254,8 +281,13 @@ impl TileEncoder {
             let info = &settings.layers[usize::from(layer)];
             let names = &settings.keys[usize::from(layer)];
             let exprs = settings.exprs.map(|exprs| exprs.layer(usize::from(layer)));
-            let ops = TileOps::new(&info.per_tile, zoom, exprs);
-            let assembled = self.assembler.assemble(&info.name, info.grid, names, &records, ops)?;
+            let layer_ops = TileOps::new(&info.per_tile, zoom, exprs);
+            let assembled = self
+                .assembler
+                .assemble(&info.name, info.grid, names, &records, layer_ops)?;
+            if !assembled.ops.is_empty() {
+                ops.push((layer, assembled.ops));
+            }
             if assembled.layer.feature_count() == 0 {
                 continue;
             }

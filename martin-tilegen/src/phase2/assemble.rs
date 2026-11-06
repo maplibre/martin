@@ -8,7 +8,7 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
-use super::per_tile::{LayerTile, OpScratch, TileFeature, TileOps, label_grid};
+use super::per_tile::{LayerOpCounts, LayerTile, OpKind, OpScratch, TileFeature, TileOps, label_grid};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -36,6 +36,8 @@ pub struct AssembledLayer<'a> {
     pub layer: LayerWriter<'a>,
     /// `(key, kind)` per property column, in column order.
     pub columns: &'a [(KeyId, PropKind)],
+    /// What the per-tile operations did to the layer.
+    pub(crate) ops: LayerOpCounts,
 }
 
 impl LayerAssembler {
@@ -69,7 +71,11 @@ impl LayerAssembler {
 
         let mut props = Vec::new();
         group_features(&decoded, &mut props, features)?;
-        label_grid::apply(&decoded, features, counts, geom, i64::from(grid.extent) << ops.zoom())?;
+        op_scratch.counts = LayerOpCounts::default();
+        let world = i64::from(grid.extent) << ops.zoom();
+        if let Some(gridded) = label_grid::apply(&decoded, features, counts, geom, world)? {
+            op_scratch.counts.record(OpKind::LabelGrid, &gridded);
+        }
         let tile = LayerTile {
             decoded: &decoded,
             props: &props,
@@ -136,7 +142,11 @@ impl LayerAssembler {
             }
             feature.finish()?;
         }
-        Ok(AssembledLayer { layer, columns: schema })
+        Ok(AssembledLayer {
+            layer,
+            columns: schema,
+            ops: op_scratch.counts,
+        })
     }
 }
 

@@ -379,6 +379,12 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         mbtiles.file = %output.display(),
         "Generated tiles"
     );
+    log_summary(&summary);
+    Ok(())
+}
+
+/// Logs what the run skipped, what failed, and what each per-tile operation did.
+fn log_summary(summary: &Summary) {
     if summary.skipped > 0 {
         debug!(
             features.skipped = summary.skipped,
@@ -403,7 +409,24 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
             failed.layer, failed.expr, failed.errors
         );
     }
-    Ok(())
+    for op in &summary.per_tile {
+        info!(
+            layer.id = %op.layer,
+            tiles = op.counts.tiles,
+            features.input = op.counts.features_in,
+            features.output = op.counts.features_out,
+            "Ran `per_tile.{}`",
+            op.op.name()
+        );
+        if op.counts.groups_failed > 0 {
+            warn!(
+                "Layer `{}`: `per_tile.{}` could not merge {} groups, which kept their features",
+                op.layer,
+                op.op.name(),
+                op.counts.groups_failed
+            );
+        }
+    }
 }
 
 /// `err` naming the source of a feature whose geometry stopped the run, with `finders` by table:

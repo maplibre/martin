@@ -65,7 +65,9 @@ impl Reviewed {
             .cloned();
         let status = match &old {
             None => CaseStatus::New,
-            Some(old) if old.input == case.input && old.output == case.output => CaseStatus::Same,
+            Some(old) if old.input == case.input && old.output == case.output && old.per_tile == case.per_tile => {
+                CaseStatus::Same
+            }
             Some(_) => CaseStatus::Changed,
         };
         Self {
@@ -85,7 +87,7 @@ impl Reviewed {
             if input_changed {
                 case_yaml(case)
             } else {
-                output_yaml(&case.output)
+                output_yaml(&case.output, &case.per_tile)
             }
         };
         Change {
