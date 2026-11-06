@@ -102,7 +102,7 @@ like a changed output.
     op: label_grid
     tiles: 9
     features_in: 9
-    features_out: 12  # a multi-point splits into its points
+    features_out: 13  # a multi-point splits into its points
 ```
 
 ## Running
