@@ -1974,12 +1974,12 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `per_tile.label_grid` layer.id=merged tiles=20 features.input=320 features.output=255
-    INFO Ran `per_tile.merge_lines` layer.id=merged tiles=22 features.input=264 features.output=202
-    INFO Ran `per_tile.merge_polygons` layer.id=merged tiles=22 features.input=202 features.output=158
-    INFO Ran `per_tile.dedup_by` layer.id=merged tiles=1 features.input=10 features.output=2
-    INFO Ran `per_tile.merge_multi` layer.id=merged tiles=22 features.input=150 features.output=104
-    INFO Ran `per_tile.limit` layer.id=merged tiles=22 features.input=104 features.output=90
+    INFO Ran `per_tile.label_grid` layer.id=merged tiles=91 features.input=822 features.output=695
+    INFO Ran `per_tile.merge_lines` layer.id=merged tiles=1182 features.input=3824 features.output=3707
+    INFO Ran `per_tile.merge_polygons` layer.id=merged tiles=1182 features.input=3707 features.output=2713
+    INFO Ran `per_tile.dedup_by` layer.id=merged tiles=1 features.input=12 features.output=2
+    INFO Ran `per_tile.merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
+    INFO Ran `per_tile.limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
