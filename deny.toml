@@ -23,10 +23,6 @@ allow = [
 confidence-threshold = 0.9
 
 exceptions = [
-    # Build-time dependencies can have more permissive copyleft licenses
-    # since they don't end up in the final binary
-    # used by maplibre_native build script
-    { crate = "downloader", allow = ["LGPL-3.0-or-later"] },
     # cql2 -> jsonschema -> referencing -> fluent-uri; MIT without the attribution clause
     { crate = "borrow-or-share", allow = ["MIT-0"] },
     # cql2 -> stacker -> psm, build script only; Apache-2.0 with the LLVM linking exception
