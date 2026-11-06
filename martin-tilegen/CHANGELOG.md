@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/maplibre/martin/compare/martin-tilegen-v0.2.0...martin-tilegen-v0.2.1) - 2026-11-06
+
+### Added
+
+- *(cp)* show stages and busy threads while `--mode bulk` runs ([#3911](https://github.com/maplibre/martin/pull/3911))
+
+### Fixed
+
+- fmt ([#3892](https://github.com/maplibre/martin/pull/3892))
+
 ## [0.2.0](https://github.com/maplibre/martin/compare/martin-tilegen-v0.1.2...martin-tilegen-v0.2.0) - 2026-11-04
 
 ### Added
