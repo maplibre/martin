@@ -238,7 +238,7 @@ impl<'a> Record<'a> {
 }
 
 /// Decoded geometry of one or more pieces of the same feature, shaped like [`Geom`].
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GeomBuf {
     /// The label grid group of each vertex, for gridded points only.
     pub groups: Vec<u64>,
