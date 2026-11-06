@@ -190,6 +190,19 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
+    /// Joins the lines of a group whose ends meet, where exactly two ends do, then simplifies them by
+    /// `tolerance`, clips them to the tile and `buffer`, and drops those shorter than `min_length`. Each
+    /// group becomes one line or multi-line feature, or none.
+    MergeLines {
+        /// Pixels of a 256-pixel tile.
+        min_length: f64,
+        /// Pixels of a 256-pixel tile; 0 keeps every vertex.
+        tolerance: f64,
+        /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
+        buffer: Option<f64>,
+        /// Output attributes that must be equal, a missing one counting as `null`; all of them if `None`.
+        group_by: Option<Vec<String>>,
+    },
     /// Drops each feature whose key, the values of `keys` over its output attributes, an earlier kept
     /// feature has, within `distance` pixels of it, or anywhere in the tile without one. A key of only
     /// `null`s is never a duplicate.
@@ -214,6 +227,7 @@ impl TileOp {
     /// Position in the fixed order operations run in.
     fn rank(&self) -> u8 {
         match self {
+            Self::MergeLines { .. } => 1,
             Self::DedupBy { .. } => 3,
             Self::MergeMulti { .. } => 4,
             Self::Limit { .. } => 5,
@@ -738,6 +752,7 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     }
     for op in &def.per_tile {
         let (name, group_by) = match &op.op {
+            TileOp::MergeLines { group_by, .. } => ("merge_lines", group_by),
             TileOp::MergeMulti { group_by, .. } => ("merge_multi", group_by),
             TileOp::DedupBy { .. } | TileOp::Limit { .. } => continue,
         };
@@ -768,7 +783,19 @@ fn plan_per_tile(
         if lo > hi {
             continue;
         }
+        let units = f64::from(def.grid.extent) / 256.0;
         let planned = match &op.op {
+            TileOp::MergeLines {
+                min_length,
+                tolerance,
+                buffer,
+                group_by,
+            } => PlannedOp::MergeLines(PlannedMergeLines {
+                min_length: min_length * units,
+                tolerance: tolerance * units,
+                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                group_by: group_by.clone(),
+            }),
             TileOp::DedupBy {
                 keys: sources,
                 distance,
@@ -785,7 +812,7 @@ fn plan_per_tile(
                         Ok(compiler.add(source, expr, DedupKey))
                     })
                     .collect::<Result<_, PlanError>>()?,
-                distance: distance.map(|px| px * f64::from(def.grid.extent) / 256.0),
+                distance: distance.map(|px| px * units),
             },
             TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
                 geometry: geometry.clone(),
@@ -805,6 +832,18 @@ fn plan_per_tile(
     Ok(ops.into_iter().map(|(_, op)| op).collect())
 }
 
+/// [`TileOp::MergeLines`] with its lengths in tile units.
+#[derive(Clone, Debug)]
+pub(crate) struct PlannedMergeLines {
+    /// Merged lines shorter than this inside the tile and `buffer` are dropped.
+    pub(crate) min_length: f64,
+    /// RDP tolerance for the merged lines; 0 keeps every vertex.
+    pub(crate) tolerance: f64,
+    /// Around the tile, kept after merging.
+    pub(crate) buffer: f64,
+    pub(crate) group_by: Option<Vec<String>>,
+}
+
 /// A [`TileOpDef`] as the encoder runs it.
 #[derive(Clone, Debug)]
 pub struct PlannedTileOp {
@@ -815,6 +854,7 @@ pub struct PlannedTileOp {
 /// A [`TileOp`] with its expressions compiled and its distances in tile units.
 #[derive(Clone, Debug)]
 pub(crate) enum PlannedOp {
+    MergeLines(PlannedMergeLines),
     DedupBy {
         keys: Vec<ExprRef<DedupKey>>,
         /// In tile units.
