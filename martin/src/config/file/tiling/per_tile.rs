@@ -40,27 +40,40 @@ impl PerTile {
 
 impl CollectUnrecognizedKeys for PerTile {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
-        fn each<T: Op>(path: &str, name: &str, op: Option<&ByZoomRange<T>>, out: &mut UnrecognizedKeys) {
-            let Some(op) = op else { return };
-            match op.0.as_slice() {
-                [single] => single
-                    .unrecognized()
-                    .collect_unrecognized(&format!("{path}{name}."), out),
-                entries => {
-                    for (index, entry) in entries.iter().enumerate() {
-                        entry
-                            .unrecognized()
-                            .collect_unrecognized(&format!("{path}{name}[{index}]."), out);
-                    }
+        if let Some(op) = &self.label_grid {
+            op.collect_unrecognized(&format!("{path}label_grid"), out);
+        }
+        if let Some(op) = &self.merge_lines {
+            op.collect_unrecognized(&format!("{path}merge_lines"), out);
+        }
+        if let Some(op) = &self.merge_polygons {
+            op.collect_unrecognized(&format!("{path}merge_polygons"), out);
+        }
+        if let Some(op) = &self.dedup_by {
+            op.collect_unrecognized(&format!("{path}dedup_by"), out);
+        }
+        if let Some(op) = &self.merge_multi {
+            op.collect_unrecognized(&format!("{path}merge_multi"), out);
+        }
+        if let Some(op) = &self.limit {
+            op.collect_unrecognized(&format!("{path}limit"), out);
+        }
+    }
+}
+
+/// `path` names the operation itself, without a trailing `.`.
+impl<T: Op> CollectUnrecognizedKeys for ByZoomRange<T> {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        match self.0.as_slice() {
+            [single] => single.unrecognized().collect_unrecognized(&format!("{path}."), out),
+            entries => {
+                for (index, entry) in entries.iter().enumerate() {
+                    entry
+                        .unrecognized()
+                        .collect_unrecognized(&format!("{path}[{index}]."), out);
                 }
             }
         }
-        each(path, "label_grid", self.label_grid.as_ref(), out);
-        each(path, "merge_lines", self.merge_lines.as_ref(), out);
-        each(path, "merge_polygons", self.merge_polygons.as_ref(), out);
-        each(path, "dedup_by", self.dedup_by.as_ref(), out);
-        each(path, "merge_multi", self.merge_multi.as_ref(), out);
-        each(path, "limit", self.limit.as_ref(), out);
     }
 }
 
@@ -114,6 +127,34 @@ impl<'de, T: Op + Deserialize<'de>> Deserialize<'de> for ByZoomRange<T> {
             }));
         }
         Ok(Self(entries))
+    }
+}
+
+/// A rule's `label_grid`, replacing the layer's for the features the rule takes.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RuleLabelGrid {
+    /// `null`: the rule's features are not gridded.
+    Off,
+    /// The rule's own grid.
+    Grid(ByZoomRange<LabelGrid>),
+}
+
+impl RuleLabelGrid {
+    /// A rule's `label_grid` key: `null` turns the grid off, so it cannot mean "unset" as it would for an
+    /// `Option`. For `#[serde(default, deserialize_with)]`.
+    pub(super) fn deserialize_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Self>, D::Error> {
+        Ok(Some(
+            Option::<ByZoomRange<LabelGrid>>::deserialize(deserializer)?.map_or(Self::Off, Self::Grid),
+        ))
+    }
+}
+
+impl Serialize for RuleLabelGrid {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Off => serializer.serialize_none(),
+            Self::Grid(grid) => grid.serialize(serializer),
+        }
     }
 }
 

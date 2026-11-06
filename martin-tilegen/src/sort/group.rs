@@ -179,7 +179,11 @@ impl TileGrouper {
                     seq: key.seq(),
                     record: bytes.to_vec(),
                 }),
-                GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
+                GeomKind::Point
+                | GeomKind::GriddedPoint { .. }
+                | GeomKind::Line
+                | GeomKind::Polygon
+                | GeomKind::Fill => {
                     tile.push_record(key.layer().value(), key.seq(), bytes);
                 }
             }

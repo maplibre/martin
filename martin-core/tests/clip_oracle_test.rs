@@ -42,6 +42,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         zooms: 0..=MAX_ZOOM,
         simplify: PixelThreshold::ZERO,
         min_size: PixelThreshold::ZERO,
+        label_grid: &[],
     };
     Renderer::default()
         .render(TileOrder::Tms, &layer, Seq::default(), &feature, &mut buffer)
@@ -52,7 +53,9 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
     while let Some((key, bytes)) = merger.peek() {
         let end = match Record::decode(bytes).unwrap().kind {
             GeomKind::FillRange { end } => end,
-            GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => key.tile_id().value() + 1,
+            GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
+                key.tile_id().value() + 1
+            }
         };
         for id in key.tile_id().value()..end {
             let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();
