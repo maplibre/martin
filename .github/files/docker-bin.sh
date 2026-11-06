@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # docker-bin.sh <platform> <image> <binary> [args...]: runs it as e2e tests run a local binary,
-# in the caller's directory and terminal.
+# in the caller's directory and terminal, with a writable HOME like a local run has.
 set -euo pipefail
 
 platform=$1
@@ -17,6 +17,6 @@ if [[ -t 0 ]]; then
 fi
 
 exec docker run --rm --net host --platform "$platform" --user "$(id -u):$(id -g)" \
-  -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG \
+  -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e HOME="$tmp" \
   -v "$workspace:$workspace" -v "$tmp:$tmp" -w "$PWD" "${terminal[@]}" \
   --entrypoint "$binary" "$image" "$@"
