@@ -5,7 +5,8 @@ use std::num::NonZeroU32;
 use geo_types::{Coord, LineString};
 use martin_tile_utils::{Encoding, TileRect};
 use martin_tilegen::plan::{
-    ColumnDef, GeometryType, LabelGridDef, LayerDef, Plan, RuleDef, SortDef, TableDef, TileOp, TileOpDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, LabelGridDef, LayerDef, Plan, RuleDef, SortDef, TableDef,
+    TileOp, TileOpDef, ValueDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
@@ -1189,4 +1190,444 @@ fn limit_runs_after_merge_multi_whatever_their_order() {
         "None MULTIPOINT(2162 1934,2276 1934,2389 1934,2503 1934)",
     ]
     "#);
+}
+
+#[test]
+fn dedup_by_keeps_the_first_feature_of_each_key_in_the_tile() {
+    let points = [
+        (1, 10.0, "Main St"),
+        (2, 40.0, "Main St"),
+        (3, 70.0, "High St"),
+        (4, 100.0, "Main St"),
+    ];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, name)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(name.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["name".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(3)]);
+}
+
+#[test]
+fn dedup_by_keeps_an_integer_and_an_unsigned_key_of_the_same_value_apart() {
+    let rows = [(1, 10.0, "road"), (2, 60.0, "rail")];
+    let features = rows
+        .into_iter()
+        .map(|(id, lon, kind)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["kind == 'road' ? 1 : 1u".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(2)]);
+}
+
+#[test]
+fn dedup_by_with_a_distance_keeps_duplicates_farther_apart() {
+    let points = [(1, 10.0), (2, 10.5), (3, 60.0), (4, 60.4)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["name".to_owned()],
+                    distance: Some(16.0),
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(3)]);
+}
+
+#[test]
+fn dedup_by_with_a_distance_drops_a_duplicate_across_a_corner_of_its_square() {
+    let points = [(1, -0.2, 0.2), (2, 0.2, -0.2), (3, 60.0, 0.0)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, lat)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
+            props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["name".to_owned()],
+                    distance: Some(16.0),
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(2046 2046)",
+        ),
+        (
+            Some(
+                3,
+            ),
+            "POINT(2731 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn dedup_by_with_a_distance_of_zero_drops_only_duplicates_at_the_same_point() {
+    let points = [(1, 10.0, 0.0), (2, 10.0, 0.0), (3, 10.1, 0.0)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, lat)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
+            props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["name".to_owned()],
+                    distance: Some(0.0),
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(2162 2048)",
+        ),
+        (
+            Some(
+                3,
+            ),
+            "POINT(2163 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn dedup_by_never_drops_a_feature_whose_key_is_all_null_and_counts_failed_keys() {
+    let names = [(1, Some("Main St")), (2, None), (3, None), (4, Some("Main St"))];
+    let features = names
+        .into_iter()
+        .map(|(id, name)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+            props: name
+                .map(|name| (KeyId::new(0), Prop::Str(name.into())))
+                .into_iter()
+                .collect(),
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["name.size() > 3 ? name : 1 / 0".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, summary) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(2), Some(3)]);
+    insta::assert_debug_snapshot!(summary.expr_errors, @r#"
+    [
+        ExprErrors {
+            layer: "labels",
+            expr: "name.size() > 3 ? name : 1 / 0",
+            errors: 2,
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn dedup_by_keys_read_output_attributes_by_their_output_names() {
+    let names = [(1, "Main St"), (2, "Main St")];
+    let features = names
+        .into_iter()
+        .map(|(id, name)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(name.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "label".to_owned(),
+                    value: ValueDef::Expr("name.lowerAscii()".to_owned()),
+                    zooms: 0..=0,
+                }],
+                prefixes: vec![],
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["label".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1)]);
 }

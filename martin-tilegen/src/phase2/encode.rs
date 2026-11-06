@@ -12,8 +12,8 @@ use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
-use crate::phase2::per_tile::TileOps;
-use crate::plan::TileOpDef;
+use crate::phase2::per_tile::{OutputExprs, TileOps};
+use crate::plan::PlannedTileOp;
 use crate::props::KeyNames;
 use crate::sort::{LayerRecordRef, Seq, TileRecords};
 use crate::{EncodedTile, LayerGrid, TileGenResult, TileId, TileOrder};
@@ -39,7 +39,21 @@ pub struct LayerInfo {
     pub grid: LayerGrid,
     pub encoder: EncoderConfig,
     /// The layer's per-tile operations, in the order they run.
-    pub per_tile: Vec<TileOpDef>,
+    pub(crate) per_tile: Vec<PlannedTileOp>,
+}
+
+impl LayerInfo {
+    /// A layer without per-tile operations.
+    #[cfg(feature = "internals")]
+    #[must_use]
+    pub fn new(name: String, grid: LayerGrid, encoder: EncoderConfig) -> Self {
+        Self {
+            name,
+            grid,
+            encoder,
+            per_tile: Vec::new(),
+        }
+    }
 }
 
 /// Everything that is the same for every tile of a run.
@@ -53,6 +67,8 @@ pub struct EncodeSettings<'a> {
     /// MVT only: each layer lists every key it declares, used or not, in declaration order,
     /// then the other keys in the order features first use them.
     pub mvt_keep_unused_keys: bool,
+    /// What per-tile operations evaluate expressions with; without it, none of them may.
+    pub exprs: Option<&'a OutputExprs<'a>>,
 }
 
 /// Dedup keys for tiles likely to repeat, shared by all encoders. A key is only handed out for bytes
@@ -145,6 +161,12 @@ struct Previous {
 }
 
 impl TileEncoder {
+    /// Failed evaluations of per-tile operations' expressions, by plan expression index.
+    #[must_use]
+    pub fn expr_errors(&self) -> &[u64] {
+        &self.assembler.ops.errors
+    }
+
     #[hotpath::measure]
     pub fn encode_batch(
         &mut self,
@@ -231,7 +253,8 @@ impl TileEncoder {
             }
             let info = &settings.layers[usize::from(layer)];
             let names = &settings.keys[usize::from(layer)];
-            let ops = TileOps::new(&info.per_tile, zoom);
+            let exprs = settings.exprs.map(|exprs| exprs.layer(usize::from(layer)));
+            let ops = TileOps::new(&info.per_tile, zoom, exprs);
             let assembled = self.assembler.assemble(&info.name, info.grid, names, &records, ops)?;
             if assembled.layer.feature_count() == 0 {
                 continue;
@@ -265,7 +288,7 @@ mod tests {
 
     use super::*;
     use crate::TileGenError;
-    use crate::plan::TileOp;
+    use crate::plan::PlannedOp;
     use crate::props::KeyInterner;
     use crate::sort::record::{EncodedProps, Geom, encode};
 
@@ -321,6 +344,7 @@ mod tests {
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -346,6 +370,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -369,6 +394,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Hilbert,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -389,6 +415,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let err = TileEncoder::default()
@@ -414,6 +441,7 @@ mod tests {
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -438,9 +466,9 @@ mod tests {
         }
         let keys = [interner.freeze()];
         let layers = [LayerInfo {
-            per_tile: vec![TileOpDef {
+            per_tile: vec![PlannedTileOp {
                 zooms: 0..=0,
-                op: TileOp::Limit { count: 1 },
+                op: PlannedOp::Limit { count: 1 },
             }],
             ..layer("pois")
         }];
@@ -451,6 +479,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let encoded = TileEncoder::default()
@@ -480,6 +509,7 @@ mod tests {
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
         let dedup = DedupIndex::default();
 
@@ -509,6 +539,7 @@ mod tests {
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -536,6 +567,7 @@ mod tests {
             encoding: Encoding::Gzip,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -573,6 +605,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: true,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -611,6 +644,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -652,6 +686,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let mut encoder = TileEncoder::default();
@@ -706,6 +741,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
 
         let tiles = TileEncoder::default()
@@ -748,6 +784,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
         let mut encoder = TileEncoder::default();
 
@@ -784,6 +821,7 @@ mod tests {
             encoding: Encoding::Uncompressed,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
         let mut encoder = TileEncoder::default();
 

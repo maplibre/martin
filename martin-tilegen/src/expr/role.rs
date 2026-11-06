@@ -29,6 +29,18 @@ pub struct Id;
 #[derive(Clone, Copy, Debug)]
 pub struct Attr;
 
+/// A `dedup_by` key: any scalar, compared by type and value.
+#[derive(Clone, Copy, Debug)]
+pub struct DedupKey;
+
+impl Role for DedupKey {
+    type Out = SortValue;
+
+    fn coerce(&self, value: Value) -> Result<SortValue, ExecutionError> {
+        to_sort(value)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct SortBy {
     pub descending: bool,

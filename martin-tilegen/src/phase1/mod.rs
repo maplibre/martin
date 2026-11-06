@@ -11,6 +11,7 @@ use martin_tile_utils::TileRect;
 
 pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 use crate::phase1::render::{Renderer, SliceErrors};
+use crate::phase2::TileEncoder;
 use crate::plan::{Evaluator, ExprTallies, Plan};
 use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry, WkbError};
@@ -139,6 +140,13 @@ impl RenderTotals {
             total.merge(errors);
         }
         self.exprs.merge(other.exprs);
+    }
+
+    /// Adds the failed evaluations of the encoders' per-tile operations.
+    pub(crate) fn add_encoder_errors<'e>(&mut self, encoders: impl IntoIterator<Item = &'e TileEncoder>) {
+        for encoder in encoders {
+            self.exprs.add(encoder.expr_errors());
+        }
     }
 
     /// The summary of a render of `plan` that produced `tiles`.
