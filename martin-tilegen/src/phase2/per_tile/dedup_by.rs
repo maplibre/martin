@@ -46,6 +46,7 @@ pub(super) fn apply(
         for expr in keys {
             let value = exprs.plan.eval(expr, &view, errors);
             all_null &= matches!(value, SortValue::Null);
+            key.push(u8::from(matches!(value, SortValue::UInt(_))));
             value.encode(false, &mut key);
         }
         if all_null {
