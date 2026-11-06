@@ -342,12 +342,9 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
 fn unsupported(layer: &Layer) -> Option<String> {
     let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
     let per_tile = &layer.per_tile;
-    let op = [
-        ("merge_lines", per_tile.merge_lines.is_some()),
-        ("merge_polygons", per_tile.merge_polygons.is_some()),
-    ]
-    .into_iter()
-    .find_map(|(op, set)| set.then_some(op));
+    let op = [("merge_polygons", per_tile.merge_polygons.is_some())]
+        .into_iter()
+        .find_map(|(op, set)| set.then_some(op));
     if let Some(geometry) = geometry {
         Some(format!("`geometry: {geometry}`"))
     } else {
@@ -378,6 +375,24 @@ fn lower_per_tile(
             ops.push(TileOpDef { zooms: lo..=hi, op });
         }
     };
+    for merge in per_tile.merge_lines.iter().flat_map(ByZoomRange::iter) {
+        if let Some(geometry) = geometry.filter(|g| *g != GeometryType::Line) {
+            warn!(
+                "`merge_lines` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_lines",
+            merge.zooms,
+            TileOp::MergeLines {
+                min_length: merge.min_length.map_or(0.0, Pixels::get),
+                tolerance: merge.tolerance.map_or(0.0, Pixels::get),
+                buffer: merge.buffer.map(Pixels::get),
+                group_by: merge.group_by.clone(),
+            },
+        );
+    }
     for dedup in per_tile.dedup_by.iter().flat_map(ByZoomRange::iter) {
         push(
             "dedup_by",
@@ -1214,7 +1229,6 @@ mod tests {
         let layers = [
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
-            "roads: { merge_lines: { group_by: [class] } }",
             "roads: { merge_polygons: {} }",
         ];
         let errors: Vec<String> = layers
@@ -1228,7 +1242,6 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
-        layer `roads`: `merge_lines` is not supported by `--mode bulk` yet
         layer `roads`: `merge_polygons` is not supported by `--mode bulk` yet
         ");
     }
@@ -1476,5 +1489,68 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_lines_lowers_per_zoom_range_with_zero_defaults() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    merge_lines:
+                      - { maxzoom: 10, min_length: 1, tolerance: 0.5, buffer: 4, group_by: [class] }
+                      - { minzoom: 11 }
+                  areas:
+                    geometry: polygon
+                    merge_lines: {}
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=10,
+                op: MergeLines {
+                    min_length: 1.0,
+                    tolerance: 0.5,
+                    buffer: Some(
+                        4.0,
+                    ),
+                    group_by: Some(
+                        [
+                            "class",
+                        ],
+                    ),
+                },
+            },
+            TileOpDef {
+                zooms: 11..=12,
+                op: MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            },
+        ]
+        "#);
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_lines` of layer `areas` in source `roads_source` never acts on its polygon features");
+            Ok(())
+        });
     }
 }

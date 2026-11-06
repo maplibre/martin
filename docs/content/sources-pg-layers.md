@@ -62,6 +62,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 | `label_grid`                      | The most points per grid square in one tile                      | [Per-tile operations](#per-tile-operations)        |
+| `merge_lines`                     | Joins lines whose ends meet in one tile                          | [Per-tile operations](#per-tile-operations)        |
 | `dedup_by`                        | Drops features repeating a key in one tile                       | [Per-tile operations](#per-tile-operations)        |
 | `merge_multi`                     | One multi-geometry per group in one tile                         | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
@@ -266,9 +267,10 @@ Operations run in this order, whatever order they are written in:
 | Order | Operation     | Does                                                         |
 |-------|---------------|--------------------------------------------------------------|
 | 1     | `label_grid`  | Keeps the first `limit` points of each grid square           |
-| 2     | `dedup_by`    | Drops features repeating an earlier feature's key            |
-| 3     | `merge_multi` | Combines a group's features of one type into a multi-feature |
-| 4     | `limit`       | Keeps the first `count` features, in order                   |
+| 2     | `merge_lines` | Joins a group's lines whose ends meet                        |
+| 3     | `dedup_by`    | Drops features repeating an earlier feature's key            |
+| 4     | `merge_multi` | Combines a group's features of one type into a multi-feature |
+| 5     | `limit`       | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
@@ -329,6 +331,32 @@ Squares smaller than 1/4096 of a tile do not limit anything.
 
 A square crossing a tile edge is counted the same way in both tiles only when each sees all of its points,
 so set the layer's `buffer` to at least `size` pixels. A warning tells you when it is smaller.
+
+### `merge_lines`
+
+Joins the lines of a group into longer lines, so a road cut into many segments becomes one, which lets
+clients place labels along it. Where exactly two line ends meet, the lines are joined; where three or
+more meet, as at a junction, they are not. The joined lines are simplified by `tolerance`, the same
+way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below
+`min_length`. Each group becomes one line or multi-line feature, or nothing if no line is left. Joining
+may reverse a line's direction.
+
+```yaml
+merge_lines:
+  - { maxzoom: 10, min_length: 1, tolerance: 0.5, group_by: [class] }
+  - { minzoom: 11, maxzoom: 13, min_length: 0.25, group_by: [class] }
+```
+
+| Option               | Default            | Meaning                                                   |
+|----------------------|--------------------|-----------------------------------------------------------|
+| `min_length`         | 0                  | Pixels; shorter merged lines are dropped                  |
+| `tolerance`          | 0                  | Pixels; simplifies the merged lines, 0 keeps every vertex |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging                 |
+| `group_by`           | every attribute    | The attributes lines must share                           |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                             |
+
+Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through
+junctions and drops short stubs and loops, which `merge_lines` does not.
 
 ### `dedup_by`
 

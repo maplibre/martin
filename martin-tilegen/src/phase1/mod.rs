@@ -3,7 +3,7 @@
 mod label_grid;
 pub mod project;
 mod render;
-mod simplify;
+pub(crate) mod simplify;
 mod touch;
 
 use geo_types::Coord;
