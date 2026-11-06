@@ -157,16 +157,31 @@ impl Layer {
     }
 }
 
+/// The features a layer takes, and the geometry it gives them, named as Planetiler's custommap names them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputGeometry {
+    /// Points, as they are.
     Point,
+    /// Lines, as they are.
     Line,
+    /// Polygons, as they are.
     Polygon,
-    LabelPoint,
-    Centroid,
-    CentroidIfConvex,
+    /// Polygons, as the point at their centroid.
+    PolygonCentroid,
+    /// Lines, as the point at their centroid.
+    LineCentroid,
+    /// Lines, as the point halfway along their longest part.
     LineMidpoint,
+    /// Every feature, as the point at its centroid.
+    Centroid,
+    /// Polygons, as their centroid when convex and a point on their surface otherwise.
+    PolygonCentroidIfConvex,
+    /// Polygons, as a point on their surface.
+    PolygonPointOnSurface,
+    /// Lines, as a point on the line.
+    PointOnLine,
+    /// Every feature, as the point farthest inside it.
     InnermostPoint,
 }
 
@@ -211,7 +226,7 @@ mod tests {
     fn a_layer_shapes_its_output_geometry() {
         let layers = parse(indoc! {"
             roads: { geometry: line }
-            poi: { geometry: centroid_if_convex }
+            poi: { geometry: polygon_centroid_if_convex }
             water: {}
         "});
         let geometries: Vec<_> = layers.iter().map(|(name, l)| (name, l.geometry)).collect();
@@ -219,7 +234,7 @@ mod tests {
             geometries,
             [
                 ("roads", Some(OutputGeometry::Line)),
-                ("poi", Some(OutputGeometry::CentroidIfConvex)),
+                ("poi", Some(OutputGeometry::PolygonCentroidIfConvex)),
                 ("water", None),
             ]
         );
@@ -227,7 +242,7 @@ mod tests {
 
     #[test]
     fn an_unknown_geometry_is_rejected() {
-        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 20: unknown variant `curve`, expected one of point, line, polygon, label_point, centroid, centroid_if_convex, line_midpoint, innermost_point");
+        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 20: unknown variant `curve`, expected one of point, line, polygon, polygon_centroid, line_centroid, line_midpoint, centroid, polygon_centroid_if_convex, polygon_point_on_surface, point_on_line, innermost_point");
     }
 
     #[test]
