@@ -16,7 +16,7 @@ use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, DedupKey, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
-use crate::phase2::LayerInfo;
+use crate::phase2::{LayerInfo, OpKind};
 pub use crate::plan::branch::{Branch, ColumnFacts, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
@@ -395,6 +395,15 @@ pub(crate) struct PlannedLayer {
     /// The layer's own settings, for features matching no case.
     pub(crate) fallback: Case,
     pub(crate) sort_by: Vec<ExprRef<SortBy>>,
+}
+
+impl PlannedLayer {
+    /// Whether some of the layer's features have a label grid.
+    pub(crate) fn has_label_grid(&self) -> bool {
+        std::iter::once(&self.fallback)
+            .chain(&self.cases)
+            .any(|case| !case.label_grid.is_empty())
+    }
 }
 
 /// A rule, with the layer's settings for whatever it does not set.
@@ -912,6 +921,19 @@ pub(crate) enum PlannedOp {
     Limit {
         count: u32,
     },
+}
+
+impl PlannedOp {
+    /// Which operation this is.
+    pub(crate) const fn kind(&self) -> OpKind {
+        match self {
+            Self::MergeLines(_) => OpKind::MergeLines,
+            Self::MergePolygons(_) => OpKind::MergePolygons,
+            Self::DedupBy { .. } => OpKind::DedupBy,
+            Self::MergeMulti { .. } => OpKind::MergeMulti,
+            Self::Limit { .. } => OpKind::Limit,
+        }
+    }
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.

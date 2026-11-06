@@ -281,12 +281,120 @@ pub(crate) struct LayerExprs<'a> {
     pub(crate) keys: &'a ExprKeys,
 }
 
-/// Per-worker scratch of the operations, and the failed evaluations of each plan expression.
+/// A per-tile operation, in the order they run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum OpKind {
+    /// Keeps the first points of each grid square.
+    LabelGrid,
+    /// Joins a group's lines whose ends meet.
+    MergeLines,
+    /// Unions a group's polygons.
+    MergePolygons,
+    /// Drops features repeating an earlier feature's key.
+    DedupBy,
+    /// Combines a group's features of one type into a multi-feature.
+    MergeMulti,
+    /// Keeps the first features.
+    Limit,
+}
+
+impl OpKind {
+    /// Every operation, in the order they run.
+    pub const ALL: [Self; 6] = [
+        Self::LabelGrid,
+        Self::MergeLines,
+        Self::MergePolygons,
+        Self::DedupBy,
+        Self::MergeMulti,
+        Self::Limit,
+    ];
+
+    /// The operation's key in the config.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::LabelGrid => "label_grid",
+            Self::MergeLines => "merge_lines",
+            Self::MergePolygons => "merge_polygons",
+            Self::DedupBy => "dedup_by",
+            Self::MergeMulti => "merge_multi",
+            Self::Limit => "limit",
+        }
+    }
+}
+
+/// What one operation did to one layer, summed over the tiles it ran on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OpCounts {
+    /// Tiles of the layer the operation ran on.
+    pub tiles: u64,
+    /// Features the operation took, over those tiles.
+    pub features_in: u64,
+    /// Features the operation kept or made, over those tiles.
+    pub features_out: u64,
+    /// Groups a merge could not make valid, which kept their features.
+    pub groups_failed: u64,
+}
+
+impl OpCounts {
+    /// Adds `other` to these counts.
+    pub fn add(&mut self, other: &Self) {
+        self.tiles += other.tiles;
+        self.features_in += other.features_in;
+        self.features_out += other.features_out;
+        self.groups_failed += other.groups_failed;
+    }
+
+    /// One run on a tile, from `features_in` to `features_out` features.
+    fn run(features_in: usize, features_out: usize, groups_failed: u64) -> Self {
+        Self {
+            tiles: 1,
+            features_in: features_in as u64,
+            features_out: features_out as u64,
+            groups_failed,
+        }
+    }
+}
+
+/// The counts of every operation of one layer, by [`OpKind`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct LayerOpCounts([OpCounts; OpKind::ALL.len()]);
+
+impl LayerOpCounts {
+    /// The counts of operation `kind`.
+    #[must_use]
+    pub(crate) fn get(&self, kind: OpKind) -> &OpCounts {
+        &self.0[kind as usize]
+    }
+
+    /// Adds `counts` to operation `kind`.
+    pub(crate) fn record(&mut self, kind: OpKind, counts: &OpCounts) {
+        self.0[kind as usize].add(counts);
+    }
+
+    /// Adds `other` to these counts.
+    pub(crate) fn add(&mut self, other: &Self) {
+        for (total, counts) in self.0.iter_mut().zip(&other.0) {
+            total.add(counts);
+        }
+    }
+
+    /// Whether no operation ran.
+    #[must_use]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.iter().all(|counts| counts.tiles == 0)
+    }
+}
+
+/// Per-worker scratch of the operations, the failed evaluations of each plan expression, and what the
+/// operations did to the last layer they ran on.
 #[derive(Debug, Default)]
 pub(crate) struct OpScratch {
     pub(crate) slots: PropSlots,
     /// Failed evaluations by plan expression index.
     pub(crate) errors: Vec<u64>,
+    /// Reset for each layer of each tile.
+    pub(crate) counts: LayerOpCounts,
 }
 
 /// A layer's per-tile operations, and the zoom of the tile they run on.
@@ -333,9 +441,11 @@ impl<'a> TileOps<'a> {
         scratch: &mut OpScratch,
     ) -> TileGenResult<()> {
         for op in self.active() {
+            let features_in = features.len();
+            let mut groups_failed = 0;
             match op {
                 PlannedOp::MergeLines(op) => merge_lines::apply(tile, op, features)?,
-                PlannedOp::MergePolygons(op) => merge_polygons::apply(tile, op, features)?,
+                PlannedOp::MergePolygons(op) => groups_failed = merge_polygons::apply(tile, op, features)?,
                 PlannedOp::DedupBy { keys, distance } => {
                     if let Some(exprs) = self.exprs {
                         dedup_by::apply(tile, exprs, keys, *distance, features, scratch)?;
@@ -346,6 +456,9 @@ impl<'a> TileOps<'a> {
                 }
                 PlannedOp::Limit { count } => limit::apply(*count, features),
             }
+            scratch
+                .counts
+                .record(op.kind(), &OpCounts::run(features_in, features.len(), groups_failed));
         }
         Ok(())
     }

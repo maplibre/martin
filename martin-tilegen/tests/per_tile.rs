@@ -2469,3 +2469,151 @@ fn merge_polygons_clips_to_the_tile_and_its_buffer_dropping_corners_outside() {
     ]
     "#);
 }
+
+#[test]
+fn the_summary_counts_the_features_each_operation_of_a_layer_took_and_kept() {
+    let points = [(1, 10.0), (2, 12.0), (3, -100.0), (4, -98.0)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![
+            LayerDef {
+                label_grid: vec![LabelGridDef {
+                    zooms: 0..=1,
+                    size: 64.0,
+                    limit: NonZeroU32::new(1).unwrap(),
+                }],
+                per_tile: vec![
+                    TileOpDef {
+                        zooms: 1..=1,
+                        op: TileOp::Limit { count: 1 },
+                    },
+                    TileOpDef {
+                        zooms: 0..=1,
+                        op: TileOp::MergeMulti {
+                            geometry: vec![GeometryType::Point],
+                            group_by: None,
+                        },
+                    },
+                ],
+                ..LayerDef::new("pois", 0..=1, GRID)
+            },
+            LayerDef::new("plain", 0..=1, GRID),
+        ],
+    }])
+    .unwrap();
+    let (_, summary) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(summary.per_tile, @r#"
+    [
+        OpSummary {
+            layer: "pois",
+            op: LabelGrid,
+            counts: OpCounts {
+                tiles: 1,
+                features_in: 4,
+                features_out: 2,
+                groups_failed: 0,
+            },
+        },
+        OpSummary {
+            layer: "pois",
+            op: MergeMulti,
+            counts: OpCounts {
+                tiles: 1,
+                features_in: 2,
+                features_out: 1,
+                groups_failed: 0,
+            },
+        },
+        OpSummary {
+            layer: "pois",
+            op: Limit,
+            counts: OpCounts {
+                tiles: 0,
+                features_in: 0,
+                features_out: 0,
+                groups_failed: 0,
+            },
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn fill_only_tiles_still_dedup_and_count_after_merge_polygons() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![
+                    (-170.0, -80.0),
+                    (170.0, -80.0),
+                    (170.0, 80.0),
+                    (-170.0, 80.0),
+                    (-170.0, -80.0),
+                ]),
+                vec![],
+            )]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 2..=2,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("ocean", 2..=2, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, summary) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(2, 0, 0, 3, 3),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let inner: Vec<_> = tiles
+        .iter()
+        .filter(|tile| (1..=2).contains(&tile.coord.x()) && (1..=2).contains(&tile.coord.y()))
+        .map(|tile| (tile.dedup_key, tile.data.clone()))
+        .collect();
+    assert_eq!(inner.len(), 4);
+    assert!(inner[0].0.is_some());
+    assert!(inner.iter().all(|tile| *tile == inner[0]));
+    assert_eq!(summary.per_tile[0].counts.tiles, 16);
+}

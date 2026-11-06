@@ -41,7 +41,7 @@ pub fn render_block(
     for batch in batches {
         tiles.extend(encoding.encode(&mut encoder, batch?)?);
     }
-    totals.add_encoder_errors([&encoder]);
+    totals.add_encoders([&encoder]);
     let summary = totals.into_summary(plan, tiles.len() as u64);
     Ok((tiles, summary))
 }

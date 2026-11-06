@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
-use super::{Shape, TileFeature};
+use super::{OpCounts, Shape, TileFeature};
 use crate::TileGenResult;
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -45,20 +45,22 @@ impl SourcePoint {
 /// group: points of different grid sizes share it when their groups are equal, as in Planetiler. A
 /// wrapped copy of a point, in another record of the same feature `world` tile units away, is kept or
 /// dropped with the point instead of counting again.
+/// Returns what it did, if any feature is gridded.
 pub(crate) fn apply(
     decoded: &[(Seq, Record<'_>)],
     features: &mut Vec<TileFeature>,
     counts: &mut Counts,
     geom: &mut GeomBuf,
     world: i64,
-) -> TileGenResult<()> {
+) -> TileGenResult<Option<OpCounts>> {
     let limit_of = |feature: &TileFeature| match decoded[feature.first()].1.kind {
         GeomKind::GriddedPoint { limit } => Some(limit),
         GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => None,
     };
     if !features.iter().any(|feature| limit_of(feature).is_some()) {
-        return Ok(());
+        return Ok(None);
     }
+    let features_in = features.len();
     let Counts {
         kept: counts,
         feature: choices,
@@ -100,5 +102,5 @@ pub(crate) fn apply(
         }
     }
     *features = kept;
-    Ok(())
+    Ok(Some(OpCounts::run(features_in, features.len(), 0)))
 }
