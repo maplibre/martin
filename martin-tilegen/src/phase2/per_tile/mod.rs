@@ -7,12 +7,48 @@ use std::ops::Range;
 use crate::plan::{TileOp, TileOpDef};
 
 /// One feature of a layer in a tile, as ranges into the records and properties the assembler decoded.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct TileFeature {
+    /// The first of the feature's pieces in this tile.
+    first: u32,
+    /// One past the last of the feature's pieces.
+    end: u32,
+    /// The first of the feature's properties.
+    props_first: u32,
+    /// One past the last of the feature's properties.
+    props_end: u32,
+}
+
+/// `index` as stored in a [`TileFeature`].
+fn narrow(index: usize) -> u32 {
+    u32::try_from(index).expect("fewer than 2^32 records and properties in one layer of one tile")
+}
+
+impl TileFeature {
+    /// The feature drawing `records`, with `props`.
+    pub(crate) fn new(records: Range<usize>, props: Range<usize>) -> Self {
+        Self {
+            first: narrow(records.start),
+            end: narrow(records.end),
+            props_first: narrow(props.start),
+            props_end: narrow(props.end),
+        }
+    }
+
     /// The feature's pieces in this tile.
-    pub(crate) records: Range<usize>,
+    pub(crate) fn records(&self) -> Range<usize> {
+        self.first as usize..self.end as usize
+    }
+
+    /// The first of the feature's pieces in this tile.
+    pub(crate) fn first(&self) -> usize {
+        self.first as usize
+    }
+
     /// The feature's properties.
-    pub(crate) props: Range<usize>,
+    pub(crate) fn props(&self) -> Range<usize> {
+        self.props_first as usize..self.props_end as usize
+    }
 }
 
 /// A layer's per-tile operations, and the zoom of the tile they run on.

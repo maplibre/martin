@@ -66,7 +66,7 @@ impl LayerAssembler {
 
         columns.clear();
         for feature in features.iter() {
-            for &(key, value) in &props[feature.props.clone()] {
+            for &(key, value) in &props[feature.props()] {
                 columns.add(key, value);
             }
         }
@@ -75,7 +75,7 @@ impl LayerAssembler {
         text.clear();
         texts.clear();
         for feature in features.iter() {
-            for &(key, value) in &props[feature.props.clone()] {
+            for &(key, value) in &props[feature.props()] {
                 if let Some(pos) = columns.position(key)
                     && schema[pos].1 == PropKind::Str
                     && !matches!(value, PropValueRef::Str(_))
@@ -95,12 +95,8 @@ impl LayerAssembler {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
 
-        for TileFeature {
-            records: range,
-            props: span,
-        } in features.iter()
-        {
-            let pieces = &decoded[range.clone()];
+        for tile_feature in features.iter() {
+            let pieces = &decoded[tile_feature.records()];
             let first = &pieces[0].1;
             geom.clear();
             for (_, piece) in pieces {
@@ -114,7 +110,7 @@ impl LayerAssembler {
             let mut feature = layer.feature(geometry_type(first.kind, geom));
             feature.id(first.id);
             write_geometry(&mut feature, first.kind, geom)?;
-            for &(key, value) in &props[span.clone()] {
+            for &(key, value) in &props[tile_feature.props()] {
                 let Some(pos) = columns.position(key) else {
                     continue;
                 };
@@ -157,15 +153,12 @@ fn group_features<'a>(
         for prop in first.props() {
             props.push(prop?);
         }
-        features.push(TileFeature {
-            records: start..start + len,
-            props: from..props.len(),
-        });
+        features.push(TileFeature::new(start..start + len, from..props.len()));
         start += len;
         sorted |= first.sort.is_some();
     }
     if sorted {
-        features.sort_by(|a, b| decoded[a.records.start].1.sort.cmp(&decoded[b.records.start].1.sort));
+        features.sort_by(|a, b| decoded[a.first()].1.sort.cmp(&decoded[b.first()].1.sort));
     }
     Ok(())
 }

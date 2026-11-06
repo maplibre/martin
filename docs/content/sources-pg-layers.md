@@ -243,15 +243,15 @@ set it.
 ```yaml
 postgres:
   tables:
-    pois:
+    shops:
       schema: public
-      table: pois
+      table: shops
       geometry_column: geom
       properties:
         name: text
         rank: int4
       layers:
-        pois:
+        shops:
           sort_by: [rank]
           per_tile:
             limit:
