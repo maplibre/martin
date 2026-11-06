@@ -345,7 +345,6 @@ fn unsupported(layer: &Layer) -> Option<String> {
     let op = [
         ("merge_lines", per_tile.merge_lines.is_some()),
         ("merge_polygons", per_tile.merge_polygons.is_some()),
-        ("dedup_by", per_tile.dedup_by.is_some()),
     ]
     .into_iter()
     .find_map(|(op, set)| set.then_some(op));
@@ -379,6 +378,16 @@ fn lower_per_tile(
             ops.push(TileOpDef { zooms: lo..=hi, op });
         }
     };
+    for dedup in per_tile.dedup_by.iter().flat_map(ByZoomRange::iter) {
+        push(
+            "dedup_by",
+            dedup.zooms,
+            TileOp::DedupBy {
+                keys: dedup.keys.iter().map(|key| key.as_str().to_owned()).collect(),
+                distance: dedup.distance.map(Pixels::get),
+            },
+        );
+    }
     for merge in per_tile.merge_multi.iter().flat_map(ByZoomRange::iter) {
         let types: Vec<GeometryType> = merge.geometry.as_ref().map_or_else(
             || vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
@@ -1438,5 +1447,40 @@ mod tests {
             insta::assert_snapshot!(warnings.join("\n"), @"`per_tile.merge_multi` of layer `pois` in source `roads_source` never acts on its point features");
             Ok(())
         });
+    }
+
+    #[test]
+    fn dedup_by_lowers_its_keys_and_distance() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  road_labels:
+                    per_tile:
+                      dedup_by: { keys: [name, \"ref + '!'\"], distance: 64 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: DedupBy {
+                    keys: [
+                        "name",
+                        "ref + '!'",
+                    ],
+                    distance: Some(
+                        64.0,
+                    ),
+                },
+            },
+        ]
+        "#);
     }
 }

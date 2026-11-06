@@ -8,7 +8,7 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
-use super::per_tile::{LayerTile, TileFeature, TileOps, label_grid};
+use super::per_tile::{LayerTile, OpScratch, TileFeature, TileOps, label_grid};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -27,6 +27,8 @@ pub struct LayerAssembler {
     texts: Vec<Range<usize>>,
     /// Label grid counters.
     counts: label_grid::Counts,
+    /// Scratch of the per-tile operations, and their failed evaluations.
+    pub(crate) ops: OpScratch,
 }
 
 /// A layer [`LayerAssembler::assemble`] built, borrowing its records, names and the assembler.
@@ -58,6 +60,7 @@ impl LayerAssembler {
             text,
             texts,
             counts,
+            ops: op_scratch,
         } = self;
         let decoded = records
             .iter()
@@ -74,7 +77,7 @@ impl LayerAssembler {
             grid,
             merged: RefCell::default(),
         };
-        ops.apply(&tile, features)?;
+        ops.apply(&tile, features, op_scratch)?;
 
         columns.clear();
         for feature in features.iter() {

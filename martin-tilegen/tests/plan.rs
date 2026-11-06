@@ -104,6 +104,32 @@ fn rejects_a_group_by_attribute_the_layer_does_not_write() {
 }
 
 #[test]
+fn rejects_a_dedup_key_reading_a_property_the_layer_does_not_write() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("ref".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::DedupBy {
+                    keys: vec!["name".to_owned(), "ref".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `labels`: `ref` references unknown property `ref`"
+    );
+}
+
+#[test]
 fn rejects_an_attribute_that_is_not_a_column() {
     let err = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("name".to_owned(), None)],

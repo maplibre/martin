@@ -12,6 +12,7 @@ use tilejson::{TileJSON, VectorLayer};
 pub use crate::phase2::encode::TileFormat;
 use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
 pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};
+use crate::phase2::per_tile::OutputExprs;
 use crate::plan::Plan;
 use crate::props::KeyNames;
 use crate::sort::{TileBatches, TileRecords};
@@ -26,7 +27,7 @@ pub(crate) mod internals {
 }
 
 /// Encodes grouped tiles of a rendered plan, shared by every encoder thread.
-pub(crate) struct TileEncoding {
+pub(crate) struct TileEncoding<'p> {
     infos: Vec<LayerInfo>,
     /// Only complete once every feature is rendered, since rendering interns new keys.
     names: Vec<KeyNames>,
@@ -35,22 +36,25 @@ pub(crate) struct TileEncoding {
     order: TileOrder,
     mvt_keep_unused_keys: bool,
     dedup: DedupIndex,
+    exprs: OutputExprs<'p>,
 }
 
-impl TileEncoding {
+impl<'p> TileEncoding<'p> {
     /// The encoding of `plan`'s tiles, handing `batches` back. Taking the batches means their sorter
     /// was consumed, so every render worker is done and every property key has a name.
     pub(crate) fn start(
-        plan: &Plan,
+        plan: &'p Plan,
         batches: TileBatches,
         format: TileFormat,
         encoding: Encoding,
         order: TileOrder,
         mvt_keep_unused_keys: bool,
     ) -> (Self, TileBatches) {
+        let names = plan.key_names();
         let encoding = Self {
             infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
-            names: plan.key_names(),
+            exprs: OutputExprs::new(plan, &names),
+            names,
             format,
             encoding,
             order,
@@ -69,6 +73,7 @@ impl TileEncoding {
             encoding: self.encoding,
             order: self.order,
             mvt_keep_unused_keys: self.mvt_keep_unused_keys,
+            exprs: Some(&self.exprs),
         };
         encoder.encode_batch(&settings, &self.dedup, batch)
     }

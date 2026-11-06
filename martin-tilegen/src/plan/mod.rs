@@ -14,7 +14,7 @@ use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
-use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
+use crate::expr::{Attr, CompiledExpr, DedupKey, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
 use crate::phase2::LayerInfo;
 pub use crate::plan::branch::{Branch, ColumnFacts, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
@@ -190,6 +190,15 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
+    /// Drops each feature whose key, the values of `keys` over its output attributes, an earlier kept
+    /// feature has, within `distance` pixels of it, or anywhere in the tile without one. A key of only
+    /// `null`s is never a duplicate.
+    DedupBy {
+        /// CEL expressions over the feature's output attributes, by output name.
+        keys: Vec<String>,
+        /// In pixels of a 256-pixel tile.
+        distance: Option<f64>,
+    },
     /// Combines the features of a group and type into one multi-geometry, with the parts in draw order.
     MergeMulti {
         /// The types to combine; others pass through.
@@ -205,6 +214,7 @@ impl TileOp {
     /// Position in the fixed order operations run in.
     fn rank(&self) -> u8 {
         match self {
+            Self::DedupBy { .. } => 3,
             Self::MergeMulti { .. } => 4,
             Self::Limit { .. } => 5,
         }
@@ -681,6 +691,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         })
         .collect::<Result<_, PlanError>>()?;
     check_group_by(&def, &keys, compiler.dynamic_props)?;
+    let per_tile = plan_per_tile(&def, &keys, compiler)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -704,7 +715,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
                     .with_spatial_morton_sort(false)
                     .with_spatial_hilbert_sort(false)
             },
-            per_tile: plan_per_tile(def.per_tile, &def.zooms),
+            per_tile,
         },
         zooms: def.zooms,
         geometry: def.geometry,
@@ -728,7 +739,7 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     for op in &def.per_tile {
         let (name, group_by) = match &op.op {
             TileOp::MergeMulti { group_by, .. } => ("merge_multi", group_by),
-            TileOp::Limit { .. } => continue,
+            TileOp::DedupBy { .. } | TileOp::Limit { .. } => continue,
         };
         if let Some(attribute) = group_by.iter().flatten().find(|name| !keys.contains(name)) {
             return Err(PlanError::UnknownGroupBy {
@@ -741,18 +752,81 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     Ok(())
 }
 
-/// `ops` in the order they run, each clamped into `zooms`, without those outside them.
-fn plan_per_tile(ops: Vec<TileOpDef>, zooms: &RangeInclusive<u8>) -> Vec<TileOpDef> {
-    let mut ops: Vec<TileOpDef> = ops
-        .into_iter()
-        .filter_map(|def| {
-            let lo = (*def.zooms.start()).max(*zooms.start());
-            let hi = (*def.zooms.end()).min(*zooms.end());
-            (lo <= hi).then_some(TileOpDef { zooms: lo..=hi, ..def })
-        })
-        .collect();
-    ops.sort_by_key(|def| (def.op.rank(), *def.zooms.start()));
-    ops
+/// The layer's operations in the order they run, each clamped into its zooms, without those outside them,
+/// and with `dedup_by` keys compiled over the layer's output attributes.
+fn plan_per_tile(
+    def: &LayerDef,
+    keys: &[String],
+    compiler: &mut Compiler<'_>,
+) -> Result<Vec<PlannedTileOp>, PlanError> {
+    let zooms = &def.zooms;
+    let output_props = compiler.dynamic_props && def.attributes == AttributesDef::All;
+    let mut ops = Vec::new();
+    for op in &def.per_tile {
+        let lo = (*op.zooms.start()).max(*zooms.start());
+        let hi = (*op.zooms.end()).min(*zooms.end());
+        if lo > hi {
+            continue;
+        }
+        let planned = match &op.op {
+            TileOp::DedupBy {
+                keys: sources,
+                distance,
+            } => PlannedOp::DedupBy {
+                keys: sources
+                    .iter()
+                    .map(|source| {
+                        let expr = CompiledExpr::compile(source, keys, output_props).map_err(|error| {
+                            PlanError::LayerExpr {
+                                layer: def.name.clone(),
+                                error,
+                            }
+                        })?;
+                        Ok(compiler.add(source, expr, DedupKey))
+                    })
+                    .collect::<Result<_, PlanError>>()?,
+                distance: distance.map(|px| px * f64::from(def.grid.extent) / 256.0),
+            },
+            TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
+                geometry: geometry.clone(),
+                group_by: group_by.clone(),
+            },
+            TileOp::Limit { count } => PlannedOp::Limit { count: *count },
+        };
+        ops.push((
+            op.op.rank(),
+            PlannedTileOp {
+                zooms: lo..=hi,
+                op: planned,
+            },
+        ));
+    }
+    ops.sort_by_key(|(rank, op)| (*rank, *op.zooms.start()));
+    Ok(ops.into_iter().map(|(_, op)| op).collect())
+}
+
+/// A [`TileOpDef`] as the encoder runs it.
+#[derive(Clone, Debug)]
+pub struct PlannedTileOp {
+    pub(crate) zooms: RangeInclusive<u8>,
+    pub(crate) op: PlannedOp,
+}
+
+/// A [`TileOp`] with its expressions compiled and its distances in tile units.
+#[derive(Clone, Debug)]
+pub(crate) enum PlannedOp {
+    DedupBy {
+        keys: Vec<ExprRef<DedupKey>>,
+        /// In tile units.
+        distance: Option<f64>,
+    },
+    MergeMulti {
+        geometry: Vec<GeometryType>,
+        group_by: Option<Vec<String>>,
+    },
+    Limit {
+        count: u32,
+    },
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
