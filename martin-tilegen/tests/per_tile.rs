@@ -1253,6 +1253,61 @@ fn dedup_by_keeps_the_first_feature_of_each_key_in_the_tile() {
 }
 
 #[test]
+fn dedup_by_keeps_an_integer_and_an_unsigned_key_of_the_same_value_apart() {
+    let rows = [(1, 10.0, "road"), (2, 60.0, "rail")];
+    let features = rows
+        .into_iter()
+        .map(|(id, lon, kind)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::DedupBy {
+                    keys: vec!["kind == 'road' ? 1 : 1u".to_owned()],
+                    distance: None,
+                },
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(2)]);
+}
+
+#[test]
 fn dedup_by_with_a_distance_keeps_duplicates_farther_apart() {
     let points = [(1, 10.0), (2, 10.5), (3, 60.0), (4, 60.4)];
     let features = points
