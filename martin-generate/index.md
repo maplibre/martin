@@ -38,6 +38,8 @@ martin cp --mode bulk                   \
 
 This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 to 14. Without `--source`, every source is rendered. Sources come from the same connection strings or [configuration file](<https://maplibre.org/martin/config-file/index.md>) as for the tile server.
 
+![martin cp --mode bulk prepares 2 tables, renders 7.5M features, then writes 1.3M tiles](<https://maplibre.org/martin/images/generate/bulk-progress.gif>)
+
 Only table sources can be rendered, not function sources. All of them must come from one PostgreSQL connection.
 
 Each source becomes one layer, named by its `layer_id` or its source id. A source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) feeds several layers from one read instead, each with its own features, zooms, attributes and draw order.
