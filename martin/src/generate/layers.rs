@@ -415,7 +415,7 @@ fn lower_per_tile(
                 min_area: merge.min_area.map_or(0.0, Pixels::get),
                 min_hole_area: merge.min_hole_area.map_or(0.0, Pixels::get),
                 distance: merge.distance.map_or(0.0, Pixels::get),
-                buffer: merge.buffer.map(Pixels::get),
+                buffer: clamp_buffer("merge_polygons", merge.buffer),
                 group_by: merge.group_by.clone(),
             },
         );
@@ -1627,6 +1627,54 @@ mod tests {
                 })
                 .collect();
             insta::assert_snapshot!(warnings.join("\n"), @"`per_tile.merge_lines` of layer `areas` in source `roads_source` never acts on its polygon features");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_polygons_clamps_a_buffer_wider_than_the_layers() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: parks
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks:
+                    buffer: 64
+                    per_tile:
+                      merge_polygons: { buffer: 8 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: Some(
+                        4.0,
+                    ),
+                    group_by: None,
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`per_tile.merge_polygons` of layer `parks` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
             Ok(())
         });
     }
