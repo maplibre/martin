@@ -71,7 +71,7 @@ pub enum StartError {
 #[derive(Debug, Default)]
 pub struct MartinBuilder {
     args: Vec<OsString>,
-    envs: Vec<(String, String)>,
+    envs: Vec<(String, Option<String>)>,
     database_url: Option<String>,
     config_dir: Option<TempDir>,
 }
@@ -100,7 +100,14 @@ impl MartinBuilder {
     /// Set an environment variable for the subprocess.
     #[must_use]
     pub fn env(mut self, key: &str, value: &str) -> Self {
-        self.envs.push((key.to_owned(), value.to_owned()));
+        self.envs.push((key.to_owned(), Some(value.to_owned())));
+        self
+    }
+
+    /// Remove an environment variable the subprocess would otherwise inherit.
+    #[must_use]
+    pub fn env_remove(mut self, key: &str) -> Self {
+        self.envs.push((key.to_owned(), None));
         self
     }
 
@@ -134,7 +141,10 @@ impl MartinBuilder {
         #[cfg(windows)]
         cmd.creation_flags(windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP);
         for (key, value) in &self.envs {
-            cmd.env(key, value);
+            match value {
+                Some(value) => cmd.env(key, value),
+                None => cmd.env_remove(key),
+            };
         }
         if let Some(url) = &self.database_url {
             cmd.env("DATABASE_URL", url);

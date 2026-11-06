@@ -74,10 +74,12 @@ jpegxl
 justfiles
 keepalives
 LAEA
+lavapipe
 libwebp
 linestring
 linestrings
 lldb
+llvmpipe
 lnglat
 longlat
 manbhav
@@ -171,6 +173,7 @@ tilelive
 tileserver
 tileset
 tilesets
+tmpfs
 toon
 tui
 unclipped
