@@ -850,6 +850,7 @@ async fn an_archive_emptied_while_served_fails_its_uncached_tiles_without_crashi
     assert_eq!(cached.status(), 200);
 
     fs::write(&path, b"").expect("failed to empty the served archive");
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     assert_eq!(martin.get("/served/3/4/2").await.body(), cached.body());
     assert_eq!(martin.get("/served/3/4/3").await.status(), 500);

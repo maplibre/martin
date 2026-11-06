@@ -19,6 +19,8 @@ mod team_engine;
 
 use std::ffi::OsString;
 use std::fs::{self, File};
+#[cfg(windows)]
+use std::os::windows::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use std::{env, thread};
@@ -238,8 +240,12 @@ impl WatchedDir {
     /// Bump the modification time of a watched file, as `touch` does.
     pub fn touch(&self, name: &str) {
         let path = self.dir().join(name);
-        File::options()
-            .write(true)
+        let mut options = File::options();
+        options.write(true);
+        // pmtiles keeps writers off an open archive on Windows, so ask only for FILE_WRITE_ATTRIBUTES
+        #[cfg(windows)]
+        options.access_mode(0x100);
+        options
             .open(&path)
             .and_then(|file| file.set_modified(SystemTime::now()))
             .unwrap_or_else(|e| panic!("failed to touch {}: {e}", path.display()));

@@ -164,7 +164,7 @@ numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
-pmtiles = { version = "0.27.0", default-features = false }
+pmtiles = { version = "0.28.0", default-features = false }
 png = "0.18.0"
 portable-pty = "0.9.0"
 postgis = "0.9"
