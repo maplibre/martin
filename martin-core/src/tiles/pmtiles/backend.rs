@@ -1,73 +1,11 @@
 //! Byte-range backends behind a [`PmtilesSource`](super::PmtilesSource).
 
-use std::fmt;
-use std::fs::Metadata;
-#[cfg(unix)]
-use std::os::unix::fs::MetadataExt as _;
-use std::path::PathBuf;
-use std::time::SystemTime;
-
-use pmtiles::{AsyncBackend, BackendResponse, FileBackend, ObjectStoreBackend, PmtError, PmtResult};
-
-/// Reads a local `PMTiles` file through a [`FileBackend`].
-///
-/// Every read stats the file first and fails with [`PmtError::SourceModified`] when its inode, size or modification time changed.
-pub(crate) struct PmtFileBackend {
-    file: FileBackend,
-    path: PathBuf,
-    version: (u64, u128, u64),
-}
-
-impl fmt::Debug for PmtFileBackend {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { file: _, path, version } = self;
-        f.debug_struct("PmtFileBackend")
-            .field("path", path)
-            .field("version", version)
-            .finish_non_exhaustive()
-    }
-}
-
-impl PmtFileBackend {
-    /// Opens `path` for reading.
-    pub(crate) async fn open(path: impl Into<PathBuf>) -> PmtResult<Self> {
-        let path = path.into();
-        let version = data_version(&std::fs::metadata(&path)?);
-        let file = FileBackend::try_from(&path).await?;
-        Ok(Self { file, path, version })
-    }
-}
-
-impl AsyncBackend for PmtFileBackend {
-    async fn read(&self, offset: u64, length: usize) -> PmtResult<BackendResponse> {
-        if data_version(&std::fs::metadata(&self.path)?) != self.version {
-            return Err(PmtError::SourceModified);
-        }
-        self.file.read(offset, length).await
-    }
-}
-
-/// The inode, modification time and size of the file.
-/// This is the fingerprint `object_store` uses as an `ETag`.
-fn data_version(meta: &Metadata) -> (u64, u128, u64) {
-    #[cfg(unix)]
-    let inode = meta.ino();
-    #[cfg(not(unix))]
-    let inode = 0_u64;
-    let mtime = meta
-        .modified()
-        .ok()
-        .and_then(|mtime| mtime.duration_since(SystemTime::UNIX_EPOCH).ok())
-        .unwrap_or_default()
-        .as_nanos();
-    (inode, mtime, meta.len())
-}
+use pmtiles::{AsyncBackend, BackendResponse, FileBackend, ObjectStoreBackend, PmtResult};
 
 /// Where a [`PmtilesSource`](super::PmtilesSource) reads its bytes from.
-#[derive(Debug)]
 pub(crate) enum PmtBackend {
     /// A file on the local filesystem.
-    File(PmtFileBackend),
+    File(FileBackend),
     /// A location in an [`object_store::ObjectStore`] such as S3, GCS, Azure or HTTP.
     ObjectStore(ObjectStoreBackend),
 }
