@@ -467,6 +467,76 @@ fn a_label_grid_keeps_the_same_points_of_a_multi_point_in_both_wrapped_copies() 
 }
 
 #[test]
+fn a_label_grid_counts_multi_point_points_rounded_together_in_their_own_squares() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }, Coord { x: -89.9964, y: 10.0 }]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            label_grid: vec![LabelGridDef {
+                zooms: 0..=0,
+                size: 64.0,
+                limit: NonZeroU32::new(1).unwrap(),
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1024 1934)",
+        ),
+        (
+            Some(
+                2,
+            ),
+            "POINT(1024 1934)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_rule_replaces_the_layer_label_grid_and_an_empty_one_turns_it_off() {
     let points = [
         (1, 10.0, "town"),
