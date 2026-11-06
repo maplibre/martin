@@ -122,6 +122,18 @@ Reloading styles costs CPU on every request that misses, so set `renderers_per_w
 
 MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the network in a cache of its own, in memory and shared by all of them, up to `ambient_cache_size_mb` MB (MapLibre Native's default of 50 MiB unless configured). Every fetched resource is compressed and stored there, and every fetch looks it up first. A cached resource spares a request only while its `Cache-Control` says it is fresh, and Martin sends none unless `cache_control` is set in the [configuration file](<https://maplibre.org/martin/config-file/index.md>). When the style's sources are Martin's own, the tiles are already a local read away, so `ambient_cache_size_mb: 0` saves that work. Keep it for styles that fetch from other servers.
 
+### Shader cache
+
+On the CPU, Mesa (`lavapipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`. Without that cache, creating a renderer, at startup or after one was [dropped](<#renderers-per-worker>), takes several times longer.
+
+When neither directory is writable, as in a read-only container, Martin caches shaders in a private directory under `$TMPDIR` (`/tmp` unless set) until it exits, and logs that it did. If that is read-only too, it logs a warning and Mesa compiles shaders again for every renderer. For a read-only container, mount a small `tmpfs` at `/tmp` (the cache stays under a few MB), or set `MESA_SHADER_CACHE_DIR` to a writable volume to keep the cache across restarts:
+
+```bash
+docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.6-full
+```
+
+Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
+
 ## Static images
 
 > [!NOTE]
