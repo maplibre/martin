@@ -50,6 +50,9 @@ struct RawRule {
 
 impl RawRule {
     fn split(self) -> Result<(Option<Expr>, RuleSettings), TilingConfigError> {
+        if self.unrecognized.contains_key("per_tile") {
+            return Err(TilingConfigError::PerTileInRule);
+        }
         fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref())?;
         let settings = RuleSettings {
             minzoom: self.minzoom,
@@ -230,6 +233,14 @@ mod tests {
         insta::assert_snapshot!(
             rejection("poi: { rules: [ { minzoom: 14 }, { where: \"amenity == 'cafe'\" } ] }"),
             @"error: line 1 column 15: a rule without `where` takes every feature, so it must be the last rule"
+        );
+    }
+
+    #[test]
+    fn a_rule_cannot_set_per_tile() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", per_tile: { limit: 5 } } ] }"),
+            @"error: line 1 column 15: `per_tile` acts on a whole tile, so it is set on the layer, not in a rule"
         );
     }
 

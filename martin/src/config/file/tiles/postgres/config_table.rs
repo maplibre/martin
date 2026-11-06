@@ -175,6 +175,12 @@ pub(crate) fn deserialize_checked_tables<'de, D: serde::Deserializer<'de>>(
                 {
                     return Err(tiling::TilingConfigError::PrefetchWithoutLayers(id.clone()));
                 }
+                if let Some(id) = tables
+                    .iter()
+                    .find_map(|(id, t)| t.unrecognized.contains_key("per_tile").then_some(id))
+                {
+                    return Err(tiling::TilingConfigError::PerTileOnTable(id.clone()));
+                }
                 Ok(Self(tables))
             })
         }

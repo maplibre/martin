@@ -124,6 +124,8 @@ pub struct LayerDef {
     /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
     /// Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
+    /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
+    pub per_tile: Vec<TileOpDef>,
 }
 
 impl LayerDef {
@@ -148,6 +150,31 @@ impl LayerDef {
             attributes: AttributesDef::All,
             rules: Vec::new(),
             sort_by: Vec::new(),
+            per_tile: Vec::new(),
+        }
+    }
+}
+
+/// A [`TileOp`] and the zooms it runs at; outside them the layer's features pass through it unchanged.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TileOpDef {
+    /// Clamped into the layer's zooms; an operation with none of them is dropped.
+    pub zooms: RangeInclusive<u8>,
+    pub op: TileOp,
+}
+
+/// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TileOp {
+    /// Keeps the first `count` features and drops the rest.
+    Limit { count: u32 },
+}
+
+impl TileOp {
+    /// Position in the fixed order operations run in.
+    fn rank(&self) -> u8 {
+        match self {
+            Self::Limit { .. } => 5,
         }
     }
 }
@@ -639,6 +666,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
                     .with_spatial_morton_sort(false)
                     .with_spatial_hilbert_sort(false)
             },
+            per_tile: plan_per_tile(def.per_tile, &def.zooms),
         },
         zooms: def.zooms,
         geometry: def.geometry,
@@ -651,6 +679,20 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         fallback,
         sort_by,
     })
+}
+
+/// `ops` in the order they run, each clamped into `zooms`, without those outside them.
+fn plan_per_tile(ops: Vec<TileOpDef>, zooms: &RangeInclusive<u8>) -> Vec<TileOpDef> {
+    let mut ops: Vec<TileOpDef> = ops
+        .into_iter()
+        .filter_map(|def| {
+            let lo = (*def.zooms.start()).max(*zooms.start());
+            let hi = (*def.zooms.end()).min(*zooms.end());
+            (lo <= hi).then_some(TileOpDef { zooms: lo..=hi, ..def })
+        })
+        .collect();
+    ops.sort_by_key(|def| (def.op.rank(), *def.zooms.start()));
+    ops
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
