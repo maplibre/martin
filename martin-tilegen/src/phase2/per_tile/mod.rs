@@ -1,10 +1,12 @@
 //! Per-tile operations: each takes one layer's features in one tile, in draw order, and returns the new list.
 
+pub(crate) mod label_grid;
 mod limit;
 
 use std::ops::Range;
 
 use crate::plan::{TileOp, TileOpDef};
+use crate::sort::record::Vertex;
 
 /// One feature of a layer in a tile, as ranges into the records and properties the assembler decoded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,6 +19,17 @@ pub(crate) struct TileFeature {
     props_first: u32,
     /// One past the last of the feature's properties.
     props_end: u32,
+    /// What the feature draws.
+    pub(crate) shape: Shape,
+}
+
+/// What a [`TileFeature`] draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Shape {
+    /// The geometry of its records.
+    Records,
+    /// One point of its single record, for a gridded multi-point split into its points.
+    Point(Vertex),
 }
 
 /// `index` as stored in a [`TileFeature`].
@@ -32,6 +45,7 @@ impl TileFeature {
             end: narrow(records.end),
             props_first: narrow(props.start),
             props_end: narrow(props.end),
+            shape: Shape::Records,
         }
     }
 
@@ -67,6 +81,11 @@ impl<'a> TileOps<'a> {
     #[must_use]
     pub fn new(ops: &'a [TileOpDef], zoom: u8) -> Self {
         Self { ops, zoom }
+    }
+
+    /// The zoom of the tile they run on.
+    pub(crate) fn zoom(self) -> u8 {
+        self.zoom
     }
 
     /// The operations that run at this zoom, in order.

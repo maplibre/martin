@@ -5,6 +5,7 @@ mod eval;
 mod filter;
 
 use std::collections::{BTreeSet, HashSet};
+use std::num::NonZeroU32;
 use std::ops::{Range, RangeInclusive};
 use std::sync::atomic::AtomicBool;
 
@@ -126,6 +127,8 @@ pub struct LayerDef {
     pub sort_by: Vec<SortDef>,
     /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
     pub per_tile: Vec<TileOpDef>,
+    /// Limits the points per grid square in each tile, before `per_tile`; zoom ranges must not overlap.
+    pub label_grid: Vec<LabelGridDef>,
 }
 
 impl LayerDef {
@@ -151,8 +154,22 @@ impl LayerDef {
             rules: Vec::new(),
             sort_by: Vec::new(),
             per_tile: Vec::new(),
+            label_grid: Vec::new(),
         }
     }
+}
+
+/// Planetiler's point label grid: at the zooms it covers, the world is cut into squares of `size` pixels
+/// of a 256-pixel tile, and each tile keeps only the first `limit` points of each square, in draw order.
+/// Squares smaller than 1/4096 of a tile do not limit anything, as in Planetiler.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LabelGridDef {
+    /// Clamped into the layer's zooms.
+    pub zooms: RangeInclusive<u8>,
+    /// Side of a square, in pixels of a 256-pixel tile.
+    pub size: f64,
+    /// Points kept per square and tile.
+    pub limit: NonZeroU32,
 }
 
 /// A [`TileOp`] and the zooms it runs at; outside them the layer's features pass through it unchanged.
@@ -190,6 +207,8 @@ pub struct RuleDef {
     /// These replace the layer's attributes of the same name and add the others; each one replaces the
     /// layer's at every zoom, even outside its own zooms.
     pub attributes: Vec<ComputedAttr>,
+    /// Replaces the layer's label grid for the features this rule takes; empty turns it off for them.
+    pub label_grid: Option<Vec<LabelGridDef>>,
 }
 
 /// `null`, and a failed evaluation, sort before any value; `descending` reverses that too.
@@ -332,6 +351,8 @@ pub(crate) struct Case {
     pub(crate) simplify: PixelThreshold,
     pub(crate) min_size: PixelThreshold,
     pub(crate) attrs: PlannedAttrs,
+    /// Clamped into the layer's zooms.
+    pub(crate) label_grid: Vec<LabelGridDef>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -626,6 +647,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         simplify: def.simplify,
         min_size: def.min_size,
         attrs,
+        label_grid: clamp_grids(&def.label_grid, &def.zooms),
     };
     let cases = def
         .rules
@@ -795,7 +817,26 @@ fn plan_case(
         simplify: rule.simplify.unwrap_or(fallback.simplify),
         min_size: rule.min_size.unwrap_or(fallback.min_size),
         attrs,
+        label_grid: rule
+            .label_grid
+            .as_ref()
+            .map_or_else(|| fallback.label_grid.clone(), |grids| clamp_grids(grids, &def.zooms)),
     })
+}
+
+/// `grids` clamped into `zooms`, without those outside them.
+fn clamp_grids(grids: &[LabelGridDef], zooms: &RangeInclusive<u8>) -> Vec<LabelGridDef> {
+    grids
+        .iter()
+        .filter_map(|grid| {
+            let lo = (*grid.zooms.start()).max(*zooms.start());
+            let hi = (*grid.zooms.end()).min(*zooms.end());
+            (lo <= hi).then(|| LabelGridDef {
+                zooms: lo..=hi,
+                ..grid.clone()
+            })
+        })
+        .collect()
 }
 
 /// A rule's zoom, or the layer's where it sets none or its expression evaluates to `null`.

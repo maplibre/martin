@@ -7,7 +7,7 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
-use super::per_tile::{TileFeature, TileOps};
+use super::per_tile::{Shape, TileFeature, TileOps, label_grid};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -24,6 +24,8 @@ pub struct LayerAssembler {
     keys: Vec<PropertyKey>,
     text: String,
     texts: Vec<Range<usize>>,
+    /// Label grid counters.
+    counts: label_grid::Counts,
 }
 
 /// A layer [`LayerAssembler::assemble`] built, borrowing its records, names and the assembler.
@@ -54,6 +56,7 @@ impl LayerAssembler {
             keys,
             text,
             texts,
+            counts,
         } = self;
         let decoded = records
             .iter()
@@ -62,6 +65,7 @@ impl LayerAssembler {
 
         let mut props = Vec::new();
         group_features(&decoded, &mut props, features)?;
+        label_grid::apply(&decoded, features, counts, geom, i64::from(grid.extent) << ops.zoom())?;
         ops.apply(features);
 
         columns.clear();
@@ -96,14 +100,18 @@ impl LayerAssembler {
         }
 
         for tile_feature in features.iter() {
-            let pieces = &decoded[tile_feature.records()];
-            let first = &pieces[0].1;
+            let first = &decoded[tile_feature.first()].1;
             geom.clear();
-            for (_, piece) in pieces {
-                match piece.kind {
-                    GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
-                    GeomKind::Point | GeomKind::Line | GeomKind::Polygon => {
-                        piece.append_geometry(geom)?;
+            match tile_feature.shape {
+                Shape::Point(vertex) => geom.vertices.push(vertex),
+                Shape::Records => {
+                    for (_, piece) in &decoded[tile_feature.records()] {
+                        match piece.kind {
+                            GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
+                            GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon => {
+                                piece.append_geometry(geom)?;
+                            }
+                        }
                     }
                 }
             }
@@ -206,8 +214,8 @@ fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
 /// A single geometry unless the feature's pieces made several of them.
 fn geometry_type(kind: GeomKind, geom: &GeomBuf) -> GeometryType {
     match kind {
-        GeomKind::Point if geom.vertices.len() == 1 => GeometryType::Point,
-        GeomKind::Point => GeometryType::MultiPoint,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } if geom.vertices.len() == 1 => GeometryType::Point,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => GeometryType::MultiPoint,
         GeomKind::Line if geom.parts.len() == 1 => GeometryType::LineString,
         GeomKind::Line => GeometryType::MultiLineString,
         GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } if geom.polygons.len() == 1 => {
@@ -229,7 +237,7 @@ fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &Ge
         part
     });
     match kind {
-        GeomKind::Point => {
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => {
             feature.points(coords(&geom.vertices))?;
         }
         GeomKind::Line => {

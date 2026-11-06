@@ -29,6 +29,10 @@ pub(crate) const CONFIG: Config = Configuration::default()
 #[derive(Clone, Copy, Debug, PartialEq, Eq, SchemaWrite, SchemaRead)]
 pub enum GeomKind {
     Point,
+    /// Points that each count in a label grid square, under the feature's own limit.
+    GriddedPoint {
+        limit: u32,
+    },
     Line,
     Polygon,
     /// The whole buffered tile is covered.
@@ -43,7 +47,7 @@ impl GeomKind {
     /// Pieces of one feature in one tile join into one multi-geometry only within a family.
     pub(crate) fn family(self) -> u8 {
         match self {
-            Self::Point => 0,
+            Self::Point | Self::GriddedPoint { .. } => 0,
             Self::Line => 1,
             Self::Polygon | Self::Fill | Self::FillRange { .. } => 2,
         }
@@ -54,6 +58,12 @@ impl GeomKind {
 #[derive(Clone, Copy, Debug)]
 pub enum Geom<'a> {
     Points(&'a [Vertex]),
+    /// Points with the label grid group of each, kept while fewer than `limit` points of their group are.
+    GriddedPoints {
+        groups: &'a [u64],
+        vertices: &'a [Vertex],
+        limit: u32,
+    },
     Lines {
         parts: &'a [u32],
         vertices: &'a [Vertex],
@@ -136,6 +146,7 @@ impl EncodedProps {
 pub fn encode(out: &mut Vec<u8>, id: Option<u64>, sort: Option<&[u8]>, props: &EncodedProps, geom: Geom<'_>) {
     let kind = match geom {
         Geom::Points(_) => GeomKind::Point,
+        Geom::GriddedPoints { limit, .. } => GeomKind::GriddedPoint { limit },
         Geom::Lines { .. } => GeomKind::Line,
         Geom::Polygons { .. } => GeomKind::Polygon,
         Geom::Fill => GeomKind::Fill,
@@ -145,6 +156,7 @@ pub fn encode(out: &mut Vec<u8>, id: Option<u64>, sort: Option<&[u8]>, props: &E
     put(out, &Header { kind, id, sort, props });
     match geom {
         Geom::Points(vertices) => put(out, vertices),
+        Geom::GriddedPoints { groups, vertices, .. } => put(out, &(groups, vertices)),
         Geom::Lines { parts, vertices } => put(out, &(parts, vertices)),
         Geom::Polygons {
             polygons,
@@ -198,6 +210,11 @@ impl<'a> Record<'a> {
         let mut bytes = self.geom;
         let vertices: Vec<Vertex> = match self.kind {
             GeomKind::Point => take(&mut bytes)?,
+            GeomKind::GriddedPoint { .. } => {
+                let (groups, vertices): (Vec<u64>, _) = take(&mut bytes)?;
+                out.groups.extend(groups);
+                vertices
+            }
             GeomKind::Line => {
                 let (parts, vertices): (Vec<u32>, _) = take(&mut bytes)?;
                 out.parts.extend(parts);
@@ -223,6 +240,8 @@ impl<'a> Record<'a> {
 /// Decoded geometry of one or more pieces of the same feature, shaped like [`Geom`].
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct GeomBuf {
+    /// The label grid group of each vertex, for gridded points only.
+    pub groups: Vec<u64>,
     pub polygons: Vec<u32>,
     pub parts: Vec<u32>,
     pub vertices: Vec<Vertex>,
@@ -230,6 +249,7 @@ pub struct GeomBuf {
 
 impl GeomBuf {
     pub fn clear(&mut self) {
+        self.groups.clear();
         self.polygons.clear();
         self.parts.clear();
         self.vertices.clear();
@@ -310,11 +330,23 @@ mod tests {
     fn round_trips_every_kind() {
         let vertices = [[0, 0], [4096, -64], [i32::MIN, i32::MAX], [5, 5]];
         let buf = |polygons: &[u32], parts: &[u32]| GeomBuf {
+            groups: Vec::new(),
             polygons: polygons.to_vec(),
             parts: parts.to_vec(),
             vertices: vertices.to_vec(),
         };
         round_trip(Geom::Points(&vertices), &buf(&[], &[]));
+        round_trip(
+            Geom::GriddedPoints {
+                groups: &[0, u64::MAX, 1 << 32, 7],
+                vertices: &vertices,
+                limit: 3,
+            },
+            &GeomBuf {
+                groups: vec![0, u64::MAX, 1 << 32, 7],
+                ..buf(&[], &[])
+            },
+        );
         round_trip(
             Geom::Lines {
                 parts: &[1, 3],
