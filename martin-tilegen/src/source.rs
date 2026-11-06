@@ -199,6 +199,12 @@ pub trait FeatureSource: Sync {
     /// How many partitions the source is split into.
     fn partitions(&self) -> u32;
 
+    /// About how many features reading every partition gives, if the source can tell, so progress can count
+    /// features read rather than whole partitions.
+    fn estimated_features(&self) -> Option<u64> {
+        None
+    }
+
     /// Streams one partition. `keys` is parallel to the plan's tables; keys not declared up front are
     /// interned through it. Async sources block on their own runtime here.
     ///
@@ -264,6 +270,10 @@ pub struct MemorySource {
 impl FeatureSource for MemorySource {
     fn partitions(&self) -> u32 {
         u32::try_from(self.batches.len()).expect("fewer than 2^32 batches")
+    }
+
+    fn estimated_features(&self) -> Option<u64> {
+        Some(self.batches.iter().map(|batch| batch.features.len() as u64).sum())
     }
 
     fn read(

@@ -34,6 +34,14 @@ enum RunRecords {
 }
 
 impl Run {
+    /// How many records the run holds.
+    pub(super) fn records(&self) -> u64 {
+        match &self.records {
+            RunRecords::File { records, .. } => *records,
+            RunRecords::Memory { entries, .. } => entries.len() as u64,
+        }
+    }
+
     /// A run of a spilled buffer kept in memory; `entries` must already be sorted.
     pub(super) fn in_memory(index: u32, data: Vec<u8>, entries: Vec<Entry>) -> Self {
         Self {

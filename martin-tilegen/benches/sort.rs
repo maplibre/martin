@@ -9,7 +9,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::TileCoord;
 use martin_tilegen::internals::{LayerId, Seq, SortKey, Sorter};
-use martin_tilegen::{SortConfig, TileOrder};
+use martin_tilegen::{Progress, SortConfig, TileOrder};
 
 const RECORDS: usize = 1_000_000;
 const PAYLOAD: [u8; 64] = [7; 64];
@@ -60,7 +60,7 @@ fn sort(c: &mut Criterion<cycles::Cycles>) {
                     buffer.push(key, &PAYLOAD).expect("push");
                 }
                 buffer.finish().expect("spill");
-                let mut merger = sorter.merge().expect("merge");
+                let mut merger = sorter.merge(&Progress::default()).expect("merge");
                 while let Some(record) = merger.peek() {
                     black_box(record);
                     merger.advance().expect("read run");

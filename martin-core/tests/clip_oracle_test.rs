@@ -14,7 +14,9 @@ use martin_core::tiles::geojson::clip_to_tile;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::internals::record::{EncodedProps, GeomKind, Record};
 use martin_tilegen::internals::{Renderer, Seq, Sorter};
-use martin_tilegen::{Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileId, TileOrder};
+use martin_tilegen::{
+    Feature, FeatureGeom, LayerGrid, PixelThreshold, Progress, RenderLayer, SortConfig, TileId, TileOrder,
+};
 
 const GRID: LayerGrid = LayerGrid { extent: 256, buffer: 8 };
 const MAX_ZOOM: u8 = 5;
@@ -45,7 +47,7 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         .render(TileOrder::Tms, &layer, Seq::default(), &feature, &mut buffer)
         .unwrap();
     buffer.finish().unwrap();
-    let mut merger = sorter.merge().unwrap();
+    let mut merger = sorter.merge(&Progress::default()).unwrap();
     let mut tiles = Tiles::new();
     while let Some((key, bytes)) = merger.peek() {
         let end = match Record::decode(bytes).unwrap().kind {

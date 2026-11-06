@@ -76,6 +76,9 @@ pub enum TileGenError {
     #[error("the tile writer stopped early")]
     WriterStopped,
 
+    #[error("a progress follows one generation, and this one already started")]
+    ProgressReused,
+
     #[error("output {} already exists and is not empty", .0.display())]
     OutputNotEmpty(std::path::PathBuf),
 

@@ -13,7 +13,7 @@ use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
 pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};
 use crate::plan::Plan;
 use crate::props::KeyNames;
-use crate::sort::{Sorter, TileBatches, TileRecords};
+use crate::sort::{TileBatches, TileRecords};
 use crate::{EncodedTile, TileGenResult, TileOrder};
 
 /// The stage types of phase 2, for this crate's benches and stage-level tests only.
@@ -36,17 +36,16 @@ pub(crate) struct TileEncoding {
 }
 
 impl TileEncoding {
-    /// The encoding of `plan`'s tiles, and the tiles `sorter` holds in batches of `batch_tiles`.
-    /// Taking the sorter means every render worker is done, so every property key has a name.
+    /// The encoding of `plan`'s tiles, handing `batches` back. Taking the batches means their sorter
+    /// was consumed, so every render worker is done and every property key has a name.
     pub(crate) fn start(
         plan: &Plan,
-        sorter: Sorter,
+        batches: TileBatches,
         format: TileFormat,
         encoding: Encoding,
         order: TileOrder,
-        batch_tiles: usize,
         mvt_keep_unused_keys: bool,
-    ) -> TileGenResult<(Self, TileBatches)> {
+    ) -> (Self, TileBatches) {
         let encoding = Self {
             infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
             names: plan.key_names(),
@@ -56,7 +55,7 @@ impl TileEncoding {
             mvt_keep_unused_keys,
             dedup: DedupIndex::default(),
         };
-        Ok((encoding, sorter.into_tiles(batch_tiles)?))
+        (encoding, batches)
     }
 
     /// Encodes `batch` with `encoder`, which keeps the layer stats of every tile it encodes.

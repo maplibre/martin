@@ -1462,6 +1462,7 @@ mod tests {
     use map_tile_toolkit::signed_area_2x;
 
     use super::*;
+    use crate::Progress;
     use crate::project::from_lonlat;
     use crate::sort::record::{GeomBuf, GeomKind, Record};
     use crate::sort::{SortConfig, Sorter};
@@ -1523,7 +1524,7 @@ mod tests {
             .render(order, layer, Seq::default(), feature, &mut buffer)
             .unwrap();
         buffer.finish().unwrap();
-        let mut merger = sorter.merge().unwrap();
+        let mut merger = sorter.merge(&Progress::default()).unwrap();
         let mut out = Vec::new();
         while let Some((key, bytes)) = merger.peek() {
             let record = Record::decode(bytes).unwrap();
@@ -2883,7 +2884,7 @@ mod tests {
         let mut buffer = sorter.buffer();
         fill(&mut Renderer::default(), &mut buffer);
         buffer.finish().unwrap();
-        let mut merger = sorter.merge().unwrap();
+        let mut merger = sorter.merge(&Progress::default()).unwrap();
         let mut out = Vec::new();
         while let Some((key, bytes)) = merger.peek() {
             out.push((key.tile_id().value(), bytes.to_vec()));

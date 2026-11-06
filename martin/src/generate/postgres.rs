@@ -2,8 +2,8 @@
 //! or by integer id for views, read over several connections that share one snapshot.
 
 use martin_core::tiles::postgres::{
-    PooledConnection, PostgresPool, ScanLayout, heap_blocks, open_scan_connections, open_snapshot_connection,
-    scan_features,
+    PooledConnection, PostgresPool, ScanLayout, estimated_rows, heap_blocks, open_scan_connections,
+    open_snapshot_connection, scan_features,
 };
 use martin_tile_utils::{bbox_to_xyz, xyz_to_bbox};
 use martin_tilegen::plan::{LayerDef, Plan, TableDef};
@@ -31,6 +31,8 @@ pub struct PgScanSource {
     pool: PostgresPool,
     plan: Plan,
     scans: Vec<Scan>,
+    /// The planner's estimate of the rows every scan returns, if it has one for each table.
+    estimated_rows: Option<u64>,
     /// The snapshot of another transaction to read, instead of one of its own.
     snapshot: Option<String>,
 }
@@ -76,6 +78,7 @@ impl PgScanSource {
         let plan = Plan::new(tables.iter().map(|t| t.def.clone()).collect())?;
         let conn = pool.get().await.map_err(SourceError::from)?;
         let mut scans = Vec::with_capacity(tables.len());
+        let mut estimate = Some(0u64);
         for (index, scan) in tables.into_iter().enumerate() {
             let rows = plan.row_filter(index, 0..=MAX_ZOOM);
             let sql = scan_sql(
@@ -91,6 +94,8 @@ impl PgScanSource {
                 has_id: sql.has_id,
                 properties: sql.properties.len(),
             };
+            let rows = estimated_rows(&conn, &sql.sql).await.map_err(SourceError::from)?;
+            estimate = estimate.zip(rows).map(|(sum, rows)| sum.saturating_add(rows));
             let blocks = heap_blocks(&conn, &scan.info.schema, &scan.info.table)
                 .await
                 .map_err(SourceError::from)?;
@@ -113,6 +118,7 @@ impl PgScanSource {
             pool,
             plan,
             scans,
+            estimated_rows: estimate,
             snapshot: None,
         })
     }
@@ -169,6 +175,10 @@ impl PgScanSource {
 impl FeatureSource for PgScanSource {
     fn partitions(&self) -> u32 {
         u32::try_from(self.scans.len()).expect("fewer than 2^32 partitions")
+    }
+
+    fn estimated_features(&self) -> Option<u64> {
+        self.estimated_rows
     }
 
     fn read(
