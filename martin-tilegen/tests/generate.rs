@@ -992,3 +992,37 @@ fn a_finished_generation_reports_every_stage_and_thread_done() {
         assert!(threads.iter().any(|t| t.busy > Duration::ZERO), "{role:?}: {threads:?}");
     }
 }
+
+#[test]
+fn a_progress_that_followed_one_generation_fails_the_next() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = GenerateConfig {
+        threads: 2,
+        sort: SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 16 << 10,
+            max_fan_in: 4,
+        },
+        format: TileFormat::Mlt,
+        encoding: Encoding::Gzip,
+        batch_tiles: 7,
+        window: 3,
+        mvt_preserve_ring_start: false,
+        mvt_keep_unused_keys: false,
+    };
+    let progress = Progress::default();
+    let empty = MemorySource { batches: Vec::new() };
+    let run = |source: &MemorySource| {
+        generate(
+            source,
+            &plan(),
+            Discard,
+            &config,
+            tilejson::tilejson! { tiles: vec![] },
+            &progress,
+        )
+    };
+    run(&empty).unwrap();
+    let err = run(&source()).unwrap_err();
+    insta::assert_snapshot!(err, @"a progress follows one generation, and this one already started");
+}

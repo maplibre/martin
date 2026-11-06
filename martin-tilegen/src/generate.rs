@@ -69,6 +69,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     mut metadata: TileJSON,
     progress: &Progress,
 ) -> TileGenResult<Summary> {
+    progress.claim()?;
     let order = sink.tile_order();
     progress.set_partitions(source.partitions());
     if let Some(features) = source.estimated_features() {

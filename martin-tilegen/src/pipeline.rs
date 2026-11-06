@@ -93,8 +93,9 @@ pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
             unreachable!("one writer thread is tracked")
         };
         let writer = spawn_named(scope, "writer", 0, move || {
-            let written = write(&mut order_rx.into_iter().map_while(|pending| {
+            let written = write(&mut std::iter::from_fn(|| {
                 writer_tracker.set(Activity::Idle);
+                let pending = order_rx.recv().ok()?;
                 let result = hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok());
                 writer_tracker.set(Activity::Busy);
                 result

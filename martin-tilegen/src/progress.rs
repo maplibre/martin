@@ -1,8 +1,10 @@
 //! Live counters and per-thread activity that a generation publishes for another thread to report.
 
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
+
+use crate::{TileGenError, TileGenResult};
 
 /// A stage of a generation, in the order they run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -161,6 +163,8 @@ impl Tracker<'_> {
 #[derive(Debug)]
 pub struct Progress {
     origin: Instant,
+    /// Set once a generation starts reporting here.
+    claimed: AtomicBool,
     stage: AtomicU8,
     /// When each stage started, in nanoseconds since `origin` plus one, or 0 if it has not.
     stage_started: [AtomicU64; Stage::ALL.len()],
@@ -184,6 +188,7 @@ impl Default for Progress {
     fn default() -> Self {
         Self {
             origin: Instant::now(),
+            claimed: AtomicBool::default(),
             stage: AtomicU8::default(),
             stage_started: std::array::from_fn(|stage| AtomicU64::new(u64::from(stage == Stage::Prepare as usize))),
             partitions: AtomicU32::default(),
@@ -308,8 +313,19 @@ impl Progress {
         )
     }
 
-    /// Moves on to `stage`.
+    /// Claims the progress for one generation; its threads and counters cannot be shared with another.
+    pub(crate) fn claim(&self) -> TileGenResult<()> {
+        if self.claimed.swap(true, Ordering::Relaxed) {
+            return Err(TileGenError::ProgressReused);
+        }
+        Ok(())
+    }
+
+    /// Moves on to `stage`, keeping its start if it is already running.
     pub(crate) fn enter(&self, stage: Stage) {
+        if self.stage() == stage {
+            return;
+        }
         self.stage_started[stage as usize].store(nanos(self.origin.elapsed()) + 1, Ordering::Relaxed);
         self.stage.store(stage as u8, Ordering::Release);
     }

@@ -140,7 +140,7 @@ pub async fn estimated_rows(conn: &Client, sql: &str) -> Result<Option<u64>, Pos
     let lines = conn
         .query(&format!("EXPLAIN {sql}"), &[])
         .await
-        .map_err(|e| PostgresError::PostgresError(e, "estimating a scan's rows"))?;
+        .map_err(|e| PostgresError::PostgresError(e, "planning a scan"))?;
     let Some(top) = lines.first() else {
         return Ok(None);
     };

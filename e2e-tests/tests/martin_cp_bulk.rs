@@ -1880,7 +1880,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
         .arg(dir.path().join("out.mbtiles"))
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @r#"ERROR Postgres error while starting a scan: db error: ERROR: invalid input syntax for type integer: "abc""#);
+    insta::assert_snapshot!(log, @r#"ERROR Postgres error while planning a scan: db error: ERROR: invalid input syntax for type integer: "abc""#);
 }
 
 #[cfg(unix)]
