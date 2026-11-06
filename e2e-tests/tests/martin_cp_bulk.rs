@@ -1957,7 +1957,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
             .arg("--output-file")
             .arg(dir.path().join(file))
             .arg("--max-zoom")
-            .arg("3")
+            .arg("8")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2039,7 +2039,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
             .arg("--format")
             .arg("mvt")
             .arg("--max-zoom")
-            .arg("3")
+            .arg("8")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2074,12 +2074,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 5,
-        "multi-line": 24,
-        "multi-point": 21,
-        "multi-polygon": 11,
-        "point": 19,
-        "polygon": 10,
+        "line": 437,
+        "multi-line": 99,
+        "multi-point": 35,
+        "multi-polygon": 61,
+        "point": 130,
+        "polygon": 1845,
     }
     "#);
 }
