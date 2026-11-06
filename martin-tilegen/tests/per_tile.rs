@@ -1,10 +1,12 @@
 //! Per-tile operations run on each layer's features in a tile, after `sort_by`.
 
-use geo_types::Coord;
-use martin_tile_utils::{Encoding, TileRect};
 use std::num::NonZeroU32;
 
-use martin_tilegen::plan::{ColumnDef, LabelGridDef, LayerDef, Plan, RuleDef, SortDef, TableDef, TileOp, TileOpDef};
+use geo_types::{Coord, LineString};
+use martin_tile_utils::{Encoding, TileRect};
+use martin_tilegen::plan::{
+    ColumnDef, GeometryType, LabelGridDef, LayerDef, Plan, RuleDef, SortDef, TableDef, TileOp, TileOpDef,
+};
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, TileFormat, render_block};
@@ -795,4 +797,396 @@ fn neighboring_tiles_keep_the_same_point_of_a_square_crossing_their_edge() {
         per_tile,
         [("1,0,0".to_owned(), vec![Some(2)]), ("1,1,0".to_owned(), vec![Some(2)])]
     );
+}
+
+#[test]
+fn merge_multi_combines_each_group_and_type_at_its_first_member() {
+    let point = |id, lon, kind: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+    };
+    let line = |id, lon, kind: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Lines(vec![LineString::from(vec![(lon, 10.0), (lon + 5.0, 12.0)])]),
+        props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            point(1, 10.0, "a"),
+            line(2, 20.0, "a"),
+            point(3, 30.0, "b"),
+            point(1, 40.0, "a"),
+            line(5, 50.0, "a"),
+            point(1, 60.0, "a"),
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("things", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"a\"))] MULTIPOINT(2162 1934,2503 1934,2731 1934)",
+        "None [Str(Some(\"a\"))] MULTILINESTRING((2276 1934,2332 1910),(2617 1934,2674 1910))",
+        "Some(3) [Str(Some(\"b\"))] POINT(2389 1934)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_multi_leaves_types_outside_its_geometry_alone() {
+    let line = |id, lon| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Lines(vec![LineString::from(vec![(lon, 10.0), (lon + 5.0, 12.0)])]),
+        props: vec![],
+    };
+    let point = |id, lon| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![],
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![line(1, 10.0), point(2, 20.0), line(3, 30.0), point(4, 40.0)],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("things", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) LINESTRING(2162 1934,2219 1910)",
+        "None MULTIPOINT(2276 1934,2503 1934)",
+        "Some(3) LINESTRING(2389 1934,2446 1910)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_multi_groups_by_the_named_attributes_and_keeps_the_first_members_others() {
+    let point = |id, lon, kind: &str, name: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![
+            (KeyId::new(0), Prop::Str(kind.into())),
+            (KeyId::new(1), Prop::Str(name.into())),
+        ],
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            point(1, 10.0, "shop", "Bakery"),
+            point(2, 20.0, "shop", "Butcher"),
+            point(3, 30.0, "cafe", "Corner"),
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("kind".to_owned(), None),
+            ColumnDef::Value("name".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: Some(vec!["kind".to_owned()]),
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"shop\")), Str(Some(\"Bakery\"))] MULTIPOINT(2162 1934,2276 1934)",
+        "Some(3) [Str(Some(\"cafe\")), Str(Some(\"Corner\"))] POINT(2389 1934)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_multi_groups_features_missing_a_group_by_attribute_together() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Points(vec![Coord { x: 20.0, y: 10.0 }]),
+                props: vec![(KeyId::new(0), Prop::Str("shop".into()))],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Points(vec![Coord { x: 30.0, y: 10.0 }]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: Some(vec!["kind".to_owned()]),
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(None)] MULTIPOINT(2162 1934,2389 1934)",
+        "Some(2) [Str(Some(\"shop\"))] POINT(2276 1934)",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_multi_keeps_an_integer_a_float_and_a_string_of_the_same_value_apart() {
+    let point = |id, lon, kind| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![(KeyId::new(0), kind)],
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            point(1, 10.0, Prop::I64(1)),
+            point(2, 20.0, Prop::F64(1.0)),
+            point(3, 30.0, Prop::Str("1".into())),
+            point(4, 40.0, Prop::I64(1)),
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: Some(vec!["kind".to_owned()]),
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"1\"))] MULTIPOINT(2162 1934,2503 1934)",
+        "Some(2) [Str(Some(\"1\"))] POINT(2276 1934)",
+        "Some(3) [Str(Some(\"1\"))] POINT(2389 1934)",
+    ]
+    "#);
+}
+
+#[test]
+fn limit_runs_after_merge_multi_whatever_their_order() {
+    let features = (1..=4)
+        .map(|id| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord {
+                x: f64::from(u32::try_from(id).unwrap()) * 10.0,
+                y: 10.0,
+            }]),
+            props: vec![],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![
+                TileOpDef {
+                    zooms: 0..=0,
+                    op: TileOp::Limit { count: 1 },
+                },
+                TileOpDef {
+                    zooms: 0..=0,
+                    op: TileOp::MergeMulti {
+                        geometry: vec![GeometryType::Point],
+                        group_by: None,
+                    },
+                },
+            ],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None MULTIPOINT(2162 1934,2276 1934,2389 1934,2503 1934)",
+    ]
+    "#);
 }
