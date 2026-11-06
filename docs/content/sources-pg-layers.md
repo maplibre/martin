@@ -261,13 +261,14 @@ postgres:
 
 Operations run in this order, whatever order they are written in:
 
-| Order | Operation     | Does                                                         |
-|-------|---------------|--------------------------------------------------------------|
-| 1     | `label_grid`  | Keeps the first `limit` points of each grid square           |
-| 2     | `merge_lines` | Joins a group's lines whose ends meet                        |
-| 3     | `dedup_by`    | Drops features repeating an earlier feature's key            |
-| 4     | `merge_multi` | Combines a group's features of one type into a multi-feature |
-| 5     | `limit`       | Keeps the first `count` features, in order                   |
+| Order | Operation        | Does                                                         |
+|-------|------------------|--------------------------------------------------------------|
+| 1     | `label_grid`     | Keeps the first `limit` points of each grid square           |
+| 2     | `merge_lines`    | Joins a group's lines whose ends meet                        |
+| 3     | `merge_polygons` | Unions a group's polygons                                    |
+| 4     | `dedup_by`       | Drops features repeating an earlier feature's key            |
+| 5     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
+| 6     | `limit`          | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
@@ -356,6 +357,37 @@ per_tile:
 
 Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through
 junctions and drops short stubs and loops, which `merge_lines` does not.
+
+### `merge_polygons`
+
+Unions the polygons of a group, such as adjacent land use areas of one kind, as Planetiler's
+`mergeNearbyPolygons` does, or `mergeOverlappingPolygons` with `distance: 0`. The polygons are first
+clipped to the tile and `buffer`. With a `distance`, they are grown by half of it, merged and shrunk
+again, which joins polygons closer than `distance`. Holes smaller than `min_hole_area` are then filled,
+polygons smaller than `min_area` dropped, and the result snapped to the tile grid. Each group becomes
+one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its
+features as they were, and the first such group is logged.
+
+```yaml
+per_tile:
+  merge_polygons:
+    maxzoom: 12
+    min_area: 4        # px²
+    min_hole_area: 1   # px²
+    distance: 0.5      # px
+    group_by: [kind]
+```
+
+| Option               | Default            | Meaning                                                        |
+|----------------------|--------------------|----------------------------------------------------------------|
+| `min_area`           | 0                  | Square pixels; smaller merged polygons are dropped             |
+| `min_hole_area`      | 0                  | Square pixels; smaller holes are filled                        |
+| `distance`           | 0                  | Pixels; closer polygons are joined, 0 joins touching ones      |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `group_by`           | every attribute    | The attributes polygons must share                             |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                  |
+
+A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.
 
 ### `dedup_by`
 
