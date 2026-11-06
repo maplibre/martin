@@ -79,7 +79,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
 
     let sorter = Sorter::new(config.sort.clone())?;
     let wagyu_ring_starts = !config.mvt_preserve_ring_start && matches!(config.format, TileFormat::Mvt);
-    let totals = render_all(
+    let mut totals = render_all(
         source,
         &sorter,
         plan,
@@ -130,6 +130,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
 
     progress.enter(Stage::Finish);
     encoding.complete_metadata(&mut metadata, &encoders);
+    totals.add_encoder_errors(&encoders);
     sink.finish(&metadata)?;
     progress.enter(Stage::Done);
     Ok(totals.into_summary(plan, tiles))

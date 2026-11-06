@@ -1,5 +1,6 @@
 //! Per-tile operations: each takes one layer's features in one tile, in draw order, and returns the new list.
 
+mod dedup_by;
 pub(crate) mod label_grid;
 mod limit;
 mod merge_multi;
@@ -7,9 +8,11 @@ mod merge_multi;
 use std::cell::RefCell;
 use std::ops::Range;
 
+use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use mlt_core::PropValueRef;
 
-use crate::plan::{TileOp, TileOpDef};
+use crate::expr::{ExprKeys, PropSlots};
+use crate::plan::{Plan, PlannedOp, PlannedTileOp};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -202,6 +205,35 @@ impl From<PropValueRef<'_>> for GroupValue {
     }
 }
 
+/// The lines of a line feature's geometry.
+pub(crate) fn lines(geom: &GeomBuf) -> Vec<LineString<f64>> {
+    paths(&geom.parts, &geom.vertices).collect()
+}
+
+/// The polygons of a polygon feature's geometry, its rings closed.
+pub(crate) fn polygons(geom: &GeomBuf) -> MultiPolygon<f64> {
+    let mut rings = paths(&geom.parts, &geom.vertices);
+    geom.polygons
+        .iter()
+        .filter_map(|&count| {
+            let mut polygon = rings.by_ref().take(count as usize);
+            let exterior = polygon.next()?;
+            Some(Polygon::new(exterior, polygon.collect()))
+        })
+        .collect()
+}
+
+/// Consecutive runs of `vertices`, `parts` long each, as line strings.
+fn paths<'g>(parts: &'g [u32], mut vertices: &'g [Vertex]) -> impl Iterator<Item = LineString<f64>> + 'g {
+    parts.iter().map(move |&len| {
+        let (part, rest) = vertices.split_at(len as usize);
+        vertices = rest;
+        part.iter()
+            .map(|&[x, y]| Coord::from((f64::from(x), f64::from(y))))
+            .collect()
+    })
+}
+
 /// The tile and its buffer as one square polygon, which a fill stands for.
 pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
     #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
@@ -211,22 +243,70 @@ pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
     geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
 }
 
+/// What per-tile operations evaluate expressions with, for every layer of a plan.
+pub struct OutputExprs<'p> {
+    plan: &'p Plan,
+    /// Each layer's output attribute names, as its expressions read them.
+    keys: Vec<ExprKeys>,
+}
+
+impl<'p> OutputExprs<'p> {
+    /// The expressions of `plan`, over output attributes named by `names`, one per layer.
+    pub(crate) fn new(plan: &'p Plan, names: &[KeyNames]) -> Self {
+        Self {
+            plan,
+            keys: names
+                .iter()
+                .map(|names| names.iter().map(|(key, name)| (name, key)).collect())
+                .collect(),
+        }
+    }
+
+    /// What the operations of layer `layer` evaluate expressions with.
+    pub(crate) fn layer(&self, layer: usize) -> LayerExprs<'_> {
+        LayerExprs {
+            plan: self.plan,
+            keys: &self.keys[layer],
+        }
+    }
+}
+
+/// What one layer's per-tile operations evaluate expressions with.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct LayerExprs<'a> {
+    pub(crate) plan: &'a Plan,
+    pub(crate) keys: &'a ExprKeys,
+}
+
+/// Per-worker scratch of the operations, and the failed evaluations of each plan expression.
+#[derive(Debug, Default)]
+pub(crate) struct OpScratch {
+    pub(crate) slots: PropSlots,
+    /// Failed evaluations by plan expression index.
+    pub(crate) errors: Vec<u64>,
+}
+
 /// A layer's per-tile operations, and the zoom of the tile they run on.
 #[derive(Clone, Copy, Debug)]
 pub struct TileOps<'a> {
-    ops: &'a [TileOpDef],
+    ops: &'a [PlannedTileOp],
     zoom: u8,
+    exprs: Option<LayerExprs<'a>>,
 }
 
 impl<'a> TileOps<'a> {
     /// No operations, so every feature passes through.
     #[cfg(any(test, feature = "internals"))]
-    pub const NONE: Self = Self { ops: &[], zoom: 0 };
+    pub const NONE: Self = Self {
+        ops: &[],
+        zoom: 0,
+        exprs: None,
+    };
 
-    /// `ops` in the order they run, on a tile of zoom `zoom`.
+    /// `ops` in the order they run, on a tile of zoom `zoom`, with expressions evaluated with `exprs`.
     #[must_use]
-    pub fn new(ops: &'a [TileOpDef], zoom: u8) -> Self {
-        Self { ops, zoom }
+    pub(crate) fn new(ops: &'a [PlannedTileOp], zoom: u8, exprs: Option<LayerExprs<'a>>) -> Self {
+        Self { ops, zoom, exprs }
     }
 
     /// The zoom of the tile they run on.
@@ -235,7 +315,7 @@ impl<'a> TileOps<'a> {
     }
 
     /// The operations that run at this zoom, in order.
-    fn active(self) -> impl Iterator<Item = &'a TileOp> {
+    fn active(self) -> impl Iterator<Item = &'a PlannedOp> {
         self.ops
             .iter()
             .filter(move |def| def.zooms.contains(&self.zoom))
@@ -243,13 +323,23 @@ impl<'a> TileOps<'a> {
     }
 
     /// Runs the operations of this zoom on `features`, in draw order.
-    pub(crate) fn apply(self, tile: &LayerTile<'_, '_>, features: &mut Vec<TileFeature>) -> TileGenResult<()> {
+    pub(crate) fn apply(
+        self,
+        tile: &LayerTile<'_, '_>,
+        features: &mut Vec<TileFeature>,
+        scratch: &mut OpScratch,
+    ) -> TileGenResult<()> {
         for op in self.active() {
             match op {
-                TileOp::MergeMulti { geometry, group_by } => {
+                PlannedOp::DedupBy { keys, distance } => {
+                    if let Some(exprs) = self.exprs {
+                        dedup_by::apply(tile, exprs, keys, *distance, features, scratch)?;
+                    }
+                }
+                PlannedOp::MergeMulti { geometry, group_by } => {
                     merge_multi::apply(tile, geometry, group_by.as_deref(), features)?;
                 }
-                TileOp::Limit { count } => limit::apply(*count, features),
+                PlannedOp::Limit { count } => limit::apply(*count, features),
             }
         }
         Ok(())

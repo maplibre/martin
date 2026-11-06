@@ -62,6 +62,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 | `label_grid`                      | The most points per grid square in one tile                      | [Per-tile operations](#per-tile-operations)        |
+| `dedup_by`                        | Drops features repeating a key in one tile                       | [Per-tile operations](#per-tile-operations)        |
 | `merge_multi`                     | One multi-geometry per group in one tile                         | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
 
@@ -265,8 +266,9 @@ Operations run in this order, whatever order they are written in:
 | Order | Operation     | Does                                                         |
 |-------|---------------|--------------------------------------------------------------|
 | 1     | `label_grid`  | Keeps the first `limit` points of each grid square           |
-| 2     | `merge_multi` | Combines a group's features of one type into a multi-feature |
-| 3     | `limit`       | Keeps the first `count` features, in order                   |
+| 2     | `dedup_by`    | Drops features repeating an earlier feature's key            |
+| 3     | `merge_multi` | Combines a group's features of one type into a multi-feature |
+| 4     | `limit`       | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
@@ -327,6 +329,32 @@ Squares smaller than 1/4096 of a tile do not limit anything.
 
 A square crossing a tile edge is counted the same way in both tiles only when each sees all of its points,
 so set the layer's `buffer` to at least `size` pixels. A warning tells you when it is smaller.
+
+### `dedup_by`
+
+Drops a feature when an earlier feature, in draw order, has the same key, such as a road name drawn many
+times. The key is the list of `keys` values, CEL expressions evaluated per feature.
+
+```yaml
+dedup_by:
+  keys: [name, ref]
+  distance: 64   # only drop a duplicate within 64 px of a kept one
+```
+
+| Option               | Default           | Meaning                                                     |
+|----------------------|-------------------|-------------------------------------------------------------|
+| `keys`               | required          | CEL expressions forming the key                             |
+| `distance`           | the whole tile    | Pixels within which a feature with the same key is dropped  |
+| `minzoom`, `maxzoom` | the layer's zooms | Where it runs                                               |
+
+Unlike `where`, `id` and attribute expressions, which read the source's properties, `keys` read the
+feature's output attributes at this zoom by their output names, after `attributes`, `rules` and each
+attribute's zooms, as Planetiler's layer post-processing sees features. A name the layer does not write
+fails the run before rendering. A key whose values are all `null` is never a duplicate. A failed
+evaluation counts as `null`, and is counted and logged once like other expressions.
+
+With `distance`, each feature is placed at a representative point: a point itself, the middle of a
+line's longest part, or a point inside a polygon.
 
 ### `merge_multi`
 

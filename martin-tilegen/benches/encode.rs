@@ -73,15 +73,14 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
         ("mvt", TileFormat::Mvt, Encoding::Uncompressed),
         ("mlt_gzip", mlt, Encoding::Gzip),
     ] {
-        let layers = [LayerInfo {
-            name: "buildings".to_owned(),
-            grid: LayerGrid {
+        let layers = [LayerInfo::new(
+            "buildings".to_owned(),
+            LayerGrid {
                 extent: 4096,
                 buffer: 64,
             },
-            encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
-            per_tile: Vec::new(),
-        }];
+            EncoderConfig::from_profile(Profile::Web(Network::Offline)),
+        )];
         let settings = EncodeSettings {
             layers: &layers,
             keys: &keys,
@@ -89,6 +88,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
             encoding,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
         group.bench_function(name, |b| {
             b.iter_batched(
