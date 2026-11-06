@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, TileOp,
-    TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LabelGridDef, LayerDef, RuleDef, SortDef, TableDef,
+    TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -17,8 +17,8 @@ use tracing::warn;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, PerTile, Pixels,
-    PropertySelector, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomRange, ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, LabelGrid, Layer, Literal, OutputGeometry, PerFeature, PerTile,
+    Pixels, PropertySelector, RuleLabelGrid, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomRange, ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -125,13 +125,21 @@ fn lower_layer(
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
     };
+    let grid = LayerGrid {
+        extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
+        buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
+    };
+    let grids = GridContext {
+        source: id,
+        layer: name,
+        zooms: min..=max,
+        grid,
+        geometry: layer.geometry,
+    };
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
-        grid: LayerGrid {
-            extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
-            buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
-        },
+        grid,
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
         simplify: threshold(
             layer.simplify,
@@ -160,7 +168,10 @@ fn lower_layer(
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
-        rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
+        rules: layer
+            .rules
+            .as_ref()
+            .map_or_else(Vec::new, |rules| lower_rules(rules, &grids)),
         sort_by: layer
             .sort_by
             .iter()
@@ -171,11 +182,78 @@ fn lower_layer(
             })
             .collect(),
         per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max)),
+        label_grid: layer
+            .per_tile
+            .label_grid
+            .as_ref()
+            .map_or_else(Vec::new, |label_grid| grids.lower(label_grid, "per_tile.label_grid")),
     }))
 }
 
+/// What lowering a label grid needs to know about its layer, to clamp it and warn about it.
+struct GridContext<'a> {
+    /// The table source's id.
+    source: &'a str,
+    /// The layer's name.
+    layer: &'a str,
+    /// The layer's zooms.
+    zooms: RangeInclusive<u8>,
+    /// The layer's extent and buffer.
+    grid: LayerGrid,
+    /// The layer's `geometry`, if set.
+    geometry: Option<OutputGeometry>,
+}
+
+impl GridContext<'_> {
+    /// `label_grid` within the layer's zooms, warning about an entry with none of them, a grid on a layer
+    /// without points, and a buffer smaller than the grid square, which neighboring tiles then count
+    /// differently.
+    fn lower(&self, label_grid: &ByZoomRange<LabelGrid>, key: &str) -> Vec<LabelGridDef> {
+        let Self {
+            source,
+            layer,
+            zooms,
+            grid,
+            geometry,
+        } = self;
+        if matches!(geometry, Some(OutputGeometry::Line | OutputGeometry::Polygon)) {
+            warn!("`{key}` of layer `{layer}` in source `{source}` only limits points, and the layer has none");
+        }
+        let buffer = f64::from(grid.buffer) * 256.0 / f64::from(grid.extent);
+        let mut lowered = Vec::new();
+        for entry in label_grid {
+            let range = entry.zooms;
+            let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
+            let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
+            if lo > hi {
+                warn!(
+                    "Skipping `{key}` of layer `{layer}` in source `{source}`: it has no zoom between {} and {}",
+                    zooms.start(),
+                    zooms.end()
+                );
+                continue;
+            }
+            let size = entry.size.get();
+            if buffer < size {
+                warn!(
+                    "`{key}` of layer `{layer}` in source `{source}` has {size} px squares but a {buffer} px buffer, so \
+                     neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at \
+                     least {} to avoid it",
+                    (size * f64::from(grid.extent) / 256.0).ceil()
+                );
+            }
+            lowered.push(LabelGridDef {
+                zooms: lo..=hi,
+                size,
+                limit: entry.limit,
+            });
+        }
+        lowered
+    }
+}
+
 /// The rules in order, then the catch-all; a rule's `simplify` and `min_size` also apply at the max zoom.
-fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
+fn lower_rules(rules: &Rules, grids: &GridContext<'_>) -> Vec<RuleDef> {
     let lower = |when: Option<&Expr>, settings: &RuleSettings| {
         let zoom = |zoom: Option<&ZoomSetting>| {
             zoom.map(|zoom| match zoom {
@@ -196,6 +274,10 @@ fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
             simplify: threshold(settings.simplify),
             min_size: threshold(settings.min_size),
             attributes: computed_attrs(&settings.attributes),
+            label_grid: settings.label_grid.as_ref().map(|label_grid| match label_grid {
+                RuleLabelGrid::Off => Vec::new(),
+                RuleLabelGrid::Grid(label_grid) => grids.lower(label_grid, "rules[].label_grid"),
+            }),
         }
     };
     rules
@@ -254,7 +336,6 @@ fn unsupported(layer: &Layer) -> Option<String> {
     let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
     let per_tile = &layer.per_tile;
     let op = [
-        ("label_grid", per_tile.label_grid.is_some()),
         ("merge_lines", per_tile.merge_lines.is_some()),
         ("merge_polygons", per_tile.merge_polygons.is_some()),
         ("dedup_by", per_tile.dedup_by.is_some()),
@@ -419,6 +500,7 @@ mod tests {
                     rules: [],
                     sort_by: [],
                     per_tile: [],
+                    label_grid: [],
                 },
             ],
         }
@@ -472,6 +554,7 @@ mod tests {
                     rules: [],
                     sort_by: [],
                     per_tile: [],
+                    label_grid: [],
                 },
             ],
         }
@@ -570,6 +653,7 @@ mod tests {
                     rules: [],
                     sort_by: [],
                     per_tile: [],
+                    label_grid: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -600,6 +684,7 @@ mod tests {
                     rules: [],
                     sort_by: [],
                     per_tile: [],
+                    label_grid: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -630,6 +715,7 @@ mod tests {
                     rules: [],
                     sort_by: [],
                     per_tile: [],
+                    label_grid: [],
                 },
             ],
         }
@@ -993,6 +1079,7 @@ mod tests {
                         zooms: 6..=27,
                     },
                 ],
+                label_grid: None,
             },
             RuleDef {
                 when: Some(
@@ -1008,6 +1095,7 @@ mod tests {
                     },
                 ),
                 attributes: [],
+                label_grid: None,
             },
             RuleDef {
                 when: None,
@@ -1020,6 +1108,7 @@ mod tests {
                 simplify: None,
                 min_size: None,
                 attributes: [],
+                label_grid: None,
             },
         ]
         "#);
@@ -1066,7 +1155,7 @@ mod tests {
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
             "roads: { merge_lines: { group_by: [class] } }",
-            "roads: { label_grid: { size: 64, limit: 1 } }",
+            "roads: { merge_polygons: {} }",
         ];
         let errors: Vec<String> = layers
             .iter()
@@ -1080,7 +1169,7 @@ mod tests {
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
         layer `roads`: `merge_lines` is not supported by `--mode bulk` yet
-        layer `roads`: `label_grid` is not supported by `--mode bulk` yet
+        layer `roads`: `merge_polygons` is not supported by `--mode bulk` yet
         ");
     }
 
@@ -1120,5 +1209,101 @@ mod tests {
             },
         ]
         ");
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn label_grids_lower_for_the_layer_and_its_rules() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                buffer: 32
+                layers:
+                  pois:
+                    minzoom: 4
+                    label_grid:
+                      - { maxzoom: 2, size: 64, limit: 1 }
+                      - { minzoom: 3, maxzoom: 10, size: 64, limit: 2 }
+                    rules:
+                      - where: \"kind == 'city'\"
+                        label_grid: { size: 1, limit: 1 }
+                      - where: \"kind == 'capital'\"
+                        label_grid: null
+                      - minzoom: 6
+                  roads:
+                    geometry: line
+                    label_grid: { size: 1, limit: 1 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let grids: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| {
+                let rules: Vec<_> = layer.rules.iter().map(|rule| rule.label_grid.clone()).collect();
+                (layer.name.clone(), layer.label_grid.clone(), rules)
+            })
+            .collect();
+        insta::assert_debug_snapshot!(grids, @r#"
+        [
+            (
+                "pois",
+                [
+                    LabelGridDef {
+                        zooms: 4..=10,
+                        size: 64.0,
+                        limit: 2,
+                    },
+                ],
+                [
+                    Some(
+                        [
+                            LabelGridDef {
+                                zooms: 4..=12,
+                                size: 1.0,
+                                limit: 1,
+                            },
+                        ],
+                    ),
+                    Some(
+                        [],
+                    ),
+                    None,
+                ],
+            ),
+            (
+                "roads",
+                [
+                    LabelGridDef {
+                        zooms: 0..=12,
+                        size: 1.0,
+                        limit: 1,
+                    },
+                ],
+                [],
+            ),
+        ]
+        "#);
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"
+            Skipping `per_tile.label_grid` of layer `pois` in source `roads_source`: it has no zoom between 4 and 12
+            `per_tile.label_grid` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
+            `per_tile.label_grid` of layer `roads` in source `roads_source` only limits points, and the layer has none
+            ");
+            Ok(())
+        });
     }
 }

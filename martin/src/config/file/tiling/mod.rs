@@ -14,6 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub use crate::config::file::tiling::error::TilingConfigError;
 pub use crate::config::file::tiling::per_tile::{
     ByZoomRange, DedupBy, LabelGrid, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, Op, PerTile,
+    RuleLabelGrid,
 };
 pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};

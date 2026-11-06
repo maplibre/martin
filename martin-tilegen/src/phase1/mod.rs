@@ -1,5 +1,6 @@
 //! Phase 1, read and render: every feature into sorted records, by one [`RenderWorker`] per thread.
 
+mod label_grid;
 pub mod project;
 mod render;
 mod simplify;

@@ -7,6 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::config::file::tiling::PerTile;
 use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::per_tile::RuleLabelGrid;
 use crate::config::file::tiling::primitives::{Expr, NonEmpty};
 use crate::config::file::tiling::setting::{Pixels, ZoomSetting, fixed_zoom_range};
 use crate::config::file::tiling::value::ValueSpec;
@@ -31,6 +32,8 @@ pub struct RuleSettings {
     pub simplify: Option<Pixels>,
     pub min_size: Option<Pixels>,
     pub attributes: IndexMap<String, ValueSpec>,
+    /// Replaces the layer's `per_tile.label_grid` for the features the rule takes.
+    pub label_grid: Option<RuleLabelGrid>,
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -45,6 +48,8 @@ struct RawRule {
     min_size: Option<Pixels>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     attributes: IndexMap<String, ValueSpec>,
+    #[serde(default, deserialize_with = "RuleLabelGrid::deserialize_key")]
+    label_grid: Option<RuleLabelGrid>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
 }
@@ -64,6 +69,7 @@ impl RawRule {
             simplify: self.simplify,
             min_size: self.min_size,
             attributes: self.attributes,
+            label_grid: self.label_grid,
             unrecognized: self.unrecognized,
         };
         Ok((self.when, settings))
@@ -77,6 +83,7 @@ impl RawRule {
             simplify: settings.simplify,
             min_size: settings.min_size,
             attributes: settings.attributes.clone(),
+            label_grid: settings.label_grid.clone(),
             unrecognized: UnrecognizedValues::default(),
         }
     }
@@ -132,6 +139,9 @@ impl CollectUnrecognizedKeys for Rules {
             settings
                 .unrecognized
                 .collect_unrecognized(&format!("{base}[{index}]."), out);
+            if let Some(RuleLabelGrid::Grid(grid)) = &settings.label_grid {
+                grid.collect_unrecognized(&format!("{base}[{index}].label_grid"), out);
+            }
         }
     }
 }
@@ -238,6 +248,60 @@ mod tests {
             rejection("poi: { rules: [ { minzoom: 14 }, { where: \"amenity == 'cafe'\" } ] }"),
             @"error: line 1 column 15: a rule without `where` takes every feature, so it must be the last rule"
         );
+    }
+
+    #[test]
+    fn a_rule_can_replace_or_turn_off_the_label_grid() {
+        let layers = parse(indoc! {"
+            poi:
+              rules:
+                - where: \"kind == 'city'\"
+                  label_grid: { size: 128, limit: 1, maxzoom: 8 }
+                - where: \"kind == 'capital'\"
+                  label_grid: null
+                - minzoom: 14
+        "});
+        let rules = layers
+            .get("poi")
+            .and_then(|layer| layer.rules.clone())
+            .expect("poi has rules");
+        let grids: Vec<_> = rules
+            .cases
+            .iter()
+            .map(|rule| &rule.settings)
+            .chain(&rules.fallback)
+            .map(|settings| settings.label_grid.clone())
+            .collect();
+        insta::assert_debug_snapshot!(grids, @"
+        [
+            Some(
+                Grid(
+                    ByZoomRange(
+                        NonEmpty(
+                            [
+                                LabelGrid {
+                                    size: Pixels(
+                                        Finite(
+                                            128.0,
+                                        ),
+                                    ),
+                                    limit: 1,
+                                    zooms: ..=z8,
+                                    unrecognized: UnrecognizedValues(
+                                        {},
+                                    ),
+                                },
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+            Some(
+                Off,
+            ),
+            None,
+        ]
+        ");
     }
 
     #[test]

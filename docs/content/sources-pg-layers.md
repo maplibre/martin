@@ -61,6 +61,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
+| `label_grid`                      | The most points per grid square in one tile                      | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
@@ -260,9 +261,10 @@ postgres:
 
 Operations run in this order, whatever order they are written in:
 
-| Order | Operation | Does                                       |
-|-------|-----------|--------------------------------------------|
-| 1     | `limit`   | Keeps the first `count` features, in order |
+| Order | Operation    | Does                                               |
+|-------|--------------|----------------------------------------------------|
+| 1     | `label_grid` | Keeps the first `limit` points of each grid square |
+| 2     | `limit`      | Keeps the first `count` features, in order         |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
@@ -272,6 +274,51 @@ zooms miss the layer's entirely is dropped with a warning.
 Since operations keep the first features of the list, `sort_by` decides which features survive. A
 layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see
 [Draw order](#draw-order).
+
+### `label_grid`
+
+Thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it covers,
+the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. In each tile,
+only the first `limit` points of each square are kept, in draw order, so give the layer a `sort_by`.
+
+```yaml
+postgres:
+  tables:
+    places:
+      schema: public
+      table: places
+      geometry_column: geom
+      buffer: 1024        # 64 px of a 4096 extent, the grid's size
+      properties:
+        name: text
+        kind: text
+        population: int8
+      layers:
+        places:
+          geometry: point
+          sort_by: [{ expr: "population", desc: true }]
+          label_grid: { maxzoom: 14, size: 64, limit: 2 }
+          rules:
+            - where: "kind == 'capital'"
+              label_grid: null   # capitals are never thinned out
+            - where: "kind == 'village'"
+              label_grid: { maxzoom: 14, size: 128, limit: 1 }
+```
+
+| Option               | Default             | Meaning                                         |
+|----------------------|---------------------|-------------------------------------------------|
+| `size`               | required, above 0   | Side of a square, in pixels of a 256-pixel tile |
+| `limit`              | required, 1 or more | Points kept per square in each tile             |
+| `minzoom`, `maxzoom` | the layer's zooms   | Where the grid applies; elsewhere, no limit     |
+
+A rule may set its own `label_grid` for the features it takes, replacing the layer's, or `null` to turn it
+off. Each point counts against its own `limit` in the square it falls in, so points of one layer with
+different sizes share a count when their squares have the same column and row, as in Planetiler. A
+multi-point is split into its points, each kept or dropped on its own. Lines and polygons pass through.
+Squares smaller than 1/4096 of a tile do not limit anything.
+
+A square crossing a tile edge is counted the same way in both tiles only when each sees all of its points,
+so set the layer's `buffer` to at least `size` pixels. A warning tells you when it is smaller.
 
 ### `limit`
 
@@ -452,7 +499,8 @@ postgres:
   per-tile operation on a table source or in a rule. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
-  yet.
+  yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it, and about a
+  `label_grid` on a line or polygon layer, or with squares larger than the layer's `buffer`.
 
 [`martin test`](martin-test.md) checks what the layers make of real rows of the database, and keeps it in
 a spec file.
