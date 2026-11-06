@@ -147,7 +147,8 @@ fn a_tile_whose_every_layer_a_limit_of_zero_empties_is_left_out() {
         Encoding::Uncompressed,
     )
     .unwrap();
-    assert!(tiles.is_empty());
+    let coords: Vec<_> = tiles.iter().map(|tile| tile.coord).collect();
+    insta::assert_debug_snapshot!(coords, @"[]");
 }
 
 #[test]
