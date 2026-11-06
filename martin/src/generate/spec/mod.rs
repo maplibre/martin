@@ -1355,11 +1355,11 @@ mod tests {
             op: label_grid
             tiles: 9
             features_in: 9
-            features_out: 12
+            features_out: 13
           - layer: shops
             op: merge_multi
             tiles: 9
-            features_in: 12
+            features_in: 13
             features_out: 9
           - layer: shops
             op: limit
