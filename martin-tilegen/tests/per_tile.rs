@@ -116,6 +116,41 @@ fn a_limit_of_zero_leaves_the_layer_out_of_the_tile() {
 }
 
 #[test]
+fn a_tile_whose_every_layer_a_limit_of_zero_empties_is_left_out() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Limit { count: 0 },
+            }],
+            ..LayerDef::new("hidden", 0..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    assert!(tiles.is_empty());
+}
+
+#[test]
 fn an_operation_passes_features_through_outside_its_zooms() {
     let features = (1..=3)
         .map(|id| SourceFeature {

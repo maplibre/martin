@@ -164,7 +164,9 @@ impl TileEncoder {
                 }
                 _ => self.encode_fresh(settings, records, coord, dedup)?,
             };
-            out.push(previous.tile.clone());
+            if !previous.features.is_empty() {
+                out.push(previous.tile.clone());
+            }
             self.previous = Some(previous);
         }
         Ok(out)
