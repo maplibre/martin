@@ -359,6 +359,11 @@ merge_polygons:
 
 A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.
 
+--8<-- "images/generate/per-tile-merge-polygons.svg"
+
+Each tile merges only what it holds of the polygons, in the tile and `buffer`, so `min_area` counts only
+that part. A polygon reaching just past a tile edge can be dropped from the next tile.
+
 ### `thinning`
 
 Drops a feature when an earlier kept feature, in draw order, crowds it out, so give the layer a
