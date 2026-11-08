@@ -129,13 +129,15 @@ martin --help
 ```
 
 The formula is maintained by Homebrew and follows stable releases only.
-If you installed martin from the former `maplibre/martin` tap, switch to the homebrew-core formula with
 
-```bash
-brew uninstall martin
-brew untap maplibre/martin
-brew install martin
-```
+!!! tip "If you installed martin from the former `maplibre/martin` tap"
+    switch to the homebrew-core formula with
+    
+    ```bash
+    brew uninstall martin
+    brew untap maplibre/martin
+    brew install martin
+    ```
 
 #### Debian packages (x86_64) manually
 
