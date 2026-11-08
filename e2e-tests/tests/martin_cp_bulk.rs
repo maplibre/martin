@@ -1933,6 +1933,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      merge_lines: {}
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -1972,9 +1973,10 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `thinning` layer.id=merged tiles=91 features.input=822 features.output=679
-    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=3808 features.output=3746
-    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3746 features.output=3496
+    INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3951 features.output=3834
+    INFO Ran `thinning` layer.id=merged tiles=91 features.input=716 features.output=576
+    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=3694 features.output=3632
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3632 features.output=3475
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2014,6 +2016,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      merge_lines: {}
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -2067,12 +2070,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 571,
-        "multi-line": 7,
+        "line": 437,
+        "multi-line": 99,
         "multi-point": 35,
         "multi-polygon": 3,
         "point": 130,
-        "polygon": 2750,
+        "polygon": 2771,
     }
     "#);
 }

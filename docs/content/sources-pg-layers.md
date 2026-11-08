@@ -61,6 +61,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
+| `merge_lines`                     | Joins lines whose ends meet in one tile                          | [Per-tile operations](#per-tile-operations)        |
 | `thinning`                        | Drops features crowded out by earlier ones in one tile           | [Per-tile operations](#per-tile-operations)        |
 | `merge_multi`                     | One multi-geometry per group in one tile                         | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
@@ -264,19 +265,20 @@ Operations run in this order, whatever order they are written in:
 
 | Order | Operation        | Does                                                         |
 |-------|------------------|--------------------------------------------------------------|
-| 1     | `thinning`       | Drops features an earlier one with the same key crowds out   |
-| 2     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
-| 3     | `limit`          | Keeps the first `count` features, in order                   |
+| 1     | `merge_lines`    | Joins lines whose ends meet and attributes are equal         |
+| 2     | `thinning`       | Drops features an earlier one with the same key crowds out   |
+| 3     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
+| 4     | `limit`          | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
 give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose
 zooms miss the layer's entirely is dropped with a warning.
 
-`merge_multi` groups features by the values of the attributes in `group_by`. Values compare by type too,
-so `1` and `"1"` are different groups, and a feature without a `group_by` attribute groups with others
-without it. A merged feature takes the place of the first feature of its group. It keeps a feature id only
-if all of its group has the same one.
+Merging operations group features by the values of attributes: `merge_lines` by all of them, and
+`merge_multi` by those in `group_by`. Values compare by type too, so `1` and `"1"` are different groups, and a feature without a
+`group_by` attribute groups with others without it. A merged feature takes the place of the first feature
+of its group. It keeps a feature id only if all of its group has the same one.
 
 Since operations keep the first features of the list, `sort_by` decides which features survive. A
 layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see
@@ -291,6 +293,32 @@ INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
 
 The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of
 `--format mvt` for layers with a `sort_by`.
+
+### `merge_lines`
+
+Joins lines whose attributes are all equal into longer lines, so a road cut into many segments becomes
+one, which lets clients place labels along it. Where exactly two line ends meet, at the same tile coordinates, the lines are joined; where three or
+more meet, as at a junction, they are not. The joined lines are simplified by `tolerance`, the same
+way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below
+`min_length`. The lines of equal attributes become one line or multi-line feature, or nothing if no line
+is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out
+of `attributes` at those zooms.
+
+```yaml
+merge_lines:
+  - { maxzoom: 10, min_length: 1, tolerance: 0.5 }
+  - { minzoom: 11, maxzoom: 13, min_length: 0.25 }
+```
+
+| Option               | Default            | Meaning                                                        |
+|----------------------|--------------------|----------------------------------------------------------------|
+| `min_length`         | 0                  | Pixels; shorter merged lines are dropped                       |
+| `tolerance`          | 0                  | Pixels; simplifies the merged lines, 0 keeps every vertex      |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                  |
+
+Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through
+junctions and drops short stubs and loops, which `merge_lines` does not.
 
 ### `thinning`
 

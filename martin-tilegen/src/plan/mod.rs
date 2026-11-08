@@ -189,6 +189,17 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
+    /// Joins the lines of a group whose ends meet, where exactly two ends do, then simplifies them by
+    /// `tolerance`, clips them to the tile and `buffer`, and drops those shorter than `min_length`. Each
+    /// group becomes one line or multi-line feature, or none.
+    MergeLines {
+        /// Pixels of a 256-pixel tile.
+        min_length: f64,
+        /// Pixels of a 256-pixel tile; 0 keeps every vertex.
+        tolerance: f64,
+        /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
+        buffer: Option<f64>,
+    },
     /// Drops features that an earlier kept feature with the same key crowds out, as `method` says. The key
     /// is the values of `keys` over the feature's output attributes; without `keys` every feature has the
     /// same key. A key of only `null`s is never thinned.
@@ -214,9 +225,10 @@ impl TileOp {
     /// Position in the fixed order operations run in.
     fn rank(&self) -> u8 {
         match self {
-            Self::Thinning { .. } => 1,
-            Self::MergeMulti { .. } => 2,
-            Self::Limit { .. } => 3,
+            Self::MergeLines { .. } => 1,
+            Self::Thinning { .. } => 2,
+            Self::MergeMulti { .. } => 3,
+            Self::Limit { .. } => 4,
         }
     }
 }
@@ -766,7 +778,7 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
         let (name, group_by) = match &op.op {
             TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
-            TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
+            TileOp::MergeLines { .. } | TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
         };
         if let Some(attribute) = group_by.into_iter().flatten().find(|name| !keys.contains(name)) {
             return Err(PlanError::UnknownGroupBy {
@@ -801,6 +813,15 @@ fn plan_per_tile(
         };
         let units = f64::from(def.grid.extent) / TILE_PIXELS;
         let planned = match &op.op {
+            TileOp::MergeLines {
+                min_length,
+                tolerance,
+                buffer,
+            } => PlannedOp::MergeLines(PlannedMergeLines {
+                min_length: min_length * units,
+                tolerance: tolerance * units,
+                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+            }),
             TileOp::Thinning { method, keys: sources } => PlannedOp::Thinning {
                 keys: sources
                     .iter()
@@ -832,6 +853,17 @@ fn plan_per_tile(
     Ok(ops.into_iter().map(|(_, op)| op).collect())
 }
 
+/// [`TileOp::MergeLines`] with its lengths in tile units.
+#[derive(Clone, Debug)]
+pub(crate) struct PlannedMergeLines {
+    /// Merged lines shorter than this inside the tile and `buffer` are dropped.
+    pub(crate) min_length: f64,
+    /// RDP tolerance for the merged lines; 0 keeps every vertex.
+    pub(crate) tolerance: f64,
+    /// Around the tile, kept after merging.
+    pub(crate) buffer: f64,
+}
+
 /// A [`TileOpDef`] as the encoder runs it.
 #[derive(Clone, Debug)]
 pub struct PlannedTileOp {
@@ -842,6 +874,7 @@ pub struct PlannedTileOp {
 /// A [`TileOp`] with its expressions compiled and its distances in tile units.
 #[derive(Clone, Debug)]
 pub(crate) enum PlannedOp {
+    MergeLines(PlannedMergeLines),
     Thinning {
         keys: Vec<ExprRef<ThinningKey>>,
         method: PlannedThinning,
@@ -859,6 +892,7 @@ impl PlannedOp {
     /// Which operation this is.
     pub(crate) const fn kind(&self) -> OpKind {
         match self {
+            Self::MergeLines(_) => OpKind::MergeLines,
             Self::Thinning { .. } => OpKind::Thinning,
             Self::MergeMulti { .. } => OpKind::MergeMulti,
             Self::Limit { .. } => OpKind::Limit,

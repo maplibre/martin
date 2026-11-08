@@ -187,6 +187,7 @@ fn lower_layer(
             name,
             &layer.per_tile,
             &(min..=max),
+            grid,
             layer.geometry.and_then(|g| geometry_type(g).ok()),
             &grids,
         ),
@@ -356,15 +357,30 @@ fn unsupported(layer: &Layer) -> Option<String> {
 }
 
 /// The layer's per-tile operations within `zooms`, warning about each one that has none of them, each
-/// one that never acts on the layer's `geometry`, and a grid thinning as [`GridContext::check`] does.
+/// one that never acts on the layer's `geometry`, each `buffer` wider than the layer's, which is clamped to
+/// it, and a grid thinning as [`GridContext::check`] does.
 fn lower_per_tile(
     id: &str,
     name: &str,
     per_tile: &PerTile,
     zooms: &RangeInclusive<u8>,
+    grid: LayerGrid,
     geometry: Option<GeometryType>,
     grids: &GridContext<'_>,
 ) -> Vec<TileOpDef> {
+    let layer_buffer = f64::from(grid.buffer) * 256.0 / f64::from(grid.extent);
+    let clamp_buffer = |op_name: &str, buffer: Option<Pixels>| {
+        buffer.map(|buffer| {
+            let buffer = buffer.get();
+            if buffer > layer_buffer {
+                warn!(
+                    "`{op_name}` of layer `{name}` in source `{id}`: its {buffer} px buffer is wider than \
+                     the layer's {layer_buffer} px, which already clipped the features, so it uses {layer_buffer} px"
+                );
+            }
+            buffer.min(layer_buffer)
+        })
+    };
     let mut ops = Vec::new();
     let mut push = |op_name: &str, range: ZoomRange, op: TileOp| {
         let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
@@ -380,6 +396,23 @@ fn lower_per_tile(
         ops.push(TileOpDef { zooms: lo..=hi, op });
         true
     };
+    for merge in per_tile.merge_lines.iter().flat_map(ByZoomRange::iter) {
+        if let Some(geometry) = geometry.filter(|g| *g != GeometryType::Line) {
+            warn!(
+                "`merge_lines` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_lines",
+            merge.zooms,
+            TileOp::MergeLines {
+                min_length: merge.min_length.map_or(0.0, Pixels::get),
+                tolerance: merge.tolerance.map_or(0.0, Pixels::get),
+                buffer: clamp_buffer("merge_lines", merge.buffer),
+            },
+        );
+    }
     for thinning in per_tile.thinning.iter().flat_map(ByZoomRange::iter) {
         let (op, grid_size) = lower_thinning(thinning);
         if push("thinning", thinning.zooms, op)
@@ -1549,5 +1582,107 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_lines_clamps_a_buffer_wider_than_the_layers() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    buffer: 64
+                    merge_lines: { buffer: 8 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: Some(
+                        4.0,
+                    ),
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_lines` of layer `roads` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_lines_lowers_per_zoom_range_with_zero_defaults() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    merge_lines:
+                      - { maxzoom: 10, min_length: 1, tolerance: 0.5, buffer: 4 }
+                      - { minzoom: 11 }
+                  areas:
+                    geometry: polygon
+                    merge_lines: {}
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=10,
+                op: MergeLines {
+                    min_length: 1.0,
+                    tolerance: 0.5,
+                    buffer: Some(
+                        4.0,
+                    ),
+                },
+            },
+            TileOpDef {
+                zooms: 11..=12,
+                op: MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_lines` of layer `areas` in source `roads_source` never acts on its polygon features");
+            Ok(())
+        });
     }
 }

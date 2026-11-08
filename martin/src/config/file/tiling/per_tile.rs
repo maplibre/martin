@@ -15,6 +15,8 @@ use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, Unrecognize
 /// The per-tile operations of a layer, each run on all of the layer's features in one tile.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PerTile {
+    /// Joins lines whose ends meet and whose attributes are all equal.
+    pub merge_lines: Option<ByZoomRange<MergeLines>>,
     /// Drops features an earlier kept feature with the same key crowds out.
     pub thinning: Option<ByZoomRange<Thinning>>,
     /// Combines features of a group into one multi-geometry.
@@ -25,11 +27,14 @@ pub struct PerTile {
 
 impl PerTile {
     /// The layer keys naming a per-tile operation.
-    pub const KEYS: [&str; 3] = ["thinning", "merge_multi", "limit"];
+    pub const KEYS: [&str; 4] = ["merge_lines", "thinning", "merge_multi", "limit"];
 }
 
 impl CollectUnrecognizedKeys for PerTile {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        if let Some(op) = &self.merge_lines {
+            op.collect_unrecognized(&format!("{path}merge_lines"), out);
+        }
         if let Some(op) = &self.thinning {
             op.collect_unrecognized(&format!("{path}thinning"), out);
         }
@@ -189,6 +194,21 @@ pub struct Thinning {
     pub unrecognized: UnrecognizedValues,
 }
 
+/// `merge_lines`: joins lines whose ends meet and whose attributes are all equal.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MergeLines {
+    /// Merged lines shorter than this many pixels are dropped.
+    pub min_length: Option<Pixels>,
+    /// Simplification of the merged lines, in pixels; 0 turns it off.
+    pub tolerance: Option<Pixels>,
+    /// Pixels around the tile kept after merging; the layer's buffer when unset.
+    pub buffer: Option<Pixels>,
+    /// The zooms the operation runs at.
+    pub zooms: ZoomRange,
+    /// Keys the operation does not know.
+    pub unrecognized: UnrecognizedValues,
+}
+
 /// `merge_multi`: combines features of a group and type into one multi-geometry.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeMulti {
@@ -228,6 +248,7 @@ macro_rules! op {
 }
 
 op!(Thinning);
+op!(MergeLines);
 op!(MergeMulti);
 op!(Limit);
 
@@ -335,6 +356,45 @@ impl From<&Thinning> for RawThinning {
 }
 
 #[serde_with::skip_serializing_none]
+#[derive(Default, Serialize, Deserialize)]
+struct RawMergeLines {
+    min_length: Option<Pixels>,
+    tolerance: Option<Pixels>,
+    buffer: Option<Pixels>,
+    minzoom: Option<Zoom>,
+    maxzoom: Option<Zoom>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl TryFrom<RawMergeLines> for MergeLines {
+    type Error = TilingConfigError;
+
+    fn try_from(raw: RawMergeLines) -> Result<Self, TilingConfigError> {
+        Ok(Self {
+            min_length: raw.min_length,
+            tolerance: raw.tolerance,
+            buffer: raw.buffer,
+            zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
+            unrecognized: raw.unrecognized,
+        })
+    }
+}
+
+impl From<&MergeLines> for RawMergeLines {
+    fn from(op: &MergeLines) -> Self {
+        Self {
+            min_length: op.min_length,
+            tolerance: op.tolerance,
+            buffer: op.buffer,
+            minzoom: op.zooms.minzoom(),
+            maxzoom: op.zooms.maxzoom(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
+
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 struct RawMergeMulti {
     geometry: Option<NonEmpty<MultiGeometry>>,
@@ -420,6 +480,7 @@ macro_rules! serde_via_raw {
 }
 
 serde_via_raw!(Thinning, RawThinning);
+serde_via_raw!(MergeLines, RawMergeLines);
 serde_via_raw!(MergeMulti, RawMergeMulti);
 
 impl<'de> Deserialize<'de> for Limit {
@@ -477,7 +538,7 @@ mod tests {
 
     use indoc::indoc;
 
-    use super::{ByZoomRange, Limit, MergeMulti, MultiGeometry, PerTile, Thinning, ThinningMethod};
+    use super::{ByZoomRange, Limit, MergeLines, MergeMulti, MultiGeometry, PerTile, Thinning, ThinningMethod};
     use crate::config::file::tiling::setting::Pixels;
     use crate::config::file::tiling::tests::{parse, rejection};
     use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
@@ -497,6 +558,7 @@ mod tests {
     fn every_operation_parses_with_every_option() {
         let layers = parse(indoc! {"
             pois:
+              merge_lines: { min_length: 1, tolerance: 0.5, buffer: 4 }
               thinning:
                 - { maxzoom: 9, method: grid, size: 64, limit: 2, keys: [kind] }
                 - { minzoom: 10, maxzoom: 13, method: distance, distance: 64, keys: [name, ref] }
@@ -508,6 +570,12 @@ mod tests {
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
             PerTile {
+                merge_lines: Some(ByZoomRange(NonEmpty::new(MergeLines {
+                    min_length: Some(px(1.0)),
+                    tolerance: Some(px(0.5)),
+                    buffer: Some(px(4.0)),
+                    ..MergeLines::default()
+                }))),
                 thinning: Some(ByZoomRange(
                     NonEmpty::try_from_vec(vec![
                         Thinning {
@@ -582,6 +650,21 @@ mod tests {
                     zooms: ZoomRange::default(),
                     unrecognized: UnrecognizedValues::default(),
                 }))),
+                ..PerTile::default()
+            }
+        );
+    }
+
+    #[test]
+    fn merge_lines_takes_every_default_from_an_empty_map() {
+        let layers = parse(indoc! {"
+            roads:
+              merge_lines: {}
+        "});
+        assert_eq!(
+            layers.get("roads").expect("layer exists").per_tile,
+            PerTile {
+                merge_lines: Some(ByZoomRange(NonEmpty::new(MergeLines::default()))),
                 ..PerTile::default()
             }
         );
@@ -679,6 +762,30 @@ mod tests {
         insta::assert_snapshot!(
             rejection("roads: { limit: { count: 5, maxzoom: 31 } }"),
             @"error: line 1 column 29: invalid value: integer `31`, expected a zoom from 0 to 30"
+        );
+    }
+
+    #[test]
+    fn merge_lines_min_length_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("roads: { merge_lines: { min_length: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn merge_lines_tolerance_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("roads: { merge_lines: { tolerance: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn merge_lines_buffer_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("roads: { merge_lines: { buffer: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 

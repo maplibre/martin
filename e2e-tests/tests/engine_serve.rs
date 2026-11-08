@@ -100,6 +100,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      merge_lines: {}
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -149,6 +150,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      merge_lines: {}
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -191,6 +193,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      merge_lines: {}
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }

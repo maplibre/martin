@@ -1,6 +1,7 @@
 //! Per-tile operations: each takes one layer's features in one tile, in draw order, and returns the new list.
 
 mod limit;
+mod merge_lines;
 mod merge_multi;
 mod thinning;
 
@@ -297,6 +298,8 @@ pub(crate) struct LayerExprs<'a> {
 /// A per-tile operation, in the order they run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpKind {
+    /// Joins a group's lines whose ends meet.
+    MergeLines,
     /// Drops features an earlier kept feature with the same key crowds out.
     Thinning,
     /// Combines a group's features of one type into a multi-feature.
@@ -307,12 +310,13 @@ pub enum OpKind {
 
 impl OpKind {
     /// Every operation, in the order they run.
-    pub const ALL: [Self; 3] = [Self::Thinning, Self::MergeMulti, Self::Limit];
+    pub const ALL: [Self; 4] = [Self::MergeLines, Self::Thinning, Self::MergeMulti, Self::Limit];
 
     /// The operation's key in the config.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::MergeLines => "merge_lines",
             Self::Thinning => "thinning",
             Self::MergeMulti => "merge_multi",
             Self::Limit => "limit",
@@ -438,6 +442,7 @@ impl<'a> TileOps<'a> {
             }
             let features_in = features.len();
             match op {
+                PlannedOp::MergeLines(op) => merge_lines::apply(tile, op, features)?,
                 PlannedOp::Thinning { keys, method } => {
                     thinned = true;
                     self.thin(tile, Some(Thinning { keys, method: *method }), features, scratch)?;
