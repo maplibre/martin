@@ -8,7 +8,7 @@ use martin_tile_utils::Encoding;
 use tilejson::TileJSON;
 
 use crate::phase1::{RenderTotals, RenderWorker};
-use crate::phase2::{TileEncoder, TileEncoding};
+use crate::phase2::{OpCounts, OpKind, TileEncoder, TileEncoding};
 use crate::pipeline::{self, BatchSender, spawn_named};
 use crate::plan::{ExprErrors, Plan};
 use crate::progress::{Activity, Progress, Role, Stage, Tracker};
@@ -45,6 +45,20 @@ pub struct Summary {
     pub slice_errors: Vec<LayerSliceErrors>,
     /// Expressions that failed on some features, which then took them as `null`, in plan order.
     pub expr_errors: Vec<ExprErrors>,
+    /// What each per-tile operation a layer has did to it, by layer in plan order, then in the order
+    /// the operations run.
+    pub per_tile: Vec<OpSummary>,
+}
+
+/// What one per-tile operation did to one layer, summed over the tiles it ran on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpSummary {
+    /// The layer's name.
+    pub layer: String,
+    /// The operation.
+    pub op: OpKind,
+    /// What it did, over every tile of the layer.
+    pub counts: OpCounts,
 }
 
 /// The skipped feature-zooms of one layer, and the first of them in source order.
@@ -79,7 +93,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
 
     let sorter = Sorter::new(config.sort.clone())?;
     let wagyu_ring_starts = !config.mvt_preserve_ring_start && matches!(config.format, TileFormat::Mvt);
-    let totals = render_all(
+    let mut totals = render_all(
         source,
         &sorter,
         plan,
@@ -130,6 +144,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
 
     progress.enter(Stage::Finish);
     encoding.complete_metadata(&mut metadata, &encoders);
+    totals.add_encoders(&encoders);
     sink.finish(&metadata)?;
     progress.enter(Stage::Done);
     Ok(totals.into_summary(plan, tiles))

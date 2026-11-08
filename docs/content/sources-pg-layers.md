@@ -61,6 +61,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
+| `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
 `extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`.
@@ -232,6 +233,64 @@ Values order by type first: `null` (and failed evaluations), booleans, integers,
 numbers, then strings. Any integer sorts before any floating-point number, so convert mixed numbers
 with `double(...)` to compare them by value. `desc` reverses the whole order, so `null` comes last.
 
+## Per-tile operations
+
+Most layer keys act on one feature at a time. A per-tile operation acts on the layer's whole feature list
+in one tile, after [`sort_by`](#draw-order) has ordered it and just before the tile is encoded. Each
+operation is a layer key, named after the operation, with that operation's options. A table source or a
+rule cannot set one.
+
+```yaml
+postgres:
+  tables:
+    shops:
+      schema: public
+      table: shops
+      geometry_column: geom
+      properties:
+        name: text
+        rank: int4
+      layers:
+        shops:
+          sort_by: [rank]
+          limit:
+            - { maxzoom: 10, count: 50 }   # z0 to z10
+            - { minzoom: 11, count: 200 }  # z11 and up
+```
+
+Operations run in this order, whatever order they are written in:
+
+| Order | Operation | Does                                       |
+|-------|-----------|--------------------------------------------|
+| 1     | `limit`   | Keeps the first `count` features, in order |
+
+Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
+operation is skipped and features pass through unchanged. For different settings at different zooms,
+give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose
+zooms miss the layer's entirely is dropped with a warning.
+
+Since operations keep the first features of the list, `sort_by` decides which features survive. A
+layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see
+[Draw order](#draw-order).
+
+After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it
+took and kept:
+
+```text
+INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
+```
+
+The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of
+`--format mvt` for layers with a `sort_by`.
+
+### `limit`
+
+Keeps the first `count` features of the layer in the tile and drops the rest. `count: 0` leaves the
+layer out of the tile. `limit: 100` is short for `limit: { count: 100 }`.
+
+Unlike `max_feature_count` of a table source, which limits the rows read for a tile, `limit` limits the
+features written to it.
+
 ## Expressions
 
 Expressions are written in [CEL](https://cel.dev), the Common Expression Language. CEL looks like
@@ -398,11 +457,12 @@ postgres:
 ## Validation
 
 - **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30,
-  a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, or
-  `layer_id` together with `layers`. Unknown keys are warned about.
+  a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL,
+  `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a
+  per-tile operation on a table source or in a rule. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
-  yet.
+  yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it.
 
 [`martin test`](martin-test.md) checks what the layers make of real rows of the database, and keeps it in
 a spec file.

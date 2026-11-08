@@ -581,6 +581,27 @@ mod tests {
         insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `prefetch` only applies to a table with `layers` at line 4, column 5");
     }
 
+    #[test]
+    fn a_pg_table_per_tile_is_rejected() {
+        let err = parse_config(
+            indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  tables:
+                    roads:
+                      schema: public
+                      table: roads
+                      srid: 4326
+                      geometry_column: geom
+                      limit: 100
+            "},
+            &HashMap::new(),
+            Path::new("martin.yaml"),
+        )
+        .expect_err("must not parse");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `limit` is a layer key; move it under one of `layers` at line 4, column 5");
+    }
+
     #[tokio::test]
     async fn finalize_postgres_missing_connection_string() {
         insta::assert_snapshot!(
