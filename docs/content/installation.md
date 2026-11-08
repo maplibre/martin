@@ -121,11 +121,20 @@ to [improve packaging for various platforms](https://github.com/maplibre/martin/
 
 #### Homebrew
 
-If you are using [Homebrew](https://brew.sh/) you can install martin using
+If you are using [Homebrew](https://brew.sh/) you can install the [`martin` formula from homebrew-core](https://formulae.brew.sh/formula/martin) using
 
 ```bash
 brew install martin
 martin --help
+```
+
+The formula is maintained by Homebrew and follows stable releases only.
+If you installed martin from the former `maplibre/martin` tap, switch to the homebrew-core formula with
+
+```bash
+brew uninstall martin
+brew untap maplibre/martin
+brew install martin
 ```
 
 #### Debian packages (x86_64) manually

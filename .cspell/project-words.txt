@@ -178,6 +178,7 @@ toon
 tui
 unclipped
 undecoded
+untap
 urlencode
 USGS
 usize
