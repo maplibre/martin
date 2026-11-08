@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, ValueDef,
-    ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, TileOp,
+    TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -17,8 +17,8 @@ use tracing::warn;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels, PropertySelector,
-    RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, PerTile, Pixels,
+    PropertySelector, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomRange, ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -170,6 +170,7 @@ fn lower_layer(
                 descending: key.descending,
             })
             .collect(),
+        per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max)),
     }))
 }
 
@@ -251,22 +252,29 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
 
 fn unsupported(layer: &Layer) -> Option<String> {
     let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
-    let tile = &layer.tile;
-    let tile_op = [
-        ("merge_lines", tile.merge_lines.is_some()),
-        ("merge_polygons", tile.merge_polygons.is_some()),
-        ("merge_multi", tile.merge_multi.is_some()),
-        ("label_grid", tile.label_grid.is_some()),
-        ("dedup_by", tile.dedup_by.is_some()),
-        ("limit", tile.limit.is_some()),
-    ]
-    .into_iter()
-    .find_map(|(op, set)| set.then_some(op));
-    if let Some(geometry) = geometry {
-        Some(format!("`geometry: {geometry}`"))
-    } else {
-        tile_op.map(|op| format!("`tile: {op}`"))
+    geometry.map(|geometry| format!("`geometry: {geometry}`"))
+}
+
+/// The layer's per-tile operations within `zooms`, warning about each one that has none of them.
+fn lower_per_tile(id: &str, name: &str, per_tile: &PerTile, zooms: &RangeInclusive<u8>) -> Vec<TileOpDef> {
+    let mut ops = Vec::new();
+    let mut push = |op_name: &str, range: ZoomRange, op: TileOp| {
+        let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
+        let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
+        if lo > hi {
+            warn!(
+                "Skipping `{op_name}` of layer `{name}` in source `{id}`: it has no zoom between {} and {}",
+                zooms.start(),
+                zooms.end()
+            );
+        } else {
+            ops.push(TileOpDef { zooms: lo..=hi, op });
+        }
+    };
+    for limit in per_tile.limit.iter().flat_map(ByZoomRange::iter) {
+        push("limit", limit.zooms, TileOp::Limit { count: limit.count });
     }
+    ops
 }
 
 /// `clip_geom: false` hands each tile a line or polygon reaches the whole geometry, as
@@ -396,6 +404,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -448,6 +457,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -545,6 +555,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -574,6 +585,7 @@ mod tests {
                     attributes: None,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -603,6 +615,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -1035,12 +1048,7 @@ mod tests {
 
     #[test]
     fn unsupported_settings_are_rejected() {
-        let layers = [
-            "roads: { geometry: centroid }",
-            "roads: { geometry: label_point }",
-            "roads: { tile: { merge_lines: { by: [class] } } }",
-            "roads: { tile: { limit: 100 } }",
-        ];
+        let layers = ["roads: { geometry: centroid }", "roads: { geometry: label_point }"];
         let errors: Vec<String> = layers
             .iter()
             .map(|layers| {
@@ -1052,8 +1060,44 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
-        layer `roads`: `tile: merge_lines` is not supported by `--mode bulk` yet
-        layer `roads`: `tile: limit` is not supported by `--mode bulk` yet
+        ");
+    }
+
+    #[test]
+    fn per_tile_limits_are_clamped_into_the_layer_zooms() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    minzoom: 4
+                    limit:
+                      - { maxzoom: 2, count: 10 }
+                      - { minzoom: 3, maxzoom: 8, count: 50 }
+                      - { minzoom: 9, count: 0 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 4..=8,
+                op: Limit {
+                    count: 50,
+                },
+            },
+            TileOpDef {
+                zooms: 9..=12,
+                op: Limit {
+                    count: 0,
+                },
+            },
+        ]
         ");
     }
 }

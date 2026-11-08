@@ -14,7 +14,7 @@ use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
 use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
-use crate::phase2::LayerInfo;
+use crate::phase2::{LayerInfo, OpKind};
 pub use crate::plan::branch::{Branch, ColumnFacts, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
@@ -124,6 +124,9 @@ pub struct LayerDef {
     /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
     /// Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
+    /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
+    /// Zoom ranges of one kind of operation must not overlap.
+    pub per_tile: Vec<TileOpDef>,
 }
 
 impl LayerDef {
@@ -148,6 +151,31 @@ impl LayerDef {
             attributes: AttributesDef::All,
             rules: Vec::new(),
             sort_by: Vec::new(),
+            per_tile: Vec::new(),
+        }
+    }
+}
+
+/// A [`TileOp`] and the zooms it runs at; outside them the layer's features pass through it unchanged.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TileOpDef {
+    /// Clamped into the layer's zooms; an operation with none of them is dropped.
+    pub zooms: RangeInclusive<u8>,
+    pub op: TileOp,
+}
+
+/// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TileOp {
+    /// Keeps the first `count` features and drops the rest.
+    Limit { count: u32 },
+}
+
+impl TileOp {
+    /// Position in the fixed order operations run in.
+    fn rank(&self) -> u8 {
+        match self {
+            Self::Limit { .. } => 1,
         }
     }
 }
@@ -616,6 +644,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
+    let per_tile = plan_per_tile(&def);
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -639,6 +668,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
                     .with_spatial_morton_sort(false)
                     .with_spatial_hilbert_sort(false)
             },
+            per_tile,
         },
         zooms: def.zooms,
         geometry: def.geometry,
@@ -651,6 +681,53 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         fallback,
         sort_by,
     })
+}
+
+/// The layer's operations in the order they run, each clamped into its zooms, without those outside them.
+fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
+    let zooms = &def.zooms;
+    let mut ops = Vec::new();
+    for op in &def.per_tile {
+        let lo = (*op.zooms.start()).max(*zooms.start());
+        let hi = (*op.zooms.end()).min(*zooms.end());
+        if lo > hi {
+            continue;
+        }
+        let planned = match &op.op {
+            TileOp::Limit { count } => PlannedOp::Limit { count: *count },
+        };
+        ops.push((
+            op.op.rank(),
+            PlannedTileOp {
+                zooms: lo..=hi,
+                op: planned,
+            },
+        ));
+    }
+    ops.sort_by_key(|(rank, op)| (*rank, *op.zooms.start()));
+    ops.into_iter().map(|(_, op)| op).collect()
+}
+
+/// A [`TileOpDef`] as the encoder runs it.
+#[derive(Clone, Debug)]
+pub struct PlannedTileOp {
+    pub(crate) zooms: RangeInclusive<u8>,
+    pub(crate) op: PlannedOp,
+}
+
+/// A [`TileOp`] as the encoder runs it.
+#[derive(Clone, Debug)]
+pub(crate) enum PlannedOp {
+    Limit { count: u32 },
+}
+
+impl PlannedOp {
+    /// Which operation this is.
+    pub(crate) const fn kind(&self) -> OpKind {
+        match self {
+            Self::Limit { .. } => OpKind::Limit,
+        }
+    }
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.

@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
 use std::fmt;
 use std::marker::PhantomData;
 
-use serde::de::value::MapAccessDeserializer;
-use serde::de::{self, MapAccess, Visitor};
+use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::config::file::tiling::error::TilingConfigError;
@@ -59,48 +57,6 @@ macro_rules! measure {
 }
 
 measure!(Pixels, "a finite number of pixels, 0 or more");
-measure!(Meters, "a finite number of metres, 0 or more");
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ByZoom<U> {
-    Constant(U),
-    Steps(BTreeMap<Zoom, U>),
-}
-
-impl<U: Serialize> Serialize for ByZoom<U> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Constant(v) => v.serialize(serializer),
-            Self::Steps(steps) => steps.serialize(serializer),
-        }
-    }
-}
-
-impl<'de, U: Deserialize<'de>> Deserialize<'de> for ByZoom<U> {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct ByZoomVisitor<U>(PhantomData<U>);
-
-        impl<'de, U: Deserialize<'de>> Visitor<'de> for ByZoomVisitor<U> {
-            type Value = ByZoom<U>;
-
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("a number, or zoom steps such as `{ 0: 2, 11: 0 }`")
-            }
-
-            forward_scalars!(U => ByZoom::Constant; visit_u64: u64, visit_i64: i64, visit_f64: f64);
-
-            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<ByZoom<U>, A::Error> {
-                let steps = BTreeMap::<Zoom, U>::deserialize(MapAccessDeserializer::new(map))?;
-                if steps.is_empty() {
-                    return Err(de::Error::invalid_length(0, &"at least one zoom step"));
-                }
-                Ok(ByZoom::Steps(steps))
-            }
-        }
-
-        deserializer.deserialize_any(ByZoomVisitor(PhantomData))
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PerFeature<T> {

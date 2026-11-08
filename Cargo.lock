@@ -5989,6 +5989,7 @@ dependencies = [
  "backon",
  "brotli 9.1.1",
  "flate2",
+ "geo",
  "geojson 1.0.0",
  "image",
  "image-compare",

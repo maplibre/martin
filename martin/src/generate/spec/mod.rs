@@ -112,12 +112,13 @@ async fn cases<B: TestBackend>(
         let name = format!("{source} {key}");
         report.working(&name);
         let started = Instant::now();
-        let bulk = render_bulk(backend, table_of(tables, source)?, *key).await?;
+        let (bulk, per_tile) = render_bulk(backend, table_of(tables, source)?, *key).await?;
         let case = Case {
             source: source.clone(),
             paths: row.paths.clone(),
             input: row.input.clone(),
             output: outputs(&bulk),
+            per_tile,
         };
         let reviewed = Reviewed::new(case, spec, ids);
         report.line(&reviewed.status, Some(started.elapsed()), &name, reviewed.case.path());
@@ -287,13 +288,13 @@ pub async fn check<B: TestBackend>(backend: &B, tables: &[TestTable], case: &Cas
         .id(&id_columns(tables))
         .ok_or_else(|| GenerateError::CaseWithoutId(case.source.clone()))?;
     let now = read_row(backend, table, key).await?;
-    let bulk = render_bulk(backend, table, key).await?;
+    let (bulk, per_tile) = render_bulk(backend, table, key).await?;
     let output = outputs(&bulk);
     Ok(Outcome {
         row: row_change(case, now.as_ref()),
-        output: (output != case.output).then(|| Change {
-            old: output_yaml(&case.output),
-            new: output_yaml(&output),
+        output: (output != case.output || per_tile != case.per_tile).then(|| Change {
+            old: output_yaml(&case.output, &case.per_tile),
+            new: output_yaml(&output, &per_tile),
         }),
     })
 }
@@ -1299,6 +1300,115 @@ mod tests {
             attributes:
               label: Feldweg!
         "#);
+    }
+
+    #[tokio::test]
+    async fn generate_writes_what_each_per_tile_operation_did_to_a_case() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: shops
+            srid: 4326
+            geometry_column: geom
+            geometry_type: MULTIPOINT
+            id_column: id
+            buffer: 1024
+            properties:
+              id: int8
+            layers:
+              shops:
+                limit:
+                  - { maxzoom: 1, count: 5 }
+                  - { minzoom: 2, count: 0 }
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, geometry: 'MULTIPOINT(16.37 48.20, 16.38 48.21, 100 10)' }
+        "})
+        .expect("parses");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: test_table("shops", &info, 2).expect("lowers").expect("has zooms"),
+                rows,
+            }],
+        };
+        let mut review = review(&memory, 2, None, 100, &Reporter::new()).await.expect("reviews");
+        review.accept_all();
+        insta::assert_snapshot!(yaml(&review.spec()), @r#"
+        max_zoom: 2
+        cases:
+        - source: shops
+          paths:
+          - "shops: every feature"
+          input:
+            geometry: MULTIPOINT((16.37 48.2),(16.38 48.21),(100 10))
+            id: 1
+          output:
+          - layer: shops
+            id: 1
+            geometry: point
+            zooms: 0-1
+            attributes:
+              id: 1
+          per_tile:
+          - layer: shops
+            op: limit
+            tiles: 9
+            features_in: 9
+            features_out: 4
+        "#);
+    }
+
+    #[tokio::test]
+    async fn a_case_whose_per_tile_counts_changed_fails() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: shops
+            srid: 4326
+            geometry_column: geom
+            geometry_type: MULTIPOINT
+            id_column: id
+            buffer: 1024
+            properties:
+              id: int8
+            layers:
+              shops:
+                maxzoom: 0
+                limit: 5
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, geometry: 'MULTIPOINT(16.37 48.20, 16.38 48.21)' }
+        "})
+        .expect("parses");
+        let table = test_table("shops", &info, 0).expect("lowers").expect("has zooms");
+        let memory = Memory {
+            tables: vec![MemoryTable {
+                table: table.clone(),
+                rows,
+            }],
+        };
+        let case: Case = serde_saphyr::from_str(indoc! {"
+            source: shops
+            input: { id: 1, geometry: 'MULTIPOINT((16.37 48.2),(16.38 48.21))' }
+            output:
+              - { layer: shops, id: 1, geometry: point, zooms: 0-0, attributes: { id: 1 } }
+            per_tile:
+              - { layer: shops, op: limit, tiles: 2, features_in: 1, features_out: 1 }
+        "})
+        .expect("parses");
+        let outcome = check(&memory, &[table], &case).await.expect("checks");
+        insta::assert_snapshot!(shown(&outcome), @"
+        Fail
+        -spec +bulk mode now
+        @@ - layer: shops
+         per_tile:
+         - layer: shops
+           op: limit
+        -  tiles: 2
+        +  tiles: 1
+           features_in: 1
+           features_out: 1
+        ");
     }
 
     #[tokio::test]

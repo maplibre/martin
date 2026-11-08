@@ -32,7 +32,7 @@ pub fn render_block(
     for batch in batches {
         worker.render_batch(batch)?;
     }
-    let totals = worker.finish()?;
+    let mut totals = worker.finish()?;
 
     let batches = sorter.into_tiles(BATCH_TILES, &Progress::default())?;
     let (encoding, batches) = TileEncoding::start(plan, batches, format, encoding, order, false);
@@ -41,6 +41,7 @@ pub fn render_block(
     for batch in batches {
         tiles.extend(encoding.encode(&mut encoder, batch?)?);
     }
+    totals.add_encoders([&encoder]);
     let summary = totals.into_summary(plan, tiles.len() as u64);
     Ok((tiles, summary))
 }

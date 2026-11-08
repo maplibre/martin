@@ -16,7 +16,7 @@ use serde_json::Value;
 use tilejson::{TileJSON, tilejson};
 
 use crate::generate::spec::backend::{RowKey, Rows, TestBackend, TestTable};
-use crate::generate::spec::file::{Attribute, GeometryKind, Output, Zooms};
+use crate::generate::spec::file::{Attribute, GeometryKind, OpCount, Output, Zooms};
 use crate::generate::{GenerateError, GenerateResult};
 
 /// The most tiles one case may render, which bulk mode holds in memory.
@@ -48,12 +48,16 @@ impl Feature {
     }
 }
 
-/// The tiles bulk mode writes for row `key` of `table`.
+/// The tiles bulk mode writes for row `key` of `table`, and what the per-tile operations of its layers did.
 ///
 /// # Errors
 ///
 /// If the row cannot be read or rendered, or renders more than [`MAX_CASE_TILES`] tiles.
-pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: RowKey) -> GenerateResult<Tiles> {
+pub async fn render_bulk<B: TestBackend>(
+    backend: &B,
+    table: &TestTable,
+    key: RowKey,
+) -> GenerateResult<(Tiles, Vec<OpCount>)> {
     let scan = backend.scan(table, Some(key), Rows::Bulk).await?;
     let def = table.def.clone();
     let sink = MemorySink::default();
@@ -92,11 +96,23 @@ pub async fn render_bulk<B: TestBackend>(backend: &B, table: &TestTable, key: Ro
             tiles: MAX_CASE_TILES,
         });
     }
-    rendered?;
-    tiles
+    let summary = rendered?;
+    let per_tile = summary
+        .per_tile
+        .into_iter()
+        .map(|op| OpCount {
+            layer: op.layer,
+            op: op.op.name().to_owned(),
+            tiles: op.counts.tiles,
+            features_in: op.counts.features_in,
+            features_out: op.counts.features_out,
+        })
+        .collect();
+    let tiles = tiles
         .into_iter()
         .map(|tile| Ok((tile.coord, decode(&tile.data)?)))
-        .collect()
+        .collect::<GenerateResult<_>>()?;
+    Ok((tiles, per_tile))
 }
 
 /// The features of an MVT tile.
