@@ -14,7 +14,7 @@
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 

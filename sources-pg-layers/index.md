@@ -14,7 +14,7 @@
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
 
@@ -60,6 +60,7 @@ Every feature is offered to each layer, which may take it or not. Inside each ti
 | `id` | `true` (default), `false`, or an expression | [Feature ids](<#feature-ids>) |
 | `rules` | Different zooms, simplification and attributes for some features | [Rules](<#rules>) |
 | `sort_by` | The draw order of the layer's features in each tile | [Draw order](<#draw-order>) |
+| `thinning` | Drops features crowded out by earlier ones in one tile | [Per-tile operations](<#per-tile-operations>) |
 | `limit` | The most features of the layer in one tile | [Per-tile operations](<#per-tile-operations>) |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`. `extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`. With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
@@ -197,7 +198,7 @@ Values order by type first: `null` (and failed evaluations), booleans, integers,
 
 ## Per-tile operations
 
-Most layer keys act on one feature at a time. A per-tile operation acts on the layer's whole feature list in one tile, after [`sort_by`](<#draw-order>) has ordered it and just before the tile is encoded. Each operation is a layer key, named after the operation, with that operation's options. A table source or a rule cannot set one.
+Most layer keys act on one feature at a time. A per-tile operation acts on the layer's whole feature list in one tile, after [`sort_by`](<#draw-order>) has ordered it and just before the tile is encoded. Each operation is a layer key, named after the operation, with that operation's options. A table source cannot set one, and a rule only a grid [`thinning`](<#thinning>).
 
 ```yaml
 postgres:
@@ -221,7 +222,8 @@ Operations run in this order, whatever order they are written in:
 
 | Order | Operation | Does |
 | --- | --- | --- |
-| 1 | `limit` | Keeps the first `count` features, in order |
+| 1 | `thinning` | Drops features earlier ones crowd out |
+| 2 | `limit` | Keeps the first `count` features, in order |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the operation is skipped and features pass through unchanged. For different settings at different zooms, give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose zooms miss the layer's entirely is dropped with a warning.
 
@@ -235,9 +237,55 @@ INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
 
 The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of `--format mvt` for layers with a `sort_by`.
 
+### `thinning`
+
+Drops a feature when an earlier kept feature, in draw order, crowds it out, so give the layer a `sort_by`. `method` says what crowds a feature out:
+
+| `method` | A feature is dropped when |
+| --- | --- |
+| `grid` | its square already holds `limit` kept points |
+
+```yaml
+postgres:
+  tables:
+    places:
+      schema: public
+      table: places
+      geometry_column: geom
+      buffer: 1024        # 64 px of a 4096 extent, the grid's size
+      properties:
+        name: text
+        kind: text
+        population: int8
+      layers:
+        places:
+          geometry: point
+          sort_by: [{ expr: "population", desc: true }]
+          thinning:
+            - { maxzoom: 9, method: grid, size: 64, limit: 2 }
+          rules:
+            - where: "kind == 'capital'"
+              thinning: null   # capitals are never thinned out by the grid
+            - where: "kind == 'village'"
+              thinning: { maxzoom: 9, method: grid, size: 128, limit: 1 }
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `method` | required | `grid` |
+| `size` | required by `grid` | Side of a square above 0, in pixels of a 256-pixel tile |
+| `limit` | required by `grid` | Points kept per square in each tile, 1 or more |
+| `minzoom`, `maxzoom` | the layer's zooms | Where it runs |
+
+`grid` thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it covers, the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. Each point counts against its own `limit` in the square it falls in, so points of one layer with different sizes share a count when their squares have the same column and row, as in Planetiler. A multi-point is split into its points, each kept or dropped on its own. Lines and polygons pass through. Squares smaller than one unit of the layer's `extent` do not limit anything. A square crossing a tile edge is counted the same way in both tiles only when each sees all of its points, so set the layer's `buffer` to at least `size` pixels. A warning tells you when it is smaller.
+
+A rule may set its own grid `thinning` for the features it takes, replacing the layer's grid, or `null` to turn the grid off for them.
+
 ### `limit`
 
 Keeps the first `count` features of the layer in the tile and drops the rest. `count: 0` leaves the layer out of the tile. `limit: 100` is short for `limit: { count: 100 }`.
+
+Features in the tile's buffer count too, so a feature near a tile edge can be kept in its own tile and dropped from the buffer of the next.
 
 Unlike `max_feature_count` of a table source, which limits the rows read for a tile, `limit` limits the features written to it.
 
@@ -375,7 +423,7 @@ postgres:
 
 ## Validation
 
-- **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a per-tile operation on a table source or in a rule. Unknown keys are warned about.
-- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it.
+- **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a per-tile operation on a table source or, except a grid `thinning`, in a rule. Unknown keys are warned about.
+- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
 
 [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) checks what the layers make of real rows of the database, and keeps it in a spec file.
