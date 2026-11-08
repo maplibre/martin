@@ -7,7 +7,7 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::config::file::tiling::error::TilingConfigError;
-use crate::config::file::tiling::primitives::{NonEmpty, checked_map};
+use crate::config::file::tiling::primitives::{Expr, NonEmpty, checked_map};
 use crate::config::file::tiling::setting::Pixels;
 use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
@@ -15,7 +15,7 @@ use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, Unrecognize
 /// The per-tile operations of a layer, each run on all of the layer's features in one tile.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PerTile {
-    /// Drops features an earlier kept feature crowds out.
+    /// Drops features an earlier kept feature with the same key crowds out.
     pub thinning: Option<ByZoomRange<Thinning>>,
     /// Combines features of a group into one multi-geometry.
     pub merge_multi: Option<ByZoomRange<MergeMulti>>,
@@ -116,7 +116,7 @@ impl<'de, T: Op + Deserialize<'de>> Deserialize<'de> for ByZoomRange<T> {
 pub enum RuleThinning {
     /// `null`: the rule's features are not thinned by a grid.
     Off,
-    /// The rule's own grid thinning.
+    /// The rule's own grid thinning, of `method: grid` without `keys`.
     Grid(ByZoomRange<Thinning>),
 }
 
@@ -124,9 +124,16 @@ impl RuleThinning {
     /// A rule's `thinning` key: `null` turns the grid off, so it cannot mean "unset" as it would for an
     /// `Option`. For `#[serde(default, deserialize_with)]`.
     pub(super) fn deserialize_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Self>, D::Error> {
-        Ok(Some(
-            Option::<ByZoomRange<Thinning>>::deserialize(deserializer)?.map_or(Self::Off, Self::Grid),
-        ))
+        let Some(thinning) = Option::<ByZoomRange<Thinning>>::deserialize(deserializer)? else {
+            return Ok(Some(Self::Off));
+        };
+        if thinning
+            .iter()
+            .any(|entry| !matches!(entry.method, ThinningMethod::Grid { .. }) || entry.keys.is_some())
+        {
+            return Err(de::Error::custom(TilingConfigError::RuleThinningNotGrid));
+        }
+        Ok(Some(Self::Grid(thinning)))
     }
 }
 
@@ -161,12 +168,21 @@ pub enum ThinningMethod {
         /// Points kept per square.
         limit: NonZeroU32,
     },
+    /// Features closer than `distance` pixels to an earlier kept one.
+    Distance {
+        /// In pixels of a 256-pixel tile.
+        distance: Pixels,
+    },
+    /// Features anywhere in the tile.
+    Tile,
 }
 
-/// `thinning`: drops features that an earlier kept feature crowds out.
+/// `thinning`: drops features that an earlier kept feature with the same key crowds out.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Thinning {
     pub method: ThinningMethod,
+    /// Expressions over the output attributes forming the key; every feature has the same key when unset.
+    pub keys: Option<NonEmpty<Expr>>,
     /// The zooms the operation runs at.
     pub zooms: ZoomRange,
     /// Keys the operation does not know.
@@ -220,6 +236,8 @@ op!(Limit);
 #[serde(rename_all = "snake_case")]
 enum MethodName {
     Grid,
+    Distance,
+    Tile,
 }
 
 impl MethodName {
@@ -227,6 +245,8 @@ impl MethodName {
     const fn as_str(self) -> &'static str {
         match self {
             Self::Grid => "grid",
+            Self::Distance => "distance",
+            Self::Tile => "tile",
         }
     }
 }
@@ -237,6 +257,8 @@ struct RawThinning {
     method: MethodName,
     size: Option<Pixels>,
     limit: Option<NonZeroU32>,
+    distance: Option<Pixels>,
+    keys: Option<NonEmpty<Expr>>,
     minzoom: Option<Zoom>,
     maxzoom: Option<Zoom>,
     #[serde(flatten, skip_serializing)]
@@ -249,8 +271,16 @@ impl TryFrom<RawThinning> for Thinning {
     fn try_from(raw: RawThinning) -> Result<Self, TilingConfigError> {
         let method = raw.method.as_str();
         let needs = |key| TilingConfigError::ThinningNeeds { method, key };
+        let ignores = |key, set: bool| {
+            if set {
+                Err(TilingConfigError::ThinningIgnores { method, key })
+            } else {
+                Ok(())
+            }
+        };
         let method = match raw.method {
             MethodName::Grid => {
+                ignores("distance", raw.distance.is_some())?;
                 let size = raw.size.ok_or_else(|| needs("size"))?;
                 if size.get() <= 0.0 {
                     return Err(TilingConfigError::GridSizeNotPositive);
@@ -258,9 +288,26 @@ impl TryFrom<RawThinning> for Thinning {
                 let limit = raw.limit.ok_or_else(|| needs("limit"))?;
                 ThinningMethod::Grid { size, limit }
             }
+            MethodName::Distance => {
+                ignores("size", raw.size.is_some())?;
+                ignores("limit", raw.limit.is_some())?;
+                ThinningMethod::Distance {
+                    distance: raw.distance.ok_or_else(|| needs("distance"))?,
+                }
+            }
+            MethodName::Tile => {
+                ignores("size", raw.size.is_some())?;
+                ignores("limit", raw.limit.is_some())?;
+                ignores("distance", raw.distance.is_some())?;
+                if raw.keys.is_none() {
+                    return Err(needs("keys"));
+                }
+                ThinningMethod::Tile
+            }
         };
         Ok(Self {
             method,
+            keys: raw.keys,
             zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
             unrecognized: raw.unrecognized,
         })
@@ -269,13 +316,17 @@ impl TryFrom<RawThinning> for Thinning {
 
 impl From<&Thinning> for RawThinning {
     fn from(op: &Thinning) -> Self {
-        let (method, size, limit) = match op.method {
-            ThinningMethod::Grid { size, limit } => (MethodName::Grid, Some(size), Some(limit)),
+        let (method, size, limit, distance) = match op.method {
+            ThinningMethod::Grid { size, limit } => (MethodName::Grid, Some(size), Some(limit), None),
+            ThinningMethod::Distance { distance } => (MethodName::Distance, None, None, Some(distance)),
+            ThinningMethod::Tile => (MethodName::Tile, None, None, None),
         };
         Self {
             method,
             size,
             limit,
+            distance,
+            keys: op.keys.clone(),
             minzoom: op.zooms.minzoom(),
             maxzoom: op.zooms.maxzoom(),
             unrecognized: UnrecognizedValues::default(),
@@ -427,10 +478,10 @@ mod tests {
     use indoc::indoc;
 
     use super::{ByZoomRange, Limit, MergeMulti, MultiGeometry, PerTile, Thinning, ThinningMethod};
-    use crate::config::file::tiling::NonEmpty;
     use crate::config::file::tiling::setting::Pixels;
     use crate::config::file::tiling::tests::{parse, rejection};
     use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
+    use crate::config::file::tiling::{Expr, NonEmpty};
     use crate::config::file::{CollectUnrecognizedKeys as _, UnrecognizedKeys, UnrecognizedValues};
 
     fn zooms(min: Option<u8>, max: Option<u8>) -> ZoomRange {
@@ -446,21 +497,43 @@ mod tests {
     fn every_operation_parses_with_every_option() {
         let layers = parse(indoc! {"
             pois:
-              thinning: { maxzoom: 9, method: grid, size: 64, limit: 2 }
+              thinning:
+                - { maxzoom: 9, method: grid, size: 64, limit: 2, keys: [kind] }
+                - { minzoom: 10, maxzoom: 13, method: distance, distance: 64, keys: [name, ref] }
+                - { minzoom: 14, method: tile, keys: [name] }
               merge_multi: { geometry: [point], group_by: [kind] }
               limit: { count: 200, minzoom: 3 }
         "});
+        let expr = |source: &str| Expr::new(source).expect("valid CEL");
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
             PerTile {
-                thinning: Some(ByZoomRange(NonEmpty::new(Thinning {
-                    method: ThinningMethod::Grid {
-                        size: px(64.0),
-                        limit: NonZeroU32::new(2).expect("positive"),
-                    },
-                    zooms: zooms(None, Some(9)),
-                    unrecognized: UnrecognizedValues::default(),
-                }))),
+                thinning: Some(ByZoomRange(
+                    NonEmpty::try_from_vec(vec![
+                        Thinning {
+                            method: ThinningMethod::Grid {
+                                size: px(64.0),
+                                limit: NonZeroU32::new(2).expect("positive"),
+                            },
+                            keys: Some(NonEmpty::new(expr("kind"))),
+                            zooms: zooms(None, Some(9)),
+                            unrecognized: UnrecognizedValues::default(),
+                        },
+                        Thinning {
+                            method: ThinningMethod::Distance { distance: px(64.0) },
+                            keys: NonEmpty::try_from_vec(vec![expr("name"), expr("ref")]),
+                            zooms: zooms(Some(10), Some(13)),
+                            unrecognized: UnrecognizedValues::default(),
+                        },
+                        Thinning {
+                            method: ThinningMethod::Tile,
+                            keys: Some(NonEmpty::new(expr("name"))),
+                            zooms: zooms(Some(14), None),
+                            unrecognized: UnrecognizedValues::default(),
+                        },
+                    ])
+                    .expect("three entries")
+                )),
                 merge_multi: Some(ByZoomRange(NonEmpty::new(MergeMulti {
                     geometry: Some(NonEmpty::new(MultiGeometry::Point)),
                     group_by: NonEmpty::new("kind".to_owned()),
@@ -618,10 +691,34 @@ mod tests {
     }
 
     #[test]
-    fn thinning_method_must_be_grid() {
+    fn thinning_method_is_grid_distance_or_tile() {
         insta::assert_snapshot!(
             rejection("pois: { thinning: { method: cluster } }"),
-            @"error: line 1 column 29: unknown variant `cluster`, expected one of grid"
+            @"error: line 1 column 29: unknown variant `cluster`, expected one of grid, distance, tile"
+        );
+    }
+
+    #[test]
+    fn a_thinning_distance_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: distance, distance: -1 } }"),
+            @"error: line 1 column 39: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn a_thinning_distance_needs_a_distance() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: distance, keys: [name] } }"),
+            @"error: line 1 column 19: `method: distance` needs `distance`"
+        );
+    }
+
+    #[test]
+    fn a_thinning_distance_rejects_a_grid_size() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: distance, distance: 8, size: 64 } }"),
+            @"error: line 1 column 19: `size` does not apply to `method: distance`"
         );
     }
 
@@ -650,10 +747,42 @@ mod tests {
     }
 
     #[test]
+    fn a_thinning_grid_rejects_a_distance() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: grid, size: 64, limit: 1, distance: 8 } }"),
+            @"error: line 1 column 19: `distance` does not apply to `method: grid`"
+        );
+    }
+
+    #[test]
+    fn a_tile_thinning_needs_keys() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: tile } }"),
+            @"error: line 1 column 19: `method: tile` needs `keys`"
+        );
+    }
+
+    #[test]
     fn a_limit_count_cannot_be_negative() {
         insta::assert_snapshot!(
             rejection("pois: { limit: -1 }"),
             @"error: line 1 column 9: invalid value: integer `-1`, expected a feature count, 0 or more, or a map with `count`"
+        );
+    }
+
+    #[test]
+    fn thinning_keys_cannot_be_empty() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: tile, keys: [] } }"),
+            @"error: line 1 column 35: invalid length 0, expected at least one item"
+        );
+    }
+
+    #[test]
+    fn thinning_keys_must_be_valid_cel() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: tile, keys: ['name +'] } }"),
+            @"error: line 1 column 42: `name +` is not a valid CEL expression: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}"
         );
     }
 

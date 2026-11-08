@@ -19,7 +19,8 @@ use cel::common::types::CelNull;
 pub use crate::expr::compile::ExprError;
 pub(crate) use crate::expr::compile::{CompiledExpr, eval_part};
 pub(crate) use crate::expr::pushdown::condition_of;
-pub use crate::expr::role::{Attr, ExprRef, Filter, Id, Role, SortBy, Zoom};
+pub use crate::expr::role::{Attr, ExprRef, Filter, Id, Role, SortBy, ThinningKey, Zoom};
+pub(crate) use crate::expr::sort::SortValue;
 pub(crate) use crate::expr::unparse::Cel;
 pub(crate) use crate::expr::view::{ExprKeys, FeatureView, PropSlots};
 

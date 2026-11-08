@@ -29,6 +29,18 @@ pub struct Id;
 #[derive(Clone, Copy, Debug)]
 pub struct Attr;
 
+/// A `thinning` key: any scalar, compared by type and value.
+#[derive(Clone, Copy, Debug)]
+pub struct ThinningKey;
+
+impl Role for ThinningKey {
+    type Out = SortValue;
+
+    fn coerce(&self, value: Value) -> Result<SortValue, ExecutionError> {
+        to_sort(value)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct SortBy {
     pub descending: bool,

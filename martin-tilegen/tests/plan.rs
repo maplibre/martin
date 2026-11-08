@@ -4,7 +4,7 @@
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter, RuleDef,
-    SortDef, TableDef, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
+    SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -123,6 +123,32 @@ fn accepts_a_group_by_attribute_of_an_operation_outside_the_layer_zooms() {
         }],
     }])
     .unwrap();
+}
+
+#[test]
+fn rejects_a_thinning_key_reading_a_property_the_layer_does_not_write() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("ref".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Tile,
+                    keys: vec!["name".to_owned(), "ref".to_owned()],
+                },
+            }],
+            ..LayerDef::new("labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `labels`: `ref` references unknown property `ref`"
+    );
 }
 
 #[test]

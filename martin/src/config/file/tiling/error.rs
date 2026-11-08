@@ -41,6 +41,12 @@ pub enum TilingConfigError {
     GridSizeNotPositive,
     #[error("`method: {method}` needs `{key}`")]
     ThinningNeeds { method: &'static str, key: &'static str },
+    #[error("`{key}` does not apply to `method: {method}`")]
+    ThinningIgnores { method: &'static str, key: &'static str },
+    #[error(
+        "a rule's `thinning` can only be a `method: grid` without `keys`; other methods and keys apply to the whole layer"
+    )]
+    RuleThinningNotGrid,
     #[error("table `{table}`: `{key}` is a layer key; move it under one of `layers`")]
     PerTileOnTable { table: String, key: &'static str },
     #[error("`{key}` acts on a whole tile, so it is set on the layer, not in a rule")]

@@ -88,6 +88,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
             encoding,
             order: TileOrder::Tms,
             mvt_keep_unused_keys: false,
+            exprs: None,
         };
         group.bench_function(name, |b| {
             b.iter_batched(
