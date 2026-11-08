@@ -110,7 +110,7 @@ json:
         - Washington, D.C.
         - Ürümqi
         - Ōsaka
-agg_tiles_hash: 84792BF4EE9AEDDC5B1A60E707011FEE
+agg_tiles_hash: 08934F8E3E58DED510920E1DE6F4E78F
 tile_info:
   format: mvt
   encoding: gzip

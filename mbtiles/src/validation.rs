@@ -349,6 +349,20 @@ impl Mbtiles {
         self.get_metadata_value(&mut *conn, AGG_TILES_HASH).await
     }
 
+    /// The stored `agg_tiles_hash`, or a freshly computed one if it is missing or `recompute` is set.
+    /// Never writes the computed value back.
+    pub async fn resolve_agg_tiles_hash<T>(&self, conn: &mut T, recompute: bool) -> MbtResult<String>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        if !recompute && let Some(hash) = self.get_agg_tiles_hash(&mut *conn).await? {
+            return Ok(hash);
+        }
+        info!(mbtiles.file = %self, "Computing agg_tiles_hash, this may take a while for large files");
+        let algorithm = self.get_hash_algorithm(&mut *conn).await?;
+        calc_agg_tiles_hash(&mut *conn, algorithm).await
+    }
+
     /// tile-hashing algorithm from the metadata table. a missing [`HASH_ALGORITHM`]
     /// means [`HashAlgorithm::Md5`] (it was always md5 and never stored); an explicit
     /// but unknown value gives [`MbtError::UnsupportedHashAlgorithm`] rather than
@@ -1004,15 +1018,7 @@ LIMIT 1;"
     }
 
     pub fn assert_hashes(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
-        if info.agg_tiles_hash.is_none() {
-            if !force {
-                return Err(MbtError::CannotDiffFileWithoutHash(self.filepath().to_owned()));
-            }
-            warn!(
-                mbtiles.file = %self,
-                "File has no agg_tiles_hash metadata field, probably because it was created by an older version of the `mbtiles` tool. Run `mbtiles validate --agg-hash update <file>` to update the value"
-            );
-        } else if info.agg_tiles_hash_before_apply.is_some() || info.agg_tiles_hash_after_apply.is_some() {
+        if info.agg_tiles_hash_before_apply.is_some() || info.agg_tiles_hash_after_apply.is_some() {
             if !force {
                 return Err(MbtError::DiffingDiffFile(self.filepath().to_owned()));
             }
@@ -1025,6 +1031,12 @@ LIMIT 1;"
     }
 
     pub fn validate_diff_info(&self, info: &PatchFileInfo, force: bool) -> MbtResult<()> {
+        if info.agg_tiles_hash.is_none() {
+            if !force {
+                return Err(MbtError::PatchFileHasNoAggHash(self.filepath().to_owned()));
+            }
+            warn!(mbtiles.file = %self, "Patch file has no agg_tiles_hash metadata field");
+        }
         match (&info.agg_tiles_hash_before_apply, &info.agg_tiles_hash_after_apply) {
             (Some(before), Some(after)) => {
                 info!(

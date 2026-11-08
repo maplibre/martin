@@ -151,11 +151,6 @@ pub enum MbtError {
     MetadataSetAndDeleted(String),
 
     #[error(
-        "A file {0} does not have an {AGG_TILES_HASH} metadata entry, probably because it was not created by this tool. Use `--force` to ignore this warning, or run this to update hash value: `mbtiles validate --agg-hash update {0}`"
-    )]
-    CannotDiffFileWithoutHash(String),
-
-    #[error(
         "File {0} has {AGG_TILES_HASH_BEFORE_APPLY} or {AGG_TILES_HASH_AFTER_APPLY} metadata entry, indicating it is a patch file which should not be diffed with another file.  Use `--force` to ignore this warning."
     )]
     DiffingDiffFile(String),
@@ -169,6 +164,11 @@ pub enum MbtError {
         "A file {0} does not have {AGG_TILES_HASH_BEFORE_APPLY} metadata, probably because it was created by an older version of the `mbtiles` tool.  Use `--force` to ignore this warning, but ensure you are applying the patch to the right file."
     )]
     PatchFileHasNoBeforeHash(String),
+
+    #[error(
+        "Patch file {0} has no {AGG_TILES_HASH} metadata entry, so its own content cannot be verified.  Use `--force` to ignore this warning."
+    )]
+    PatchFileHasNoAggHash(String),
 
     #[error(
         "The {AGG_TILES_HASH_BEFORE_APPLY}='{before_apply_hash}' in patch file {patch_file} does not match {AGG_TILES_HASH}='{agg_hash}' in the file {file}"
