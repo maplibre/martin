@@ -356,8 +356,17 @@ A rule may set its own grid `thinning` for the features it takes, without `keys`
 grid, or `null` to turn the grid off for them. `distance` and `tile` thinning see every feature of the
 layer; to spare some features, give them a key of only `null`s.
 
-`distance` places each feature at a representative point: a point itself, the middle of a line's longest
-part, or a point inside a polygon.
+`distance` places each feature at a representative point of what the tile holds of it, in the tile and its
+buffer: a point itself, the middle of a line's longest part, or a point inside a polygon. A line crossing a
+tile edge has a different one in each tile. Features on either side of a tile edge crowd each other out
+the same way in both tiles only when the layer's `buffer` is at least `distance` pixels.
+
+--8<-- "images/generate/per-tile-thinning-distance.svg"
+
+`tile` keeps the first feature of each key in the tile and its buffer. That can be a feature that only
+reaches into the buffer, which leaves no feature of its key inside the tile.
+
+--8<-- "images/generate/per-tile-thinning-tile.svg"
 
 Unlike `where`, `id` and attribute expressions, which read the source's properties, `keys` read the
 feature's output attributes at this zoom by their output names, after `attributes`, `rules` and each
