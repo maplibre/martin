@@ -14,7 +14,7 @@
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [ ] `geometry` other than `point`, `line` and `polygon`
-> - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
@@ -133,9 +133,9 @@ When one batch is slow, for example a dense city at a high zoom, the other encod
 
 ### Repeated tiles
 
-Each encoder assembles the tile's layers from its records, encodes them as MLT or MVT, and compresses the result. It also avoids work and storage for repeated tiles:
+Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`, runs the layer's [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) on them, encodes them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile. It also avoids work and storage for repeated tiles:
 
-- A tile with the same records as the encoder's previous tile reuses its bytes without encoding. Neighboring tiles in the archive order are often identical, for example the inside of a large polygon.
+- A tile with the same records as the encoder's previous tile of the same zoom reuses its bytes without encoding. The operations depend only on the records and the zoom, so the bytes are the same. Neighboring tiles in the archive order are often identical, for example the inside of a large polygon.
 - A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all encoders. The index only hands out a key for bytes equal to the first tile with that hash.
 
 The archive stores tiles with the same dedup key once. Other identical tiles are stored separately.
