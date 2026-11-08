@@ -34,7 +34,7 @@ See [Generating Tiles in Bulk](martin-cp.md).
 
 ### `mbtiles` is released separately
 
-The Martin release archives, Debian package and Homebrew formula contain only `martin`.
+The Martin release archives and Debian package contain only `martin`.
 Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](https://github.com/maplibre/martin/releases?q=mbtiles-v&expanded=true), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
 
 See [MBTiles tool](mbtiles/index.md).
