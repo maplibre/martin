@@ -10,4 +10,5 @@
     - [x] Layers with CEL expressions, `rules` and `sort_by`
     - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
     - [ ] `geometry` other than `point`, `line` and `polygon`
-    - [x] [Per-tile operations](sources-pg-layers.md#per-tile-operations) (`limit`)
+    - [x] [Per-tile operations](sources-pg-layers.md#per-tile-operations) (`thinning`,
+      `limit`)

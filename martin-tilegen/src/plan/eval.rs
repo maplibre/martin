@@ -357,6 +357,7 @@ impl Evaluator<'_> {
                     zooms,
                     simplify: case.simplify,
                     min_size: case.min_size,
+                    thinning_grid: &case.thinning_grid,
                 },
             })?;
         }
@@ -400,6 +401,7 @@ impl Debug for LayerFeature<'_> {
             zooms,
             simplify,
             min_size,
+            thinning_grid: _,
         } = &self.feature;
         let bands: Vec<_> = bands
             .iter()

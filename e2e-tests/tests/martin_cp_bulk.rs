@@ -1933,6 +1933,8 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      thinning:
+                        - { minzoom: 1, method: grid, size: 64, limit: 2 }
                       limit: 5
         "},
     )
@@ -1967,7 +1969,10 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("one.pmtiles"), &one).await;
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
-    insta::assert_snapshot!(logs[0], @" INFO Ran `limit` layer.id=merged tiles=1182 features.input=3951 features.output=3535");
+    insta::assert_snapshot!(logs[0], @"
+    INFO Ran `thinning` layer.id=merged tiles=90 features.input=797 features.output=677
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3831 features.output=3499
+    ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
     layer merged extent 4096
@@ -2009,6 +2014,8 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
+                      thinning:
+                        - { minzoom: 1, method: grid, size: 64, limit: 2 }
                       limit: 5
         "},
     )
@@ -2058,11 +2065,10 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 558,
+        "line": 559,
         "multi-line": 7,
-        "multi-point": 6,
         "multi-polygon": 3,
-        "point": 211,
+        "point": 180,
         "polygon": 2750,
     }
     "#);

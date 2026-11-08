@@ -72,7 +72,7 @@ impl LayerAssembler {
             decoded: &decoded,
             grid,
         };
-        ops.apply(features, op_scratch);
+        ops.apply(&tile, features, op_scratch)?;
 
         columns.clear();
         for feature in features.iter() {
@@ -202,8 +202,8 @@ fn scalar<'a>(value: &PropValue) -> Option<PropValueRef<'a>> {
 /// A single geometry unless the feature's pieces made several of them.
 fn geometry_type(kind: GeomKind, geom: &GeomBuf) -> GeometryType {
     match kind {
-        GeomKind::Point if geom.vertices.len() == 1 => GeometryType::Point,
-        GeomKind::Point => GeometryType::MultiPoint,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } if geom.vertices.len() == 1 => GeometryType::Point,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => GeometryType::MultiPoint,
         GeomKind::Line if geom.parts.len() == 1 => GeometryType::LineString,
         GeomKind::Line => GeometryType::MultiLineString,
         GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } if geom.polygons.len() == 1 => {
@@ -225,7 +225,7 @@ fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &Ge
         part
     });
     match kind {
-        GeomKind::Point => {
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => {
             feature.points(coords(&geom.vertices))?;
         }
         GeomKind::Line => {

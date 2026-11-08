@@ -3,11 +3,13 @@
 pub mod project;
 mod render;
 mod simplify;
+mod thinning_grid;
 mod touch;
 
 use geo_types::Coord;
 use martin_tile_utils::TileRect;
 
+pub(crate) use crate::phase1::render::TILE_PIXELS;
 pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 use crate::phase1::render::{Renderer, SliceErrors};
 use crate::phase2::{LayerOpCounts, OpKind, TileEncoder};
@@ -205,6 +207,9 @@ fn op_summaries(plan: &Plan, totals: &[LayerOpCounts]) -> Vec<OpSummary> {
         .flat_map(|(index, layer)| {
             let counts = totals.get(index).unwrap_or(&none);
             let mut ops: Vec<OpKind> = layer.info.per_tile.iter().map(|op| op.op.kind()).collect();
+            if layer.has_thinning_grid() {
+                ops.push(OpKind::Thinning);
+            }
             ops.sort_unstable();
             ops.dedup();
             ops.into_iter().map(move |op| OpSummary {

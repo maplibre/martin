@@ -10,13 +10,15 @@ use martin_tile_utils::{TileCoord, TileRect, bbox_to_xyz};
 use tilejson::Bounds;
 
 use crate::phase1::simplify::Simplifier;
+use crate::phase1::thinning_grid;
 use crate::phase1::touch::TileBox;
+use crate::plan::ThinningGrid;
 use crate::sort::record::{EncodedProps, Geom, Vertex, encode};
 use crate::sort::{LayerId, Seq, SortBuffer, SortKey};
 use crate::{LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
 
 /// Simplification and size thresholds are in pixels of a 256-pixel tile, as in Planetiler.
-const TILE_PIXELS: f64 = 256.0;
+pub(crate) const TILE_PIXELS: f64 = 256.0;
 
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
@@ -63,6 +65,8 @@ pub struct Feature<'a> {
     /// Lines and polygons whose bounding box is smaller than this are dropped. Size only shrinks with
     /// zoom, so a dropped feature stays dropped.
     pub min_size: PixelThreshold,
+    /// The grid thinning at each zoom it covers, one per zoom at most; points rendered there carry their square.
+    pub thinning_grid: &'a [ThinningGrid],
 }
 
 #[derive(Clone, Copy)]
@@ -335,6 +339,8 @@ pub struct Renderer {
     reached: Vec<map_tile_toolkit::TileId>,
     /// Each tile a point reaches, with the index of its rounded vertex in `vertices`.
     points: Vec<(i32, i32, usize)>,
+    /// The label grid group of each of `vertices`, when the feature's points are gridded at this zoom.
+    groups: Vec<u64>,
     /// Fill runs as `(x_start, x_end, y)`, and the tile-id ranges they become.
     runs: Vec<(i32, i32, i32)>,
     ranges: Vec<Range<u64>>,
@@ -553,17 +559,20 @@ impl Renderer {
         let Some(window) = ctx.layer.window(zoom, columns, rows)? else {
             return Ok(());
         };
+        let thinning_grid = ctx.feature.thinning_grid.iter().find(|g| g.zooms.contains(&zoom));
         self.vertices.clear();
         self.points.clear();
+        self.groups.clear();
         for &c in points {
             let [x, y] = quantize(c, shift, world)?;
-            // Quadratic, as multipoints are usually small.
-            let index = self
-                .vertices
-                .iter()
-                .position(|v| *v == Coord { x, y })
+            let group = thinning_grid.and_then(|g| thinning_grid::group(g, zoom, grid.extent, c));
+            // Quadratic, as multipoints are usually small. Points rounded together stay apart in
+            // different label grid squares.
+            let index = (0..self.vertices.len())
+                .position(|i| self.vertices[i] == Coord { x, y } && self.groups.get(i).copied() == group)
                 .unwrap_or_else(|| {
                     self.vertices.push(Coord { x, y });
+                    self.groups.extend(group);
                     self.vertices.len() - 1
                 });
             let at = to_grid(c, shift, world);
@@ -571,21 +580,34 @@ impl Renderer {
             push_segment_tiles(at, at, grid, window, &mut self.reached)?;
             self.points.extend(self.reached.iter().map(|t| (t.x, t.y, index)));
         }
+        let gridded = thinning_grid.filter(|_| self.groups.len() == self.vertices.len());
         self.points.sort_unstable();
         self.points.dedup();
-        for group in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
-            let (tx, ty, _) = group[0];
+        for tile in self.points.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
+            let (tx, ty, _) = tile[0];
             let origin = tile_origin((tx, ty), grid)?;
             self.piece.clear();
             let local = |c: Coord<i32>| [c.x - origin.0, c.y - origin.1];
             if ctx.layer.clip_mode == ClipMode::Unclipped {
                 self.piece.vertices.extend(self.vertices.iter().map(|&c| local(c)));
+                self.piece.groups.extend_from_slice(&self.groups);
             } else {
                 self.piece
                     .vertices
-                    .extend(group.iter().map(|&(_, _, i)| local(self.vertices[i])));
+                    .extend(tile.iter().map(|&(_, _, i)| local(self.vertices[i])));
+                if gridded.is_some() {
+                    self.piece.groups.extend(tile.iter().map(|&(_, _, i)| self.groups[i]));
+                }
             }
-            ctx.push(zoom, tx, ty, Geom::Points(&self.piece.vertices), out)?;
+            let geom = match gridded {
+                Some(g) => Geom::GriddedPoints {
+                    groups: &self.piece.groups,
+                    vertices: &self.piece.vertices,
+                    limit: g.limit.get(),
+                },
+                None => Geom::Points(&self.piece.vertices),
+            };
+            ctx.push(zoom, tx, ty, geom, out)?;
         }
         Ok(())
     }
@@ -1139,6 +1161,8 @@ enum PieceKind {
 /// One tile's piece of a feature, shaped like [`Rings`] with tile-local vertices.
 #[derive(Default)]
 struct PieceBuf {
+    /// The label grid group of each of `vertices`, for gridded points.
+    groups: Vec<u64>,
     polys: Vec<u32>,
     parts: Vec<u32>,
     vertices: Vec<Vertex>,
@@ -1146,6 +1170,7 @@ struct PieceBuf {
 
 impl PieceBuf {
     fn clear(&mut self) {
+        self.groups.clear();
         self.polys.clear();
         self.parts.clear();
         self.vertices.clear();
@@ -1456,6 +1481,7 @@ fn union(a: Rect<f64>, b: Rect<f64>) -> Rect<f64> {
 #[cfg(test)]
 mod tests {
     use std::f64::consts::TAU;
+    use std::num::NonZeroU32;
 
     use geo::SimplifyIdx as _;
     use geo_types::coord;
@@ -1481,6 +1507,7 @@ mod tests {
                 zooms: layer.zooms.clone(),
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                thinning_grid: &[],
             },
         )
     }
@@ -1547,6 +1574,7 @@ mod tests {
             zooms: layer.zooms.clone(),
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+            thinning_grid: &[],
         };
         let records = render_in(order, layer, &feature);
         let mut tiles = Vec::new();
@@ -1554,7 +1582,7 @@ mod tests {
             let ids = match kind {
                 GeomKind::FillRange { end } => *id..*end,
                 GeomKind::Polygon => *id..*id + 1,
-                other @ (GeomKind::Point | GeomKind::Line | GeomKind::Fill) => {
+                other @ (GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Fill) => {
                     panic!("unexpected {other:?}")
                 }
             };
@@ -1565,6 +1593,85 @@ mod tests {
         }
         tiles.sort_unstable();
         (tiles, records.len())
+    }
+
+    #[test]
+    fn gridded_points_carry_the_group_planetiler_gives_them() {
+        let cases = [
+            (0, 64.0, 0.5, 0.5, 8_589_934_594),
+            (14, 64.0, 0.123_456_789, 0.987_654_321, 34_746_285_489_366),
+            (14, 64.0, 0.999_999_999, 0.000_000_001, 281_470_681_743_360),
+            (3, 256.0, -0.25, 0.75, 25_769_803_782),
+            (5, 32.0, 1.25, 0.3, 274_877_907_020),
+            (10, 1.0, 0.500_000_1, 0.499_999_9, 562_949_953_552_383),
+            (20, 128.0, 0.3, 0.6, 2_702_157_200_700_211),
+        ];
+        for (zoom, size, x, y, expected) in cases {
+            let layer = RenderLayer::new(0, zoom..=zoom, GRID).unwrap();
+            let grid = [ThinningGrid {
+                zooms: zoom..=zoom,
+                size,
+                limit: NonZeroU32::new(3).unwrap(),
+            }];
+            let tiles = render_feature(
+                &layer,
+                &Feature {
+                    id: Some(1),
+                    geom: FeatureGeom::Points(&[coord! { x: x, y: y }]),
+                    props: &EncodedProps::default(),
+                    bands: &[],
+                    sort: None,
+                    zooms: layer.zooms.clone(),
+                    simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                    min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                    thinning_grid: &grid,
+                },
+            );
+            assert!(!tiles.is_empty(), "z{zoom} ({x}, {y}) is rendered");
+            for (tile, kind, geom) in tiles {
+                assert_eq!(kind, GeomKind::GriddedPoint { limit: 3 }, "z{zoom} {tile}");
+                assert_eq!(geom.groups, [expected], "z{zoom} {tile}");
+            }
+        }
+    }
+
+    #[test]
+    fn points_are_not_gridded_outside_the_grid_zooms_or_in_squares_below_one_tile_unit() {
+        let grid = [
+            ThinningGrid {
+                zooms: 7..=7,
+                size: 0.05,
+                limit: NonZeroU32::new(1).unwrap(),
+            },
+            ThinningGrid {
+                zooms: 8..=8,
+                size: 64.0,
+                limit: NonZeroU32::new(1).unwrap(),
+            },
+        ];
+        let tiles = render_feature(
+            &RenderLayer::new(0, 6..=8, GRID).unwrap(),
+            &Feature {
+                id: Some(1),
+                geom: FeatureGeom::Points(&[coord! { x: 0.3, y: 0.3 }]),
+                props: &EncodedProps::default(),
+                bands: &[],
+                sort: None,
+                zooms: 6..=8,
+                simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                thinning_grid: &grid,
+            },
+        );
+        let kinds: Vec<_> = tiles.iter().map(|(tile, kind, _)| (tile.as_str(), *kind)).collect();
+        assert_eq!(
+            kinds,
+            [
+                ("6/19/19", GeomKind::Point),
+                ("7/38/38", GeomKind::Point),
+                ("8/76/76", GeomKind::GriddedPoint { limit: 1 }),
+            ]
+        );
     }
 
     #[test]
@@ -1726,6 +1833,7 @@ mod tests {
                     at_max_zoom: 10.0,
                 },
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         let found: Vec<_> = tiles.iter().map(|t| (t.0.as_str(), t.2.vertices.clone())).collect();
@@ -1810,6 +1918,7 @@ mod tests {
                     at_max_zoom: 450.0,
                 },
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles[0].2.vertices.len(), 4);
@@ -1898,6 +2007,7 @@ mod tests {
                 zooms: 0..=8,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         let z0 = tiles.iter().find(|t| t.0.starts_with("0/")).unwrap();
@@ -1972,6 +2082,7 @@ mod tests {
                 zooms: 0..=14,
                 simplify,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             };
             let mut per_zoom = Vec::new();
             for zoom in 0..=14 {
@@ -2024,6 +2135,7 @@ mod tests {
                     at_max_zoom: 2.0,
                 },
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.len(), 1);
@@ -2093,6 +2205,7 @@ mod tests {
                 zooms: layer.zooms.clone(),
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         )
         .into_iter()
@@ -2190,6 +2303,7 @@ mod tests {
                 zooms: 4..=4,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                thinning_grid: &[],
             },
         );
         for (_, kind, geom) in records.iter().filter(|r| r.1 == GeomKind::Polygon) {
@@ -2235,6 +2349,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2262,6 +2377,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2289,6 +2405,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2320,6 +2437,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2358,6 +2476,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2390,6 +2509,7 @@ mod tests {
                 zooms: 1..=1,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 2);
@@ -2431,6 +2551,7 @@ mod tests {
                 zooms: 1..=1,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         let mut starts: Vec<_> = records.iter().map(|record| record.2.vertices.clone()).collect();
@@ -2472,6 +2593,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2510,6 +2632,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2548,6 +2671,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(records.len(), 1);
@@ -2579,6 +2703,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.len(), 1);
@@ -2604,6 +2729,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.len(), 1);
@@ -2628,6 +2754,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.len(), 1);
@@ -2660,6 +2787,7 @@ mod tests {
                 zooms: 0..=0,
                 simplify: PixelThreshold::ZERO,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.len(), 1);
@@ -2683,6 +2811,7 @@ mod tests {
                 zooms: 1..=1,
                 simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                 min_size: PixelThreshold::ZERO,
+                thinning_grid: &[],
             },
         );
         assert_eq!(tiles.iter().map(|t| t.0.as_str()).collect::<Vec<_>>(), ["1/0/0"]);
@@ -2828,6 +2957,7 @@ mod tests {
                     zooms: 0..=2,
                     simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                     min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                    thinning_grid: &[],
                 },
                 &mut buffer,
             )
@@ -2906,6 +3036,7 @@ mod tests {
             zooms: 0..=u8::MAX,
             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+            thinning_grid: &[],
         };
         let ctx = Ctx {
             order: TileOrder::Tms,
