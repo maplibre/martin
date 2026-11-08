@@ -32,7 +32,7 @@ pub struct RuleSettings {
     pub simplify: Option<Pixels>,
     pub min_size: Option<Pixels>,
     pub attributes: IndexMap<String, ValueSpec>,
-    /// Replaces the layer's `per_tile.label_grid` for the features the rule takes.
+    /// Replaces the layer's `label_grid` for the features the rule takes.
     pub label_grid: Option<RuleLabelGrid>,
     pub unrecognized: UnrecognizedValues,
 }

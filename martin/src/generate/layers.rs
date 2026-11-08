@@ -186,7 +186,7 @@ fn lower_layer(
             .per_tile
             .label_grid
             .as_ref()
-            .map_or_else(Vec::new, |label_grid| grids.lower(label_grid, "per_tile.label_grid")),
+            .map_or_else(Vec::new, |label_grid| grids.lower(label_grid, "label_grid")),
     }))
 }
 
@@ -1299,9 +1299,9 @@ mod tests {
                 })
                 .collect();
             insta::assert_snapshot!(warnings.join("\n"), @"
-            Skipping `per_tile.label_grid` of layer `pois` in source `roads_source`: it has no zoom between 4 and 12
-            `per_tile.label_grid` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
-            `per_tile.label_grid` of layer `roads` in source `roads_source` only limits points, and the layer has none
+            Skipping `label_grid` of layer `pois` in source `roads_source`: it has no zoom between 4 and 12
+            `label_grid` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
+            `label_grid` of layer `roads` in source `roads_source` only limits points, and the layer has none
             ");
             Ok(())
         });
