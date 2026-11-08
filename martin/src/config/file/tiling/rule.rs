@@ -5,6 +5,7 @@ use serde::de::value::SeqAccessDeserializer;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::config::file::tiling::PerTile;
 use crate::config::file::tiling::error::TilingConfigError;
 use crate::config::file::tiling::primitives::{Expr, NonEmpty};
 use crate::config::file::tiling::setting::{Pixels, ZoomSetting, fixed_zoom_range};
@@ -50,8 +51,11 @@ struct RawRule {
 
 impl RawRule {
     fn split(self) -> Result<(Option<Expr>, RuleSettings), TilingConfigError> {
-        if self.unrecognized.contains_key("per_tile") {
-            return Err(TilingConfigError::PerTileInRule);
+        if let Some(key) = PerTile::KEYS
+            .into_iter()
+            .find(|key| self.unrecognized.contains_key(*key))
+        {
+            return Err(TilingConfigError::PerTileInRule { key });
         }
         fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref())?;
         let settings = RuleSettings {
@@ -239,8 +243,8 @@ mod tests {
     #[test]
     fn a_rule_cannot_set_per_tile() {
         insta::assert_snapshot!(
-            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", per_tile: { limit: 5 } } ] }"),
-            @"error: line 1 column 15: `per_tile` acts on a whole tile, so it is set on the layer, not in a rule"
+            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", limit: { count: 5 } } ] }"),
+            @"error: line 1 column 15: `limit` acts on a whole tile, so it is set on the layer, not in a rule"
         );
     }
 

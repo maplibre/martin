@@ -39,8 +39,8 @@ pub enum TilingConfigError {
     },
     #[error("`size` must be more than 0 pixels")]
     GridSizeNotPositive,
-    #[error("table `{0}`: `per_tile` is a layer key; move it under one of `layers`")]
-    PerTileOnTable(String),
-    #[error("`per_tile` acts on a whole tile, so it is set on the layer, not in a rule")]
-    PerTileInRule,
+    #[error("table `{table}`: `{key}` is a layer key; move it under one of `layers`")]
+    PerTileOnTable { table: String, key: &'static str },
+    #[error("`{key}` acts on a whole tile, so it is set on the layer, not in a rule")]
+    PerTileInRule { key: &'static str },
 }

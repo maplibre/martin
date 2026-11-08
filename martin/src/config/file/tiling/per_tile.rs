@@ -12,10 +12,8 @@ use crate::config::file::tiling::setting::Pixels;
 use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
 
-/// The `per_tile` operations of a layer, each run on all of the layer's features in one tile.
-#[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// The per-tile operations of a layer, each run on all of the layer's features in one tile.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PerTile {
     /// Keeps at most `limit` points per grid square.
     pub label_grid: Option<ByZoomRange<LabelGrid>>,
@@ -32,10 +30,15 @@ pub struct PerTile {
 }
 
 impl PerTile {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        *self == Self::default()
-    }
+    /// The layer keys naming a per-tile operation.
+    pub const KEYS: [&str; 6] = [
+        "label_grid",
+        "merge_lines",
+        "merge_polygons",
+        "dedup_by",
+        "merge_multi",
+        "limit",
+    ];
 }
 
 impl CollectUnrecognizedKeys for PerTile {
@@ -566,13 +569,12 @@ mod tests {
     fn every_operation_parses_with_every_option() {
         let layers = parse(indoc! {"
             pois:
-              per_tile:
-                label_grid: { maxzoom: 14, size: 64, limit: 2 }
-                merge_lines: { min_length: 1, tolerance: 0.5, buffer: 4, group_by: [class] }
-                merge_polygons: { min_area: 4, min_hole_area: 1, distance: 0.5, buffer: 4, group_by: [kind] }
-                dedup_by: { keys: [name, ref], distance: 64 }
-                merge_multi: { geometry: [point], group_by: [kind] }
-                limit: { count: 200, minzoom: 3 }
+              label_grid: { maxzoom: 14, size: 64, limit: 2 }
+              merge_lines: { min_length: 1, tolerance: 0.5, buffer: 4, group_by: [class] }
+              merge_polygons: { min_area: 4, min_hole_area: 1, distance: 0.5, buffer: 4, group_by: [kind] }
+              dedup_by: { keys: [name, ref], distance: 64 }
+              merge_multi: { geometry: [point], group_by: [kind] }
+              limit: { count: 200, minzoom: 3 }
         "});
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
@@ -626,8 +628,7 @@ mod tests {
     fn a_bare_limit_is_its_count() {
         let layers = parse(indoc! {"
             pois:
-              per_tile:
-                limit: 100
+              limit: 100
         "});
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
@@ -646,8 +647,7 @@ mod tests {
     fn a_limit_of_zero_is_allowed() {
         let layers = parse(indoc! {"
             pois:
-              per_tile:
-                limit: { count: 0 }
+              limit: { count: 0 }
         "});
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
@@ -666,8 +666,7 @@ mod tests {
     fn an_empty_map_takes_every_default() {
         let layers = parse(indoc! {"
             pois:
-              per_tile:
-                merge_multi: {}
+              merge_multi: {}
         "});
         assert_eq!(
             layers.get("pois").expect("layer exists").per_tile,
@@ -682,10 +681,9 @@ mod tests {
     fn a_list_sets_an_operation_per_zoom_range() {
         let layers = parse(indoc! {"
             roads:
-              per_tile:
-                merge_lines:
-                  - { maxzoom: 10, min_length: 1 }
-                  - { minzoom: 11, maxzoom: 13, min_length: 0.25 }
+              merge_lines:
+                - { maxzoom: 10, min_length: 1 }
+                - { minzoom: 11, maxzoom: 13, min_length: 0.25 }
         "});
         assert_eq!(
             layers.get("roads").expect("layer exists").per_tile,
@@ -714,55 +712,35 @@ mod tests {
     fn unknown_options_are_collected_per_entry() {
         let layers = parse(indoc! {"
             roads:
-              per_tile:
-                merge_lines:
-                  - { maxzoom: 10, colour: red }
-                  - { minzoom: 11 }
-                limit: { count: 5, sort: rank }
+              merge_lines:
+                - { maxzoom: 10, colour: red }
+                - { minzoom: 11 }
+              limit: { count: 5, sort: rank }
         "});
         let mut unrecognized = UnrecognizedKeys::new();
         layers
             .get("roads")
             .expect("layer exists")
             .per_tile
-            .collect_unrecognized("roads.per_tile.", &mut unrecognized);
+            .collect_unrecognized("roads.", &mut unrecognized);
         let mut keys: Vec<_> = unrecognized.into_iter().collect();
         keys.sort();
-        assert_eq!(
-            keys,
-            ["roads.per_tile.limit.sort", "roads.per_tile.merge_lines[0].colour"]
-        );
-    }
-
-    #[test]
-    fn per_tile_must_be_a_map() {
-        insta::assert_snapshot!(
-            rejection("roads: { per_tile: [limit] }"),
-            @"error: line 1 column 20: expected mapping start"
-        );
-    }
-
-    #[test]
-    fn an_unknown_operation_is_rejected() {
-        insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_points: {} } }"),
-            @"error: line 1 column 22: unknown field `merge_points`, expected one of label_grid, merge_lines, merge_polygons, dedup_by, merge_multi, limit"
-        );
+        assert_eq!(keys, ["roads.limit.sort", "roads.merge_lines[0].colour"]);
     }
 
     #[test]
     fn an_operation_must_be_a_map_or_a_list_of_maps() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: 3 } }"),
-            @"error: line 1 column 22: invalid type: integer `3`, expected a map"
+            rejection("roads: { merge_lines: 3 }"),
+            @"error: line 1 column 10: invalid type: integer `3`, expected a map"
         );
     }
 
     #[test]
     fn an_operation_list_cannot_be_empty() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: [] } }"),
-            @"error: line 1 column 22: invalid length 0, expected at least one item"
+            rejection("roads: { merge_lines: [] }"),
+            @"error: line 1 column 10: invalid length 0, expected at least one item"
         );
     }
 
@@ -771,148 +749,147 @@ mod tests {
         insta::assert_snapshot!(
             rejection(indoc! {"
                 roads:
-                  per_tile:
-                    merge_lines:
-                      - { maxzoom: 10 }
-                      - { minzoom: 10, maxzoom: 13 }
+                  merge_lines:
+                    - { maxzoom: 10 }
+                    - { minzoom: 10, maxzoom: 13 }
             "}),
-            @"error: line 4 column 7: zooms 0..=10 and 10..=13 overlap; at each zoom at most one entry may run"
+            @"error: line 3 column 5: zooms 0..=10 and 10..=13 overlap; at each zoom at most one entry may run"
         );
     }
 
     #[test]
     fn minzoom_cannot_exceed_maxzoom() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: { minzoom: 14, maxzoom: 12 } } }"),
-            @"error: line 1 column 35: minzoom 14 is above maxzoom 12"
+            rejection("roads: { merge_lines: { minzoom: 14, maxzoom: 12 } }"),
+            @"error: line 1 column 23: minzoom 14 is above maxzoom 12"
         );
     }
 
     #[test]
     fn a_zoom_cannot_exceed_30() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { limit: { count: 5, maxzoom: 31 } } }"),
-            @"error: line 1 column 41: invalid value: integer `31`, expected a zoom from 0 to 30"
+            rejection("roads: { limit: { count: 5, maxzoom: 31 } }"),
+            @"error: line 1 column 29: invalid value: integer `31`, expected a zoom from 0 to 30"
         );
     }
 
     #[test]
     fn merge_lines_min_length_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: { min_length: -1 } } }"),
-            @"error: line 1 column 37: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("roads: { merge_lines: { min_length: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn merge_lines_tolerance_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: { tolerance: -1 } } }"),
-            @"error: line 1 column 37: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("roads: { merge_lines: { tolerance: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn merge_lines_buffer_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("roads: { per_tile: { merge_lines: { buffer: -1 } } }"),
-            @"error: line 1 column 37: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("roads: { merge_lines: { buffer: -1 } }"),
+            @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn merge_polygons_min_area_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("water: { per_tile: { merge_polygons: { min_area: -1 } } }"),
-            @"error: line 1 column 40: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("water: { merge_polygons: { min_area: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn merge_polygons_min_hole_area_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("water: { per_tile: { merge_polygons: { min_hole_area: -1 } } }"),
-            @"error: line 1 column 40: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("water: { merge_polygons: { min_hole_area: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn merge_polygons_distance_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("water: { per_tile: { merge_polygons: { distance: -1 } } }"),
-            @"error: line 1 column 40: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("water: { merge_polygons: { distance: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn dedup_by_distance_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { dedup_by: { keys: [name], distance: -1 } } }"),
-            @"error: line 1 column 47: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+            rejection("pois: { dedup_by: { keys: [name], distance: -1 } }"),
+            @"error: line 1 column 35: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 
     #[test]
     fn a_label_grid_size_must_be_positive() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { label_grid: { size: 0, limit: 4 } } }"),
-            @"error: line 1 column 33: `size` must be more than 0 pixels"
+            rejection("pois: { label_grid: { size: 0, limit: 4 } }"),
+            @"error: line 1 column 21: `size` must be more than 0 pixels"
         );
     }
 
     #[test]
     fn a_label_grid_limit_cannot_be_zero() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { label_grid: { size: 64, limit: 0 } } }"),
-            @"error: line 1 column 45: invalid value: integer `0`, expected a nonzero u32"
+            rejection("pois: { label_grid: { size: 64, limit: 0 } }"),
+            @"error: line 1 column 33: invalid value: integer `0`, expected a nonzero u32"
         );
     }
 
     #[test]
     fn a_label_grid_needs_a_limit() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { label_grid: { size: 64 } } }"),
-            @"error: line 1 column 35: missing field `limit`"
+            rejection("pois: { label_grid: { size: 64 } }"),
+            @"error: line 1 column 23: missing field `limit`"
         );
     }
 
     #[test]
     fn a_limit_count_cannot_be_negative() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { limit: -1 } }"),
-            @"error: line 1 column 21: invalid value: integer `-1`, expected a feature count, 0 or more, or a map with `count`"
+            rejection("pois: { limit: -1 }"),
+            @"error: line 1 column 9: invalid value: integer `-1`, expected a feature count, 0 or more, or a map with `count`"
         );
     }
 
     #[test]
     fn dedup_by_needs_keys() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { dedup_by: { distance: 4 } } }"),
-            @"error: line 1 column 33: missing field `keys`"
+            rejection("pois: { dedup_by: { distance: 4 } }"),
+            @"error: line 1 column 21: missing field `keys`"
         );
     }
 
     #[test]
     fn dedup_by_keys_cannot_be_empty() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { dedup_by: { keys: [] } } }"),
-            @"error: line 1 column 33: invalid length 0, expected at least one item"
+            rejection("pois: { dedup_by: { keys: [] } }"),
+            @"error: line 1 column 21: invalid length 0, expected at least one item"
         );
     }
 
     #[test]
     fn dedup_by_keys_must_be_valid_cel() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { dedup_by: { keys: ['name +'] } } }"),
-            @"error: line 1 column 40: `name +` is not a valid CEL expression: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}"
+            rejection("pois: { dedup_by: { keys: ['name +'] } }"),
+            @"error: line 1 column 28: `name +` is not a valid CEL expression: Syntax error: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}"
         );
     }
 
     #[test]
     fn merge_multi_geometry_is_point_line_or_polygon() {
         insta::assert_snapshot!(
-            rejection("pois: { per_tile: { merge_multi: { geometry: [circle] } } }"),
-            @"error: line 1 column 47: unknown variant `circle`, expected one of point, line, polygon"
+            rejection("pois: { merge_multi: { geometry: [circle] } }"),
+            @"error: line 1 column 35: unknown variant `circle`, expected one of point, line, polygon"
         );
     }
 }

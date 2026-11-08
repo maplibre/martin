@@ -265,11 +265,11 @@ fn unsupported(layer: &Layer) -> Option<String> {
     if let Some(geometry) = geometry {
         Some(format!("`geometry: {geometry}`"))
     } else {
-        op.map(|op| format!("`per_tile: {op}`"))
+        op.map(|op| format!("`{op}`"))
     }
 }
 
-/// The layer's `per_tile` operations within `zooms`, warning about each one that has none of them.
+/// The layer's per-tile operations within `zooms`, warning about each one that has none of them.
 fn lower_per_tile(id: &str, name: &str, per_tile: &PerTile, zooms: &RangeInclusive<u8>) -> Vec<TileOpDef> {
     let mut ops = Vec::new();
     let mut push = |op_name: &str, range: ZoomRange, op: TileOp| {
@@ -277,7 +277,7 @@ fn lower_per_tile(id: &str, name: &str, per_tile: &PerTile, zooms: &RangeInclusi
         let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
         if lo > hi {
             warn!(
-                "Skipping `per_tile.{op_name}` of layer `{name}` in source `{id}`: it has no zoom between {} and {}",
+                "Skipping `{op_name}` of layer `{name}` in source `{id}`: it has no zoom between {} and {}",
                 zooms.start(),
                 zooms.end()
             );
@@ -1065,8 +1065,8 @@ mod tests {
         let layers = [
             "roads: { geometry: centroid }",
             "roads: { geometry: label_point }",
-            "roads: { per_tile: { merge_lines: { group_by: [class] } } }",
-            "roads: { per_tile: { label_grid: { size: 64, limit: 1 } } }",
+            "roads: { merge_lines: { group_by: [class] } }",
+            "roads: { label_grid: { size: 64, limit: 1 } }",
         ];
         let errors: Vec<String> = layers
             .iter()
@@ -1079,8 +1079,8 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
-        layer `roads`: `per_tile: merge_lines` is not supported by `--mode bulk` yet
-        layer `roads`: `per_tile: label_grid` is not supported by `--mode bulk` yet
+        layer `roads`: `merge_lines` is not supported by `--mode bulk` yet
+        layer `roads`: `label_grid` is not supported by `--mode bulk` yet
         ");
     }
 
@@ -1095,11 +1095,10 @@ mod tests {
                 layers:
                   roads:
                     minzoom: 4
-                    per_tile:
-                      limit:
-                        - { maxzoom: 2, count: 10 }
-                        - { minzoom: 3, maxzoom: 8, count: 50 }
-                        - { minzoom: 9, count: 0 }
+                    limit:
+                      - { maxzoom: 2, count: 10 }
+                      - { minzoom: 3, maxzoom: 8, count: 50 }
+                      - { minzoom: 9, count: 0 }
             "},
             0..=12,
         )

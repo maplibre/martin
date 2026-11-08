@@ -61,7 +61,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
-| `per_tile`                        | Operations on all of the layer's features in one tile            | [Per-tile operations](#per-tile-operations)        |
+| `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
 `extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`.
@@ -235,10 +235,10 @@ with `double(...)` to compare them by value. `desc` reverses the whole order, so
 
 ## Per-tile operations
 
-Every other layer key acts on one feature at a time. `per_tile` acts on the layer's whole feature list in
-one tile, after [`sort_by`](#draw-order) has ordered it and just before the tile is encoded. It is a map
-from operation name to that operation's options. It is a layer key only: a table source or a rule cannot
-set it.
+Most layer keys act on one feature at a time. A per-tile operation acts on the layer's whole feature list
+in one tile, after [`sort_by`](#draw-order) has ordered it and just before the tile is encoded. Each
+operation is a layer key, named after the operation, with that operation's options. A table source or a
+rule cannot set one.
 
 ```yaml
 postgres:
@@ -253,10 +253,9 @@ postgres:
       layers:
         shops:
           sort_by: [rank]
-          per_tile:
-            limit:
-              - { maxzoom: 10, count: 50 }   # z0 to z10
-              - { minzoom: 11, count: 200 }  # z11 and up
+          limit:
+            - { maxzoom: 10, count: 50 }   # z0 to z10
+            - { minzoom: 11, count: 200 }  # z11 and up
 ```
 
 Operations run in this order, whatever order they are written in:
@@ -449,8 +448,8 @@ postgres:
 
 - **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30,
   a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL,
-  `layer_id` together with `layers`, an unknown `per_tile` operation, overlapping zoom ranges in one
-  operation's list, or `per_tile` on a table source or in a rule. Unknown keys are warned about.
+  `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a
+  per-tile operation on a table source or in a rule. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
   yet.

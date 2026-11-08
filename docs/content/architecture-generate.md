@@ -214,7 +214,7 @@ and the archive still sees every tile in order.
 ### Repeated tiles
 
 Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`,
-runs the layer's [`per_tile` operations](sources-pg-layers.md#per-tile-operations) on them, encodes
+runs the layer's [per-tile operations](sources-pg-layers.md#per-tile-operations) on them, encodes
 them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile.
 It also avoids work and storage for repeated tiles:
 

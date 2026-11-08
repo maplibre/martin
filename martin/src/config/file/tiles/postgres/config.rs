@@ -593,14 +593,13 @@ mod tests {
                       table: roads
                       srid: 4326
                       geometry_column: geom
-                      per_tile:
-                        limit: 100
+                      limit: 100
             "},
             &HashMap::new(),
             Path::new("martin.yaml"),
         )
         .expect_err("must not parse");
-        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `per_tile` is a layer key; move it under one of `layers` at line 4, column 5");
+        insta::assert_snapshot!(err.to_string(), @"Unable to parse YAML in config file martin.yaml: table `roads`: `limit` is a layer key; move it under one of `layers` at line 4, column 5");
     }
 
     #[tokio::test]

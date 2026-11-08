@@ -53,7 +53,7 @@ impl CollectUnrecognizedKeys for Layers {
             let path = format!("{path}{name}.");
             layer.unrecognized.collect_unrecognized(&path, out);
             layer.rules.collect_unrecognized(&format!("{path}rules."), out);
-            layer.per_tile.collect_unrecognized(&format!("{path}per_tile."), out);
+            layer.per_tile.collect_unrecognized(&path, out);
         }
     }
 }
@@ -106,8 +106,8 @@ impl Layers {
     }
 }
 
-#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(from = "RawLayer", into = "RawLayer")]
 pub struct Layer {
     pub r#where: Option<Expr>,
     pub geometry: Option<OutputGeometry>,
@@ -120,16 +120,103 @@ pub struct Layer {
     simplify_at_maxzoom: Option<Pixels>,
     pub min_size: Option<Pixels>,
     min_size_at_maxzoom: Option<Pixels>,
-    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
     pub attributes: Attributes,
     pub rules: Option<Rules>,
     pub sort_by: Option<NonEmpty<SortKey>>,
-    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
     pub id: IdPolicy,
-    #[serde(default, skip_serializing_if = "PerTile::is_empty")]
     pub per_tile: PerTile,
-    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// A layer as written in YAML, where each per-tile operation is a key of the layer itself.
+#[serde_with::skip_serializing_none]
+#[derive(Serialize, Deserialize)]
+struct RawLayer {
+    r#where: Option<Expr>,
+    geometry: Option<OutputGeometry>,
+    minzoom: Option<ZoomSetting>,
+    maxzoom: Option<ZoomSetting>,
+    extent: Option<NonZeroU32>,
+    buffer: Option<u32>,
+    clip_geom: Option<bool>,
+    simplify: Option<Pixels>,
+    simplify_at_maxzoom: Option<Pixels>,
+    min_size: Option<Pixels>,
+    min_size_at_maxzoom: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
+    attributes: Attributes,
+    rules: Option<Rules>,
+    sort_by: Option<NonEmpty<SortKey>>,
+    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
+    id: IdPolicy,
+    label_grid: Option<ByZoomRange<LabelGrid>>,
+    merge_lines: Option<ByZoomRange<MergeLines>>,
+    merge_polygons: Option<ByZoomRange<MergePolygons>>,
+    dedup_by: Option<ByZoomRange<DedupBy>>,
+    merge_multi: Option<ByZoomRange<MergeMulti>>,
+    limit: Option<ByZoomRange<Limit>>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl From<RawLayer> for Layer {
+    fn from(raw: RawLayer) -> Self {
+        Self {
+            r#where: raw.r#where,
+            geometry: raw.geometry,
+            minzoom: raw.minzoom,
+            maxzoom: raw.maxzoom,
+            extent: raw.extent,
+            buffer: raw.buffer,
+            clip_geom: raw.clip_geom,
+            simplify: raw.simplify,
+            simplify_at_maxzoom: raw.simplify_at_maxzoom,
+            min_size: raw.min_size,
+            min_size_at_maxzoom: raw.min_size_at_maxzoom,
+            attributes: raw.attributes,
+            rules: raw.rules,
+            sort_by: raw.sort_by,
+            id: raw.id,
+            per_tile: PerTile {
+                label_grid: raw.label_grid,
+                merge_lines: raw.merge_lines,
+                merge_polygons: raw.merge_polygons,
+                dedup_by: raw.dedup_by,
+                merge_multi: raw.merge_multi,
+                limit: raw.limit,
+            },
+            unrecognized: raw.unrecognized,
+        }
+    }
+}
+
+impl From<Layer> for RawLayer {
+    fn from(layer: Layer) -> Self {
+        Self {
+            r#where: layer.r#where,
+            geometry: layer.geometry,
+            minzoom: layer.minzoom,
+            maxzoom: layer.maxzoom,
+            extent: layer.extent,
+            buffer: layer.buffer,
+            clip_geom: layer.clip_geom,
+            simplify: layer.simplify,
+            simplify_at_maxzoom: layer.simplify_at_maxzoom,
+            min_size: layer.min_size,
+            min_size_at_maxzoom: layer.min_size_at_maxzoom,
+            attributes: layer.attributes,
+            rules: layer.rules,
+            sort_by: layer.sort_by,
+            id: layer.id,
+            label_grid: layer.per_tile.label_grid,
+            merge_lines: layer.per_tile.merge_lines,
+            merge_polygons: layer.per_tile.merge_polygons,
+            dedup_by: layer.per_tile.dedup_by,
+            merge_multi: layer.per_tile.merge_multi,
+            limit: layer.per_tile.limit,
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
 }
 
 impl Layer {
