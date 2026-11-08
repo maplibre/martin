@@ -293,7 +293,7 @@ After a bulk run, Martin logs each operation of each layer with the tiles it ran
 took and kept, and warns about groups a merge could not make valid:
 
 ```text
-INFO Ran `per_tile.merge_lines` layer.id=roads tiles=22 features.input=264 features.output=202
+INFO Ran `merge_lines` layer.id=roads tiles=22 features.input=264 features.output=202
 ```
 
 The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of

@@ -1933,13 +1933,12 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
-                      per_tile:
-                        label_grid: { size: 64, limit: 2 }
-                        merge_lines: { group_by: [kind] }
-                        merge_polygons: { distance: 1 }
-                        dedup_by: { keys: [kind], maxzoom: 0 }
-                        merge_multi: { geometry: [point] }
-                        limit: 5
+                      label_grid: { size: 64, limit: 2 }
+                      merge_lines: { group_by: [kind] }
+                      merge_polygons: { distance: 1 }
+                      dedup_by: { keys: [kind], maxzoom: 0 }
+                      merge_multi: { geometry: [point] }
+                      limit: 5
         "},
     )
     .expect("failed to write the config");
@@ -1964,7 +1963,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
             .arg(threads)
             .run()
             .await;
-        let ran: Vec<&str> = log.lines().filter(|line| line.contains("Ran `per_tile.")).collect();
+        let ran: Vec<&str> = log.lines().filter(|line| line.contains("Ran `")).collect();
         logs.push(ran.join("\n"));
     }
     let one = dir.path().join("one.mbtiles");
@@ -1974,12 +1973,12 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `per_tile.label_grid` layer.id=merged tiles=91 features.input=822 features.output=695
-    INFO Ran `per_tile.merge_lines` layer.id=merged tiles=1182 features.input=3824 features.output=3707
-    INFO Ran `per_tile.merge_polygons` layer.id=merged tiles=1182 features.input=3707 features.output=2713
-    INFO Ran `per_tile.dedup_by` layer.id=merged tiles=1 features.input=12 features.output=2
-    INFO Ran `per_tile.merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
-    INFO Ran `per_tile.limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
+    INFO Ran `label_grid` layer.id=merged tiles=91 features.input=822 features.output=695
+    INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3824 features.output=3707
+    INFO Ran `merge_polygons` layer.id=merged tiles=1182 features.input=3707 features.output=2713
+    INFO Ran `dedup_by` layer.id=merged tiles=1 features.input=12 features.output=2
+    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2019,13 +2018,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
-                      per_tile:
-                        label_grid: { size: 64, limit: 2 }
-                        merge_lines: { group_by: [kind] }
-                        merge_polygons: { distance: 1 }
-                        dedup_by: { keys: [kind], maxzoom: 0 }
-                        merge_multi: { geometry: [point] }
-                        limit: 5
+                      label_grid: { size: 64, limit: 2 }
+                      merge_lines: { group_by: [kind] }
+                      merge_polygons: { distance: 1 }
+                      dedup_by: { keys: [kind], maxzoom: 0 }
+                      merge_multi: { geometry: [point] }
+                      limit: 5
         "},
     )
     .expect("failed to write the config");

@@ -100,13 +100,12 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
-                      per_tile:
-                        label_grid: { size: 64, limit: 2 }
-                        merge_lines: { group_by: [kind] }
-                        merge_polygons: { distance: 1 }
-                        dedup_by: { keys: [kind], maxzoom: 0 }
-                        merge_multi: { geometry: [point] }
-                        limit: 5
+                      label_grid: { size: 64, limit: 2 }
+                      merge_lines: { group_by: [kind] }
+                      merge_polygons: { distance: 1 }
+                      dedup_by: { keys: [kind], maxzoom: 0 }
+                      merge_multi: { geometry: [point] }
+                      limit: 5
         "},
     )
     .expect("failed to write the config");
@@ -151,13 +150,12 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
-                      per_tile:
-                        label_grid: { size: 64, limit: 2 }
-                        merge_lines: { group_by: [kind] }
-                        merge_polygons: { distance: 1 }
-                        dedup_by: { keys: [kind], maxzoom: 0 }
-                        merge_multi: { geometry: [point] }
-                        limit: 5
+                      label_grid: { size: 64, limit: 2 }
+                      merge_lines: { group_by: [kind] }
+                      merge_polygons: { distance: 1 }
+                      dedup_by: { keys: [kind], maxzoom: 0 }
+                      merge_multi: { geometry: [point] }
+                      limit: 5
         "})
         .start()
         .await
@@ -195,13 +193,12 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       attributes:
                         kind: 'gid % 2'
                       sort_by: [gid]
-                      per_tile:
-                        label_grid: { size: 64, limit: 2 }
-                        merge_lines: { group_by: [kind] }
-                        merge_polygons: { distance: 1 }
-                        dedup_by: { keys: [kind], maxzoom: 0 }
-                        merge_multi: { geometry: [point] }
-                        limit: 5
+                      label_grid: { size: 64, limit: 2 }
+                      merge_lines: { group_by: [kind] }
+                      merge_polygons: { distance: 1 }
+                      dedup_by: { keys: [kind], maxzoom: 0 }
+                      merge_multi: { geometry: [point] }
+                      limit: 5
         "})
         .start()
         .await

@@ -415,12 +415,12 @@ fn log_summary(summary: &Summary) {
             tiles = op.counts.tiles,
             features.input = op.counts.features_in,
             features.output = op.counts.features_out,
-            "Ran `per_tile.{}`",
+            "Ran `{}`",
             op.op.name()
         );
         if op.counts.groups_failed > 0 {
             warn!(
-                "Layer `{}`: `per_tile.{}` could not merge {} groups, which kept their features",
+                "Layer `{}`: `{}` could not merge {} groups, which kept their features",
                 op.layer,
                 op.op.name(),
                 op.counts.groups_failed

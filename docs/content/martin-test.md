@@ -92,7 +92,7 @@ cases:
    the row no longer matches.
 2. What bulk mode writes: one entry per feature and layer, with its zooms and attributes.
 
-A layer with [`per_tile` operations](sources-pg-layers.md#per-tile-operations) also gets a `per_tile` list:
+A layer with [per-tile operations](sources-pg-layers.md#per-tile-operations) also gets a `per_tile` list:
 the tiles each operation ran on, and the features it took and kept there. A changed count fails the case
 like a changed output.
 

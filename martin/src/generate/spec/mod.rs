@@ -1316,10 +1316,9 @@ mod tests {
               id: int8
             layers:
               shops:
-                per_tile:
-                  label_grid: { size: 64, limit: 1 }
-                  merge_multi: {}
-                  limit: { minzoom: 2, count: 1 }
+                label_grid: { size: 64, limit: 1 }
+                merge_multi: {}
+                limit: { minzoom: 2, count: 1 }
         "})
         .expect("parses");
         let rows = serde_saphyr::from_str(indoc! {"
@@ -1384,8 +1383,7 @@ mod tests {
             layers:
               shops:
                 maxzoom: 0
-                per_tile:
-                  label_grid: { size: 64, limit: 1 }
+                label_grid: { size: 64, limit: 1 }
         "})
         .expect("parses");
         let rows = serde_saphyr::from_str(indoc! {"
