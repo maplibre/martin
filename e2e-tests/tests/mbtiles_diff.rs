@@ -68,7 +68,7 @@ async fn copying_through_the_cache_schema_keeps_every_tile() {
         .await;
     insta::assert_snapshot!(redact(&dir, &output), @"
     INFO copy: Copying mbtiles file src.path=[TMP]/world_cities.mbtiles src.type=flat dst.path=[TMP]/cache.mbtiles dst.type=cache dst.new=true copy.type=all
-    INFO copy: Updating agg_tiles_hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash.old=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.new=08934F8E3E58DED510920E1DE6F4E78F
+    INFO copy: Metadata value agg_tiles_hash is already set to the correct hash mbtiles.file=[TMP]/cache.mbtiles agg_tiles_hash=08934F8E3E58DED510920E1DE6F4E78F
     ");
 
     let summary = summary(&cache).run_json().await;
@@ -389,7 +389,7 @@ async fn applying_a_patch_announces_the_hashes_it_expects() {
     // Re-gzip-ing may change the bytes, so the resulting hash is deliberately not validated,
     // and the run says so.
     insta::assert_snapshot!(redact(&dir, &output), @"
-    INFO copy: Patch file expects to be applied to a tileset with the before_apply agg_tiles_hash, and should result in the after_apply hash mbtiles.file=[TMP]/patch.mbtiles agg_tiles_hash.before_apply=84792BF4EE9AEDDC5B1A60E707011FEE agg_tiles_hash.after_apply=578FB5BD64746C39E3D344662947FD0D
+    INFO copy: Patch file expects to be applied to a tileset with the before_apply agg_tiles_hash, and should result in the after_apply hash mbtiles.file=[TMP]/patch.mbtiles agg_tiles_hash.before_apply=08934F8E3E58DED510920E1DE6F4E78F agg_tiles_hash.after_apply=72D8C992AF67EC97093B0087933FA160
     INFO copy: Applying patch into a new file diff.path=[TMP]/patch.mbtiles diff.type=flat src.path=[TMP]/world_cities.mbtiles src.type=flat dst.path=[TMP]/applied.mbtiles dst.type=flat copy.type=all patch.type=bin-diff-gz
     INFO copy: Processing bindiff patches bindiff.cpus=[CPUS]
     INFO copy: Finished processing bindiff tiles bindiff.inserted=0
