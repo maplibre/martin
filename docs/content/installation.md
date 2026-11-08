@@ -132,7 +132,7 @@ The formula is maintained by Homebrew and follows stable releases only.
 
 !!! tip "If you installed martin from the former `maplibre/martin` tap"
     switch to the homebrew-core formula with
-    
+
     ```bash
     brew uninstall martin
     brew untap maplibre/martin
