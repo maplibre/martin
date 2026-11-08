@@ -1634,8 +1634,7 @@ mod tests {
                 layers:
                   parks:
                     buffer: 64
-                    per_tile:
-                      merge_polygons: { buffer: 8 }
+                    merge_polygons: { buffer: 8 }
             "},
             0..=12,
         )
@@ -1665,7 +1664,7 @@ mod tests {
                         .map(|(_, message)| message)
                 })
                 .collect();
-            insta::assert_snapshot!(warnings.join("\n"), @"`per_tile.merge_polygons` of layer `parks` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_polygons` of layer `parks` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
             Ok(())
         });
     }
