@@ -751,7 +751,7 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     if dynamic_props && def.attributes == AttributesDef::All {
         return Ok(());
     }
-    for op in &def.per_tile {
+    for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
         let (name, group_by) = match &op.op {
             TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
             TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
@@ -767,17 +767,21 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     Ok(())
 }
 
+/// The operation's zooms clamped into the layer's, or `None` when it runs at none of them.
+fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
+    let lo = (*op.zooms.start()).max(*zooms.start());
+    let hi = (*op.zooms.end()).min(*zooms.end());
+    (lo <= hi).then_some(lo..=hi)
+}
+
 /// The layer's operations in the order they run, each clamped into its zooms, without those outside them.
 /// Grid thinning runs on what rendering marked, so it has none.
 fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
-    let zooms = &def.zooms;
     let mut ops = Vec::new();
     for op in &def.per_tile {
-        let lo = (*op.zooms.start()).max(*zooms.start());
-        let hi = (*op.zooms.end()).min(*zooms.end());
-        if lo > hi {
+        let Some(zooms) = clamped_zooms(op, &def.zooms) else {
             continue;
-        }
+        };
         let planned = match &op.op {
             TileOp::Thinning { .. } => continue,
             TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
@@ -786,13 +790,7 @@ fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
             },
             TileOp::Limit { count } => PlannedOp::Limit { count: *count },
         };
-        ops.push((
-            op.op.rank(),
-            PlannedTileOp {
-                zooms: lo..=hi,
-                op: planned,
-            },
-        ));
+        ops.push((op.op.rank(), PlannedTileOp { zooms, op: planned }));
     }
     ops.sort_by_key(|(rank, op)| (*rank, *op.zooms.start()));
     ops.into_iter().map(|(_, op)| op).collect()

@@ -104,6 +104,28 @@ fn rejects_a_group_by_attribute_the_layer_does_not_write() {
 }
 
 #[test]
+fn accepts_a_group_by_attribute_of_an_operation_outside_the_layer_zooms() {
+    Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("kind".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            per_tile: vec![TileOpDef {
+                zooms: 0..=5,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: vec!["kind".to_owned()],
+                },
+            }],
+            ..LayerDef::new("pois", 10..=14, GRID)
+        }],
+    }])
+    .unwrap();
+}
+
+#[test]
 fn rejects_an_attribute_that_is_not_a_column() {
     let err = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("name".to_owned(), None)],
