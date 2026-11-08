@@ -354,6 +354,11 @@ without changing any geometry, the parts in draw order, as Planetiler's `mergeMu
 `mergeMultiLineString` and `mergeMultiPolygon` do. A point alone in its group stays a point. Every
 feature of a type in `geometry` keeps only its `group_by` attributes, even one alone in its group.
 
+--8<-- "images/generate/per-tile-merge-multi.svg"
+
+Each tile combines only the features it holds, in the tile and its buffer, so a multi-feature never spans
+tiles and a point in the buffer is a part in both tiles.
+
 ```yaml
 merge_multi:
   geometry: [point]   # only combine points; lines and polygons pass through
