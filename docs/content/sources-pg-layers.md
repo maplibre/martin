@@ -320,6 +320,12 @@ merge_lines:
 Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through
 junctions and drops short stubs and loops, which `merge_lines` does not.
 
+--8<-- "images/generate/per-tile-merge-lines.svg"
+
+Each tile joins, simplifies and measures only what it holds of the lines, in the tile and `buffer`. A line
+ending just past a tile edge can be shorter than `min_length` in the next tile and is dropped there, and
+the two tiles' simplified lines can cross their shared edge at different points.
+
 ### `thinning`
 
 Drops a feature when an earlier kept feature, in draw order, crowds it out, so give the layer a
