@@ -38,11 +38,6 @@ assets = [
     "755",
   ],
     [
-    "target/release/mbtiles",
-    "/usr/bin/mbtiles",
-    "755",
-  ],
-    [
     "../README.md",
     "/usr/share/doc/martin/README.md",
     "644",

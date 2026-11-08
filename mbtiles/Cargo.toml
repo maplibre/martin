@@ -12,8 +12,7 @@ rust-version.workspace = true
 homepage = "https://maplibre.org/martin/tools.html#mbtiles"
 
 [package.metadata.binstall]
-# the prebuilt archives are the martin ones, which hold both the `martin` and `mbtiles` binaries
-pkg-url = "{ repo }/releases/download/mbtiles-v{ version }/martin-{ target }.{ archive-format }"
+pkg-url = "{ repo }/releases/download/mbtiles-v{ version }/{ name }-{ target }.{ archive-format }"
 bin-dir = "{ bin }{ binary-ext }"
 
 [lib]

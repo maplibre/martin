@@ -924,8 +924,9 @@ jobs:
         run: *release-config-tests
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
-      - name: Discard the standalone binaries
-        run: rm -rf target_releases
+      # the Debian package only ships martin, its tests keep using this mbtiles
+      - name: Discard the standalone martin binary
+        run: rm target_releases/martin
       - name: Download Debian package
         if: inputs.run-release-builds
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -937,7 +938,7 @@ jobs:
         if: inputs.run-release-builds
         run: |
           export MARTIN_BIN=/usr/bin/martin
-          export MBTILES_BIN=/usr/bin/mbtiles
+          export MBTILES_BIN=target_releases/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -947,7 +948,7 @@ jobs:
         if: inputs.run-release-builds
         run: &debian-config-tests |
           export MARTIN_BIN=/usr/bin/martin
-          export MBTILES_BIN=/usr/bin/mbtiles
+          export MBTILES_BIN=target_releases/mbtiles
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg15-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable

@@ -6,7 +6,7 @@
 class Martin < Formula
   current_version="{{ version }}"
 
-  desc "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support, plus an mbtiles tool"
+  desc "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
   homepage "https://github.com/maplibre/martin"
 
   on_macos do
@@ -31,7 +31,6 @@ class Martin < Formula
 
   def install
     bin.install "martin"
-    bin.install "mbtiles"
   end
 
   def caveats; <<~EOS
@@ -43,6 +42,5 @@ class Martin < Formula
 
   test do
     `#{bin}/martin --version`
-    `#{bin}/mbtiles --version`
   end
 end
