@@ -101,6 +101,9 @@ enum Commands {
         /// Force patching operation, ignoring some warnings that otherwise would prevent the operation. Use with caution.
         #[arg(short, long)]
         force: bool,
+        /// Recompute the base file's `agg_tiles_hash` instead of trusting the stored value.
+        #[arg(long)]
+        validate: bool,
     },
     /// Update metadata to match the content of the file
     #[command(name = "meta-update", alias = "update-meta")]
@@ -339,8 +342,9 @@ async fn main_int() -> anyhow::Result<()> {
             base_file,
             patch_file,
             force,
+            validate,
         } => {
-            apply_patch(base_file, patch_file, force)
+            apply_patch(base_file, patch_file, force, validate)
                 .instrument(info_span!("apply-patch"))
                 .await?;
         }
@@ -863,6 +867,7 @@ mod tests {
                     base_file: PathBuf::from("src_file"),
                     patch_file: PathBuf::from("diff_file"),
                     force: false,
+                    validate: false,
                 }
             }
         );
