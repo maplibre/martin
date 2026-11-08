@@ -2218,6 +2218,419 @@ fn merge_lines_clips_merged_lines_to_the_tile_and_its_buffer() {
 }
 
 #[test]
+fn merge_polygons_unions_two_touching_squares() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(10.0, 0.0), (20.0, 0.0), (20.0, 10.0), (10.0, 10.0), (10.0, 0.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            min_size: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("landuse", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"park\"))] POLYGON((2048 2048,2048 1934,2276 1934,2276 2048,2048 2048))",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_polygons_joins_squares_closer_than_its_distance_only() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(10.7, 0.0), (20.0, 0.0), (20.0, 10.0), (10.7, 10.0), (10.7, 0.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(0.0, 30.0), (10.0, 30.0), (10.0, 40.0), (0.0, 40.0), (0.0, 30.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+            SourceFeature {
+                id: Some(4),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![
+                        (12.81, 30.0),
+                        (20.0, 30.0),
+                        (20.0, 40.0),
+                        (12.81, 40.0),
+                        (12.81, 30.0),
+                    ]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            min_size: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 1.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("landuse", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"park\"))] MULTIPOLYGON(((2048 1690,2048 1551,2162 1551,2162 1690,2048 1690)),((2048 2048,2048 1934,2162 1934,2164 1935,2165 1935,2167 1935,2168 1935,2170 1934,2276 1934,2276 2048,2170 2048,2168 2047,2167 2047,2165 2047,2164 2047,2162 2048,2048 2048)),((2194 1690,2194 1551,2276 1551,2276 1690,2194 1690)))",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_polygons_fills_holes_smaller_than_min_hole_area() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0), (0.0, 0.0)]),
+                vec![
+                    LineString::from(vec![(5.0, 5.0), (6.406, 5.0), (6.406, 6.406), (5.0, 6.406), (5.0, 5.0)]),
+                    LineString::from(vec![
+                        (10.0, 10.0),
+                        (15.62, 10.0),
+                        (15.62, 15.62),
+                        (10.0, 15.62),
+                        (10.0, 10.0),
+                    ]),
+                ],
+            )]),
+            props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            min_size: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 4.0,
+                    distance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("landuse", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"park\"))] POLYGON((2048 2048,2048 1816,2276 1816,2276 2048,2048 2048),(2162 1868,2162 1934,2226 1934,2226 1868,2162 1868))",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_polygons_drops_polygons_smaller_than_min_area() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![
+                        (30.0, 0.0),
+                        (30.7, 0.0),
+                        (30.7, 0.7031),
+                        (30.0, 0.7031),
+                        (30.0, 0.0),
+                    ]),
+                    vec![],
+                )]),
+                props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            min_size: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergePolygons {
+                    min_area: 1.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("landuse", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "None [Str(Some(\"park\"))] POLYGON((2048 2048,2048 1934,2162 1934,2162 2048,2048 2048))",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_polygons_clips_to_the_tile_and_its_buffer_dropping_corners_outside() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![
+                    (-10.0, 10.0),
+                    (30.0, 10.0),
+                    (30.0, 20.0),
+                    (-10.0, 20.0),
+                    (-10.0, 10.0),
+                ]),
+                vec![],
+            )]),
+            props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            min_size: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 1..=1,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: Some(1.0),
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("landuse", 1..=1, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(1, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"park\"))] POLYGON((3868 3867,3868 3631,4112 3631,4112 3867,3868 3867))",
+    ]
+    "#);
+}
+
+#[test]
 fn the_summary_counts_the_features_each_operation_of_a_layer_took_and_kept() {
     let points = [(1, 10.0), (2, 12.0), (3, -100.0), (4, -98.0)];
     let features = points
@@ -2273,6 +2686,7 @@ fn the_summary_counts_the_features_each_operation_of_a_layer_took_and_kept() {
                 tiles: 1,
                 features_in: 4,
                 features_out: 3,
+                groups_failed: 0,
             },
         },
         OpSummary {
@@ -2282,6 +2696,7 @@ fn the_summary_counts_the_features_each_operation_of_a_layer_took_and_kept() {
                 tiles: 0,
                 features_in: 0,
                 features_out: 0,
+                groups_failed: 0,
             },
         },
     ]
@@ -2339,10 +2754,69 @@ fn reused_tiles_count_in_the_summary_as_if_encoded_again() {
                 tiles: 16,
                 features_in: 16,
                 features_out: 16,
+                groups_failed: 0,
             },
         },
     ]
     "#);
+}
+
+#[test]
+fn fill_only_tiles_still_dedup_and_count_after_merge_polygons() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![
+                    (-170.0, -80.0),
+                    (170.0, -80.0),
+                    (170.0, 80.0),
+                    (-170.0, 80.0),
+                    (-170.0, -80.0),
+                ]),
+                vec![],
+            )]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 2..=2,
+                op: TileOp::MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: None,
+                    group_by: None,
+                },
+            }],
+            ..LayerDef::new("ocean", 2..=2, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, summary) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(2, 0, 0, 3, 3),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let inner: Vec<_> = tiles
+        .iter()
+        .filter(|tile| (1..=2).contains(&tile.coord.x()) && (1..=2).contains(&tile.coord.y()))
+        .map(|tile| (tile.dedup_key, tile.data.clone()))
+        .collect();
+    assert_eq!(inner.len(), 4);
+    assert!(inner[0].0.is_some());
+    assert!(inner.iter().all(|tile| *tile == inner[0]));
+    assert_eq!(summary.per_tile[0].counts.tiles, 16);
 }
 
 #[test]

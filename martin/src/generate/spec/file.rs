@@ -97,6 +97,15 @@ pub struct OpCount {
     pub features_in: u64,
     /// Features the operation kept or made, over those tiles.
     pub features_out: u64,
+    /// Groups a merge could not make valid, which kept their features.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub groups_failed: u64,
+}
+
+/// Whether `count` is zero, so serde leaves it out.
+#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde passes a reference")]
+const fn is_zero(count: &u64) -> bool {
+    *count == 0
 }
 
 /// The kind of a feature's geometry.

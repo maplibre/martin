@@ -1934,6 +1934,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
                         kind: 'gid % 2'
                       sort_by: [gid]
                       merge_lines: {}
+                      merge_polygons: { distance: 1 }
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -1974,9 +1975,10 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
     INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3951 features.output=3834
-    INFO Ran `thinning` layer.id=merged tiles=91 features.input=716 features.output=576
-    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=3694 features.output=3632
-    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3632 features.output=3475
+    INFO Ran `merge_polygons` layer.id=merged tiles=1182 features.input=3834 features.output=2840
+    INFO Ran `thinning` layer.id=merged tiles=91 features.input=618 features.output=481
+    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2017,6 +2019,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
                         kind: 'gid % 2'
                       sort_by: [gid]
                       merge_lines: {}
+                      merge_polygons: { distance: 1 }
                       thinning:
                         - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
@@ -2073,9 +2076,9 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
         "line": 437,
         "multi-line": 99,
         "multi-point": 35,
-        "multi-polygon": 3,
+        "multi-polygon": 61,
         "point": 130,
-        "polygon": 2771,
+        "polygon": 1845,
     }
     "#);
 }

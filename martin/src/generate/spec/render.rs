@@ -106,6 +106,7 @@ pub async fn render_bulk<B: TestBackend>(
             tiles: op.counts.tiles,
             features_in: op.counts.features_in,
             features_out: op.counts.features_out,
+            groups_failed: op.counts.groups_failed,
         })
         .collect();
     let tiles = tiles

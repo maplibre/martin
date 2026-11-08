@@ -418,6 +418,14 @@ fn log_summary(summary: &Summary) {
             "Ran `{}`",
             op.op.name()
         );
+        if op.counts.groups_failed > 0 {
+            warn!(
+                "Layer `{}`: `{}` could not merge {} groups, which kept their features",
+                op.layer,
+                op.op.name(),
+                op.counts.groups_failed
+            );
+        }
     }
 }
 
