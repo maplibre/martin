@@ -12,7 +12,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::config::file::tiling::error::TilingConfigError;
-pub use crate::config::file::tiling::per_tile::{ByZoomRange, Limit, Op, PerTile};
+pub use crate::config::file::tiling::per_tile::{
+    ByZoomRange, Limit, Op, PerTile, RuleThinning, Thinning, ThinningMethod,
+};
 pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
 pub use crate::config::file::tiling::setting::{PerFeature, Pixels, ZoomSetting};
@@ -147,6 +149,7 @@ struct RawLayer {
     sort_by: Option<NonEmpty<SortKey>>,
     #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
     id: IdPolicy,
+    thinning: Option<ByZoomRange<Thinning>>,
     limit: Option<ByZoomRange<Limit>>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
@@ -170,7 +173,10 @@ impl From<RawLayer> for Layer {
             rules: raw.rules,
             sort_by: raw.sort_by,
             id: raw.id,
-            per_tile: PerTile { limit: raw.limit },
+            per_tile: PerTile {
+                thinning: raw.thinning,
+                limit: raw.limit,
+            },
             unrecognized: raw.unrecognized,
         }
     }
@@ -194,6 +200,7 @@ impl From<Layer> for RawLayer {
             rules: layer.rules,
             sort_by: layer.sort_by,
             id: layer.id,
+            thinning: layer.per_tile.thinning,
             limit: layer.per_tile.limit,
             unrecognized: UnrecognizedValues::default(),
         }

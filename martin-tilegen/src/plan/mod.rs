@@ -5,6 +5,7 @@ mod eval;
 mod filter;
 
 use std::collections::{BTreeSet, HashSet};
+use std::num::NonZeroU32;
 use std::ops::{Range, RangeInclusive};
 use std::sync::atomic::AtomicBool;
 
@@ -156,6 +157,19 @@ impl LayerDef {
     }
 }
 
+/// Planetiler's point label grid: at the zooms it covers, the world is cut into squares of `size` pixels
+/// of a 256-pixel tile, and each tile keeps only the first `limit` points of each square, in draw order.
+/// Squares smaller than one unit of the layer's extent do not limit anything.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ThinningGrid {
+    /// Clamped into the layer's zooms.
+    pub zooms: RangeInclusive<u8>,
+    /// Side of a square, in pixels of a 256-pixel tile.
+    pub size: f64,
+    /// Points kept per square and tile.
+    pub limit: NonZeroU32,
+}
+
 /// A [`TileOp`] and the zooms it runs at; outside them the layer's features pass through it unchanged.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TileOpDef {
@@ -167,6 +181,8 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
+    /// Drops features that an earlier kept feature crowds out, as `method` says.
+    Thinning { method: ThinningMethod },
     /// Keeps the first `count` features and drops the rest.
     Limit { count: u32 },
 }
@@ -175,9 +191,23 @@ impl TileOp {
     /// Position in the fixed order operations run in.
     fn rank(&self) -> u8 {
         match self {
-            Self::Limit { .. } => 1,
+            Self::Thinning { .. } => 1,
+            Self::Limit { .. } => 2,
         }
     }
+}
+
+/// How [`TileOp::Thinning`] decides that an earlier kept feature crowds a feature out.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ThinningMethod {
+    /// Keeps the first points of each square of a world grid; see [`ThinningGrid`]. Lines and polygons
+    /// pass through.
+    Grid {
+        /// Side of a square, in pixels of a 256-pixel tile.
+        size: f64,
+        /// Points kept per square.
+        limit: NonZeroU32,
+    },
 }
 
 #[derive(Clone, Debug, Default)]
@@ -191,6 +221,8 @@ pub struct RuleDef {
     /// These replace the layer's attributes of the same name and add the others; each one replaces the
     /// layer's at every zoom, even outside its own zooms.
     pub attributes: Vec<ComputedAttr>,
+    /// Replaces the layer's grid thinning for the features this rule takes; empty turns it off for them.
+    pub thinning: Option<Vec<ThinningGrid>>,
 }
 
 /// `null`, and a failed evaluation, sort before any value; `descending` reverses that too.
@@ -323,6 +355,15 @@ pub(crate) struct PlannedLayer {
     pub(crate) sort_by: Vec<ExprRef<SortBy>>,
 }
 
+impl PlannedLayer {
+    /// Whether some of the layer's features are thinned by a grid.
+    pub(crate) fn has_thinning_grid(&self) -> bool {
+        std::iter::once(&self.fallback)
+            .chain(&self.cases)
+            .any(|case| !case.thinning_grid.is_empty())
+    }
+}
+
 /// A rule, with the layer's settings for whatever it does not set.
 #[derive(Debug)]
 pub(crate) struct Case {
@@ -333,6 +374,8 @@ pub(crate) struct Case {
     pub(crate) simplify: PixelThreshold,
     pub(crate) min_size: PixelThreshold,
     pub(crate) attrs: PlannedAttrs,
+    /// Clamped into the layer's zooms.
+    pub(crate) thinning_grid: Vec<ThinningGrid>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -627,6 +670,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         simplify: def.simplify,
         min_size: def.min_size,
         attrs,
+        thinning_grid: clamp_grids(&layer_grids(&def), &def.zooms),
     };
     let cases = def
         .rules
@@ -684,6 +728,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
 }
 
 /// The layer's operations in the order they run, each clamped into its zooms, without those outside them.
+/// Grid thinning runs on what rendering marked, so it has none.
 fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
     let zooms = &def.zooms;
     let mut ops = Vec::new();
@@ -694,6 +739,7 @@ fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
             continue;
         }
         let planned = match &op.op {
+            TileOp::Thinning { .. } => continue,
             TileOp::Limit { count } => PlannedOp::Limit { count: *count },
         };
         ops.push((
@@ -830,7 +876,46 @@ fn plan_case(
         simplify: rule.simplify.unwrap_or(fallback.simplify),
         min_size: rule.min_size.unwrap_or(fallback.min_size),
         attrs,
+        thinning_grid: rule.thinning.as_ref().map_or_else(
+            || fallback.thinning_grid.clone(),
+            |grids| clamp_grids(grids, &def.zooms),
+        ),
     })
+}
+
+/// The grids of the layer's grid thinning.
+fn layer_grids(def: &LayerDef) -> Vec<ThinningGrid> {
+    def.per_tile
+        .iter()
+        .filter_map(|op| {
+            let TileOp::Thinning {
+                method: ThinningMethod::Grid { size, limit },
+            } = &op.op
+            else {
+                return None;
+            };
+            Some(ThinningGrid {
+                zooms: op.zooms.clone(),
+                size: *size,
+                limit: *limit,
+            })
+        })
+        .collect()
+}
+
+/// `grids` clamped into `zooms`, without those outside them.
+fn clamp_grids(grids: &[ThinningGrid], zooms: &RangeInclusive<u8>) -> Vec<ThinningGrid> {
+    grids
+        .iter()
+        .filter_map(|grid| {
+            let lo = (*grid.zooms.start()).max(*zooms.start());
+            let hi = (*grid.zooms.end()).min(*zooms.end());
+            (lo <= hi).then(|| ThinningGrid {
+                zooms: lo..=hi,
+                ..grid.clone()
+            })
+        })
+        .collect()
 }
 
 /// A rule's zoom, or the layer's where it sets none or its expression evaluates to `null`.

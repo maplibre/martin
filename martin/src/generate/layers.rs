@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, TileOp,
-    TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, ThinningGrid,
+    ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -18,7 +18,8 @@ use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
     Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, PerTile, Pixels,
-    PropertySelector, RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomRange, ZoomSetting,
+    PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value, ValueSpec, Zoom, ZoomRange,
+    ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -125,13 +126,21 @@ fn lower_layer(
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
     };
+    let grid = LayerGrid {
+        extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
+        buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
+    };
+    let grids = GridContext {
+        source: id,
+        layer: name,
+        zooms: min..=max,
+        grid,
+        geometry: layer.geometry,
+    };
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
-        grid: LayerGrid {
-            extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
-            buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
-        },
+        grid,
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
         simplify: threshold(
             layer.simplify,
@@ -160,7 +169,10 @@ fn lower_layer(
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
-        rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
+        rules: layer
+            .rules
+            .as_ref()
+            .map_or_else(Vec::new, |rules| lower_rules(rules, &grids)),
         sort_by: layer
             .sort_by
             .iter()
@@ -170,12 +182,84 @@ fn lower_layer(
                 descending: key.descending,
             })
             .collect(),
-        per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max)),
+        per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max), &grids),
     }))
 }
 
+/// What lowering a grid thinning needs to know about its layer, to clamp it and warn about it.
+struct GridContext<'a> {
+    /// The table source's id.
+    source: &'a str,
+    /// The layer's name.
+    layer: &'a str,
+    /// The layer's zooms.
+    zooms: RangeInclusive<u8>,
+    /// The layer's extent and buffer.
+    grid: LayerGrid,
+    /// The layer's `geometry`, if set.
+    geometry: Option<OutputGeometry>,
+}
+
+impl GridContext<'_> {
+    /// A rule's grid `thinning` within the layer's zooms, warning about an entry with none of them, and as
+    /// [`Self::check`] does.
+    fn lower(&self, thinning: &ByZoomRange<Thinning>, key: &str) -> Vec<ThinningGrid> {
+        let Self {
+            source, layer, zooms, ..
+        } = self;
+        let mut lowered = Vec::new();
+        for entry in thinning {
+            let ThinningMethod::Grid { size, limit } = entry.method;
+            let range = entry.zooms;
+            let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
+            let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
+            if lo > hi {
+                warn!(
+                    "Skipping `{key}` of layer `{layer}` in source `{source}`: it has no zoom between {} and {}",
+                    zooms.start(),
+                    zooms.end()
+                );
+                continue;
+            }
+            self.check(key, size.get());
+            lowered.push(ThinningGrid {
+                zooms: lo..=hi,
+                size: size.get(),
+                limit,
+            });
+        }
+        lowered
+    }
+
+    /// Warns about a grid of `size` px squares on a layer without points, and about a buffer smaller than
+    /// the square, which neighboring tiles then count differently.
+    fn check(&self, key: &str, size: f64) {
+        let Self {
+            source,
+            layer,
+            grid,
+            geometry,
+            ..
+        } = self;
+        if matches!(geometry, Some(OutputGeometry::Line | OutputGeometry::Polygon)) {
+            warn!(
+                "`{key}` of layer `{layer}` in source `{source}` only thins points by a grid, and the layer has none"
+            );
+        }
+        let buffer = f64::from(grid.buffer) * 256.0 / f64::from(grid.extent);
+        if buffer < size {
+            warn!(
+                "`{key}` of layer `{layer}` in source `{source}` has {size} px squares but a {buffer} px buffer, so \
+                 neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at \
+                 least {} to avoid it",
+                (size * f64::from(grid.extent) / 256.0).ceil()
+            );
+        }
+    }
+}
+
 /// The rules in order, then the catch-all; a rule's `simplify` and `min_size` also apply at the max zoom.
-fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
+fn lower_rules(rules: &Rules, grids: &GridContext<'_>) -> Vec<RuleDef> {
     let lower = |when: Option<&Expr>, settings: &RuleSettings| {
         let zoom = |zoom: Option<&ZoomSetting>| {
             zoom.map(|zoom| match zoom {
@@ -196,6 +280,10 @@ fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
             simplify: threshold(settings.simplify),
             min_size: threshold(settings.min_size),
             attributes: computed_attrs(&settings.attributes),
+            thinning: settings.thinning.as_ref().map(|thinning| match thinning {
+                RuleThinning::Off => Vec::new(),
+                RuleThinning::Grid(thinning) => grids.lower(thinning, "rules[].thinning"),
+            }),
         }
     };
     rules
@@ -255,8 +343,15 @@ fn unsupported(layer: &Layer) -> Option<String> {
     geometry.map(|geometry| format!("`geometry: {geometry}`"))
 }
 
-/// The layer's per-tile operations within `zooms`, warning about each one that has none of them.
-fn lower_per_tile(id: &str, name: &str, per_tile: &PerTile, zooms: &RangeInclusive<u8>) -> Vec<TileOpDef> {
+/// The layer's per-tile operations within `zooms`, warning about each one that has none of them, and about
+/// a grid thinning as [`GridContext::check`] does.
+fn lower_per_tile(
+    id: &str,
+    name: &str,
+    per_tile: &PerTile,
+    zooms: &RangeInclusive<u8>,
+    grids: &GridContext<'_>,
+) -> Vec<TileOpDef> {
     let mut ops = Vec::new();
     let mut push = |op_name: &str, range: ZoomRange, op: TileOp| {
         let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
@@ -267,14 +362,37 @@ fn lower_per_tile(id: &str, name: &str, per_tile: &PerTile, zooms: &RangeInclusi
                 zooms.start(),
                 zooms.end()
             );
-        } else {
-            ops.push(TileOpDef { zooms: lo..=hi, op });
+            return false;
         }
+        ops.push(TileOpDef { zooms: lo..=hi, op });
+        true
     };
+    for thinning in per_tile.thinning.iter().flat_map(ByZoomRange::iter) {
+        let (op, grid_size) = lower_thinning(thinning);
+        if push("thinning", thinning.zooms, op)
+            && let Some(size) = grid_size
+        {
+            grids.check("thinning", size);
+        }
+    }
     for limit in per_tile.limit.iter().flat_map(ByZoomRange::iter) {
         push("limit", limit.zooms, TileOp::Limit { count: limit.count });
     }
     ops
+}
+
+/// The plan's operation for `thinning`, and the side of its squares if it is a grid.
+fn lower_thinning(thinning: &Thinning) -> (TileOp, Option<f64>) {
+    let (method, grid_size) = match thinning.method {
+        ThinningMethod::Grid { size, limit } => (
+            PlanThinning::Grid {
+                size: size.get(),
+                limit,
+            },
+            Some(size.get()),
+        ),
+    };
+    (TileOp::Thinning { method }, grid_size)
 }
 
 /// `clip_geom: false` hands each tile a line or polygon reaches the whole geometry, as
@@ -979,6 +1097,7 @@ mod tests {
                         zooms: 6..=27,
                     },
                 ],
+                thinning: None,
             },
             RuleDef {
                 when: Some(
@@ -994,6 +1113,7 @@ mod tests {
                     },
                 ),
                 attributes: [],
+                thinning: None,
             },
             RuleDef {
                 when: None,
@@ -1006,6 +1126,7 @@ mod tests {
                 simplify: None,
                 min_size: None,
                 attributes: [],
+                thinning: None,
             },
         ]
         "#);
@@ -1100,4 +1221,140 @@ mod tests {
         ]
         ");
     }
+
+    #[test]
+    fn grid_thinning_lowers_for_the_layer_and_its_rules() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                buffer: 32
+                layers:
+                  pois:
+                    minzoom: 4
+                    thinning:
+                      - { maxzoom: 2, method: grid, size: 64, limit: 1 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2 }
+                    rules:
+                      - where: \"kind == 'city'\"
+                        thinning: { method: grid, size: 1, limit: 1 }
+                      - where: \"kind == 'capital'\"
+                        thinning: null
+                      - minzoom: 6
+                  roads:
+                    geometry: line
+                    thinning: { method: grid, size: 1, limit: 1 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let grids: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| {
+                let rules: Vec<_> = layer.rules.iter().map(|rule| rule.thinning.clone()).collect();
+                (layer.name.clone(), layer.per_tile.clone(), rules)
+            })
+            .collect();
+        insta::assert_debug_snapshot!(grids, @r#"
+        [
+            (
+                "pois",
+                [
+                    TileOpDef {
+                        zooms: 4..=10,
+                        op: Thinning {
+                            method: Grid {
+                                size: 64.0,
+                                limit: 2,
+                            },
+                        },
+                    },
+                ],
+                [
+                    Some(
+                        [
+                            ThinningGrid {
+                                zooms: 4..=12,
+                                size: 1.0,
+                                limit: 1,
+                            },
+                        ],
+                    ),
+                    Some(
+                        [],
+                    ),
+                    None,
+                ],
+            ),
+            (
+                "roads",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: Thinning {
+                            method: Grid {
+                                size: 1.0,
+                                limit: 1,
+                            },
+                        },
+                    },
+                ],
+                [],
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn grid_thinning_warns_about_missed_zooms_narrow_buffers_and_layers_without_points() {
+        lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                buffer: 32
+                layers:
+                  pois:
+                    minzoom: 4
+                    thinning:
+                      - { maxzoom: 2, method: grid, size: 64, limit: 1 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2 }
+                    rules:
+                      - where: \"kind == 'city'\"
+                        thinning: { method: grid, size: 1, limit: 1 }
+                      - where: \"kind == 'capital'\"
+                        thinning: null
+                      - minzoom: 6
+                  roads:
+                    geometry: line
+                    thinning: { method: grid, size: 1, limit: 1 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"
+            Skipping `thinning` of layer `pois` in source `roads_source`: it has no zoom between 4 and 12
+            `thinning` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
+            `thinning` of layer `roads` in source `roads_source` only thins points by a grid, and the layer has none
+            ");
+            Ok(())
+        });
+    }
+
 }

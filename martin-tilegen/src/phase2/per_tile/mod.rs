@@ -1,12 +1,13 @@
 //! Per-tile operations: each takes one layer's features in one tile, in draw order, and returns the new list.
 
 mod limit;
+mod thinning;
 
 use std::ops::Range;
 
 use crate::plan::{PlannedOp, PlannedTileOp};
 use crate::sort::Seq;
-use crate::sort::record::{GeomBuf, GeomKind, Record};
+use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{LayerGrid, TileGenResult};
 
 /// One feature of a layer in a tile, as ranges into the records and properties the assembler decoded.
@@ -20,6 +21,17 @@ pub(crate) struct TileFeature {
     props_first: u32,
     /// One past the last of the feature's properties.
     props_end: u32,
+    /// What the feature draws.
+    pub(crate) shape: Shape,
+}
+
+/// What a [`TileFeature`] draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Shape {
+    /// The geometry of its records.
+    Records,
+    /// One point of its single record, for a gridded multi-point split into its points.
+    Point(Vertex),
 }
 
 /// `index` as stored in a [`TileFeature`].
@@ -35,6 +47,7 @@ impl TileFeature {
             end: narrow(records.end),
             props_first: narrow(props.start),
             props_end: narrow(props.end),
+            shape: Shape::Records,
         }
     }
 
@@ -66,13 +79,23 @@ impl LayerTile<'_, '_> {
     pub(crate) fn geometry(&self, feature: &TileFeature, out: &mut GeomBuf) -> TileGenResult<(GeomKind, Option<u64>)> {
         out.clear();
         let first = &self.decoded[feature.first()].1;
-        for (_, piece) in &self.decoded[feature.records()] {
-            match piece.kind {
-                GeomKind::Fill | GeomKind::FillRange { .. } => push_square(out, self.grid),
-                GeomKind::Point | GeomKind::Line | GeomKind::Polygon => piece.append_geometry(out)?,
+        match feature.shape {
+            Shape::Point(vertex) => {
+                out.vertices.push(vertex);
+                Ok((first.kind, first.id))
+            }
+            Shape::Records => {
+                for (_, piece) in &self.decoded[feature.records()] {
+                    match piece.kind {
+                        GeomKind::Fill | GeomKind::FillRange { .. } => push_square(out, self.grid),
+                        GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon => {
+                            piece.append_geometry(out)?;
+                        }
+                    }
+                }
+                Ok((first.kind, first.id))
             }
         }
-        Ok((first.kind, first.id))
     }
 }
 
@@ -88,18 +111,21 @@ pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
 /// A per-tile operation, in the order they run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpKind {
+    /// Drops features an earlier kept feature crowds out.
+    Thinning,
     /// Keeps the first features.
     Limit,
 }
 
 impl OpKind {
     /// Every operation, in the order they run.
-    pub const ALL: [Self; 1] = [Self::Limit];
+    pub const ALL: [Self; 2] = [Self::Thinning, Self::Limit];
 
     /// The operation's key in the config.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::Thinning => "thinning",
             Self::Limit => "limit",
         }
     }
@@ -169,6 +195,7 @@ impl LayerOpCounts {
 pub(crate) struct OpScratch {
     /// Reset for each layer of each tile.
     pub(crate) counts: LayerOpCounts,
+    pub(crate) thinning: thinning::Scratch,
 }
 
 /// A layer's per-tile operations, and the zoom of the tile they run on.
@@ -197,9 +224,20 @@ impl<'a> TileOps<'a> {
             .map(|def| &def.op)
     }
 
-    /// Runs the operations of this zoom on `features`, in draw order.
-    pub(crate) fn apply(self, features: &mut Vec<TileFeature>, scratch: &mut OpScratch) {
+    /// Runs the operations of this zoom on `features`, in draw order, with thinning in its place for the
+    /// points that rendering put in grid squares.
+    pub(crate) fn apply(
+        self,
+        tile: &LayerTile<'_, '_>,
+        features: &mut Vec<TileFeature>,
+        scratch: &mut OpScratch,
+    ) -> TileGenResult<()> {
+        let mut thinned = false;
         for op in self.active() {
+            if !thinned && op.kind() > OpKind::Thinning {
+                thinned = true;
+                self.thin(tile, features, scratch)?;
+            }
             let features_in = features.len();
             match op {
                 PlannedOp::Limit { count } => limit::apply(*count, features),
@@ -208,5 +246,22 @@ impl<'a> TileOps<'a> {
                 .counts
                 .record(op.kind(), &OpCounts::run(features_in, features.len()));
         }
+        if !thinned {
+            self.thin(tile, features, scratch)?;
+        }
+        Ok(())
+    }
+
+    /// Runs the grid thinning and counts what it did.
+    fn thin(
+        self,
+        tile: &LayerTile<'_, '_>,
+        features: &mut Vec<TileFeature>,
+        scratch: &mut OpScratch,
+    ) -> TileGenResult<()> {
+        if let Some(ran) = thinning::apply(tile, self.zoom, features, &mut scratch.thinning)? {
+            scratch.counts.record(OpKind::Thinning, &ran);
+        }
+        Ok(())
     }
 }

@@ -1,8 +1,12 @@
 //! Per-tile operations run on each layer's features in a tile, after `sort_by`.
 
+use std::num::NonZeroU32;
+
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, TileRect};
-use martin_tilegen::plan::{ColumnDef, LayerDef, Plan, SortDef, TableDef, TileOp, TileOpDef};
+use martin_tilegen::plan::{
+    ColumnDef, LayerDef, Plan, RuleDef, SortDef, TableDef, ThinningGrid, ThinningMethod, TileOp, TileOpDef,
+};
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, TileFormat, render_block};
@@ -203,6 +207,632 @@ fn an_operation_passes_features_through_outside_its_zooms() {
         })
         .collect();
     assert_eq!(counts, [1, 1, 3]);
+}
+
+#[test]
+fn grid_thinning_keeps_the_first_points_of_each_square_in_sort_by_order() {
+    let points = [(1, 10.0, 3), (2, 12.0, 1), (3, -100.0, 2), (4, -98.0, 5)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, rank)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::I64(rank))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![LayerDef {
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: false,
+            }],
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(2), Some(3)]);
+}
+
+#[test]
+fn grid_thinning_splits_a_multi_point_and_counts_each_point() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(7),
+            geometry: Geometry::Points(vec![
+                Coord { x: 10.0, y: 10.0 },
+                Coord { x: 12.0, y: 10.0 },
+                Coord { x: -100.0, y: 10.0 },
+            ]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                7,
+            ),
+            "POINT(2162 1934)",
+        ),
+        (
+            Some(
+                7,
+            ),
+            "POINT(910 1934)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn grid_thinning_keeps_both_copies_of_a_point_wrapped_across_the_antimeridian() {
+    let points = [(1, -179.64, 1), (2, -179.5, 2)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, rank)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 0.0 }]),
+            props: vec![(KeyId::new(0), Prop::I64(rank))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![LayerDef {
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: false,
+            }],
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(4100 2048)",
+        ),
+        (
+            Some(
+                1,
+            ),
+            "POINT(4 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn grid_thinning_keeps_the_same_points_of_a_multi_point_in_both_wrapped_copies() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(7),
+            geometry: Geometry::Points(vec![Coord { x: -179.64, y: 0.0 }, Coord { x: -179.5, y: 0.0 }]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                7,
+            ),
+            "POINT(4100 2048)",
+        ),
+        (
+            Some(
+                7,
+            ),
+            "POINT(4 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn grid_thinning_counts_multi_point_points_rounded_together_in_their_own_squares() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }, Coord { x: -89.9964, y: 10.0 }]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1024 1934)",
+        ),
+        (
+            Some(
+                2,
+            ),
+            "POINT(1024 1934)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn grid_thinning_keeps_the_wrapped_copy_of_the_point_it_keeps_when_only_some_points_wrap() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![SourceFeature {
+            id: Some(7),
+            geometry: Geometry::Points(vec![Coord { x: -144.0, y: 0.0 }, Coord { x: -179.64, y: 0.0 }]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                7,
+            ),
+            "POINT(4100 2048)",
+        ),
+        (
+            Some(
+                7,
+            ),
+            "POINT(4 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn a_rule_replaces_the_layer_grid_thinning_and_an_empty_one_turns_it_off() {
+    let points = [
+        (1, 10.0, "town"),
+        (2, 12.0, "town"),
+        (3, 14.0, "city"),
+        (4, 16.0, "city"),
+    ];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, kind)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            rules: vec![RuleDef {
+                when: Some("kind == 'city'".to_owned()),
+                thinning: Some(vec![]),
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1), Some(3), Some(4)]);
+}
+
+#[test]
+fn points_of_different_grid_sizes_share_a_counter_when_their_groups_are_equal() {
+    let points = [(1, 10.0, 10.0, "big"), (2, -60.0, 70.0, "small")];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, lat, kind)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
+            props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            rules: vec![RuleDef {
+                when: Some("kind == 'small'".to_owned()),
+                thinning: Some(vec![ThinningGrid {
+                    zooms: 0..=0,
+                    size: 32.0,
+                    limit: NonZeroU32::new(1).unwrap(),
+                }]),
+                ..RuleDef::default()
+            }],
+            ..LayerDef::new("pois", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let ids: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(mlt_core::TileFeature::id)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(ids, [Some(1)]);
+}
+
+#[test]
+fn neighboring_tiles_keep_the_same_point_of_a_square_crossing_their_edge() {
+    let points = [(1, 0.5, 3), (2, 1.0, 1), (3, 1.5, 2)];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, rank)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::I64(rank))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![LayerDef {
+            sort_by: vec![SortDef {
+                expr: "rank".to_owned(),
+                descending: false,
+            }],
+            per_tile: vec![TileOpDef {
+                zooms: 1..=1,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 32.0,
+                        limit: NonZeroU32::new(1).unwrap(),
+                    },
+                },
+            }],
+            ..LayerDef::new(
+                "pois",
+                1..=1,
+                LayerGrid {
+                    extent: 4096,
+                    buffer: 512,
+                },
+            )
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(1, 0, 0, 1, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let per_tile: Vec<_> = tiles
+        .iter()
+        .map(|tile| {
+            let layers = Parser::default().parse_layers(&tile.data).unwrap();
+            let ids: Vec<_> = layers
+                .into_iter()
+                .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+                .flat_map(|layer| {
+                    layer
+                        .features()
+                        .iter()
+                        .map(mlt_core::TileFeature::id)
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            (tile.coord.to_string(), ids)
+        })
+        .collect();
+    assert_eq!(
+        per_tile,
+        [("1,0,0".to_owned(), vec![Some(2)]), ("1,1,0".to_owned(), vec![Some(2)])]
+    );
 }
 
 #[test]
