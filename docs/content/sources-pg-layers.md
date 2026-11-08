@@ -335,6 +335,8 @@ than one unit of the layer's `extent` do not limit anything. A square crossing a
 same way in both tiles only when each sees all of its points, so set the layer's `buffer` to at least
 `size` pixels. A warning tells you when it is smaller.
 
+--8<-- "images/generate/per-tile-thinning-grid.svg"
+
 A rule may set its own grid `thinning` for the features it takes, replacing the layer's grid, or `null`
 to turn the grid off for them.
 
