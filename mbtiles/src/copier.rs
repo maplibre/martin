@@ -15,10 +15,11 @@ use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
+use crate::patcher::check_base_hash;
 use crate::queries::{detach_db, init_mbtiles_schema, is_empty_database};
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType, HASH_ALGORITHM,
-    HashAlgorithm, MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite,
+    HashAlgorithm, MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite, calc_agg_tiles_hash,
     create_tiles_with_hash_view, invert_y_value, reset_db_settings,
 };
 
@@ -237,6 +238,18 @@ impl MbtileCopierInt {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.examine_diff(&mut dif_conn).await?;
         dif_mbt.assert_hashes(&dif_info, self.options.force)?;
+        // after_apply must use the source's algorithm, since that's what the patched file keeps
+        let mut src_conn = self.src_mbt.open_readonly().await?;
+        let src_hash_algorithm = self.src_mbt.get_hash_algorithm(&mut src_conn).await?;
+        src_conn.close().await?;
+        let dif_hash_algorithm = dif_mbt.get_hash_algorithm(&mut dif_conn).await?;
+        let dif_hash = if dif_hash_algorithm == src_hash_algorithm {
+            dif_mbt
+                .resolve_agg_tiles_hash(&mut dif_conn, self.options.validate)
+                .await?
+        } else {
+            calc_agg_tiles_hash(&mut dif_conn, src_hash_algorithm).await?
+        };
         dif_conn.close().await?;
 
         let src_info = self.validate_src_file().await?;
@@ -282,7 +295,7 @@ impl MbtileCopierInt {
             src_info.mbt_type,
             dst_type,
             self.map_algorithm(src_info.mbt_type, algorithm).await?,
-            &get_select_from_with_diff(dif_info.mbt_type, dst_type, patch_type, algorithm),
+            &get_select_from_with_diff(dif_info.mbt_type, dif_hash_algorithm, dst_type, patch_type, algorithm),
             false,
         )
         .await?;
@@ -309,11 +322,9 @@ impl MbtileCopierInt {
                 .set_metadata_value(&mut conn, AGG_TILES_HASH_BEFORE_APPLY, &hash)
                 .await?;
         }
-        if let Some(hash) = dif_info.agg_tiles_hash {
-            self.dst_mbt
-                .set_metadata_value(&mut conn, AGG_TILES_HASH_AFTER_APPLY, &hash)
-                .await?;
-        }
+        self.dst_mbt
+            .set_metadata_value(&mut conn, AGG_TILES_HASH_AFTER_APPLY, &dif_hash)
+            .await?;
 
         // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
@@ -334,7 +345,15 @@ impl MbtileCopierInt {
         dif_mbt.validate_diff_info(&dif_info, self.options.force)?;
         dif_conn.close().await?;
 
-        let src_type = self.validate_src_file().await?.mbt_type;
+        let src_info = self.validate_src_file().await?;
+        let src_type = src_info.mbt_type;
+        check_base_hash(
+            &self.src_mbt,
+            &dif_mbt,
+            src_info.agg_tiles_hash,
+            dif_info.agg_tiles_hash_before_apply.clone(),
+            self.options.force,
+        )?;
         let algorithm = self.src_algorithm().await?;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
         if dst_type == Cache {
@@ -441,9 +460,17 @@ impl MbtileCopierInt {
 
     async fn validate_src_file(&self) -> MbtResult<PatchFileInfo> {
         let mut src_conn = self.src_mbt.open_readonly().await?;
-        let src_info = self.src_mbt.examine_diff(&mut src_conn).await?;
-        self.validate(&self.src_mbt, &mut src_conn).await?;
+        let mut src_info = self.src_mbt.examine_diff(&mut src_conn).await?;
+        if self.options.validate {
+            // the agg hash is recomputed below, so a missing stored value is fine
+            self.src_mbt.validate(&mut src_conn, Quick, AggHashType::Off).await?;
+        }
         self.src_mbt.assert_hashes(&src_info, self.options.force)?;
+        src_info.agg_tiles_hash = Some(
+            self.src_mbt
+                .resolve_agg_tiles_hash(&mut src_conn, self.options.validate)
+                .await?,
+        );
         src_conn.close().await?;
 
         Ok(src_info)
@@ -505,7 +532,7 @@ impl MbtileCopierInt {
                  ON srcMD.name = difMD.name
             WHERE srcMD.value != difMD.value OR srcMD.value ISNULL OR difMD.value ISNULL
         ) joinedMD
-        WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}')"
+        WHERE name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}', '{HASH_ALGORITHM}')"
             );
             debug!(sql = %sql, "Copying metadata, taking into account diff file");
         } else if self.options.apply_patch.is_some() {
@@ -965,25 +992,26 @@ fn get_select_from_apply_patch(
 
 fn get_select_from_with_diff(
     dif_type: MbtType,
+    dif_algorithm: HashAlgorithm,
     dst_type: MbtType,
     patch_type: Option<PatchType>,
     algorithm: HashAlgorithm,
 ) -> String {
     let tile_hash_expr: String = match (dst_type, dif_type) {
         (Flat, _) => String::new(),
+        // stored hashes are only reusable when they're in the diff's algorithm
         (
             _,
-            Flat
-            | Cache
+            FlatWithHash
             | Normalized {
-                schema: NormalizedSchema::DedupId,
+                schema: NormalizedSchema::Hash,
                 ..
             },
-        ) => {
+        ) if dif_algorithm == algorithm => ", COALESCE(upper(difTiles.tile_hash), '') as tile_hash".to_owned(),
+        _ => {
             let hash = algorithm.sql_hash("difTiles.tile_data");
             format!(", COALESCE({hash}, '') as tile_hash")
         }
-        (_, FlatWithHash | Normalized { .. }) => ", COALESCE(upper(difTiles.tile_hash), '') as tile_hash".to_owned(),
     };
 
     let diff_tiles: String = match (dst_type, dif_type) {

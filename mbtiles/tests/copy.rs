@@ -711,7 +711,7 @@ async fn cache_unsupported_operations(#[notrace] databases: &Databases) -> MbtRe
     // Patching a cache file in place
     let (cache_mbt, mut cache_cn) = open!(cache_unsupported_operations, "base");
     cache_mbt.create_cache_schema(&mut cache_cn, false).await?;
-    let err = apply_patch(path(&cache_mbt), databases.path("dif", Flat), true)
+    let err = apply_patch(path(&cache_mbt), databases.path("dif", Flat), true, false)
         .await
         .unwrap_err();
     assert_matches!(err, MbtError::UnsupportedCopyOperation { .. });
@@ -769,7 +769,7 @@ async fn diff_and_patch(
             "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__1"
         );
         copy!(databases.path(a_db, dst_type), path(&clone_mbt));
-        apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
+        apply_patch(path(&clone_mbt), path(&dif_mbt), false, false).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(
             hash,
@@ -789,7 +789,7 @@ async fn diff_and_patch(
             "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__2"
         );
         copy!(databases.path(b_db, dst_type), path(&clone_mbt));
-        apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
+        apply_patch(path(&clone_mbt), path(&dif_mbt), true, false).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(
             hash,

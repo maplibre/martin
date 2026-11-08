@@ -7,11 +7,11 @@ use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtError, MbtResult,
-    MbtType, Mbtiles, NormalizedSchema,
+    MbtType, Mbtiles, NormalizedSchema, calc_agg_tiles_hash,
 };
 
 #[hotpath::measure]
-fn check_base_hash(
+pub(crate) fn check_base_hash(
     base_mbt: &Mbtiles,
     patch_mbt: &Mbtiles,
     base_hash: Option<String>,
@@ -40,7 +40,8 @@ fn check_base_hash(
     Ok(())
 }
 
-pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -> MbtResult<()> {
+#[expect(clippy::too_many_lines, reason = "one transaction from hash check to commit")]
+pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool, validate: bool) -> MbtResult<()> {
     let base_mbt = Mbtiles::new(base_file)?;
     let patch_mbt = Mbtiles::new(patch_file)?;
 
@@ -63,13 +64,13 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
                 .to_owned(),
         });
     }
-    let base_hash = base_mbt.get_agg_tiles_hash(&mut conn).await?;
     base_mbt.assert_hashes(&base_info, force)?;
+    let base_hash = base_mbt.resolve_agg_tiles_hash(&mut conn, validate).await?;
 
     check_base_hash(
         &base_mbt,
         &patch_mbt,
-        base_hash,
+        Some(base_hash),
         patch_info.agg_tiles_hash_before_apply,
         force,
     )?;
@@ -84,6 +85,8 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
     let algorithm = base_mbt.get_hash_algorithm(&mut conn).await?;
+    // ATTACH can't run inside a transaction, so begin only after it
+    let mut tx = conn.begin().await?;
     let select_from = get_select_from(base_info.mbt_type, patch_type, algorithm);
     let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
 
@@ -98,15 +101,15 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     FROM ({select_from})
     WHERE tile_data NOTNULL;"
         );
-        sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut conn).await?;
+        sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
     }
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
-    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
 
     if let Some(insert2) = insert2 {
         let sql = format!("{insert2} WHERE tile_data NOTNULL");
-        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
+        query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
     }
 
     let sql = format!(
@@ -116,32 +119,51 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL)
     )"
     );
-    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
 
     if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
         let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
         let sql = format!("DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})");
-        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
+        query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
     }
 
-    // Copy metadata from patchDb to the destination file, replacing existing values
-    // Convert 'agg_tiles_hash_in_patch' into 'agg_tiles_hash'
-    // Delete metadata entries if the value is NULL in patchDb
+    // Copy metadata from patchDb to the destination file, replacing existing values;
+    // agg_tiles_hash is recomputed below. Delete entries whose value is NULL in patchDb
     let sql = format!(
         "
     INSERT OR REPLACE INTO metadata (name, value)
-    SELECT IIF(name = '{AGG_TILES_HASH_AFTER_APPLY}', '{AGG_TILES_HASH}', name) as name,
-           value
+    SELECT name, value
     FROM patchDb.metadata
-    WHERE name NOTNULL AND name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}');"
+    WHERE name NOTNULL
+      AND name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}');"
     );
-    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
 
     let sql = "
     DELETE FROM metadata
     WHERE name IN (SELECT name FROM patchDb.metadata WHERE value ISNULL);";
-    query(sql).execute(&mut conn).await?;
+    query(sql).execute(&mut *tx).await?;
+
+    let new_hash = calc_agg_tiles_hash(&mut *tx, algorithm).await?;
+    if let Some(expected) = patch_info.agg_tiles_hash_after_apply
+        && expected != new_hash
+    {
+        let err = MbtError::AggHashMismatchAfterApply {
+            patch_file: patch_mbt.filepath().to_owned(),
+            after_apply_hash: expected,
+            file: base_mbt.filepath().to_owned(),
+            agg_hash: new_hash.clone(),
+        };
+        if !force {
+            tx.rollback().await?;
+            detach_db(&mut conn, "patchDb").await?;
+            return Err(err);
+        }
+        warn!("{err}");
+    }
+    base_mbt.set_metadata_value(&mut *tx, AGG_TILES_HASH, &new_hash).await?;
+    tx.commit().await?;
 
     detach_db(&mut conn, "patchDb").await
 }
@@ -271,7 +293,7 @@ mod tests {
         // Apply patch to the src data in in-memory DB
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
         let (_mbt, _conn, patch_file) = temp_named_mbtiles("flat_patch_file_mem", script).await;
-        apply_patch(dst_file, patch_file, true).await.unwrap();
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
@@ -295,7 +317,7 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
         let (_mbt, _conn, patch_file) = temp_named_mbtiles("patch_onto_no_unique_index_mem", script).await;
 
-        let err = apply_patch(base_file, patch_file, true).await.unwrap_err();
+        let err = apply_patch(base_file, patch_file, true, false).await.unwrap_err();
         assert!(matches!(err, MbtError::NoUniquenessConstraint(_)), "{err:?}");
     }
 
@@ -321,7 +343,7 @@ mod tests {
 
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
         let (_mbt, _conn, patch_file) = temp_named_mbtiles("dedup_id_patch_file_mem", script).await;
-        apply_patch(dst_file, patch_file, true).await.unwrap();
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
 
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
         let (mbt, _conn, _) = temp_named_mbtiles("dedup_id_attached_mem_db", script).await;
@@ -389,7 +411,7 @@ mod tests {
             .await
             .unwrap();
 
-        apply_patch(dst_file, patch_file, true).await.unwrap();
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
 
         assert!(
             dst_conn
@@ -420,7 +442,7 @@ mod tests {
         // Apply patch to the src data in in-memory DB
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
         let (_mbt, _conn, patch_file) = temp_named_mbtiles("normalized_patch_file_mem", script).await;
-        apply_patch(dst_file, patch_file, true).await.unwrap();
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
