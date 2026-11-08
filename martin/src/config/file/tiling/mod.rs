@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::config::file::tiling::error::TilingConfigError;
 pub use crate::config::file::tiling::per_tile::{
-    ByZoomRange, Limit, Op, PerTile, RuleThinning, Thinning, ThinningMethod,
+    ByZoomRange, Limit, MergeMulti, MultiGeometry, Op, PerTile, RuleThinning, Thinning, ThinningMethod,
 };
 pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
@@ -150,6 +150,7 @@ struct RawLayer {
     #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
     id: IdPolicy,
     thinning: Option<ByZoomRange<Thinning>>,
+    merge_multi: Option<ByZoomRange<MergeMulti>>,
     limit: Option<ByZoomRange<Limit>>,
     #[serde(flatten, skip_serializing)]
     unrecognized: UnrecognizedValues,
@@ -175,6 +176,7 @@ impl From<RawLayer> for Layer {
             id: raw.id,
             per_tile: PerTile {
                 thinning: raw.thinning,
+                merge_multi: raw.merge_multi,
                 limit: raw.limit,
             },
             unrecognized: raw.unrecognized,
@@ -201,6 +203,7 @@ impl From<Layer> for RawLayer {
             sort_by: layer.sort_by,
             id: layer.id,
             thinning: layer.per_tile.thinning,
+            merge_multi: layer.per_tile.merge_multi,
             limit: layer.per_tile.limit,
             unrecognized: UnrecognizedValues::default(),
         }

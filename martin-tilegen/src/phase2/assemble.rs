@@ -1,5 +1,6 @@
 //! Builds one layer of one tile from the records the merge yields for it.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -70,9 +71,13 @@ impl LayerAssembler {
         op_scratch.counts = LayerOpCounts::default();
         let tile = LayerTile {
             decoded: &decoded,
+            props: RefCell::new(props),
+            names,
             grid,
+            merged: RefCell::default(),
         };
         ops.apply(&tile, features, op_scratch)?;
+        let props = tile.props.borrow();
 
         columns.clear();
         for feature in features.iter() {

@@ -13,4 +13,4 @@
       `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`,
       `point_on_line` and `innermost_point`
     - [x] [Per-tile operations](sources-pg-layers.md#per-tile-operations) (`thinning`,
-      `limit`)
+      `merge_multi`, `limit`)

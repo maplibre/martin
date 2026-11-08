@@ -17,19 +17,24 @@ use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, Unrecognize
 pub struct PerTile {
     /// Drops features an earlier kept feature crowds out.
     pub thinning: Option<ByZoomRange<Thinning>>,
+    /// Combines features of a group into one multi-geometry.
+    pub merge_multi: Option<ByZoomRange<MergeMulti>>,
     /// Keeps the first features of the layer.
     pub limit: Option<ByZoomRange<Limit>>,
 }
 
 impl PerTile {
     /// The layer keys naming a per-tile operation.
-    pub const KEYS: [&str; 2] = ["thinning", "limit"];
+    pub const KEYS: [&str; 3] = ["thinning", "merge_multi", "limit"];
 }
 
 impl CollectUnrecognizedKeys for PerTile {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         if let Some(op) = &self.thinning {
             op.collect_unrecognized(&format!("{path}thinning"), out);
+        }
+        if let Some(op) = &self.merge_multi {
+            op.collect_unrecognized(&format!("{path}merge_multi"), out);
         }
         if let Some(op) = &self.limit {
             op.collect_unrecognized(&format!("{path}limit"), out);
@@ -134,6 +139,18 @@ impl Serialize for RuleThinning {
     }
 }
 
+/// The base geometry types `merge_multi` can combine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MultiGeometry {
+    /// Points and multi-points.
+    Point,
+    /// Lines and multi-lines.
+    Line,
+    /// Polygons and multi-polygons.
+    Polygon,
+}
+
 /// How `thinning` decides that an earlier kept feature crowds a feature out.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ThinningMethod {
@@ -150,6 +167,19 @@ pub enum ThinningMethod {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Thinning {
     pub method: ThinningMethod,
+    /// The zooms the operation runs at.
+    pub zooms: ZoomRange,
+    /// Keys the operation does not know.
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// `merge_multi`: combines features of a group and type into one multi-geometry.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MergeMulti {
+    /// The types to combine; all three when unset.
+    pub geometry: Option<NonEmpty<MultiGeometry>>,
+    /// Output attributes that must be equal, and the only ones the merged feature keeps.
+    pub group_by: NonEmpty<String>,
     /// The zooms the operation runs at.
     pub zooms: ZoomRange,
     /// Keys the operation does not know.
@@ -182,6 +212,7 @@ macro_rules! op {
 }
 
 op!(Thinning);
+op!(MergeMulti);
 op!(Limit);
 
 /// `thinning`'s `method` as written.
@@ -254,6 +285,42 @@ impl From<&Thinning> for RawThinning {
 
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
+struct RawMergeMulti {
+    geometry: Option<NonEmpty<MultiGeometry>>,
+    group_by: NonEmpty<String>,
+    minzoom: Option<Zoom>,
+    maxzoom: Option<Zoom>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl TryFrom<RawMergeMulti> for MergeMulti {
+    type Error = TilingConfigError;
+
+    fn try_from(raw: RawMergeMulti) -> Result<Self, TilingConfigError> {
+        Ok(Self {
+            geometry: raw.geometry,
+            group_by: raw.group_by,
+            zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
+            unrecognized: raw.unrecognized,
+        })
+    }
+}
+
+impl From<&MergeMulti> for RawMergeMulti {
+    fn from(op: &MergeMulti) -> Self {
+        Self {
+            geometry: op.geometry.clone(),
+            group_by: op.group_by.clone(),
+            minzoom: op.zooms.minzoom(),
+            maxzoom: op.zooms.maxzoom(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Serialize, Deserialize)]
 struct RawLimit {
     count: u32,
     minzoom: Option<Zoom>,
@@ -302,6 +369,7 @@ macro_rules! serde_via_raw {
 }
 
 serde_via_raw!(Thinning, RawThinning);
+serde_via_raw!(MergeMulti, RawMergeMulti);
 
 impl<'de> Deserialize<'de> for Limit {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -358,7 +426,7 @@ mod tests {
 
     use indoc::indoc;
 
-    use super::{ByZoomRange, Limit, PerTile, Thinning, ThinningMethod};
+    use super::{ByZoomRange, Limit, MergeMulti, MultiGeometry, PerTile, Thinning, ThinningMethod};
     use crate::config::file::tiling::NonEmpty;
     use crate::config::file::tiling::setting::Pixels;
     use crate::config::file::tiling::tests::{parse, rejection};
@@ -379,6 +447,7 @@ mod tests {
         let layers = parse(indoc! {"
             pois:
               thinning: { maxzoom: 9, method: grid, size: 64, limit: 2 }
+              merge_multi: { geometry: [point], group_by: [kind] }
               limit: { count: 200, minzoom: 3 }
         "});
         assert_eq!(
@@ -390,6 +459,12 @@ mod tests {
                         limit: NonZeroU32::new(2).expect("positive"),
                     },
                     zooms: zooms(None, Some(9)),
+                    unrecognized: UnrecognizedValues::default(),
+                }))),
+                merge_multi: Some(ByZoomRange(NonEmpty::new(MergeMulti {
+                    geometry: Some(NonEmpty::new(MultiGeometry::Point)),
+                    group_by: NonEmpty::new("kind".to_owned()),
+                    zooms: ZoomRange::default(),
                     unrecognized: UnrecognizedValues::default(),
                 }))),
                 limit: Some(ByZoomRange(NonEmpty::new(Limit {
@@ -579,6 +654,30 @@ mod tests {
         insta::assert_snapshot!(
             rejection("pois: { limit: -1 }"),
             @"error: line 1 column 9: invalid value: integer `-1`, expected a feature count, 0 or more, or a map with `count`"
+        );
+    }
+
+    #[test]
+    fn merge_multi_geometry_is_point_line_or_polygon() {
+        insta::assert_snapshot!(
+            rejection("pois: { merge_multi: { geometry: [circle], group_by: [kind] } }"),
+            @"error: line 1 column 35: unknown variant `circle`, expected one of point, line, polygon"
+        );
+    }
+
+    #[test]
+    fn merge_multi_needs_group_by() {
+        insta::assert_snapshot!(
+            rejection("pois: { merge_multi: { geometry: [point] } }"),
+            @"error: line 1 column 24: missing field `group_by`"
+        );
+    }
+
+    #[test]
+    fn merge_multi_group_by_cannot_be_empty() {
+        insta::assert_snapshot!(
+            rejection("pois: { merge_multi: { group_by: [] } }"),
+            @"error: line 1 column 24: invalid length 0, expected at least one item"
         );
     }
 }

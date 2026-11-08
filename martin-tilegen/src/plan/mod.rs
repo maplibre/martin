@@ -50,6 +50,13 @@ pub enum PlanError {
 
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
+
+    #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
+    UnknownGroupBy {
+        layer: String,
+        op: &'static str,
+        attribute: String,
+    },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -183,6 +190,15 @@ pub struct TileOpDef {
 pub enum TileOp {
     /// Drops features that an earlier kept feature crowds out, as `method` says.
     Thinning { method: ThinningMethod },
+    /// Combines the features of a group and type into one multi-geometry, with the parts in draw order,
+    /// and only the `group_by` attributes.
+    MergeMulti {
+        /// The types to combine; others pass through.
+        geometry: Vec<GeometryType>,
+        /// Output attributes that must be equal, a missing one counting as `null`, and that the merged
+        /// feature keeps.
+        group_by: Vec<String>,
+    },
     /// Keeps the first `count` features and drops the rest.
     Limit { count: u32 },
 }
@@ -192,7 +208,8 @@ impl TileOp {
     fn rank(&self) -> u8 {
         match self {
             Self::Thinning { .. } => 1,
-            Self::Limit { .. } => 2,
+            Self::MergeMulti { .. } => 2,
+            Self::Limit { .. } => 3,
         }
     }
 }
@@ -688,6 +705,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
+    check_group_by(&def, &keys, compiler.dynamic_props)?;
     let per_tile = plan_per_tile(&def);
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
@@ -727,6 +745,28 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
     })
 }
 
+/// Every `group_by` attribute of the layer's operations is one the layer writes: one of `keys`, or, when
+/// it copies every property of a table with dynamic ones, perhaps one of those.
+fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Result<(), PlanError> {
+    if dynamic_props && def.attributes == AttributesDef::All {
+        return Ok(());
+    }
+    for op in &def.per_tile {
+        let (name, group_by) = match &op.op {
+            TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
+            TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
+        };
+        if let Some(attribute) = group_by.into_iter().flatten().find(|name| !keys.contains(name)) {
+            return Err(PlanError::UnknownGroupBy {
+                layer: def.name.clone(),
+                op: name,
+                attribute: attribute.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// The layer's operations in the order they run, each clamped into its zooms, without those outside them.
 /// Grid thinning runs on what rendering marked, so it has none.
 fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
@@ -740,6 +780,10 @@ fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
         }
         let planned = match &op.op {
             TileOp::Thinning { .. } => continue,
+            TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
+                geometry: geometry.clone(),
+                group_by: group_by.clone(),
+            },
             TileOp::Limit { count } => PlannedOp::Limit { count: *count },
         };
         ops.push((
@@ -764,13 +808,20 @@ pub struct PlannedTileOp {
 /// A [`TileOp`] as the encoder runs it.
 #[derive(Clone, Debug)]
 pub(crate) enum PlannedOp {
-    Limit { count: u32 },
+    MergeMulti {
+        geometry: Vec<GeometryType>,
+        group_by: Vec<String>,
+    },
+    Limit {
+        count: u32,
+    },
 }
 
 impl PlannedOp {
     /// Which operation this is.
     pub(crate) const fn kind(&self) -> OpKind {
         match self {
+            Self::MergeMulti { .. } => OpKind::MergeMulti,
             Self::Limit { .. } => OpKind::Limit,
         }
     }

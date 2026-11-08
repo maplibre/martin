@@ -1,11 +1,16 @@
 //! Per-tile operations: each takes one layer's features in one tile, in draw order, and returns the new list.
 
 mod limit;
+mod merge_multi;
 mod thinning;
 
+use std::cell::RefCell;
 use std::ops::Range;
 
+use mlt_core::PropValueRef;
+
 use crate::plan::{PlannedOp, PlannedTileOp};
+use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{LayerGrid, TileGenResult};
@@ -13,7 +18,7 @@ use crate::{LayerGrid, TileGenResult};
 /// One feature of a layer in a tile, as ranges into the records and properties the assembler decoded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct TileFeature {
-    /// The first of the feature's pieces in this tile.
+    /// The first of the feature's pieces in this tile; for a merged feature, that of its first member.
     first: u32,
     /// One past the last of the feature's pieces.
     end: u32,
@@ -32,6 +37,8 @@ pub(crate) enum Shape {
     Records,
     /// One point of its single record, for a gridded multi-point split into its points.
     Point(Vertex),
+    /// A geometry an operation made by merging features, by index into [`LayerTile::merged`].
+    Merged(u32),
 }
 
 /// `index` as stored in a [`TileFeature`].
@@ -67,10 +74,24 @@ impl TileFeature {
     }
 }
 
-/// One layer's decoded records in a tile, which [`TileFeature`]s point into.
+/// What merging several features made: one geometry and the id they shared, if they did.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Merged {
+    /// [`GeomKind::Point`], [`GeomKind::Line`] or [`GeomKind::Polygon`].
+    pub(crate) kind: GeomKind,
+    pub(crate) geom: GeomBuf,
+    pub(crate) id: Option<u64>,
+}
+
+/// One layer's decoded records and properties in a tile, which [`TileFeature`]s point into.
 pub(crate) struct LayerTile<'r, 'a> {
     pub(crate) decoded: &'r [(Seq, Record<'a>)],
+    /// Operations that keep only some of a feature's properties append those here.
+    pub(crate) props: RefCell<Vec<(KeyId, PropValueRef<'a>)>>,
+    pub(crate) names: &'r KeyNames,
     pub(crate) grid: LayerGrid,
+    /// What merges made, which [`Shape::Merged`] points into.
+    pub(crate) merged: RefCell<Vec<Merged>>,
 }
 
 impl LayerTile<'_, '_> {
@@ -80,6 +101,13 @@ impl LayerTile<'_, '_> {
         out.clear();
         let first = &self.decoded[feature.first()].1;
         match feature.shape {
+            Shape::Merged(index) => {
+                let merged = &self.merged.borrow()[index as usize];
+                out.polygons.extend_from_slice(&merged.geom.polygons);
+                out.parts.extend_from_slice(&merged.geom.parts);
+                out.vertices.extend_from_slice(&merged.geom.vertices);
+                Ok((merged.kind, merged.id))
+            }
             Shape::Point(vertex) => {
                 out.vertices.push(vertex);
                 Ok((first.kind, first.id))
@@ -95,6 +123,97 @@ impl LayerTile<'_, '_> {
                 }
                 Ok((first.kind, first.id))
             }
+        }
+    }
+
+    /// Stores `merged` and makes `feature` draw it, returning its index in [`Self::merged`].
+    pub(crate) fn set_merged(&self, feature: &mut TileFeature, merged: Merged) -> u32 {
+        let mut all = self.merged.borrow_mut();
+        let index = narrow(all.len());
+        feature.shape = Shape::Merged(index);
+        all.push(merged);
+        index
+    }
+
+    /// The feature's kind as merges see it: points, lines or polygons, a fill being a polygon.
+    pub(crate) fn base_kind(&self, feature: &TileFeature) -> GeomKind {
+        if let Shape::Merged(index) = feature.shape {
+            return self.merged.borrow()[index as usize].kind;
+        }
+        match self.decoded[feature.first()].1.kind {
+            GeomKind::Point | GeomKind::GriddedPoint { .. } => GeomKind::Point,
+            GeomKind::Line => GeomKind::Line,
+            GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } => GeomKind::Polygon,
+        }
+    }
+
+    /// Makes `feature` keep only its properties named in `names`, in their order.
+    pub(crate) fn keep_props(&self, feature: &mut TileFeature, names: &[String]) {
+        let mut props = self.props.borrow_mut();
+        let start = props.len();
+        for index in feature.props() {
+            let (key, value) = props[index];
+            if names.iter().any(|name| self.names.name(key) == name) {
+                props.push((key, value));
+            }
+        }
+        feature.props_first = narrow(start);
+        feature.props_end = narrow(props.len());
+    }
+
+    /// The values merges group features by: those of `group_by`, by name, a missing one as `null`; or
+    /// every property, by key. Values compare by type too, so `1` and `"1"` differ.
+    pub(crate) fn group_key(&self, feature: &TileFeature, group_by: Option<&[String]>) -> Vec<GroupValue> {
+        let props = self.props.borrow();
+        let props = &props[feature.props()];
+        if let Some(names) = group_by {
+            names
+                .iter()
+                .map(|name| {
+                    props
+                        .iter()
+                        .find(|(key, _)| self.names.name(*key) == name)
+                        .map_or(GroupValue::Null, |&(_, value)| GroupValue::from(value))
+                })
+                .collect()
+        } else {
+            let mut values: Vec<_> = props
+                .iter()
+                .map(|&(key, value)| GroupValue::Keyed(key, Box::new(GroupValue::from(value))))
+                .collect();
+            values.sort();
+            values
+        }
+    }
+}
+
+/// A property value as merges compare it: ordered, with floats by their bits.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum GroupValue {
+    Null,
+    Bool(bool),
+    Int(i64),
+    Uint(u64),
+    F32(u32),
+    F64(u64),
+    Str(String),
+    /// A value under its key, when every property takes part.
+    Keyed(KeyId, Box<Self>),
+}
+
+impl From<PropValueRef<'_>> for GroupValue {
+    fn from(value: PropValueRef<'_>) -> Self {
+        match value {
+            PropValueRef::Bool(v) => Self::Bool(v),
+            PropValueRef::I8(v) => Self::Int(v.into()),
+            PropValueRef::U8(v) => Self::Int(v.into()),
+            PropValueRef::I32(v) => Self::Int(v.into()),
+            PropValueRef::U32(v) => Self::Int(v.into()),
+            PropValueRef::I64(v) => Self::Int(v),
+            PropValueRef::U64(v) => Self::Uint(v),
+            PropValueRef::F32(v) => Self::F32(v.to_bits()),
+            PropValueRef::F64(v) => Self::F64(v.to_bits()),
+            PropValueRef::Str(v) => Self::Str(v.to_owned()),
         }
     }
 }
@@ -113,19 +232,22 @@ pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
 pub enum OpKind {
     /// Drops features an earlier kept feature crowds out.
     Thinning,
+    /// Combines a group's features of one type into a multi-feature.
+    MergeMulti,
     /// Keeps the first features.
     Limit,
 }
 
 impl OpKind {
     /// Every operation, in the order they run.
-    pub const ALL: [Self; 2] = [Self::Thinning, Self::Limit];
+    pub const ALL: [Self; 3] = [Self::Thinning, Self::MergeMulti, Self::Limit];
 
     /// The operation's key in the config.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Thinning => "thinning",
+            Self::MergeMulti => "merge_multi",
             Self::Limit => "limit",
         }
     }
@@ -240,6 +362,9 @@ impl<'a> TileOps<'a> {
             }
             let features_in = features.len();
             match op {
+                PlannedOp::MergeMulti { geometry, group_by } => {
+                    merge_multi::apply(tile, geometry, group_by, features)?;
+                }
                 PlannedOp::Limit { count } => limit::apply(*count, features),
             }
             scratch

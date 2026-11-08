@@ -62,6 +62,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 | `thinning`                        | Drops features crowded out by earlier ones in one tile           | [Per-tile operations](#per-tile-operations)        |
+| `merge_multi`                     | One multi-geometry per group in one tile                         | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`.
@@ -264,12 +265,18 @@ Operations run in this order, whatever order they are written in:
 | Order | Operation        | Does                                                         |
 |-------|------------------|--------------------------------------------------------------|
 | 1     | `thinning`       | Drops features earlier ones crowd out                        |
-| 2     | `limit`          | Keeps the first `count` features, in order                   |
+| 2     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
+| 3     | `limit`          | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
 give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose
 zooms miss the layer's entirely is dropped with a warning.
+
+`merge_multi` groups features by the values of the attributes in `group_by`. Values compare by type too,
+so `1` and `"1"` are different groups, and a feature without a `group_by` attribute groups with others
+without it. A merged feature takes the place of the first feature of its group. It keeps a feature id only
+if all of its group has the same one.
 
 Since operations keep the first features of the list, `sort_by` decides which features survive. A
 layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see
@@ -339,6 +346,25 @@ same way in both tiles only when each sees all of its points, so set the layer's
 
 A rule may set its own grid `thinning` for the features it takes, replacing the layer's grid, or `null`
 to turn the grid off for them.
+
+### `merge_multi`
+
+Combines the features of a group into one multi-point, multi-line or multi-polygon per geometry type,
+without changing any geometry, the parts in draw order, as Planetiler's `mergeMultiPoint`,
+`mergeMultiLineString` and `mergeMultiPolygon` do. A point alone in its group stays a point. Every
+feature of a type in `geometry` keeps only its `group_by` attributes, even one alone in its group.
+
+```yaml
+merge_multi:
+  geometry: [point]   # only combine points; lines and polygons pass through
+  group_by: [kind]
+```
+
+| Option               | Default                      | Meaning                                    |
+|----------------------|------------------------------|--------------------------------------------|
+| `geometry`           | `[point, line, polygon]`     | The types to combine; others pass through  |
+| `group_by`           | required, 1 or more          | The attributes features share and keep     |
+| `minzoom`, `maxzoom` | the layer's zooms            | Where it runs                              |
 
 ### `limit`
 
@@ -525,9 +551,9 @@ postgres:
   about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
-  yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that
-  never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's
-  `buffer`.
+  yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose
+  zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a
+  grid `thinning` with squares larger than the layer's `buffer`.
 
 [`martin test`](martin-test.md) checks what the layers make of real rows of the database, and keeps it in
 a spec file.
