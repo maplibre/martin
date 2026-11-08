@@ -288,6 +288,11 @@ The output does not depend on `--threads`. Tiles served with or without `prefetc
 Keeps the first `count` features of the layer in the tile and drops the rest. `count: 0` leaves the
 layer out of the tile. `limit: 100` is short for `limit: { count: 100 }`.
 
+--8<-- "images/generate/per-tile-limit.svg"
+
+Features in the tile's buffer count too, so a feature near a tile edge can be kept in its own tile and
+dropped from the buffer of the next.
+
 Unlike `max_feature_count` of a table source, which limits the rows read for a tile, `limit` limits the
 features written to it.
 
