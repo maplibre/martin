@@ -330,10 +330,13 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
         OutputGeometry::Point => Ok(GeometryType::Point),
         OutputGeometry::Line => Ok(GeometryType::Line),
         OutputGeometry::Polygon => Ok(GeometryType::Polygon),
-        OutputGeometry::LabelPoint => Err("label_point"),
-        OutputGeometry::Centroid => Err("centroid"),
-        OutputGeometry::CentroidIfConvex => Err("centroid_if_convex"),
+        OutputGeometry::PolygonCentroid => Err("polygon_centroid"),
+        OutputGeometry::LineCentroid => Err("line_centroid"),
         OutputGeometry::LineMidpoint => Err("line_midpoint"),
+        OutputGeometry::Centroid => Err("centroid"),
+        OutputGeometry::PolygonCentroidIfConvex => Err("polygon_centroid_if_convex"),
+        OutputGeometry::PolygonPointOnSurface => Err("polygon_point_on_surface"),
+        OutputGeometry::PointOnLine => Err("point_on_line"),
         OutputGeometry::InnermostPoint => Err("innermost_point"),
     }
 }
@@ -1169,7 +1172,16 @@ mod tests {
 
     #[test]
     fn unsupported_settings_are_rejected() {
-        let layers = ["roads: { geometry: centroid }", "roads: { geometry: label_point }"];
+        let layers = [
+            "roads: { geometry: polygon_centroid }",
+            "roads: { geometry: line_centroid }",
+            "roads: { geometry: line_midpoint }",
+            "roads: { geometry: centroid }",
+            "roads: { geometry: polygon_centroid_if_convex }",
+            "roads: { geometry: polygon_point_on_surface }",
+            "roads: { geometry: point_on_line }",
+            "roads: { geometry: innermost_point }",
+        ];
         let errors: Vec<String> = layers
             .iter()
             .map(|layers| {
@@ -1179,8 +1191,14 @@ mod tests {
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
+        layer `roads`: `geometry: polygon_centroid` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: line_centroid` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: line_midpoint` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: polygon_centroid_if_convex` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: polygon_point_on_surface` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: point_on_line` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: innermost_point` is not supported by `--mode bulk` yet
         ");
     }
 
