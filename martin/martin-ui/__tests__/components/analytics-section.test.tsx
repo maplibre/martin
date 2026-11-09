@@ -66,7 +66,7 @@ describe('AnalyticsSection', () => {
 
     // Check for skeleton elements by their CSS classes
     const skeletons = container.querySelectorAll('.animate-pulse.rounded-md.bg-muted');
-    expect(skeletons).toHaveLength(8); // 2 for metrics per card (4 cards * 2 = 8)
+    expect(skeletons).toHaveLength(9); // 2 per card plus the summary line
 
     // Check that all 4 cards are rendered
     expect(screen.getByText('Tiles')).toBeTruthy();

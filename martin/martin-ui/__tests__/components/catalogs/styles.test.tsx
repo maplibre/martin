@@ -253,7 +253,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Only Basic Style has colors defined
-    expect(container.textContent).toContain('Color Palette:');
+    expect(container.querySelector('[aria-label="Color palette"]')).toBeTruthy();
 
     // Check that color swatches are rendered
     const colorSwatches = container.querySelectorAll('[style*="background-color"]');
@@ -316,7 +316,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that dates are formatted and displayed - expect locale string format
-    const modifiedMatches = container.textContent?.match(/Modified:/g) || [];
+    const modifiedMatches = container.textContent?.match(/Modified/g) || [];
     expect(modifiedMatches.length).toBe(2); // Only Basic Style and Hybrid Style have dates
   });
 
@@ -334,7 +334,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that layer count labels are present
-    const layerMatches = container.textContent?.match(/Layers:/g) || [];
+    const layerMatches = container.textContent?.match(/Layers/g) || [];
     expect(layerMatches.length).toBe(2); // Only Basic Style and Hybrid Style have layer counts
 
     expect(container.textContent).toContain('10'); // Basic Style layer_count
@@ -345,7 +345,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that version hash label is present
-    expect(container.textContent).toContain('Version:');
+    expect(container.textContent).toContain('Version');
     expect(container.textContent).toContain('abc123'); // Hybrid Style version_hash
   });
 

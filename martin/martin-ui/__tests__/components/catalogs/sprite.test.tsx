@@ -159,7 +159,7 @@ describe('SpriteCatalog Component', () => {
     expect(container.textContent).toContain('7 total icons');
 
     // Verify file size labels are displayed (the exact format may vary)
-    expect(container.textContent).toContain('File Size:');
+    expect(container.textContent).toMatch(/\d+(\.\d+)? (B|KB|MB)/);
   });
 
   it('filters sprite collections based on search query', () => {
@@ -254,9 +254,8 @@ describe('SpriteCatalog Component', () => {
   it('shows sprite preview sections for each collection', () => {
     const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    // Check that "Icon Preview:" labels are rendered for each collection
-    const iconPreviewMatches = container.textContent?.match(/Icon Preview:/g) || [];
-    expect(iconPreviewMatches.length).toBe(3);
+    // One preview well per collection
+    expect(container.querySelectorAll('.checker').length).toBe(3);
   });
 
   it('shows empty state with configuration link when no collections', () => {

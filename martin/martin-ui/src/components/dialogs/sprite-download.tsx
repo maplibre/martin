@@ -1,4 +1,4 @@
-import { Copy, CopyCheck } from 'lucide-react';
+import { ChevronDown, Copy, CopyCheck, Download, ExternalLink } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ interface SpriteFormat {
   label: string;
   url: string;
   description: string;
+  primary?: boolean;
 }
 
 export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDownloadDialogProps) {
@@ -39,6 +40,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     {
       description: 'Standard sprite format with full color support',
       label: 'PNG Spritesheet',
+      primary: true,
       url: buildMartinUrl(`/sprite/${name}.png`),
     },
     {
@@ -52,6 +54,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     {
       description: 'For runtime coloring with single color',
       label: 'SDF Spritesheet',
+      primary: true,
       url: buildMartinUrl(`/sdf_sprite/${name}.png`),
     },
     {
@@ -66,154 +69,146 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     },
   ];
 
+  const renderFormats = (formats: SpriteFormat[]) => (
+    <ul className="space-y-2">
+      {formats.map((format) => (
+        <li
+          className="flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+          key={format.url}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">{format.label}</div>
+            <p className="hidden text-sm text-muted-foreground sm:block">{format.description}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              asChild
+              className="flex-1 sm:flex-none"
+              size="sm"
+              variant={format.primary ? 'default' : 'secondary'}
+            >
+              <a
+                aria-label={`Download ${format.label}`}
+                download={format.url.split('/').pop()}
+                href={format.url}
+              >
+                <Download />
+                Download
+              </a>
+            </Button>
+            <Button
+              aria-label={`Copy URL of ${format.label}`}
+              className="flex-1 sm:flex-none"
+              onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
+              size="sm"
+              variant="outline"
+            >
+              {copiedValue === format.url ? (
+                <>
+                  <CopyCheck className="text-success" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy />
+                  Copy URL
+                </>
+              )}
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <Dialog onOpenChange={(v: boolean) => !v && onCloseAction()} open={true}>
-      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
-        <DialogHeader className="truncate">
-          <DialogTitle className="text-2xl">
-            Download <code className="font-mono">{name}</code>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
+            Download <code className="font-mono text-lg">{name}</code>
           </DialogTitle>
           <DialogDescription>
-            Download the sprite in various formats or copy the download URL.
+            Download the sprite sheet and its JSON index, or copy a URL to use in a style.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* PNG Format */}
-            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-              <div className="flex items-center mb-3">
-                <Badge className="bg-blue-100 text-blue-800 mr-2" variant="secondary">
-                  PNG
-                </Badge>
-                <h4 className="font-semibold text-blue-900">Standard Format</h4>
+          <details className="group rounded-lg border bg-sunken/60">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              PNG or SDF? Compare the two formats
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="grid grid-cols-1 gap-3 p-3 pt-0 md:grid-cols-2">
+              {/* PNG Format */}
+              <div className="rounded-lg border border-t-4 border-t-brand/60 bg-card p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge variant="secondary">PNG</Badge>
+                  <h4 className="font-semibold">Standard Format</h4>
+                </div>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Standard sprite format with multiple colors and transparency.
+                </p>
+                <ul className="list-disc space-y-1.5 pl-5 text-sm marker:text-brand">
+                  <li>Full color support</li>
+                  <li>No runtime recoloring</li>
+                  <li>Compatible with all mapping libraries</li>
+                  <li>Fixed resolution</li>
+                </ul>
               </div>
-              <p className="text-sm text-blue-800 mb-4">
-                Standard sprite format with multiple colors and transparency.
-              </p>
-              <ul className="text-xs text-blue-700 my-6 ml-6 list-disc [&>li]:mt-2">
-                <li>Full color support</li>
-                <li>No runtime recoloring</li>
-                <li>Compatible with all mapping libraries</li>
-                <li>Fixed resolution</li>
-              </ul>
-            </div>
-
-            {/* SDF Format */}
-            <div className="p-4 border rounded-lg bg-purple-50 border-purple-200">
-              <div className="flex items-center mb-3">
-                <Badge className="bg-purple-100 text-purple-800 mr-2" variant="secondary">
-                  SDF
-                </Badge>
-                <h4 className="font-semibold text-purple-900">Signed Distance Field</h4>
+  
+              {/* SDF Format */}
+              <div className="rounded-lg border border-t-4 border-t-primary bg-card p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge variant="default">SDF</Badge>
+                  <h4 className="font-semibold">Signed Distance Field</h4>
+                </div>
+                <p className="mb-3 text-sm text-muted-foreground">For dynamic coloring at runtime.</p>
+                <ul className="list-disc space-y-1.5 pl-5 text-sm marker:text-brand">
+                  <li>One color per sprite. Layer several SDFs for multi-color icons.</li>
+                  <li>
+                    Customizable color via{' '}
+                    <code className="rounded-sm bg-muted px-1 py-0.5 text-xs font-semibold">
+                      icon-color
+                    </code>{' '}
+                    property
+                  </li>
+                  <li>Supported by MapLibre and Mapbox</li>
+                  <li>
+                    <a
+                      className="inline-flex items-center gap-0.5 font-medium text-brand underline underline-offset-2"
+                      href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Sharp
+                      <ExternalLink aria-hidden="true" className="size-3" />
+                    </a>{' '}
+                    at any zoom level (how SDF works)
+                  </li>
+                </ul>
               </div>
-              <p className="text-sm text-purple-800 mb-4">For dynamic coloring at runtime.</p>
-              <ul className="text-xs text-purple-700  my-6 ml-6 list-disc [&>li]:mt-2">
-                <li>Single color per sprite - Layer multiple SDFs for multi-color icons</li>
-                <li>
-                  Customizable color via{' '}
-                  <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-xs">
-                    icon-color
-                  </code>{' '}
-                  property
-                </li>
-                <li>Supported by MapLibre and Mapbox</li>
-                <li>
-                  <a
-                    className="text-purple-950 underline hover:text-purple-900"
-                    href="https://steamcdn-a.akamaihd.net/apps/valve/2007/SIGGRAPH2007_AlphaTestedMagnification.pdf"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    SVG-Like
-                  </a>{' '}
-                  zooming
-                </li>
-              </ul>
             </div>
-          </div>
+          </details>
 
           {/* Download Options */}
           <div className="space-y-6">
-            {/* PNG Downloads */}
             <div>
-              <h4 className="font-semibold mb-3 text-blue-900 flex items-center">
-                <Badge className="bg-blue-100 text-blue-800 mr-2" variant="secondary">
-                  PNG
-                </Badge>
+              <h4 className="mb-3 flex items-center gap-2 font-semibold">
+                <Badge variant="secondary">PNG</Badge>
                 Standard Sprites
               </h4>
-              <div className="space-y-3">
-                {pngFormats.map((format) => (
-                  <div
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                    key={format.url}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center mb-1 font-medium">{format.label}</div>
-                      <p className="text-sm text-muted-foreground">{format.description}</p>
-                    </div>
-                    <Button
-                      className="ml-4 gap-1"
-                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {copiedValue === format.url ? (
-                        <>
-                          <CopyCheck className="h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4" />
-                          Copy URL
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              {renderFormats(pngFormats)}
             </div>
 
-            {/* SDF Downloads */}
             <div>
-              <h4 className="font-semibold mb-3 text-purple-900 flex items-center">
-                <Badge className="bg-purple-100 text-purple-800 mr-2" variant="secondary">
-                  SDF
-                </Badge>
+              <h4 className="mb-3 flex items-center gap-2 font-semibold">
+                <Badge variant="default">SDF</Badge>
                 Runtime Colorable Sprites
               </h4>
-              <div className="space-y-3">
-                {sdfFormats.map((format) => (
-                  <div
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                    key={format.url}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center mb-1 font-medium">{format.label}</div>
-                      <p className="text-sm text-muted-foreground">{format.description}</p>
-                    </div>
-                    <Button
-                      className="ml-4 gap-1"
-                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {copiedValue === format.url ? (
-                        <>
-                          <CopyCheck className="h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-4 w-4" />
-                          Copy URL
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              {renderFormats(sdfFormats)}
             </div>
           </div>
         </div>

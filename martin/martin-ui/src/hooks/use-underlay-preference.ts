@@ -23,16 +23,24 @@ function safeSetStorage(value: string | undefined) {
   }
 }
 
-function readInitial<T extends string>(validIds: readonly T[]): T | undefined {
-  if (typeof window === 'undefined') return undefined;
+// Persisted when the user explicitly picks "None", so a default basemap does not come back.
+const NONE = 'none';
 
-  const fromUrl = new URLSearchParams(window.location.search).get(URL_PARAM);
-  if (fromUrl && (validIds as readonly string[]).includes(fromUrl)) return fromUrl as T;
+function readInitial<T extends string>(
+  validIds: readonly T[],
+  defaultId: T | undefined,
+): T | undefined {
+  if (typeof window === 'undefined') return defaultId;
 
-  const fromStorage = safeGetStorage();
-  if (fromStorage && (validIds as readonly string[]).includes(fromStorage)) return fromStorage as T;
+  for (const candidate of [
+    new URLSearchParams(window.location.search).get(URL_PARAM),
+    safeGetStorage(),
+  ]) {
+    if (candidate === NONE) return undefined;
+    if (candidate && (validIds as readonly string[]).includes(candidate)) return candidate as T;
+  }
 
-  return undefined;
+  return defaultId;
 }
 
 function writeUrl(value: string | undefined) {
@@ -47,8 +55,11 @@ function writeUrl(value: string | undefined) {
 
 export function useUnderlayPreference<T extends string>(
   validIds: readonly T[],
+  defaultId?: T,
 ): [T | undefined, (value: T | undefined) => void] {
-  const [value, setValueState] = useState<T | undefined>(() => readInitial(validIds));
+  const [value, setValueState] = useState<T | undefined>(() => readInitial(validIds, defaultId));
+  const defaultIdRef = useRef(defaultId);
+  defaultIdRef.current = defaultId;
 
   // Sync to storage + URL when value changes. Keeping side effects out of the
   // setState updater is required: StrictMode invokes updaters twice in dev to
@@ -59,8 +70,9 @@ export function useUnderlayPreference<T extends string>(
       isFirstRun.current = false;
       return;
     }
-    safeSetStorage(value);
-    writeUrl(value);
+    const persisted = value ?? (defaultIdRef.current ? NONE : undefined);
+    safeSetStorage(persisted);
+    writeUrl(persisted);
   }, [value]);
 
   const setValue = useCallback(

@@ -8,7 +8,7 @@ interface LogoProps extends Omit<SVGProps<SVGSVGElement>, 'width' | 'height'> {
 
 const Logo = ({ width = 96, height = 48, className, ...props }: LogoProps) => {
   const { resolvedTheme } = useTheme();
-  const color = resolvedTheme === 'dark' ? 'rgba(231, 163, 245, 0.70)' : 'rgba(93,44,228, 0.52)';
+  const color = resolvedTheme === 'dark' ? 'rgba(196, 172, 255, 0.9)' : 'rgba(96, 52, 214, 0.85)';
   return (
     <div className={className} style={{ height, width }}>
       <svg

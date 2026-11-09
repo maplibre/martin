@@ -8,24 +8,25 @@ exports[`Header Component > renders correctly 1`] = `
     ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <header
-    class="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50"
+    class="sticky top-0 z-40 border-b bg-navbar backdrop-blur-md"
   >
     <div
-      class="container mx-auto px-6"
+      class="container"
     >
       <div
-        class="flex h-20 items-center justify-between"
+        class="flex h-16 items-center justify-between gap-2"
       >
         <div
-          class="flex items-center space-x-4"
+          class="flex min-w-0 items-center gap-2 sm:gap-3"
         >
           <a
-            class="items-center flex"
+            aria-label="Martin tile server home"
+            class="flex items-center gap-1.5 rounded-md"
             href="/"
           >
             <div
-              class="-mt-5 -rotate-6 md:block hidden"
-              style="height: 48px; width: 96px;"
+              class="shrink-0"
+              style="height: 34px; width: 50px;"
             >
               <svg
                 height="100%"
@@ -829,7 +830,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M159.77 883.113 2.89 1005.503l208.042-78.53 172.025-121.378-223.187 77.518Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -846,7 +847,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m140.782 949.015-105.64 125.793 144.633-82.705 120.79-124.793-159.783 81.705Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -863,7 +864,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M119.337 1015.53 64.96 1144.606l81.189-86.716 69.525-128.117-96.336 85.759Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -880,7 +881,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m95.67 1083.51-3.217 131.263 17.862-89.568 18.258-130.753-32.903 89.059Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -897,7 +898,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m41.04 1062.7 31.65 130.33 43.682 92.59-46.983-133.384-.002-.006-28.347-89.53Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -914,7 +915,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m520.172 776.485-189.1 101.493 125.07-65.39L676.624 702.82l-156.451 73.665Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -931,7 +932,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m442.728 811.526 105.634-82.834-181.339 118.787L275.357 932l167.37-120.474Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -948,7 +949,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m368.122 842.031 45.142-88.98-132.858 123.992-30.139 90.174 117.855-125.186Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -965,7 +966,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m287.16 879.637-17.893-93.73-81.858 127.805 33.055 94.784 66.696-128.859Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -982,7 +983,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M209.086 912.332 127.73 814.14 97.22 945.414l96.538 99.212 15.327-132.294Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -999,7 +1000,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m877.379 672.278 120.115-83.993L698.526 701.33l-105.17 85.108 284.023-114.16Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1016,7 +1017,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m747.71 672.22 57.367-88.565L556.814 700.43l-42.26 89.632L747.71 672.22Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1033,7 +1034,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m614.72 671.557-5.861-93.03-197 120.32 21.035 94.077L614.72 671.557Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1050,7 +1051,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m484.79 670.92-69.33-97.436-145.53 123.761 84.529 98.465L484.79 670.92Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1067,7 +1068,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m347.047 675.032-132.92-101.798L120.08 700.4l148.122 102.817 78.846-128.185Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1084,7 +1085,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m1237.002 567.009 69.456-87.84-363.505 109.16-54.33 88.888 348.379-110.208Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1101,7 +1102,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m1052.513 532.288 6.192-92.23-312.196 112.67 8.98 93.271 297.024-113.711Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1118,7 +1119,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m861.284 501.086-57.244-96.599-260.682 116.117 72.44 97.632 245.486-117.15Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1135,7 +1136,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M676.154 467.116 555.36 366.165 346.23 485.699l136 101.977 193.925-120.56Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1152,7 +1153,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m488.031 433.141-184.42-105.289L146.001 450.8l199.628 106.309L488.03 433.14Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1169,7 +1170,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m1594.644 462.447 18.245-91.418-427.401 104.975-3.077 92.456 412.233-106.013Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1186,7 +1187,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m1354.264 395.135-45.165-95.764-375.879 108.43 60.355 96.796 360.689-109.462Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1203,7 +1204,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="m1110.848 327.833-108.674-100.1L677.886 339.59l123.877 101.13 309.085-112.887Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1220,7 +1221,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M870.524 260.532 698.266 156.101 425.552 271.38l187.467 105.455 257.505-116.303Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1237,7 +1238,7 @@ exports[`Header Component > renders correctly 1`] = `
                     />
                     <path
                       d="M687.231 109.934 451.333 1.178l-221.176 118.7 251.108 109.777 205.966-119.721Z"
-                      fill="rgba(93,44,228, 0.52)"
+                      fill="rgba(96, 52, 214, 0.85)"
                       stroke="#000"
                       stroke-linejoin="bevel"
                       stroke-width="0.4"
@@ -1247,13 +1248,13 @@ exports[`Header Component > renders correctly 1`] = `
               </svg>
             </div>
             <h1
-              class="text-3xl md:block hidden -ms-2 font-bold leading-relaxed text-foreground select-none"
+              class="select-none text-xl font-extrabold tracking-[0.08em] text-foreground"
             >
               MARTIN
             </h1>
           </a>
           <a
-            class="items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90 hover:bg-purple-700 hidden md:block p-1"
+            class="items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden text-muted-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground hidden font-mono sm:inline-flex"
             data-slot="badge"
             href="https://github.com/maplibre/martin/releases/tag/martin-v1.0.0"
             rel="noopener noreferrer"
@@ -1262,11 +1263,24 @@ exports[`Header Component > renders correctly 1`] = `
             1.0.0
           </a>
         </div>
-        <div
-          class="flex items-center space-x-4"
+        <nav
+          aria-label="Project links"
+          class="flex items-center gap-1.5 sm:gap-2"
         >
+          <button
+            aria-controls="mobile-menu"
+            aria-expanded="false"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 px-4 py-2 sm:h-9 has-[>svg]:px-3.5 text-foreground hover:bg-accent hover:text-accent-foreground sm:hidden"
+            data-slot="button"
+          >
+            <span
+              role="img"
+            />
+            Menu
+          </button>
           <a
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-6 has-[>svg]:px-4 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            aria-label="Documentation"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 px-4 py-2 sm:h-9 has-[>svg]:px-3.5 text-foreground hover:bg-accent hover:text-accent-foreground max-sm:hidden"
             data-slot="button"
             data-state="closed"
             href="https://maplibre.org/martin/"
@@ -1276,12 +1290,15 @@ exports[`Header Component > renders correctly 1`] = `
             <span
               role="img"
             />
-            <span>
+            <span
+              class="max-sm:sr-only"
+            >
               Documentation
             </span>
           </a>
           <a
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-6 has-[>svg]:px-4 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            aria-label="About MapLibre"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 px-4 py-2 sm:h-9 has-[>svg]:px-3.5 text-foreground hover:bg-accent hover:text-accent-foreground max-lg:size-11 max-lg:px-0 max-sm:hidden"
             data-slot="button"
             data-state="closed"
             href="https://maplibre.org"
@@ -1291,13 +1308,15 @@ exports[`Header Component > renders correctly 1`] = `
             <span
               role="img"
             />
-            <span>
-              About us
+            <span
+              class="max-lg:sr-only"
+            >
+              About MapLibre
             </span>
           </a>
           <a
             aria-label="View source on GitHub"
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-3 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive size-11 sm:size-10 text-foreground hover:bg-accent hover:text-accent-foreground max-sm:hidden"
             data-slot="button"
             data-state="closed"
             href="https://github.com/maplibre/martin"
@@ -1312,7 +1331,7 @@ exports[`Header Component > renders correctly 1`] = `
             <div>
               <button
                 aria-label="Switch to dark theme"
-                class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-3 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive size-11 sm:size-10 text-foreground hover:bg-accent hover:text-accent-foreground"
                 data-slot="button"
               >
                 <span
@@ -1326,7 +1345,7 @@ exports[`Header Component > renders correctly 1`] = `
               </p>
             </div>
           </div>
-        </div>
+        </nav>
       </div>
     </div>
   </header>

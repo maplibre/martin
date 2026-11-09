@@ -41,14 +41,14 @@ export function CopyLinkButton({
         <>
           <ClipboardCheck
             aria-hidden="true"
-            className={`w-4 h-4 dark:text-green-600`}
+            className="size-4 text-success"
             data-testid="clipboard-icon"
           />
           Copied!
         </>
       ) : (
         <>
-          <Clipboard aria-hidden="true" className="w-4 h-4" data-testid="clipboard-icon" />
+          <Clipboard aria-hidden="true" className="size-4" data-testid="clipboard-icon" />
           Copy Link
         </>
       )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Code, Copy, CopyCheck, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { CopyableUrl } from '@/components/ui/copyable-url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
@@ -23,33 +25,59 @@ interface StyleIntegrationGuideDialogProps {
 
 const CodeBlock = ({ code }: { code: string }) => {
   const { copy, copied } = useCopyToClipboard();
+  const [wrap, setWrap] = useState(false);
 
   return (
-    <div className="relative">
-      <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm border">
-        <Button
-          className="absolute top-2 right-2 h-6 px-2 z-10"
-          onClick={() => copy(code)}
-          size="sm"
-          variant="ghost"
-        >
-          {copied ? (
-            <>
-              Copied
-              <CopyCheck className="w-3 h-3 dark:text-green-600" />
-            </>
-          ) : (
-            <>
-              Copy
-              <Copy className="w-3 h-3" />
-            </>
-          )}
-        </Button>
+    <div className="relative min-w-0 rounded-md border bg-sunken">
+      <Button
+        aria-label={copied ? 'Code copied' : 'Copy code'}
+        className="absolute right-1.5 top-1.5 z-10 bg-sunken/90 backdrop-blur"
+        onClick={() => copy(code)}
+        size="sm"
+        variant="ghost"
+      >
+        {copied ? (
+          <>
+            Copied
+            <CopyCheck className="text-success" />
+          </>
+        ) : (
+          <>
+            Copy
+            <Copy />
+          </>
+        )}
+      </Button>
+      <Button
+        aria-pressed={wrap}
+        className="absolute left-1.5 top-1.5 z-10 bg-sunken/90 backdrop-blur sm:hidden"
+        onClick={() => setWrap((w) => !w)}
+        size="sm"
+        variant="ghost"
+      >
+        {wrap ? 'Scroll lines' : 'Wrap lines'}
+      </Button>
+      <pre
+        className={`max-w-full p-4 pt-14 text-xs leading-relaxed sm:overflow-x-auto sm:whitespace-pre sm:pt-12 sm:text-sm ${wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'overflow-x-auto whitespace-pre [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]'}`}
+      >
         <code>{code}</code>
       </pre>
     </div>
   );
 };
+
+const DocLink = ({ href, label }: { href: string; label: string }) => (
+  <Button asChild className="size-10 sm:size-8" size="icon" variant="ghost">
+    <a
+      aria-label={`Open ${label} documentation`}
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
+      <ExternalLink className="size-3.5" />
+    </a>
+  </Button>
+);
 
 export function StyleIntegrationGuideDialog({
   name,
@@ -165,13 +193,13 @@ function MyMap() {
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
-      <DialogContent className="max-w-4xl w-full p-6 max-h-[90vh] overflow-auto">
-        <DialogHeader className="mb-6 truncate">
-          <DialogTitle>
-            <div className="text-2xl flex items-center gap-2">
-              <Code className="w-6 h-6" />
-              Integration Guide: <code>{name}</code>
-            </div>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-start gap-2 text-xl">
+            <Code aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-brand" />
+            <span className="min-w-0">
+              Integration Guide: <code className="font-mono text-lg">{name}</code>
+            </span>
           </DialogTitle>
           <DialogDescription>
             Learn how to integrate this style into your MapLibre application across different
@@ -179,42 +207,37 @@ function MyMap() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Style Information */}
-          <div className="bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">Style Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Style URL:</span>
-                <br />
-                <code className="text-xs bg-background px-2 py-1 rounded-sm break-all">
-                  {styleUrl}
-                </code>
-              </div>
-              <div>
-                <span className="font-medium">Path:</span>
-                <br />
-                <code className="text-xs">{style.path}</code>
-              </div>
-              {style.type ? (
-                <div>
-                  <span className="font-medium">Type:</span>
-                  <br />
-                  <Badge variant="secondary">{style.type}</Badge>
+          <section className="rounded-lg border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">Style Information</h3>
+            <div className="space-y-4">
+              <CopyableUrl label="Style URL" url={styleUrl} />
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-muted-foreground">Path</dt>
+                  <dd className="font-mono text-xs [overflow-wrap:anywhere]">{style.path}</dd>
                 </div>
-              ) : null}
-              {style.layer_count ? (
-                <div>
-                  <span className="font-medium">Layer Count:</span>
-                  <br />
-                  <span>{style.layer_count}</span>
-                </div>
-              ) : null}
+                {style.type ? (
+                  <div>
+                    <dt className="text-muted-foreground">Type</dt>
+                    <dd>
+                      <Badge variant="secondary">{style.type}</Badge>
+                    </dd>
+                  </div>
+                ) : null}
+                {style.layer_count ? (
+                  <div>
+                    <dt className="text-muted-foreground">Layer Count</dt>
+                    <dd>{style.layer_count}</dd>
+                  </div>
+                ) : null}
+              </dl>
             </div>
-          </div>
+          </section>
 
           {/* Integration Examples */}
-          <Tabs className="w-full" defaultValue="web">
+          <Tabs className="w-full min-w-0" defaultValue="web">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="web">MapLibre GL JS</TabsTrigger>
               <TabsTrigger value="native">MapLibre Native</TabsTrigger>
@@ -223,49 +246,25 @@ function MyMap() {
             <TabsContent className="space-y-4" value="web">
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     Web Browser (CDN) - HTML + JavaScript
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://maplibre.org/maplibre-gl-js/docs/examples/simple-map/"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://maplibre.org/maplibre-gl-js/docs/examples/simple-map/" label="Web Browser (CDN)" />
                   </h4>
                   <CodeBlock code={webJsCode} />
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     NPM/Webpack - JavaScript
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://maplibre.org/maplibre-gl-js/docs/"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://maplibre.org/maplibre-gl-js/docs/" label="NPM/Webpack" />
                   </h4>
                   <CodeBlock code={webNpmCode} />
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     React - TypeScript
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://visgl.github.io/react-map-gl/docs/get-started"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://visgl.github.io/react-map-gl/docs/get-started" label="React" />
                   </h4>
                   <CodeBlock code={reactCode} />
                 </div>
@@ -275,7 +274,7 @@ function MyMap() {
                   Sources served as MLT additionally need a <code>transformRequest</code> that adds
                   it. See the{' '}
                   <a
-                    className="underline"
+                    className="text-brand underline underline-offset-2"
                     href="https://maplibre.org/martin/postprocessing/mlt/"
                     rel="noopener noreferrer"
                     target="_blank"
@@ -290,49 +289,25 @@ function MyMap() {
             <TabsContent className="space-y-4" value="native">
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     Android - Java/Kotlin
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://maplibre.org/maplibre-native/android/api/"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://maplibre.org/maplibre-native/android/api/" label="Android" />
                   </h4>
                   <CodeBlock code={androidCode} />
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     iOS - Swift
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/" label="iOS" />
                   </h4>
                   <CodeBlock code={iosCode} />
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     React Native - JavaScript
-                    <Button asChild size="sm" variant="ghost">
-                      <a
-                        href="https://maplibre.org/maplibre-react-native/"
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </Button>
+                    <DocLink href="https://maplibre.org/maplibre-react-native/" label="React Native" />
                   </h4>
                   <CodeBlock code={reactNativeCode} />
                 </div>
@@ -341,8 +316,8 @@ function MyMap() {
           </Tabs>
 
           {/* Additional Resources */}
-          <div className="bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">Additional Resources</h3>
+          <section className="rounded-lg border bg-card p-4">
+            <h3 className="mb-2 text-sm font-semibold">Additional Resources</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
               <Button asChild className="justify-start" size="sm" variant="ghost">
                 <a
@@ -350,7 +325,7 @@ function MyMap() {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <ExternalLink className="w-3 h-3 mr-2" />
+                  <ExternalLink />
                   MapLibre Style Specification
                 </a>
               </Button>
@@ -360,7 +335,7 @@ function MyMap() {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <ExternalLink className="w-3 h-3 mr-2" />
+                  <ExternalLink />
                   MapLibre GL JS Examples
                 </a>
               </Button>
@@ -370,7 +345,7 @@ function MyMap() {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <ExternalLink className="w-3 h-3 mr-2" />
+                  <ExternalLink />
                   Awesome MapLibre
                 </a>
               </Button>
@@ -380,12 +355,12 @@ function MyMap() {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  <ExternalLink className="w-3 h-3 mr-2" />
+                  <ExternalLink />
                   Martin Configuration Guide
                 </a>
               </Button>
             </div>
-          </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>

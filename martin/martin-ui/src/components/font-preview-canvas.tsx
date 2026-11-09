@@ -1,4 +1,5 @@
 import { PbfReader } from 'pbf';
+import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildMartinUrl } from '@/lib/api';
@@ -41,17 +42,13 @@ function parseGlyphs(data: ArrayBuffer) {
 function render(canvas: HTMLCanvasElement, glyphs: Map<number, Glyph>) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const s = 20 / 24;
+  const s = 22 / 24;
   const dpr = devicePixelRatio || 1;
-  const w = canvas.clientWidth,
-    h = canvas.clientHeight;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  ctx.scale(dpr, dpr);
+  const w = canvas.clientWidth;
+  const advanceOf = (c: string) => (glyphs.get(c.charCodeAt(0))?.advance ?? 8) * s;
 
-  // Measure bounding box for centering
-  let tw = 0,
-    minY = Infinity,
+  // Vertical extent of the text, so every line shares the same box
+  let minY = Infinity,
     maxY = -Infinity;
   for (const c of PREVIEW) {
     const g = glyphs.get(c.charCodeAt(0));
@@ -60,44 +57,73 @@ function render(canvas: HTMLCanvasElement, glyphs: Map<number, Glyph>) {
       minY = Math.min(minY, y);
       maxY = Math.max(maxY, y + (g.height + 2 * BORDER) * s);
     }
-    tw += (g?.advance ?? 8) * s;
   }
   if (!Number.isFinite(minY)) return;
+  const lineHeight = Math.ceil(maxY - minY) + 6;
 
-  const oy = (h - maxY + minY) / 2 - minY;
-  let x = Math.max(4, (w - tw) / 2);
+  // Greedy word wrap so the specimen never gets cut mid-word
+  const lines: string[] = [];
+  let line = '';
+  for (const word of PREVIEW.split(' ')) {
+    const candidate = line ? `${line} ${word}` : word;
+    const width = [...candidate].reduce((sum, c) => sum + advanceOf(c), 0);
+    if (line && width > w - 8) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+
+  const h = lines.length * lineHeight + 4;
+  canvas.style.height = `${h}px`;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
   const tmp = document.createElement('canvas');
   const tc = tmp.getContext('2d');
   if (!tc) return;
 
-  // Render each glyph's SDF bitmap
-  for (const c of PREVIEW) {
-    const g = glyphs.get(c.charCodeAt(0));
-    if (!g) {
-      x += 8 * s;
-      continue;
-    }
-    if (g.width > 0 && g.height > 0) {
-      const bw = g.width + 6,
-        bh = g.height + 6;
-      const id = ctx.createImageData(bw, bh);
-      for (let i = 0; i < g.bitmap.length; i++) {
-        const a = Math.max(0, Math.min(255, ((g.bitmap[i] - 172) / 40) * 255));
-        id.data.set([0x11, 0x18, 0x27, a], i * 4);
+  lines.forEach((text, i) => {
+    const oy = i * lineHeight + 2 - minY + 3;
+    let x = 4;
+    for (const c of text) {
+      const g = glyphs.get(c.charCodeAt(0));
+      if (!g) {
+        x += 8 * s;
+        continue;
       }
-      tmp.width = bw;
-      tmp.height = bh;
-      tc.putImageData(id, 0, 0);
-      ctx.drawImage(tmp, x + (g.left - BORDER) * s, oy + (-g.top - BORDER) * s, bw * s, bh * s);
+      if (g.width > 0 && g.height > 0) {
+        const bw = g.width + 6,
+          bh = g.height + 6;
+        const id = ctx.createImageData(bw, bh);
+        for (let k = 0; k < g.bitmap.length; k++) {
+          const a = Math.max(0, Math.min(255, ((g.bitmap[k] - 172) / 40) * 255));
+          id.data.set([0, 0, 0, a], k * 4);
+        }
+        tmp.width = bw;
+        tmp.height = bh;
+        tc.putImageData(id, 0, 0);
+        ctx.drawImage(tmp, x + (g.left - BORDER) * s, oy + (-g.top - BORDER) * s, bw * s, bh * s);
+      }
+      x += g.advance * s;
     }
-    x += g.advance * s;
-  }
+  });
+
+  // Tint the glyph coverage with the current text colour so it follows the theme
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = getComputedStyle(canvas).color;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 export function FontPreviewCanvas({ fontName }: { fontName: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState(false);
   const [glyphs, setGlyphs] = useState<Map<number, Glyph> | null>(null);
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     let cancelled = false;
@@ -126,9 +152,9 @@ export function FontPreviewCanvas({ fontName }: { fontName: string }) {
     const obs = new ResizeObserver(() => render(canvas, glyphs));
     obs.observe(canvas);
     return () => obs.disconnect();
-  }, [glyphs]);
+  }, [glyphs, resolvedTheme]);
 
   if (error) return <p className="text-sm text-muted-foreground italic">Preview unavailable</p>;
-  if (!glyphs) return <Skeleton className="w-full h-12" />;
-  return <canvas className="w-full h-12" ref={ref} />;
+  if (!glyphs) return <Skeleton className="h-14 w-full" />;
+  return <canvas aria-label={`Preview of ${fontName}`} className="block h-14 w-full" ref={ref} role="img" />;
 }

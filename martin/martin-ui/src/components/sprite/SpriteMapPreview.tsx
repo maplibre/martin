@@ -2,7 +2,8 @@ import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import type { ExpressionSpecification, MapLayerMouseEvent, StyleSpecification } from 'maplibre-gl';
 import { useId, useRef, useState } from 'react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Breakable } from '@/components/ui/breakable';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -14,6 +15,7 @@ type SpriteMapPreviewProps = {
 
 export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProps) {
   const [mode, setMode] = useState<'png' | 'sdf'>('sdf');
+  const [canvasTone, setCanvasTone] = useState<'light' | 'dark'>('light');
   const [iconSize, setIconSize] = useState(2.0);
   const [iconColor, setIconColor] = useState(() => {
     try {
@@ -30,10 +32,21 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   const [haloColor, setHaloColor] = useState('#ffffff');
   const [haloWidth, setHaloWidth] = useState(1);
   const [baseZoom, setBaseZoom] = useState<number | null>(null);
+  const [labelFrame, setLabelFrame] = useState<{ cell: number; points: { x: number; y: number }[]; scale: number }>();
   const mapRef = useRef<MapRef>(null);
   const id = useId();
   const layerId = `${id}-sprite-icons`;
   const { copy } = useCopyToClipboard();
+
+  // Labels are HTML so they use the app font; MapLibre can only draw glyphs from a font server
+  const syncLabels = (map: ReturnType<NonNullable<MapRef['getMap']>>) => {
+    const scale = baseZoom == null ? 1 : 2 ** (map.getZoom() - baseZoom);
+    const points = spriteIds.map((_, i) => {
+      const point = map.project([(i % cols) * spacing, -Math.floor(i / cols) * spacing]);
+      return { x: point.x, y: point.y };
+    });
+    setLabelFrame({ cell: points.length > 1 ? Math.abs(points[1].x - points[0].x) : 96, points, scale });
+  };
 
   const handleMapClick = (e: MapLayerMouseEvent) => {
     const features = e.target.queryRenderedFeatures(e.point, { layers: [layerId] });
@@ -44,9 +57,15 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   };
 
   // Use a wider grid to fill the map's landscape aspect ratio (~1.8:1)
-  const cols = Math.max(1, Math.ceil(Math.sqrt(spriteIds.length * 1.8)));
+  const cols =
+    spriteIds.length <= 6 ? Math.max(1, spriteIds.length) : Math.ceil(Math.sqrt(spriteIds.length * 1.8));
   const rows = Math.ceil(spriteIds.length / cols);
   const spacing = 0.0004;
+  // Frame at least a 3x2 cell area so a handful of icons stay grouped in the middle
+  const cx = ((cols - 1) * spacing) / 2;
+  const cy = (-(rows - 1) * spacing) / 2;
+  const halfW = (Math.max(cols, 2) * spacing) / 2;
+  const halfH = (Math.max(rows, 1.5) * spacing) / 2;
 
   const geojson = {
     features: spriteIds.map((spriteId, i) => ({
@@ -66,11 +85,10 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
       : buildMartinUrl(`/sprite/${spriteName}`);
 
   const mapStyle: StyleSpecification = {
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     layers: [
       {
         id: 'bg',
-        paint: { 'background-color': '#f8f9fa' },
+        paint: { 'background-color': canvasTone === 'light' ? '#f3f3fa' : '#16172e' },
         type: 'background',
       },
     ],
@@ -95,30 +113,9 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
             iconSize * 1024,
           ] as unknown as number)
         : iconSize,
-    'text-allow-overlap': true,
-    'text-anchor': 'top' as const,
-    'text-field': ['get', 'icon'] as ExpressionSpecification,
-    'text-font': ['Open Sans Regular'],
-    'text-max-width': 6,
-    'text-offset': [0, iconSize + 0.5] as [number, number],
-    'text-size':
-      baseZoom != null
-        ? ([
-            'interpolate',
-            ['exponential', 2],
-            ['zoom'],
-            baseZoom,
-            10,
-            baseZoom + 10,
-            10240,
-          ] as unknown as number)
-        : 10,
   };
 
   const layerPaint = {
-    'text-color': '#666666',
-    'text-halo-color': '#ffffff',
-    'text-halo-width': 1,
     ...(mode === 'sdf' && {
       'icon-color': iconColor,
       'icon-halo-color': haloColor,
@@ -131,20 +128,56 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-4">
-        <Tabs onValueChange={(v) => setMode(v as 'png' | 'sdf')} value={mode}>
-          <TabsList>
-            <TabsTrigger value="png">PNG</TabsTrigger>
-            <TabsTrigger value="sdf">SDF</TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <SegmentedControl
+            label="Sprite format"
+            onChange={setMode}
+            options={[
+              { label: 'PNG', value: 'png' },
+              { label: 'SDF', value: 'sdf' },
+            ]}
+            value={mode}
+          />
+          <SegmentedControl
+            label="Canvas background"
+            onChange={setCanvasTone}
+            options={[
+              { label: 'Light', value: 'light' },
+              { label: 'Dark', value: 'dark' },
+            ]}
+            value={canvasTone}
+          />
+          {mode === 'sdf' && (
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Color</span>
+                <input
+                  className="h-10 w-11 cursor-pointer rounded-md border bg-card p-0.5 sm:h-9"
+                  onChange={(e) => setIconColor(e.target.value)}
+                  type="color"
+                  value={iconColor}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Halo</span>
+                <input
+                  className="h-10 w-11 cursor-pointer rounded-md border bg-card p-0.5 sm:h-9"
+                  onChange={(e) => setHaloColor(e.target.value)}
+                  type="color"
+                  value={haloColor}
+                />
+              </label>
+            </div>
+          )}
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">Size</span>
-          <div className="flex items-center gap-2">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-x-8">
+          <label className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] items-center gap-3 text-sm">
+            <span className="whitespace-nowrap text-muted-foreground">Size</span>
             <input
-              className="w-24 accent-purple-600"
+              className="min-w-0 accent-primary"
               max="4"
               min="0.1"
               onChange={(e) => setIconSize(Number(e.target.value))}
@@ -152,77 +185,55 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
               type="range"
               value={iconSize}
             />
-            <span className="w-10 text-right font-mono">{iconSize}x</span>
-          </div>
-        </label>
-
-        {mode === 'sdf' && (
-          <>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted-foreground">Color</span>
+            <output className="font-mono text-sm tabular-nums">{iconSize}x</output>
+          </label>
+          {mode === 'sdf' && (
+            <label className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.75rem] items-center gap-3 text-sm">
+              <span className="whitespace-nowrap text-muted-foreground">Halo width</span>
               <input
-                className="h-8 w-10 cursor-pointer rounded border"
-                onChange={(e) => setIconColor(e.target.value)}
-                type="color"
-                value={iconColor}
+                className="min-w-0 accent-primary"
+                max="5"
+                min="0"
+                onChange={(e) => setHaloWidth(Number(e.target.value))}
+                step="0.1"
+                type="range"
+                value={haloWidth}
               />
+              <output className="font-mono text-sm tabular-nums">{haloWidth}</output>
             </label>
-
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted-foreground">Halo Color</span>
-              <input
-                className="h-8 w-10 cursor-pointer rounded border"
-                onChange={(e) => setHaloColor(e.target.value)}
-                type="color"
-                value={haloColor}
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted-foreground">Halo Width</span>
-              <div className="flex items-center gap-2">
-                <input
-                  className="w-20 accent-purple-600"
-                  max="5"
-                  min="0"
-                  onChange={(e) => setHaloWidth(Number(e.target.value))}
-                  step="0.1"
-                  type="range"
-                  value={haloWidth}
-                />
-                <span className="w-6 text-right font-mono">{haloWidth}</span>
-              </div>
-            </label>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
+      <div className="relative">
       <MapLibreMap
         attributionControl={false}
         initialViewState={{ latitude: 0, longitude: 0, zoom: 15 }}
         interactiveLayerIds={[layerId]}
         mapStyle={mapStyle}
         maxBounds={[
-          -spacing,
-          -(rows - 1) * spacing - spacing,
-          (cols - 1) * spacing + spacing,
-          spacing,
+          cx - halfW - spacing,
+          cy - halfH - spacing,
+          cx + halfW + spacing,
+          cy + halfH + spacing,
         ]}
         onClick={handleMapClick}
         onLoad={(e) => {
           const map = e.target;
           map.fitBounds(
             [
-              [0, -(rows - 1) * spacing],
-              [(cols - 1) * spacing, 0],
+              [cx - halfW, cy - halfH],
+              [cx + halfW, cy + halfH],
             ],
-            { animate: false, padding: { bottom: 30, left: 10, right: 10, top: 30 } },
+            { animate: false, padding: { bottom: 40, left: 24, right: 24, top: 24 } },
           );
           const zoom = map.getZoom();
           map.setMinZoom(zoom);
           map.getCanvas().style.cursor = 'grab';
           setBaseZoom(zoom);
+          syncLabels(map);
         }}
+        onMove={(e) => syncLabels(e.target)}
         onMouseEnter={() => {
           const canvas = mapRef.current?.getMap()?.getCanvas();
           if (canvas) canvas.style.cursor = 'pointer';
@@ -233,12 +244,33 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
         }}
         pixelRatio={2}
         ref={mapRef}
-        style={{ borderRadius: 'var(--radius)', height: '28rem', width: '100%' }}
+        style={{
+          borderRadius: 'var(--radius)',
+          height: `min(${Math.min(24, 8 + rows * 5)}rem, 55dvh)`,
+          minHeight: '11rem',
+          width: '100%',
+        }}
       >
         <Source data={geojson} id={`${id}-sprites`} type="geojson">
           <Layer id={layerId} layout={layerLayout} paint={layerPaint} type="symbol" />
         </Source>
       </MapLibreMap>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        {labelFrame?.points.map((point, i) => (
+          <span
+            className={`absolute -translate-x-1/2 text-center text-[0.8125rem] leading-tight [overflow-wrap:anywhere] ${canvasTone === 'light' ? 'text-[#4a4a66]' : 'text-[#c8c9e6]'}`}
+            key={spriteIds[i]}
+            style={{
+              left: point.x,
+              width: Math.min(112, Math.max(48, labelFrame.cell - 8)),
+              top: point.y + (iconSize * 12 + 6) * labelFrame.scale,
+            }}
+          >
+            <Breakable text={spriteIds[i]} />
+          </span>
+        ))}
+      </div>
+      </div>
     </div>
   );
 }
