@@ -87,6 +87,35 @@ function canDecode(url: string): Promise<boolean> {
   });
 }
 
+const MAX_CONCURRENT_THUMBS = 4;
+let activeThumbs = 0;
+const thumbQueue: (() => void)[] = [];
+
+/** Limits how many thumbnails fetch at once; returns a release function. */
+async function acquireThumbSlot(signal: AbortSignal): Promise<(() => void) | null> {
+  if (activeThumbs >= MAX_CONCURRENT_THUMBS) {
+    await new Promise<void>((resolve) => {
+      const wake = () => {
+        signal.removeEventListener('abort', onAbort);
+        resolve();
+      };
+      const onAbort = () => {
+        const i = thumbQueue.indexOf(wake);
+        if (i >= 0) thumbQueue.splice(i, 1);
+        resolve();
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+      thumbQueue.push(wake);
+    });
+    if (signal.aborted) return null;
+  }
+  activeThumbs++;
+  return () => {
+    activeThumbs--;
+    thumbQueue.shift()?.();
+  };
+}
+
 function hashSeed(text: string) {
   let hash = 2166136261;
   for (const char of text) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
@@ -141,18 +170,39 @@ function TileThumb({
   onZooms?: (zooms: ZoomRange) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [drawn, setDrawn] = useState(false);
+  const [visible, setVisible] = useState(false);
   const isRaster = contentType.startsWith('image/');
   const isVector = contentType === 'application/x-protobuf';
 
   useEffect(() => {
-    if (!(isRaster || isVector)) return;
+    const el = containerRef.current;
+    if (!el || visible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!(visible && (isRaster || isVector))) return;
     const palette = resolvedTheme === 'dark' ? THUMB_PALETTES.dark : THUMB_PALETTES.light;
     const controller = new AbortController();
     let objectUrl: string | null = null;
+    let release: (() => void) | null = null;
     (async () => {
+      release = await acquireThumbSlot(controller.signal);
+      if (!release) return;
       const { candidates, zooms } = await thumbCandidates(name, controller.signal);
       if (zooms) onZooms?.(zooms);
       for (const tile of candidates) {
@@ -183,15 +233,18 @@ function TileThumb({
           if (controller.signal.aborted) return;
         }
       }
-    })();
+    })().finally(() => release?.());
     return () => {
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [name, isRaster, isVector, resolvedTheme]);
+  }, [name, isRaster, isVector, resolvedTheme, visible]);
 
   return (
-    <div className="tile-grid relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
+    <div
+      className="tile-grid relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border"
+      ref={containerRef}
+    >
       {imageUrl ? (
         <img
           alt=""
