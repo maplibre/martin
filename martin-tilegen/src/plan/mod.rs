@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
+use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
@@ -122,6 +123,8 @@ pub struct LayerDef {
     pub encoder: EncoderConfig,
     /// Only features of this type, if set.
     pub geometry: Option<GeometryType>,
+    /// Each feature the layer takes becomes this point of its geometry, if set.
+    pub point: Option<DerivedPoint>,
     /// Only features for which this is `true`.
     pub filter: Option<String>,
     /// Per feature, clamped into `zooms`; `null` keeps the layer's.
@@ -154,6 +157,7 @@ impl LayerDef {
             bounds: None,
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
             geometry: None,
+            point: None,
             filter: None,
             minzoom_expr: None,
             maxzoom_expr: None,
@@ -305,6 +309,29 @@ pub enum GeometryType {
     Polygon,
 }
 
+/// A point computed from a feature's projected geometry, which the layer draws in its place.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DerivedPoint {
+    /// The centroid of the highest dimension the geometry has: area-weighted for polygons,
+    /// length-weighted for lines, the mean for points.
+    Centroid,
+}
+
+impl DerivedPoint {
+    /// The point of `geom`, or `None` when it has none, such as an empty geometry.
+    pub(crate) fn of(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+        let point = match (self, geom) {
+            (Self::Centroid, FeatureGeom::Points([point])) => return Some(*point),
+            (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
+            (Self::Centroid, FeatureGeom::Lines([line])) => line.centroid(),
+            (Self::Centroid, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).centroid(),
+            (Self::Centroid, FeatureGeom::Polygons([polygon])) => polygon.centroid(),
+            (Self::Centroid, FeatureGeom::Polygons(polygons)) => MultiPolygon::new(polygons.to_vec()).centroid(),
+        };
+        point.map(|point| point.0)
+    }
+}
+
 impl GeometryType {
     pub(crate) fn matches(self, geom: FeatureGeom<'_>) -> bool {
         matches!(
@@ -398,6 +425,7 @@ pub(crate) struct PlannedLayer {
     pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
     pub(crate) geometry: Option<GeometryType>,
+    pub(crate) point: Option<DerivedPoint>,
     /// Indexes into [`Plan::exprs`].
     pub(crate) filter: Option<ExprRef<Filter>>,
     pub(crate) id: PlannedId,
@@ -414,6 +442,11 @@ pub(crate) struct PlannedLayer {
 }
 
 impl PlannedLayer {
+    /// The type of the geometry the layer draws, if it has only one.
+    pub(crate) fn output_geometry(&self) -> Option<GeometryType> {
+        self.point.map_or(self.geometry, |_| Some(GeometryType::Point))
+    }
+
     /// Whether some of the layer's features are thinned by a grid.
     pub(crate) fn has_thinning_grid(&self) -> bool {
         std::iter::once(&self.fallback)
@@ -775,6 +808,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         },
         zooms: def.zooms,
         geometry: def.geometry,
+        point: def.point,
         filter,
         id,
         attributes: def.attributes,

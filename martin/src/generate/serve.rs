@@ -123,6 +123,44 @@ mod tests {
     }
 
     #[test]
+    fn the_engine_query_keeps_the_rows_a_centroid_geometry_reads() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              parks:
+                geometry: polygon_centroid
+              roads:
+                geometry: line_centroid
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND (ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle') OR ST_GeometryType(ST_CurveToLine("geom"::geometry)) IN ('ST_LineString', 'ST_MultiLineString')) AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
+    fn the_engine_query_with_a_centroid_layer_reads_every_row() {
+        let mut info = table(indoc! {"
+            schema: public
+            table: roads
+            srid: 3857
+            geometry_column: geom
+            properties:
+              class: text
+            layers:
+              parks:
+                geometry: polygon
+              labels:
+                geometry: centroid
+        "});
+        let engine = engine_info("roads", &mut info, Some(100), None).expect("plans");
+        insta::assert_snapshot!(engine.sql_queries[0], @r#"SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))), "class" FROM "public"."roads" WHERE "geom" IS NOT NULL AND ("geom" && ST_MakeEnvelope($1, $2, $3, $4, 3857) OR "geom" && ST_MakeEnvelope($5, $6, $7, $8, 3857)) LIMIT 100"#);
+    }
+
+    #[test]
     fn the_engine_query_below_a_layers_minzoom_skips_its_rows() {
         let mut info = table(indoc! {"
             schema: public
