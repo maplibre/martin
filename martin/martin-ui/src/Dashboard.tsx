@@ -70,9 +70,7 @@ async function fetchCounts(): Promise<CatalogCounts> {
 
 export default function MartinTileserverDashboard() {
   const [counts, setCounts] = useState<CatalogCounts>();
-  useEffect(() => {
-    fetchCounts().then(setCounts, (error) => console.error('Catalog count failed:', error));
-  }, []);
+  const [countsFailed, setCountsFailed] = useState(false);
 
   // Analytics operation
   const analyticsOperation = useAsyncOperation<AnalyticsData>(fetchAnalytics, {
@@ -83,12 +81,24 @@ export default function MartinTileserverDashboard() {
   // Load analytics data and set up auto-refresh
   useEffect(() => {
     // Initial load
-    analyticsOperation.execute();
+    const refresh = () => {
+      analyticsOperation.execute();
+      // Retried with every refresh, so one failed request does not leave the summary loading forever
+      fetchCounts().then(
+        (next) => {
+          setCounts(next);
+          setCountsFailed(false);
+        },
+        (error) => {
+          console.error('Catalog count failed:', error);
+          setCountsFailed(true);
+        },
+      );
+    };
+    refresh();
 
     // 15-second refresh interval
-    const interval = setInterval(() => {
-      analyticsOperation.execute();
-    }, 15 * 1000);
+    const interval = setInterval(refresh, 15 * 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -98,6 +108,7 @@ export default function MartinTileserverDashboard() {
       <AnalyticsSection
         analytics={analyticsOperation.data}
         counts={counts}
+        countsUnavailable={countsFailed && !counts}
         error={analyticsOperation.error}
         isLoading={analyticsOperation.isLoading}
       />

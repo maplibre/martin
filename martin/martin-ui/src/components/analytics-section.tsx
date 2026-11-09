@@ -19,6 +19,7 @@ export interface CatalogCounts {
 interface AnalyticsSectionProps {
   analytics?: AnalyticsData;
   counts?: CatalogCounts;
+  countsUnavailable?: boolean;
   isLoading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -111,6 +112,7 @@ function ZoomBreakdownPopover({ label, metrics }: { label: string; metrics: Cach
 export function AnalyticsSection({
   analytics,
   counts,
+  countsUnavailable = false,
   isLoading,
   error = null,
   onRetry,
@@ -153,6 +155,8 @@ export function AnalyticsSection({
               <strong className="text-brand">{counts.sprites}</strong>{' '}
               {counts.sprites === 1 ? 'sprite sheet' : 'sprite sheets'}
             </p>
+          ) : countsUnavailable ? (
+            <p className="mt-1 text-sm text-muted-foreground">Catalog summary unavailable</p>
           ) : (
             <Skeleton className="mt-1 h-6 w-72 max-w-full" />
           )}
