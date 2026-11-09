@@ -188,7 +188,6 @@ function TileThumb({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: onZooms is a stable state setter
   }, [name, isRaster, isVector, resolvedTheme]);
 
   return (
@@ -201,13 +200,14 @@ function TileThumb({
         />
       ) : null}
       {isVector ? (
-        <canvas
-          aria-hidden="true"
-          className={`absolute inset-0 size-full ${drawn ? '' : 'invisible'}`}
-          height={THUMB_PX}
-          ref={canvasRef}
-          width={THUMB_PX}
-        />
+        <div aria-hidden="true" className="absolute inset-0">
+          <canvas
+            className={`size-full ${drawn ? '' : 'invisible'}`}
+            height={THUMB_PX}
+            ref={canvasRef}
+            width={THUMB_PX}
+          />
+        </div>
       ) : null}
       {imageUrl || drawn ? null : <GeneratedTile label={formatLabel(contentType)} name={name} />}
     </div>

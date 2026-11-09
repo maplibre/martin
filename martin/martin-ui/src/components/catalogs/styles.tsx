@@ -196,17 +196,16 @@ export function StylesCatalog({
                 ) : null}
               </dl>
               {style.colors ? (
-                <div aria-label="Color palette" className="flex flex-wrap gap-1" role="list">
+                <ul aria-label="Color palette" className="flex flex-wrap gap-1">
                   {style.colors.map((color) => (
-                    <div
+                    <li
                       className="size-6 rounded-sm border"
                       key={color}
-                      role="listitem"
                       style={{ backgroundColor: color }}
                       title={color}
-                    ></div>
+                    />
                   ))}
-                </div>
+                </ul>
               ) : null}
               <div className="mt-auto flex gap-2">
                 <Button

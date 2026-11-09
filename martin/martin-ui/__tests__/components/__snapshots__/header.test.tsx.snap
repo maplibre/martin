@@ -1268,7 +1268,7 @@ exports[`Header Component > renders correctly 1`] = `
           class="flex items-center gap-1.5 sm:gap-2"
         >
           <button
-            aria-controls="mobile-menu"
+            aria-controls="_r_0_"
             aria-expanded="false"
             class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 px-4 py-2 sm:h-9 has-[>svg]:px-3.5 text-foreground hover:bg-accent hover:text-accent-foreground sm:hidden"
             data-slot="button"

@@ -190,7 +190,7 @@ export function AnalyticsSection({
                     {pending ? (
                       <Skeleton className="h-6 w-14" />
                     ) : idle ? (
-                      <span aria-label="No data" className="text-muted-foreground">
+                      <span aria-label="No data" className="text-muted-foreground" role="img">
                         -
                       </span>
                     ) : (

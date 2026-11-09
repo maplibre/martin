@@ -23,11 +23,10 @@ export function SegmentedControl<T extends string>({
   className,
 }: SegmentedControlProps<T>) {
   return (
-    <div
-      aria-label={label}
-      className={cn('inline-flex max-w-full gap-1 rounded-lg bg-muted p-1', className)}
-      role="group"
+    <fieldset
+      className={cn('m-0 inline-flex min-w-0 max-w-full gap-1 rounded-lg bg-muted p-1', className)}
     >
+      <legend className="sr-only">{label}</legend>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -47,6 +46,6 @@ export function SegmentedControl<T extends string>({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

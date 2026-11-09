@@ -1,5 +1,5 @@
 import { BookOpen, Code, Info, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Logo from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { ThemeSwitcher } from './theme-switcher';
 export function Header() {
   const version = import.meta.env.VITE_MARTIN_VERSION;
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
   const links = [
     { href: 'https://maplibre.org/martin/', icon: BookOpen, label: 'Documentation' },
     { href: 'https://maplibre.org', icon: Info, label: 'About MapLibre' },
@@ -46,7 +47,7 @@ export function Header() {
           </div>
           <nav aria-label="Project links" className="flex items-center gap-1.5 sm:gap-2">
             <Button
-              aria-controls="mobile-menu"
+              aria-controls={menuId}
               aria-expanded={menuOpen}
               className="sm:hidden"
               onClick={() => setMenuOpen((open) => !open)}
@@ -137,7 +138,7 @@ export function Header() {
           </nav>
         </div>
         {menuOpen ? (
-          <ul className="grid gap-1 border-t py-2 sm:hidden" id="mobile-menu">
+          <ul className="grid gap-1 border-t py-2 sm:hidden" id={menuId}>
             {links.map(({ href, icon: Icon, label }) => (
               <li key={href}>
                 <a
