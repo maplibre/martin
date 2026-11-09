@@ -50,7 +50,9 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             <span className="block text-sm font-medium text-muted-foreground sm:inline sm:text-lg sm:font-semibold sm:text-foreground">
               Inspect Tile Source:
             </span>{' '}
-            <code className="font-mono text-base font-medium [overflow-wrap:anywhere] sm:text-lg">{name}</code>
+            <code className="font-mono text-base font-medium [overflow-wrap:anywhere] sm:text-lg">
+              {name}
+            </code>
           </DialogTitle>
           <DialogDescription>
             Inspect the tile source to explore tile boundaries and properties.

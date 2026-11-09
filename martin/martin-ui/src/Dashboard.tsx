@@ -1,9 +1,9 @@
 import { Suspense, useEffect, useState } from 'react';
+import type { CatalogCounts } from '@/components/analytics-section';
 import { AnalyticsSection } from '@/components/analytics-section';
 import { DashboardContent } from '@/components/dashboard-content';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { buildMartinUrl } from '@/lib/api';
-import type { CatalogCounts } from '@/components/analytics-section';
 import type { AnalyticsData } from '@/lib/prometheus';
 import {
   aggregateEndpointGroups,
@@ -58,7 +58,8 @@ async function fetchCounts(): Promise<CatalogCounts> {
   const res = await fetch(buildMartinUrl('/catalog'));
   if (!res.ok) throw new Error(`Failed to fetch catalog: ${res.statusText}`);
   const catalog = await res.json();
-  const size = (group: unknown) => (group && typeof group === 'object' ? Object.keys(group).length : 0);
+  const size = (group: unknown) =>
+    group && typeof group === 'object' ? Object.keys(group).length : 0;
   return {
     fonts: size(catalog.fonts),
     sprites: size(catalog.sprites),

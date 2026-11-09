@@ -39,7 +39,10 @@ function StylePreviewMap({ styleName }: { styleName: string }) {
             .getContainer()
             .querySelector('.maplibregl-ctrl-attrib')
             ?.classList.remove('maplibregl-compact-show');
-          e.target.getContainer().querySelector('details.maplibregl-ctrl-attrib')?.removeAttribute('open');
+          e.target
+            .getContainer()
+            .querySelector('details.maplibregl-ctrl-attrib')
+            ?.removeAttribute('open');
           const layers = e.target.getStyle().layers ?? [];
           setState(layers.every((l) => l.type === 'background') ? 'empty' : 'ready');
         }}
@@ -163,7 +166,10 @@ export function StylesCatalog({
               <CardTitle>
                 <TooltipCopyText text={name} />
               </CardTitle>
-              <CardDescription className="line-clamp-2 font-mono text-xs [overflow-wrap:anywhere]" title={style.path}>
+              <CardDescription
+                className="line-clamp-2 font-mono text-xs [overflow-wrap:anywhere]"
+                title={style.path}
+              >
                 {style.path}
               </CardDescription>
             </CardHeader>
@@ -190,7 +196,7 @@ export function StylesCatalog({
                 ) : null}
               </dl>
               {style.colors ? (
-                <div className="flex flex-wrap gap-1" role="list" aria-label="Color palette">
+                <div aria-label="Color palette" className="flex flex-wrap gap-1" role="list">
                   {style.colors.map((color) => (
                     <div
                       className="size-6 rounded-sm border"
@@ -232,9 +238,7 @@ export function StylesCatalog({
           icon={Brush}
           linkHref="https://maplibre.org/martin/sources-styles.html"
           linkLabel="Learn how to configure Styles"
-          message={
-            searchQuery ? `No styles found matching "${searchQuery}"` : 'No styles found.'
-          }
+          message={searchQuery ? `No styles found matching "${searchQuery}"` : 'No styles found.'}
         />
       )}
 

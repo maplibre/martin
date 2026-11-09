@@ -50,15 +50,7 @@ const TabsContent = ({
 }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> & {
   ref?: React.RefObject<React.ElementRef<typeof TabsPrimitive.Content> | null>;
 }) => (
-  <TabsPrimitive.Content
-    className={cn(
-      'mt-4',
-      className,
-    )}
-    ref={ref}
-    tabIndex={-1}
-    {...props}
-  />
+  <TabsPrimitive.Content className={cn('mt-4', className)} ref={ref} tabIndex={-1} {...props} />
 );
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 

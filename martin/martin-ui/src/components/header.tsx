@@ -53,7 +53,11 @@ export function Header() {
               size="default"
               variant="ghost"
             >
-              {menuOpen ? <X aria-hidden="true" size={16} /> : <Menu aria-hidden="true" size={16} />}
+              {menuOpen ? (
+                <X aria-hidden="true" size={16} />
+              ) : (
+                <Menu aria-hidden="true" size={16} />
+              )}
               Menu
             </Button>
             <HoverCard>
@@ -133,10 +137,7 @@ export function Header() {
           </nav>
         </div>
         {menuOpen ? (
-          <ul
-            className="grid gap-1 border-t py-2 sm:hidden"
-            id="mobile-menu"
-          >
+          <ul className="grid gap-1 border-t py-2 sm:hidden" id="mobile-menu">
             {links.map(({ href, icon: Icon, label }) => (
               <li key={href}>
                 <a

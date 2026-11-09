@@ -64,7 +64,10 @@ async function thumbCandidates(
         worldwide: east - west >= 359 && north - south >= 160,
       };
     }
-    for (const z of [Math.max(minzoom, 2), Math.min(tileJson.center?.[2] ?? 4, tileJson.maxzoom ?? 4, 6)]) {
+    for (const z of [
+      Math.max(minzoom, 2),
+      Math.min(tileJson.center?.[2] ?? 4, tileJson.maxzoom ?? 4, 6),
+    ]) {
       const tile = tileAt(lng, lat, z);
       if (!candidates.includes(tile)) candidates.push(tile);
     }
@@ -251,7 +254,7 @@ function TileCard({
             <Badge variant="secondary">{source.content_type}</Badge>
             {zooms ? (
               <span className="text-xs tabular-nums text-muted-foreground">
-                {zooms.min === zooms.max ? `z${zooms.min}` : `z${zooms.min}–${zooms.max}`}
+                {zooms.min === zooms.max ? `z${zooms.min}` : `z${zooms.min}-${zooms.max}`}
               </span>
             ) : null}
             {zooms ? (
@@ -371,6 +374,8 @@ export function TilesCatalog({
         {filteredTileSources.map(([name, source], index) => (
           <TileCard
             key={name}
+            name={name}
+            onInspect={() => onInspectTile(name)}
             repeatOf={
               source.name || source.description
                 ? filteredTileSources
@@ -381,8 +386,6 @@ export function TilesCatalog({
                     )?.[0]
                 : undefined
             }
-            name={name}
-            onInspect={() => onInspectTile(name)}
             source={source}
           />
         ))}

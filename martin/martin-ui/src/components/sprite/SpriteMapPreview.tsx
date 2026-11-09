@@ -32,7 +32,11 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   const [haloColor, setHaloColor] = useState('#ffffff');
   const [haloWidth, setHaloWidth] = useState(1);
   const [baseZoom, setBaseZoom] = useState<number | null>(null);
-  const [labelFrame, setLabelFrame] = useState<{ cell: number; points: { x: number; y: number }[]; scale: number }>();
+  const [labelFrame, setLabelFrame] = useState<{
+    cell: number;
+    points: { x: number; y: number }[];
+    scale: number;
+  }>();
   const mapRef = useRef<MapRef>(null);
   const id = useId();
   const layerId = `${id}-sprite-icons`;
@@ -45,7 +49,11 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
       const point = map.project([(i % cols) * spacing, -Math.floor(i / cols) * spacing]);
       return { x: point.x, y: point.y };
     });
-    setLabelFrame({ cell: points.length > 1 ? Math.abs(points[1].x - points[0].x) : 96, points, scale });
+    setLabelFrame({
+      cell: points.length > 1 ? Math.abs(points[1].x - points[0].x) : 96,
+      points,
+      scale,
+    });
   };
 
   const handleMapClick = (e: MapLayerMouseEvent) => {
@@ -58,7 +66,9 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
 
   // Use a wider grid to fill the map's landscape aspect ratio (~1.8:1)
   const cols =
-    spriteIds.length <= 6 ? Math.max(1, spriteIds.length) : Math.ceil(Math.sqrt(spriteIds.length * 1.8));
+    spriteIds.length <= 6
+      ? Math.max(1, spriteIds.length)
+      : Math.ceil(Math.sqrt(spriteIds.length * 1.8));
   const rows = Math.ceil(spriteIds.length / cols);
   const spacing = 0.0004;
   // Frame at least a 3x2 cell area so a handful of icons stay grouped in the middle
@@ -206,70 +216,70 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
       </div>
 
       <div className="relative">
-      <MapLibreMap
-        attributionControl={false}
-        initialViewState={{ latitude: 0, longitude: 0, zoom: 15 }}
-        interactiveLayerIds={[layerId]}
-        mapStyle={mapStyle}
-        maxBounds={[
-          cx - halfW - spacing,
-          cy - halfH - spacing,
-          cx + halfW + spacing,
-          cy + halfH + spacing,
-        ]}
-        onClick={handleMapClick}
-        onLoad={(e) => {
-          const map = e.target;
-          map.fitBounds(
-            [
-              [cx - halfW, cy - halfH],
-              [cx + halfW, cy + halfH],
-            ],
-            { animate: false, padding: { bottom: 40, left: 24, right: 24, top: 24 } },
-          );
-          const zoom = map.getZoom();
-          map.setMinZoom(zoom);
-          map.getCanvas().style.cursor = 'grab';
-          setBaseZoom(zoom);
-          syncLabels(map);
-        }}
-        onMove={(e) => syncLabels(e.target)}
-        onMouseEnter={() => {
-          const canvas = mapRef.current?.getMap()?.getCanvas();
-          if (canvas) canvas.style.cursor = 'pointer';
-        }}
-        onMouseLeave={() => {
-          const canvas = mapRef.current?.getMap()?.getCanvas();
-          if (canvas) canvas.style.cursor = 'grab';
-        }}
-        pixelRatio={2}
-        ref={mapRef}
-        style={{
-          borderRadius: 'var(--radius)',
-          height: `min(${Math.min(24, 8 + rows * 5)}rem, 55dvh)`,
-          minHeight: '11rem',
-          width: '100%',
-        }}
-      >
-        <Source data={geojson} id={`${id}-sprites`} type="geojson">
-          <Layer id={layerId} layout={layerLayout} paint={layerPaint} type="symbol" />
-        </Source>
-      </MapLibreMap>
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        {labelFrame?.points.map((point, i) => (
-          <span
-            className={`absolute -translate-x-1/2 text-center text-[0.8125rem] leading-tight [overflow-wrap:anywhere] ${canvasTone === 'light' ? 'text-[#4a4a66]' : 'text-[#c8c9e6]'}`}
-            key={spriteIds[i]}
-            style={{
-              left: point.x,
-              width: Math.min(112, Math.max(48, labelFrame.cell - 8)),
-              top: point.y + (iconSize * 12 + 6) * labelFrame.scale,
-            }}
-          >
-            <Breakable text={spriteIds[i]} />
-          </span>
-        ))}
-      </div>
+        <MapLibreMap
+          attributionControl={false}
+          initialViewState={{ latitude: 0, longitude: 0, zoom: 15 }}
+          interactiveLayerIds={[layerId]}
+          mapStyle={mapStyle}
+          maxBounds={[
+            cx - halfW - spacing,
+            cy - halfH - spacing,
+            cx + halfW + spacing,
+            cy + halfH + spacing,
+          ]}
+          onClick={handleMapClick}
+          onLoad={(e) => {
+            const map = e.target;
+            map.fitBounds(
+              [
+                [cx - halfW, cy - halfH],
+                [cx + halfW, cy + halfH],
+              ],
+              { animate: false, padding: { bottom: 40, left: 24, right: 24, top: 24 } },
+            );
+            const zoom = map.getZoom();
+            map.setMinZoom(zoom);
+            map.getCanvas().style.cursor = 'grab';
+            setBaseZoom(zoom);
+            syncLabels(map);
+          }}
+          onMouseEnter={() => {
+            const canvas = mapRef.current?.getMap()?.getCanvas();
+            if (canvas) canvas.style.cursor = 'pointer';
+          }}
+          onMouseLeave={() => {
+            const canvas = mapRef.current?.getMap()?.getCanvas();
+            if (canvas) canvas.style.cursor = 'grab';
+          }}
+          onMove={(e) => syncLabels(e.target)}
+          pixelRatio={2}
+          ref={mapRef}
+          style={{
+            borderRadius: 'var(--radius)',
+            height: `min(${Math.min(24, 8 + rows * 5)}rem, 55dvh)`,
+            minHeight: '11rem',
+            width: '100%',
+          }}
+        >
+          <Source data={geojson} id={`${id}-sprites`} type="geojson">
+            <Layer id={layerId} layout={layerLayout} paint={layerPaint} type="symbol" />
+          </Source>
+        </MapLibreMap>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          {labelFrame?.points.map((point, i) => (
+            <span
+              className={`absolute -translate-x-1/2 text-center text-[0.8125rem] leading-tight [overflow-wrap:anywhere] ${canvasTone === 'light' ? 'text-[#4a4a66]' : 'text-[#c8c9e6]'}`}
+              key={spriteIds[i]}
+              style={{
+                left: point.x,
+                top: point.y + (iconSize * 12 + 6) * labelFrame.scale,
+                width: Math.min(112, Math.max(48, labelFrame.cell - 8)),
+              }}
+            >
+              <Breakable text={spriteIds[i]} />
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

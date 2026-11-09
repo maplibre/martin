@@ -79,25 +79,19 @@ function readFeature(pbf: PbfReader, end: number, layer: RawLayer) {
 export function decodeVectorTile(buffer: ArrayBuffer): PreviewLayer[] {
   const pbf = new PbfReader(new Uint8Array(buffer));
   const layers: PreviewLayer[] = [];
-  pbf.readFields(
-    (tag: number, acc: PreviewLayer[]) => {
-      if (tag !== 3) return;
-      const layer: RawLayer = { extent: 4096, features: [], name: '' };
-      pbf.readMessage(
-        (layerTag: number, l: RawLayer) => {
-          if (layerTag === 1) l.name = pbf.readString();
-          else if (layerTag === 5) l.extent = pbf.readVarint();
-          else if (layerTag === 2) {
-            const len = pbf.readVarint();
-            readFeature(pbf, pbf.pos + len, l);
-          }
-        },
-        layer,
-      );
-      acc.push(layer);
-    },
-    layers,
-  );
+  pbf.readFields((tag: number, acc: PreviewLayer[]) => {
+    if (tag !== 3) return;
+    const layer: RawLayer = { extent: 4096, features: [], name: '' };
+    pbf.readMessage((layerTag: number, l: RawLayer) => {
+      if (layerTag === 1) l.name = pbf.readString();
+      else if (layerTag === 5) l.extent = pbf.readVarint();
+      else if (layerTag === 2) {
+        const len = pbf.readVarint();
+        readFeature(pbf, pbf.pos + len, l);
+      }
+    }, layer);
+    acc.push(layer);
+  }, layers);
   return layers;
 }
 

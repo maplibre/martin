@@ -7,9 +7,9 @@ import { FontPreviewCanvas } from '@/components/font-preview-canvas';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Catalog } from '@/lib/types.gen';
-import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { CopyLinkButton } from '../ui/copy-link-button';
 
 interface FontCatalogProps {
@@ -83,7 +83,10 @@ export function FontCatalog({
                 ) : null}
               </div>
               <CardTitle>
-                <TooltipCopyText className="font-sans text-base font-semibold [&_code]:font-[inherit]" text={name} />
+                <TooltipCopyText
+                  className="font-sans text-base font-semibold [&_code]:font-[inherit]"
+                  text={name}
+                />
               </CardTitle>
               <CardDescription className="[overflow-wrap:anywhere]">
                 Family: {font.family}

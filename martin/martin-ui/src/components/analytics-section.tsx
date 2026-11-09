@@ -186,33 +186,35 @@ export function AnalyticsSection({
               </div>
               <div className="mt-2 flex items-end justify-between gap-3">
                 <div className="min-w-0">
-                <div className="mt-2 whitespace-nowrap text-xl font-semibold leading-none tabular-nums">
-                  {pending ? (
-                    <Skeleton className="h-6 w-14" />
-                  ) : idle ? (
-                    <span aria-label="No data" className="text-muted-foreground">
-                      —
-                    </span>
-                  ) : (
-                    <>
-                      {Math.round(data.averageRequestDurationMs)}
-                      {' ms'}
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">avg</span>
-                    </>
-                  )}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground tabular-nums">
-                  {pending ? (
-                    <Skeleton className="h-3 w-20" />
-                  ) : idle ? (
-                    'No requests yet'
-                  ) : (
-                    <>
-                      {data.requestCount.toLocaleString()}
-                      {' requests'}
-                    </>
-                  )}
-                </div>
+                  <div className="mt-2 whitespace-nowrap text-xl font-semibold leading-none tabular-nums">
+                    {pending ? (
+                      <Skeleton className="h-6 w-14" />
+                    ) : idle ? (
+                      <span aria-label="No data" className="text-muted-foreground">
+                        -
+                      </span>
+                    ) : (
+                      <>
+                        {Math.round(data.averageRequestDurationMs)}
+                        {' ms'}
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          avg
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                    {pending ? (
+                      <Skeleton className="h-3 w-20" />
+                    ) : idle ? (
+                      'No requests yet'
+                    ) : (
+                      <>
+                        {data.requestCount.toLocaleString()}
+                        {' requests'}
+                      </>
+                    )}
+                  </div>
                 </div>
                 {pending || !data?.histogram ? (
                   <div
@@ -220,7 +222,10 @@ export function AnalyticsSection({
                     className="h-10 w-10 shrink-0 animate-pulse sm:w-16 rounded-md bg-linear-to-r from-transparent to-muted opacity-40"
                   />
                 ) : (
-                  <MiniHistogram className="h-10 w-10 shrink-0 sm:w-16" histogram={data.histogram} />
+                  <MiniHistogram
+                    className="h-10 w-10 shrink-0 sm:w-16"
+                    histogram={data.histogram}
+                  />
                 )}
               </div>
               <dl
@@ -232,12 +237,15 @@ export function AnalyticsSection({
                       {caches.length === 0 ? 'Style cache' : 'Cache'}
                     </dt>
                     <dd className="text-muted-foreground">
-                      {caches.length === 0 ? 'not cached' : '—'}
+                      {caches.length === 0 ? 'not cached' : '-'}
                     </dd>
                   </div>
                 ) : null}
                 {cacheEntries.map(({ key: cacheKey, label, metrics }) => (
-                  <div className="flex items-center justify-between gap-2 text-[0.8125rem]" key={cacheKey}>
+                  <div
+                    className="flex items-center justify-between gap-2 text-[0.8125rem]"
+                    key={cacheKey}
+                  >
                     <dt className="truncate text-muted-foreground">{label}</dt>
                     <dd
                       className="flex shrink-0 items-center gap-1 font-medium tabular-nums"

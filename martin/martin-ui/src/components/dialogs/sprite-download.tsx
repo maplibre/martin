@@ -158,14 +158,16 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                   <li>Fixed resolution</li>
                 </ul>
               </div>
-  
+
               {/* SDF Format */}
               <div className="rounded-lg border border-t-4 border-t-primary bg-card p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <Badge variant="default">SDF</Badge>
                   <h4 className="font-semibold">Signed Distance Field</h4>
                 </div>
-                <p className="mb-3 text-sm text-muted-foreground">For dynamic coloring at runtime.</p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  For dynamic coloring at runtime.
+                </p>
                 <ul className="list-disc space-y-1.5 pl-5 text-sm marker:text-brand">
                   <li>One color per sprite. Layer several SDFs for multi-color icons.</li>
                   <li>

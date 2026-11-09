@@ -58,13 +58,13 @@ const DialogContent = ({
       ref={ref}
       {...props}
       style={{
+        backgroundAttachment: 'local, scroll',
         // Bottom shadow that disappears once the content is scrolled to its end
         backgroundImage:
           'linear-gradient(transparent, var(--background)), linear-gradient(to top, rgb(0 0 0 / 0.18), transparent)',
         backgroundPosition: 'bottom, bottom',
         backgroundRepeat: 'no-repeat',
         backgroundSize: '100% 2rem, 100% 1.25rem',
-        backgroundAttachment: 'local, scroll',
         ...props.style,
       }}
     >
@@ -99,7 +99,10 @@ const DialogTitle = ({
   ref?: React.RefObject<React.ElementRef<typeof DialogPrimitive.Title> | null>;
 }) => (
   <DialogPrimitive.Title
-    className={cn('text-lg font-semibold leading-snug tracking-tight [overflow-wrap:anywhere]', className)}
+    className={cn(
+      'text-lg font-semibold leading-snug tracking-tight [overflow-wrap:anywhere]',
+      className,
+    )}
     ref={ref}
     {...props}
   />

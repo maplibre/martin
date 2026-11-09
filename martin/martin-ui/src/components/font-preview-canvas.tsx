@@ -1,5 +1,5 @@
-import { PbfReader } from 'pbf';
 import { useTheme } from 'next-themes';
+import { PbfReader } from 'pbf';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildMartinUrl } from '@/lib/api';
@@ -156,5 +156,12 @@ export function FontPreviewCanvas({ fontName }: { fontName: string }) {
 
   if (error) return <p className="text-sm text-muted-foreground italic">Preview unavailable</p>;
   if (!glyphs) return <Skeleton className="h-14 w-full" />;
-  return <canvas aria-label={`Preview of ${fontName}`} className="block h-14 w-full" ref={ref} role="img" />;
+  return (
+    <canvas
+      aria-label={`Preview of ${fontName}`}
+      className="block h-14 w-full"
+      ref={ref}
+      role="img"
+    />
+  );
 }

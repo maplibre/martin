@@ -3,9 +3,9 @@
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
 import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Maximize2 } from 'lucide-react';
 import type { Map as MapLibre, VectorSourceSpecification } from 'maplibre-gl';
 import { Popup } from 'maplibre-gl';
-import { Maximize2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { type ErrorInfo, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -319,9 +319,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
       <div className="flex flex-col">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-card p-2">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 pl-1 text-xs font-medium text-muted-foreground">
-              Basemap
-            </span>
+            <span className="shrink-0 pl-1 text-xs font-medium text-muted-foreground">Basemap</span>
             <UnderlayPicker onChange={setSelectedUnderlay} value={selectedUnderlay} />
           </div>
           <Button

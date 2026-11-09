@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { Code, Copy, CopyCheck, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CopyableUrl } from '@/components/ui/copyable-url';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { CopyableUrl } from '@/components/ui/copyable-url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
@@ -248,7 +248,10 @@ function MyMap() {
                 <div>
                   <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     Web Browser (CDN) - HTML + JavaScript
-                    <DocLink href="https://maplibre.org/maplibre-gl-js/docs/examples/simple-map/" label="Web Browser (CDN)" />
+                    <DocLink
+                      href="https://maplibre.org/maplibre-gl-js/docs/examples/simple-map/"
+                      label="Web Browser (CDN)"
+                    />
                   </h4>
                   <CodeBlock code={webJsCode} />
                 </div>
@@ -264,7 +267,10 @@ function MyMap() {
                 <div>
                   <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     React - TypeScript
-                    <DocLink href="https://visgl.github.io/react-map-gl/docs/get-started" label="React" />
+                    <DocLink
+                      href="https://visgl.github.io/react-map-gl/docs/get-started"
+                      label="React"
+                    />
                   </h4>
                   <CodeBlock code={reactCode} />
                 </div>
@@ -291,7 +297,10 @@ function MyMap() {
                 <div>
                   <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     Android - Java/Kotlin
-                    <DocLink href="https://maplibre.org/maplibre-native/android/api/" label="Android" />
+                    <DocLink
+                      href="https://maplibre.org/maplibre-native/android/api/"
+                      label="Android"
+                    />
                   </h4>
                   <CodeBlock code={androidCode} />
                 </div>
@@ -299,7 +308,10 @@ function MyMap() {
                 <div>
                   <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     iOS - Swift
-                    <DocLink href="https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/" label="iOS" />
+                    <DocLink
+                      href="https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/"
+                      label="iOS"
+                    />
                   </h4>
                   <CodeBlock code={iosCode} />
                 </div>
@@ -307,7 +319,10 @@ function MyMap() {
                 <div>
                   <h4 className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
                     React Native - JavaScript
-                    <DocLink href="https://maplibre.org/maplibre-react-native/" label="React Native" />
+                    <DocLink
+                      href="https://maplibre.org/maplibre-react-native/"
+                      label="React Native"
+                    />
                   </h4>
                   <CodeBlock code={reactNativeCode} />
                 </div>
