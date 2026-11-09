@@ -201,11 +201,12 @@ function TileThumb({
     const controller = new AbortController();
     let objectUrl: string | null = null;
     let release: (() => void) | null = null;
-    // A stalled source must not hold one of the shared slots forever
-    const deadline = setTimeout(() => controller.abort(), THUMB_DEADLINE_MS);
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       release = await acquireThumbSlot(controller.signal);
       if (!release) return;
+      // Started once a slot is held, so queue time does not count; a stalled source must not hold its slot forever
+      deadline = setTimeout(() => controller.abort(), THUMB_DEADLINE_MS);
       const { candidates, zooms } = await thumbCandidates(name, controller.signal);
       if (zooms) onZooms?.(zooms);
       for (const tile of candidates) {
