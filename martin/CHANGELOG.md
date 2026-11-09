@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.7](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.6...martin-v2.0.0-beta.7) - 2026-11-09
+
+### Added
+
+- *(generate)* [**breaking**] name derived `geometry` values as Planetiler does ([#3913](https://github.com/maplibre/martin/pull/3913))
+- *(generate)* add the `thinning` per-tile operation with `method: grid` ([#3903](https://github.com/maplibre/martin/pull/3903))
+- *(generate)* add per-tile layer operations, starting with `limit` ([#3902](https://github.com/maplibre/martin/pull/3902))
+- *(rendering)* preserve Mesa shader cache in read-only environments ([#3898](https://github.com/maplibre/martin/pull/3898))
+- *(cp)* show stages and busy threads while `--mode bulk` runs ([#3911](https://github.com/maplibre/martin/pull/3911))
+- [**breaking**] Duckdb secret enhancement ([#3872](https://github.com/maplibre/martin/pull/3872))
+
+### Fixed
+
+- *(release)* [**breaking**] attach the mbtiles binaries to the mbtiles releases ([#3917](https://github.com/maplibre/martin/pull/3917))
+- build.rs without webui, keep a path shared when a later source skips it ([#3893](https://github.com/maplibre/martin/pull/3893))
+- fmt ([#3892](https://github.com/maplibre/martin/pull/3892))
+- *(pmtiles)* catch an archive renamed over a source as it opens ([#3897](https://github.com/maplibre/martin/pull/3897))
+- *(pmtiles)* serve archives bigger than memory without the 2.0 slowdown ([#3858](https://github.com/maplibre/martin/pull/3858))
+- *(mbtiles)* check agg_tiles_hash before and after applying a patch ([#3916](https://github.com/maplibre/martin/pull/3916))
+
+### Other
+
+- *(duckdb)* add schema examples to optional duckdb config fields ([#3894](https://github.com/maplibre/martin/pull/3894))
+- *(pmtiles)* let pmtiles 0.28 check local archives for changes ([#3900](https://github.com/maplibre/martin/pull/3900))
+
 ## [2.0.0-beta.6](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.5...martin-v2.0.0-beta.6) - 2026-11-04
 
 > [!NOTE]

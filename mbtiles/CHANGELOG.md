@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0](https://github.com/maplibre/martin/compare/mbtiles-v0.22.0...mbtiles-v0.23.0) - 2026-11-09
+
+### Fixed
+
+- *(release)* [**breaking**] attach the mbtiles binaries to the mbtiles releases ([#3917](https://github.com/maplibre/martin/pull/3917))
+- *(mbtiles)* check agg_tiles_hash before and after applying a patch ([#3916](https://github.com/maplibre/martin/pull/3916))
+
 ## [0.22.0](https://github.com/maplibre/martin/compare/mbtiles-v0.21.2...mbtiles-v0.22.0) - 2026-11-04
 
 ### Added

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/maplibre/martin/compare/python-cog-tiles-v0.1.3...python-cog-tiles-v0.1.4) - 2026-11-09
+
+### Fixed
+
+- fmt ([#3892](https://github.com/maplibre/martin/pull/3892))
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.3](https://github.com/maplibre/martin/compare/python-cog-tiles-v0.1.2...python-cog-tiles-v0.1.3) - 2026-11-04
 
 ### Other
