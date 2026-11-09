@@ -90,9 +90,9 @@ describe('FontCatalog Component', () => {
     expect(titleFound).toBe(true);
 
     // Check that all fonts are rendered
-    expect(screen.getByText('Roboto Medium')).toBeTruthy();
-    expect(screen.getByText('Open Sans Regular')).toBeTruthy();
-    expect(screen.getByText('Noto Sans Bold')).toBeTruthy();
+    expect(screen.getAllByText('Roboto Medium')[0]).toBeTruthy();
+    expect(screen.getAllByText('Open Sans Regular')[0]).toBeTruthy();
+    expect(screen.getAllByText('Noto Sans Bold')[0]).toBeTruthy();
 
     // Check family and style information
     expect(screen.getByText('Family: Roboto • Style: Medium')).toBeTruthy();

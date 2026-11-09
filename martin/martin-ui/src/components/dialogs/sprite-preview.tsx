@@ -25,21 +25,26 @@ export function SpritePreviewDialog({
 }: SpritePreviewDialogProps) {
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
-      <DialogContent className="max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
+      <DialogContent className="sm:max-w-4xl">
         {sprite ? (
           <>
-            <DialogHeader className="mb-4 truncate">
-              <DialogTitle className="text-2xl flex gap-4">{name}</DialogTitle>
-              <DialogDescription>
-                <span>
-                  Preview sprites as rendered by MapLibre GL. Toggle between PNG and SDF modes.
-                </span>
-                <br />
-                <Button onClick={() => onDownloadAction(sprite)} size="sm" variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+            <DialogHeader>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pr-8">
+                <DialogTitle className="min-w-0 font-mono text-lg font-medium">{name}</DialogTitle>
+                <Button
+                  aria-label="Download sprite"
+                  className="shrink-0 max-sm:size-11 max-sm:px-0"
+                  onClick={() => onDownloadAction(sprite)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download />
+                  <span className="max-sm:sr-only">Download</span>
                 </Button>
-              </DialogDescription>
+                <DialogDescription className="order-last basis-full">
+                  Preview sprites as rendered by MapLibre GL. Toggle between PNG and SDF modes.
+                </DialogDescription>
+              </div>
             </DialogHeader>
             <SpriteMapPreview spriteIds={sprite.images} spriteName={name} />
           </>

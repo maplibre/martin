@@ -1,5 +1,5 @@
 'use client';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,17 @@ interface TileInspectDialogProps {
 
 function TileMapLoading() {
   return (
-    <div className="flex justify-center items-center text-white text-3xl w-full h-125">
+    <div className="tile-grid flex h-72 w-full items-center justify-center text-muted-foreground">
       <LoadingSpinner />
+    </div>
+  );
+}
+
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-0.5 py-2 sm:grid-cols-[8rem_1fr] sm:gap-4">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-sm [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
@@ -35,80 +44,62 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
-      <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
-        <DialogHeader className="mb-6 truncate">
-          <DialogTitle className="text-2xl flex items-center justify-between">
-            <span>
-              Inspect Tile Source: <code>{name}</code>
-            </span>
+      <DialogContent className="sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg">
+            <span className="block text-sm font-medium text-muted-foreground sm:inline sm:text-lg sm:font-semibold sm:text-foreground">
+              Inspect Tile Source:
+            </span>{' '}
+            <code className="font-mono text-base font-medium [overflow-wrap:anywhere] sm:text-lg">
+              {name}
+            </code>
           </DialogTitle>
           <DialogDescription>
             Inspect the tile source to explore tile boundaries and properties.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <section className="border rounded-lg overflow-hidden">
-            <Suspense fallback={<TileMapLoading />}>
-              <TileInspectDialogMap name={name} source={source} />
-            </Suspense>
-          </section>
-          {/* Source Information */}
-          <section className="bg-muted/30 p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Database className="w-5 h-5 text-muted-foreground" />
-              <h3 className="font-semibold">Source Information</h3>
-            </div>
-            <div className="flex flex-col md:grid md:grid-cols-2 gap-y-4 text-sm">
-              <p>
-                <span className="font-medium">Content Type:</span>
-                <br />
-                <code>{source.content_type}</code>
-              </p>
+        <section
+          aria-label="Tile map"
+          className="shrink-0 overflow-hidden rounded-lg border bg-sunken"
+        >
+          <Suspense fallback={<TileMapLoading />}>
+            <TileInspectDialogMap name={name} source={source} />
+          </Suspense>
+        </section>
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+          <section className="min-w-0 rounded-lg border bg-card p-4">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+              <Database aria-hidden="true" className="size-4 text-brand" />
+              Source Information
+            </h3>
+            <dl className="divide-y">
+              <InfoRow label="Content Type">
+                <code className="text-xs">{source.content_type}</code>
+              </InfoRow>
               {source.content_encoding ? (
-                <p>
-                  <span className="font-medium">Encoding:</span>
-                  <br />
-                  <code>{source.content_encoding}</code>
-                </p>
+                <InfoRow label="Encoding">
+                  <code className="text-xs">{source.content_encoding}</code>
+                </InfoRow>
               ) : null}
-              {source.name ? (
-                <p>
-                  <span className="font-medium">Name:</span>
-                  <br />
-                  <span>{source.name}</span>
-                </p>
-              ) : null}
-              {source.description ? (
-                <p className="col-span-2">
-                  <span className="font-medium">Description:</span>
-                  <br />
-                  <span>{source.description}</span>
-                </p>
+              {source.name ? <InfoRow label="Name">{source.name}</InfoRow> : null}
+              {source.description && source.description !== source.name ? (
+                <InfoRow label="Description">{source.description}</InfoRow>
               ) : null}
               {source.layer_count ? (
-                <p>
-                  <span className="font-medium">Layer Count:</span>
-                  <br />
-                  <span>{source.layer_count}</span>
-                </p>
+                <InfoRow label="Layer Count">{source.layer_count}</InfoRow>
               ) : null}
               {source.attribution ? (
-                <p className="col-span-2">
-                  <span className="font-medium">Attribution:</span>
-                  <br />
-                  <span>{source.attribution}</span>
-                </p>
+                <InfoRow label="Attribution">{source.attribution}</InfoRow>
               ) : null}
-            </div>
+            </dl>
           </section>
 
-          {/* Tile URLs */}
-          <section className="bg-muted/30 p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <ExternalLink className="w-5 h-5 text-muted-foreground" />
-              <h3 className="font-semibold">Tile URLs</h3>
-            </div>
-            <div className="flex flex-col gap-y-4 text-sm">
+          <section className="min-w-0 rounded-lg border bg-card p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <ExternalLink aria-hidden="true" className="size-4 text-brand" />
+              Tile URLs
+            </h3>
+            <div className="flex flex-col gap-4">
               <CopyableUrl label="TileJSON" url={tileJsonUrl} />
               <CopyableUrl label="XYZ Tiles" url={xyzUrl} />
             </div>

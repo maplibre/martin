@@ -6,61 +6,66 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
     class="space-y-6"
   >
     <div
-      class="flex flex-col md:flex-row md:items-center items-start justify-between gap-5"
+      class="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-end"
     >
-      <div>
+      <div
+        class="min-w-0"
+      >
         <h2
-          class="text-2xl font-bold text-foreground"
+          class="text-2xl font-semibold tracking-tight text-foreground"
         >
           Sprite Catalog
         </h2>
         <p
-          class="text-muted-foreground"
+          class="mt-1 text-sm text-muted-foreground"
         >
           Preview all available sprite sheets and icons
+          <span
+            class="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-foreground"
+          >
+            3
+          </span>
         </p>
       </div>
       <div
-        class="relative w-full md:w-64"
+        class="relative w-full md:w-72"
       >
         <span
           role="img"
         />
         <input
-          class="flex h-10 rounded-md border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 md:w-64 w-full bg-card"
+          aria-label="Search sprites"
+          class="flex h-11 w-full rounded-md border border-input bg-card py-2 text-base shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground hover:border-ring/60 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 sm:h-10 sm:text-sm px-9 [&::-webkit-search-cancel-button]:appearance-none"
           placeholder="Search sprites..."
+          type="search"
           value=""
         />
       </div>
     </div>
     <div
-      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+        class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5 pb-3"
         >
           <div
-            class="flex items-center justify-between"
+            class="flex items-center justify-between gap-2"
           >
-            <div
-              class="flex items-center space-x-2"
+            <span
+              role="img"
+            />
+            <span
+              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
+              data-slot="badge"
             >
-              <span
-                role="img"
-              />
-              <span
-                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
-                data-slot="badge"
-              >
-                1x, 2x
-              </span>
-            </div>
+              1x, 2x
+            </span>
           </div>
           <div
-            class="font-semibold tracking-tight text-lg font-mono"
+            class="text-base font-semibold leading-snug tracking-tight"
           >
             <div>
               <div>
@@ -70,15 +75,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center p-1"
+                  class="flex flex-col gap-2 p-0.5"
                 >
                   <div
-                    class="text-sm font-mono"
+                    class="font-mono text-sm [overflow-wrap:anywhere]"
                   >
                     map-icons
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                    class="flex items-center gap-1 text-xs text-muted-foreground"
                   >
                     <span
                       role="img"
@@ -96,77 +101,70 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
           </div>
         </div>
         <div
-          class="flex flex-col p-6 justify-between grow-1"
+          class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
-          <div>
+          <div
+            class="space-y-3"
+          >
             <div
-              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+              class="checker rounded-lg border p-3 text-paper-foreground"
             >
-              <p
-                class="text-sm font-medium mb-2"
-              >
-                Icon Preview:
-              </p>
               <div
-                class="w-full"
+                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+                data-testid="sprite-preview"
               >
                 <div
-                  class="w-full grid grid-cols-6 min-h-[48px]"
-                  data-testid="sprite-preview"
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-pin"
                 >
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-pin"
-                  >
-                    pin
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-marker"
-                  >
-                    marker
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-building"
-                  >
-                    building
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-park"
-                  >
-                    park
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-poi"
-                  >
-                    poi
-                  </div>
+                  pin
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-marker"
+                >
+                  marker
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-building"
+                >
+                  building
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-park"
+                >
+                  park
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-poi"
+                >
+                  poi
                 </div>
               </div>
             </div>
             <div
-              class="space-y-2 text-sm text-muted-foreground mt-4"
+              class="flex justify-between gap-3 text-sm"
             >
-              <div
-                class="flex justify-between"
+              <span
+                class="text-muted-foreground"
               >
-                <span>
-                  File Size:
-                </span>
-                <span>
-                  25 KB
-                </span>
-              </div>
+                File size
+              </span>
+              <span
+                class="tabular-nums"
+              >
+                25 KB
+              </span>
             </div>
           </div>
           <div
-            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+            class="flex gap-2"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -175,7 +173,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -187,30 +185,26 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+        class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5 pb-3"
         >
           <div
-            class="flex items-center justify-between"
+            class="flex items-center justify-between gap-2"
           >
-            <div
-              class="flex items-center space-x-2"
+            <span
+              role="img"
+            />
+            <span
+              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
+              data-slot="badge"
             >
-              <span
-                role="img"
-              />
-              <span
-                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
-                data-slot="badge"
-              >
-                1x, 2x
-              </span>
-            </div>
+              1x, 2x
+            </span>
           </div>
           <div
-            class="font-semibold tracking-tight text-lg font-mono"
+            class="text-base font-semibold leading-snug tracking-tight"
           >
             <div>
               <div>
@@ -220,15 +214,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center p-1"
+                  class="flex flex-col gap-2 p-0.5"
                 >
                   <div
-                    class="text-sm font-mono"
+                    class="font-mono text-sm [overflow-wrap:anywhere]"
                   >
                     transportation
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                    class="flex items-center gap-1 text-xs text-muted-foreground"
                   >
                     <span
                       role="img"
@@ -246,89 +240,82 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
           </div>
         </div>
         <div
-          class="flex flex-col p-6 justify-between grow-1"
+          class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
-          <div>
+          <div
+            class="space-y-3"
+          >
             <div
-              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+              class="checker rounded-lg border p-3 text-paper-foreground"
             >
-              <p
-                class="text-sm font-medium mb-2"
-              >
-                Icon Preview:
-              </p>
               <div
-                class="w-full"
+                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+                data-testid="sprite-preview"
               >
                 <div
-                  class="w-full grid grid-cols-6 min-h-[48px]"
-                  data-testid="sprite-preview"
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-car"
                 >
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-car"
-                  >
-                    car
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-bus"
-                  >
-                    bus
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-train"
-                  >
-                    train
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-bicycle"
-                  >
-                    bicycle
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-walk"
-                  >
-                    walk
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-plane"
-                  >
-                    plane
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-ferry"
-                  >
-                    ferry
-                  </div>
+                  car
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-bus"
+                >
+                  bus
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-train"
+                >
+                  train
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-bicycle"
+                >
+                  bicycle
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-walk"
+                >
+                  walk
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-plane"
+                >
+                  plane
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-ferry"
+                >
+                  ferry
                 </div>
               </div>
             </div>
             <div
-              class="space-y-2 text-sm text-muted-foreground mt-4"
+              class="flex justify-between gap-3 text-sm"
             >
-              <div
-                class="flex justify-between"
+              <span
+                class="text-muted-foreground"
               >
-                <span>
-                  File Size:
-                </span>
-                <span>
-                  30 KB
-                </span>
-              </div>
+                File size
+              </span>
+              <span
+                class="tabular-nums"
+              >
+                30 KB
+              </span>
             </div>
           </div>
           <div
-            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+            class="flex gap-2"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -337,7 +324,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -349,30 +336,26 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+        class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5 pb-3"
         >
           <div
-            class="flex items-center justify-between"
+            class="flex items-center justify-between gap-2"
           >
-            <div
-              class="flex items-center space-x-2"
+            <span
+              role="img"
+            />
+            <span
+              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
+              data-slot="badge"
             >
-              <span
-                role="img"
-              />
-              <span
-                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
-                data-slot="badge"
-              >
-                1x, 2x
-              </span>
-            </div>
+              1x, 2x
+            </span>
           </div>
           <div
-            class="font-semibold tracking-tight text-lg font-mono"
+            class="text-base font-semibold leading-snug tracking-tight"
           >
             <div>
               <div>
@@ -382,15 +365,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center p-1"
+                  class="flex flex-col gap-2 p-0.5"
                 >
                   <div
-                    class="text-sm font-mono"
+                    class="font-mono text-sm [overflow-wrap:anywhere]"
                   >
                     ui-elements
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                    class="flex items-center gap-1 text-xs text-muted-foreground"
                   >
                     <span
                       role="img"
@@ -408,95 +391,88 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
           </div>
         </div>
         <div
-          class="flex flex-col p-6 justify-between grow-1"
+          class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
-          <div>
+          <div
+            class="space-y-3"
+          >
             <div
-              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+              class="checker rounded-lg border p-3 text-paper-foreground"
             >
-              <p
-                class="text-sm font-medium mb-2"
-              >
-                Icon Preview:
-              </p>
               <div
-                class="w-full"
+                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+                data-testid="sprite-preview"
               >
                 <div
-                  class="w-full grid grid-cols-6 min-h-[48px]"
-                  data-testid="sprite-preview"
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-arrow"
                 >
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-arrow"
-                  >
-                    arrow
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-plus"
-                  >
-                    plus
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-minus"
-                  >
-                    minus
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-close"
-                  >
-                    close
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-menu"
-                  >
-                    menu
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-search"
-                  >
-                    search
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-filter"
-                  >
-                    filter
-                  </div>
-                  <div
-                    class="w-7 h-7 bg-gray-200 rounded-sm"
-                    data-testid="sprite-icon-settings"
-                  >
-                    settings
-                  </div>
+                  arrow
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-plus"
+                >
+                  plus
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-minus"
+                >
+                  minus
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-close"
+                >
+                  close
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-menu"
+                >
+                  menu
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-search"
+                >
+                  search
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-filter"
+                >
+                  filter
+                </div>
+                <div
+                  class="w-7 h-7 bg-gray-200 rounded-sm"
+                  data-testid="sprite-icon-settings"
+                >
+                  settings
                 </div>
               </div>
             </div>
             <div
-              class="space-y-2 text-sm text-muted-foreground mt-4"
+              class="flex justify-between gap-3 text-sm"
             >
-              <div
-                class="flex justify-between"
+              <span
+                class="text-muted-foreground"
               >
-                <span>
-                  File Size:
-                </span>
-                <span>
-                  35 KB
-                </span>
-              </div>
+                File size
+              </span>
+              <span
+                class="tabular-nums"
+              >
+                35 KB
+              </span>
             </div>
           </div>
           <div
-            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+            class="flex gap-2"
           >
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -505,7 +481,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               Download
             </button>
             <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
             >
               <span
@@ -531,7 +507,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
     >
       <div>
         <h2
-          class="text-2xl font-bold text-foreground"
+          class="text-2xl font-semibold tracking-tight text-foreground"
         >
           Sprite Catalog
         </h2>
@@ -549,10 +525,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -576,7 +552,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -632,10 +608,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -659,7 +635,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -715,10 +691,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -742,7 +718,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -798,10 +774,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -825,7 +801,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -881,10 +857,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -908,7 +884,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -964,10 +940,10 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -991,7 +967,7 @@ exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"

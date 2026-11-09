@@ -13,7 +13,7 @@ describe('MiniHistogram', () => {
     const histogramContainer = container.querySelector('.w-20.h-12.flex.items-end');
     expect(histogramContainer).toBeTruthy();
 
-    const bars = container.querySelectorAll('.flex-1.bg-primary');
+    const bars = container.querySelectorAll('.flex-1.bg-chart-1');
     expect(bars).toHaveLength(0);
   });
 
@@ -33,7 +33,7 @@ describe('MiniHistogram', () => {
     expect(histogramContainer).toBeTruthy();
 
     // Should render bars (limited to 8 max, but we have 5)
-    const bars = container.querySelectorAll('.flex-1.bg-primary');
+    const bars = container.querySelectorAll('.flex-1.bg-chart-1');
     expect(bars).toHaveLength(5);
 
     // Each bar should have height and opacity style attributes
@@ -53,7 +53,7 @@ describe('MiniHistogram', () => {
     const { container } = render(<MiniHistogram histogram={histogram} />);
 
     // Should render all 12 bars (component doesn't limit bars)
-    const bars = container.querySelectorAll('.flex-1.bg-primary');
+    const bars = container.querySelectorAll('.flex-1.bg-chart-1');
     expect(bars).toHaveLength(12);
   });
 
@@ -66,7 +66,7 @@ describe('MiniHistogram', () => {
 
     const { container } = render(<MiniHistogram histogram={histogram} />);
 
-    const bars = container.querySelectorAll('.flex-1.bg-primary');
+    const bars = container.querySelectorAll('.flex-1.bg-chart-1');
     expect(bars).toHaveLength(3);
 
     // The logic calculates bucket differences, then finds max difference
@@ -92,7 +92,7 @@ describe('MiniHistogram', () => {
 
     const { container } = render(<MiniHistogram histogram={histogram} />);
 
-    const bars = container.querySelectorAll('.flex-1.bg-primary');
+    const bars = container.querySelectorAll('.flex-1.bg-chart-1');
     const secondBar = bars[1] as HTMLElement;
 
     // Even though the second bar represents only 1 request out of 1000,

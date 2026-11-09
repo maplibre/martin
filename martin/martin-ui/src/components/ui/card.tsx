@@ -8,7 +8,7 @@ const Card = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.RefObject<HTMLDivElement | null> }) => (
   <div
-    className={cn('rounded-lg border bg-card text-card-foreground shadow-xs', className)}
+    className={cn('rounded-xl border bg-card text-card-foreground shadow-card', className)}
     ref={ref}
     {...props}
   />
@@ -20,7 +20,7 @@ const CardHeader = ({
   ref,
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.RefObject<HTMLDivElement | null> }) => (
-  <div className={cn('flex flex-col space-y-1.5 p-6', className)} ref={ref} {...props} />
+  <div className={cn('flex flex-col gap-1.5 p-5', className)} ref={ref} {...props} />
 );
 CardHeader.displayName = 'CardHeader';
 
@@ -30,7 +30,7 @@ const CardTitle = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.RefObject<HTMLDivElement | null> }) => (
   <div
-    className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+    className={cn('text-base font-semibold leading-snug tracking-tight', className)}
     ref={ref}
     {...props}
   />
@@ -51,7 +51,7 @@ const CardContent = ({
   ref,
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.RefObject<HTMLDivElement | null> }) => (
-  <div className={cn('p-6 pt-0', className)} ref={ref} {...props} />
+  <div className={cn('p-5 pt-0', className)} ref={ref} {...props} />
 );
 CardContent.displayName = 'CardContent';
 
@@ -60,7 +60,7 @@ const CardFooter = ({
   ref,
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.RefObject<HTMLDivElement | null> }) => (
-  <div className={cn('flex items-center p-6 pt-0', className)} ref={ref} {...props} />
+  <div className={cn('flex items-center p-5 pt-0', className)} ref={ref} {...props} />
 );
 CardFooter.displayName = 'CardFooter';
 

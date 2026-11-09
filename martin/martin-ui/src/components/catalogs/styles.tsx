@@ -1,37 +1,88 @@
-import { Brush, Code, Search, SquarePen } from 'lucide-react';
+import { Brush, Code, Layers, SquarePen, TriangleAlert } from 'lucide-react';
+import { CatalogEmpty } from '@/components/catalogs/catalog-empty';
+import { CatalogHeader } from '@/components/catalogs/catalog-header';
 import { StyleIntegrationGuideDialog } from '@/components/dialogs/style-integration-guide';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import { mltAcceptTransformRequest } from '@/lib/mlt';
 import type { Catalog } from '@/lib/types.gen';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FullscreenControl, Map as MapLibreMap, type MapRef } from '@vis.gl/react-maplibre';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+
+type PreviewState = 'loading' | 'ready' | 'empty' | 'failed';
 
 function StylePreviewMap({ styleName }: { styleName: string }) {
   const mapRef = useRef<MapRef>(null);
+  const [state, setState] = useState<PreviewState>('loading');
+  const [reason, setReason] = useState<string>();
   return (
-    <MapLibreMap
-      mapStyle={buildMartinUrl(`/style/${styleName}`)}
-      ref={mapRef}
-      reuseMaps
-      style={{
-        aspectRatio: 16 / 9,
-        backgroundColor: '#E5E7EB',
-        backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
-        borderRadius: 'var(--radius)',
-        width: '100%',
-      }}
-      transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
-    >
-      <FullscreenControl />
-    </MapLibreMap>
+    <div className="relative overflow-hidden rounded-lg border bg-sunken">
+      <MapLibreMap
+        attributionControl={{ compact: true }}
+        mapStyle={buildMartinUrl(`/style/${styleName}`)}
+        onError={(e) => {
+          // Missing sprites or glyphs still leave a drawable style; only an unreadable style is fatal
+          const url = (e.error as { url?: string } | undefined)?.url;
+          if (!url?.includes(`/style/${styleName}`)) return;
+          setReason(e.error?.message);
+          setState((prev) => (prev === 'loading' ? 'failed' : prev));
+        }}
+        onLoad={(e) => {
+          // Keep attribution collapsed to the (i) button in thumbnails
+          e.target
+            .getContainer()
+            .querySelector('.maplibregl-ctrl-attrib')
+            ?.classList.remove('maplibregl-compact-show');
+          e.target
+            .getContainer()
+            .querySelector('details.maplibregl-ctrl-attrib')
+            ?.removeAttribute('open');
+          const layers = e.target.getStyle().layers ?? [];
+          setState(layers.every((l) => l.type === 'background') ? 'empty' : 'ready');
+        }}
+        ref={mapRef}
+        reuseMaps
+        style={{ aspectRatio: 16 / 9, width: '100%' }}
+        transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
+      >
+        <FullscreenControl />
+      </MapLibreMap>
+      {state === 'loading' ? (
+        <div className="tile-grid pointer-events-none absolute inset-0 flex animate-pulse items-center justify-center text-sm text-muted-foreground">
+          Loading preview…
+        </div>
+      ) : null}
+      {state === 'empty' ? (
+        <div className="tile-grid absolute inset-0 flex flex-col items-center justify-center gap-1 p-4 text-center">
+          <Layers aria-hidden="true" className="size-5 text-muted-foreground" />
+          <p className="text-sm font-medium">Nothing to draw</p>
+          <p className="text-xs text-muted-foreground">
+            This style only defines a background, so there are no map layers to preview.
+          </p>
+        </div>
+      ) : null}
+      {state === 'failed' ? (
+        <div className="tile-grid absolute inset-0 flex flex-col items-center justify-center gap-1 overflow-y-auto p-4 text-center">
+          <TriangleAlert aria-hidden="true" className="size-5 text-destructive" />
+          <p className="text-sm font-medium">Preview unavailable</p>
+          <p className="text-xs text-muted-foreground">This style could not be loaded.</p>
+          {reason ? (
+            <details className="max-w-full text-xs text-muted-foreground">
+              <summary className="cursor-pointer underline underline-offset-2">
+                Technical details
+              </summary>
+              <p className="mt-1 font-mono [overflow-wrap:anywhere]">{reason}</p>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -92,98 +143,89 @@ export function StylesCatalog({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center items-start justify-between gap-5">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Styles Catalog</h2>
-          <p className="text-muted-foreground">
-            Browse and preview all available map styles and themes
-          </p>
-        </div>
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            className="pl-10 md:w-64 w-full bg-card"
-            onChange={(e) => onSearchChangeAction(e.target.value)}
-            placeholder="Search styles..."
-            value={searchQuery}
-          />
-        </div>
-      </div>
+      <CatalogHeader
+        count={filteredStyles.length}
+        description="Browse and preview all available map styles and themes"
+        onSearchChange={onSearchChangeAction}
+        searchPlaceholder="Search styles..."
+        searchQuery={searchQuery}
+        title="Styles Catalog"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
         {filteredStyles.map(([name, style]) => (
-          <Card className="hover:shadow-lg transition-shadow" key={name}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Brush className="w-5 h-5 text-primary" />
-                  {style.type ? <Badge variant="secondary">{style.type}</Badge> : null}
-                </div>
+          <Card
+            className="flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+            key={name}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <Brush aria-hidden="true" className="size-4 text-brand" />
+                <Badge variant="secondary">{style.type ?? 'style.json'}</Badge>
               </div>
-              <CardTitle className="text-lg font-mono">
+              <CardTitle>
                 <TooltipCopyText text={name} />
               </CardTitle>
-              <CardDescription>{style.path}</CardDescription>
+              <CardDescription
+                className="line-clamp-2 font-mono text-xs [overflow-wrap:anywhere]"
+                title={style.path}
+              >
+                {style.path}
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <StylePreviewMap styleName={name} />
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  {style.version_hash ? (
-                    <div className="flex justify-between">
-                      <span>Version:</span>
-                      <span>{style.version_hash}</span>
-                    </div>
-                  ) : null}
-                  {style.layer_count ? (
-                    <div className="flex justify-between">
-                      <span>Layers:</span>
-                      <span>{style.layer_count}</span>
-                    </div>
-                  ) : null}
-                  {style.last_modified_at ? (
-                    <div className="flex justify-between">
-                      <span>Modified:</span>
-                      <span>{style.last_modified_at?.toLocaleString()}</span>
-                    </div>
-                  ) : null}
-                </div>
-                {style.colors ? (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Color Palette:</p>
-                    <div className="flex space-x-1">
-                      {style.colors.map((color) => (
-                        <div
-                          className="w-6 h-6 rounded-sm border border-gray-200"
-                          key={color}
-                          style={{ backgroundColor: color }}
-                          title={color}
-                        ></div>
-                      ))}
-                    </div>
+            <CardContent className="flex flex-1 flex-col gap-4">
+              <StylePreviewMap styleName={name} />
+              <dl className="space-y-1.5 text-sm">
+                {style.version_hash ? (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Version</dt>
+                    <dd className="truncate font-mono text-xs">{style.version_hash}</dd>
                   </div>
                 ) : null}
-                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
-                  <Button
-                    className="flex-1 w-full"
-                    onClick={() => onStyleGuide(name)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Code className="w-4 h-4 mr-2" />
-                    Integration Guide
-                  </Button>
-
-                  <Button
-                    className="flex-1 w-full"
-                    onClick={() => onEditStyle?.(name)}
-                    size="sm"
-                    variant="default"
-                  >
-                    <SquarePen className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                </div>
+                {style.layer_count ? (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Layers</dt>
+                    <dd className="tabular-nums">{style.layer_count}</dd>
+                  </div>
+                ) : null}
+                {style.last_modified_at ? (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Modified</dt>
+                    <dd>{style.last_modified_at?.toLocaleString()}</dd>
+                  </div>
+                ) : null}
+              </dl>
+              {style.colors ? (
+                <ul aria-label="Color palette" className="flex flex-wrap gap-1">
+                  {style.colors.map((color) => (
+                    <li
+                      className="size-6 rounded-sm border"
+                      key={color}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+              <div className="mt-auto flex gap-2">
+                <Button
+                  className="min-w-0 flex-1"
+                  onClick={() => onStyleGuide(name)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Code />
+                  Integration Guide
+                </Button>
+                <Button
+                  className="min-w-0 flex-1"
+                  onClick={() => onEditStyle?.(name)}
+                  size="sm"
+                  variant="default"
+                >
+                  <SquarePen />
+                  Edit
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -191,20 +233,12 @@ export function StylesCatalog({
       </div>
 
       {filteredStyles.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-2">
-            {searchQuery ? `No styles found matching "${searchQuery}"` : 'No styles found.'}
-          </p>
-          <Button asChild size="lg" variant="link">
-            <a
-              href="https://maplibre.org/martin/sources-styles.html"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Learn how to configure Styles
-            </a>
-          </Button>
-        </div>
+        <CatalogEmpty
+          icon={Brush}
+          linkHref="https://maplibre.org/martin/sources-styles.html"
+          linkLabel="Learn how to configure Styles"
+          message={searchQuery ? `No styles found matching "${searchQuery}"` : 'No styles found.'}
+        />
       )}
 
       {selectedStyleForGuide && styles ? (

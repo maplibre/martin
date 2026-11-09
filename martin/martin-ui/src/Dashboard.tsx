@@ -1,4 +1,5 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import type { CatalogCounts } from '@/components/analytics-section';
 import { AnalyticsSection } from '@/components/analytics-section';
 import { DashboardContent } from '@/components/dashboard-content';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
@@ -37,23 +38,42 @@ function DashboardLoading() {
   return (
     <div className="animate-pulse space-y-6">
       {/* Tab navigation skeleton */}
-      <div className="grid w-full grid-cols-4 h-10 bg-gray-200 rounded-sm"></div>
+      <div className="grid w-full grid-cols-4 h-10 bg-muted rounded-sm"></div>
 
       {/* Content skeleton */}
       <div className="space-y-4">
-        <div className="h-8 bg-gray-200 rounded-sm w-1/3"></div>
-        <div className="h-4 bg-gray-200 rounded-sm w-2/3"></div>
+        <div className="h-8 bg-muted rounded-sm w-1/3"></div>
+        <div className="h-4 bg-muted rounded-sm w-2/3"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="h-64 bg-gray-200 rounded-sm"></div>
-          <div className="h-64 bg-gray-200 rounded-sm"></div>
-          <div className="h-64 bg-gray-200 rounded-sm"></div>
+          <div className="h-64 bg-muted rounded-sm"></div>
+          <div className="h-64 bg-muted rounded-sm"></div>
+          <div className="h-64 bg-muted rounded-sm"></div>
         </div>
       </div>
     </div>
   );
 }
 
+async function fetchCounts(): Promise<CatalogCounts> {
+  const res = await fetch(buildMartinUrl('/catalog'));
+  if (!res.ok) throw new Error(`Failed to fetch catalog: ${res.statusText}`);
+  const catalog = await res.json();
+  const size = (group: unknown) =>
+    group && typeof group === 'object' ? Object.keys(group).length : 0;
+  return {
+    fonts: size(catalog.fonts),
+    sprites: size(catalog.sprites),
+    styles: size(catalog.styles),
+    tiles: size(catalog.tiles),
+  };
+}
+
 export default function MartinTileserverDashboard() {
+  const [counts, setCounts] = useState<CatalogCounts>();
+  useEffect(() => {
+    fetchCounts().then(setCounts, (error) => console.error('Catalog count failed:', error));
+  }, []);
+
   // Analytics operation
   const analyticsOperation = useAsyncOperation<AnalyticsData>(fetchAnalytics, {
     onError: (error: Error) => console.error('Analytics fetch failed:', error),
@@ -77,6 +97,7 @@ export default function MartinTileserverDashboard() {
     <div className="container mx-auto px-6 py-8">
       <AnalyticsSection
         analytics={analyticsOperation.data}
+        counts={counts}
         error={analyticsOperation.error}
         isLoading={analyticsOperation.isLoading}
       />

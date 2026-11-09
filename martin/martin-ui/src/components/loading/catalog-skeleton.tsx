@@ -8,7 +8,7 @@ export interface CatalogSkeletonProps {
 
 function CatalogItemSkeleton() {
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -50,7 +50,7 @@ export function CatalogSkeleton({ title, description }: CatalogSkeletonProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
           <p className="text-muted-foreground">{description}</p>
         </div>
         <Skeleton className="h-10 w-64" />

@@ -15,7 +15,7 @@ describe('CatalogSkeleton Component', () => {
     expect(screen.getByText('Test description')).toBeTruthy();
 
     // By default it should render 6 skeleton items
-    const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');
+    const cards = container.querySelectorAll('[class*="shadow-card"]');
     expect(cards.length).toBe(6);
   });
 
@@ -26,7 +26,7 @@ describe('CatalogSkeleton Component', () => {
     expect(container).toMatchSnapshot();
 
     // Should render the default number of skeleton items (6)
-    const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');
+    const cards = container.querySelectorAll('[class*="shadow-card"]');
     expect(cards.length).toBe(6);
   });
 
@@ -37,7 +37,7 @@ describe('CatalogSkeleton Component', () => {
     expect(container).toMatchSnapshot();
 
     // Should render the default number of skeleton items (6)
-    const cards = container.querySelectorAll('[class*="hover:shadow-lg"]');
+    const cards = container.querySelectorAll('[class*="shadow-card"]');
     expect(cards.length).toBe(6);
   });
 });

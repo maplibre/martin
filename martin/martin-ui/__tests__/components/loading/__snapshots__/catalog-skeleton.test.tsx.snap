@@ -15,7 +15,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
     >
       <div>
         <h2
-          class="text-2xl font-bold text-foreground"
+          class="text-2xl font-semibold tracking-tight text-foreground"
         >
           Test Catalog
         </h2>
@@ -33,10 +33,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -60,7 +60,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -116,10 +116,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -143,7 +143,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -199,10 +199,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -226,7 +226,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -282,10 +282,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -309,7 +309,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -365,10 +365,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -392,7 +392,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -448,10 +448,10 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -475,7 +475,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -550,7 +550,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
     >
       <div>
         <h2
-          class="text-2xl font-bold text-foreground"
+          class="text-2xl font-semibold tracking-tight text-foreground"
         >
           Custom Count Catalog
         </h2>
@@ -568,10 +568,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -595,7 +595,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -651,10 +651,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -678,7 +678,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -734,10 +734,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -761,7 +761,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -817,10 +817,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -844,7 +844,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -900,10 +900,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -927,7 +927,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -983,10 +983,10 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1010,7 +1010,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1085,7 +1085,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
     >
       <div>
         <h2
-          class="text-2xl font-bold text-foreground"
+          class="text-2xl font-semibold tracking-tight text-foreground"
         >
           Large Catalog
         </h2>
@@ -1103,10 +1103,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1130,7 +1130,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1186,10 +1186,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1213,7 +1213,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1269,10 +1269,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1296,7 +1296,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1352,10 +1352,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1379,7 +1379,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1435,10 +1435,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1462,7 +1462,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
@@ -1518,10 +1518,10 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+        class="rounded-xl border bg-card text-card-foreground shadow-card"
       >
         <div
-          class="flex flex-col space-y-1.5 p-6"
+          class="flex flex-col gap-1.5 p-5"
         >
           <div
             class="flex items-center justify-between"
@@ -1545,7 +1545,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
           />
         </div>
         <div
-          class="p-6 pt-0"
+          class="p-5 pt-0"
         >
           <div
             class="space-y-4"
