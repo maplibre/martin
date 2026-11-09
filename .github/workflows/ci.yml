@@ -243,7 +243,6 @@ jobs:
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' && needs.changes.outputs.run-release-builds == 'true' }}
     secrets:
-      GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
       RELEASE_PLZ_APP_ID: ${{ secrets.RELEASE_PLZ_APP_ID }}
       RELEASE_PLZ_APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
     permissions:
