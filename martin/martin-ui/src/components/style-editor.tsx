@@ -79,10 +79,6 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
           className="hidden shrink-0 items-center gap-2 text-xs text-[#b4bac4] sm:flex"
           role="status"
         >
-          <span
-            aria-hidden="true"
-            className={`size-2 rounded-full ${error ? 'bg-destructive' : loaded ? 'bg-emerald-400' : 'animate-pulse bg-muted-foreground'}`}
-          />
           {error ? 'Failed to load' : loaded ? 'Editor ready' : 'Loading…'}
         </span>
         <Button
