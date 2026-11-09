@@ -87,12 +87,13 @@ function canDecode(url: string): Promise<boolean> {
   });
 }
 
-const MAX_CONCURRENT_THUMBS = 4;
+export const MAX_CONCURRENT_THUMBS = 4;
+const THUMB_DEADLINE_MS = 10_000;
 let activeThumbs = 0;
 const thumbQueue: (() => void)[] = [];
 
 /** Limits how many thumbnails fetch at once; returns a release function. */
-async function acquireThumbSlot(signal: AbortSignal): Promise<(() => void) | null> {
+export async function acquireThumbSlot(signal: AbortSignal): Promise<(() => void) | null> {
   if (activeThumbs >= MAX_CONCURRENT_THUMBS) {
     await new Promise<void>((resolve) => {
       const wake = () => {
@@ -200,6 +201,8 @@ function TileThumb({
     const controller = new AbortController();
     let objectUrl: string | null = null;
     let release: (() => void) | null = null;
+    // A stalled source must not hold one of the shared slots forever
+    const deadline = setTimeout(() => controller.abort(), THUMB_DEADLINE_MS);
     (async () => {
       release = await acquireThumbSlot(controller.signal);
       if (!release) return;
@@ -233,8 +236,12 @@ function TileThumb({
           if (controller.signal.aborted) return;
         }
       }
-    })().finally(() => release?.());
+    })().finally(() => {
+      clearTimeout(deadline);
+      release?.();
+    });
     return () => {
+      clearTimeout(deadline);
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
