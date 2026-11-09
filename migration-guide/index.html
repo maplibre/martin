@@ -957,6 +957,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mbtiles-is-released-separately" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>mbtiles</code> is released separately
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-terminal-dashboard-is-on-by-default" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1206,6 +1217,10 @@ Use <code>RUST_LOG</code> to control logging.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>martin<span class="w"> </span>cp<span class="w"> </span>--output-file<span class="w"> </span>tileset.mbtiles<span class="w"> </span>--source<span class="w"> </span>my_source<span class="w"> </span>postgres://postgres@localhost/db
 </span></code></pre></div>
 <p>See <a href="../martin-cp/">Generating Tiles in Bulk</a>.</p>
+<h3 id="mbtiles-is-released-separately"><code>mbtiles</code> is released separately</h3>
+<p>The Martin release archives and Debian package contain only <code>martin</code>.
+Get <code>mbtiles</code> from the <code>mbtiles-&lt;target&gt;</code> archives on the <a href="https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true"><code>mbtiles-v*</code> releases</a>, with <code>cargo binstall mbtiles</code>, or from the Docker image, which still includes it.</p>
+<p>See <a href="../mbtiles/">MBTiles tool</a>.</p>
 <h3 id="the-terminal-dashboard-is-on-by-default">The terminal dashboard is on by default</h3>
 <p>Remove <code>--tui</code>. Martin now shows the dashboard when stdout is a terminal. Use <code>--no-tui</code> for the log stream instead. When stdout is not a terminal, as in a service or pipe, Martin keeps the plain log automatically.</p>
 <p>The dashboard's log pane follows <code>RUST_LOG_FORMAT</code> and defaults to <code>pretty</code>.</p>

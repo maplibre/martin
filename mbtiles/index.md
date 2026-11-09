@@ -2,7 +2,7 @@
 
 Martin includes `mbtiles` utility to interact with the [`*.mbtiles` files](<https://maplibre.org/martin/mbtiles-schema/index.md>) from the command line. It allows users to [examine](<https://maplibre.org/martin/mbtiles-meta/index.md>), [copy](<https://maplibre.org/martin/mbtiles-copy/index.md>), [validate](<https://maplibre.org/martin/mbtiles-validation/index.md>) or [compare and apply diffs between them](<https://maplibre.org/martin/mbtiles-diff/index.md>).
 
-This tool can be installed by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built binary from the [releases page](<https://github.com/maplibre/martin/releases/latest>).
+This tool can be installed with `cargo binstall mbtiles`, by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built `mbtiles-<target>` archive from the latest [`mbtiles-v*` release](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>). The Martin archives and Debian package do not include it.
 
 Use `mbtiles --help` to see a list of available commands:
 

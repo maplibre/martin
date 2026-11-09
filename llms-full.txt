@@ -231,12 +231,26 @@ To install with apt source and others, we need your help to [improve packaging f
 
 #### Homebrew
 
-If you are using [Homebrew](<https://brew.sh/>) you can install martin using
+If you are using [Homebrew](<https://brew.sh/>) you can install the [`martin` formula from homebrew-core](<https://formulae.brew.sh/formula/martin>) using
 
 ```bash
 brew install martin
 martin --help
 ```
+
+The formula is maintained by Homebrew and follows stable releases only.
+
+> [!TIP]
+>
+> **If you installed martin from the former `maplibre/martin` tap**
+>
+> switch to the homebrew-core formula with
+>
+> ```bash
+> brew uninstall martin
+> brew untap maplibre/martin
+> brew install martin
+> ```
 
 #### Debian packages (x86\_64) manually
 
@@ -2686,7 +2700,7 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `geometry` other than `point`, `line` and `polygon`: Planetiler's `polygon_centroid`, `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
@@ -6869,7 +6883,7 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `geometry` other than `point`, `line` and `polygon`: Planetiler's `polygon_centroid`, `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
 
 A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside Martin itself, when serving tiles. Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like PostgreSQL does with `ST_AsMVT`.
@@ -7100,7 +7114,7 @@ In a terminal, `generate` opens a review. `--accept` writes every case instead. 
 
 Martin includes `mbtiles` utility to interact with the [`*.mbtiles` files](<https://maplibre.org/martin/mbtiles-schema/index.md>) from the command line. It allows users to [examine](<https://maplibre.org/martin/mbtiles-meta/index.md>), [copy](<https://maplibre.org/martin/mbtiles-copy/index.md>), [validate](<https://maplibre.org/martin/mbtiles-validation/index.md>) or [compare and apply diffs between them](<https://maplibre.org/martin/mbtiles-diff/index.md>).
 
-This tool can be installed by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built binary from the [releases page](<https://github.com/maplibre/martin/releases/latest>).
+This tool can be installed with `cargo binstall mbtiles`, by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built `mbtiles-<target>` archive from the latest [`mbtiles-v*` release](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>). The Martin archives and Debian package do not include it.
 
 Use `mbtiles --help` to see a list of available commands:
 
@@ -7475,11 +7489,19 @@ There are two exceptions to this. The first is that the `agg_tiles_hash` value w
 
 The second exception is that a new metadata value `agg_tiles_hash_before_apply` will be added to the diff file, which contains the `agg_tiles_hash` value from `file1.mbtiles`. This will be used to verify that the diff file is being applied to the correct source file.
 
+If either input file has no `agg_tiles_hash`, it is computed on the fly (but not saved to the input file), so the diff file always gets both values. Diffing a file that is itself a diff is refused unless `--force` is used.
+
 ## `mbtiles apply-patch`
 
 Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/#mbtiles-copy-apply-patch>) command.
 
-Note that the `agg_tiles_hash_after_apply` metadata value will be renamed to `agg_tiles_hash` when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied.
+Both `apply-patch` and `copy --apply-patch` check the hashes:
+
+- before patching, the source file's `agg_tiles_hash` must equal the diff's `agg_tiles_hash_before_apply`. A missing `agg_tiles_hash` is computed. Use `--validate` to recompute it even when it is stored, in case the tiles were edited without updating the hash.
+- the diff file must have its own `agg_tiles_hash`, `agg_tiles_hash_before_apply` and `agg_tiles_hash_after_apply`.
+- after patching, the result's `agg_tiles_hash` is recomputed and must equal `agg_tiles_hash_after_apply`. `apply-patch` runs in a single transaction, so on a mismatch the source file is left untouched.
+
+`--force` turns these errors into warnings.
 
 ```bash
 mbtiles apply-patch src_file.mbtiles diff_file.mbtiles
@@ -8510,7 +8532,7 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-> - [ ] `geometry` other than `point`, `line` and `polygon`
+> - [ ] `geometry` other than `point`, `line` and `polygon`: Planetiler's `polygon_centroid`, `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
@@ -8716,6 +8738,12 @@ martin cp --output-file tileset.mbtiles --source my_source postgres://postgres@l
 ```
 
 See [Generating Tiles in Bulk](<https://maplibre.org/martin/martin-cp/index.md>).
+
+### `mbtiles` is released separately
+
+The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
+
+See [MBTiles tool](<https://maplibre.org/martin/mbtiles/index.md>).
 
 ### The terminal dashboard is on by default
 

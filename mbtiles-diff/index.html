@@ -1881,6 +1881,8 @@ command will automatically rename the <code>agg_tiles_hash_after_apply</code> va
 diff.</p>
 <p>The second exception is that a new metadata value <code>agg_tiles_hash_before_apply</code> will be added to the diff file, which contains the
 <code>agg_tiles_hash</code> value from <code>file1.mbtiles</code>. This will be used to verify that the diff file is being applied to the correct source file.</p>
+<p>If either input file has no <code>agg_tiles_hash</code>, it is computed on the fly (but not saved to the input file),
+so the diff file always gets both values. Diffing a file that is itself a diff is refused unless <code>--force</code> is used.</p>
 <h2 id="mbtiles-apply-patch"><code>mbtiles apply-patch</code></h2>
 <p>Apply the diff file generated with the <code>mbtiles diff</code> command above to an MBTiles file.
 The diff file can be applied to
@@ -1890,9 +1892,16 @@ The <code>src_file.mbtiles</code> will modified in-place.
 It is also possible to apply the diff file while copying the
 source file to a new destination file, by using
 the <a href="../mbtiles-copy/#mbtiles-copy-apply-patch"><code>mbtiles copy --apply-patch</code></a> command.</p>
-<p>Note that the <code>agg_tiles_hash_after_apply</code> metadata value will be renamed to <code>agg_tiles_hash</code> when applying the diff.
-This is done to avoid confusion when applying the diff file to the original file, as the <code>agg_tiles_hash</code> value will be
-different after the diff is applied.</p>
+<p>Both <code>apply-patch</code> and <code>copy --apply-patch</code> check the hashes:</p>
+<ul>
+<li>before patching, the source file's <code>agg_tiles_hash</code> must equal the diff's <code>agg_tiles_hash_before_apply</code>.
+  A missing <code>agg_tiles_hash</code> is computed. Use <code>--validate</code> to recompute it even when it is stored, in case the
+  tiles were edited without updating the hash.</li>
+<li>the diff file must have its own <code>agg_tiles_hash</code>, <code>agg_tiles_hash_before_apply</code> and <code>agg_tiles_hash_after_apply</code>.</li>
+<li>after patching, the result's <code>agg_tiles_hash</code> is recomputed and must equal <code>agg_tiles_hash_after_apply</code>.
+  <code>apply-patch</code> runs in a single transaction, so on a mismatch the source file is left untouched.</li>
+</ul>
+<p><code>--force</code> turns these errors into warnings.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mbtiles<span class="w"> </span>apply-patch<span class="w"> </span>src_file.mbtiles<span class="w"> </span>diff_file.mbtiles
 </span></code></pre></div>
 <h4 id="applying-diff-with-sqlite">Applying diff with SQLite</h4>

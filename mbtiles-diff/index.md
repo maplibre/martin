@@ -29,11 +29,19 @@ There are two exceptions to this. The first is that the `agg_tiles_hash` value w
 
 The second exception is that a new metadata value `agg_tiles_hash_before_apply` will be added to the diff file, which contains the `agg_tiles_hash` value from `file1.mbtiles`. This will be used to verify that the diff file is being applied to the correct source file.
 
+If either input file has no `agg_tiles_hash`, it is computed on the fly (but not saved to the input file), so the diff file always gets both values. Diffing a file that is itself a diff is refused unless `--force` is used.
+
 ## `mbtiles apply-patch`
 
 Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/#mbtiles-copy-apply-patch>) command.
 
-Note that the `agg_tiles_hash_after_apply` metadata value will be renamed to `agg_tiles_hash` when applying the diff. This is done to avoid confusion when applying the diff file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied.
+Both `apply-patch` and `copy --apply-patch` check the hashes:
+
+- before patching, the source file's `agg_tiles_hash` must equal the diff's `agg_tiles_hash_before_apply`. A missing `agg_tiles_hash` is computed. Use `--validate` to recompute it even when it is stored, in case the tiles were edited without updating the hash.
+- the diff file must have its own `agg_tiles_hash`, `agg_tiles_hash_before_apply` and `agg_tiles_hash_after_apply`.
+- after patching, the result's `agg_tiles_hash` is recomputed and must equal `agg_tiles_hash_after_apply`. `apply-patch` runs in a single transaction, so on a mismatch the source file is left untouched.
+
+`--force` turns these errors into warnings.
 
 ```bash
 mbtiles apply-patch src_file.mbtiles diff_file.mbtiles

@@ -21,6 +21,12 @@ martin cp --output-file tileset.mbtiles --source my_source postgres://postgres@l
 
 See [Generating Tiles in Bulk](<https://maplibre.org/martin/martin-cp/index.md>).
 
+### `mbtiles` is released separately
+
+The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
+
+See [MBTiles tool](<https://maplibre.org/martin/mbtiles/index.md>).
+
 ### The terminal dashboard is on by default
 
 Remove `--tui`. Martin now shows the dashboard when stdout is a terminal. Use `--no-tui` for the log stream instead. When stdout is not a terminal, as in a service or pipe, Martin keeps the plain log automatically.
