@@ -4,7 +4,7 @@
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
     AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter, RuleDef,
-    SortDef, TableDef, ValueDef, ValueKind, ZoomDef,
+    SortDef, TableDef, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
@@ -75,6 +75,54 @@ fn rejects_zooms_above_the_max() {
     }])
     .unwrap_err();
     assert_eq!(err.to_string(), "layer `deep`: zoom 28 is above 27");
+}
+
+#[test]
+fn rejects_a_group_by_attribute_the_layer_does_not_write() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("kind".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: vec!["kind".to_owned()],
+                },
+            }],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `pois`: `merge_multi` groups by `kind`, which the layer does not write"
+    );
+}
+
+#[test]
+fn accepts_a_group_by_attribute_of_an_operation_outside_the_layer_zooms() {
+    Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("name".to_owned(), None),
+            ColumnDef::Value("kind".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            per_tile: vec![TileOpDef {
+                zooms: 0..=5,
+                op: TileOp::MergeMulti {
+                    geometry: vec![GeometryType::Point],
+                    group_by: vec!["kind".to_owned()],
+                },
+            }],
+            ..LayerDef::new("pois", 10..=14, GRID)
+        }],
+    }])
+    .unwrap();
 }
 
 #[test]

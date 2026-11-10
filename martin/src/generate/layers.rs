@@ -17,9 +17,9 @@ use tracing::warn;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, PerTile, Pixels,
-    PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value, ValueSpec, Zoom, ZoomRange,
-    ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, MultiGeometry, OutputGeometry, PerFeature,
+    PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value, ValueSpec,
+    Zoom, ZoomRange, ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -182,7 +182,14 @@ fn lower_layer(
                 descending: key.descending,
             })
             .collect(),
-        per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max), &grids),
+        per_tile: lower_per_tile(
+            id,
+            name,
+            &layer.per_tile,
+            &(min..=max),
+            layer.geometry.and_then(|g| geometry_type(g).ok()),
+            &grids,
+        ),
     }))
 }
 
@@ -346,13 +353,14 @@ fn unsupported(layer: &Layer) -> Option<String> {
     geometry.map(|geometry| format!("`geometry: {geometry}`"))
 }
 
-/// The layer's per-tile operations within `zooms`, warning about each one that has none of them, and about
-/// a grid thinning as [`GridContext::check`] does.
+/// The layer's per-tile operations within `zooms`, warning about each one that has none of them, each
+/// one that never acts on the layer's `geometry`, and a grid thinning as [`GridContext::check`] does.
 fn lower_per_tile(
     id: &str,
     name: &str,
     per_tile: &PerTile,
     zooms: &RangeInclusive<u8>,
+    geometry: Option<GeometryType>,
     grids: &GridContext<'_>,
 ) -> Vec<TileOpDef> {
     let mut ops = Vec::new();
@@ -378,6 +386,26 @@ fn lower_per_tile(
             grids.check("thinning", size);
         }
     }
+    for merge in per_tile.merge_multi.iter().flat_map(ByZoomRange::iter) {
+        let types: Vec<GeometryType> = merge.geometry.as_ref().map_or_else(
+            || vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
+            |types| types.iter().map(|&g| multi_geometry(g)).collect(),
+        );
+        if let Some(geometry) = geometry.filter(|g| !types.contains(g)) {
+            warn!(
+                "`merge_multi` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_multi",
+            merge.zooms,
+            TileOp::MergeMulti {
+                geometry: types,
+                group_by: merge.group_by.iter().cloned().collect(),
+            },
+        );
+    }
     for limit in per_tile.limit.iter().flat_map(ByZoomRange::iter) {
         push("limit", limit.zooms, TileOp::Limit { count: limit.count });
     }
@@ -396,6 +424,24 @@ fn lower_thinning(thinning: &Thinning) -> (TileOp, Option<f64>) {
         ),
     };
     (TileOp::Thinning { method }, grid_size)
+}
+
+/// The plan's geometry type for a `merge_multi` `geometry` entry.
+fn multi_geometry(geometry: MultiGeometry) -> GeometryType {
+    match geometry {
+        MultiGeometry::Point => GeometryType::Point,
+        MultiGeometry::Line => GeometryType::Line,
+        MultiGeometry::Polygon => GeometryType::Polygon,
+    }
+}
+
+/// The config's name of a geometry type, as `geometry` writes it.
+fn geometry_name(geometry: GeometryType) -> &'static str {
+    match geometry {
+        GeometryType::Point => "point",
+        GeometryType::Line => "line",
+        GeometryType::Polygon => "polygon",
+    }
 }
 
 /// `clip_geom: false` hands each tile a line or polygon reaches the whole geometry, as
@@ -1371,6 +1417,83 @@ mod tests {
             `thinning` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
             `thinning` of layer `roads` in source `roads_source` only thins points by a grid, and the layer has none
             ");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_multi_lowers_with_all_types_by_default() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  pois:
+                    geometry: point
+                    merge_multi: { geometry: [line], group_by: [kind] }
+                  everything:
+                    merge_multi: { group_by: [kind] }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let ops: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| (layer.name.clone(), layer.per_tile.clone()))
+            .collect();
+        insta::assert_debug_snapshot!(ops, @r#"
+        [
+            (
+                "pois",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: MergeMulti {
+                            geometry: [
+                                Line,
+                            ],
+                            group_by: [
+                                "kind",
+                            ],
+                        },
+                    },
+                ],
+            ),
+            (
+                "everything",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: MergeMulti {
+                            geometry: [
+                                Point,
+                                Line,
+                                Polygon,
+                            ],
+                            group_by: [
+                                "kind",
+                            ],
+                        },
+                    },
+                ],
+            ),
+        ]
+        "#);
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_multi` of layer `pois` in source `roads_source` never acts on its point features");
             Ok(())
         });
     }

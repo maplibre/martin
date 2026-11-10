@@ -102,6 +102,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       sort_by: [gid]
                       thinning:
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
+                      merge_multi: { geometry: [point], group_by: [kind] }
                       limit: 5
         "},
     )
@@ -149,6 +150,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       sort_by: [gid]
                       thinning:
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
+                      merge_multi: { geometry: [point], group_by: [kind] }
                       limit: 5
         "})
         .start()
@@ -189,6 +191,7 @@ async fn served_per_tile_tiles_equal_bulk_tiles_with_and_without_prefetch() {
                       sort_by: [gid]
                       thinning:
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
+                      merge_multi: { geometry: [point], group_by: [kind] }
                       limit: 5
         "})
         .start()
