@@ -7,6 +7,7 @@ mod filter;
 use std::collections::{BTreeSet, HashSet};
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeInclusive};
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
@@ -200,6 +201,21 @@ pub enum TileOp {
         /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
         buffer: Option<f64>,
     },
+    /// Unions the polygons of a group, clipped to the tile and `buffer`: joined across gaps narrower than
+    /// `distance`, holes smaller than `min_hole_area` filled, polygons smaller than `min_area` dropped.
+    /// Each group becomes one polygon or multi-polygon feature, or none.
+    MergePolygons {
+        /// Square pixels of a 256-pixel tile.
+        min_area: f64,
+        /// Square pixels of a 256-pixel tile.
+        min_hole_area: f64,
+        /// Pixels of a 256-pixel tile; 0 joins only touching or overlapping polygons.
+        distance: f64,
+        /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
+        buffer: Option<f64>,
+        /// Output attributes that must be equal, a missing one counting as `null`; all of them if `None`.
+        group_by: Option<Vec<String>>,
+    },
     /// Drops features that an earlier kept feature with the same key crowds out, as `method` says. The key
     /// is the values of `keys` over the feature's output attributes; without `keys` every feature has the
     /// same key. A key of only `null`s is never thinned.
@@ -226,9 +242,10 @@ impl TileOp {
     fn rank(&self) -> u8 {
         match self {
             Self::MergeLines { .. } => 1,
-            Self::Thinning { .. } => 2,
-            Self::MergeMulti { .. } => 3,
-            Self::Limit { .. } => 4,
+            Self::MergePolygons { .. } => 2,
+            Self::Thinning { .. } => 3,
+            Self::MergeMulti { .. } => 4,
+            Self::Limit { .. } => 5,
         }
     }
 }
@@ -777,6 +794,7 @@ fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Resul
     }
     for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
         let (name, group_by) = match &op.op {
+            TileOp::MergePolygons { group_by, .. } => ("merge_polygons", group_by.as_deref()),
             TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
             TileOp::MergeLines { .. } | TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
         };
@@ -822,6 +840,20 @@ fn plan_per_tile(
                 tolerance: tolerance * units,
                 buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
             }),
+            TileOp::MergePolygons {
+                min_area,
+                min_hole_area,
+                distance,
+                buffer,
+                group_by,
+            } => PlannedOp::MergePolygons(PlannedMergePolygons {
+                min_area: min_area * units * units,
+                min_hole_area: min_hole_area * units * units,
+                distance: distance * units,
+                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                group_by: group_by.clone(),
+                warned: Arc::default(),
+            }),
             TileOp::Thinning { method, keys: sources } => PlannedOp::Thinning {
                 keys: sources
                     .iter()
@@ -864,6 +896,18 @@ pub(crate) struct PlannedMergeLines {
     pub(crate) buffer: f64,
 }
 
+/// [`TileOp::MergePolygons`] with its lengths and areas in tile units.
+#[derive(Clone, Debug)]
+pub(crate) struct PlannedMergePolygons {
+    pub(crate) min_area: f64,
+    pub(crate) min_hole_area: f64,
+    pub(crate) distance: f64,
+    pub(crate) buffer: f64,
+    pub(crate) group_by: Option<Vec<String>>,
+    /// Whether a group that could not be merged was logged.
+    pub(crate) warned: Arc<AtomicBool>,
+}
+
 /// A [`TileOpDef`] as the encoder runs it.
 #[derive(Clone, Debug)]
 pub struct PlannedTileOp {
@@ -875,6 +919,7 @@ pub struct PlannedTileOp {
 #[derive(Clone, Debug)]
 pub(crate) enum PlannedOp {
     MergeLines(PlannedMergeLines),
+    MergePolygons(PlannedMergePolygons),
     Thinning {
         keys: Vec<ExprRef<ThinningKey>>,
         method: PlannedThinning,
@@ -893,6 +938,7 @@ impl PlannedOp {
     pub(crate) const fn kind(&self) -> OpKind {
         match self {
             Self::MergeLines(_) => OpKind::MergeLines,
+            Self::MergePolygons(_) => OpKind::MergePolygons,
             Self::Thinning { .. } => OpKind::Thinning,
             Self::MergeMulti { .. } => OpKind::MergeMulti,
             Self::Limit { .. } => OpKind::Limit,

@@ -17,6 +17,8 @@ use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, Unrecognize
 pub struct PerTile {
     /// Joins lines whose ends meet and whose attributes are all equal.
     pub merge_lines: Option<ByZoomRange<MergeLines>>,
+    /// Unions polygons of a group.
+    pub merge_polygons: Option<ByZoomRange<MergePolygons>>,
     /// Drops features an earlier kept feature with the same key crowds out.
     pub thinning: Option<ByZoomRange<Thinning>>,
     /// Combines features of a group into one multi-geometry.
@@ -27,13 +29,16 @@ pub struct PerTile {
 
 impl PerTile {
     /// The layer keys naming a per-tile operation.
-    pub const KEYS: [&str; 4] = ["merge_lines", "thinning", "merge_multi", "limit"];
+    pub const KEYS: [&str; 5] = ["merge_lines", "merge_polygons", "thinning", "merge_multi", "limit"];
 }
 
 impl CollectUnrecognizedKeys for PerTile {
     fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
         if let Some(op) = &self.merge_lines {
             op.collect_unrecognized(&format!("{path}merge_lines"), out);
+        }
+        if let Some(op) = &self.merge_polygons {
+            op.collect_unrecognized(&format!("{path}merge_polygons"), out);
         }
         if let Some(op) = &self.thinning {
             op.collect_unrecognized(&format!("{path}thinning"), out);
@@ -209,6 +214,25 @@ pub struct MergeLines {
     pub unrecognized: UnrecognizedValues,
 }
 
+/// `merge_polygons`: unions polygons of a group.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MergePolygons {
+    /// Merged polygons smaller than this many square pixels are dropped.
+    pub min_area: Option<Pixels>,
+    /// Holes smaller than this many square pixels are filled.
+    pub min_hole_area: Option<Pixels>,
+    /// Polygons closer than this many pixels are joined; 0 joins touching ones only.
+    pub distance: Option<Pixels>,
+    /// Pixels around the tile kept after merging; the layer's buffer when unset.
+    pub buffer: Option<Pixels>,
+    /// Output attributes that must be equal; every written attribute when unset.
+    pub group_by: Option<Vec<String>>,
+    /// The zooms the operation runs at.
+    pub zooms: ZoomRange,
+    /// Keys the operation does not know.
+    pub unrecognized: UnrecognizedValues,
+}
+
 /// `merge_multi`: combines features of a group and type into one multi-geometry.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeMulti {
@@ -249,6 +273,7 @@ macro_rules! op {
 
 op!(Thinning);
 op!(MergeLines);
+op!(MergePolygons);
 op!(MergeMulti);
 op!(Limit);
 
@@ -395,6 +420,51 @@ impl From<&MergeLines> for RawMergeLines {
 }
 
 #[serde_with::skip_serializing_none]
+#[derive(Default, Serialize, Deserialize)]
+struct RawMergePolygons {
+    min_area: Option<Pixels>,
+    min_hole_area: Option<Pixels>,
+    distance: Option<Pixels>,
+    buffer: Option<Pixels>,
+    group_by: Option<Vec<String>>,
+    minzoom: Option<Zoom>,
+    maxzoom: Option<Zoom>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl TryFrom<RawMergePolygons> for MergePolygons {
+    type Error = TilingConfigError;
+
+    fn try_from(raw: RawMergePolygons) -> Result<Self, TilingConfigError> {
+        Ok(Self {
+            min_area: raw.min_area,
+            min_hole_area: raw.min_hole_area,
+            distance: raw.distance,
+            buffer: raw.buffer,
+            group_by: raw.group_by,
+            zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
+            unrecognized: raw.unrecognized,
+        })
+    }
+}
+
+impl From<&MergePolygons> for RawMergePolygons {
+    fn from(op: &MergePolygons) -> Self {
+        Self {
+            min_area: op.min_area,
+            min_hole_area: op.min_hole_area,
+            distance: op.distance,
+            buffer: op.buffer,
+            group_by: op.group_by.clone(),
+            minzoom: op.zooms.minzoom(),
+            maxzoom: op.zooms.maxzoom(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
+
+#[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 struct RawMergeMulti {
     geometry: Option<NonEmpty<MultiGeometry>>,
@@ -481,6 +551,7 @@ macro_rules! serde_via_raw {
 
 serde_via_raw!(Thinning, RawThinning);
 serde_via_raw!(MergeLines, RawMergeLines);
+serde_via_raw!(MergePolygons, RawMergePolygons);
 serde_via_raw!(MergeMulti, RawMergeMulti);
 
 impl<'de> Deserialize<'de> for Limit {
@@ -538,7 +609,9 @@ mod tests {
 
     use indoc::indoc;
 
-    use super::{ByZoomRange, Limit, MergeLines, MergeMulti, MultiGeometry, PerTile, Thinning, ThinningMethod};
+    use super::{
+        ByZoomRange, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, PerTile, Thinning, ThinningMethod,
+    };
     use crate::config::file::tiling::setting::Pixels;
     use crate::config::file::tiling::tests::{parse, rejection};
     use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
@@ -559,6 +632,7 @@ mod tests {
         let layers = parse(indoc! {"
             pois:
               merge_lines: { min_length: 1, tolerance: 0.5, buffer: 4 }
+              merge_polygons: { min_area: 4, min_hole_area: 1, distance: 0.5, buffer: 4, group_by: [kind] }
               thinning:
                 - { maxzoom: 9, method: grid, size: 64, limit: 2, keys: [kind] }
                 - { minzoom: 10, maxzoom: 13, method: distance, distance: 64, keys: [name, ref] }
@@ -575,6 +649,14 @@ mod tests {
                     tolerance: Some(px(0.5)),
                     buffer: Some(px(4.0)),
                     ..MergeLines::default()
+                }))),
+                merge_polygons: Some(ByZoomRange(NonEmpty::new(MergePolygons {
+                    min_area: Some(px(4.0)),
+                    min_hole_area: Some(px(1.0)),
+                    distance: Some(px(0.5)),
+                    buffer: Some(px(4.0)),
+                    group_by: Some(vec!["kind".to_owned()]),
+                    ..MergePolygons::default()
                 }))),
                 thinning: Some(ByZoomRange(
                     NonEmpty::try_from_vec(vec![
@@ -786,6 +868,30 @@ mod tests {
         insta::assert_snapshot!(
             rejection("roads: { merge_lines: { buffer: -1 } }"),
             @"error: line 1 column 25: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn merge_polygons_min_area_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("water: { merge_polygons: { min_area: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn merge_polygons_min_hole_area_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("water: { merge_polygons: { min_hole_area: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn merge_polygons_distance_cannot_be_negative() {
+        insta::assert_snapshot!(
+            rejection("water: { merge_polygons: { distance: -1 } }"),
+            @"error: line 1 column 28: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
         );
     }
 

@@ -3,6 +3,7 @@
 mod limit;
 mod merge_lines;
 mod merge_multi;
+mod merge_polygons;
 mod thinning;
 
 use std::cell::RefCell;
@@ -300,6 +301,8 @@ pub(crate) struct LayerExprs<'a> {
 pub enum OpKind {
     /// Joins a group's lines whose ends meet.
     MergeLines,
+    /// Unions a group's polygons.
+    MergePolygons,
     /// Drops features an earlier kept feature with the same key crowds out.
     Thinning,
     /// Combines a group's features of one type into a multi-feature.
@@ -310,13 +313,20 @@ pub enum OpKind {
 
 impl OpKind {
     /// Every operation, in the order they run.
-    pub const ALL: [Self; 4] = [Self::MergeLines, Self::Thinning, Self::MergeMulti, Self::Limit];
+    pub const ALL: [Self; 5] = [
+        Self::MergeLines,
+        Self::MergePolygons,
+        Self::Thinning,
+        Self::MergeMulti,
+        Self::Limit,
+    ];
 
     /// The operation's key in the config.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::MergeLines => "merge_lines",
+            Self::MergePolygons => "merge_polygons",
             Self::Thinning => "thinning",
             Self::MergeMulti => "merge_multi",
             Self::Limit => "limit",
@@ -333,6 +343,8 @@ pub struct OpCounts {
     pub features_in: u64,
     /// Features the operation kept or made, over those tiles.
     pub features_out: u64,
+    /// Groups a merge could not make valid, which kept their features.
+    pub groups_failed: u64,
 }
 
 impl OpCounts {
@@ -341,14 +353,16 @@ impl OpCounts {
         self.tiles += other.tiles;
         self.features_in += other.features_in;
         self.features_out += other.features_out;
+        self.groups_failed += other.groups_failed;
     }
 
     /// One run on a tile, from `features_in` to `features_out` features.
-    fn run(features_in: usize, features_out: usize) -> Self {
+    fn run(features_in: usize, features_out: usize, groups_failed: u64) -> Self {
         Self {
             tiles: 1,
             features_in: features_in as u64,
             features_out: features_out as u64,
+            groups_failed,
         }
     }
 }
@@ -441,8 +455,10 @@ impl<'a> TileOps<'a> {
                 self.thin(tile, None, features, scratch)?;
             }
             let features_in = features.len();
+            let mut groups_failed = 0;
             match op {
                 PlannedOp::MergeLines(op) => merge_lines::apply(tile, op, features)?,
+                PlannedOp::MergePolygons(op) => groups_failed = merge_polygons::apply(tile, op, features)?,
                 PlannedOp::Thinning { keys, method } => {
                     thinned = true;
                     self.thin(tile, Some(Thinning { keys, method: *method }), features, scratch)?;
@@ -455,7 +471,7 @@ impl<'a> TileOps<'a> {
             }
             scratch
                 .counts
-                .record(op.kind(), &OpCounts::run(features_in, features.len()));
+                .record(op.kind(), &OpCounts::run(features_in, features.len(), groups_failed));
         }
         if !thinned {
             self.thin(tile, None, features, scratch)?;

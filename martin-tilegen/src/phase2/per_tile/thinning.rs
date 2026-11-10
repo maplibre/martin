@@ -108,7 +108,7 @@ pub(super) fn apply(
         }
         *features = survivors;
     }
-    Ok(Some(OpCounts::run(features_in, features.len())))
+    Ok(Some(OpCounts::run(features_in, features.len(), 0)))
 }
 
 /// The point limit rendering gave the feature, if its points are gridded at this zoom.

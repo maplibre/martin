@@ -62,6 +62,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `rules`                           | Different zooms, simplification and attributes for some features | [Rules](#rules)                                    |
 | `sort_by`                         | The draw order of the layer's features in each tile              | [Draw order](#draw-order)                          |
 | `merge_lines`                     | Joins lines whose ends meet in one tile                          | [Per-tile operations](#per-tile-operations)        |
+| `merge_polygons`                  | Unions polygons of a group in one tile                           | [Per-tile operations](#per-tile-operations)        |
 | `thinning`                        | Drops features crowded out by earlier ones in one tile           | [Per-tile operations](#per-tile-operations)        |
 | `merge_multi`                     | One multi-geometry per group in one tile                         | [Per-tile operations](#per-tile-operations)        |
 | `limit`                           | The most features of the layer in one tile                       | [Per-tile operations](#per-tile-operations)        |
@@ -266,17 +267,19 @@ Operations run in this order, whatever order they are written in:
 | Order | Operation        | Does                                                         |
 |-------|------------------|--------------------------------------------------------------|
 | 1     | `merge_lines`    | Joins lines whose ends meet and attributes are equal         |
-| 2     | `thinning`       | Drops features an earlier one with the same key crowds out   |
-| 3     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
-| 4     | `limit`          | Keeps the first `count` features, in order                   |
+| 2     | `merge_polygons` | Unions a group's polygons                                    |
+| 3     | `thinning`       | Drops features an earlier one with the same key crowds out   |
+| 4     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
+| 5     | `limit`          | Keeps the first `count` features, in order                   |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the
 operation is skipped and features pass through unchanged. For different settings at different zooms,
 give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose
 zooms miss the layer's entirely is dropped with a warning.
 
-Merging operations group features by the values of attributes: `merge_lines` by all of them, and
-`merge_multi` by those in `group_by`. Values compare by type too, so `1` and `"1"` are different groups, and a feature without a
+Merging operations group features by the values of attributes: `merge_lines` by all of them,
+`merge_polygons` by those in `group_by`, or all of them when it is unset, and `merge_multi` by those in
+`group_by`. Values compare by type too, so `1` and `"1"` are different groups, and a feature without a
 `group_by` attribute groups with others without it. A merged feature takes the place of the first feature
 of its group. It keeps a feature id only if all of its group has the same one.
 
@@ -285,7 +288,7 @@ layer without `sort_by` keeps the order features are read in, which the tile ser
 [Draw order](#draw-order).
 
 After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it
-took and kept:
+took and kept, and warns about groups a merge could not make valid:
 
 ```text
 INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
@@ -325,6 +328,41 @@ junctions and drops short stubs and loops, which `merge_lines` does not.
 Each tile joins, simplifies and measures only what it holds of the lines, in the tile and `buffer`. A line
 ending just past a tile edge can be shorter than `min_length` in the next tile and is dropped there, and
 the two tiles' simplified lines can cross their shared edge at different points.
+
+### `merge_polygons`
+
+Unions the polygons of a group, such as adjacent land use areas of one kind, as Planetiler's
+`mergeNearbyPolygons` does, or `mergeOverlappingPolygons` with `distance: 0`. The polygons are first
+clipped to the tile and `buffer`. With a `distance`, they are grown by half of it, merged and shrunk
+again, which joins polygons closer than `distance`. Holes smaller than `min_hole_area` are then filled,
+polygons smaller than `min_area` dropped, and the result snapped to the tile grid. Each group becomes
+one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its
+features as they were, and the first such group is logged. The run summary counts them.
+
+```yaml
+merge_polygons:
+  maxzoom: 12
+  min_area: 4        # px²
+  min_hole_area: 1   # px²
+  distance: 0.5      # px
+  group_by: [kind]
+```
+
+| Option               | Default            | Meaning                                                        |
+|----------------------|--------------------|----------------------------------------------------------------|
+| `min_area`           | 0                  | Square pixels; smaller merged polygons are dropped             |
+| `min_hole_area`      | 0                  | Square pixels; smaller holes are filled                        |
+| `distance`           | 0                  | Pixels; closer polygons are joined, 0 joins touching ones      |
+| `buffer`             | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `group_by`           | every attribute    | The attributes polygons must share                             |
+| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                                  |
+
+A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.
+
+--8<-- "images/generate/per-tile-merge-polygons.svg"
+
+Each tile merges only what it holds of the polygons, in the tile and `buffer`, so `min_area` counts only
+that part. A polygon reaching just past a tile edge can be dropped from the next tile.
 
 ### `thinning`
 
