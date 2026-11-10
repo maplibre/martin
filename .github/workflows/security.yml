@@ -78,7 +78,7 @@ jobs:
       - uses: rustsec/audit-check@858dc40f52ca2b8570b7a997c1c4e35c6fc9a432 # v2.0.0-3-g858dc40 (Node 24, unreleased)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100
+          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100,RUSTSEC-2026-0459,RUSTSEC-2026-0462
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
           # RUSTSEC-2025-0141 = bincode unmaintained, is done
@@ -87,6 +87,8 @@ jobs:
           # RUSTSEC-2023-0089 = atomic-polyfill unmaintained; only in Cargo.lock via geo-types' optional rstar 0.9/0.10 features, never compiled
           # RUSTSEC-2026-0253 = lru@0.7.8 pop() panic safety; pulled in by tracing-log's interest-cache, whose keys never panic on drop
           # RUSTSEC-2025-0075,0080,0081,0090,0098,0100 = unic-* unmaintained; pinned by pyo3-stub-gen 0.23.1 (latest) -> rustpython-parser 0.4, only in cog-tiles-py
+          # RUSTSEC-2026-0459 = libsqlite3-sys 0.37 bundles a vulnerable SQLite; the fix is 0.39, but sqlx-sqlite 0.9.0 (latest) caps libsqlite3-sys below 0.38 and only one can link
+          # RUSTSEC-2026-0462 = rmcp 1.8 buffers unbounded response bodies; only in Cargo.lock via hotpath-mcp of the dev-only hotpath feature, and hotpath 0.31.2 (latest) still requires rmcp ^1.4
   dependency-review:
     runs-on: ubuntu-26.04
     timeout-minutes: 90
