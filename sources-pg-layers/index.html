@@ -1691,6 +1691,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Geometry
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1750,10 +1767,43 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#merge_lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>merge_lines</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#merge_polygons" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>merge_polygons</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#thinning" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>thinning</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#merge_multi" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>merge_multi</code>
       </span>
     </span>
   </a>
@@ -2634,11 +2684,11 @@ pages describe are not implemented yet, and the configuration of <code>layers</c
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> other than <code>point</code>, <code>line</code> and <code>polygon</code>: Planetiler's <code>polygon_centroid</code>,
-  <code>line_centroid</code>, <code>line_midpoint</code>, <code>centroid</code>, <code>polygon_centroid_if_convex</code>, <code>polygon_point_on_surface</code>,
-  <code>point_on_line</code> and <code>innermost_point</code></li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <a href="../sources-pg-layers/#per-tile-operations">Per-tile operations</a> (<code>thinning</code>,
-  <code>limit</code>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>geometry</code> with Planetiler's <code>polygon_centroid</code>, <code>line_centroid</code> and <code>centroid</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> with Planetiler's <code>line_midpoint</code>, <code>polygon_centroid_if_convex</code>,
+  <code>polygon_point_on_surface</code>, <code>point_on_line</code> and <code>innermost_point</code></li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <a href="../sources-pg-layers/#per-tile-operations">Per-tile operations</a> (<code>merge_lines</code>,
+  <code>merge_polygons</code>, <code>thinning</code>, <code>merge_multi</code>, <code>limit</code>)</li>
 </ul>
 </div>
 <p><code>layers</code> is a key of a <a href="../sources-pg-tables/">PostgreSQL table source</a>. It turns one table into one or
@@ -2704,8 +2754,8 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 </tr>
 <tr>
 <td><code>geometry</code></td>
-<td><code>point</code>, <code>line</code> or <code>polygon</code>: only features of that type</td>
-<td><a href="#features">Features</a></td>
+<td>Only features of one type, or a point computed from each</td>
+<td><a href="#geometry">Geometry</a></td>
 </tr>
 <tr>
 <td><code>where</code></td>
@@ -2733,8 +2783,23 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 <td><a href="#draw-order">Draw order</a></td>
 </tr>
 <tr>
+<td><code>merge_lines</code></td>
+<td>Joins lines whose ends meet in one tile</td>
+<td><a href="#per-tile-operations">Per-tile operations</a></td>
+</tr>
+<tr>
+<td><code>merge_polygons</code></td>
+<td>Unions polygons of a group in one tile</td>
+<td><a href="#per-tile-operations">Per-tile operations</a></td>
+</tr>
+<tr>
 <td><code>thinning</code></td>
 <td>Drops features crowded out by earlier ones in one tile</td>
+<td><a href="#per-tile-operations">Per-tile operations</a></td>
+</tr>
+<tr>
+<td><code>merge_multi</code></td>
+<td>One multi-geometry per group in one tile</td>
 <td><a href="#per-tile-operations">Per-tile operations</a></td>
 </tr>
 <tr>
@@ -2803,12 +2868,12 @@ A rule's <code>simplify</code> and <code>min_size</code> apply at every zoom, in
 <p>A feature belongs to a layer when all of these hold:</p>
 <ol>
 <li>the table source's <code>filter</code>, which the database applies while reading,</li>
-<li>the layer's <code>geometry</code> type, if set,</li>
+<li>the type the layer's <a href="#geometry"><code>geometry</code></a> takes, if set,</li>
 <li>the layer's <code>where</code> expression, if set. <code>null</code> and failed evaluations count as <code>false</code>.</li>
 </ol>
 <p>A <a href="#rules">rule</a>'s <code>where</code> is not one of them.
 A feature that matches no rule stays in the layer.</p>
-<p>The database also applies the <code>geometry</code> and <code>where</code> of every layer at the zoom being read, so rows no
+<p>The database also applies the geometry type and <code>where</code> of every layer at the zoom being read, so rows no
 layer takes are never read. This needs a SQL equivalent for each <code>where</code> of the table. These have one:</p>
 <ul>
 <li>comparisons of a column with a literal,</li>
@@ -2822,6 +2887,53 @@ layer takes are never read. This needs a SQL equivalent for each <code>where</co
 When a layer reads a <code>jsonb</code> property, no <code>where</code> has one, as any key may share a column's name.
 Listing <code>attributes</code> without the <code>jsonb</code> property's keys avoids that.
 Without a SQL equivalent, Martin reads every row and checks <code>where</code> itself, with the same result.</p>
+<h3 id="geometry">Geometry</h3>
+<p><code>geometry</code> sets the features a layer takes and what it draws for each, with Planetiler's names:</p>
+<table>
+<thead>
+<tr>
+<th><code>geometry</code></th>
+<th>Takes</th>
+<th>Draws</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>point</code></td>
+<td>points</td>
+<td>the points</td>
+</tr>
+<tr>
+<td><code>line</code></td>
+<td>lines</td>
+<td>the lines</td>
+</tr>
+<tr>
+<td><code>polygon</code></td>
+<td>polygons</td>
+<td>the polygons</td>
+</tr>
+<tr>
+<td><code>polygon_centroid</code></td>
+<td>polygons</td>
+<td>the centroid, a point</td>
+</tr>
+<tr>
+<td><code>line_centroid</code></td>
+<td>lines</td>
+<td>the centroid, a point</td>
+</tr>
+<tr>
+<td><code>centroid</code></td>
+<td>all</td>
+<td>the centroid, a point</td>
+</tr>
+</tbody>
+</table>
+<p>The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all
+parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web
+Mercator, and drawn like any point: only in the tiles it reaches, with no <code>min_size</code>, and
+<a href="#per-tile-operations">per-tile operations</a> see a point.</p>
 <h2 id="attributes">Attributes</h2>
 <p>Without <code>attributes</code>, a layer writes all of the table source's properties. <code>[]</code> writes none.</p>
 <p>A list copies those properties as they are. A map names each output attribute:</p>
@@ -2936,11 +3048,26 @@ set one, and a rule only a grid <a href="#thinning"><code>thinning</code></a>.</
 <tbody>
 <tr>
 <td>1</td>
-<td><code>thinning</code></td>
-<td>Drops features earlier ones crowd out</td>
+<td><code>merge_lines</code></td>
+<td>Joins lines whose ends meet and attributes are equal</td>
 </tr>
 <tr>
 <td>2</td>
+<td><code>merge_polygons</code></td>
+<td>Unions a group's polygons</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>thinning</code></td>
+<td>Drops features an earlier one with the same key crowds out</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>merge_multi</code></td>
+<td>Combines a group's features of one type into a multi-feature</td>
+</tr>
+<tr>
+<td>5</td>
 <td><code>limit</code></td>
 <td>Keeps the first <code>count</code> features, in order</td>
 </tr>
@@ -2950,15 +3077,129 @@ set one, and a rule only a grid <a href="#thinning"><code>thinning</code></a>.</
 operation is skipped and features pass through unchanged. For different settings at different zooms,
 give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose
 zooms miss the layer's entirely is dropped with a warning.</p>
+<p>Merging operations group features by the values of attributes: <code>merge_lines</code> by all of them,
+<code>merge_polygons</code> by those in <code>group_by</code>, or all of them when it is unset, and <code>merge_multi</code> by those in
+<code>group_by</code>. Values compare by type too, so <code>1</code> and <code>"1"</code> are different groups, and a feature without a
+<code>group_by</code> attribute groups with others without it. A merged feature takes the place of the first feature
+of its group. It keeps a feature id only if all of its group has the same one.</p>
 <p>Since operations keep the first features of the list, <code>sort_by</code> decides which features survive. A
 layer without <code>sort_by</code> keeps the order features are read in, which the tile server does not fix, see
 <a href="#draw-order">Draw order</a>.</p>
 <p>After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it
-took and kept:</p>
+took and kept, and warns about groups a merge could not make valid:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
 </span></code></pre></div>
 <p>The output does not depend on <code>--threads</code>. Tiles served with or without <code>prefetch</code> equal the bulk ones of
 <code>--format mvt</code> for layers with a <code>sort_by</code>.</p>
+<h3 id="merge_lines"><code>merge_lines</code></h3>
+<p>Joins lines whose attributes are all equal into longer lines, so a road cut into many segments becomes
+one, which lets clients place labels along it. Where exactly two line ends meet, at the same tile coordinates, the lines are joined; where three or
+more meet, as at a junction, they are not. The joined lines are simplified by <code>tolerance</code>, the same
+way <code>simplify</code> does it, clipped to the tile and <code>buffer</code>, and dropped when their length inside is below
+<code>min_length</code>. The lines of equal attributes become one line or multi-line feature, or nothing if no line
+is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out
+of <code>attributes</code> at those zooms.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">merge_lines</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="p p-Indicator">,</span><span class="nt"> min_length</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="nt"> tolerance</span><span class="p">:</span><span class="w"> </span><span class="nv">0.5</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> minzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">11</span><span class="p p-Indicator">,</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">13</span><span class="p p-Indicator">,</span><span class="nt"> min_length</span><span class="p">:</span><span class="w"> </span><span class="nv">0.25</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>min_length</code></td>
+<td>0</td>
+<td>Pixels; shorter merged lines are dropped</td>
+</tr>
+<tr>
+<td><code>tolerance</code></td>
+<td>0</td>
+<td>Pixels; simplifies the merged lines, 0 keeps every vertex</td>
+</tr>
+<tr>
+<td><code>buffer</code></td>
+<td>the layer's buffer</td>
+<td>Pixels around the tile kept after merging, at most the layer's</td>
+</tr>
+<tr>
+<td><code>minzoom</code>, <code>maxzoom</code></td>
+<td>the layer's zooms</td>
+<td>Where it runs</td>
+</tr>
+</tbody>
+</table>
+<p>Planetiler's <code>mergeLineStrings</code> joins lines the same way at plain joints, and also joins strokes through
+junctions and drops short stubs and loops, which <code>merge_lines</code> does not.</p>
+<p><svg id="gen-pt-lines" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 490" width="100%" role="img" aria-label="merge_lines joins lines where exactly two ends meet; each tile joins, simplifies and measures only what it holds in the tile and its buffer, so the tiles' lines cross the edge at different points and the lower line is dropped from the right tile"><title>merge_lines joins lines where exactly two ends meet; each tile joins, simplifies and measures only what it holds in the tile and its buffer, so the tiles' lines cross the edge at different points and the lower line is dropped from the right tile</title><style>#gen-pt-lines{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-lines .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-lines .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-lines .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-lines .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-lines .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-lines text{dominant-baseline:central}#gen-pt-lines .t{font-weight:600}#gen-pt-lines .s{font-size:11px}#gen-pt-lines .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-lines .motion{display:none}}#gen-pt-lines .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-lines .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-lines .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-lines .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-lines .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-lines .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-lines .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-lines .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-lines .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-lines .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-lines .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-lines .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-lines .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-lines .pre{white-space:pre}#gen-pt-lines .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-lines .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-lines .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-lines .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-lines .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-lines .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-lines .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-lines .unseen{opacity:.3}#gen-pt-lines .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-lines .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-lines .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-lines .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-lines .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-lines .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-lines .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-lines .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-lines .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-lines .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">merge_lines:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  min_length: 48</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  tolerance: 24</text><text class="muted s" x="260" y="30" text-anchor="start">1 to 5: kind=road</text><rect class="win" x="40" y="94" width="152" height="152"/><rect class="tile" x="56" y="110" width="120" height="120"/><clipPath id="gen-pt-lines-c1"><rect x="40" y="94" width="152" height="152"/></clipPath><path class="ln" d="M66 140 L106 150" clip-path="url(#gen-pt-lines-c1)"/><circle class="end" cx="66" cy="140" r="3"/><circle class="end" cx="106" cy="150" r="3"/><text class="fg s" x="84" y="132" text-anchor="middle">1</text><clipPath id="gen-pt-lines-c2"><rect x="40" y="94" width="152" height="152"/></clipPath><path class="ln" d="M106 150 L166 135" clip-path="url(#gen-pt-lines-c2)"/><circle class="end" cx="106" cy="150" r="3"/><circle class="end" cx="166" cy="135" r="3"/><text class="fg s" x="138" y="130" text-anchor="middle">2</text><clipPath id="gen-pt-lines-c3"><rect x="40" y="94" width="152" height="152"/></clipPath><path class="ln" d="M71 200 L116 190" clip-path="url(#gen-pt-lines-c3)"/><circle class="end" cx="71" cy="200" r="3"/><circle class="end" cx="116" cy="190" r="3"/><text class="fg s" x="91" y="182" text-anchor="middle">3</text><clipPath id="gen-pt-lines-c4"><rect x="40" y="94" width="152" height="152"/></clipPath><path class="ln" d="M116 190 L161 205" clip-path="url(#gen-pt-lines-c4)"/><circle class="end" cx="116" cy="190" r="3"/><circle class="end" cx="161" cy="205" r="3"/><text class="fg s" x="142" y="186" text-anchor="middle">4</text><clipPath id="gen-pt-lines-c5"><rect x="40" y="94" width="152" height="152"/></clipPath><path class="ln" d="M116 190 L121 225" clip-path="url(#gen-pt-lines-c5)"/><circle class="end" cx="116" cy="190" r="3"/><circle class="end" cx="121" cy="225" r="3"/><text class="fg s" x="128" y="216" text-anchor="middle">5</text><text class="fg t s" x="116" y="262" text-anchor="middle">before</text><rect class="win" x="215" y="94" width="152" height="152"/><rect class="tile" x="231" y="110" width="120" height="120"/><clipPath id="gen-pt-lines-c6"><rect x="215" y="94" width="152" height="152"/></clipPath><path class="ln" d="M241 140 L281 150 L341 135" clip-path="url(#gen-pt-lines-c6)"/><circle class="end" cx="241" cy="140" r="3"/><circle class="end" cx="341" cy="135" r="3"/><text class="fg s" x="286" y="130" text-anchor="middle">1+2</text><clipPath id="gen-pt-lines-c7"><rect x="215" y="94" width="152" height="152"/></clipPath><path class="ln" d="M246 200 L291 190" clip-path="url(#gen-pt-lines-c7)"/><circle class="end" cx="246" cy="200" r="3"/><circle class="end" cx="291" cy="190" r="3"/><text class="fg s" x="266" y="182" text-anchor="middle">3</text><clipPath id="gen-pt-lines-c8"><rect x="215" y="94" width="152" height="152"/></clipPath><path class="ln" d="M291 190 L336 205" clip-path="url(#gen-pt-lines-c8)"/><circle class="end" cx="291" cy="190" r="3"/><circle class="end" cx="336" cy="205" r="3"/><text class="fg s" x="317" y="186" text-anchor="middle">4</text><clipPath id="gen-pt-lines-c9"><rect x="215" y="94" width="152" height="152"/></clipPath><path class="ln" d="M291 190 L296 225" clip-path="url(#gen-pt-lines-c9)"/><circle class="end" cx="291" cy="190" r="3"/><circle class="end" cx="296" cy="225" r="3"/><text class="fg s" x="303" y="216" text-anchor="middle">5</text><text class="fg t s" x="291" y="262" text-anchor="middle">after</text><rect class="win" x="40" y="304" width="152" height="152"/><rect class="tile" x="56" y="320" width="120" height="120"/><rect class="other" x="176" y="320" width="120" height="120"/><path class="lnf unseen" d="M34 380 L83 383 L154 371 L172 368 L178 386 L182 393 L304 367 L318 380"/><path class="ln" d="M40 380.367 L172 368 L192 390.869"/><path class="lnf unseen" d="M76 420 L146 424 L181 427"/><path class="ln" d="M76 420 L146 424 L181 427"/><rect class="edge" x="56" y="320" width="120" height="120"/><text class="fg t s" x="116" y="472" text-anchor="middle">left tile</text><rect class="win" x="490" y="304" width="152" height="152"/><rect class="tile" x="506" y="320" width="120" height="120"/><rect class="other" x="386" y="320" width="120" height="120"/><path class="lnf unseen" d="M364 380 L413 383 L484 371 L502 368 L508 386 L512 393 L634 367 L648 380"/><path class="ln" d="M490 370 L512 393 L642 374.429"/><path class="lnf unseen" d="M406 420 L476 424 L511 427"/><path class="lnd" d="M490 425.2 L511 427"/><rect class="edge" x="506" y="320" width="120" height="120"/><text class="fg t s" x="566" y="472" text-anchor="middle">right tile</text></svg></p>
+<p>Each tile joins, simplifies and measures only what it holds of the lines, in the tile and <code>buffer</code>. A line
+ending just past a tile edge can be shorter than <code>min_length</code> in the next tile and is dropped there, and
+the two tiles' simplified lines can cross their shared edge at different points.</p>
+<h3 id="merge_polygons"><code>merge_polygons</code></h3>
+<p>Unions the polygons of a group, such as adjacent land use areas of one kind, as Planetiler's
+<code>mergeNearbyPolygons</code> does, or <code>mergeOverlappingPolygons</code> with <code>distance: 0</code>. The polygons are first
+clipped to the tile and <code>buffer</code>. With a <code>distance</code>, they are grown by half of it, merged and shrunk
+again, which joins polygons closer than <code>distance</code>. Holes smaller than <code>min_hole_area</code> are then filled,
+polygons smaller than <code>min_area</code> dropped, and the result snapped to the tile grid. Each group becomes
+one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its
+features as they were, and the first such group is logged. The run summary counts them.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">merge_polygons</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">min_area</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">        </span><span class="c1"># px²</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">min_hole_area</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">   </span><span class="c1"># px²</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">distance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">      </span><span class="c1"># px</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">group_by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">kind</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>min_area</code></td>
+<td>0</td>
+<td>Square pixels; smaller merged polygons are dropped</td>
+</tr>
+<tr>
+<td><code>min_hole_area</code></td>
+<td>0</td>
+<td>Square pixels; smaller holes are filled</td>
+</tr>
+<tr>
+<td><code>distance</code></td>
+<td>0</td>
+<td>Pixels; closer polygons are joined, 0 joins touching ones</td>
+</tr>
+<tr>
+<td><code>buffer</code></td>
+<td>the layer's buffer</td>
+<td>Pixels around the tile kept after merging, at most the layer's</td>
+</tr>
+<tr>
+<td><code>group_by</code></td>
+<td>every attribute</td>
+<td>The attributes polygons must share</td>
+</tr>
+<tr>
+<td><code>minzoom</code>, <code>maxzoom</code></td>
+<td>the layer's zooms</td>
+<td>Where it runs</td>
+</tr>
+</tbody>
+</table>
+<p>A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.</p>
+<p><svg id="gen-pt-polygons" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 510" width="100%" role="img" aria-label="merge_polygons unions a group's polygons in each tile: 1 and 2 touch, 3 is within distance, the hole in 1 is below min_hole_area and 4 below min_area; min_area counts only the part in the tile and its buffer, so the lower polygon is dropped from the right tile"><title>merge_polygons unions a group's polygons in each tile: 1 and 2 touch, 3 is within distance, the hole in 1 is below min_hole_area and 4 below min_area; min_area counts only the part in the tile and its buffer, so the lower polygon is dropped from the right tile</title><style>#gen-pt-polygons{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-polygons .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-polygons .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-polygons .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-polygons .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-polygons .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-polygons text{dominant-baseline:central}#gen-pt-polygons .t{font-weight:600}#gen-pt-polygons .s{font-size:11px}#gen-pt-polygons .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-polygons .motion{display:none}}#gen-pt-polygons .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-polygons .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-polygons .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-polygons .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-polygons .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-polygons .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-polygons .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-polygons .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-polygons .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-polygons .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-polygons .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-polygons .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-polygons .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-polygons .pre{white-space:pre}#gen-pt-polygons .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-polygons .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-polygons .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-polygons .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-polygons .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-polygons .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-polygons .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-polygons .unseen{opacity:.3}#gen-pt-polygons .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-polygons .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-polygons .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-polygons .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-polygons .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-polygons .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-polygons .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-polygons .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-polygons .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-polygons .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">merge_polygons:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  group_by: [kind]</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  distance: 16</text><text class="mono fg pre" x="40" y="75" text-anchor="start">  min_area: 1024</text><text class="mono fg pre" x="40" y="90" text-anchor="start">  min_hole_area: 512</text><text class="muted s" x="260" y="30" text-anchor="start">1 to 4: kind=wood, 5: kind=grass</text><rect class="win" x="40" y="114" width="152" height="152"/><rect class="tile" x="56" y="130" width="120" height="120"/><clipPath id="gen-pt-polygons-c1"><rect x="40" y="114" width="152" height="152"/></clipPath><path class="pg" d="M66 145 L106 145 L106 190 L66 190 ZM78 160 L88 160 L88 170 L78 170 Z" clip-path="url(#gen-pt-polygons-c1)"/><clipPath id="gen-pt-polygons-c2"><rect x="40" y="114" width="152" height="152"/></clipPath><path class="pg" d="M106 155 L136 155 L136 190 L106 190 Z" clip-path="url(#gen-pt-polygons-c2)"/><clipPath id="gen-pt-polygons-c3"><rect x="40" y="114" width="152" height="152"/></clipPath><path class="pg" d="M140 150 L165 150 L165 195 L140 195 Z" clip-path="url(#gen-pt-polygons-c3)"/><clipPath id="gen-pt-polygons-c4"><rect x="40" y="114" width="152" height="152"/></clipPath><path class="pg" d="M86 225 L91 225 L91 230 L86 230 Z" clip-path="url(#gen-pt-polygons-c4)"/><clipPath id="gen-pt-polygons-c5"><rect x="40" y="114" width="152" height="152"/></clipPath><path class="pgo" d="M116 205 L161 205 L161 235 L116 235 Z" clip-path="url(#gen-pt-polygons-c5)"/><text class="fg s" x="96" y="180" text-anchor="middle">1</text><text class="fg s" x="121" y="172" text-anchor="middle">2</text><text class="fg s" x="152" y="172" text-anchor="middle">3</text><text class="fg s" x="88" y="216" text-anchor="middle">4</text><text class="fg s" x="138" y="220" text-anchor="middle">5</text><text class="fg t s" x="116" y="282" text-anchor="middle">before</text><rect class="win" x="215" y="114" width="152" height="152"/><rect class="tile" x="231" y="130" width="120" height="120"/><clipPath id="gen-pt-polygons-c6"><rect x="215" y="114" width="152" height="152"/></clipPath><path class="pg" d="M241 145 L281 145 L281 155 L315 155 L315 150 L340 150 L340 195 L315 195 L315 190 L241 190 Z" clip-path="url(#gen-pt-polygons-c6)"/><clipPath id="gen-pt-polygons-c7"><rect x="215" y="114" width="152" height="152"/></clipPath><path class="pgo" d="M291 205 L336 205 L336 235 L291 235 Z" clip-path="url(#gen-pt-polygons-c7)"/><text class="fg s" x="291" y="172" text-anchor="middle">1+2+3</text><text class="fg s" x="313" y="220" text-anchor="middle">5</text><text class="fg t s" x="291" y="282" text-anchor="middle">after</text><rect class="win" x="40" y="324" width="152" height="152"/><rect class="tile" x="56" y="340" width="120" height="120"/><rect class="other" x="176" y="340" width="120" height="120"/><path class="pgf unseen" d="M20 355 L216 355 L216 395 L20 395 Z"/><clipPath id="gen-pt-polygons-c8"><rect x="40" y="324" width="152" height="152"/></clipPath><path class="pg" d="M20 355 L216 355 L216 395 L20 395 Z" clip-path="url(#gen-pt-polygons-c8)"/><path class="pgf unseen" d="M81 425 L179 425 L179 435 L81 435 Z"/><clipPath id="gen-pt-polygons-c9"><rect x="40" y="324" width="152" height="152"/></clipPath><path class="pg" d="M81 425 L179 425 L179 435 L81 435 Z" clip-path="url(#gen-pt-polygons-c9)"/><rect class="edge" x="56" y="340" width="120" height="120"/><text class="fg t s" x="116" y="492" text-anchor="middle">left tile</text><rect class="win" x="490" y="324" width="152" height="152"/><rect class="tile" x="506" y="340" width="120" height="120"/><rect class="other" x="386" y="340" width="120" height="120"/><path class="pgf unseen" d="M350 355 L546 355 L546 395 L350 395 Z"/><clipPath id="gen-pt-polygons-c10"><rect x="490" y="324" width="152" height="152"/></clipPath><path class="pg" d="M350 355 L546 355 L546 395 L350 395 Z" clip-path="url(#gen-pt-polygons-c10)"/><path class="pgf unseen" d="M411 425 L509 425 L509 435 L411 435 Z"/><clipPath id="gen-pt-polygons-c11"><rect x="490" y="324" width="152" height="152"/></clipPath><path class="pgd" d="M411 425 L509 425 L509 435 L411 435 Z" clip-path="url(#gen-pt-polygons-c11)"/><rect class="edge" x="506" y="340" width="120" height="120"/><text class="fg t s" x="566" y="492" text-anchor="middle">right tile</text></svg></p>
+<p>Each tile merges only what it holds of the polygons, in the tile and <code>buffer</code>, so <code>min_area</code> counts only
+that part. A polygon reaching just past a tile edge can be dropped from the next tile.</p>
 <h3 id="thinning"><code>thinning</code></h3>
 <p>Drops a feature when an earlier kept feature, in draw order, crowds it out, so give the layer a
 <code>sort_by</code>. <code>method</code> says what crowds a feature out:</p>
@@ -2974,30 +3215,41 @@ took and kept:</p>
 <td><code>grid</code></td>
 <td>its square already holds <code>limit</code> kept points</td>
 </tr>
+<tr>
+<td><code>distance</code></td>
+<td>a kept feature lies within <code>distance</code> of it</td>
+</tr>
+<tr>
+<td><code>tile</code></td>
+<td>a kept feature is anywhere in the tile</td>
+</tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">places</span><span class="p">:</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">places</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">      </span><span class="nt">buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span><span class="w">        </span><span class="c1"># 64 px of a 4096 extent, the grid's size</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="nt">population</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="nt">places</span><span class="p">:</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">          </span><span class="nt">geometry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">point</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">          </span><span class="nt">sort_by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"population"</span><span class="p p-Indicator">,</span><span class="nt"> desc</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="w"> </span><span class="p p-Indicator">}]</span>
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">          </span><span class="nt">thinning</span><span class="p">:</span>
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> method</span><span class="p">:</span><span class="w"> </span><span class="nv">grid</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> limit</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">          </span><span class="nt">rules</span><span class="p">:</span>
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"kind</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'capital'"</span>
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">              </span><span class="nt">thinning</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">   </span><span class="c1"># capitals are never thinned out by the grid</span>
-</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"kind</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'village'"</span>
-</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">              </span><span class="nt">thinning</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> method</span><span class="p">:</span><span class="w"> </span><span class="nv">grid</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> limit</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<p>With <code>keys</code>, a list of CEL expressions, only features with the same key values crowd each other out, such
+as a road name drawn many times. Without <code>keys</code>, every feature competes with every other.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">places</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">places</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">      </span><span class="nt">buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1024</span><span class="w">        </span><span class="c1"># 64 px of a 4096 extent, the grid's size</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">        </span><span class="nt">population</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">        </span><span class="nt">places</span><span class="p">:</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">          </span><span class="nt">geometry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">point</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">          </span><span class="nt">sort_by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"population"</span><span class="p p-Indicator">,</span><span class="nt"> desc</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="w"> </span><span class="p p-Indicator">}]</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">          </span><span class="nt">thinning</span><span class="p">:</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> method</span><span class="p">:</span><span class="w"> </span><span class="nv">grid</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> limit</span><span class="p">:</span><span class="w"> </span><span class="nv">2</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> minzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="p p-Indicator">,</span><span class="nt"> method</span><span class="p">:</span><span class="w"> </span><span class="nv">distance</span><span class="p p-Indicator">,</span><span class="nt"> distance</span><span class="p">:</span><span class="w"> </span><span class="nv">64</span><span class="p p-Indicator">,</span><span class="nt"> keys</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">name</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">          </span><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"kind</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'capital'"</span>
+</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">              </span><span class="nt">thinning</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">   </span><span class="c1"># capitals are never thinned out by the grid</span>
+</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"kind</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'village'"</span>
+</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">              </span><span class="nt">thinning</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> maxzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">9</span><span class="p p-Indicator">,</span><span class="nt"> method</span><span class="p">:</span><span class="w"> </span><span class="nv">grid</span><span class="p p-Indicator">,</span><span class="nt"> size</span><span class="p">:</span><span class="w"> </span><span class="nv">128</span><span class="p p-Indicator">,</span><span class="nt"> limit</span><span class="p">:</span><span class="w"> </span><span class="nv">1</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -3011,7 +3263,7 @@ took and kept:</p>
 <tr>
 <td><code>method</code></td>
 <td>required</td>
-<td><code>grid</code></td>
+<td><code>grid</code>, <code>distance</code> or <code>tile</code></td>
 </tr>
 <tr>
 <td><code>size</code></td>
@@ -3021,7 +3273,17 @@ took and kept:</p>
 <tr>
 <td><code>limit</code></td>
 <td>required by <code>grid</code></td>
-<td>Points kept per square in each tile, 1 or more</td>
+<td>Points kept per square and key in each tile, 1 or more</td>
+</tr>
+<tr>
+<td><code>distance</code></td>
+<td>required by <code>distance</code></td>
+<td>Pixels within which a feature with the same key is dropped</td>
+</tr>
+<tr>
+<td><code>keys</code></td>
+<td>one key for all; required by <code>tile</code></td>
+<td>CEL expressions forming the key</td>
 </tr>
 <tr>
 <td><code>minzoom</code>, <code>maxzoom</code></td>
@@ -3039,8 +3301,60 @@ than one unit of the layer's <code>extent</code> do not limit anything. A square
 same way in both tiles only when each sees all of its points, so set the layer's <code>buffer</code> to at least
 <code>size</code> pixels. A warning tells you when it is smaller.</p>
 <p><svg id="gen-pt-grid" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="100%" role="img" aria-label="thinning with method grid keeps the first limit points of each square in the tile and its buffer, so with a buffer below size the left and the right tile each keep one of 1 and 2"><title>thinning with method grid keeps the first limit points of each square in the tile and its buffer, so with a buffer below size the left and the right tile each keep one of 1 and 2</title><style>#gen-pt-grid{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-grid .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-grid .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-grid .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-grid .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-grid .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-grid text{dominant-baseline:central}#gen-pt-grid .t{font-weight:600}#gen-pt-grid .s{font-size:11px}#gen-pt-grid .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-grid .motion{display:none}}#gen-pt-grid .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-grid .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-grid .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-grid .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-grid .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-grid .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-grid .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-grid .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-grid .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-grid .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-grid .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-grid .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-grid .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-grid .pre{white-space:pre}#gen-pt-grid .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-grid .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-grid .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-grid .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-grid .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-grid .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-grid .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-grid .unseen{opacity:.3}#gen-pt-grid .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-grid .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-grid .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-grid .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-grid .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-grid .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-grid .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-grid .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-grid .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-grid .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">thinning:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  method: grid</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  size: 96</text><text class="mono fg pre" x="40" y="75" text-anchor="start">  limit: 1</text><circle class="keep" cx="265" cy="30" r="5"/><text class="muted s" x="276" y="30" text-anchor="start">kept</text><circle class="drop" cx="333" cy="30" r="5"/><text class="muted s" x="344" y="30" text-anchor="start">dropped</text><text class="muted s" x="417" y="30" text-anchor="start">1, 2, 3: draw order</text><text class="mono fg pre" x="40" y="110" text-anchor="start">buffer: 32</text><rect class="win" x="40" y="155" width="150" height="150"/><rect class="tile" x="55" y="170" width="120" height="120"/><rect class="other" x="175" y="170" width="120" height="120"/><clipPath id="gen-pt-grid-c1"><rect x="40" y="155" width="150" height="150"/></clipPath><path class="sq" d="M55 155 V305M100 155 V305M145 155 V305M190 155 V305M40 170 H190M40 215 H190M40 260 H190M40 305 H190" clip-path="url(#gen-pt-grid-c1)"/><rect class="edge" x="55" y="170" width="120" height="120"/><circle class="keep" cx="153" cy="192" r="5"/><text class="fg s" x="144" y="192" text-anchor="end">1</text><circle class="drop" cx="185" cy="202" r="5"/><text class="muted s" x="194" y="202" text-anchor="start">2</text><circle class="keep" cx="73" cy="228" r="5"/><text class="fg s" x="82" y="228" text-anchor="start">3</text><circle class="drop" cx="89" cy="248" r="5"/><text class="muted s" x="98" y="248" text-anchor="start">4</text><circle class="drop unseen" cx="251" cy="266" r="5"/><text class="muted s unseen" x="260" y="266" text-anchor="start">5</text><circle class="drop unseen" cx="267" cy="282" r="5"/><text class="muted s unseen" x="276" y="282" text-anchor="start">6</text><text class="fg t s" x="115" y="321" text-anchor="middle">left tile</text><rect class="win" x="160" y="405" width="150" height="150"/><rect class="tile" x="175" y="420" width="120" height="120"/><rect class="other" x="55" y="420" width="120" height="120"/><clipPath id="gen-pt-grid-c2"><rect x="160" y="405" width="150" height="150"/></clipPath><path class="sq" d="M190 405 V555M235 405 V555M280 405 V555M160 420 H310M160 465 H310M160 510 H310M160 555 H310" clip-path="url(#gen-pt-grid-c2)"/><rect class="edge" x="175" y="420" width="120" height="120"/><circle class="drop unseen" cx="153" cy="442" r="5"/><text class="muted s unseen" x="144" y="442" text-anchor="end">1</text><circle class="keep" cx="185" cy="452" r="5"/><text class="fg s" x="194" y="452" text-anchor="start">2</text><circle class="drop unseen" cx="73" cy="478" r="5"/><text class="muted s unseen" x="82" y="478" text-anchor="start">3</text><circle class="drop unseen" cx="89" cy="498" r="5"/><text class="muted s unseen" x="98" y="498" text-anchor="start">4</text><circle class="keep" cx="251" cy="516" r="5"/><text class="fg s" x="260" y="516" text-anchor="start">5</text><circle class="drop" cx="267" cy="532" r="5"/><text class="muted s" x="276" y="532" text-anchor="start">6</text><text class="fg t s" x="235" y="571" text-anchor="middle">right tile</text><text class="mono fg pre" x="430" y="110" text-anchor="start">buffer: 96</text><rect class="win" x="430" y="125" width="210" height="210"/><rect class="tile" x="475" y="170" width="120" height="120"/><rect class="other" x="595" y="170" width="120" height="120"/><clipPath id="gen-pt-grid-c3"><rect x="430" y="125" width="210" height="210"/></clipPath><path class="sq" d="M430 125 V335M475 125 V335M520 125 V335M565 125 V335M610 125 V335M430 125 H640M430 170 H640M430 215 H640M430 260 H640M430 305 H640" clip-path="url(#gen-pt-grid-c3)"/><rect class="edge" x="475" y="170" width="120" height="120"/><circle class="keep" cx="573" cy="192" r="5"/><text class="fg s" x="564" y="192" text-anchor="end">1</text><circle class="drop" cx="605" cy="202" r="5"/><text class="muted s" x="614" y="202" text-anchor="start">2</text><circle class="keep" cx="493" cy="228" r="5"/><text class="fg s" x="502" y="228" text-anchor="start">3</text><circle class="drop" cx="509" cy="248" r="5"/><text class="muted s" x="518" y="248" text-anchor="start">4</text><circle class="drop unseen" cx="671" cy="266" r="5"/><text class="muted s unseen" x="680" y="266" text-anchor="start">5</text><circle class="drop unseen" cx="687" cy="282" r="5"/><text class="muted s unseen" x="696" y="282" text-anchor="start">6</text><text class="fg t s" x="535" y="351" text-anchor="middle">left tile</text><rect class="win" x="550" y="375" width="210" height="210"/><rect class="tile" x="595" y="420" width="120" height="120"/><rect class="other" x="475" y="420" width="120" height="120"/><clipPath id="gen-pt-grid-c4"><rect x="550" y="375" width="210" height="210"/></clipPath><path class="sq" d="M565 375 V585M610 375 V585M655 375 V585M700 375 V585M745 375 V585M550 375 H760M550 420 H760M550 465 H760M550 510 H760M550 555 H760" clip-path="url(#gen-pt-grid-c4)"/><rect class="edge" x="595" y="420" width="120" height="120"/><circle class="keep" cx="573" cy="442" r="5"/><text class="fg s" x="564" y="442" text-anchor="end">1</text><circle class="drop" cx="605" cy="452" r="5"/><text class="muted s" x="614" y="452" text-anchor="start">2</text><circle class="drop unseen" cx="493" cy="478" r="5"/><text class="muted s unseen" x="502" y="478" text-anchor="start">3</text><circle class="drop unseen" cx="509" cy="498" r="5"/><text class="muted s unseen" x="518" y="498" text-anchor="start">4</text><circle class="keep" cx="671" cy="516" r="5"/><text class="fg s" x="680" y="516" text-anchor="start">5</text><circle class="drop" cx="687" cy="532" r="5"/><text class="muted s" x="696" y="532" text-anchor="start">6</text><text class="fg t s" x="655" y="601" text-anchor="middle">right tile</text></svg></p>
-<p>A rule may set its own grid <code>thinning</code> for the features it takes, replacing the layer's grid, or <code>null</code>
-to turn the grid off for them.</p>
+<p>A rule may set its own grid <code>thinning</code> for the features it takes, without <code>keys</code>, replacing the layer's
+grid, or <code>null</code> to turn the grid off for them. <code>distance</code> and <code>tile</code> thinning see every feature of the
+layer; to spare some features, give them a key of only <code>null</code>s.</p>
+<p><code>distance</code> places each feature at a representative point of what the tile holds of it, in the tile and its
+buffer: a point itself, the middle of a line's longest part, or a point inside a polygon. A line crossing a
+tile edge has a different one in each tile. Features on either side of a tile edge crowd each other out
+the same way in both tiles only when the layer's <code>buffer</code> is at least <code>distance</code> pixels.</p>
+<p><svg id="gen-pt-distance" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="100%" role="img" aria-label="thinning with method distance drops a feature within distance of an earlier kept one with the same key in the tile and its buffer, so with a buffer below distance both 1 and 2 are kept; a line counts at a different point in each tile"><title>thinning with method distance drops a feature within distance of an earlier kept one with the same key in the tile and its buffer, so with a buffer below distance both 1 and 2 are kept; a line counts at a different point in each tile</title><style>#gen-pt-distance{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-distance .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-distance .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-distance .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-distance .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-distance .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-distance text{dominant-baseline:central}#gen-pt-distance .t{font-weight:600}#gen-pt-distance .s{font-size:11px}#gen-pt-distance .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-distance .motion{display:none}}#gen-pt-distance .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-distance .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-distance .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-distance .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-distance .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-distance .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-distance .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-distance .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-distance .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-distance .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-distance .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-distance .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-distance .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-distance .pre{white-space:pre}#gen-pt-distance .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-distance .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-distance .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-distance .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-distance .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-distance .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-distance .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-distance .unseen{opacity:.3}#gen-pt-distance .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-distance .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-distance .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-distance .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-distance .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-distance .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-distance .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-distance .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-distance .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-distance .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">thinning:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  method: distance</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  distance: 48</text><text class="mono fg pre" x="40" y="75" text-anchor="start">  keys: [name]</text><circle class="keep" cx="265" cy="30" r="5"/><text class="muted s" x="276" y="30" text-anchor="start">kept</text><circle class="drop" cx="333" cy="30" r="5"/><text class="muted s" x="344" y="30" text-anchor="start">dropped</text><circle class="ring" cx="424" cy="30" r="7"/><text class="muted s" x="437" y="30" text-anchor="start">distance</text><text class="muted s" x="517" y="30" text-anchor="start">1, 2, 3: draw order</text><text class="mono fg pre" x="40" y="110" text-anchor="start">buffer: 16</text><rect class="win" x="40" y="140" width="135" height="135"/><rect class="tile" x="47.5" y="147.5" width="120" height="120"/><rect class="other" x="167.5" y="147.5" width="120" height="120"/><circle class="ring" cx="157.5" cy="192.5" r="22.5"/><circle class="keep" cx="157.5" cy="192.5" r="5"/><text class="fg s" x="148.5" y="192.5" text-anchor="end">1 Elm</text><circle class="drop unseen" cx="177.5" cy="199.5" r="5"/><text class="muted s unseen" x="186.5" y="199.5" text-anchor="start">2 Elm</text><circle class="keep" cx="139.5" cy="225.5" r="5"/><text class="fg s" x="130.5" y="225.5" text-anchor="end">3 Oak</text><circle class="keep" cx="59.5" cy="245.5" r="5"/><text class="fg s" x="68.5" y="245.5" text-anchor="start">4 Elm</text><circle class="drop" cx="72.5" cy="257.5" r="5"/><text class="muted s" x="81.5" y="257.5" text-anchor="start">5 Elm</text><text class="fg t s" x="107.5" y="291" text-anchor="middle">left tile</text><rect class="win" x="160" y="345" width="135" height="135"/><rect class="tile" x="167.5" y="352.5" width="120" height="120"/><rect class="other" x="47.5" y="352.5" width="120" height="120"/><circle class="drop unseen" cx="157.5" cy="397.5" r="5"/><text class="muted s unseen" x="148.5" y="397.5" text-anchor="end">1 Elm</text><circle class="keep" cx="177.5" cy="404.5" r="5"/><text class="fg s" x="186.5" y="404.5" text-anchor="start">2 Elm</text><circle class="drop unseen" cx="139.5" cy="430.5" r="5"/><text class="muted s unseen" x="130.5" y="430.5" text-anchor="end">3 Oak</text><circle class="drop unseen" cx="59.5" cy="450.5" r="5"/><text class="muted s unseen" x="68.5" y="450.5" text-anchor="start">4 Elm</text><circle class="drop unseen" cx="72.5" cy="462.5" r="5"/><text class="muted s unseen" x="81.5" y="462.5" text-anchor="start">5 Elm</text><text class="fg t s" x="227.5" y="496" text-anchor="middle">right tile</text><text class="mono fg pre" x="385" y="110" text-anchor="start">buffer: 48</text><rect class="win" x="385" y="125" width="165" height="165"/><rect class="tile" x="407.5" y="147.5" width="120" height="120"/><rect class="other" x="527.5" y="147.5" width="120" height="120"/><circle class="ring" cx="517.5" cy="192.5" r="22.5"/><circle class="keep" cx="517.5" cy="192.5" r="5"/><text class="fg s" x="508.5" y="192.5" text-anchor="end">1 Elm</text><circle class="drop" cx="537.5" cy="199.5" r="5"/><text class="muted s" x="546.5" y="199.5" text-anchor="start">2 Elm</text><circle class="keep" cx="499.5" cy="225.5" r="5"/><text class="fg s" x="490.5" y="225.5" text-anchor="end">3 Oak</text><circle class="keep" cx="419.5" cy="245.5" r="5"/><text class="fg s" x="428.5" y="245.5" text-anchor="start">4 Elm</text><circle class="drop" cx="432.5" cy="257.5" r="5"/><text class="muted s" x="441.5" y="257.5" text-anchor="start">5 Elm</text><text class="fg t s" x="467.5" y="306" text-anchor="middle">left tile</text><rect class="win" x="505" y="330" width="165" height="165"/><rect class="tile" x="527.5" y="352.5" width="120" height="120"/><rect class="other" x="407.5" y="352.5" width="120" height="120"/><circle class="ring" cx="517.5" cy="397.5" r="22.5"/><circle class="keep" cx="517.5" cy="397.5" r="5"/><text class="fg s" x="508.5" y="397.5" text-anchor="end">1 Elm</text><circle class="drop" cx="537.5" cy="404.5" r="5"/><text class="muted s" x="546.5" y="404.5" text-anchor="start">2 Elm</text><circle class="drop unseen" cx="499.5" cy="430.5" r="5"/><text class="muted s unseen" x="490.5" y="430.5" text-anchor="end">3 Oak</text><circle class="drop unseen" cx="419.5" cy="450.5" r="5"/><text class="muted s unseen" x="428.5" y="450.5" text-anchor="start">4 Elm</text><circle class="drop unseen" cx="432.5" cy="462.5" r="5"/><text class="muted s unseen" x="441.5" y="462.5" text-anchor="start">5 Elm</text><text class="fg t s" x="587.5" y="511" text-anchor="middle">right tile</text><rect class="win" x="40" y="567.5" width="135" height="135"/><rect class="tile" x="47.5" y="575" width="120" height="120"/><rect class="other" x="167.5" y="575" width="120" height="120"/><path class="lnf unseen" d="M17.5 645 L97.5 615 L192.5 650 L317.5 630"/><clipPath id="gen-pt-distance-c1"><rect x="40" y="567.5" width="135" height="135"/></clipPath><path class="ln" d="M17.5 645 L97.5 615 L192.5 650 L317.5 630" clip-path="url(#gen-pt-distance-c1)"/><circle class="rep" cx="107.438" cy="618.661" r="5"/><text class="fg t s" x="107.5" y="718.5" text-anchor="middle">left tile</text><rect class="win" x="460" y="567.5" width="135" height="135"/><rect class="tile" x="467.5" y="575" width="120" height="120"/><rect class="other" x="347.5" y="575" width="120" height="120"/><path class="lnf unseen" d="M317.5 645 L397.5 615 L492.5 650 L617.5 630"/><clipPath id="gen-pt-distance-c2"><rect x="460" y="567.5" width="135" height="135"/></clipPath><path class="ln" d="M317.5 645 L397.5 615 L492.5 650 L617.5 630" clip-path="url(#gen-pt-distance-c2)"/><circle class="rep" cx="526.65" cy="644.536" r="5"/><text class="fg t s" x="527.5" y="718.5" text-anchor="middle">right tile</text><circle class="rep" cx="665" cy="635" r="5"/><text class="muted s" x="676" y="635" text-anchor="start">representative point</text></svg></p>
+<p><code>tile</code> keeps the first feature of each key in the tile and its buffer. That can be a feature that only
+reaches into the buffer, which leaves no feature of its key inside the tile.</p>
+<p><svg id="gen-pt-tile" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="100%" role="img" aria-label="thinning with method tile keeps the first feature of each key in the tile and its buffer, so the right tile keeps 1, which only reaches into its buffer, and drops 2"><title>thinning with method tile keeps the first feature of each key in the tile and its buffer, so the right tile keeps 1, which only reaches into its buffer, and drops 2</title><style>#gen-pt-tile{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-tile .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-tile .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-tile .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-tile .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-tile .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-tile text{dominant-baseline:central}#gen-pt-tile .t{font-weight:600}#gen-pt-tile .s{font-size:11px}#gen-pt-tile .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-tile .motion{display:none}}#gen-pt-tile .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-tile .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-tile .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-tile .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-tile .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-tile .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-tile .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-tile .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-tile .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-tile .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-tile .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-tile .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-tile .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-tile .pre{white-space:pre}#gen-pt-tile .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-tile .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-tile .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-tile .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-tile .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-tile .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-tile .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-tile .unseen{opacity:.3}#gen-pt-tile .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-tile .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-tile .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-tile .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-tile .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-tile .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-tile .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-tile .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-tile .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-tile .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">thinning:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  method: tile</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  keys: [name]</text><path class="ln" d="M260 30 H280"/><text class="muted s" x="288" y="30" text-anchor="start">kept</text><path class="lnd" d="M340 30 H360"/><text class="muted s" x="368" y="30" text-anchor="start">dropped</text><text class="muted s" x="441" y="30" text-anchor="start">1, 2: draw order</text><rect class="win" x="40" y="84" width="152" height="152"/><rect class="tile" x="56" y="100" width="120" height="120"/><rect class="other" x="176" y="100" width="120" height="120"/><path class="lnf unseen" d="M76 140 L170 150"/><clipPath id="gen-pt-tile-c1"><rect x="40" y="84" width="152" height="152"/></clipPath><path class="ln" d="M76 140 L170 150" clip-path="url(#gen-pt-tile-c1)"/><text class="fg s" x="80" y="128" text-anchor="start">1 Elm</text><path class="lnf unseen" d="M201 185 L281 195"/><clipPath id="gen-pt-tile-c2"><rect x="40" y="84" width="152" height="152"/></clipPath><path class="lnd" d="M201 185 L281 195" clip-path="url(#gen-pt-tile-c2)"/><text class="muted s unseen" x="206" y="172" text-anchor="start">2 Elm</text><rect class="edge" x="56" y="100" width="120" height="120"/><text class="fg t s" x="116" y="252" text-anchor="middle">left tile</text><rect class="win" x="490" y="84" width="152" height="152"/><rect class="tile" x="506" y="100" width="120" height="120"/><rect class="other" x="386" y="100" width="120" height="120"/><path class="lnf unseen" d="M406 140 L500 150"/><clipPath id="gen-pt-tile-c3"><rect x="490" y="84" width="152" height="152"/></clipPath><path class="ln" d="M406 140 L500 150" clip-path="url(#gen-pt-tile-c3)"/><text class="fg s" x="410" y="128" text-anchor="start">1 Elm</text><path class="lnf unseen" d="M531 185 L611 195"/><clipPath id="gen-pt-tile-c4"><rect x="490" y="84" width="152" height="152"/></clipPath><path class="lnd" d="M531 185 L611 195" clip-path="url(#gen-pt-tile-c4)"/><text class="muted s" x="536" y="172" text-anchor="start">2 Elm</text><rect class="edge" x="506" y="100" width="120" height="120"/><text class="fg t s" x="566" y="252" text-anchor="middle">right tile</text></svg></p>
+<p>Unlike <code>where</code>, <code>id</code> and attribute expressions, which read the source's properties, <code>keys</code> read the
+feature's output attributes at this zoom by their output names, after <code>attributes</code>, <code>rules</code> and each
+attribute's zooms, as Planetiler's layer post-processing sees features. A name the layer does not write
+fails the run before rendering. A feature whose key values are all <code>null</code> is never thinned out. A failed
+evaluation counts as <code>null</code>, and is counted and logged once like other expressions.</p>
+<h3 id="merge_multi"><code>merge_multi</code></h3>
+<p>Combines the features of a group into one multi-point, multi-line or multi-polygon per geometry type,
+without changing any geometry, the parts in draw order, as Planetiler's <code>mergeMultiPoint</code>,
+<code>mergeMultiLineString</code> and <code>mergeMultiPolygon</code> do. A point alone in its group stays a point. Every
+feature of a type in <code>geometry</code> keeps only its <code>group_by</code> attributes, even one alone in its group.</p>
+<p><svg id="gen-pt-multi" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 280" width="100%" role="img" aria-label="merge_multi combines a group's points into one multi-point in each tile, keeping only the group_by attributes; c in the buffer is a part in both tiles"><title>merge_multi combines a group's points into one multi-point in each tile, keeping only the group_by attributes; c in the buffer is a part in both tiles</title><style>#gen-pt-multi{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#gen-pt-multi .fg{fill:var(--md-default-fg-color,#000000de)}#gen-pt-multi .muted{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-multi .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#gen-pt-multi .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#gen-pt-multi .head{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-multi text{dominant-baseline:central}#gen-pt-multi .t{font-weight:600}#gen-pt-multi .s{font-size:11px}#gen-pt-multi .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}@media (prefers-reduced-motion:reduce){#gen-pt-multi .motion{display:none}}#gen-pt-multi .b-read{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#gen-pt-multi .f-read{fill:var(--md-default-fg-color--light,#0000008a)}#gen-pt-multi .k-read{stroke:var(--md-default-fg-color--light,#0000008a)}#gen-pt-multi .b-render{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-multi .f-render{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .k-render{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-multi .b-sort{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-multi .f-sort{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .k-sort{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-multi .b-encode{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-multi .f-encode{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .k-encode{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-multi .b-write{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-multi .f-write{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .k-write{stroke:var(--md-primary-fg-color,#673ab7)}#gen-pt-multi .b-alert{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.1;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#gen-pt-multi .f-alert{fill:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .k-alert{stroke:var(--md-accent-fg-color,#7c4dff)}#gen-pt-multi .pre{white-space:pre}#gen-pt-multi .tile{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-multi .edge{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-multi .other{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1}#gen-pt-multi .win{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:4 3}#gen-pt-multi .sq{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;stroke-dasharray:2 3}#gen-pt-multi .keep{fill:var(--md-primary-fg-color,#673ab7)}#gen-pt-multi .drop{fill:var(--md-default-bg-color,#fff);stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-multi .unseen{opacity:.3}#gen-pt-multi .ln{stroke:var(--md-primary-fg-color,#673ab7);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-multi .lnd{stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:2;fill:none;stroke-dasharray:5 4}#gen-pt-multi .lnf{stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}#gen-pt-multi .pg{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.25;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5;fill-rule:evenodd}#gen-pt-multi .pgo{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.4;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5}#gen-pt-multi .pgd{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1.5;stroke-dasharray:4 3;fill-rule:evenodd}#gen-pt-multi .pgf{fill:var(--md-default-fg-color--lighter,#00000052);fill-opacity:.3;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1;fill-rule:evenodd}#gen-pt-multi .end{fill:var(--md-default-bg-color,#fff);stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#gen-pt-multi .ring{fill:none;stroke:var(--md-default-fg-color--light,#0000008a);stroke-width:1;stroke-dasharray:3 3}#gen-pt-multi .rep{fill:var(--md-accent-fg-color,#7c4dff)}</style><text class="mono fg pre" x="40" y="30" text-anchor="start">merge_multi:</text><text class="mono fg pre" x="40" y="45" text-anchor="start">  geometry: [point]</text><text class="mono fg pre" x="40" y="60" text-anchor="start">  group_by: [kind]</text><text class="fg t s" x="40" y="110" text-anchor="start">before</text><text class="mono pre" x="40" y="130" text-anchor="start">1 point  id=7  kind=cafe name=Ada</text><text class="mono pre" x="40" y="145" text-anchor="start">2 point  id=8  kind=cafe name=Bo</text><text class="mono pre" x="40" y="160" text-anchor="start">3 point  id=9  kind=bar  name=Cy</text><text class="fg t s" x="40" y="195" text-anchor="start">after</text><text class="mono fg pre" x="40" y="215" text-anchor="start">1+2 multi-point  kind=cafe</text><text class="mono fg pre" x="40" y="230" text-anchor="start">3   point  id=9  kind=bar</text><text class="muted s" x="330" y="30" text-anchor="start">a to d: kind=cafe</text><rect class="win" x="330" y="84" width="152" height="152"/><rect class="tile" x="346" y="100" width="120" height="120"/><rect class="other" x="466" y="100" width="120" height="120"/><path class="lnf" d="M371 135 L416 190 L474 150" stroke-dasharray="3 3"/><circle class="keep" cx="371" cy="135" r="5"/><text class="fg s" x="380" y="135" text-anchor="start">a</text><circle class="keep" cx="416" cy="190" r="5"/><text class="fg s" x="425" y="190" text-anchor="start">b</text><circle class="keep" cx="474" cy="150" r="5"/><text class="fg s" x="483" y="150" text-anchor="start">c</text><circle class="drop unseen" cx="536" cy="185" r="5"/><text class="muted s unseen" x="545" y="185" text-anchor="start">d</text><text class="fg t s" x="406" y="252" text-anchor="middle">left tile</text><rect class="win" x="770" y="84" width="152" height="152"/><rect class="tile" x="786" y="100" width="120" height="120"/><rect class="other" x="666" y="100" width="120" height="120"/><path class="lnf" d="M794 150 L856 185" stroke-dasharray="3 3"/><circle class="drop unseen" cx="691" cy="135" r="5"/><text class="muted s unseen" x="700" y="135" text-anchor="start">a</text><circle class="drop unseen" cx="736" cy="190" r="5"/><text class="muted s unseen" x="745" y="190" text-anchor="start">b</text><circle class="keep" cx="794" cy="150" r="5"/><text class="fg s" x="803" y="150" text-anchor="start">c</text><circle class="keep" cx="856" cy="185" r="5"/><text class="fg s" x="865" y="185" text-anchor="start">d</text><text class="fg t s" x="846" y="252" text-anchor="middle">right tile</text></svg></p>
+<p>Each tile combines only the features it holds, in the tile and its buffer, so a multi-feature never spans
+tiles and a point in the buffer is a part in both tiles.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">merge_multi</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">geometry</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">point</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># only combine points; lines and polygons pass through</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">group_by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">kind</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>geometry</code></td>
+<td><code>[point, line, polygon]</code></td>
+<td>The types to combine; others pass through</td>
+</tr>
+<tr>
+<td><code>group_by</code></td>
+<td>required, 1 or more</td>
+<td>The attributes features share and keep</td>
+</tr>
+<tr>
+<td><code>minzoom</code>, <code>maxzoom</code></td>
+<td>the layer's zooms</td>
+<td>Where it runs</td>
+</tr>
+</tbody>
+</table>
 <h3 id="limit"><code>limit</code></h3>
 <p>Keeps the first <code>count</code> features of the layer in the tile and drops the rest. <code>count: 0</code> leaves the
 layer out of the tile. <code>limit: 100</code> is short for <code>limit: { count: 100 }</code>.</p>
@@ -3059,63 +3373,63 @@ expression in YAML, for example <code>where: "kind == 'park'"</code>.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:7"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><input id="__tabbed_2_5" name="__tabbed_2" type="radio" /><input id="__tabbed_2_6" name="__tabbed_2" type="radio" /><input id="__tabbed_2_7" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Arithmetic</label><label for="__tabbed_2_2">Comparison and logic</label><label for="__tabbed_2_3">Choice</label><label for="__tabbed_2_4">Conversion</label><label for="__tabbed_2_5">Strings</label><label for="__tabbed_2_6">Lists and maps</label><label for="__tabbed_2_7">null</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>7 / 2              // 3, integer division rounds toward zero
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>-7 / 2             // -3
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>7 % 3              // 1
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>7.0 / 2.0          // 3.5
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>2 * 1.5            // fails, integers and doubles do not mix in arithmetic
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>double(2) * 1.5    // 3.0
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>7 / 2              // 3, integer division rounds toward zero
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>-7 / 2             // -3
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>7 % 3              // 1
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>7.0 / 2.0          // 3.5
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>2 * 1.5            // fails, integers and doubles do not mix in arithmetic
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>double(2) * 1.5    // 3.0
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>3 &gt;= 2 &amp;&amp; 'a' != 'b'           // true
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>!(1 &gt; 2) || false              // true
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>1 &lt; 2.5                        // true, comparisons do mix integers and doubles
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>'park' in ['park', 'forest']   // true
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>3 &gt;= 2 &amp;&amp; 'a' != 'b'           // true
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>!(1 &gt; 2) || false              // true
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>1 &lt; 2.5                        // true, comparisons do mix integers and doubles
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>'park' in ['park', 'forest']   // true
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>population &gt; 1000000 ? 2 : 8      // 2 for a city of 5 million, else 8
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>height &gt; 0 ? height : 'unknown'   // the two branches can have different types
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>1 ? 2 : 3                         // fails, the condition must be a boolean
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>population &gt; 1000000 ? 2 : 8      // 2 for a city of 5 million, else 8
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>height &gt; 0 ? height : 'unknown'   // the two branches can have different types
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>1 ? 2 : 3                         // fails, the condition must be a boolean
 </span></code></pre></div>
 <p>When an attribute gets different types in one tile, such as numbers and strings, all its values in
 that tile are written as strings.</p>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>int(2.7)        // 2
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>int('12')       // 12
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>double('1.5')   // 1.5
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>string(5)       // '5'
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>int(2.7)        // 2
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>int('12')       // 12
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>double('1.5')   // 1.5
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>string(5)       // '5'
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>'Main' + ' St'                      // 'Main St'
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>size('Straße')                      // 6
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>'Main St'.startsWith('Main')        // true
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>'Main St'.endsWith('St')            // true
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>'Main St'.contains('n S')           // true
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>'Main St'.lowerAscii()              // 'main st'
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>' Main St '.trim()                  // 'Main St'
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>'Main St'.replace('St', 'Street')   // 'Main Street'
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>'Main St'.substring(0, 4)           // 'Main'
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>'Main St'.indexOf('St')             // 5
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>'Main' + ' St'                      // 'Main St'
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>size('Straße')                      // 6
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>'Main St'.startsWith('Main')        // true
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>'Main St'.endsWith('St')            // true
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>'Main St'.contains('n S')           // true
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>'Main St'.lowerAscii()              // 'main st'
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>' Main St '.trim()                  // 'Main St'
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>'Main St'.replace('St', 'Street')   // 'Main Street'
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>'Main St'.substring(0, 4)           // 'Main'
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>'Main St'.indexOf('St')             // 5
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>'shop;cafe'.split(';')                          // ['shop', 'cafe']
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>['shop', 'cafe'].join(', ')                     // 'shop, cafe'
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>'shop;cafe'.split(';').exists(k, k == 'shop')   // true
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>[1, 2, 3].all(x, x &gt; 0)                         // true
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>[1, 2, 3].map(x, x * 2)                         // [2, 4, 6]
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>[1, 2, 3].filter(x, x &gt; 1)                      // [2, 3]
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>[10, 20][1]                                     // 20
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>{'a': 1}['a']                                   // 1
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>'shop;cafe'.split(';')                          // ['shop', 'cafe']
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>['shop', 'cafe'].join(', ')                     // 'shop, cafe'
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>'shop;cafe'.split(';').exists(k, k == 'shop')   // true
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>[1, 2, 3].all(x, x &gt; 0)                         // true
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>[1, 2, 3].map(x, x * 2)                         // [2, 4, 6]
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>[1, 2, 3].filter(x, x &gt; 1)                      // [2, 3]
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>[10, 20][1]                                     // 20
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>{'a': 1}['a']                                   // 1
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>coalesce(feature['name:en'], name)   // the English name, else the name
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>coalesce(null, null)                 // null
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>coalesce(feature['name:en'], name)   // the English name, else the name
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>coalesce(null, null)                 // null
 </span></code></pre></div>
 </div>
 </div>
@@ -3158,28 +3472,28 @@ that tile are written as strings.</p>
 <p>An expression that fails on a feature, for example by dividing by zero or by returning a string where
 a zoom is needed, counts as <code>null</code> there. The first failure of each expression is logged, and the run
 ends with how often each one failed.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">places</span><span class="p">:</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">places</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">        </span><span class="nt">osm_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">        </span><span class="s">"name:en"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">        </span><span class="nt">population</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">        </span><span class="nt">places</span><span class="p">:</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000"</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000000</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">8"</span>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="s">"osm_id</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">10"</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span>
-</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="w">            </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">class</span>
-</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">            </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"coalesce(feature['name:en'],</span><span class="nv"> </span><span class="s">name)"</span><span class="p p-Indicator">,</span><span class="nt"> minzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">            </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> value</span><span class="p">:</span><span class="w"> </span><span class="nv">osm</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="w">            </span><span class="nt">rank</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="nt">places</span><span class="p">:</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">places</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">        </span><span class="nt">osm_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">        </span><span class="s">"name:en"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">        </span><span class="nt">population</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int8</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">        </span><span class="nt">places</span><span class="p">:</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000"</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">          </span><span class="nt">minzoom</span><span class="p">:</span><span class="w"> </span><span class="s">"population</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">1000000</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">8"</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="s">"osm_id</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">10"</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">            </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">class</span>
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">            </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> expr</span><span class="p">:</span><span class="w"> </span><span class="s">"coalesce(feature['name:en'],</span><span class="nv"> </span><span class="s">name)"</span><span class="p p-Indicator">,</span><span class="nt"> minzoom</span><span class="p">:</span><span class="w"> </span><span class="nv">10</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="w">            </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> value</span><span class="p">:</span><span class="w"> </span><span class="nv">osm</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">            </span><span class="nt">rank</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </span></code></pre></div>
 <h2 id="serving">Serving</h2>
 <p>The tile server renders a table source with <code>layers</code> itself instead of asking PostGIS for an
@@ -3199,32 +3513,32 @@ shows how.</p>
   each tile alone. Blocks are aligned to multiples of N, so the tiles of one block share it. Without a
   tile cache, or outside its zooms, each tile is rendered alone. A table with <code>prefetch</code> needs <code>layers</code>.</li>
 </ul>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">postgres</span><span class="p">:</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">prefetch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">roads</span><span class="p">:</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">      </span><span class="nt">id_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">osm_id</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">      </span><span class="nt">prefetch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">        </span><span class="nt">roads</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">prefetch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">tables</span><span class="p">:</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">roads</span><span class="p">:</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">      </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">roads</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="nt">geometry_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geom</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="nt">id_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">osm_id</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">      </span><span class="nt">prefetch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">        </span><span class="nt">roads</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
 </span></code></pre></div>
 <h2 id="validation">Validation</h2>
 <ul>
 <li><strong>Reading the configuration</strong> fails on invalid values, with their line and column: a zoom above 30,
   a negative <code>simplify</code>, a <code>minzoom</code> above <code>maxzoom</code>, an expression that is not valid CEL,
-  <code>layer_id</code> together with <code>layers</code>, overlapping zoom ranges in one per-tile operation's list, or a
-  per-tile operation on a table source or, except a grid <code>thinning</code>, in a rule. Unknown keys are warned
-  about.</li>
+  <code>layer_id</code> together with <code>layers</code>, overlapping zoom ranges in one per-tile operation's list, a
+  <code>thinning</code> option its <code>method</code> does not take, or a per-tile operation on a table source or, except a
+  grid <code>thinning</code>, in a rule. Unknown keys are warned about.</li>
 <li><strong>Before rendering</strong>, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
-  yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that
-  never acts on the layer's <code>geometry</code>, and about a grid <code>thinning</code> with squares larger than the layer's
-  <code>buffer</code>.</li>
+  yet, and on a <code>group_by</code> attribute the layer does not write. It warns about a per-tile operation whose
+  zooms miss the layer's, and drops it, about one that never acts on the layer's <code>geometry</code>, and about a
+  grid <code>thinning</code> with squares larger than the layer's <code>buffer</code>.</li>
 </ul>
 <p><a href="../martin-test/"><code>martin test</code></a> checks what the layers make of real rows of the database, and keeps it in
 a spec file.</p>

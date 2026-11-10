@@ -13,8 +13,9 @@
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-> - [ ] `geometry` other than `point`, `line` and `polygon`: Planetiler's `polygon_centroid`, `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside Martin itself, when serving tiles. Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like PostgreSQL does with `ST_AsMVT`.
 

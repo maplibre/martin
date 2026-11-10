@@ -13,8 +13,9 @@
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-> - [ ] `geometry` other than `point`, `line` and `polygon`: Planetiler's `polygon_centroid`, `line_centroid`, `line_midpoint`, `centroid`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`thinning`, `limit`)
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
 
@@ -54,13 +55,16 @@ Every feature is offered to each layer, which may take it or not. Inside each ti
 | `extent`, `buffer`, `clip_geom` | Override the table source's |  |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons | [Simplification](<#simplification-and-minimum-size>) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped | [Simplification](<#simplification-and-minimum-size>) |
-| `geometry` | `point`, `line` or `polygon`: only features of that type | [Features](<#features>) |
+| `geometry` | Only features of one type, or a point computed from each | [Geometry](<#geometry>) |
 | `where` | An expression: only features for which it is `true` | [Features](<#features>) |
 | `attributes` | Which properties to write, and under which names | [Attributes](<#attributes>) |
 | `id` | `true` (default), `false`, or an expression | [Feature ids](<#feature-ids>) |
 | `rules` | Different zooms, simplification and attributes for some features | [Rules](<#rules>) |
 | `sort_by` | The draw order of the layer's features in each tile | [Draw order](<#draw-order>) |
+| `merge_lines` | Joins lines whose ends meet in one tile | [Per-tile operations](<#per-tile-operations>) |
+| `merge_polygons` | Unions polygons of a group in one tile | [Per-tile operations](<#per-tile-operations>) |
 | `thinning` | Drops features crowded out by earlier ones in one tile | [Per-tile operations](<#per-tile-operations>) |
+| `merge_multi` | One multi-geometry per group in one tile | [Per-tile operations](<#per-tile-operations>) |
 | `limit` | The most features of the layer in one tile | [Per-tile operations](<#per-tile-operations>) |
 
 `extent`, `buffer` and `clip_geom` default to the table source's, then to 4096, 64 and `true`. `extent` must be a power of two from 64 to 2097152, and `buffer` less than half the `extent`. With `clip_geom: false`, every tile a line or polygon reaches holds all of it, not just its part there.
@@ -102,12 +106,12 @@ The layer's max zoom is its highest zoom after narrowing, not the highest zoom o
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the layer's `geometry` type, if set,
+2. the type the layer's [`geometry`](<#geometry>) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](<#rules>)'s `where` is not one of them. A feature that matches no rule stays in the layer.
 
-The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
@@ -116,6 +120,21 @@ The database also applies the `geometry` and `where` of every layer at the zoom 
 - `size`, `startsWith`, `endsWith`, `contains`, `lowerAscii` and `upperAscii` on a string column, compared with a literal.
 
 Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differently. When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name. Listing `attributes` without the `jsonb` property's keys avoids that. Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.
+
+### Geometry
+
+`geometry` sets the features a layer takes and what it draws for each, with Planetiler's names:
+
+| `geometry` | Takes | Draws |
+| --- | --- | --- |
+| `point` | points | the points |
+| `line` | lines | the lines |
+| `polygon` | polygons | the polygons |
+| `polygon_centroid` | polygons | the centroid, a point |
+| `line_centroid` | lines | the centroid, a point |
+| `centroid` | all | the centroid, a point |
+
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and [per-tile operations](<#per-tile-operations>) see a point.
 
 ## Attributes
 
@@ -222,20 +241,72 @@ Operations run in this order, whatever order they are written in:
 
 | Order | Operation | Does |
 | --- | --- | --- |
-| 1 | `thinning` | Drops features earlier ones crowd out |
-| 2 | `limit` | Keeps the first `count` features, in order |
+| 1 | `merge_lines` | Joins lines whose ends meet and attributes are equal |
+| 2 | `merge_polygons` | Unions a group's polygons |
+| 3 | `thinning` | Drops features an earlier one with the same key crowds out |
+| 4 | `merge_multi` | Combines a group's features of one type into a multi-feature |
+| 5 | `limit` | Keeps the first `count` features, in order |
 
 Every operation takes `minzoom` and `maxzoom`, numbers clamped to the layer's zooms. Outside them the operation is skipped and features pass through unchanged. For different settings at different zooms, give a list of option maps instead of one map; their zoom ranges must not overlap. An operation whose zooms miss the layer's entirely is dropped with a warning.
 
+Merging operations group features by the values of attributes: `merge_lines` by all of them, `merge_polygons` by those in `group_by`, or all of them when it is unset, and `merge_multi` by those in `group_by`. Values compare by type too, so `1` and `"1"` are different groups, and a feature without a `group_by` attribute groups with others without it. A merged feature takes the place of the first feature of its group. It keeps a feature id only if all of its group has the same one.
+
 Since operations keep the first features of the list, `sort_by` decides which features survive. A layer without `sort_by` keeps the order features are read in, which the tile server does not fix, see [Draw order](<#draw-order>).
 
-After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it took and kept:
+After a bulk run, Martin logs each operation of each layer with the tiles it ran on and the features it took and kept, and warns about groups a merge could not make valid:
 
 ```text
 INFO Ran `limit` layer.id=roads tiles=22 features.input=264 features.output=202
 ```
 
 The output does not depend on `--threads`. Tiles served with or without `prefetch` equal the bulk ones of `--format mvt` for layers with a `sort_by`.
+
+### `merge_lines`
+
+Joins lines whose attributes are all equal into longer lines, so a road cut into many segments becomes one, which lets clients place labels along it. Where exactly two line ends meet, at the same tile coordinates, the lines are joined; where three or more meet, as at a junction, they are not. The joined lines are simplified by `tolerance`, the same way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below `min_length`. The lines of equal attributes become one line or multi-line feature, or nothing if no line is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out of `attributes` at those zooms.
+
+```yaml
+merge_lines:
+  - { maxzoom: 10, min_length: 1, tolerance: 0.5 }
+  - { minzoom: 11, maxzoom: 13, min_length: 0.25 }
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `min_length` | 0 | Pixels; shorter merged lines are dropped |
+| `tolerance` | 0 | Pixels; simplifies the merged lines, 0 keeps every vertex |
+| `buffer` | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `minzoom`, `maxzoom` | the layer's zooms | Where it runs |
+
+Planetiler's `mergeLineStrings` joins lines the same way at plain joints, and also joins strokes through junctions and drops short stubs and loops, which `merge_lines` does not.
+
+Each tile joins, simplifies and measures only what it holds of the lines, in the tile and `buffer`. A line ending just past a tile edge can be shorter than `min_length` in the next tile and is dropped there, and the two tiles' simplified lines can cross their shared edge at different points.
+
+### `merge_polygons`
+
+Unions the polygons of a group, such as adjacent land use areas of one kind, as Planetiler's `mergeNearbyPolygons` does, or `mergeOverlappingPolygons` with `distance: 0`. The polygons are first clipped to the tile and `buffer`. With a `distance`, they are grown by half of it, merged and shrunk again, which joins polygons closer than `distance`. Holes smaller than `min_hole_area` are then filled, polygons smaller than `min_area` dropped, and the result snapped to the tile grid. Each group becomes one polygon or multi-polygon feature, or nothing. A group whose union is not valid once snapped keeps its features as they were, and the first such group is logged. The run summary counts them.
+
+```yaml
+merge_polygons:
+  maxzoom: 12
+  min_area: 4        # px²
+  min_hole_area: 1   # px²
+  distance: 0.5      # px
+  group_by: [kind]
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `min_area` | 0 | Square pixels; smaller merged polygons are dropped |
+| `min_hole_area` | 0 | Square pixels; smaller holes are filled |
+| `distance` | 0 | Pixels; closer polygons are joined, 0 joins touching ones |
+| `buffer` | the layer's buffer | Pixels around the tile kept after merging, at most the layer's |
+| `group_by` | every attribute | The attributes polygons must share |
+| `minzoom`, `maxzoom` | the layer's zooms | Where it runs |
+
+A covered tile's fill is a square over the tile and its buffer, merged like any other polygon.
+
+Each tile merges only what it holds of the polygons, in the tile and `buffer`, so `min_area` counts only that part. A polygon reaching just past a tile edge can be dropped from the next tile.
 
 ### `thinning`
 
@@ -244,6 +315,10 @@ Drops a feature when an earlier kept feature, in draw order, crowds it out, so g
 | `method` | A feature is dropped when |
 | --- | --- |
 | `grid` | its square already holds `limit` kept points |
+| `distance` | a kept feature lies within `distance` of it |
+| `tile` | a kept feature is anywhere in the tile |
+
+With `keys`, a list of CEL expressions, only features with the same key values crowd each other out, such as a road name drawn many times. Without `keys`, every feature competes with every other.
 
 ```yaml
 postgres:
@@ -263,6 +338,7 @@ postgres:
           sort_by: [{ expr: "population", desc: true }]
           thinning:
             - { maxzoom: 9, method: grid, size: 64, limit: 2 }
+            - { minzoom: 10, method: distance, distance: 64, keys: [name] }
           rules:
             - where: "kind == 'capital'"
               thinning: null   # capitals are never thinned out by the grid
@@ -272,14 +348,40 @@ postgres:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `method` | required | `grid` |
+| `method` | required | `grid`, `distance` or `tile` |
 | `size` | required by `grid` | Side of a square above 0, in pixels of a 256-pixel tile |
-| `limit` | required by `grid` | Points kept per square in each tile, 1 or more |
+| `limit` | required by `grid` | Points kept per square and key in each tile, 1 or more |
+| `distance` | required by `distance` | Pixels within which a feature with the same key is dropped |
+| `keys` | one key for all; required by `tile` | CEL expressions forming the key |
 | `minzoom`, `maxzoom` | the layer's zooms | Where it runs |
 
 `grid` thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it covers, the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. Each point counts against its own `limit` in the square it falls in, so points of one layer with different sizes share a count when their squares have the same column and row, as in Planetiler. A multi-point is split into its points, each kept or dropped on its own. Lines and polygons pass through. Squares smaller than one unit of the layer's `extent` do not limit anything. A square crossing a tile edge is counted the same way in both tiles only when each sees all of its points, so set the layer's `buffer` to at least `size` pixels. A warning tells you when it is smaller.
 
-A rule may set its own grid `thinning` for the features it takes, replacing the layer's grid, or `null` to turn the grid off for them.
+A rule may set its own grid `thinning` for the features it takes, without `keys`, replacing the layer's grid, or `null` to turn the grid off for them. `distance` and `tile` thinning see every feature of the layer; to spare some features, give them a key of only `null`s.
+
+`distance` places each feature at a representative point of what the tile holds of it, in the tile and its buffer: a point itself, the middle of a line's longest part, or a point inside a polygon. A line crossing a tile edge has a different one in each tile. Features on either side of a tile edge crowd each other out the same way in both tiles only when the layer's `buffer` is at least `distance` pixels.
+
+`tile` keeps the first feature of each key in the tile and its buffer. That can be a feature that only reaches into the buffer, which leaves no feature of its key inside the tile.
+
+Unlike `where`, `id` and attribute expressions, which read the source's properties, `keys` read the feature's output attributes at this zoom by their output names, after `attributes`, `rules` and each attribute's zooms, as Planetiler's layer post-processing sees features. A name the layer does not write fails the run before rendering. A feature whose key values are all `null` is never thinned out. A failed evaluation counts as `null`, and is counted and logged once like other expressions.
+
+### `merge_multi`
+
+Combines the features of a group into one multi-point, multi-line or multi-polygon per geometry type, without changing any geometry, the parts in draw order, as Planetiler's `mergeMultiPoint`, `mergeMultiLineString` and `mergeMultiPolygon` do. A point alone in its group stays a point. Every feature of a type in `geometry` keeps only its `group_by` attributes, even one alone in its group.
+
+Each tile combines only the features it holds, in the tile and its buffer, so a multi-feature never spans tiles and a point in the buffer is a part in both tiles.
+
+```yaml
+merge_multi:
+  geometry: [point]   # only combine points; lines and polygons pass through
+  group_by: [kind]
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `geometry` | `[point, line, polygon]` | The types to combine; others pass through |
+| `group_by` | required, 1 or more | The attributes features share and keep |
+| `minzoom`, `maxzoom` | the layer's zooms | Where it runs |
 
 ### `limit`
 
@@ -423,7 +525,7 @@ postgres:
 
 ## Validation
 
-- **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a per-tile operation on a table source or, except a grid `thinning`, in a rule. Unknown keys are warned about.
-- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
+- **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, a `thinning` option its `method` does not take, or a per-tile operation on a table source or, except a grid `thinning`, in a rule. Unknown keys are warned about.
+- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
 
 [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) checks what the layers make of real rows of the database, and keeps it in a spec file.
