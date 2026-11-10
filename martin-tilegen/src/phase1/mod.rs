@@ -147,9 +147,10 @@ impl RenderTotals {
         add_op_counts(&mut self.ops, &other.ops);
     }
 
-    /// Adds what the encoders' per-tile operations did.
+    /// Adds what the encoders' per-tile operations did, and their failed evaluations.
     pub(crate) fn add_encoders<'e>(&mut self, encoders: impl IntoIterator<Item = &'e TileEncoder>) {
         for encoder in encoders {
+            self.exprs.add(encoder.expr_errors());
             add_op_counts(&mut self.ops, encoder.op_counts());
         }
     }

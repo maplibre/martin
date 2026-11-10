@@ -1934,6 +1934,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
                         kind: 'gid % 2'
                       sort_by: [gid]
                       thinning:
+                        - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
                       merge_multi: { geometry: [point], group_by: [kind] }
                       limit: 5
@@ -1971,18 +1972,15 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `thinning` layer.id=merged tiles=90 features.input=797 features.output=677
-    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=3831 features.output=3756
-    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3756 features.output=3499
+    INFO Ran `thinning` layer.id=merged tiles=91 features.input=822 features.output=679
+    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=3808 features.output=3746
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=3746 features.output=3496
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
     layer merged extent 4096
-      id=None geom=MULTIPOINT(2025 2025,2162 1551,2503 1690,2276 1816,2389 1934,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911) props=[kind=U32(Some(0))]
-      id=None geom=MULTIPOINT(2048 2048,2389 1934,2162 1551,2503 1690,2276 1816,2389 1934,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911,3673 1911,-423 1911) props=[kind=U32(Some(1))]
-      id=Some(6) geom=LINESTRING(2389 1934,2162 1690,2503 1551) props=[kind=U32(Some(0))]
-      id=Some(7) geom=POLYGON((2162 1816,2276 1551,2503 1551,2389 1934,2162 1816)) props=[kind=U32(Some(1))]
-      id=Some(8) geom=POLYGON((2162 1816,2219 1551,2560 1473,2446 1934,2162 1816),(2389 1816,2446 1622,2276 1690,2389 1816)) props=[kind=U32(Some(0))]
+      id=Some(1) geom=POINT(2048 2048) props=[kind=U32(Some(1))]
+      id=Some(2) geom=POINT(2025 2025) props=[kind=U32(Some(0))]
     ");
 }
 
@@ -2017,6 +2015,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
                         kind: 'gid % 2'
                       sort_by: [gid]
                       thinning:
+                        - { maxzoom: 0, method: tile, keys: [kind] }
                         - { minzoom: 1, method: grid, size: 64, limit: 2 }
                       merge_multi: { geometry: [point], group_by: [kind] }
                       limit: 5
@@ -2068,12 +2067,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 572,
+        "line": 571,
         "multi-line": 7,
-        "multi-point": 37,
+        "multi-point": 35,
         "multi-polygon": 3,
-        "point": 128,
-        "polygon": 2752,
+        "point": 130,
+        "polygon": 2750,
     }
     "#);
 }

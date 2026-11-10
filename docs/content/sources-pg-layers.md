@@ -264,7 +264,7 @@ Operations run in this order, whatever order they are written in:
 
 | Order | Operation        | Does                                                         |
 |-------|------------------|--------------------------------------------------------------|
-| 1     | `thinning`       | Drops features earlier ones crowd out                        |
+| 1     | `thinning`       | Drops features an earlier one with the same key crowds out   |
 | 2     | `merge_multi`    | Combines a group's features of one type into a multi-feature |
 | 3     | `limit`          | Keeps the first `count` features, in order                   |
 
@@ -297,9 +297,14 @@ The output does not depend on `--threads`. Tiles served with or without `prefetc
 Drops a feature when an earlier kept feature, in draw order, crowds it out, so give the layer a
 `sort_by`. `method` says what crowds a feature out:
 
-| `method` | A feature is dropped when                    |
-|----------|----------------------------------------------|
-| `grid`   | its square already holds `limit` kept points |
+| `method`   | A feature is dropped when                    |
+|------------|----------------------------------------------|
+| `grid`     | its square already holds `limit` kept points |
+| `distance` | a kept feature lies within `distance` of it  |
+| `tile`     | a kept feature is anywhere in the tile       |
+
+With `keys`, a list of CEL expressions, only features with the same key values crowd each other out, such
+as a road name drawn many times. Without `keys`, every feature competes with every other.
 
 ```yaml
 postgres:
@@ -319,6 +324,7 @@ postgres:
           sort_by: [{ expr: "population", desc: true }]
           thinning:
             - { maxzoom: 9, method: grid, size: 64, limit: 2 }
+            - { minzoom: 10, method: distance, distance: 64, keys: [name] }
           rules:
             - where: "kind == 'capital'"
               thinning: null   # capitals are never thinned out by the grid
@@ -326,12 +332,14 @@ postgres:
               thinning: { maxzoom: 9, method: grid, size: 128, limit: 1 }
 ```
 
-| Option               | Default            | Meaning                                                 |
-|----------------------|--------------------|---------------------------------------------------------|
-| `method`             | required           | `grid`                                                  |
-| `size`               | required by `grid` | Side of a square above 0, in pixels of a 256-pixel tile |
-| `limit`              | required by `grid` | Points kept per square in each tile, 1 or more          |
-| `minzoom`, `maxzoom` | the layer's zooms  | Where it runs                                           |
+| Option               | Default                             | Meaning                                                    |
+|----------------------|-------------------------------------|------------------------------------------------------------|
+| `method`             | required                            | `grid`, `distance` or `tile`                               |
+| `size`               | required by `grid`                  | Side of a square above 0, in pixels of a 256-pixel tile    |
+| `limit`              | required by `grid`                  | Points kept per square and key in each tile, 1 or more     |
+| `distance`           | required by `distance`              | Pixels within which a feature with the same key is dropped |
+| `keys`               | one key for all; required by `tile` | CEL expressions forming the key                            |
+| `minzoom`, `maxzoom` | the layer's zooms                   | Where it runs                                              |
 
 `grid` thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it
 covers, the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. Each
@@ -344,8 +352,27 @@ same way in both tiles only when each sees all of its points, so set the layer's
 
 --8<-- "images/generate/per-tile-thinning-grid.svg"
 
-A rule may set its own grid `thinning` for the features it takes, replacing the layer's grid, or `null`
-to turn the grid off for them.
+A rule may set its own grid `thinning` for the features it takes, without `keys`, replacing the layer's
+grid, or `null` to turn the grid off for them. `distance` and `tile` thinning see every feature of the
+layer; to spare some features, give them a key of only `null`s.
+
+`distance` places each feature at a representative point of what the tile holds of it, in the tile and its
+buffer: a point itself, the middle of a line's longest part, or a point inside a polygon. A line crossing a
+tile edge has a different one in each tile. Features on either side of a tile edge crowd each other out
+the same way in both tiles only when the layer's `buffer` is at least `distance` pixels.
+
+--8<-- "images/generate/per-tile-thinning-distance.svg"
+
+`tile` keeps the first feature of each key in the tile and its buffer. That can be a feature that only
+reaches into the buffer, which leaves no feature of its key inside the tile.
+
+--8<-- "images/generate/per-tile-thinning-tile.svg"
+
+Unlike `where`, `id` and attribute expressions, which read the source's properties, `keys` read the
+feature's output attributes at this zoom by their output names, after `attributes`, `rules` and each
+attribute's zooms, as Planetiler's layer post-processing sees features. A name the layer does not write
+fails the run before rendering. A feature whose key values are all `null` is never thinned out. A failed
+evaluation counts as `null`, and is counted and logged once like other expressions.
 
 ### `merge_multi`
 
@@ -551,9 +578,9 @@ postgres:
 
 - **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30,
   a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL,
-  `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, or a
-  per-tile operation on a table source or, except a grid `thinning`, in a rule. Unknown keys are warned
-  about.
+  `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, a
+  `thinning` option its `method` does not take, or a per-tile operation on a table source or, except a
+  grid `thinning`, in a rule. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
   duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
   yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose

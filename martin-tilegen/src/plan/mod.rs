@@ -14,7 +14,8 @@ use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
-use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
+use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, ThinningKey, Zoom};
+use crate::phase1::TILE_PIXELS;
 use crate::phase2::{LayerInfo, OpKind};
 pub use crate::plan::branch::{Branch, ColumnFacts, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
@@ -188,8 +189,14 @@ pub struct TileOpDef {
 /// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TileOp {
-    /// Drops features that an earlier kept feature crowds out, as `method` says.
-    Thinning { method: ThinningMethod },
+    /// Drops features that an earlier kept feature with the same key crowds out, as `method` says. The key
+    /// is the values of `keys` over the feature's output attributes; without `keys` every feature has the
+    /// same key. A key of only `null`s is never thinned.
+    Thinning {
+        method: ThinningMethod,
+        /// CEL expressions over the feature's output attributes, by output name.
+        keys: Vec<String>,
+    },
     /// Combines the features of a group and type into one multi-geometry, with the parts in draw order,
     /// and only the `group_by` attributes.
     MergeMulti {
@@ -222,9 +229,14 @@ pub enum ThinningMethod {
     Grid {
         /// Side of a square, in pixels of a 256-pixel tile.
         size: f64,
-        /// Points kept per square.
+        /// Points kept per square and key.
         limit: NonZeroU32,
     },
+    /// Drops a feature within `distance` pixels of a 256-pixel tile of an earlier kept one with its key,
+    /// measured between representative points.
+    Distance { distance: f64 },
+    /// Drops a feature whose key an earlier kept one has anywhere in the tile.
+    Tile,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -706,7 +718,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         })
         .collect::<Result<_, PlanError>>()?;
     check_group_by(&def, &keys, compiler.dynamic_props)?;
-    let per_tile = plan_per_tile(&def);
+    let per_tile = plan_per_tile(&def, &keys, compiler)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -774,16 +786,40 @@ fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeIncl
     (lo <= hi).then_some(lo..=hi)
 }
 
-/// The layer's operations in the order they run, each clamped into its zooms, without those outside them.
-/// Grid thinning runs on what rendering marked, so it has none.
-fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
+/// The layer's operations in the order they run, each clamped into its zooms, without those outside them,
+/// and with `thinning` keys compiled over the layer's output attributes.
+fn plan_per_tile(
+    def: &LayerDef,
+    keys: &[String],
+    compiler: &mut Compiler<'_>,
+) -> Result<Vec<PlannedTileOp>, PlanError> {
+    let output_props = compiler.dynamic_props && def.attributes == AttributesDef::All;
     let mut ops = Vec::new();
     for op in &def.per_tile {
         let Some(zooms) = clamped_zooms(op, &def.zooms) else {
             continue;
         };
+        let units = f64::from(def.grid.extent) / TILE_PIXELS;
         let planned = match &op.op {
-            TileOp::Thinning { .. } => continue,
+            TileOp::Thinning { method, keys: sources } => PlannedOp::Thinning {
+                keys: sources
+                    .iter()
+                    .map(|source| {
+                        let expr = CompiledExpr::compile(source, keys, output_props).map_err(|error| {
+                            PlanError::LayerExpr {
+                                layer: def.name.clone(),
+                                error,
+                            }
+                        })?;
+                        Ok(compiler.add(source, expr, ThinningKey))
+                    })
+                    .collect::<Result<_, PlanError>>()?,
+                method: match method {
+                    ThinningMethod::Grid { .. } => PlannedThinning::Grid,
+                    ThinningMethod::Distance { distance } => PlannedThinning::Distance(distance * units),
+                    ThinningMethod::Tile => PlannedThinning::Tile,
+                },
+            },
             TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
                 geometry: geometry.clone(),
                 group_by: group_by.clone(),
@@ -793,7 +829,7 @@ fn plan_per_tile(def: &LayerDef) -> Vec<PlannedTileOp> {
         ops.push((op.op.rank(), PlannedTileOp { zooms, op: planned }));
     }
     ops.sort_by_key(|(rank, op)| (*rank, *op.zooms.start()));
-    ops.into_iter().map(|(_, op)| op).collect()
+    Ok(ops.into_iter().map(|(_, op)| op).collect())
 }
 
 /// A [`TileOpDef`] as the encoder runs it.
@@ -803,9 +839,13 @@ pub struct PlannedTileOp {
     pub(crate) op: PlannedOp,
 }
 
-/// A [`TileOp`] as the encoder runs it.
+/// A [`TileOp`] with its expressions compiled and its distances in tile units.
 #[derive(Clone, Debug)]
 pub(crate) enum PlannedOp {
+    Thinning {
+        keys: Vec<ExprRef<ThinningKey>>,
+        method: PlannedThinning,
+    },
     MergeMulti {
         geometry: Vec<GeometryType>,
         group_by: Vec<String>,
@@ -819,10 +859,21 @@ impl PlannedOp {
     /// Which operation this is.
     pub(crate) const fn kind(&self) -> OpKind {
         match self {
+            Self::Thinning { .. } => OpKind::Thinning,
             Self::MergeMulti { .. } => OpKind::MergeMulti,
             Self::Limit { .. } => OpKind::Limit,
         }
     }
+}
+
+/// A [`ThinningMethod`] as the encoder runs it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum PlannedThinning {
+    /// Rendering put each point in its square and gave it its limit.
+    Grid,
+    /// In tile units.
+    Distance(f64),
+    Tile,
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
@@ -939,6 +990,7 @@ fn layer_grids(def: &LayerDef) -> Vec<ThinningGrid> {
         .filter_map(|op| {
             let TileOp::Thinning {
                 method: ThinningMethod::Grid { size, limit },
+                ..
             } = &op.op
             else {
                 return None;

@@ -7,9 +7,12 @@ mod thinning;
 use std::cell::RefCell;
 use std::ops::Range;
 
+use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use mlt_core::PropValueRef;
 
-use crate::plan::{PlannedOp, PlannedTileOp};
+use crate::expr::{ExprKeys, PropSlots};
+use crate::phase2::per_tile::thinning::Thinning;
+use crate::plan::{Plan, PlannedOp, PlannedTileOp};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -218,6 +221,35 @@ impl From<PropValueRef<'_>> for GroupValue {
     }
 }
 
+/// The lines of a line feature's geometry.
+pub(crate) fn lines(geom: &GeomBuf) -> Vec<LineString<f64>> {
+    paths(&geom.parts, &geom.vertices).collect()
+}
+
+/// The polygons of a polygon feature's geometry, its rings closed.
+pub(crate) fn polygons(geom: &GeomBuf) -> MultiPolygon<f64> {
+    let mut rings = paths(&geom.parts, &geom.vertices);
+    geom.polygons
+        .iter()
+        .filter_map(|&count| {
+            let mut polygon = rings.by_ref().take(count as usize);
+            let exterior = polygon.next()?;
+            Some(Polygon::new(exterior, polygon.collect()))
+        })
+        .collect()
+}
+
+/// Consecutive runs of `vertices`, `parts` long each, as line strings.
+fn paths<'g>(parts: &'g [u32], mut vertices: &'g [Vertex]) -> impl Iterator<Item = LineString<f64>> + 'g {
+    parts.iter().map(move |&len| {
+        let (part, rest) = vertices.split_at(len as usize);
+        vertices = rest;
+        part.iter()
+            .map(|&[x, y]| Coord::from((f64::from(x), f64::from(y))))
+            .collect()
+    })
+}
+
 /// The tile and its buffer as one square polygon, which a fill stands for.
 pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
     #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
@@ -227,10 +259,45 @@ pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
     geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
 }
 
+/// What per-tile operations evaluate expressions with, for every layer of a plan.
+pub struct OutputExprs<'p> {
+    plan: &'p Plan,
+    /// Each layer's output attribute names, as its expressions read them.
+    keys: Vec<ExprKeys>,
+}
+
+impl<'p> OutputExprs<'p> {
+    /// The expressions of `plan`, over output attributes named by `names`, one per layer.
+    pub(crate) fn new(plan: &'p Plan, names: &[KeyNames]) -> Self {
+        Self {
+            plan,
+            keys: names
+                .iter()
+                .map(|names| names.iter().map(|(key, name)| (name, key)).collect())
+                .collect(),
+        }
+    }
+
+    /// What the operations of layer `layer` evaluate expressions with.
+    pub(crate) fn layer(&self, layer: usize) -> LayerExprs<'_> {
+        LayerExprs {
+            plan: self.plan,
+            keys: &self.keys[layer],
+        }
+    }
+}
+
+/// What one layer's per-tile operations evaluate expressions with.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct LayerExprs<'a> {
+    pub(crate) plan: &'a Plan,
+    pub(crate) keys: &'a ExprKeys,
+}
+
 /// A per-tile operation, in the order they run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OpKind {
-    /// Drops features an earlier kept feature crowds out.
+    /// Drops features an earlier kept feature with the same key crowds out.
     Thinning,
     /// Combines a group's features of one type into a multi-feature.
     MergeMulti,
@@ -312,9 +379,13 @@ impl LayerOpCounts {
     }
 }
 
-/// Per-worker scratch of the operations, and what they did to the last layer they ran on.
+/// Per-worker scratch of the operations, the failed evaluations of each plan expression, and what the
+/// operations did to the last layer they ran on.
 #[derive(Debug, Default)]
 pub(crate) struct OpScratch {
+    pub(crate) slots: PropSlots,
+    /// Failed evaluations by plan expression index.
+    pub(crate) errors: Vec<u64>,
     /// Reset for each layer of each tile.
     pub(crate) counts: LayerOpCounts,
     pub(crate) thinning: thinning::Scratch,
@@ -325,17 +396,22 @@ pub(crate) struct OpScratch {
 pub struct TileOps<'a> {
     ops: &'a [PlannedTileOp],
     zoom: u8,
+    exprs: Option<LayerExprs<'a>>,
 }
 
 impl<'a> TileOps<'a> {
     /// No operations, so every feature passes through.
     #[cfg(any(test, feature = "internals"))]
-    pub const NONE: Self = Self { ops: &[], zoom: 0 };
+    pub const NONE: Self = Self {
+        ops: &[],
+        zoom: 0,
+        exprs: None,
+    };
 
-    /// `ops` in the order they run, on a tile of zoom `zoom`.
+    /// `ops` in the order they run, on a tile of zoom `zoom`, with expressions evaluated with `exprs`.
     #[must_use]
-    pub(crate) fn new(ops: &'a [PlannedTileOp], zoom: u8) -> Self {
-        Self { ops, zoom }
+    pub(crate) fn new(ops: &'a [PlannedTileOp], zoom: u8, exprs: Option<LayerExprs<'a>>) -> Self {
+        Self { ops, zoom, exprs }
     }
 
     /// The operations that run at this zoom, in order.
@@ -346,8 +422,8 @@ impl<'a> TileOps<'a> {
             .map(|def| &def.op)
     }
 
-    /// Runs the operations of this zoom on `features`, in draw order, with thinning in its place for the
-    /// points that rendering put in grid squares.
+    /// Runs the operations of this zoom on `features`, in draw order. Thinning runs in its place even
+    /// without a thinning of the layer at this zoom, for the points that rules gave a grid.
     pub(crate) fn apply(
         self,
         tile: &LayerTile<'_, '_>,
@@ -358,10 +434,15 @@ impl<'a> TileOps<'a> {
         for op in self.active() {
             if !thinned && op.kind() > OpKind::Thinning {
                 thinned = true;
-                self.thin(tile, features, scratch)?;
+                self.thin(tile, None, features, scratch)?;
             }
             let features_in = features.len();
             match op {
+                PlannedOp::Thinning { keys, method } => {
+                    thinned = true;
+                    self.thin(tile, Some(Thinning { keys, method: *method }), features, scratch)?;
+                    continue;
+                }
                 PlannedOp::MergeMulti { geometry, group_by } => {
                     merge_multi::apply(tile, geometry, group_by, features)?;
                 }
@@ -372,20 +453,37 @@ impl<'a> TileOps<'a> {
                 .record(op.kind(), &OpCounts::run(features_in, features.len()));
         }
         if !thinned {
-            self.thin(tile, features, scratch)?;
+            self.thin(tile, None, features, scratch)?;
         }
         Ok(())
     }
 
-    /// Runs the grid thinning and counts what it did.
+    /// Runs `thinning`, and the grids rules gave points, and counts what they did.
     fn thin(
         self,
         tile: &LayerTile<'_, '_>,
+        thinning: Option<Thinning<'_>>,
         features: &mut Vec<TileFeature>,
         scratch: &mut OpScratch,
     ) -> TileGenResult<()> {
-        if let Some(ran) = thinning::apply(tile, self.zoom, features, &mut scratch.thinning)? {
-            scratch.counts.record(OpKind::Thinning, &ran);
+        let OpScratch {
+            slots,
+            errors,
+            counts,
+            thinning: thin_scratch,
+        } = scratch;
+        let ran = thinning::apply(
+            tile,
+            self.exprs,
+            thinning,
+            self.zoom,
+            features,
+            thin_scratch,
+            slots,
+            errors,
+        )?;
+        if let Some(ran) = ran {
+            counts.record(OpKind::Thinning, &ran);
         }
         Ok(())
     }

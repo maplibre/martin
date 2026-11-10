@@ -288,6 +288,7 @@ mod tests {
                                         ),
                                         limit: 1,
                                     },
+                                    keys: None,
                                     zooms: ..=z8,
                                     unrecognized: UnrecognizedValues(
                                         {},
@@ -304,6 +305,22 @@ mod tests {
             None,
         ]
         ");
+    }
+
+    #[test]
+    fn a_rule_thinning_cannot_use_another_method() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"kind == 'city'\", thinning: { method: distance, distance: 8 } } ] }"),
+            @"error: line 1 column 54: a rule's `thinning` can only be a `method: grid` without `keys`; other methods and keys apply to the whole layer"
+        );
+    }
+
+    #[test]
+    fn a_rule_thinning_cannot_set_keys() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"kind == 'city'\", thinning: { method: grid, size: 64, limit: 1, keys: [name] } } ] }"),
+            @"error: line 1 column 54: a rule's `thinning` can only be a `method: grid` without `keys`; other methods and keys apply to the whole layer"
+        );
     }
 
     #[test]

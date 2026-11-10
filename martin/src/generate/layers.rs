@@ -216,7 +216,9 @@ impl GridContext<'_> {
         } = self;
         let mut lowered = Vec::new();
         for entry in thinning {
-            let ThinningMethod::Grid { size, limit } = entry.method;
+            let ThinningMethod::Grid { size, limit } = entry.method else {
+                continue;
+            };
             let range = entry.zooms;
             let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
             let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
@@ -422,8 +424,21 @@ fn lower_thinning(thinning: &Thinning) -> (TileOp, Option<f64>) {
             },
             Some(size.get()),
         ),
+        ThinningMethod::Distance { distance } => (
+            PlanThinning::Distance {
+                distance: distance.get(),
+            },
+            None,
+        ),
+        ThinningMethod::Tile => (PlanThinning::Tile, None),
     };
-    (TileOp::Thinning { method }, grid_size)
+    let keys = thinning
+        .keys
+        .iter()
+        .flat_map(|keys| keys.iter())
+        .map(|key| key.as_str().to_owned())
+        .collect();
+    (TileOp::Thinning { method, keys }, grid_size)
 }
 
 /// The plan's geometry type for a `merge_multi` `geometry` entry.
@@ -1300,7 +1315,7 @@ mod tests {
                     minzoom: 4
                     thinning:
                       - { maxzoom: 2, method: grid, size: 64, limit: 1 }
-                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2, keys: [kind] }
                     rules:
                       - where: \"kind == 'city'\"
                         thinning: { method: grid, size: 1, limit: 1 }
@@ -1336,6 +1351,9 @@ mod tests {
                                 size: 64.0,
                                 limit: 2,
                             },
+                            keys: [
+                                "kind",
+                            ],
                         },
                     },
                 ],
@@ -1365,6 +1383,7 @@ mod tests {
                                 size: 1.0,
                                 limit: 1,
                             },
+                            keys: [],
                         },
                     },
                 ],
@@ -1389,7 +1408,7 @@ mod tests {
                     minzoom: 4
                     thinning:
                       - { maxzoom: 2, method: grid, size: 64, limit: 1 }
-                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2, keys: [kind] }
                     rules:
                       - where: \"kind == 'city'\"
                         thinning: { method: grid, size: 1, limit: 1 }
@@ -1496,5 +1515,39 @@ mod tests {
             insta::assert_snapshot!(warnings.join("\n"), @"`merge_multi` of layer `pois` in source `roads_source` never acts on its point features");
             Ok(())
         });
+    }
+
+    #[test]
+    fn distance_thinning_lowers_its_keys_and_distance() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  road_labels:
+                    thinning: { method: distance, keys: [name, \"ref + '!'\"], distance: 64 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: Thinning {
+                    method: Distance {
+                        distance: 64.0,
+                    },
+                    keys: [
+                        "name",
+                        "ref + '!'",
+                    ],
+                },
+            },
+        ]
+        "#);
     }
 }
