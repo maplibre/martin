@@ -55,7 +55,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `extent`, `buffer`, `clip_geom`   | Override the table source's                                      |                                                    |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons          | [Simplification](#simplification-and-minimum-size) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped               | [Simplification](#simplification-and-minimum-size) |
-| `geometry`                        | `point`, `line` or `polygon`: only features of that type         | [Features](#features)                              |
+| `geometry`                        | Only features of one type, or a point computed from each         | [Geometry](#geometry)                              |
 | `where`                           | An expression: only features for which it is `true`              | [Features](#features)                              |
 | `attributes`                      | Which properties to write, and under which names                 | [Attributes](#attributes)                          |
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
@@ -123,13 +123,13 @@ A rule's `simplify` and `min_size` apply at every zoom, including the max zoom.
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the layer's `geometry` type, if set,
+2. the type the layer's [`geometry`](#geometry) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](#rules)'s `where` is not one of them.
 A feature that matches no rule stays in the layer.
 
-The database also applies the `geometry` and `where` of every layer at the zoom being read, so rows no
+The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no
 layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
@@ -143,6 +143,24 @@ Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differ
 When a layer reads a `jsonb` property, no `where` has one, as any key may share a column's name.
 Listing `attributes` without the `jsonb` property's keys avoids that.
 Without a SQL equivalent, Martin reads every row and checks `where` itself, with the same result.
+
+### Geometry
+
+`geometry` sets the features a layer takes and what it draws for each, with Planetiler's names:
+
+| `geometry`         | Takes    | Draws                  |
+|--------------------|----------|------------------------|
+| `point`            | points   | the points             |
+| `line`             | lines    | the lines              |
+| `polygon`          | polygons | the polygons           |
+| `polygon_centroid` | polygons | the centroid, a point  |
+| `line_centroid`    | lines    | the centroid, a point  |
+| `centroid`         | all      | the centroid, a point  |
+
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all
+parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web
+Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and
+[per-tile operations](#per-tile-operations) see a point.
 
 ## Attributes
 

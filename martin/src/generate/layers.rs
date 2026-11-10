@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, ThinningGrid,
-    ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef,
+    ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -137,6 +137,7 @@ fn lower_layer(
         grid,
         geometry: layer.geometry,
     };
+    let (input, point) = layer.geometry.and_then(|g| layer_geometry(g).ok()).unzip();
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
@@ -154,7 +155,8 @@ fn lower_layer(
         ),
         bounds: defaults.bounds,
         encoder: defaults.encoder,
-        geometry: layer.geometry.and_then(|g| geometry_type(g).ok()),
+        geometry: input.flatten(),
+        point: point.flatten(),
         filter: layer.r#where.as_ref().map(|e| e.as_str().to_owned()),
         minzoom_expr: zoom_expr(layer.minzoom.as_ref()),
         maxzoom_expr: zoom_expr(layer.maxzoom.as_ref()),
@@ -188,7 +190,7 @@ fn lower_layer(
             &layer.per_tile,
             &(min..=max),
             grid,
-            layer.geometry.and_then(|g| geometry_type(g).ok()),
+            output_geometry(layer.geometry),
             &grids,
         ),
     }))
@@ -335,15 +337,17 @@ fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr>
         .collect()
 }
 
-fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str> {
+/// The features `geometry` takes and the point it derives from each, as Planetiler's custommap pairs
+/// them; `Err` names a value the engine cannot derive yet.
+fn layer_geometry(geometry: OutputGeometry) -> Result<(Option<GeometryType>, Option<DerivedPoint>), &'static str> {
     match geometry {
-        OutputGeometry::Point => Ok(GeometryType::Point),
-        OutputGeometry::Line => Ok(GeometryType::Line),
-        OutputGeometry::Polygon => Ok(GeometryType::Polygon),
-        OutputGeometry::PolygonCentroid => Err("polygon_centroid"),
-        OutputGeometry::LineCentroid => Err("line_centroid"),
+        OutputGeometry::Point => Ok((Some(GeometryType::Point), None)),
+        OutputGeometry::Line => Ok((Some(GeometryType::Line), None)),
+        OutputGeometry::Polygon => Ok((Some(GeometryType::Polygon), None)),
+        OutputGeometry::PolygonCentroid => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::Centroid))),
+        OutputGeometry::LineCentroid => Ok((Some(GeometryType::Line), Some(DerivedPoint::Centroid))),
+        OutputGeometry::Centroid => Ok((None, Some(DerivedPoint::Centroid))),
         OutputGeometry::LineMidpoint => Err("line_midpoint"),
-        OutputGeometry::Centroid => Err("centroid"),
         OutputGeometry::PolygonCentroidIfConvex => Err("polygon_centroid_if_convex"),
         OutputGeometry::PolygonPointOnSurface => Err("polygon_point_on_surface"),
         OutputGeometry::PointOnLine => Err("point_on_line"),
@@ -351,8 +355,16 @@ fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str>
     }
 }
 
+/// The type of the geometry a layer with `geometry` draws, if it has only one.
+fn output_geometry(geometry: Option<OutputGeometry>) -> Option<GeometryType> {
+    match layer_geometry(geometry?).ok()? {
+        (_, Some(_)) => Some(GeometryType::Point),
+        (input, None) => input,
+    }
+}
+
 fn unsupported(layer: &Layer) -> Option<String> {
-    let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
+    let geometry = layer.geometry.and_then(|g| layer_geometry(g).err());
     geometry.map(|geometry| format!("`geometry: {geometry}`"))
 }
 
@@ -631,6 +643,7 @@ mod tests {
                     ),
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -684,6 +697,7 @@ mod tests {
                     bounds: None,
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -782,6 +796,7 @@ mod tests {
                     geometry: Some(
                         Line,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -812,6 +827,7 @@ mod tests {
                     geometry: Some(
                         Point,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -842,6 +858,7 @@ mod tests {
                     geometry: Some(
                         Polygon,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -1284,12 +1301,93 @@ mod tests {
     }
 
     #[test]
+    fn a_centroid_geometry_takes_the_features_planetiler_takes_and_draws_their_centroid() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks: { geometry: polygon_centroid }
+                  roads: { geometry: line_centroid }
+                  everything: { geometry: centroid }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let geometries: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| (layer.name.as_str(), layer.geometry, layer.point))
+            .collect();
+        insta::assert_debug_snapshot!(geometries, @r#"
+        [
+            (
+                "parks",
+                Some(
+                    Polygon,
+                ),
+                Some(
+                    Centroid,
+                ),
+            ),
+            (
+                "roads",
+                Some(
+                    Line,
+                ),
+                Some(
+                    Centroid,
+                ),
+            ),
+            (
+                "everything",
+                None,
+                Some(
+                    Centroid,
+                ),
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn a_merge_on_a_centroid_layer_warns_that_it_only_has_points() {
+        lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks:
+                    geometry: polygon_centroid
+                    merge_polygons: {}
+            "},
+            0..=14,
+        )
+        .expect("lowers");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_polygons` of layer `parks` in source `roads_source` never acts on its point features");
+            Ok(())
+        });
+    }
+
+    #[test]
     fn unsupported_settings_are_rejected() {
         let layers = [
-            "roads: { geometry: polygon_centroid }",
-            "roads: { geometry: line_centroid }",
             "roads: { geometry: line_midpoint }",
-            "roads: { geometry: centroid }",
             "roads: { geometry: polygon_centroid_if_convex }",
             "roads: { geometry: polygon_point_on_surface }",
             "roads: { geometry: point_on_line }",
@@ -1304,10 +1402,7 @@ mod tests {
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
-        layer `roads`: `geometry: polygon_centroid` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: line_centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: line_midpoint` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: polygon_centroid_if_convex` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: polygon_point_on_surface` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: point_on_line` is not supported by `--mode bulk` yet

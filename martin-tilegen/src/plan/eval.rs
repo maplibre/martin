@@ -326,6 +326,17 @@ impl Evaluator<'_> {
             if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
                 continue;
             }
+            let derived;
+            let geom = match layer.point {
+                Some(point) => {
+                    let Some(coord) = point.of(geom) else {
+                        continue;
+                    };
+                    derived = coord;
+                    FeatureGeom::Points(std::slice::from_ref(&derived))
+                }
+                None => geom,
+            };
             let (zooms, case) = match view {
                 Some(view) => match plan.feature_case(layer, view, errors) {
                     Some(matched) => matched,

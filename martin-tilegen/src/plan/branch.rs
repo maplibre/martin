@@ -689,7 +689,7 @@ impl<'a> LayerPaths<'a, '_> {
     /// For the rules of each `min_size`, lines and polygons kept only at the layer's max zoom, those too small for
     /// every zoom, those shorter than a tile unit at the max zoom, and those crossing a tile edge there.
     fn shapes(&self, out: &mut Vec<Path<'a>>) {
-        if self.layer.geometry == Some(GeometryType::Point) {
+        if self.layer.output_geometry() == Some(GeometryType::Point) {
             return;
         }
         let mut groups: Vec<(PixelThreshold, Vec<Option<usize>>)> = Vec::new();
