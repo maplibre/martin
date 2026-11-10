@@ -2,7 +2,7 @@
 
 pub mod project;
 mod render;
-mod simplify;
+pub(crate) mod simplify;
 mod thinning_grid;
 mod touch;
 
