@@ -133,7 +133,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with: { persist-credentials: false }
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         languages: ${{ matrix.language }}
         build-mode: none
@@ -155,7 +155,7 @@ jobs:
         list=$(cargo metadata --no-deps --format-version 1 | jq -r '[.packages[] | .name as $p | .features | keys[] | select(contains("hotpath") | not) | "\($p)/\(.)"] | join(",")')
         echo "list=$list" >> "$GITHUB_OUTPUT"
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       env:
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ runner.temp }}/codeql-cargo-target
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_FEATURES: ${{ steps.rust-features.outputs.list }}
