@@ -42,7 +42,7 @@ The TileJSON:
 }
 ```
 
-By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](<https://maplibre.org/martin/config-file/#full-configuration>).
+By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](<https://maplibre.org/martin/config-file/index.md#full-configuration>).
 
 ## Filtering rows
 

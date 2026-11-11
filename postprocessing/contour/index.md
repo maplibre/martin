@@ -133,7 +133,7 @@ Each tile's `ETag` is derived from the nine tiles it read plus the settings it w
 
 Contours are traced across a 3x3 neighborhood with a `fetch_margin` apron, then shifted back so only the center tile's extent is encoded. Without it, a line crossing a tile edge would stop short of its continuation in the next tile and the seam would be visible at every boundary.
 
-The neighborhood is assembled the same way [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/#neighborhood-handling>) assembles its own:
+The neighborhood is assembled the same way [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/index.md#neighborhood-handling>) assembles its own:
 
 - x wraps at the antimeridian, since the projection is cylindrical there and the neighbors are real tiles.
 - y stops at the poles, where there is no tile at all, and the slot is edge-clamped from the center instead.

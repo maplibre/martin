@@ -1,6 +1,6 @@
 # Serving NAIP aerial imagery from S3 with a tile index
 
-The [National Agriculture Imagery Program](<https://registry.opendata.aws/naip/>) (NAIP) publishes aerial imagery of the United States as COGs in the `naip-visualization` S3 bucket: one file per USGS quarter-quadrangle, each in its own UTM zone, overlapping its neighbors. This guide serves all of California 2020 as one Martin source with a [tile index](<https://maplibre.org/martin/sources-cog-files/#imagery-listed-by-a-tile-index>), and shows the Bay Area on a MapLibre map with [OpenFreeMap](<https://openfreemap.org>) roads on top.
+The [National Agriculture Imagery Program](<https://registry.opendata.aws/naip/>) (NAIP) publishes aerial imagery of the United States as COGs in the `naip-visualization` S3 bucket: one file per USGS quarter-quadrangle, each in its own UTM zone, overlapping its neighbors. This guide serves all of California 2020 as one Martin source with a [tile index](<https://maplibre.org/martin/sources-cog-files/index.md#imagery-listed-by-a-tile-index>), and shows the Bay Area on a MapLibre map with [OpenFreeMap](<https://openfreemap.org>) roads on top.
 
 ## Prerequisites
 

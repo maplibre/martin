@@ -16,7 +16,7 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
          --dst-type flat-with-hash
 ```
 
-The destination hashes its tiles with the source's [hash algorithm](<https://maplibre.org/martin/mbtiles-validation/#hash-algorithm>), or with the one `--hash-algorithm` names.
+The destination hashes its tiles with the source's [hash algorithm](<https://maplibre.org/martin/mbtiles-validation/index.md#hash-algorithm>), or with the one `--hash-algorithm` names.
 
 ```bash
 mbtiles copy src.mbtiles dst.mbtiles \

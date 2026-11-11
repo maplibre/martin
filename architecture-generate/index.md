@@ -15,7 +15,7 @@
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
@@ -41,7 +41,7 @@ This method follows Planetiler in:
 - reading every feature once and rendering it at every zoom, instead of querying the source per tile,
 - sorting the rendered pieces on disk by tile, then merging them back and writing each tile once,
 - covering the inside of large polygons with [fill ranges](<#rendering>) instead of one piece per tile,
-- simplification and minimum size [in pixels of a 256-pixel tile](<https://maplibre.org/martin/sources-pg-layers/#simplification-and-minimum-size>), with the same defaults,
+- simplification and minimum size [in pixels of a 256-pixel tile](<https://maplibre.org/martin/sources-pg-layers/index.md#simplification-and-minimum-size>), with the same defaults,
 - [encoding tile batches in parallel and writing them in order](<#parallel-encoding-ordered-writing>),
 - reusing the previous tile's bytes and hashing only likely duplicates, see [repeated tiles](<#repeated-tiles>),
 - storing repeated tiles once, in the same deduplicated MBTiles layout.
@@ -67,7 +67,7 @@ The PostgreSQL source splits each table by what the relation allows:
 
 Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
-Each scan reads only the rows some layer takes, when the database can apply every layer's `geometry` and `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/#features>).
+Each scan reads only the rows some layer takes, when the database can apply every layer's `geometry` and `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/index.md#features>).
 
 ### Feature queue
 
@@ -134,7 +134,7 @@ When one batch is slow, for example a dense city at a high zoom, the other encod
 
 ### Repeated tiles
 
-Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`, runs the layer's [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) on them, encodes them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile. It also avoids work and storage for repeated tiles:
+Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`, runs the layer's [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) on them, encodes them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile. It also avoids work and storage for repeated tiles:
 
 - A tile with the same records as the encoder's previous tile of the same zoom reuses its bytes without encoding. The operations depend only on the records and the zoom, so the bytes are the same. Neighboring tiles in the archive order are often identical, for example the inside of a large polygon.
 - A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all encoders. The index only hands out a key for bytes equal to the first tile with that hash.
@@ -154,7 +154,7 @@ The tileset's metadata, including the zooms, the format and each layer's fields,
 
 ## Serving tiles
 
-The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of bulk mode, without its queues and temp files. [Serving](<https://maplibre.org/martin/sources-pg-layers/#serving>) covers its configuration. A request renders a **block**: the tile alone, or with `prefetch`, the block of tiles holding it, see [Prefetch](<#prefetch>).
+The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of bulk mode, without its queues and temp files. [Serving](<https://maplibre.org/martin/sources-pg-layers/index.md#serving>) covers its configuration. A request renders a **block**: the tile alone, or with `prefetch`, the block of tiles holding it, see [Prefetch](<#prefetch>).
 
 1. **Read**: one query reads every feature whose geometry meets the block grown by the largest `buffer` of the table's layers. When the grown block crosses the antimeridian, the part past it is read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries in the order PostgreSQL finds them, and the features are numbered in that order, as one partition. The query keeps only rows some layer at the block's zoom takes, so `max_feature_count` limits how many of those it returns. Only with `max_feature_count`, `order_by` sorts them by `id_column` first, to choose which are kept.
 2. **Render**: one render worker, on a blocking thread, renders the features at the block's zoom only, and slices them into its tiles only, never into the other tiles they reach. The minimum size and simplification still follow the layer's zooms, so each tile comes out as bulk mode writes it for the same `maxzoom`.
@@ -163,7 +163,7 @@ The tile server renders a table source with `layers` with the plan, renderer, gr
 
 The server then converts, compresses and caches each tile, as it does for any other source.
 
-Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by` can draw them in another order than bulk mode, see [Draw order](<https://maplibre.org/martin/sources-pg-layers/#draw-order>).
+Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by` can draw them in another order than bulk mode, see [Draw order](<https://maplibre.org/martin/sources-pg-layers/index.md#draw-order>).
 
 ### Prefetch
 
@@ -192,6 +192,6 @@ An intermediate merge, with more than 4096 runs, runs several merges at once. On
 
 - In phase 1, an error stops every reader from claiming another partition and every worker from taking another batch. The run reports that error, not the hand-offs it interrupted.
 - In phase 2, an error of the grouper or an encoder travels to the writer in batch order, as an error in place of a batch. The archive stops there and never finishes a partial tileset. When the writer fails, the grouper's next hand-off fails, and the writer's error is reported.
-- Expressions never fail a run, see [Expressions](<https://maplibre.org/martin/sources-pg-layers/#expressions>). Features the slicer cannot handle at a zoom are skipped at that zoom and counted.
+- Expressions never fail a run, see [Expressions](<https://maplibre.org/martin/sources-pg-layers/index.md#expressions>). Features the slicer cannot handle at a zoom are skipped at that zoom and counted.
 - A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted runs are removed by the operating system in every case.
 - A served block logs the features the slicer could not handle as warnings. Expression failures are only logged at debug level there, since the plan already warns about the first failure of each expression. A failed query or encoding fails the request.

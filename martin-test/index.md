@@ -81,7 +81,7 @@ cases:
 1. The row's `id_column`, the columns the layers read, and its geometry as WKT. `run` reports `ROW CHANGED` when the row no longer matches.
 2. What bulk mode writes: one entry per feature and layer, with its zooms and attributes.
 
-A layer with [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) also gets a `per_tile` list: the tiles each operation ran on, and the features it took and kept there. A changed count fails the case like a changed output.
+A layer with [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) also gets a `per_tile` list: the tiles each operation ran on, and the features it took and kept there. A changed count fails the case like a changed output.
 
 ```yaml
   per_tile:

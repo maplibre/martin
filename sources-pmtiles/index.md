@@ -10,11 +10,11 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 
 > [!TIP]
 >
-> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
+> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/index.md#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
 
 ## PMTiles Hot Reload
 
-Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for [MBTiles](<https://maplibre.org/martin/sources-mbtiles/#mbtiles-hot-reload>).
+Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for [MBTiles](<https://maplibre.org/martin/sources-mbtiles/index.md#mbtiles-hot-reload>).
 
 ```yaml
 pmtiles:

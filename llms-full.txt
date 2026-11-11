@@ -800,7 +800,7 @@ Martin **can run without** a reverse proxy.
 Doing so has a few downsides:
 
 - Martin does not support HTTPS connections (TLS termination).
-- Martin does not authenticate requests. If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with [`auth_request` in NGINX](<https://maplibre.org/martin/run-with-nginx/#authenticating-requests>).
+- Martin does not authenticate requests. If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with [`auth_request` in NGINX](<https://maplibre.org/martin/run-with-nginx/index.md#authenticating-requests>).
 - We do not check `HOST`-headers - we just serve on a port. This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on. Using a reverse proxy makes this abuse obvious.
 - Martin only supports a simple in-memory caching. If you need more advanced caching options, you can use a reverse proxy with custom rules. You may for example only want to cache zoom `0..10`. Here are some reverse proxy options:
 
@@ -850,7 +850,7 @@ You can [find an example NGINX configuration file here](<https://github.com/mapl
 
 ### Rewriting URLs
 
-If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](<https://maplibre.org/martin/using/#source-tilejson>).
+If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](<https://maplibre.org/martin/using/index.md#source-tilejson>).
 
 ```nginx
 location ~ /tiles/(?<fwd_path>.*) {
@@ -1887,7 +1887,7 @@ For mbtiles or local pmtiles files, we support auto discovering at startup. This
 martin  /path/to/directory
 ```
 
-For remote PMTiles, individual file URLs work as expected. Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](<https://maplibre.org/martin/sources-pmtiles/#pmtiles-hot-reload>).
+For remote PMTiles, individual file URLs work as expected. Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](<https://maplibre.org/martin/sources-pmtiles/index.md#pmtiles-hot-reload>).
 
 # MBTiles File Sources
 
@@ -1901,7 +1901,7 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 
 > [!TIP]
 >
-> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
+> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/index.md#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
 
 ## MBTiles Hot Reload
 
@@ -1954,11 +1954,11 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 
 > [!TIP]
 >
-> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
+> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/index.md#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
 
 ## PMTiles Hot Reload
 
-Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for [MBTiles](<https://maplibre.org/martin/sources-mbtiles/#mbtiles-hot-reload>).
+Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for [MBTiles](<https://maplibre.org/martin/sources-mbtiles/index.md#mbtiles-hot-reload>).
 
 ```yaml
 pmtiles:
@@ -2314,7 +2314,7 @@ The TileJSON:
 }
 ```
 
-By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](<https://maplibre.org/martin/config-file/#full-configuration>).
+By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](<https://maplibre.org/martin/config-file/index.md#full-configuration>).
 
 ## Filtering rows
 
@@ -2702,7 +2702,7 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
 
@@ -3187,7 +3187,7 @@ postgres:
 
 ## Serving
 
-The tile server renders a table source with `layers` itself instead of asking PostGIS for an `ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>) shows how.
+The tile server renders a table source with `layers` itself instead of asking PostGIS for an `ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](<https://maplibre.org/martin/architecture-generate/index.md#serving-tiles>) shows how.
 
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent` fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
@@ -4977,7 +4977,7 @@ Each tile's `ETag` is derived from the nine tiles it read plus the settings it w
 
 Contours are traced across a 3x3 neighborhood with a `fetch_margin` apron, then shifted back so only the center tile's extent is encoded. Without it, a line crossing a tile edge would stop short of its continuation in the next tile and the seam would be visible at every boundary.
 
-The neighborhood is assembled the same way [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/#neighborhood-handling>) assembles its own:
+The neighborhood is assembled the same way [hillshade](<https://maplibre.org/martin/postprocessing/hillshade/index.md#neighborhood-handling>) assembles its own:
 
 - x wraps at the antimeridian, since the projection is cylindrical there and the neighbors are real tiles.
 - y stops at the poles, where there is no tile at all, and the slot is edge-clamped from the center instead.
@@ -5623,7 +5623,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](<https://maplibre.org/martin/sources-fonts/index.md>) |
 | `/style/{style}` | [Style source](<https://maplibre.org/martin/sources-styles/index.md>) |
 | `/style/{style}/{z}/{x}/{y}.{ext}` | [Rendered raster tiles](<https://maplibre.org/martin/sources-styles/rendering/index.md>) (Linux) |
-| `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](<https://maplibre.org/martin/sources-styles/rendering/#static-images>) (Linux) |
+| `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](<https://maplibre.org/martin/sources-styles/rendering/index.md#static-images>) (Linux) |
 | `/ogc`, `/ogc/...` | [OGC API - Tiles](<https://maplibre.org/martin/ogc-api/index.md>) |
 | `/health` | Martin server health check: returns 200 `OK` |
 | `/_/metrics` | Martin server Prometheus metrics |
@@ -5737,8 +5737,8 @@ Compression, caching and empty tiles behave just like on the regular tile endpoi
 
 |  | Martin endpoints | OGC API |
 | --- | --- | --- |
-| list of sources | [`/catalog`](<https://maplibre.org/martin/using/#catalog>) | `/ogc/collections` |
-| source metadata | [TileJSON](<https://maplibre.org/martin/using/#source-tilejson>) | tileset, at `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}` |
+| list of sources | [`/catalog`](<https://maplibre.org/martin/using/index.md#catalog>) | `/ogc/collections` |
+| source metadata | [TileJSON](<https://maplibre.org/martin/using/index.md#source-tilejson>) | tileset, at `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}` |
 | tile | `/{sourceID}/{z}/{x}/{y}` | `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}/{z}/{y}/{x}` |
 | MVT content type | `application/x-protobuf` | `application/vnd.mapbox-vector-tile`, as the standard requires |
 | composite sources | [`/{source1},…,{sourceN}`](<https://maplibre.org/martin/sources-composite/index.md>) | not available |
@@ -5751,8 +5751,8 @@ Every tile source shows up as a collection, with its source ID as the collection
 
 There are two exceptions:
 
-- **Sources on an unusual grid.** The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the [built-in grids](<https://maplibre.org/martin/tile-grids/#built-in-grids>): EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042. A source on a `simple` grid, or on a custom grid in another CRS, won't be listed.
-- **Composite sources and aliases.** A collection is always a single source, so `/a,b` has no OGC counterpart and [aliases](<https://maplibre.org/martin/sources-composite/#source-aliases>) aren't listed under their own name. If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does. If that alias combines several sources, the source drops out of the list.
+- **Sources on an unusual grid.** The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the [built-in grids](<https://maplibre.org/martin/tile-grids/index.md#built-in-grids>): EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042. A source on a `simple` grid, or on a custom grid in another CRS, won't be listed.
+- **Composite sources and aliases.** A collection is always a single source, so `/a,b` has no OGC counterpart and [aliases](<https://maplibre.org/martin/sources-composite/index.md#source-aliases>) aren't listed under their own name. If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does. If that alias combines several sources, the source drops out of the list.
 
 ## Tile matrix sets
 
@@ -6326,7 +6326,7 @@ Maputnik is now online, so lets load martins tiles into it.
 
 # Serving NAIP aerial imagery from S3 with a tile index
 
-The [National Agriculture Imagery Program](<https://registry.opendata.aws/naip/>) (NAIP) publishes aerial imagery of the United States as COGs in the `naip-visualization` S3 bucket: one file per USGS quarter-quadrangle, each in its own UTM zone, overlapping its neighbors. This guide serves all of California 2020 as one Martin source with a [tile index](<https://maplibre.org/martin/sources-cog-files/#imagery-listed-by-a-tile-index>), and shows the Bay Area on a MapLibre map with [OpenFreeMap](<https://openfreemap.org>) roads on top.
+The [National Agriculture Imagery Program](<https://registry.opendata.aws/naip/>) (NAIP) publishes aerial imagery of the United States as COGs in the `naip-visualization` S3 bucket: one file per USGS quarter-quadrangle, each in its own UTM zone, overlapping its neighbors. This guide serves all of California 2020 as one Martin source with a [tile index](<https://maplibre.org/martin/sources-cog-files/index.md#imagery-listed-by-a-tile-index>), and shows the Bay Area on a MapLibre map with [OpenFreeMap](<https://openfreemap.org>) roads on top.
 
 ## Prerequisites
 
@@ -6755,13 +6755,13 @@ The released `martin` binary does not include [DuckDB / GeoParquet sources](<htt
 cargo build --package martin --bin martin --features=unstable-duckdb
 ```
 
-After copying, `martin cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified. This allows the MBTiles file to be [validated](<https://maplibre.org/martin/mbtiles-validation/#aggregate-content-validation>) using `mbtiles validate` command.
+After copying, `martin cp` will update the `agg_tiles_hash` metadata value unless `--skip-agg-tiles-hash` is specified. This allows the MBTiles file to be [validated](<https://maplibre.org/martin/mbtiles-validation/index.md#aggregate-content-validation>) using `mbtiles validate` command.
 
 `--set-meta KEY=VALUE` and `--delete-meta KEY` edit the metadata after the copy, so they can override the computed values. A key that is both set and deleted is an error, and nothing is copied.
 
 ## Usage
 
-This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](<https://maplibre.org/martin/mbtiles-schema/#normalized>) schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.
+This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](<https://maplibre.org/martin/mbtiles-schema/index.md#normalized>) schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.
 
 ```bash
 martin cp  --output-file tileset.mbtiles                         \
@@ -6987,7 +6987,7 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside Martin itself, when serving tiles. Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like PostgreSQL does with `ST_AsMVT`.
 
@@ -7188,7 +7188,7 @@ cases:
 1. The row's `id_column`, the columns the layers read, and its geometry as WKT. `run` reports `ROW CHANGED` when the row no longer matches.
 2. What bulk mode writes: one entry per feature and layer, with its zooms and attributes.
 
-A layer with [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) also gets a `per_tile` list: the tiles each operation ran on, and the features it took and kept there. A changed count fails the case like a changed output.
+A layer with [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) also gets a `per_tile` list: the tiles each operation ran on, and the features it took and kept there. A changed count fails the case like a changed output.
 
 ```yaml
   per_tile:
@@ -7526,7 +7526,7 @@ mbtiles copy normalized.mbtiles dst.mbtiles \
          --dst-type flat-with-hash
 ```
 
-The destination hashes its tiles with the source's [hash algorithm](<https://maplibre.org/martin/mbtiles-validation/#hash-algorithm>), or with the one `--hash-algorithm` names.
+The destination hashes its tiles with the source's [hash algorithm](<https://maplibre.org/martin/mbtiles-validation/index.md#hash-algorithm>), or with the one `--hash-algorithm` names.
 
 ```bash
 mbtiles copy src.mbtiles dst.mbtiles \
@@ -7596,7 +7596,7 @@ If either input file has no `agg_tiles_hash`, it is computed on the fly (but not
 
 ## `mbtiles apply-patch`
 
-Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/#mbtiles-copy-apply-patch>) command.
+Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/index.md#mbtiles-copy-apply-patch>) command.
 
 Both `apply-patch` and `copy --apply-patch` check the hashes:
 
@@ -7687,11 +7687,11 @@ A missing unique index on `(zoom_level, tile_column, tile_row)` fails validation
 
 ## Per-tile validation
 
-If the `.mbtiles` file uses [flat\_with\_hash](<https://maplibre.org/martin/mbtiles-schema/#flat-with-hash>) or [hash-based normalized](<https://maplibre.org/martin/mbtiles-schema/#hash-based-normalized-schema>) schema, the `validate` command will verify that the hash of the `tile_data` column matches the `tile_hash` or `tile_id` columns (depending on the schema). The hash is computed with the file's [hash algorithm](<#hash-algorithm>).
+If the `.mbtiles` file uses [flat\_with\_hash](<https://maplibre.org/martin/mbtiles-schema/index.md#flat-with-hash>) or [hash-based normalized](<https://maplibre.org/martin/mbtiles-schema/index.md#hash-based-normalized-schema>) schema, the `validate` command will verify that the hash of the `tile_data` column matches the `tile_hash` or `tile_id` columns (depending on the schema). The hash is computed with the file's [hash algorithm](<#hash-algorithm>).
 
-A typical Normalized schema generated by tools like [tilelive-copy](<https://github.com/mapbox/TileLive#bintilelive-copy>) use MD5 hash in the `tile_id` column. The Martin's `mbtiles` tool can use this hash to verify the content of each tile. We also define a new [flat-with-hash](<https://maplibre.org/martin/mbtiles-schema/#flat-with-hash>) schema that stores the hash and tile data in the same table, allowing per-tile validation without the multiple table layout.
+A typical Normalized schema generated by tools like [tilelive-copy](<https://github.com/mapbox/TileLive#bintilelive-copy>) use MD5 hash in the `tile_id` column. The Martin's `mbtiles` tool can use this hash to verify the content of each tile. We also define a new [flat-with-hash](<https://maplibre.org/martin/mbtiles-schema/index.md#flat-with-hash>) schema that stores the hash and tile data in the same table, allowing per-tile validation without the multiple table layout.
 
-Per-tile validation is not available for the `flat` schema and will be skipped. For the [normalized](<https://maplibre.org/martin/mbtiles-schema/#normalized>) schema (`tiles_shallow` + `tiles_data`), foreign key integrity is validated instead. Every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
+Per-tile validation is not available for the `flat` schema and will be skipped. For the [normalized](<https://maplibre.org/martin/mbtiles-schema/index.md#normalized>) schema (`tiles_shallow` + `tiles_data`), foreign key integrity is validated instead. Every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
 
 ## Aggregate Content Validation
 
@@ -8461,7 +8461,7 @@ graph TB
 6. Generates tile SQL queries with bbox parameters
 7. Returns results as MVT tiles
 
-A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>).
+A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/index.md#serving-tiles>).
 
 ```
 graph TB
@@ -8588,7 +8588,7 @@ graph TB
 - `pool_size` (default `4`) - connection pool size per GeoParquet source or database entry.
 - `auto_bounds` (default `quick`) - how TileJSON bounds are computed.
 - Per-source `geoparquet` path or URL, plus optional `layer_id`, `geometry_column`, `srid`, `extent`, `buffer`, and `clip_geom`.
-- `database` file path, with optional `auto_publish`, `tables`, and `macros` to control which sources are published. See [DuckDB database sources](<https://maplibre.org/martin/sources-duckdb/#database-sources>).
+- `database` file path, with optional `auto_publish`, `tables`, and `macros` to control which sources are published. See [DuckDB database sources](<https://maplibre.org/martin/sources-duckdb/index.md#database-sources>).
 
 DuckDB sources do not currently hot-reload.
 
@@ -8637,7 +8637,7 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
@@ -8663,7 +8663,7 @@ This method follows Planetiler in:
 - reading every feature once and rendering it at every zoom, instead of querying the source per tile,
 - sorting the rendered pieces on disk by tile, then merging them back and writing each tile once,
 - covering the inside of large polygons with [fill ranges](<#rendering>) instead of one piece per tile,
-- simplification and minimum size [in pixels of a 256-pixel tile](<https://maplibre.org/martin/sources-pg-layers/#simplification-and-minimum-size>), with the same defaults,
+- simplification and minimum size [in pixels of a 256-pixel tile](<https://maplibre.org/martin/sources-pg-layers/index.md#simplification-and-minimum-size>), with the same defaults,
 - [encoding tile batches in parallel and writing them in order](<#parallel-encoding-ordered-writing>),
 - reusing the previous tile's bytes and hashing only likely duplicates, see [repeated tiles](<#repeated-tiles>),
 - storing repeated tiles once, in the same deduplicated MBTiles layout.
@@ -8689,7 +8689,7 @@ The PostgreSQL source splits each table by what the relation allows:
 
 Partitions are numbered table by table in physical order. For consistent data, one connection exports a snapshot (`pg_export_snapshot()`), and every reader imports it in a `REPEATABLE READ` transaction before reading its first partition. PostgreSQL's own parallel workers and synchronized scans are turned off on these connections, so each partition is read in its own order, at the pace the generator asks for. There is one reader per two render workers, and no more readers than the pool's `pool_size`.
 
-Each scan reads only the rows some layer takes, when the database can apply every layer's `geometry` and `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/#features>).
+Each scan reads only the rows some layer takes, when the database can apply every layer's `geometry` and `where`, see [Features](<https://maplibre.org/martin/sources-pg-layers/index.md#features>).
 
 ### Feature queue
 
@@ -8756,7 +8756,7 @@ When one batch is slow, for example a dense city at a high zoom, the other encod
 
 ### Repeated tiles
 
-Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`, runs the layer's [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) on them, encodes them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile. It also avoids work and storage for repeated tiles:
+Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`, runs the layer's [per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) on them, encodes them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile. It also avoids work and storage for repeated tiles:
 
 - A tile with the same records as the encoder's previous tile of the same zoom reuses its bytes without encoding. The operations depend only on the records and the zoom, so the bytes are the same. Neighboring tiles in the archive order are often identical, for example the inside of a large polygon.
 - A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all encoders. The index only hands out a key for bytes equal to the first tile with that hash.
@@ -8776,7 +8776,7 @@ The tileset's metadata, including the zooms, the format and each layer's fields,
 
 ## Serving tiles
 
-The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of bulk mode, without its queues and temp files. [Serving](<https://maplibre.org/martin/sources-pg-layers/#serving>) covers its configuration. A request renders a **block**: the tile alone, or with `prefetch`, the block of tiles holding it, see [Prefetch](<#prefetch>).
+The tile server renders a table source with `layers` with the plan, renderer, grouper and encoder of bulk mode, without its queues and temp files. [Serving](<https://maplibre.org/martin/sources-pg-layers/index.md#serving>) covers its configuration. A request renders a **block**: the tile alone, or with `prefetch`, the block of tiles holding it, see [Prefetch](<#prefetch>).
 
 1. **Read**: one query reads every feature whose geometry meets the block grown by the largest `buffer` of the table's layers. When the grown block crosses the antimeridian, the part past it is read as a second envelope, as bulk mode wraps buffers there too. The query returns whole geometries in the order PostgreSQL finds them, and the features are numbered in that order, as one partition. The query keeps only rows some layer at the block's zoom takes, so `max_feature_count` limits how many of those it returns. Only with `max_feature_count`, `order_by` sorts them by `id_column` first, to choose which are kept.
 2. **Render**: one render worker, on a blocking thread, renders the features at the block's zoom only, and slices them into its tiles only, never into the other tiles they reach. The minimum size and simplification still follow the layer's zooms, so each tile comes out as bulk mode writes it for the same `maxzoom`.
@@ -8785,7 +8785,7 @@ The tile server renders a table source with `layers` with the plan, renderer, gr
 
 The server then converts, compresses and caches each tile, as it does for any other source.
 
-Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by` can draw them in another order than bulk mode, see [Draw order](<https://maplibre.org/martin/sources-pg-layers/#draw-order>).
+Inside a layer, the features keep the order the query returns them in, so a layer without `sort_by` can draw them in another order than bulk mode, see [Draw order](<https://maplibre.org/martin/sources-pg-layers/index.md#draw-order>).
 
 ### Prefetch
 
@@ -8814,7 +8814,7 @@ An intermediate merge, with more than 4096 runs, runs several merges at once. On
 
 - In phase 1, an error stops every reader from claiming another partition and every worker from taking another batch. The run reports that error, not the hand-offs it interrupted.
 - In phase 2, an error of the grouper or an encoder travels to the writer in batch order, as an error in place of a batch. The archive stops there and never finishes a partial tileset. When the writer fails, the grouper's next hand-off fails, and the writer's error is reported.
-- Expressions never fail a run, see [Expressions](<https://maplibre.org/martin/sources-pg-layers/#expressions>). Features the slicer cannot handle at a zoom are skipped at that zoom and counted.
+- Expressions never fail a run, see [Expressions](<https://maplibre.org/martin/sources-pg-layers/index.md#expressions>). Features the slicer cannot handle at a zoom are skipped at that zoom and counted.
 - A failed or interrupted (<kbd>Ctrl</kbd>+<kbd>C</kbd>) run removes the output file. The sorted runs are removed by the operating system in every case.
 - A served block logs the features the slicer could not handle as warnings. Expression failures are only logged at debug level there, since the plan already warns about the first failure of each expression. A failed query or encoding fails the request.
 
@@ -8934,7 +8934,7 @@ docker run -p 3000:3000 ghcr.io/maplibre/martin postgres://postgres@postgres.exa
 docker run -p 3000:3000 -e DATABASE_URL -v "$PWD/config.yaml:/config.yaml" ghcr.io/maplibre/martin --config /config.yaml
 ```
 
-See [Environment Variables](<https://maplibre.org/martin/env-vars/index.md>) and [SSL Connections](<https://maplibre.org/martin/pg-connections/#ssl-connections>).
+See [Environment Variables](<https://maplibre.org/martin/env-vars/index.md>) and [SSL Connections](<https://maplibre.org/martin/pg-connections/index.md#ssl-connections>).
 
 ### Default values in the configuration file use `${VAR:-default}`
 
@@ -8973,7 +8973,7 @@ pmtiles:
     size_mb: 128
 ```
 
-See the `cache` section of the [full configuration](<https://maplibre.org/martin/config-file/#full-configuration>).
+See the `cache` section of the [full configuration](<https://maplibre.org/martin/config-file/index.md#full-configuration>).
 
 ### Object storage options use their `object_store` names
 
@@ -8996,7 +8996,7 @@ pmtiles:
 
 A public bucket previously accessed with `AWS_SKIP_CREDENTIALS=1` can now fail during instance credential lookup outside AWS. The error does not name the removed variable. Set `skip_signature: true` for unsigned requests. This requires a configuration file, including when replacing a command such as `martin s3://public-bucket/tiles.pmtiles`.
 
-See [Remote files and prefixes](<https://maplibre.org/martin/sources-pmtiles/#remote-files-and-prefixes>).
+See [Remote files and prefixes](<https://maplibre.org/martin/sources-pmtiles/index.md#remote-files-and-prefixes>).
 
 ### Plain `http://` sources must opt in
 
@@ -9011,7 +9011,7 @@ pmtiles:
 
 The bare command `martin http://tiles.internal/tiles.pmtiles` needs a configuration file to enable `allow_http`.
 
-See [HTTP(S)](<https://maplibre.org/martin/sources-pmtiles/#https>).
+See [HTTP(S)](<https://maplibre.org/martin/sources-pmtiles/index.md#https>).
 
 ### Normalized MBTiles files use `tiles_shallow` and `tiles_data`
 
@@ -9021,7 +9021,7 @@ Existing `map` and `images` files remain readable. Copying one to a new file wit
 
 New normalized files have no per-tile hashes or `tiles_with_hash` view. `mbtiles validate` checks tile references instead. `agg_tiles_hash` still covers the content. Choose `flat-with-hash` if you need per-tile hashes.
 
-See [MBTiles Schemas](<https://maplibre.org/martin/mbtiles-schema/#normalized>).
+See [MBTiles Schemas](<https://maplibre.org/martin/mbtiles-schema/index.md#normalized>).
 
 ### Rendering is not part of the default build
 

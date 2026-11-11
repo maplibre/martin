@@ -33,7 +33,7 @@ If either input file has no `agg_tiles_hash`, it is computed on the fly (but not
 
 ## `mbtiles apply-patch`
 
-Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/#mbtiles-copy-apply-patch>) command.
+Apply the diff file generated with the `mbtiles diff` command above to an MBTiles file. The diff file can be applied to the `src_file.mbtiles` that has been previously downloaded to avoid copying/transmitting the entire modified dataset again. The `src_file.mbtiles` will modified in-place. It is also possible to apply the diff file while copying the source file to a new destination file, by using the [`mbtiles copy --apply-patch`](<https://maplibre.org/martin/mbtiles-copy/index.md#mbtiles-copy-apply-patch>) command.
 
 Both `apply-patch` and `copy --apply-patch` check the hashes:
 

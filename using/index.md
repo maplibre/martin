@@ -28,7 +28,7 @@ Martin data is available via these HTTP `GET` endpoints:
 | `/font/{font1},…,{fontN}/{start}-{end}` | [Composite Font source](<https://maplibre.org/martin/sources-fonts/index.md>) |
 | `/style/{style}` | [Style source](<https://maplibre.org/martin/sources-styles/index.md>) |
 | `/style/{style}/{z}/{x}/{y}.{ext}` | [Rendered raster tiles](<https://maplibre.org/martin/sources-styles/rendering/index.md>) (Linux) |
-| `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](<https://maplibre.org/martin/sources-styles/rendering/#static-images>) (Linux) |
+| `/style/{style}/static/{camera}/{size}.{ext}` | [Static images](<https://maplibre.org/martin/sources-styles/rendering/index.md#static-images>) (Linux) |
 | `/ogc`, `/ogc/...` | [OGC API - Tiles](<https://maplibre.org/martin/ogc-api/index.md>) |
 | `/health` | Martin server health check: returns 200 `OK` |
 | `/_/metrics` | Martin server Prometheus metrics |

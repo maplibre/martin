@@ -58,4 +58,4 @@ For mbtiles or local pmtiles files, we support auto discovering at startup. This
 martin  /path/to/directory
 ```
 
-For remote PMTiles, individual file URLs work as expected. Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](<https://maplibre.org/martin/sources-pmtiles/#pmtiles-hot-reload>).
+For remote PMTiles, individual file URLs work as expected. Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](<https://maplibre.org/martin/sources-pmtiles/index.md#pmtiles-hot-reload>).

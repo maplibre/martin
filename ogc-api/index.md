@@ -30,8 +30,8 @@ Compression, caching and empty tiles behave just like on the regular tile endpoi
 
 |  | Martin endpoints | OGC API |
 | --- | --- | --- |
-| list of sources | [`/catalog`](<https://maplibre.org/martin/using/#catalog>) | `/ogc/collections` |
-| source metadata | [TileJSON](<https://maplibre.org/martin/using/#source-tilejson>) | tileset, at `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}` |
+| list of sources | [`/catalog`](<https://maplibre.org/martin/using/index.md#catalog>) | `/ogc/collections` |
+| source metadata | [TileJSON](<https://maplibre.org/martin/using/index.md#source-tilejson>) | tileset, at `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}` |
 | tile | `/{sourceID}/{z}/{x}/{y}` | `/ogc/collections/{sourceID}/tiles/{tileMatrixSetId}/{z}/{y}/{x}` |
 | MVT content type | `application/x-protobuf` | `application/vnd.mapbox-vector-tile`, as the standard requires |
 | composite sources | [`/{source1},…,{sourceN}`](<https://maplibre.org/martin/sources-composite/index.md>) | not available |
@@ -44,8 +44,8 @@ Every tile source shows up as a collection, with its source ID as the collection
 
 There are two exceptions:
 
-- **Sources on an unusual grid.** The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the [built-in grids](<https://maplibre.org/martin/tile-grids/#built-in-grids>): EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042. A source on a `simple` grid, or on a custom grid in another CRS, won't be listed.
-- **Composite sources and aliases.** A collection is always a single source, so `/a,b` has no OGC counterpart and [aliases](<https://maplibre.org/martin/sources-composite/#source-aliases>) aren't listed under their own name. If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does. If that alias combines several sources, the source drops out of the list.
+- **Sources on an unusual grid.** The standard needs the units and axis order of each grid's CRS, and Martin only knows those for the CRSs of the [built-in grids](<https://maplibre.org/martin/tile-grids/index.md#built-in-grids>): EPSG 3857, 4326, 3395, 3035, 2193, 5041 and 5042. A source on a `simple` grid, or on a custom grid in another CRS, won't be listed.
+- **Composite sources and aliases.** A collection is always a single source, so `/a,b` has no OGC counterpart and [aliases](<https://maplibre.org/martin/sources-composite/index.md#source-aliases>) aren't listed under their own name. If an alias has the same name as a source, the collection serves the alias, just like the tile endpoint does. If that alias combines several sources, the source drops out of the list.
 
 ## Tile matrix sets
 

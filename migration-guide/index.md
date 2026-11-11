@@ -112,7 +112,7 @@ docker run -p 3000:3000 ghcr.io/maplibre/martin postgres://postgres@postgres.exa
 docker run -p 3000:3000 -e DATABASE_URL -v "$PWD/config.yaml:/config.yaml" ghcr.io/maplibre/martin --config /config.yaml
 ```
 
-See [Environment Variables](<https://maplibre.org/martin/env-vars/index.md>) and [SSL Connections](<https://maplibre.org/martin/pg-connections/#ssl-connections>).
+See [Environment Variables](<https://maplibre.org/martin/env-vars/index.md>) and [SSL Connections](<https://maplibre.org/martin/pg-connections/index.md#ssl-connections>).
 
 ### Default values in the configuration file use `${VAR:-default}`
 
@@ -151,7 +151,7 @@ pmtiles:
     size_mb: 128
 ```
 
-See the `cache` section of the [full configuration](<https://maplibre.org/martin/config-file/#full-configuration>).
+See the `cache` section of the [full configuration](<https://maplibre.org/martin/config-file/index.md#full-configuration>).
 
 ### Object storage options use their `object_store` names
 
@@ -174,7 +174,7 @@ pmtiles:
 
 A public bucket previously accessed with `AWS_SKIP_CREDENTIALS=1` can now fail during instance credential lookup outside AWS. The error does not name the removed variable. Set `skip_signature: true` for unsigned requests. This requires a configuration file, including when replacing a command such as `martin s3://public-bucket/tiles.pmtiles`.
 
-See [Remote files and prefixes](<https://maplibre.org/martin/sources-pmtiles/#remote-files-and-prefixes>).
+See [Remote files and prefixes](<https://maplibre.org/martin/sources-pmtiles/index.md#remote-files-and-prefixes>).
 
 ### Plain `http://` sources must opt in
 
@@ -189,7 +189,7 @@ pmtiles:
 
 The bare command `martin http://tiles.internal/tiles.pmtiles` needs a configuration file to enable `allow_http`.
 
-See [HTTP(S)](<https://maplibre.org/martin/sources-pmtiles/#https>).
+See [HTTP(S)](<https://maplibre.org/martin/sources-pmtiles/index.md#https>).
 
 ### Normalized MBTiles files use `tiles_shallow` and `tiles_data`
 
@@ -199,7 +199,7 @@ Existing `map` and `images` files remain readable. Copying one to a new file wit
 
 New normalized files have no per-tile hashes or `tiles_with_hash` view. `mbtiles validate` checks tile references instead. `agg_tiles_hash` still covers the content. Choose `flat-with-hash` if you need per-tile hashes.
 
-See [MBTiles Schemas](<https://maplibre.org/martin/mbtiles-schema/#normalized>).
+See [MBTiles Schemas](<https://maplibre.org/martin/mbtiles-schema/index.md#normalized>).
 
 ### Rendering is not part of the default build
 

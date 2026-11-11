@@ -10,7 +10,7 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 
 > [!TIP]
 >
-> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
+> See [MBTiles vs PMTiles](<https://maplibre.org/martin/sources-files/index.md#mbtiles-vs-pmtiles>) for a comparison of the two file formats.
 
 ## MBTiles Hot Reload
 

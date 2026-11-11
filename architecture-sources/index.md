@@ -33,7 +33,7 @@ graph TB
 6. Generates tile SQL queries with bbox parameters
 7. Returns results as MVT tiles
 
-A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>).
+A table source with [`layers`](<https://maplibre.org/martin/sources-pg-layers/index.md>) skips `ST_AsMVT`: its query reads the features around the tile, or with `prefetch` around its block, and `martin-tilegen` renders them, see [Serving tiles](<https://maplibre.org/martin/architecture-generate/index.md#serving-tiles>).
 
 ```
 graph TB
@@ -160,7 +160,7 @@ graph TB
 - `pool_size` (default `4`) - connection pool size per GeoParquet source or database entry.
 - `auto_bounds` (default `quick`) - how TileJSON bounds are computed.
 - Per-source `geoparquet` path or URL, plus optional `layer_id`, `geometry_column`, `srid`, `extent`, `buffer`, and `clip_geom`.
-- `database` file path, with optional `auto_publish`, `tables`, and `macros` to control which sources are published. See [DuckDB database sources](<https://maplibre.org/martin/sources-duckdb/#database-sources>).
+- `database` file path, with optional `auto_publish`, `tables`, and `macros` to control which sources are published. See [DuckDB database sources](<https://maplibre.org/martin/sources-duckdb/index.md#database-sources>).
 
 DuckDB sources do not currently hot-reload.
 

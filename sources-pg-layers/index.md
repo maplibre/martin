@@ -15,7 +15,7 @@
 > - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
-> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
+> - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
 
@@ -500,7 +500,7 @@ postgres:
 
 ## Serving
 
-The tile server renders a table source with `layers` itself instead of asking PostGIS for an `ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](<https://maplibre.org/martin/architecture-generate/#serving-tiles>) shows how.
+The tile server renders a table source with `layers` itself instead of asking PostGIS for an `ST_AsMVT` tile. Each request reads the whole geometry of every feature that reaches the tile or its buffer, and renders the tile bulk mode writes for the same `maxzoom`. [Serving tiles](<https://maplibre.org/martin/architecture-generate/index.md#serving-tiles>) shows how.
 
 - The highest zoom is the table source's `maxzoom`. Without one, it is the highest zoom the `extent` fits: 18 for an `extent` of 4096. A higher `maxzoom` fails at startup.
 - Tiles are MVT, on the Web Mercator tile grid only, and the source takes no URL query parameters.
