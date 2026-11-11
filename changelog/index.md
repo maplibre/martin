@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](<https://keepachangelog.com/en/1.0.0/>
 
 ## \[Unreleased\]
 
+## [2.0.0-beta.7](<https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.6...martin-v2.0.0-beta.7>) - 2026-11-11
+
+> \[!NOTE\] This is the seventh beta of Martin 2.0. It has three breaking changes relative to [2.0.0-beta.6](<https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.6>), listed below. If you are coming from 1.x, read the [migration guide](<https://maplibre.org/martin/migration-guide/>) first.
+
+### Breaking changes
+
+- The Martin release archives and the Debian package contain only `martin`. `mbtiles` is attached to the `mbtiles-v*` releases instead, as `mbtiles-<target>` archives with their own SBOM, and the Docker image still includes both ([\#3917](<https://github.com/maplibre/martin/pull/3917>)). See [`mbtiles` is released separately](<https://maplibre.org/martin/migration-guide/#mbtiles-is-released-separately>).
+- The `maplibre/martin` Homebrew tap is no longer updated. `brew install martin` installs the [homebrew-core formula](<https://formulae.brew.sh/formula/martin>), which follows stable releases only ([\#3918](<https://github.com/maplibre/martin/pull/3918>)). Switch with `brew uninstall martin && brew untap maplibre/martin && brew install martin`. See [installation](<https://maplibre.org/martin/installation/>).
+- The derived `geometry` values of table `layers` have Planetiler's names: `centroid_if_convex` is now `polygon_centroid_if_convex`, `label_point` is gone, and `polygon_centroid`, `line_centroid`, `polygon_point_on_surface` and `point_on_line` are new ([\#3913](<https://github.com/maplibre/martin/pull/3913>)).
+
+### Added
+
+- Table [`layers`](<https://maplibre.org/martin/sources-pg-layers/#per-tile-operations>) take per-tile operations, which act on a layer's whole feature list in one tile, after `sort_by`: `merge_lines` joins lines whose ends meet, `merge_polygons` unions a group's polygons, `thinning` drops features crowded out by earlier ones (`method: grid`, `distance` or `tile`), `merge_multi` combines a group into one multi-feature, and `limit` keeps the first `count` features ([\#3902](<https://github.com/maplibre/martin/pull/3902>), [\#3903](<https://github.com/maplibre/martin/pull/3903>), [\#3904](<https://github.com/maplibre/martin/pull/3904>), [\#3905](<https://github.com/maplibre/martin/pull/3905>), [\#3906](<https://github.com/maplibre/martin/pull/3906>), [\#3907](<https://github.com/maplibre/martin/pull/3907>)). Each one can take different settings per zoom range, and a bulk run logs what each did. They work in bulk mode and when `layers` are served. The configuration of `layers` may still change.
+
+```yaml
+layers:
+  pois:
+    sort_by: [rank]
+    thinning: { method: grid, size: 64, limit: 1 }
+    limit:
+      - { maxzoom: 10, count: 50 }
+      - { minzoom: 11, count: 200 }
+```
+
+- `geometry: polygon_centroid`, `line_centroid` and `centroid` draw a feature as its centroid point. Before, they were refused ([\#3920](<https://github.com/maplibre/martin/pull/3920>)).
+- `martin cp --mode bulk` shows each stage, a progress bar with an ETA and how busy the merge, encode and write threads are, updated every 250 ms. Without a terminal, it still logs every 10 s ([\#3911](<https://github.com/maplibre/martin/pull/3911>), [\#3931](<https://github.com/maplibre/martin/pull/3931>)). See [Generating Tilesets](<https://maplibre.org/martin/martin-generate/>).
+- The web UI is redesigned, with fixes for mobile layouts, dark mode and contrast. Tile thumbnails load only once their card is near the viewport, at most 4 at a time ([\#3921](<https://github.com/maplibre/martin/pull/3921>), [\#3922](<https://github.com/maplibre/martin/pull/3922>)).
+- When `$XDG_CACHE_HOME` and `~/.cache` are not writable, as in a read-only container, rendering keeps Mesa's shader cache in a temporary directory until Martin exits. With renderers being replaced, a request went from 622 to 108 ms ([\#3898](<https://github.com/maplibre/martin/pull/3898>)). See [Shader cache](<https://maplibre.org/martin/sources-styles/rendering/#shader-cache>).
+
+### Fixed
+
+- `mbtiles diff` computes a missing `agg_tiles_hash` instead of refusing, so every diff records the hash before and after. `mbtiles apply-patch` and `mbtiles copy --apply-patch` check the base file's hash first, and `apply-patch` rolls back when the result does not match. `apply-patch --validate` recomputes the base hash instead of trusting the stored one ([\#1244](<https://github.com/maplibre/martin/issues/1244>), [\#3916](<https://github.com/maplibre/martin/pull/3916>)). See [Diffing MBTiles](<https://maplibre.org/martin/mbtiles-diff/>).
+- A local PMTiles archive renamed over a source while it opens is noticed on the first read, and the source reloads. Before, the old file was served until the next change ([\#3897](<https://github.com/maplibre/martin/pull/3897>)).
+- `actix-http` 3.20.3 and `actix-web` 4.18.2 fix RUSTSEC-2026-0446, RUSTSEC-2026-0447 and RUSTSEC-2026-0448 ([\#3912](<https://github.com/maplibre/martin/pull/3912>)).
+
+### Performance
+
+- Local PMTiles archives bigger than memory are served without the 2.0 slowdown, by reading the file instead of a memory map. On OpenFreeMap's 87 GB planet on a c8g.xlarge, Martin served 11,000 tiles/s at p99 under 50 ms, against 1,750 for 2.0.0-beta.4 and 5,500 for 1.16.1 ([\#3858](<https://github.com/maplibre/martin/pull/3858>)). A local archive is checked for changes at most once a second, off the async workers, so a changed archive is noticed up to a second later ([\#3900](<https://github.com/maplibre/martin/pull/3900>)).
+- A connection waiting on a slow client keeps a reference to the tile instead of its own copy. With 1,000 stalled clients on Berlin's 50 largest tiles, memory per client fell from 193 KB to 12.5 KB (`actix-http` 3.21.0) ([\#3923](<https://github.com/maplibre/martin/pull/3923>)).
+
+### Unstable
+
+> \[!WARNING\] None of this is in the release binaries. It needs a build with `--features unstable-duckdb`, and its configuration may still change.
+
+- DuckDB S3 secrets are built from the same options as the object store. `aws_endpoint_url_s3` always wins over `aws_endpoint`, and `skip_signature` also accepts `on`, `yes` and `y` ([\#3872](<https://github.com/maplibre/martin/pull/3872>)).
+- A directory given on the command line no longer fails as an unrecognizable connection. Before, DuckDB skipping it undid the claim of the file sources before it ([\#3893](<https://github.com/maplibre/martin/pull/3893>)).
+
+### Other
+
+- *(docs)* schema examples for the optional DuckDB fields ([\#3894](<https://github.com/maplibre/martin/pull/3894>))
+- *(ci)* more reliable CI and release PRs ([\#3892](<https://github.com/maplibre/martin/pull/3892>), [\#3896](<https://github.com/maplibre/martin/pull/3896>), [\#3899](<https://github.com/maplibre/martin/pull/3899>), [\#3924](<https://github.com/maplibre/martin/pull/3924>), [\#3925](<https://github.com/maplibre/martin/pull/3925>), [\#3930](<https://github.com/maplibre/martin/pull/3930>))
+
 ## [2.0.0-beta.6](<https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.5...martin-v2.0.0-beta.6>) - 2026-11-04
 
 > \[!NOTE\] This is the sixth beta of Martin 2.0. It has one breaking change relative to [2.0.0-beta.5](<https://github.com/maplibre/martin/releases/tag/martin-v2.0.0-beta.5>), listed below. If you are coming from 1.x, read the [migration guide](<https://maplibre.org/martin/migration-guide/>) first.

@@ -2580,7 +2580,7 @@ Without that cache, creating a renderer, at startup or after one was <a href="#r
 <p>When neither directory is writable, as in a read-only container, Martin caches shaders in a private directory under <code>$TMPDIR</code> (<code>/tmp</code> unless set) until it exits, and logs that it did.
 If that is read-only too, it logs a warning and Mesa compiles shaders again for every renderer.
 For a read-only container, mount a small <code>tmpfs</code> at <code>/tmp</code> (the cache stays under a few MB), or set <code>MESA_SHADER_CACHE_DIR</code> to a writable volume to keep the cache across restarts:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--read-only<span class="w"> </span>--tmpfs<span class="w"> </span>/tmp<span class="w"> </span>...<span class="w"> </span>ghcr.io/maplibre/martin:2.0.0-beta.6-full
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--read-only<span class="w"> </span>--tmpfs<span class="w"> </span>/tmp<span class="w"> </span>...<span class="w"> </span>ghcr.io/maplibre/martin:2.0.0-beta.7-full
 </span></code></pre></div>
 <p>Martin leaves <code>MESA_SHADER_CACHE_DIR</code> and <code>MESA_SHADER_CACHE_DISABLE</code> alone when they are set.</p>
 <h2 id="static-images">Static images</h2>
