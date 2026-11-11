@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/maplibre/martin/compare/martin-core-v0.16.0...martin-core-v0.17.0) - 2026-11-11
+
+### Added
+
+- *(generate)* add the `merge_polygons` per-tile operation ([#3907](https://github.com/maplibre/martin/pull/3907))
+- *(generate)* add the `thinning` per-tile operation with `method: grid` ([#3903](https://github.com/maplibre/martin/pull/3903))
+- *(cp)* show stages and busy threads while `--mode bulk` runs ([#3911](https://github.com/maplibre/martin/pull/3911))
+- [**breaking**] Duckdb secret enhancement ([#3872](https://github.com/maplibre/martin/pull/3872))
+
+### Fixed
+
+- *(pmtiles)* catch an archive renamed over a source as it opens ([#3897](https://github.com/maplibre/martin/pull/3897))
+- *(pmtiles)* serve archives bigger than memory without the 2.0 slowdown ([#3858](https://github.com/maplibre/martin/pull/3858))
+- fmt ([#3892](https://github.com/maplibre/martin/pull/3892))
+
+### Other
+
+- *(pmtiles)* let pmtiles 0.28 check local archives for changes ([#3900](https://github.com/maplibre/martin/pull/3900))
+
 ## [0.16.0](https://github.com/maplibre/martin/compare/martin-core-v0.15.0...martin-core-v0.16.0) - 2026-11-04
 
 ### Added
