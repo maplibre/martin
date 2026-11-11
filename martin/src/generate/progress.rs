@@ -13,6 +13,7 @@ use indicatif::ProgressStyle;
 use martin_tilegen::{Activity, Progress, Role, Stage, ThreadTime};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
+use tracing::field::display;
 use tracing::{Level, Span, info, span};
 use tracing_indicatif::span_ext::IndicatifSpanExt as _;
 use tracing_indicatif::writer::get_indicatif_stderr_writer;
@@ -413,13 +414,13 @@ impl<'a> Live<'a> {
     /// Logs the running stage with its numbers as fields.
     fn log(&self) {
         let now = self.now;
-        let progress = self.ratio.map(|ratio| Percent(ratio).to_string());
-        let eta = self.eta.map(|eta| Took(eta).to_string());
+        let progress = self.ratio.map(|ratio| display(Percent(ratio)));
+        let eta = self.eta.map(|eta| display(Took(eta)));
         let busy = |role| {
             self.roles
                 .iter()
                 .find(|(running, ..)| *running == role)
-                .map(|(.., busy)| Percent(*busy).to_string())
+                .map(|(.., busy)| display(Percent(*busy)))
         };
         match now.stage {
             Stage::Render => info!(

@@ -1063,6 +1063,57 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
 }
 
 #[tokio::test]
+async fn logs_each_finished_stage_without_a_terminal() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "warn,martin::generate=info")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--threads")
+        .arg("2")
+        .run()
+        .await;
+    insta::with_settings!({ filters => vec![
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+        (r"elapsed=\S+", "elapsed=[ELAPSED]"),
+        (r"mbtiles.file=\S+", "mbtiles.file=[FILE]"),
+    ] }, {
+        insta::assert_snapshot!(log, @"
+        INFO Starting Martin tile generator martin.version=[VERSION]
+        INFO Prepared partitions partitions=1 elapsed=[ELAPSED]
+        INFO Rendered features features=30 sort.runs=1 sort.spilled=4.7 KiB elapsed=[ELAPSED]
+        INFO Wrote tiles tiles=38 tiles.bytes=2.6 KiB elapsed=[ELAPSED]
+        INFO Generated tiles features=30 tiles=38 elapsed=[ELAPSED] mbtiles.file=[FILE]
+        ");
+    });
+}
+
+#[tokio::test]
 async fn skips_a_source_with_no_zoom_in_range() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
