@@ -148,6 +148,11 @@ The highest zoom is 27. The tile grid can lower it further, since `extent × 2^z
 
 A failed or interrupted run removes the output file. Temporary files are always removed.
 
+The output's metadata keeps what a table's comment [TileJSON](sources-pg-tables.md#tilejson-in-sql-comments) sets, such as
+`attribution`, `center` and `description`, as in tile mode. Its `vector_layers` entries replace the computed
+entry of the same layer. The `name` defaults to the output's file stem, and `MBTiles` output records its
+`compression`.
+
 ### MVT quirks
 
 Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`:

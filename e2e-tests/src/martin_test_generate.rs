@@ -44,7 +44,7 @@ async fn run(conn: &mut PgConnection, sql: &str) {
 }
 
 /// `DATABASE_URL` naming [`SEEDS`] instead of its database.
-fn seeds_url() -> String {
+pub(crate) fn seeds_url() -> String {
     let url =
         env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
     let (base, params) = url

@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-    summary, summary_filters, temp_dir, tile_listing, tiles,
+    seed_postgres, summary, summary_filters, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -83,6 +83,88 @@ async fn generates_a_valid_tileset() {
         .run()
         .await;
     assert_eq!(tiles(&again).await, tiles(&output).await);
+}
+
+#[tokio::test]
+async fn keeps_the_metadata_of_the_table_comment() {
+    seed_postgres(indoc! {r#"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_comment CASCADE;
+        CREATE SCHEMA martin_cp_bulk_comment;
+        CREATE TABLE martin_cp_bulk_comment.places (id int8 PRIMARY KEY, kind text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_comment.places VALUES
+            (1, 'city', 'SRID=4326;POINT(16.37 48.20)'),
+            (2, 'town', 'SRID=4326;POINT(14.29 48.31)');
+        COMMENT ON TABLE martin_cp_bulk_comment.places IS '{
+            "attribution": "Places contributors",
+            "center": [16.37, 48.2, 5],
+            "description": "Cities and towns",
+            "vector_layers": [{"id": "places", "description": "One point per place", "fields": {"kind": "Kind of place"}}],
+            "foo": {"bar": "foo"}
+        }';
+    "#})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              auto_bounds: calc
+              tables:
+                places:
+                  schema: martin_cp_bulk_comment
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    kind: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("places.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("2")
+        .run()
+        .await;
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
+        insta::assert_snapshot!(metadata, @r#"
+        agg_tiles_hash = CFAA1077541C6E75968EFEE7FCD1F799
+        attribution = Places contributors
+        bounds = 14.29,48.2,16.37,48.31
+        center = 16.37,48.2,5
+        compression = gzip
+        description = Cities and towns
+        foo = {"bar":"foo"}
+        format = mlt
+        generator = martin cp v[VERSION] (bulk)
+        hash_algorithm = md5
+        json = {
+          "vector_layers": [
+            {
+              "description": "One point per place",
+              "fields": {
+                "kind": "Kind of place"
+              },
+              "id": "places"
+            }
+          ]
+        }
+        maxzoom = 2
+        minzoom = 0
+        name = places
+        "#);
+    });
 }
 
 #[tokio::test]
@@ -783,6 +865,7 @@ async fn writes_the_mbtiles_type_and_metadata_edits() {
         .await;
     insta::assert_snapshot!(metadata_listing(&output).await, @r#"
     bounds = -179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
+    compression = gzip
     format = mlt
     json = {
       "vector_layers": [
@@ -1163,6 +1246,7 @@ async fn skips_a_source_with_no_zoom_in_range() {
         insta::assert_snapshot!(metadata, @r#"
         agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
         bounds = -179.2731475830078,-80.46177673339844,179.11187744140625,84.93092346191406
+        compression = gzip
         format = mlt
         generator = martin cp v[VERSION] (bulk)
         hash_algorithm = md5

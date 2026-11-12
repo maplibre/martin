@@ -4,6 +4,7 @@ use std::env;
 use std::ffi::OsString;
 use std::process::Stdio;
 
+use crate::martin_test_generate::seeds_url;
 use crate::{binary_command, display_args, pg_ssl_args, workspace_root};
 
 /// One run of `martin cp`, which reaches a database only through
@@ -47,6 +48,13 @@ impl MartinCp {
         let url =
             env::var("DATABASE_URL").expect("DATABASE_URL must point at the test database; start it with `just start`");
         self.database_url = Some(url);
+        self
+    }
+
+    /// Copy from the database [`seed_postgres`](crate::seed_postgres) seeds, given like [`MartinCp::with_postgres`].
+    #[must_use]
+    pub fn with_seeded_postgres(mut self) -> Self {
+        self.database_url = Some(seeds_url());
         self
     }
 
