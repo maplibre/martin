@@ -61,9 +61,7 @@ describe('TilesCatalog thumbnails', () => {
   });
 
   it('fetches nothing until the card becomes visible', async () => {
-    render(
-      <TilesCatalog onSearchChangeAction={() => {}} searchQuery="" tileSources={tileSources} />,
-    );
+    render(<TilesCatalog searchQuery="" tileSources={tileSources} />);
     await Promise.resolve();
     expect(fetchMock).not.toHaveBeenCalled();
 

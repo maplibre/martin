@@ -89,7 +89,6 @@ function StylePreviewMap({ styleName }: { styleName: string }) {
 interface StylesCatalogProps {
   styles?: Catalog['styles'];
   searchQuery?: string;
-  onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -102,7 +101,6 @@ interface StylesCatalogProps {
 export function StylesCatalog({
   styles,
   searchQuery = '',
-  onSearchChangeAction = () => {},
   isLoading,
   error = null,
   onRetry,
@@ -145,11 +143,9 @@ export function StylesCatalog({
     <div className="space-y-6">
       <CatalogHeader
         count={filteredStyles.length}
-        description="Browse and preview all available map styles and themes"
-        onSearchChange={onSearchChangeAction}
-        searchPlaceholder="Search styles..."
+        noun={['style', 'styles']}
         searchQuery={searchQuery}
-        title="Styles Catalog"
+        total={Object.keys(styles ?? {}).length}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
@@ -159,13 +155,12 @@ export function StylesCatalog({
             key={name}
           >
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <Brush aria-hidden="true" className="size-4 text-brand" />
-                <Badge variant="secondary">{style.type ?? 'style.json'}</Badge>
+              <div className="flex items-start justify-between gap-3">
+                <CardTitle className="min-w-0">
+                  <TooltipCopyText text={name} />
+                </CardTitle>
+                {style.type ? <Badge variant="secondary">{style.type}</Badge> : null}
               </div>
-              <CardTitle>
-                <TooltipCopyText text={name} />
-              </CardTitle>
               <CardDescription
                 className="line-clamp-2 font-mono text-xs [overflow-wrap:anywhere]"
                 title={style.path}
@@ -210,21 +205,21 @@ export function StylesCatalog({
               <div className="mt-auto flex gap-2">
                 <Button
                   className="min-w-0 flex-1"
-                  onClick={() => onStyleGuide(name)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <Code />
-                  Integration Guide
-                </Button>
-                <Button
-                  className="min-w-0 flex-1"
                   onClick={() => onEditStyle?.(name)}
                   size="sm"
                   variant="default"
                 >
                   <SquarePen />
                   Edit
+                </Button>
+                <Button
+                  className="min-w-0 flex-1"
+                  onClick={() => onStyleGuide(name)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Code />
+                  Integration Guide
                 </Button>
               </div>
             </CardContent>

@@ -5,43 +5,11 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
   <div
     class="space-y-6"
   >
-    <div
-      class="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-end"
+    <h2
+      class="text-lg font-semibold tabular-nums text-foreground"
     >
-      <div
-        class="min-w-0"
-      >
-        <h2
-          class="text-2xl font-semibold tracking-tight text-foreground"
-        >
-          Sprite Catalog
-        </h2>
-        <p
-          class="mt-1 text-sm text-muted-foreground"
-        >
-          Preview all available sprite sheets and icons
-          <span
-            class="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-foreground"
-          >
-            3
-          </span>
-        </p>
-      </div>
-      <div
-        class="relative w-full md:w-72"
-      >
-        <span
-          role="img"
-        />
-        <input
-          aria-label="Search sprites"
-          class="flex h-11 w-full rounded-md border border-input bg-card py-2 text-base shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground hover:border-ring/60 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 sm:h-10 sm:text-sm px-9 [&::-webkit-search-cancel-button]:appearance-none"
-          placeholder="Search sprites..."
-          type="search"
-          value=""
-        />
-      </div>
-    </div>
+      3 sprite sheets
+    </h2>
     <div
       class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5"
     >
@@ -51,19 +19,6 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"
         >
-          <div
-            class="flex items-center justify-between gap-2"
-          >
-            <span
-              role="img"
-            />
-            <span
-              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
-              data-slot="badge"
-            >
-              1x, 2x
-            </span>
-          </div>
           <div
             class="text-base font-semibold leading-snug tracking-tight"
           >
@@ -95,83 +50,56 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             </div>
           </div>
           <div
-            class="text-sm text-muted-foreground"
+            class="text-sm text-muted-foreground tabular-nums"
           >
-            5 total icons
+            5 icons · 25 KB
           </div>
         </div>
         <div
           class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
           <div
-            class="space-y-3"
+            class="checker rounded-lg border p-3 text-paper-foreground"
           >
             <div
-              class="checker rounded-lg border p-3 text-paper-foreground"
+              class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+              data-testid="sprite-preview"
             >
               <div
-                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
-                data-testid="sprite-preview"
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-pin"
               >
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-pin"
-                >
-                  pin
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-marker"
-                >
-                  marker
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-building"
-                >
-                  building
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-park"
-                >
-                  park
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-poi"
-                >
-                  poi
-                </div>
+                pin
               </div>
-            </div>
-            <div
-              class="flex justify-between gap-3 text-sm"
-            >
-              <span
-                class="text-muted-foreground"
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-marker"
               >
-                File size
-              </span>
-              <span
-                class="tabular-nums"
+                marker
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-building"
               >
-                25 KB
-              </span>
+                building
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-park"
+              >
+                park
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-poi"
+              >
+                poi
+              </div>
             </div>
           </div>
           <div
             class="flex gap-2"
           >
-            <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
-              data-slot="button"
-            >
-              <span
-                role="img"
-              />
-              Download
-            </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
@@ -180,6 +108,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                 role="img"
               />
               Preview
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
             </button>
           </div>
         </div>
@@ -190,19 +127,6 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"
         >
-          <div
-            class="flex items-center justify-between gap-2"
-          >
-            <span
-              role="img"
-            />
-            <span
-              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
-              data-slot="badge"
-            >
-              1x, 2x
-            </span>
-          </div>
           <div
             class="text-base font-semibold leading-snug tracking-tight"
           >
@@ -234,95 +158,68 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             </div>
           </div>
           <div
-            class="text-sm text-muted-foreground"
+            class="text-sm text-muted-foreground tabular-nums"
           >
-            7 total icons
+            7 icons · 30 KB
           </div>
         </div>
         <div
           class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
           <div
-            class="space-y-3"
+            class="checker rounded-lg border p-3 text-paper-foreground"
           >
             <div
-              class="checker rounded-lg border p-3 text-paper-foreground"
+              class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+              data-testid="sprite-preview"
             >
               <div
-                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
-                data-testid="sprite-preview"
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-car"
               >
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-car"
-                >
-                  car
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-bus"
-                >
-                  bus
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-train"
-                >
-                  train
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-bicycle"
-                >
-                  bicycle
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-walk"
-                >
-                  walk
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-plane"
-                >
-                  plane
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-ferry"
-                >
-                  ferry
-                </div>
+                car
               </div>
-            </div>
-            <div
-              class="flex justify-between gap-3 text-sm"
-            >
-              <span
-                class="text-muted-foreground"
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-bus"
               >
-                File size
-              </span>
-              <span
-                class="tabular-nums"
+                bus
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-train"
               >
-                30 KB
-              </span>
+                train
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-bicycle"
+              >
+                bicycle
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-walk"
+              >
+                walk
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-plane"
+              >
+                plane
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-ferry"
+              >
+                ferry
+              </div>
             </div>
           </div>
           <div
             class="flex gap-2"
           >
-            <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
-              data-slot="button"
-            >
-              <span
-                role="img"
-              />
-              Download
-            </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
@@ -331,6 +228,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                 role="img"
               />
               Preview
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
             </button>
           </div>
         </div>
@@ -341,19 +247,6 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"
         >
-          <div
-            class="flex items-center justify-between gap-2"
-          >
-            <span
-              role="img"
-            />
-            <span
-              class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit max-w-full whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-colors overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-accent"
-              data-slot="badge"
-            >
-              1x, 2x
-            </span>
-          </div>
           <div
             class="text-base font-semibold leading-snug tracking-tight"
           >
@@ -385,101 +278,74 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             </div>
           </div>
           <div
-            class="text-sm text-muted-foreground"
+            class="text-sm text-muted-foreground tabular-nums"
           >
-            8 total icons
+            8 icons · 35 KB
           </div>
         </div>
         <div
           class="p-5 pt-0 flex grow flex-col justify-between gap-4"
         >
           <div
-            class="space-y-3"
+            class="checker rounded-lg border p-3 text-paper-foreground"
           >
             <div
-              class="checker rounded-lg border p-3 text-paper-foreground"
+              class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+              data-testid="sprite-preview"
             >
               <div
-                class="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
-                data-testid="sprite-preview"
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-arrow"
               >
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-arrow"
-                >
-                  arrow
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-plus"
-                >
-                  plus
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-minus"
-                >
-                  minus
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-close"
-                >
-                  close
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-menu"
-                >
-                  menu
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-search"
-                >
-                  search
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-filter"
-                >
-                  filter
-                </div>
-                <div
-                  class="w-7 h-7 bg-gray-200 rounded-sm"
-                  data-testid="sprite-icon-settings"
-                >
-                  settings
-                </div>
+                arrow
               </div>
-            </div>
-            <div
-              class="flex justify-between gap-3 text-sm"
-            >
-              <span
-                class="text-muted-foreground"
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-plus"
               >
-                File size
-              </span>
-              <span
-                class="tabular-nums"
+                plus
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-minus"
               >
-                35 KB
-              </span>
+                minus
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-close"
+              >
+                close
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-menu"
+              >
+                menu
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-search"
+              >
+                search
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-filter"
+              >
+                filter
+              </div>
+              <div
+                class="w-7 h-7 bg-gray-200 rounded-sm"
+                data-testid="sprite-icon-settings"
+              >
+                settings
+              </div>
             </div>
           </div>
           <div
             class="flex gap-2"
           >
-            <button
-              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
-              data-slot="button"
-            >
-              <span
-                role="img"
-              />
-              Download
-            </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover min-w-0 flex-1"
               data-slot="button"
@@ -488,6 +354,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                 role="img"
               />
               Preview
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:ring-1 disabled:ring-inset disabled:ring-border [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5 border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground min-w-0 flex-1"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
             </button>
           </div>
         </div>

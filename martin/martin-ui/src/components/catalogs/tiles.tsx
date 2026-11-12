@@ -155,9 +155,20 @@ function GeneratedTile({ name, label }: { name: string; label: string }) {
   );
 }
 
+const FORMAT_NAMES: Record<string, string> = {
+  'application/json': 'JSON',
+  'application/vnd.mapbox-vector-tile': 'MVT',
+  'application/vnd.maplibre-tile': 'MLT',
+  'application/x-protobuf': 'MVT',
+};
+
+/** Short tile format name, such as MVT or PNG, for a content type. */
+export function formatName(contentType: string) {
+  return FORMAT_NAMES[contentType] ?? (contentType.split('/')[1] ?? 'TILE').toUpperCase();
+}
+
 function formatLabel(contentType: string) {
-  if (contentType === 'application/x-protobuf') return 'MVT';
-  return (contentType.split('/')[1] ?? 'TILE').toUpperCase().slice(0, 4);
+  return formatName(contentType).slice(0, 4);
 }
 
 /** Every source shows a real tile (raster image or drawn geometry); a glyph is the fallback. */
@@ -277,18 +288,33 @@ function TileThumb({
 
 type TileSourceInfo = NonNullable<Catalog['tiles']>[string];
 
+/** Zoom range, coverage and layer count, each phrased so it needs no label. */
+function tileFacts(zooms: ZoomRange | undefined, layerCount: number | null | undefined) {
+  const facts: string[] = [];
+  if (zooms) {
+    facts.push(zooms.min === zooms.max ? `zoom ${zooms.min}` : `zoom ${zooms.min}–${zooms.max}`);
+    facts.push(zooms.worldwide ? 'worldwide' : 'regional');
+  }
+  if (layerCount) facts.push(`${layerCount} ${layerCount === 1 ? 'layer' : 'layers'}`);
+  return facts;
+}
+
 function TileCard({
   name,
   source,
   repeatOf,
+  showFormat,
   onInspect,
 }: {
   name: string;
   source: TileSourceInfo;
   repeatOf?: string;
+  /** Only worth a badge when the catalog mixes formats. */
+  showFormat: boolean;
   onInspect: () => void;
 }) {
   const [zooms, setZooms] = useState<ZoomRange>();
+  const facts = tileFacts(zooms, source.layer_count);
   // Sources that share a title and description with an earlier card add nothing but noise
   const isRepeat = repeatOf !== undefined;
   const title =
@@ -308,27 +334,19 @@ function TileCard({
       <CardHeader className="flex-row items-start gap-3 pb-3">
         <TileThumb contentType={source.content_type} name={name} onZooms={setZooms} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <CardTitle>
-            <TooltipCopyText text={name} />
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Badge variant="secondary">{source.content_type}</Badge>
-            {zooms ? (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {zooms.min === zooms.max ? `z${zooms.min}` : `z${zooms.min}-${zooms.max}`}
-              </span>
-            ) : null}
-            {zooms ? (
-              <span className="text-xs text-muted-foreground">
-                {zooms.worldwide ? 'Worldwide' : 'Regional'}
-              </span>
-            ) : null}
-            {source.layer_count ? (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {source.layer_count} {source.layer_count === 1 ? 'layer' : 'layers'}
-              </span>
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="min-w-0">
+              <TooltipCopyText text={name} />
+            </CardTitle>
+            {showFormat ? (
+              <Badge title={source.content_type} variant="secondary">
+                {formatName(source.content_type)}
+              </Badge>
             ) : null}
           </div>
+          {facts.length > 0 ? (
+            <p className="text-xs tabular-nums text-muted-foreground">{facts.join(' · ')}</p>
+          ) : null}
         </div>
       </CardHeader>
       {title || description ? (
@@ -366,7 +384,6 @@ function TileCard({
 interface TilesCatalogProps {
   tileSources?: Catalog['tiles'];
   searchQuery: string;
-  onSearchChangeAction: (query: string) => void;
   isLoading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -378,7 +395,6 @@ interface TilesCatalogProps {
 export function TilesCatalog({
   tileSources,
   searchQuery,
-  onSearchChangeAction,
   isLoading,
   error = null,
   onRetry,
@@ -420,15 +436,16 @@ export function TilesCatalog({
       source.content_type?.toLowerCase().includes(lowercaseSearchQuery),
   );
 
+  const mixedFormats =
+    new Set(Object.values(tileSources ?? {}).map((source) => source.content_type)).size > 1;
+
   return (
     <div className="space-y-6">
       <CatalogHeader
         count={filteredTileSources.length}
-        description="Explore all available tile sources"
-        onSearchChange={onSearchChangeAction}
-        searchPlaceholder="Search tile sources..."
+        noun={['tile source', 'tile sources']}
         searchQuery={searchQuery}
-        title="Tile Sources Catalog"
+        total={Object.keys(tileSources ?? {}).length}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
@@ -447,6 +464,7 @@ export function TilesCatalog({
                     )?.[0]
                 : undefined
             }
+            showFormat={mixedFormats}
             source={source}
           />
         ))}
