@@ -1266,14 +1266,14 @@ This assumes you have a local clone of the repo, the remote name is `origin`, an
 </span></code></pre></div>
 <h2 id="working-with-just">Working with Just</h2>
 <p>The project uses a workspaced justfile setup: the root <code>justfile</code> imports sub-modules for
-the web UI (<code>martin/martin-ui/</code>) and the demo (<code>demo/</code>).</p>
+the web UI (<code>martin-ui/</code>) and the demo (<code>demo/</code>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>just<span class="w"> </span><span class="nb">help</span><span class="w">        </span><span class="c1"># common commands</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>--list<span class="w">      </span><span class="c1"># all commands</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>just<span class="w"> </span>validate-tools<span class="w">  </span><span class="c1"># check setup</span>
 </span></code></pre></div>
 <h3 id="sub-projects">Sub-projects</h3>
 <p>Sub-project recipes are namespaced with <code>::</code> and can be run from the repository root:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Web UI (martin/martin-ui/)</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Web UI (martin-ui/)</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>just<span class="w"> </span>ui::test<span class="w">        </span><span class="c1"># run frontend tests</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>just<span class="w"> </span>ui::biome<span class="w">       </span><span class="c1"># run BiomeJS formatter and linter</span>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>just<span class="w"> </span>ui::type-check<span class="w">  </span><span class="c1"># TypeScript type checking</span>
