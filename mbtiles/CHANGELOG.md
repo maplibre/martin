@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1](https://github.com/maplibre/martin/compare/mbtiles-v0.23.0...mbtiles-v0.23.1) - 2026-11-12
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.23.0](https://github.com/maplibre/martin/compare/mbtiles-v0.22.0...mbtiles-v0.23.0) - 2026-11-11
 
 ### Fixed

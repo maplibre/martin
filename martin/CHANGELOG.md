@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.8](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.7...martin-v2.0.0-beta.8) - 2026-11-12
+
+### Fixed
+
+- *(cp)* refuse bulk MLT output for sources with `convert_to_mlt: disabled` ([#3941](https://github.com/maplibre/martin/pull/3941))
+- *(cp)* refuse bulk sources on a connection-level non-Web-Mercator tile grid ([#3940](https://github.com/maplibre/martin/pull/3940))
+- *(ui)* tighten catalog hierarchy and drop label:value rows ([#3938](https://github.com/maplibre/martin/pull/3938))
+- *(deps)* update npm dependencies ([#3933](https://github.com/maplibre/martin/pull/3933))
+
+### Other
+
+- *(postgres)* discover tables without joining pg_collation per table ([#3935](https://github.com/maplibre/martin/pull/3935))
+- update Cargo.lock dependencies
+
 ## [2.0.0-beta.7](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.6...martin-v2.0.0-beta.7) - 2026-11-11
 
 > [!NOTE]

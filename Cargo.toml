@@ -149,10 +149,10 @@ log = "0.4"
 map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
 maplibre-native-ffi = "0.202610.3"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./martin-core", version = "0.17.0", default-features = false }
+martin-core = { path = "./martin-core", version = "0.17.1", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.2.1", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.23.0" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.2.2", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.23.1" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
