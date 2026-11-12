@@ -224,6 +224,7 @@ pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Op
         zooms: 0..=max_zoom,
         bounds: None,
         encoder: None,
+        order_by: None,
     };
     let Some(scan) = lower_table(id, info.clone(), &options)? else {
         return Ok(None);
