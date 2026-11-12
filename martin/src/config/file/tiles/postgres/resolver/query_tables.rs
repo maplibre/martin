@@ -192,17 +192,15 @@ pub(super) fn property_column<'a>(info: &'a TableInfo, field: &'a str) -> Proper
     }
 }
 
-/// Generate a query to fetch tiles from a table.
-/// The function is async because it may need to query the database for the table bounds (could be very slow).
-pub async fn table_to_query(
-    id: String,
-    mut info: TableInfo,
-    pool: PostgresPool,
+/// Fills in the bounds of a table without configured ones, as `bounds_type` says, unless the tile grid is not
+/// geographic or the table's SRID cannot be transformed to WGS84.
+pub async fn resolve_bounds(
+    id: &str,
+    info: &mut TableInfo,
+    pool: &PostgresPool,
     bounds_type: BoundsCalcType,
-    max_feature_count: Option<usize>,
-    order_by: Option<OrderByType>,
     grid: &PgTileGrid,
-) -> PostgresResult<(String, PostgresTiler, TableInfo)> {
+) -> PostgresResult<()> {
     let srid = info.srid;
 
     if info.bounds.is_none() && grid.grid().is_simple() {
@@ -214,13 +212,13 @@ pub async fn table_to_query(
         );
     } else if info.bounds.is_none()
         && bounds_type != BoundsCalcType::Skip
-        && transforms_to_wgs84(&pool, &info, srid).await?
+        && transforms_to_wgs84(pool, info, srid).await?
     {
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!(source.id = %id, table.id = %info.format_id(), "Computing table bounds");
-                info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
+                info.bounds = calc_bounds(pool, info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -230,7 +228,7 @@ pub async fn table_to_query(
                     "Computing table bounds with timeout"
                 );
                 let bounds = {
-                    let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
+                    let bounds = calc_bounds(pool, info, srid, BoundsCalcMode::Estimate);
                     pin_mut!(bounds);
                     timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await
                 };
@@ -256,6 +254,21 @@ pub async fn table_to_query(
             );
         }
     }
+    Ok(())
+}
+
+/// Generate a query to fetch tiles from a table.
+/// The function is async because it may need to query the database for the table bounds (could be very slow).
+pub async fn table_to_query(
+    id: String,
+    mut info: TableInfo,
+    pool: PostgresPool,
+    bounds_type: BoundsCalcType,
+    max_feature_count: Option<usize>,
+    order_by: Option<OrderByType>,
+    grid: &PgTileGrid,
+) -> PostgresResult<(String, PostgresTiler, TableInfo)> {
+    resolve_bounds(&id, &mut info, &pool, bounds_type, grid).await?;
 
     if info.layers.is_some() {
         if !grid.is_web_mercator() {
