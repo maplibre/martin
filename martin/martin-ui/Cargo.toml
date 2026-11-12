@@ -7,6 +7,7 @@ keywords = ["maps", "tiles", "martin", "webui"]
 categories = ["science::geo", "web-programming::http-server"]
 # Only the built bundle is published, so crates.io users need no Node.js toolchain.
 include = ["/Cargo.toml", "/build.rs", "/lib.rs", "/dist/**"]
+readme = false # README.md documents the npm project, the crate docs live in lib.rs
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

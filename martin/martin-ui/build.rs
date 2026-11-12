@@ -30,7 +30,7 @@ fn main() {
     fs::create_dir_all(&stub).unwrap_or_else(|e| panic!("failed to create {}: {e}", stub.display()));
     fs::write(
         stub.join("index.html"),
-        "This Martin build has no web UI bundle. Run `just ui::build` and rebuild to embed it.\n",
+        "<!doctype html>\n<html lang=\"en\"><title>Martin</title><body>This Martin build has no web UI bundle. Run <code>just ui::build</code> and rebuild to embed it.</body></html>\n",
     )
     .expect("failed to write the placeholder web UI page");
     static_files::resource_dir(&stub)

@@ -22,7 +22,6 @@ export default defineConfig({
         },
       },
     },
-    sourcemap: true,
   },
   envPrefix: 'VITE_',
   plugins: [
