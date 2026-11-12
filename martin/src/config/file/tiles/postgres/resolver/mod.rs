@@ -9,6 +9,6 @@ pub use crate::config::file::tiles::postgres::resolver::query_functions::{
 };
 pub use crate::config::file::tiles::postgres::resolver::query_schemas::query_schemas;
 pub use crate::config::file::tiles::postgres::resolver::query_tables::{
-    ScanSql, SqlTableInfoMapMapMap, engine_sql, linear_geometry, query_available_tables, row_filter, scan_sql,
-    table_to_query,
+    ScanSql, SqlTableInfoMapMapMap, engine_sql, linear_geometry, query_available_tables, resolve_bounds, row_filter,
+    scan_sql, table_to_query,
 };
