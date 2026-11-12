@@ -22,15 +22,9 @@ _npm-install:
 bless: _npm-install
     npm run test:update-snapshots
 
-# Build the production bundle `dist/` that the martin-ui crate embeds, unless it is newer than its inputs
+# Build the production bundle that martin's build.rs embeds into the server
 build: _npm-install
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ -f dist/index.html && -z "$(find src public index.html package-lock.json vite.config.ts -newer dist/index.html -print -quit)" ]]; then
-        echo "dist/ is up to date"
-    else
-        npm run build
-    fi
+    npm run build
 
 # Clean build artifacts
 clean:
