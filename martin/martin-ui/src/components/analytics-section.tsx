@@ -145,14 +145,14 @@ export function AnalyticsSection({
             </span>
           </h2>
           {counts ? (
-            <p className="mt-1 text-base font-medium sm:text-lg">
-              Serving <strong className="text-brand">{counts.tiles}</strong> tile{' '}
+            <p className="mt-1 text-base text-muted-foreground">
+              Serving <strong className="font-semibold text-brand">{counts.tiles}</strong> tile{' '}
               {counts.tiles === 1 ? 'source' : 'sources'},{' '}
-              <strong className="text-brand">{counts.styles}</strong>{' '}
+              <strong className="font-semibold text-brand">{counts.styles}</strong>{' '}
               {counts.styles === 1 ? 'style' : 'styles'},{' '}
-              <strong className="text-brand">{counts.fonts}</strong>{' '}
+              <strong className="font-semibold text-brand">{counts.fonts}</strong>{' '}
               {counts.fonts === 1 ? 'font' : 'fonts'} and{' '}
-              <strong className="text-brand">{counts.sprites}</strong>{' '}
+              <strong className="font-semibold text-brand">{counts.sprites}</strong>{' '}
               {counts.sprites === 1 ? 'sprite sheet' : 'sprite sheets'}
             </p>
           ) : countsUnavailable ? (
@@ -194,8 +194,8 @@ export function AnalyticsSection({
                     {pending ? (
                       <Skeleton className="h-6 w-14" />
                     ) : idle ? (
-                      <span aria-label="No data" className="text-muted-foreground" role="img">
-                        -
+                      <span className="text-sm font-normal text-muted-foreground">
+                        No requests yet
                       </span>
                     ) : (
                       <>
@@ -207,11 +207,11 @@ export function AnalyticsSection({
                       </>
                     )}
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                  <div className="mt-1 text-[0.8125rem] text-muted-foreground tabular-nums">
                     {pending ? (
                       <Skeleton className="h-3 w-20" />
                     ) : idle ? (
-                      'No requests yet'
+                      '\u00a0'
                     ) : (
                       <>
                         {data.requestCount.toLocaleString()}
@@ -233,16 +233,12 @@ export function AnalyticsSection({
                 )}
               </div>
               <dl
-                className={`mt-3 min-h-9 space-y-1 border-t border-border pt-2 ${expanded ? '' : 'max-md:hidden'}`}
+                className={`mt-3 min-h-9 space-y-1 border-t pt-2 ${caches.length === 0 || cacheEntries.length > 0 ? 'border-border' : 'border-transparent'} ${expanded ? '' : 'max-md:hidden'}`}
               >
-                {cacheEntries.length === 0 ? (
+                {caches.length === 0 ? (
                   <div className="flex items-center justify-between gap-2 text-[0.8125rem]">
-                    <dt className="text-muted-foreground">
-                      {caches.length === 0 ? 'Style cache' : 'Cache'}
-                    </dt>
-                    <dd className="text-muted-foreground">
-                      {caches.length === 0 ? 'not cached' : '-'}
-                    </dd>
+                    <dt className="text-muted-foreground">Style cache</dt>
+                    <dd className="text-muted-foreground">not cached</dd>
                   </div>
                 ) : null}
                 {cacheEntries.map(({ key: cacheKey, label, metrics }) => (

@@ -6,7 +6,6 @@ import { SpriteDownloadDialog } from '@/components/dialogs/sprite-download';
 import { SpritePreviewDialog } from '@/components/dialogs/sprite-preview';
 import { ErrorState } from '@/components/error/error-state';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
@@ -17,7 +16,6 @@ import SpritePreview from '../sprite/SpritePreview';
 interface SpriteCatalogProps {
   spriteCollections?: Catalog['sprites'];
   searchQuery?: string;
-  onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
   error?: string | Error | null;
   onRetry?: () => void;
@@ -31,7 +29,6 @@ interface SpriteCatalogProps {
 export function SpriteCatalog({
   spriteCollections,
   searchQuery = '',
-  onSearchChangeAction = () => {},
   isLoading,
   error = null,
   onRetry,
@@ -74,11 +71,9 @@ export function SpriteCatalog({
       <div className="space-y-6">
         <CatalogHeader
           count={filteredSpriteCollections.length}
-          description="Preview all available sprite sheets and icons"
-          onSearchChange={onSearchChangeAction}
-          searchPlaceholder="Search sprites..."
+          noun={['sprite sheet', 'sprite sheets']}
           searchQuery={searchQuery}
-          title="Sprite Catalog"
+          total={Object.keys(spriteCollections ?? {}).length}
         />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
@@ -88,42 +83,24 @@ export function SpriteCatalog({
               key={name}
             >
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <ImageIcon aria-hidden="true" className="size-4 text-brand" />
-                  <Badge variant="secondary">1x, 2x</Badge>
-                </div>
                 <CardTitle>
                   <TooltipCopyText text={name} />
                 </CardTitle>
-                <CardDescription>{sprite.images.length} total icons</CardDescription>
+                <CardDescription className="tabular-nums">
+                  {sprite.images.length} {sprite.images.length === 1 ? 'icon' : 'icons'}
+                  {sprite.size_in_bytes ? ` · ${formatFileSize(sprite.size_in_bytes)}` : null}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex grow flex-col justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="checker rounded-lg border p-3 text-paper-foreground">
-                    <SpritePreview
-                      className="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
-                      previewMode
-                      spriteIds={sprite.images}
-                      spriteUrl={`/sprite/${name}`}
-                    />
-                  </div>
-                  {sprite.size_in_bytes ? (
-                    <div className="flex justify-between gap-3 text-sm">
-                      <span className="text-muted-foreground">File size</span>
-                      <span className="tabular-nums">{formatFileSize(sprite.size_in_bytes)}</span>
-                    </div>
-                  ) : null}
+                <div className="checker rounded-lg border p-3 text-paper-foreground">
+                  <SpritePreview
+                    className="flex min-h-14 w-full flex-wrap items-center justify-center gap-2"
+                    previewMode
+                    spriteIds={sprite.images}
+                    spriteUrl={`/sprite/${name}`}
+                  />
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    className="min-w-0 flex-1"
-                    onClick={() => onDownloadSprite(name)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Download />
-                    Download
-                  </Button>
                   <Button
                     className="min-w-0 flex-1"
                     onClick={() => onPreviewSprite(name)}
@@ -132,6 +109,15 @@ export function SpriteCatalog({
                   >
                     <Eye />
                     Preview
+                  </Button>
+                  <Button
+                    className="min-w-0 flex-1"
+                    onClick={() => onDownloadSprite(name)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Download />
+                    Download
                   </Button>
                 </div>
               </CardContent>

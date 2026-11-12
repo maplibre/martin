@@ -12,10 +12,20 @@ import { buildMartinUrl } from '@/lib/api';
 import type { Catalog } from '@/lib/types.gen';
 import { CopyLinkButton } from '../ui/copy-link-button';
 
+type FontInfo = NonNullable<Catalog['fonts']>[string];
+
+/** Family and style when the name does not already say them, then the glyph count. */
+function fontFacts(name: string, font: FontInfo) {
+  const facts: string[] = [];
+  if (!name.includes(font.family)) facts.push(font.family);
+  if (font.style && !name.includes(font.style)) facts.push(font.style);
+  facts.push(`${font.glyphs.toLocaleString()} glyphs`);
+  return facts;
+}
+
 interface FontCatalogProps {
   fonts?: Catalog['fonts'];
   searchQuery?: string;
-  onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -25,7 +35,6 @@ interface FontCatalogProps {
 export function FontCatalog({
   fonts,
   searchQuery = '',
-  onSearchChangeAction = () => {},
   isLoading,
   error = null,
   onRetry,
@@ -60,11 +69,9 @@ export function FontCatalog({
     <div className="space-y-6">
       <CatalogHeader
         count={filteredFonts.length}
-        description="Preview all available font assets"
-        onSearchChange={onSearchChangeAction}
-        searchPlaceholder="Search fonts..."
+        noun={['font', 'fonts']}
         searchQuery={searchQuery}
-        title="Font Catalog"
+        total={Object.keys(fonts ?? {}).length}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
@@ -74,32 +81,23 @@ export function FontCatalog({
             key={name}
           >
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <Type aria-hidden="true" className="size-4 text-brand" />
+              <div className="flex items-start justify-between gap-3">
+                <CardTitle className="min-w-0">
+                  <TooltipCopyText text={name} />
+                </CardTitle>
                 {font.format ? (
                   <Badge className="uppercase" variant="secondary">
                     {font.format}
                   </Badge>
                 ) : null}
               </div>
-              <CardTitle>
-                <TooltipCopyText
-                  className="font-sans text-base font-semibold [&_code]:font-[inherit]"
-                  text={name}
-                />
-              </CardTitle>
-              <CardDescription className="[overflow-wrap:anywhere]">
-                Family: {font.family}
-                {font.style ? ` • Style: ${font.style}` : ''}
+              <CardDescription className="tabular-nums [overflow-wrap:anywhere]">
+                {fontFacts(name, font).join(' · ')}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-4">
               <div className="rounded-lg border bg-sunken px-3 py-2 text-foreground">
                 <FontPreviewCanvas fontName={name} />
-              </div>
-              <div className="flex justify-between gap-3 text-sm">
-                <span className="text-muted-foreground">Glyph count</span>
-                <span className="tabular-nums">{font.glyphs}</span>
               </div>
               <div className="mt-auto flex gap-2">
                 <CopyLinkButton

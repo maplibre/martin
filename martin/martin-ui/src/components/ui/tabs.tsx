@@ -34,7 +34,7 @@ const TabsTrigger = ({
 }) => (
   <TabsPrimitive.Trigger
     className={cn(
-      'inline-flex h-full min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors cursor-pointer hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm',
+      'inline-flex h-full min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium sm:px-5 transition-colors cursor-pointer hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm',
       className,
     )}
     ref={ref}

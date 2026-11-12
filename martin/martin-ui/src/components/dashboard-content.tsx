@@ -1,4 +1,5 @@
 import { type ErrorInfo, useEffect } from 'react';
+import { CatalogSearch } from '@/components/catalogs/catalog-search';
 import { FontCatalog } from '@/components/catalogs/font';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import { StylesCatalog } from '@/components/catalogs/styles';
@@ -12,6 +13,14 @@ import { useURLParams } from '@/hooks/use-url-params';
 import { martinClient } from '@/lib/martin-client';
 import type { Catalog } from '@/lib/types.gen';
 import { TilesCatalog } from './catalogs/tiles';
+
+/** Search box hint for each catalog tab. */
+const SEARCH_PLACEHOLDERS: Record<string, string> = {
+  fonts: 'Search fonts...',
+  sprites: 'Search sprites...',
+  styles: 'Search styles...',
+  tiles: 'Search tile sources...',
+};
 
 const fetchCatalog = async (): Promise<Catalog> => {
   const { data, response } = await martinClient.GET('/catalog');
@@ -73,43 +82,40 @@ export function DashboardContent() {
       }}
     >
       <Tabs
-        className="space-y-6"
+        className="space-y-5"
         onValueChange={(value) => updateParam('tab', value)}
         value={params.tab}
       >
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="tiles">
-            Tiles<span className="md:block hidden ms-1">Catalog</span>
-          </TabsTrigger>
-          <TabsTrigger value="styles">
-            Styles<span className="md:block hidden ms-1">Catalog</span>
-          </TabsTrigger>
-          <TabsTrigger value="fonts">
-            Fonts<span className="md:block hidden ms-1">Catalog</span>
-          </TabsTrigger>
-          <TabsTrigger value="sprites">
-            Sprites<span className="md:block hidden ms-1">Catalog</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
+            <TabsTrigger value="tiles">Tiles</TabsTrigger>
+            <TabsTrigger value="styles">Styles</TabsTrigger>
+            <TabsTrigger value="fonts">Fonts</TabsTrigger>
+            <TabsTrigger value="sprites">Sprites</TabsTrigger>
+          </TabsList>
+          <CatalogSearch
+            onChange={handleSearchChange}
+            placeholder={SEARCH_PLACEHOLDERS[params.tab ?? 'tiles'] ?? 'Search...'}
+            value={params.search ?? ''}
+          />
+        </div>
 
-        <TabsContent value="tiles">
+        <TabsContent className="mt-0" value="tiles">
           <TilesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onInspectTile={(tileName) => updateParam('inspect', tileName)}
-            onSearchChangeAction={handleSearchChange}
             searchQuery={params.search ?? ''}
             selectedTileForInspection={params.inspect}
             tileSources={catalogOperation.data?.tiles}
           />
         </TabsContent>
 
-        <TabsContent value="styles">
+        <TabsContent className="mt-0" value="styles">
           <StylesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onEditStyle={(styleName) => updateParam('style', styleName)}
-            onSearchChangeAction={handleSearchChange}
             onStyleGuide={(styleName) => updateParam('guide', styleName)}
             searchQuery={params.search ?? ''}
             selectedStyleForGuide={params.guide}
@@ -117,24 +123,22 @@ export function DashboardContent() {
           />
         </TabsContent>
 
-        <TabsContent value="fonts">
+        <TabsContent className="mt-0" value="fonts">
           <FontCatalog
             error={catalogOperation.error}
             fonts={catalogOperation.data?.fonts}
             isLoading={catalogOperation.isLoading}
-            onSearchChangeAction={handleSearchChange}
             searchQuery={params.search ?? ''}
           />
         </TabsContent>
 
-        <TabsContent value="sprites">
+        <TabsContent className="mt-0" value="sprites">
           <SpriteCatalog
             downloadSprite={params.download}
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onDownloadSprite={(spriteName) => updateParam('download', spriteName)}
             onPreviewSprite={(spriteName) => updateParam('preview', spriteName)}
-            onSearchChangeAction={handleSearchChange}
             searchQuery={params.search ?? ''}
             selectedSprite={params.preview}
             spriteCollections={catalogOperation.data?.sprites}
