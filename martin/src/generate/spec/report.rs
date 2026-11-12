@@ -10,7 +10,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use similar::{ChangeTag, TextDiff};
 
 /// The width of the status column.
-const STATUS: usize = 12;
+pub(crate) const STATUS: usize = 12;
 
 /// The width of the time column, as `[{:>8.3}s]` fills it.
 const TIME: usize = 11;

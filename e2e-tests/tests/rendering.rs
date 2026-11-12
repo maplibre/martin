@@ -184,6 +184,48 @@ async fn maplibre_logs_under_its_own_target() {
 }
 
 #[tokio::test]
+async fn mesa_caches_shaders_in_a_private_directory_when_its_cache_home_is_a_file() {
+    let cassette = Cassette::serving(UPSTREAMS).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
+    let tmp = tempfile::tempdir().expect("failed to create a temp dir");
+    let cache_home = tmp.path().join("cache-home");
+    std::fs::write(&cache_home, "").expect("failed to create the cache home file");
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            styles:
+              rendering:
+                enabled: true
+                workers: 1
+              sources:
+                maplibre_demo: {maplibre_demo}
+        "})
+        .env("HOME", "/proc/self")
+        .env("XDG_CACHE_HOME", &cache_home.display().to_string())
+        .env("TMPDIR", &tmp.path().display().to_string())
+        .env(
+            "__EGL_VENDOR_LIBRARY_FILENAMES",
+            "/usr/share/glvnd/egl_vendor.d/50_mesa.json",
+        )
+        .env_remove("MESA_SHADER_CACHE_DIR")
+        .env_remove("MESA_SHADER_CACHE_DISABLE")
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    assert_eq!(martin.get("/style/maplibre_demo/0/0/0.png").await.status(), 200);
+
+    martin.stop().await;
+    insta::with_settings!({filters => vec![
+        (r"mesa\.default_dir=\S+", "mesa.default_dir=[FILE]"),
+        (r"mesa\.shader_cache_dir=\S+", "mesa.shader_cache_dir=[DIR]"),
+    ]}, {
+        insta::assert_snapshot!(martin.take_log_lines("shader cache").join("\n"), @" INFO Mesa's shader cache directory is not writable, caching shaders in a private directory until Martin exits; set MESA_SHADER_CACHE_DIR to keep them across restarts mesa.default_dir=[FILE] mesa.shader_cache_dir=[DIR]");
+    });
+    cassette.assert_no_misses();
+}
+
+#[tokio::test]
 async fn a_renderer_whose_still_image_fails_is_replaced() {
     async fn glyph_requests(cassette: &Cassette) -> usize {
         let log = cassette.request_log().await;

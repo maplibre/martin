@@ -3,9 +3,12 @@
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
 import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Maximize2 } from 'lucide-react';
 import type { Map as MapLibre, VectorSourceSpecification } from 'maplibre-gl';
 import { Popup } from 'maplibre-gl';
-import { type ErrorInfo, useEffect, useId, useRef } from 'react';
+import { useTheme } from 'next-themes';
+import { type ErrorInfo, useEffect, useId, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
@@ -14,6 +17,7 @@ import { martinClient } from '@/lib/martin-client';
 import { mltAcceptTransformRequest } from '@/lib/mlt';
 import type { Catalog } from '@/lib/types.gen';
 import { ErrorBoundary } from '../error/error-boundary';
+import { LoadingSpinner } from '../loading/loading-spinner';
 import { UnderlayPicker } from './underlay-picker';
 import { findProvider, UNDERLAY_PROVIDER_IDS, type UnderlayProviderId } from './underlay-providers';
 
@@ -83,6 +87,9 @@ function applyUnderlay(map: MapLibre, underlayId: UnderlayProviderId | undefined
   map.addLayer(
     {
       id: UNDERLAY_LAYER_ID,
+      paint: document.documentElement.classList.contains('dark')
+        ? { 'raster-brightness-max': 0.5, 'raster-contrast': 0.1, 'raster-saturation': -0.5 }
+        : {},
       source: UNDERLAY_SOURCE_ID,
       type: 'raster',
     },
@@ -95,7 +102,13 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
   const id = useId();
   const mapRef = useRef<MapRef>(null);
   const inspectControlRef = useRef<MaplibreInspect>(null);
-  const [selectedUnderlay, setSelectedUnderlay] = useUnderlayPreference(UNDERLAY_PROVIDER_IDS);
+  const { resolvedTheme } = useTheme();
+  const [selectedUnderlay, setSelectedUnderlay] = useUnderlayPreference(
+    UNDERLAY_PROVIDER_IDS,
+    'osm',
+  );
+  const [mapReady, setMapReady] = useState(false);
+  const [noFeatures, setNoFeatures] = useState(false);
   const selectedUnderlayRef = useRef(selectedUnderlay);
   selectedUnderlayRef.current = selectedUnderlay;
 
@@ -196,6 +209,20 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     }
   };
 
+  const zoomToBounds = () => {
+    const bounds = tileJsonOperation.data?.bounds;
+    const map = mapRef.current?.getMap();
+    if (!bounds || !map) return;
+    const [west, south, east, north] = bounds;
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 24 },
+    );
+  };
+
   const addInspectorToMap = () => {
     if (!mapRef.current) {
       console.error('Map not found despite being initialized, this cannot happen');
@@ -215,6 +242,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     }
 
     inspectControlRef.current = new MaplibreInspect({
+      backgroundColor: resolvedTheme === 'dark' ? '#14152c' : '#f1f1f8',
       popup: new Popup({
         closeButton: false,
         closeOnClick: false,
@@ -240,6 +268,35 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
       }
     });
 
+    // The inspector paints points with a tiny default radius; enlarge them with a halo
+    map.on('idle', () => {
+      const ownLayers = map
+        .getStyle()
+        .layers.filter((l) => 'source' in l && l.source === name)
+        .map((l) => l.id);
+      if (ownLayers.length > 0 && map.isSourceLoaded(name)) {
+        setNoFeatures(map.queryRenderedFeatures({ layers: ownLayers }).length === 0);
+      }
+      for (const layer of map.getStyle().layers) {
+        if (layer.type !== 'circle' || !('source' in layer) || layer.source !== name) continue;
+        if (map.getPaintProperty(layer.id, 'circle-stroke-width') === 1.5) continue;
+        map.setPaintProperty(layer.id, 'circle-radius', [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          0,
+          4,
+          8,
+          6,
+          14,
+          9,
+        ]);
+        map.setPaintProperty(layer.id, 'circle-stroke-width', 1.5);
+        map.setPaintProperty(layer.id, 'circle-stroke-color', '#ffffff');
+        map.setPaintProperty(layer.id, 'circle-opacity', 1);
+      }
+    });
+
     configureMap();
   };
 
@@ -259,35 +316,76 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
         }, 3000);
       }}
     >
-      <div className="relative">
-        <UnderlayPicker onChange={setSelectedUnderlay} value={selectedUnderlay} />
-        {isImageSource ? (
-          <MapLibreMap
-            hash="map"
-            onLoad={configureMap}
-            ref={mapRef}
-            reuseMaps={false}
-            style={{
-              height: '500px',
-              width: '100%',
-            }}
+      <div className="flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-card p-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 pl-1 text-xs font-medium text-muted-foreground">Basemap</span>
+            <UnderlayPicker onChange={setSelectedUnderlay} value={selectedUnderlay} />
+          </div>
+          <Button
+            disabled={!tileJsonOperation.data?.bounds}
+            onClick={zoomToBounds}
+            size="sm"
+            variant="outline"
           >
-            <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
-            <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
-          </MapLibreMap>
-        ) : (
-          <MapLibreMap
-            hash="map"
-            onLoad={addInspectorToMap}
-            ref={mapRef}
-            reuseMaps={false}
-            style={{
-              height: '500px',
-              width: '100%',
-            }}
-            transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
-          ></MapLibreMap>
-        )}
+            <Maximize2 />
+            Zoom to data
+          </Button>
+        </div>
+        <div className="relative h-[40dvh] min-h-56 bg-sunken sm:h-[clamp(280px,38dvh,460px)]">
+          {isImageSource ? (
+            <MapLibreMap
+              hash="map"
+              onIdle={() => setMapReady(true)}
+              onLoad={configureMap}
+              ref={mapRef}
+              reuseMaps={false}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
+              <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
+            </MapLibreMap>
+          ) : (
+            <MapLibreMap
+              hash="map"
+              onIdle={() => setMapReady(true)}
+              onLoad={addInspectorToMap}
+              ref={mapRef}
+              reuseMaps={false}
+              style={{ height: '100%', width: '100%' }}
+              transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
+            ></MapLibreMap>
+          )}
+          {mapReady && noFeatures && !tileJsonOperation.error ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3"
+              role="status"
+            >
+              <p className="rounded-full border bg-card/95 px-3 py-1.5 text-center text-sm text-muted-foreground shadow-card">
+                No features in this view. Zoom or pan to find data.
+              </p>
+            </div>
+          ) : null}
+          {mapReady && !tileJsonOperation.error ? null : (
+            <div
+              aria-live="polite"
+              className="tile-grid pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center"
+              role="status"
+            >
+              {tileJsonOperation.error ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">Couldn't load this source</p>
+                  <p className="text-xs text-muted-foreground">{tileJsonOperation.error.message}</p>
+                </>
+              ) : (
+                <>
+                  <LoadingSpinner />
+                  <p className="text-sm text-muted-foreground">Loading tiles…</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </ErrorBoundary>
   );

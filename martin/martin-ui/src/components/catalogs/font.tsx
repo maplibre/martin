@@ -1,22 +1,31 @@
-import { Eye, Search, Type } from 'lucide-react';
+import { Type } from 'lucide-react';
+import { CatalogEmpty } from '@/components/catalogs/catalog-empty';
+import { CatalogHeader } from '@/components/catalogs/catalog-header';
 
 import { ErrorState } from '@/components/error/error-state';
 import { FontPreviewCanvas } from '@/components/font-preview-canvas';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Catalog } from '@/lib/types.gen';
 import { CopyLinkButton } from '../ui/copy-link-button';
-import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+
+type FontInfo = NonNullable<Catalog['fonts']>[string];
+
+/** Family and style when the name does not already say them, then the glyph count. */
+function fontFacts(name: string, font: FontInfo) {
+  const facts: string[] = [];
+  if (!name.includes(font.family)) facts.push(font.family);
+  if (font.style && !name.includes(font.style)) facts.push(font.style);
+  facts.push(`${font.glyphs.toLocaleString()} glyphs`);
+  return facts;
+}
 
 interface FontCatalogProps {
   fonts?: Catalog['fonts'];
   searchQuery?: string;
-  onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -26,7 +35,6 @@ interface FontCatalogProps {
 export function FontCatalog({
   fonts,
   searchQuery = '',
-  onSearchChangeAction = () => {},
   isLoading,
   error = null,
   onRetry,
@@ -59,77 +67,46 @@ export function FontCatalog({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center items-start justify-between gap-5">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Font Catalog</h2>
-          <p className="text-muted-foreground">Preview all available font assets</p>
-        </div>
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            className="pl-10 md:w-64 w-full bg-card"
-            onChange={(e) => onSearchChangeAction(e.target.value)}
-            placeholder="Search fonts..."
-            value={searchQuery}
-          />
-        </div>
-      </div>
+      <CatalogHeader
+        count={filteredFonts.length}
+        noun={['font', 'fonts']}
+        searchQuery={searchQuery}
+        total={Object.keys(fonts ?? {}).length}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
         {filteredFonts.map(([name, font]) => (
-          <Card className="hover:shadow-lg transition-shadow" key={name}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Type className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg font-mono">{name}</CardTitle>
-                </div>
+          <Card
+            className="flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+            key={name}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <CardTitle className="min-w-0">
+                  <TooltipCopyText text={name} />
+                </CardTitle>
                 {font.format ? (
                   <Badge className="uppercase" variant="secondary">
                     {font.format}
                   </Badge>
                 ) : null}
               </div>
-              <CardDescription>
-                Family: {font.family} • Style: {font.style}
+              <CardDescription className="tabular-nums [overflow-wrap:anywhere]">
+                {fontFacts(name, font).join(' · ')}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="p-3 bg-gray-50 text-gray-900 rounded-lg">
-                  <p className="text-sm font-medium mb-2 text-gray-900">Preview:</p>
-                  <FontPreviewCanvas fontName={name} />
-                </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Glyph count:</span>
-                    <span>{font.glyphs}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
-                  <CopyLinkButton
-                    className="flex-1 bg-transparent w-full"
-                    link={buildMartinUrl(`/font/${name}/{range}`)}
-                    size="sm"
-                    toastMessage="Font link copied!"
-                    variant="outline"
-                  />
-                  <Tooltip>
-                    <TooltipTrigger className="flex-1 flex cursor-help w-full">
-                      <DisabledNonInteractiveButton
-                        className="flex-1 grow w-full"
-                        disabled
-                        size="sm"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Details
-                      </DisabledNonInteractiveButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+            <CardContent className="flex flex-1 flex-col gap-4">
+              <div className="rounded-lg border bg-sunken px-3 py-2 text-foreground">
+                <FontPreviewCanvas fontName={name} />
+              </div>
+              <div className="mt-auto flex gap-2">
+                <CopyLinkButton
+                  className="min-w-0 flex-1"
+                  link={buildMartinUrl(`/font/${name}/{range}`)}
+                  size="sm"
+                  toastMessage="Font link copied!"
+                  variant="outline"
+                />
               </div>
             </CardContent>
           </Card>
@@ -137,20 +114,12 @@ export function FontCatalog({
       </div>
 
       {filteredFonts.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-2">
-            {searchQuery ? <>No fonts found matching "{searchQuery}".</> : 'No fonts found.'}
-          </p>
-          <Button asChild size="lg" variant="link">
-            <a
-              href="https://maplibre.org/martin/sources-fonts.html"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Learn how to configure Font Sources
-            </a>
-          </Button>
-        </div>
+        <CatalogEmpty
+          icon={Type}
+          linkHref="https://maplibre.org/martin/sources-fonts.html"
+          linkLabel="Learn how to configure Font Sources"
+          message={searchQuery ? `No fonts found matching "${searchQuery}".` : 'No fonts found.'}
+        />
       )}
     </div>
   );

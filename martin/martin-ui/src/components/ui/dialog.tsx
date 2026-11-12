@@ -23,7 +23,7 @@ const DialogOverlay = ({
 }) => (
   <DialogPrimitive.Overlay
     className={cn(
-      'fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-0 z-50 bg-[#05060f]/70 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
     )}
     ref={ref}
@@ -44,15 +44,33 @@ const DialogContent = ({
     <DialogOverlay />
     <DialogPrimitive.Content
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+        'fixed z-50 flex min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto border bg-background p-4 text-foreground shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        // full-screen sheet below 640px, centred modal above
+        'inset-0 h-dvh w-screen max-w-none rounded-none data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:slide-in-from-bottom-4',
+        'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[90vh] sm:w-[calc(100vw-3rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0 focus:outline-none',
         className,
       )}
+      onOpenAutoFocus={(event) => {
+        // Focus the dialog itself so no control shows a ring the moment it opens
+        event.preventDefault();
+        (event.target as HTMLElement | null)?.focus();
+      }}
       ref={ref}
       {...props}
+      style={{
+        backgroundAttachment: 'local, scroll',
+        // Bottom shadow that disappears once the content is scrolled to its end
+        backgroundImage:
+          'linear-gradient(transparent, var(--background)), linear-gradient(to top, rgb(0 0 0 / 0.18), transparent)',
+        backgroundPosition: 'bottom, bottom',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: '100% 2rem, 100% 1.25rem',
+        ...props.style,
+      }}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
+      <DialogPrimitive.Close className="absolute max-sm:fixed max-sm:z-20 max-sm:bg-background/80 right-3 top-3 inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none sm:right-4 sm:top-4 sm:size-8">
+        <X className="size-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -61,13 +79,13 @@ const DialogContent = ({
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
+  <div className={cn('flex min-w-0 flex-col gap-1.5 pr-12 text-left', className)} {...props} />
 );
 DialogHeader.displayName = 'DialogHeader';
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+    className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
     {...props}
   />
 );
@@ -81,7 +99,10 @@ const DialogTitle = ({
   ref?: React.RefObject<React.ElementRef<typeof DialogPrimitive.Title> | null>;
 }) => (
   <DialogPrimitive.Title
-    className={cn('text-lg font-semibold leading-none tracking-tight', className)}
+    className={cn(
+      'text-lg font-semibold leading-snug tracking-tight [overflow-wrap:anywhere]',
+      className,
+    )}
     ref={ref}
     {...props}
   />

@@ -1,5 +1,6 @@
 //! Builds one layer of one tile from the records the merge yields for it.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -7,6 +8,7 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
+use super::per_tile::{LayerOpCounts, LayerTile, OpScratch, TileFeature, TileOps};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -19,10 +21,12 @@ pub struct LayerAssembler {
     schema: Vec<(KeyId, PropKind)>,
     geom: GeomBuf,
     /// Each feature's records and properties, as ranges of the decoded records and properties.
-    features: Vec<(Range<usize>, Range<usize>)>,
+    features: Vec<TileFeature>,
     keys: Vec<PropertyKey>,
     text: String,
     texts: Vec<Range<usize>>,
+    /// Scratch of the per-tile operations, and their failed evaluations.
+    pub(crate) ops: OpScratch,
 }
 
 /// A layer [`LayerAssembler::assemble`] built, borrowing its records, names and the assembler.
@@ -30,19 +34,22 @@ pub struct AssembledLayer<'a> {
     pub layer: LayerWriter<'a>,
     /// `(key, kind)` per property column, in column order.
     pub columns: &'a [(KeyId, PropKind)],
+    /// What the per-tile operations did to the layer.
+    pub(crate) ops: LayerOpCounts,
 }
 
 impl LayerAssembler {
     /// `records` are one layer's records in one tile, in merge (seq) order. Consecutive records of the same
     /// feature are its pieces in this tile (multi-part geometry, or a wrapped antimeridian twin) and become
     /// one multi-geometry feature; their properties and sort keys are identical, so the first record's are
-    /// used. Features with a sort key are then stably sorted by it.
+    /// used. Features with a sort key are then stably sorted by it, and `ops` run on them in that order.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
         grid: LayerGrid,
         names: &'a KeyNames,
         records: &[(Seq, &'a [u8])],
+        ops: TileOps<'_>,
     ) -> TileGenResult<AssembledLayer<'a>> {
         let Self {
             columns,
@@ -52,6 +59,7 @@ impl LayerAssembler {
             keys,
             text,
             texts,
+            ops: op_scratch,
         } = self;
         let decoded = records
             .iter()
@@ -59,36 +67,30 @@ impl LayerAssembler {
             .collect::<TileGenResult<Vec<_>>>()?;
 
         let mut props = Vec::new();
-        features.clear();
-        let (mut start, mut sorted) = (0, false);
-        while let Some((seq, first)) = decoded.get(start) {
-            let len = decoded[start..]
-                .iter()
-                .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
-                .count();
-            let from = props.len();
-            for prop in first.props() {
-                props.push(prop?);
-            }
-            features.push((start..start + len, from..props.len()));
-            start += len;
-            sorted |= first.sort.is_some();
-        }
+        group_features(&decoded, &mut props, features)?;
+        op_scratch.counts = LayerOpCounts::default();
+        let tile = LayerTile {
+            decoded: &decoded,
+            props: RefCell::new(props),
+            names,
+            grid,
+            merged: RefCell::default(),
+        };
+        ops.apply(&tile, features, op_scratch)?;
+        let props = tile.props.borrow();
 
         columns.clear();
-        for &(key, value) in &props {
-            columns.add(key, value);
+        for feature in features.iter() {
+            for &(key, value) in &props[feature.props()] {
+                columns.add(key, value);
+            }
         }
         columns.finish(names, schema);
 
-        if sorted {
-            features.sort_by(|a, b| decoded[a.0.start].1.sort.cmp(&decoded[b.0.start].1.sort));
-        }
-
         text.clear();
         texts.clear();
-        for (_, span) in features.iter() {
-            for &(key, value) in &props[span.clone()] {
+        for feature in features.iter() {
+            for &(key, value) in &props[feature.props()] {
                 if let Some(pos) = columns.position(key)
                     && schema[pos].1 == PropKind::Str
                     && !matches!(value, PropValueRef::Str(_))
@@ -108,22 +110,12 @@ impl LayerAssembler {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
 
-        for (range, span) in features.iter() {
-            let pieces = &decoded[range.clone()];
-            let first = &pieces[0].1;
-            geom.clear();
-            for (_, piece) in pieces {
-                match piece.kind {
-                    GeomKind::Fill | GeomKind::FillRange { .. } => push_square(geom, grid),
-                    GeomKind::Point | GeomKind::Line | GeomKind::Polygon => {
-                        piece.append_geometry(geom)?;
-                    }
-                }
-            }
-            let mut feature = layer.feature(geometry_type(first.kind, geom));
-            feature.id(first.id);
-            write_geometry(&mut feature, first.kind, geom)?;
-            for &(key, value) in &props[span.clone()] {
+        for tile_feature in features.iter() {
+            let (kind, id) = tile.geometry(tile_feature, geom)?;
+            let mut feature = layer.feature(geometry_type(kind, geom));
+            feature.id(id);
+            write_geometry(&mut feature, kind, geom)?;
+            for &(key, value) in &props[tile_feature.props()] {
                 let Some(pos) = columns.position(key) else {
                     continue;
                 };
@@ -144,8 +136,40 @@ impl LayerAssembler {
             }
             feature.finish()?;
         }
-        Ok(AssembledLayer { layer, columns: schema })
+        Ok(AssembledLayer {
+            layer,
+            columns: schema,
+            ops: op_scratch.counts,
+        })
     }
+}
+
+/// Groups consecutive records of one feature and family into `features`, with their properties in
+/// `props`, then stably sorts the features by their sort key, if they have one.
+fn group_features<'a>(
+    decoded: &[(Seq, Record<'a>)],
+    props: &mut Vec<(KeyId, PropValueRef<'a>)>,
+    features: &mut Vec<TileFeature>,
+) -> TileGenResult<()> {
+    features.clear();
+    let (mut start, mut sorted) = (0, false);
+    while let Some((seq, first)) = decoded.get(start) {
+        let len = decoded[start..]
+            .iter()
+            .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
+            .count();
+        let from = props.len();
+        for prop in first.props() {
+            props.push(prop?);
+        }
+        features.push(TileFeature::new(start..start + len, from..props.len()));
+        start += len;
+        sorted |= first.sort.is_some();
+    }
+    if sorted {
+        features.sort_by(|a, b| decoded[a.first()].1.sort.cmp(&decoded[b.first()].1.sort));
+    }
+    Ok(())
 }
 
 fn write_text(text: &mut String, value: PropValueRef<'_>) {
@@ -180,19 +204,11 @@ fn scalar<'a>(value: &PropValue) -> Option<PropValueRef<'a>> {
     }
 }
 
-fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
-    #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
-    let (lo, hi) = (-(grid.buffer as i32), (grid.extent + grid.buffer) as i32);
-    geom.polygons.push(1);
-    geom.parts.push(4);
-    geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);
-}
-
 /// A single geometry unless the feature's pieces made several of them.
 fn geometry_type(kind: GeomKind, geom: &GeomBuf) -> GeometryType {
     match kind {
-        GeomKind::Point if geom.vertices.len() == 1 => GeometryType::Point,
-        GeomKind::Point => GeometryType::MultiPoint,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } if geom.vertices.len() == 1 => GeometryType::Point,
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => GeometryType::MultiPoint,
         GeomKind::Line if geom.parts.len() == 1 => GeometryType::LineString,
         GeomKind::Line => GeometryType::MultiLineString,
         GeomKind::Polygon | GeomKind::Fill | GeomKind::FillRange { .. } if geom.polygons.len() == 1 => {
@@ -214,7 +230,7 @@ fn write_geometry(feature: &mut FeatureWriter<'_, '_>, kind: GeomKind, geom: &Ge
         part
     });
     match kind {
-        GeomKind::Point => {
+        GeomKind::Point | GeomKind::GriddedPoint { .. } => {
             feature.points(coords(&geom.vertices))?;
         }
         GeomKind::Line => {
@@ -319,7 +335,9 @@ mod tests {
         let names = interner.freeze();
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
-        let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
+        let assembled = scratch
+            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .unwrap();
         let decoded = decode_mlt(
             &assembled
                 .layer
@@ -376,7 +394,9 @@ mod tests {
         ];
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
-        let assembled = scratch.assemble("roads", GRID, &names, &records).unwrap();
+        let assembled = scratch
+            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .unwrap();
         let decoded = decode_mlt(
             &assembled
                 .layer
@@ -421,7 +441,7 @@ mod tests {
         let names = interner.freeze();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("water", GRID, &names, &[(Seq::default(), &bytes)])
+            .assemble("water", GRID, &names, &[(Seq::default(), &bytes)], TileOps::NONE)
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -473,7 +493,7 @@ mod tests {
         let names = interner.freeze();
         let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
         let mut scratch = LayerAssembler::default();
-        let assembled = scratch.assemble("pois", GRID, &names, &records).unwrap();
+        let assembled = scratch.assemble("pois", GRID, &names, &records, TileOps::NONE).unwrap();
         let decoded = decode_mlt(
             &assembled
                 .layer

@@ -88,7 +88,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
   // --- Main grid of sprites ---
   if (state.status === 'error') {
     return (
-      <div className={`text-red-600 text-center p-4 ${className ?? ''}`}>
+      <div className={cn('p-4 text-center text-sm text-destructive', className)}>
         <span>Error: {state.error}</span>
       </div>
     );
@@ -96,7 +96,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
 
   if (state.status === 'ready' && state.sprites.length === 0) {
     return (
-      <div className={`text-center p-4 ${className ?? ''}`}>
+      <div className={cn('p-4 text-center text-sm', className)}>
         <span>No sprites found.</span>
       </div>
     );
@@ -107,7 +107,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
     state.status === 'ready' ? Object.fromEntries(state.sprites) : {};
 
   return (
-    <div className={cn(`flex flex-wrap gap-3 justify-start items-start min-h-[120px]`, className)}>
+    <div className={cn('flex min-h-[120px] flex-wrap items-start justify-start gap-3', className)}>
       {ids.map((id) => (
         <SpriteCanvas
           image={state.status === 'ready' ? state.image : undefined}
@@ -121,7 +121,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
       {/* +N bubble */}
       {previewMode && spriteIds.length > PREVIEW_LIMIT && (
         <div
-          className="h-7 flex items-center justify-center text-sm text-gray-600 font-semibold m-1.5"
+          className="flex h-8 items-center justify-center text-sm font-semibold text-paper-foreground/70"
           data-spritecnt={spriteIds.length}
         >
           +{spriteIds.length - PREVIEW_LIMIT + 1}

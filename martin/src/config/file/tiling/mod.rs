@@ -1,8 +1,8 @@
 mod error;
+mod per_tile;
 mod primitives;
 mod rule;
 mod setting;
-mod tile;
 mod value;
 mod zoom;
 
@@ -12,12 +12,13 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::config::file::tiling::error::TilingConfigError;
+pub use crate::config::file::tiling::per_tile::{
+    ByZoomRange, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, Op, PerTile, RuleThinning, Thinning,
+    ThinningMethod,
+};
 pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
-pub use crate::config::file::tiling::setting::{ByZoom, Meters, PerFeature, Pixels, ZoomSetting};
-pub use crate::config::file::tiling::tile::{
-    GridKeep, LabelGrid, LineLength, MergeLines, MergeMulti, MergePolygons, TileOps,
-};
+pub use crate::config::file::tiling::setting::{PerFeature, Pixels, ZoomSetting};
 pub use crate::config::file::tiling::value::{
     Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec,
 };
@@ -53,7 +54,7 @@ impl CollectUnrecognizedKeys for Layers {
             let path = format!("{path}{name}.");
             layer.unrecognized.collect_unrecognized(&path, out);
             layer.rules.collect_unrecognized(&format!("{path}rules."), out);
-            layer.tile.collect_unrecognized(&format!("{path}tile."), out);
+            layer.per_tile.collect_unrecognized(&path, out);
         }
     }
 }
@@ -106,8 +107,8 @@ impl Layers {
     }
 }
 
-#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(from = "RawLayer", into = "RawLayer")]
 pub struct Layer {
     pub r#where: Option<Expr>,
     pub geometry: Option<OutputGeometry>,
@@ -120,16 +121,100 @@ pub struct Layer {
     simplify_at_maxzoom: Option<Pixels>,
     pub min_size: Option<Pixels>,
     min_size_at_maxzoom: Option<Pixels>,
-    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
     pub attributes: Attributes,
     pub rules: Option<Rules>,
     pub sort_by: Option<NonEmpty<SortKey>>,
-    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
     pub id: IdPolicy,
-    #[serde(default, skip_serializing_if = "TileOps::is_empty")]
-    pub tile: TileOps,
-    #[serde(flatten, skip_serializing)]
+    pub per_tile: PerTile,
     pub unrecognized: UnrecognizedValues,
+}
+
+/// A layer as written in YAML, where each per-tile operation is a key of the layer itself.
+#[serde_with::skip_serializing_none]
+#[derive(Serialize, Deserialize)]
+struct RawLayer {
+    r#where: Option<Expr>,
+    geometry: Option<OutputGeometry>,
+    minzoom: Option<ZoomSetting>,
+    maxzoom: Option<ZoomSetting>,
+    extent: Option<NonZeroU32>,
+    buffer: Option<u32>,
+    clip_geom: Option<bool>,
+    simplify: Option<Pixels>,
+    simplify_at_maxzoom: Option<Pixels>,
+    min_size: Option<Pixels>,
+    min_size_at_maxzoom: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
+    attributes: Attributes,
+    rules: Option<Rules>,
+    sort_by: Option<NonEmpty<SortKey>>,
+    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
+    id: IdPolicy,
+    merge_lines: Option<ByZoomRange<MergeLines>>,
+    merge_polygons: Option<ByZoomRange<MergePolygons>>,
+    thinning: Option<ByZoomRange<Thinning>>,
+    merge_multi: Option<ByZoomRange<MergeMulti>>,
+    limit: Option<ByZoomRange<Limit>>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl From<RawLayer> for Layer {
+    fn from(raw: RawLayer) -> Self {
+        Self {
+            r#where: raw.r#where,
+            geometry: raw.geometry,
+            minzoom: raw.minzoom,
+            maxzoom: raw.maxzoom,
+            extent: raw.extent,
+            buffer: raw.buffer,
+            clip_geom: raw.clip_geom,
+            simplify: raw.simplify,
+            simplify_at_maxzoom: raw.simplify_at_maxzoom,
+            min_size: raw.min_size,
+            min_size_at_maxzoom: raw.min_size_at_maxzoom,
+            attributes: raw.attributes,
+            rules: raw.rules,
+            sort_by: raw.sort_by,
+            id: raw.id,
+            per_tile: PerTile {
+                merge_lines: raw.merge_lines,
+                merge_polygons: raw.merge_polygons,
+                thinning: raw.thinning,
+                merge_multi: raw.merge_multi,
+                limit: raw.limit,
+            },
+            unrecognized: raw.unrecognized,
+        }
+    }
+}
+
+impl From<Layer> for RawLayer {
+    fn from(layer: Layer) -> Self {
+        Self {
+            r#where: layer.r#where,
+            geometry: layer.geometry,
+            minzoom: layer.minzoom,
+            maxzoom: layer.maxzoom,
+            extent: layer.extent,
+            buffer: layer.buffer,
+            clip_geom: layer.clip_geom,
+            simplify: layer.simplify,
+            simplify_at_maxzoom: layer.simplify_at_maxzoom,
+            min_size: layer.min_size,
+            min_size_at_maxzoom: layer.min_size_at_maxzoom,
+            attributes: layer.attributes,
+            rules: layer.rules,
+            sort_by: layer.sort_by,
+            id: layer.id,
+            merge_lines: layer.per_tile.merge_lines,
+            merge_polygons: layer.per_tile.merge_polygons,
+            thinning: layer.per_tile.thinning,
+            merge_multi: layer.per_tile.merge_multi,
+            limit: layer.per_tile.limit,
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
 }
 
 impl Layer {
@@ -156,16 +241,31 @@ impl Layer {
     }
 }
 
+/// The features a layer takes, and the geometry it gives them, named as Planetiler's custommap names them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputGeometry {
+    /// Points, as they are.
     Point,
+    /// Lines, as they are.
     Line,
+    /// Polygons, as they are.
     Polygon,
-    LabelPoint,
-    Centroid,
-    CentroidIfConvex,
+    /// Polygons, as the point at their centroid.
+    PolygonCentroid,
+    /// Lines, as the point at their centroid.
+    LineCentroid,
+    /// Lines, as the point halfway along their longest part.
     LineMidpoint,
+    /// Every feature, as the point at its centroid.
+    Centroid,
+    /// Polygons, as their centroid when convex and a point on their surface otherwise.
+    PolygonCentroidIfConvex,
+    /// Polygons, as a point on their surface.
+    PolygonPointOnSurface,
+    /// Lines, as a point on the line.
+    PointOnLine,
+    /// Every feature, as the point farthest inside it.
     InnermostPoint,
 }
 
@@ -210,7 +310,7 @@ mod tests {
     fn a_layer_shapes_its_output_geometry() {
         let layers = parse(indoc! {"
             roads: { geometry: line }
-            poi: { geometry: centroid_if_convex }
+            poi: { geometry: polygon_centroid_if_convex }
             water: {}
         "});
         let geometries: Vec<_> = layers.iter().map(|(name, l)| (name, l.geometry)).collect();
@@ -218,7 +318,7 @@ mod tests {
             geometries,
             [
                 ("roads", Some(OutputGeometry::Line)),
-                ("poi", Some(OutputGeometry::CentroidIfConvex)),
+                ("poi", Some(OutputGeometry::PolygonCentroidIfConvex)),
                 ("water", None),
             ]
         );
@@ -226,7 +326,7 @@ mod tests {
 
     #[test]
     fn an_unknown_geometry_is_rejected() {
-        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 20: unknown variant `curve`, expected one of point, line, polygon, label_point, centroid, centroid_if_convex, line_midpoint, innermost_point");
+        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 20: unknown variant `curve`, expected one of point, line, polygon, polygon_centroid, line_centroid, line_midpoint, centroid, polygon_centroid_if_convex, polygon_point_on_surface, point_on_line, innermost_point");
     }
 
     #[test]
@@ -347,22 +447,6 @@ mod tests {
         insta::assert_snapshot!(
             rejection("roads: { min_size: { 0: 2, 11: 0 } }"),
             @"error: line 1 column 20: invalid type: map, expected a finite number of pixels, 0 or more"
-        );
-    }
-
-    #[test]
-    fn empty_zoom_steps_are_rejected() {
-        insta::assert_snapshot!(
-            rejection("roads: { tile: { merge_polygons: { min_area: {} } } }"),
-            @"error: line 1 column 46: invalid length 0, expected at least one zoom step"
-        );
-    }
-
-    #[test]
-    fn zoom_steps_cannot_exceed_the_deepest_zoom() {
-        insta::assert_snapshot!(
-            rejection("roads: { tile: { merge_polygons: { min_area: { 0: 2, 31: 0 } } } }"),
-            @"error: line 1 column 54: invalid value: integer `31`, expected a zoom from 0 to 30"
         );
     }
 

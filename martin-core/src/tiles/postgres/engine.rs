@@ -152,7 +152,7 @@ impl PostgresEngineInfo {
 }
 
 /// Logs what rendering the block around `xyz` could not do. The plan already warns about the first
-/// failure of each expression, so expression failures only show at debug level here.
+/// failure of each expression and of each merge, so those only show at debug level here.
 fn report(source_id: &str, xyz: TileCoord, summary: &Summary) {
     for failed in &summary.slice_errors {
         warn!(
@@ -174,6 +174,16 @@ fn report(source_id: &str, xyz: TileCoord, summary: &Summary) {
             failed.layer,
             failed.expr,
             failed.errors
+        );
+    }
+    for op in summary.per_tile.iter().filter(|op| op.counts.groups_failed > 0) {
+        debug!(
+            source.id = source_id,
+            tile.coord = %xyz,
+            "Layer `{}`: `{}` could not merge {} groups, which kept their features",
+            op.layer,
+            op.op.name(),
+            op.counts.groups_failed
         );
     }
     debug!(

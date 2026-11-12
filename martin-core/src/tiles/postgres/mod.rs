@@ -30,8 +30,8 @@ mod scan;
 pub use deadpool_postgres::Object as PooledConnection;
 
 pub use crate::tiles::postgres::scan::{
-    ScanLayout, export_snapshot, heap_blocks, open_scan_connection, open_scan_connections, open_snapshot_connection,
-    scan_features,
+    ScanLayout, estimated_rows, export_snapshot, heap_blocks, open_scan_connection, open_scan_connections,
+    open_snapshot_connection, scan_features,
 };
 
 mod tile_wkb;

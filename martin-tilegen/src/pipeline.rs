@@ -5,6 +5,7 @@ use std::thread::{self, Scope, ScopedJoinHandle};
 
 use hotpath::wrap::flume::Sender as ProfiledSender;
 
+use crate::progress::{Activity, Progress, Role};
 use crate::{TileGenError, TileGenResult};
 
 type Pending<O> = flume::Receiver<TileGenResult<O>>;
@@ -51,13 +52,15 @@ impl<I, O> BatchSender<I, O> {
 }
 
 /// Runs `produce` on the calling thread, `encode` on `threads` workers (each with its own state from
-/// `init`, returned at the end, e.g. for statistics) and `write` on its own thread.
+/// `init`, returned at the end, e.g. for statistics) and `write` on its own thread, tracking the encoders
+/// and the writer in `progress`.
 /// At most `window` batches wait to be written besides the one being written, which bounds memory even
 /// when one batch is slow. A producer or encoder error reaches the writer in order as an `Err` item, so a
 /// sink never finishes a partial output; the first root-cause error is returned.
 pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
     threads: usize,
     window: usize,
+    progress: &Progress,
     produce: impl FnOnce(&BatchSender<I, O>) -> TileGenResult<()>,
     init: impl Fn() -> S + Sync,
     encode: impl Fn(&mut S, I) -> TileGenResult<O> + Sync,
@@ -66,25 +69,39 @@ pub fn run<I: Send + 'static, O: Send + 'static, S: Send, W: Send>(
     let (work_tx, work_rx) = hotpath::channel!(flume::unbounded::<Work<I, O>>(), label = { "encode_work" });
     let (order_tx, order_rx) = hotpath::channel!(flume::bounded::<Pending<O>>(window), label = { "encode_order" });
     thread::scope(|scope| {
-        let encoders: Vec<_> = (0..threads.max(1))
-            .map(|i| {
+        let encoders: Vec<_> = progress
+            .track(Role::Encode, threads.max(1))
+            .into_iter()
+            .enumerate()
+            .map(|(i, tracker)| {
                 let (work_rx, init, encode) = (work_rx.clone(), &init, &encode);
                 spawn_named(scope, "encoder", i, move || {
                     let mut state = init();
-                    for (batch, result_tx) in work_rx {
+                    tracker.set(Activity::Idle);
+                    while let Ok((batch, result_tx)) = work_rx.recv() {
+                        tracker.set(Activity::Busy);
                         let _ = result_tx.send(encode(&mut state, batch));
+                        tracker.set(Activity::Idle);
                     }
+                    tracker.set(Activity::Done);
                     state
                 })
             })
             .collect();
         drop(work_rx);
+        let [writer_tracker] = progress.track(Role::Write, 1)[..] else {
+            unreachable!("one writer thread is tracked")
+        };
         let writer = spawn_named(scope, "writer", 0, move || {
-            write(
-                &mut order_rx
-                    .into_iter()
-                    .map_while(|pending| hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok())),
-            )
+            let written = write(&mut std::iter::from_fn(|| {
+                writer_tracker.set(Activity::Idle);
+                let pending = order_rx.recv().ok()?;
+                let result = hotpath::measure_block!({ "writer_wait_result" }, pending.recv().ok());
+                writer_tracker.set(Activity::Busy);
+                result
+            }));
+            writer_tracker.set(Activity::Done);
+            written
         });
 
         let sender = BatchSender {
@@ -128,6 +145,7 @@ mod tests {
         let (out, counts) = run(
             4,
             8,
+            &Progress::default(),
             produce_n(500),
             || 0,
             |count: &mut usize, i| {
@@ -155,6 +173,7 @@ mod tests {
         let err = run(
             4,
             8,
+            &Progress::default(),
             produce_n(100),
             || (),
             encode,
@@ -181,6 +200,7 @@ mod tests {
         let err = run(
             2,
             3,
+            &Progress::default(),
             produce,
             || (),
             |(), i| Ok(i),
@@ -209,6 +229,7 @@ mod tests {
         let err = run(
             2,
             2,
+            &Progress::default(),
             produce,
             || (),
             |(), i| Ok(i),

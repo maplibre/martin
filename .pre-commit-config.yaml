@@ -87,7 +87,7 @@ repos:
             VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
             grep -rl "ghcr.io/maplibre/martin:" docs demo justfile \
-              | xargs -r sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%"
+              | xargs -r sed -i -E "s%(ghcr\.io/maplibre/martin:)[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?%\1$VERSION%g"
             echo "Synced version to $VERSION"
           '
         language: system

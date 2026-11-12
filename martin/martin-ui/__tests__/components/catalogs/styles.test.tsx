@@ -103,7 +103,6 @@ describe('StylesCatalog Component', () => {
     isLoading: false,
     isRetrying: false,
     onRetry: vi.fn(),
-    onSearchChangeAction: vi.fn(),
     searchQuery: '',
     styles: mockStyles,
   };
@@ -140,10 +139,7 @@ describe('StylesCatalog Component', () => {
   it('renders styles catalog correctly', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
-    expect(container.textContent).toContain('Styles Catalog');
-    expect(container.textContent).toContain(
-      'Browse and preview all available map styles and themes',
-    );
+    expect(container.querySelector('h2')?.textContent).toBe('3 styles');
 
     // Check that each style name is displayed
     expect(container.textContent).toContain('Basic Style');
@@ -220,16 +216,6 @@ describe('StylesCatalog Component', () => {
     expect(container.textContent).toContain('Learn how to configure Styles');
   });
 
-  it('calls onSearchChangeAction when search input changes', () => {
-    const { container } = render(<StylesCatalog {...defaultProps} />);
-    const searchInput = container.querySelector('input[placeholder="Search styles..."]');
-    if (!searchInput) {
-      throw new Error('Search input not found');
-    }
-    fireEvent.change(searchInput, { target: { value: 'new search' } });
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith('new search');
-  });
-
   it('calls onRetry when retry button is clicked in error state', () => {
     const mockOnRetry = vi.fn();
     const error = new Error('Test error');
@@ -253,7 +239,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Only Basic Style has colors defined
-    expect(container.textContent).toContain('Color Palette:');
+    expect(container.querySelector('[aria-label="Color palette"]')).toBeTruthy();
 
     // Check that color swatches are rendered
     const colorSwatches = container.querySelectorAll('[style*="background-color"]');
@@ -285,25 +271,6 @@ describe('StylesCatalog Component', () => {
     expect(integrationButtons.length).toBe(3);
   });
 
-  it('displays search input with correct placeholder', () => {
-    const { container } = render(<StylesCatalog {...defaultProps} />);
-
-    const searchInput = container.querySelector(
-      'input[placeholder="Search styles..."]',
-    ) as HTMLInputElement;
-    expect(searchInput).toBeTruthy();
-    expect(searchInput.value).toBe('');
-  });
-
-  it('displays search input with correct value', () => {
-    const { container } = render(<StylesCatalog {...defaultProps} searchQuery="test query" />);
-
-    const searchInput = container.querySelector(
-      'input[placeholder="Search styles..."]',
-    ) as HTMLInputElement;
-    expect(searchInput.value).toBe('test query');
-  });
-
   it('case-insensitive search works correctly', () => {
     const { container } = render(<StylesCatalog {...defaultProps} searchQuery="BASIC" />);
 
@@ -316,7 +283,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that dates are formatted and displayed - expect locale string format
-    const modifiedMatches = container.textContent?.match(/Modified:/g) || [];
+    const modifiedMatches = container.textContent?.match(/Modified/g) || [];
     expect(modifiedMatches.length).toBe(2); // Only Basic Style and Hybrid Style have dates
   });
 
@@ -334,7 +301,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that layer count labels are present
-    const layerMatches = container.textContent?.match(/Layers:/g) || [];
+    const layerMatches = container.textContent?.match(/Layers/g) || [];
     expect(layerMatches.length).toBe(2); // Only Basic Style and Hybrid Style have layer counts
 
     expect(container.textContent).toContain('10'); // Basic Style layer_count
@@ -345,7 +312,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check that version hash label is present
-    expect(container.textContent).toContain('Version:');
+    expect(container.textContent).toContain('Version');
     expect(container.textContent).toContain('abc123'); // Hybrid Style version_hash
   });
 

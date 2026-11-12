@@ -2,8 +2,8 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ColumnFacts, ComputedAttr, GeometryType, LayerDef, Literal, Plan, RuleDef, TableDef,
-    ValueDef, ValueKind,
+    AttributesDef, ColumnDef, ColumnFacts, ComputedAttr, DerivedPoint, GeometryType, LayerDef, Literal, Plan, RuleDef,
+    TableDef, ValueDef, ValueKind,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, Geometry, SourceFeature};
@@ -1205,6 +1205,33 @@ fn a_point_layer_has_no_shape_path() {
     insta::assert_debug_snapshot!(branches, @r#"
     [
         "roads: every feature",
+    ]
+    "#);
+}
+
+#[test]
+fn a_line_centroid_layer_reads_lines_and_has_no_shape_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            point: Some(DerivedPoint::Centroid),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.branches(0, &[]).unwrap(), @r#"
+    [
+        Branch {
+            layer: "roads",
+            path: "every feature",
+            rows: Ok(
+                Geometry(
+                    Line,
+                ),
+            ),
+            shape: None,
+        },
     ]
     "#);
 }

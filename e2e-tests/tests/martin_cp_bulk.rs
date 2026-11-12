@@ -1063,6 +1063,57 @@ async fn layer_expressions_filter_features_and_compute_attributes() {
 }
 
 #[tokio::test]
+async fn logs_each_finished_stage_without_a_terminal() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "warn,martin::generate=info")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--threads")
+        .arg("2")
+        .run()
+        .await;
+    insta::with_settings!({ filters => vec![
+        (r"martin.version=\S+", "martin.version=[VERSION]"),
+        (r"elapsed=\S+", "elapsed=[ELAPSED]"),
+        (r"mbtiles.file=\S+", "mbtiles.file=[FILE]"),
+    ] }, {
+        insta::assert_snapshot!(log, @"
+        INFO Starting Martin tile generator martin.version=[VERSION]
+        INFO Prepared partitions partitions=1 elapsed=[ELAPSED]
+        INFO Rendered features features=30 sort.runs=1 sort.spilled=4.7 KiB elapsed=[ELAPSED]
+        INFO Wrote tiles tiles=38 tiles.bytes=2.6 KiB elapsed=[ELAPSED]
+        INFO Generated tiles features=30 tiles=38 elapsed=[ELAPSED] mbtiles.file=[FILE]
+        ");
+    });
+}
+
+#[tokio::test]
 async fn skips_a_source_with_no_zoom_in_range() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
@@ -1880,7 +1931,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
         .arg(dir.path().join("out.mbtiles"))
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @r#"ERROR Postgres error while starting a scan: db error: ERROR: invalid input syntax for type integer: "abc""#);
+    insta::assert_snapshot!(log, @r#"ERROR Postgres error while planning a scan: db error: ERROR: invalid input syntax for type integer: "abc""#);
 }
 
 #[cfg(unix)]
@@ -1904,4 +1955,181 @@ async fn sigterm_removes_the_partial_output() {
         .map(|entry| entry.expect("failed to read a directory entry").file_name())
         .collect();
     insta::assert_debug_snapshot!(left, @"[]");
+}
+
+#[tokio::test]
+async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  buffer: 1024
+                  properties:
+                    gid: int4
+                  layers:
+                    merged:
+                      attributes:
+                        kind: 'gid % 2'
+                      sort_by: [gid]
+                      merge_lines: {}
+                      merge_polygons: { distance: 1 }
+                      thinning:
+                        - { maxzoom: 0, method: tile, keys: [kind] }
+                        - { minzoom: 1, method: grid, size: 64, limit: 2 }
+                      merge_multi: { geometry: [point], group_by: [kind] }
+                      limit: 5
+        "},
+    )
+    .expect("failed to write the config");
+    let mut logs = Vec::new();
+    for (threads, file) in [
+        ("1", "one.mbtiles"),
+        ("8", "eight.mbtiles"),
+        ("1", "one.pmtiles"),
+        ("8", "eight.pmtiles"),
+    ] {
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join(file))
+            .arg("--max-zoom")
+            .arg("8")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--threads")
+            .arg(threads)
+            .run()
+            .await;
+        let ran: Vec<&str> = log.lines().filter(|line| line.contains("Ran `")).collect();
+        logs.push(ran.join("\n"));
+    }
+    let one = dir.path().join("one.mbtiles");
+    MbtilesCli::new("validate").arg(&one).run().await;
+    assert_eq!(tiles(dir.path().join("eight.mbtiles")).await, tiles(&one).await);
+    assert_pmtiles_matches_mbtiles(dir.path().join("one.pmtiles"), &one).await;
+    assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
+    assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
+    insta::assert_snapshot!(logs[0], @"
+    INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3951 features.output=3834
+    INFO Ran `merge_polygons` layer.id=merged tiles=1182 features.input=3834 features.output=2840
+    INFO Ran `thinning` layer.id=merged tiles=91 features.input=618 features.output=481
+    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
+    INFO Ran `limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
+    ");
+    let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
+    insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
+    layer merged extent 4096
+      id=Some(1) geom=POINT(2048 2048) props=[kind=U32(Some(1))]
+      id=Some(2) geom=POINT(2025 2025) props=[kind=U32(Some(0))]
+    ");
+}
+
+#[tokio::test]
+async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
+    use geo::{MapCoords as _, Validation as _};
+    use mlt_core::mvt::mvt_to_feature_collection;
+
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  buffer: 1024
+                  properties:
+                    gid: int4
+                  layers:
+                    merged:
+                      attributes:
+                        kind: 'gid % 2'
+                      sort_by: [gid]
+                      merge_lines: {}
+                      merge_polygons: { distance: 1 }
+                      thinning:
+                        - { maxzoom: 0, method: tile, keys: [kind] }
+                        - { minzoom: 1, method: grid, size: 64, limit: 2 }
+                      merge_multi: { geometry: [point], group_by: [kind] }
+                      limit: 5
+        "},
+    )
+    .expect("failed to write the config");
+    for (threads, file) in [("1", "one.mbtiles"), ("8", "eight.mbtiles")] {
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join(file))
+            .arg("--format")
+            .arg("mvt")
+            .arg("--max-zoom")
+            .arg("8")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--threads")
+            .arg(threads)
+            .run()
+            .await;
+    }
+    let one = tiles(dir.path().join("one.mbtiles")).await;
+    assert_eq!(tiles(dir.path().join("eight.mbtiles")).await, one);
+    let mut kinds = std::collections::BTreeMap::<&str, usize>::new();
+    let kind = |geometry: &geo::Geometry<f64>| match geometry {
+        geo::Geometry::Point(_) => "point",
+        geo::Geometry::MultiPoint(_) => "multi-point",
+        geo::Geometry::LineString(_) => "line",
+        geo::Geometry::MultiLineString(_) => "multi-line",
+        geo::Geometry::Polygon(_) => "polygon",
+        geo::Geometry::MultiPolygon(_) => "multi-polygon",
+        geo::Geometry::Line(_)
+        | geo::Geometry::Rect(_)
+        | geo::Geometry::Triangle(_)
+        | geo::Geometry::GeometryCollection(_) => "other",
+    };
+    for (z, x, y, data) in &one {
+        for feature in mvt_to_feature_collection(data).expect("a valid MVT tile").features {
+            let geometry = feature.geometry.map_coords(|c| geo::Coord {
+                x: f64::from(c.x),
+                y: f64::from(c.y),
+            });
+            assert!(geometry.is_valid(), "{z}/{x}/{y}: {geometry:?}");
+            *kinds.entry(kind(&geometry)).or_default() += 1;
+        }
+    }
+    insta::assert_debug_snapshot!(kinds, @r#"
+    {
+        "line": 437,
+        "multi-line": 99,
+        "multi-point": 35,
+        "multi-polygon": 61,
+        "point": 130,
+        "polygon": 1845,
+    }
+    "#);
 }

@@ -165,6 +165,11 @@ impl KeyNames {
         (0..self.known).map(|id| self.name(KeyId::new(id)))
     }
 
+    /// Every key and its name.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (KeyId, &str)> {
+        self.names.iter().map(|(spur, name)| (KeyId::from_spur(spur), name))
+    }
+
     /// Whether `id` was declared up front rather than found while reading.
     #[must_use]
     pub fn is_declared(&self, id: KeyId) -> bool {

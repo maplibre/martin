@@ -14,7 +14,9 @@ use martin_core::tiles::geojson::clip_to_tile;
 use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tilegen::internals::record::{EncodedProps, GeomKind, Record};
 use martin_tilegen::internals::{Renderer, Seq, Sorter};
-use martin_tilegen::{Feature, FeatureGeom, LayerGrid, PixelThreshold, RenderLayer, SortConfig, TileId, TileOrder};
+use martin_tilegen::{
+    Feature, FeatureGeom, LayerGrid, PixelThreshold, Progress, RenderLayer, SortConfig, TileId, TileOrder,
+};
 
 const GRID: LayerGrid = LayerGrid { extent: 256, buffer: 8 };
 const MAX_ZOOM: u8 = 5;
@@ -40,17 +42,20 @@ fn rendered(geom: FeatureGeom<'_>) -> Tiles {
         zooms: 0..=MAX_ZOOM,
         simplify: PixelThreshold::ZERO,
         min_size: PixelThreshold::ZERO,
+        thinning_grid: &[],
     };
     Renderer::default()
         .render(TileOrder::Tms, &layer, Seq::default(), &feature, &mut buffer)
         .unwrap();
     buffer.finish().unwrap();
-    let mut merger = sorter.merge().unwrap();
+    let mut merger = sorter.merge(&Progress::default()).unwrap();
     let mut tiles = Tiles::new();
     while let Some((key, bytes)) = merger.peek() {
         let end = match Record::decode(bytes).unwrap().kind {
             GeomKind::FillRange { end } => end,
-            GeomKind::Point | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => key.tile_id().value() + 1,
+            GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon | GeomKind::Fill => {
+                key.tile_id().value() + 1
+            }
         };
         for id in key.tile_id().value()..end {
             let c = TileOrder::Tms.tile_coord(TileId::new(id).unwrap()).unwrap();

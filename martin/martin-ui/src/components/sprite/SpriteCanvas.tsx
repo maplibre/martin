@@ -34,15 +34,15 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
 
   if (previewMode)
     return (
-      <div className="flex flex-col items-center justify-center m-1.5 h-7 w-7">
+      <div className="flex size-11 flex-col items-center justify-center">
         {!meta || !image ? (
-          <div className="w-7 h-7 animate-pulse bg-purple-200 rounded-sm flex items-center justify-center"></div>
+          <div className="size-9 animate-pulse rounded-sm bg-paper-foreground/15"></div>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
               <canvas
                 aria-label={`Icon for ${label}`}
-                className="h-7 w-7 object-contain block cursor-pointer hover:opacity-75 transition-opacity"
+                className="block size-9 cursor-pointer object-contain transition-opacity hover:opacity-75"
                 height={meta.height}
                 onClick={handleClick}
                 ref={canvasRef}
@@ -51,14 +51,10 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Sprite:{' '}
-                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 m-1 rounded-xs">
-                  {label}
-                </code>
-                <br />
-                <div className="pt-4 text-sm flex gap-1 flex-row justify-center p-0.5">
-                  <Copy className="h-4 w-4 mb-0.5" /> Click to copy
-                </div>
+                <code className="font-mono font-semibold [overflow-wrap:anywhere]">{label}</code>
+              </p>
+              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <Copy className="size-3" /> Click to copy
               </p>
             </TooltipContent>
           </Tooltip>
@@ -70,27 +66,24 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
     <Tooltip>
       <TooltipTrigger asChild>
         <button
-          className="flex flex-col items-center justify-center m-4 h-32 w-24"
+          className="flex w-full min-w-0 cursor-pointer flex-col items-center gap-2 rounded-lg p-2 transition-colors hover:bg-black/5"
           onClick={handleClick}
           type="button"
         >
-          <div className="flex flex-1 items-center justify-center w-full">
+          <div className="flex size-16 items-center justify-center">
             {!meta || !image ? (
-              <div className="w-24 h-24 animate-pulse bg-purple-200 rounded-sm flex items-center justify-center cursor-pointer hover:bg-purple-300 transition-colors"></div>
+              <div className="size-14 animate-pulse rounded-sm bg-paper-foreground/15"></div>
             ) : (
-              <div className="flex items-center justify-center h-20 w-20">
-                <canvas
-                  aria-label={`Icon for ${label}`}
-                  className="h-20 w-20 object-contain block cursor-pointer hover:opacity-75 transition-opacity"
-                  height={meta.height}
-                  onClick={handleClick}
-                  ref={canvasRef}
-                  width={meta.width}
-                />
-              </div>
+              <canvas
+                aria-label={`Icon for ${label}`}
+                className="block size-14 object-contain"
+                height={meta.height}
+                ref={canvasRef}
+                width={meta.width}
+              />
             )}
           </div>
-          <code className="text-monospace text-sm text-gray-700 break-all text-center mt-2 cursor-pointer hover:text-gray-900 transition-colors">
+          <code className="w-full text-center font-mono text-xs leading-tight text-paper-foreground [overflow-wrap:anywhere]">
             {label}
           </code>
         </button>

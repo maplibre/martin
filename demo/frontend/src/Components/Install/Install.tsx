@@ -16,7 +16,7 @@ const OPTIONS = [
     label: 'Docker',
   },
   {
-    command: 'brew tap maplibre/martin\nbrew install martin',
+    command: 'brew install martin',
     id: 'homebrew',
     label: 'Homebrew',
   },

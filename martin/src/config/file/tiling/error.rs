@@ -28,8 +28,27 @@ pub enum TilingConfigError {
     CatchAllNotLast,
     #[error("`rules` needs at least one rule with a `where`")]
     NoConditionalRule,
-    #[error("pick one of `min_length` (pixels) or `min_length_m` (metres)")]
-    PixelAndMetreLength,
-    #[error("`label_grid` needs a `limit`, a `rank_attribute`, or both")]
-    LabelGridWithoutKeep,
+    #[error(
+        "zooms {first_min}..={first_max} and {second_min}..={second_max} overlap; at each zoom at most one entry may run"
+    )]
+    OverlappingZooms {
+        first_min: u8,
+        first_max: u8,
+        second_min: u8,
+        second_max: u8,
+    },
+    #[error("`size` must be more than 0 pixels")]
+    GridSizeNotPositive,
+    #[error("`method: {method}` needs `{key}`")]
+    ThinningNeeds { method: &'static str, key: &'static str },
+    #[error("`{key}` does not apply to `method: {method}`")]
+    ThinningIgnores { method: &'static str, key: &'static str },
+    #[error(
+        "a rule's `thinning` can only be a `method: grid` without `keys`; other methods and keys apply to the whole layer"
+    )]
+    RuleThinningNotGrid,
+    #[error("table `{table}`: `{key}` is a layer key; move it under one of `layers`")]
+    PerTileOnTable { table: String, key: &'static str },
+    #[error("`{key}` acts on a whole tile, so it is set on the layer, not in a rule")]
+    PerTileInRule { key: &'static str },
 }

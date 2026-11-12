@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import type { Catalog } from '@/lib/types.gen';
@@ -97,7 +97,6 @@ describe('SpriteCatalog Component', () => {
     isLoading: false,
     isRetrying: false,
     onRetry: vi.fn(),
-    onSearchChangeAction: vi.fn(),
     searchQuery: '',
     spriteCollections: mockSpriteCollections,
   };
@@ -145,8 +144,7 @@ describe('SpriteCatalog Component', () => {
   it('renders sprite collections correctly', () => {
     const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    expect(container.textContent).toContain('Sprite Catalog');
-    expect(container.textContent).toContain('Preview all available sprite sheets and icons');
+    expect(container.querySelector('h2')?.textContent).toBe('3 sprite sheets');
 
     // Check that each sprite collection name is displayed
     expect(container.textContent).toContain('map-icons');
@@ -154,12 +152,12 @@ describe('SpriteCatalog Component', () => {
     expect(container.textContent).toContain('transportation');
 
     // Verify image counts are displayed
-    expect(container.textContent).toContain('5 total icons');
-    expect(container.textContent).toContain('8 total icons');
-    expect(container.textContent).toContain('7 total icons');
+    expect(container.textContent).toContain('5 icons · 25 KB');
+    expect(container.textContent).toContain('8 icons · 35 KB');
+    expect(container.textContent).toContain('7 icons · 30 KB');
 
     // Verify file size labels are displayed (the exact format may vary)
-    expect(container.textContent).toContain('File Size:');
+    expect(container.textContent).toMatch(/\d+(\.\d+)? (B|KB|MB)/);
   });
 
   it('filters sprite collections based on search query', () => {
@@ -180,39 +178,6 @@ describe('SpriteCatalog Component', () => {
     expect(container.textContent).not.toContain('map-icons');
     expect(container.textContent).not.toContain('ui-elements');
     expect(container.textContent).not.toContain('transportation');
-  });
-
-  it('filters sprite collections as the user types in the search input', () => {
-    const { rerender, container } = render(<SpriteCatalog {...defaultProps} />);
-    const searchInput = container.querySelector('input[placeholder="Search sprites..."]');
-    if (!searchInput) {
-      throw new Error('Search input not found');
-    }
-
-    // Simulate typing "ui" into the search box
-    fireEvent.change(searchInput, { target: { value: 'ui' } });
-
-    // Check that the search handler was called
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith('ui');
-
-    // Rerender with the search query to simulate parent component updating
-    rerender(<SpriteCatalog {...defaultProps} searchQuery="ui" />);
-
-    // Verify only the filtered result is present
-    expect(container.textContent).toContain('ui-elements');
-    expect(container.textContent).not.toContain('map-icons');
-    expect(container.textContent).not.toContain('transportation');
-  });
-
-  it('calls onSearchChangeAction when search input changes', () => {
-    const { container } = render(<SpriteCatalog {...defaultProps} />);
-    const searchInput = container.querySelector('input[placeholder="Search sprites..."]');
-    if (!searchInput) {
-      throw new Error('Search input not found');
-    }
-
-    fireEvent.change(searchInput, { target: { value: 'new search' } });
-    expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith('new search');
   });
 
   it('renders download and preview buttons for each sprite collection', () => {
@@ -254,9 +219,8 @@ describe('SpriteCatalog Component', () => {
   it('shows sprite preview sections for each collection', () => {
     const { container } = render(<SpriteCatalog {...defaultProps} />);
 
-    // Check that "Icon Preview:" labels are rendered for each collection
-    const iconPreviewMatches = container.textContent?.match(/Icon Preview:/g) || [];
-    expect(iconPreviewMatches.length).toBe(3);
+    // One preview well per collection
+    expect(container.querySelectorAll('.checker').length).toBe(3);
   });
 
   it('shows empty state with configuration link when no collections', () => {

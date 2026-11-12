@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FontCatalog } from '@/components/catalogs/font';
 import type { Catalog } from '@/lib/types.gen';
@@ -52,7 +52,6 @@ describe('FontCatalog Component', () => {
     isLoading: false,
     isRetrying: false,
     onRetry: vi.fn(),
-    onSearchChangeAction: vi.fn(),
     searchQuery: '',
   };
 
@@ -82,27 +81,16 @@ describe('FontCatalog Component', () => {
   it('renders font catalog correctly', () => {
     const { container } = render(<FontCatalog {...defaultProps} />);
 
-    // Check title and description are present (use container query to avoid duplicates from mocks)
-    const titles = container.querySelectorAll('h2');
-    const titleFound = Array.from(titles).some((title) =>
-      title.textContent?.includes('Font Catalog'),
-    );
-    expect(titleFound).toBe(true);
+    expect(container.querySelector('h2')?.textContent).toBe('3 fonts');
 
     // Check that all fonts are rendered
-    expect(screen.getByText('Roboto Medium')).toBeTruthy();
-    expect(screen.getByText('Open Sans Regular')).toBeTruthy();
-    expect(screen.getByText('Noto Sans Bold')).toBeTruthy();
+    expect(screen.getAllByText('Roboto Medium')[0]).toBeTruthy();
+    expect(screen.getAllByText('Open Sans Regular')[0]).toBeTruthy();
+    expect(screen.getAllByText('Noto Sans Bold')[0]).toBeTruthy();
 
-    // Check family and style information
-    expect(screen.getByText('Family: Roboto • Style: Medium')).toBeTruthy();
-    expect(screen.getByText('Family: Open Sans • Style: Regular')).toBeTruthy();
-    expect(screen.getByText('Family: Noto Sans • Style: Bold')).toBeTruthy();
-
-    // Check glyph counts
-    expect(screen.getByText('350')).toBeTruthy();
-    expect(screen.getByText('420')).toBeTruthy();
-    expect(screen.getByText('380')).toBeTruthy();
+    expect(screen.getByText('350 glyphs')).toBeTruthy();
+    expect(screen.getByText('420 glyphs')).toBeTruthy();
+    expect(screen.getByText('380 glyphs')).toBeTruthy();
 
     // Check format badges
     const ttfBadges = screen.getAllByText('ttf');
@@ -139,16 +127,6 @@ describe('FontCatalog Component', () => {
   it('shows no results message when search has no matches', () => {
     render(<FontCatalog {...defaultProps} searchQuery="nonexistent" />);
     expect(screen.getByText(/No fonts found matching "nonexistent"/i)).toBeTruthy();
-  });
-
-  it('calls onSearchChangeAction when search input changes', () => {
-    const { container } = render(<FontCatalog {...defaultProps} />);
-    const searchInput = container.querySelector('input[placeholder="Search fonts..."]');
-
-    if (searchInput) {
-      fireEvent.change(searchInput, { target: { value: 'new search' } });
-      expect(defaultProps.onSearchChangeAction).toHaveBeenCalledWith('new search');
-    }
   });
 
   it('renders with empty fonts object', () => {

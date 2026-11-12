@@ -161,8 +161,8 @@ describe('TileInspectDialog', () => {
       <TileInspectDialog name="test-tiles" onCloseAction={mockOnClose} source={mockTileSource} />,
     );
 
-    expect(container.textContent).toContain('Content Type:');
-    expect(container.textContent).toContain('Encoding:');
+    expect(container.textContent).toContain('Content Type');
+    expect(container.textContent).toContain('Encoding');
   });
 
   it('conditionally renders optional fields', () => {
@@ -178,7 +178,7 @@ describe('TileInspectDialog', () => {
       />,
     );
 
-    expect(container.textContent).not.toContain('Encoding:');
+    expect(container.textContent).not.toContain('Encoding');
     expect(container.textContent).not.toContain('Name:');
     expect(container.textContent).not.toContain('Description:');
     expect(container.textContent).not.toContain('Layer Count:');

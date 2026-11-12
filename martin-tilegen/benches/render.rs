@@ -137,6 +137,7 @@ fn bench(c: &mut Criterion<cycles::Cycles>) {
                             zooms: 0..=14,
                             simplify: PixelThreshold::DEFAULT_SIMPLIFY,
                             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
+                            thinning_grid: &[],
                         };
                         let seq = Seq::new(0, row as u64).expect("row fits");
                         renderer

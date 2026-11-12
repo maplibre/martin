@@ -3,24 +3,28 @@
 use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
-use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
+use pmtiles::{AsyncPmTilesReader, Compression, FileBackendOptions, ObjectStoreBackend, PmtError, TileType};
 use tilejson::TileJSON;
 use tracing::{instrument, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
-use crate::tiles::pmtiles::backend::{PmtBackend, PmtFileBackend};
+use crate::tiles::pmtiles::backend::PmtBackend;
 use crate::tiles::source::cap_zoom_range;
 use crate::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
+
+/// How often reads of a local file check it for changes.
+const CHECK_MODIFIED_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Where a [`PmtilesSource`] reads from.
 #[derive(Clone)]
 enum PmtLocation {
-    /// A local file, read by [`PmtFileBackend`].
+    /// A local file, read by a [`pmtiles::FileBackend`].
     File(PathBuf),
     /// A location in an [`ObjectStore`], read by [`ObjectStoreBackend`].
     ObjectStore {
@@ -83,7 +87,9 @@ impl PmtilesSource {
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
-        let backend = PmtFileBackend::open(&path)
+        let backend = FileBackendOptions::new()
+            .check_modified(Some(CHECK_MODIFIED_INTERVAL))
+            .open(&path)
             .await
             .map_err(|e| PmtilesError::PmtErrorWithCtx(e, path.display().to_string()))?;
         let location = PmtLocation::File(path);

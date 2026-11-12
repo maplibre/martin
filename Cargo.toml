@@ -108,7 +108,7 @@ bytestring = "1.5"
 cel = { version = "0.15", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.3.0", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
 cql2 = "0.6.0"
@@ -149,10 +149,10 @@ log = "0.4"
 map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
 maplibre-native-ffi = "0.202610.3"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./martin-core", version = "0.16.0", default-features = false }
+martin-core = { path = "./martin-core", version = "0.17.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.2.0", default-features = false }
-mbtiles = { path = "./mbtiles", version = "0.22.0" }
+martin-tilegen = { path = "./martin-tilegen", version = "0.2.1", default-features = false }
+mbtiles = { path = "./mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
@@ -164,7 +164,7 @@ numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
-pmtiles = { version = "0.27.0", default-features = false }
+pmtiles = { version = "0.28.0", default-features = false }
 png = "0.18.0"
 portable-pty = "0.9.0"
 postgis = "0.9"

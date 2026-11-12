@@ -5,16 +5,20 @@ mod eval;
 mod filter;
 
 use std::collections::{BTreeSet, HashSet};
+use std::num::NonZeroU32;
 use std::ops::{Range, RangeInclusive};
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
+use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
 
-use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, Zoom};
-use crate::phase2::LayerInfo;
+use crate::expr::{Attr, CompiledExpr, ExprError, ExprRef, Filter, Id, Role, SortBy, ThinningKey, Zoom};
+use crate::phase1::TILE_PIXELS;
+use crate::phase2::{LayerInfo, OpKind};
 pub use crate::plan::branch::{Branch, ColumnFacts, Shape, SizeBand};
 pub use crate::plan::eval::{Evaluator, ExprErrors, ExprTallies, LayerFeature};
 pub use crate::plan::filter::{
@@ -49,6 +53,13 @@ pub enum PlanError {
 
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
+
+    #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
+    UnknownGroupBy {
+        layer: String,
+        op: &'static str,
+        attribute: String,
+    },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -112,6 +123,8 @@ pub struct LayerDef {
     pub encoder: EncoderConfig,
     /// Only features of this type, if set.
     pub geometry: Option<GeometryType>,
+    /// Each feature the layer takes becomes this point of its geometry, if set.
+    pub point: Option<DerivedPoint>,
     /// Only features for which this is `true`.
     pub filter: Option<String>,
     /// Per feature, clamped into `zooms`; `null` keeps the layer's.
@@ -124,6 +137,9 @@ pub struct LayerDef {
     /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
     /// Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
+    /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
+    /// Zoom ranges of one kind of operation must not overlap.
+    pub per_tile: Vec<TileOpDef>,
 }
 
 impl LayerDef {
@@ -141,6 +157,7 @@ impl LayerDef {
             bounds: None,
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
             geometry: None,
+            point: None,
             filter: None,
             minzoom_expr: None,
             maxzoom_expr: None,
@@ -148,8 +165,111 @@ impl LayerDef {
             attributes: AttributesDef::All,
             rules: Vec::new(),
             sort_by: Vec::new(),
+            per_tile: Vec::new(),
         }
     }
+}
+
+/// Planetiler's point label grid: at the zooms it covers, the world is cut into squares of `size` pixels
+/// of a 256-pixel tile, and each tile keeps only the first `limit` points of each square, in draw order.
+/// Squares smaller than one unit of the layer's extent do not limit anything.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ThinningGrid {
+    /// Clamped into the layer's zooms.
+    pub zooms: RangeInclusive<u8>,
+    /// Side of a square, in pixels of a 256-pixel tile.
+    pub size: f64,
+    /// Points kept per square and tile.
+    pub limit: NonZeroU32,
+}
+
+/// A [`TileOp`] and the zooms it runs at; outside them the layer's features pass through it unchanged.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TileOpDef {
+    /// Clamped into the layer's zooms; an operation with none of them is dropped.
+    pub zooms: RangeInclusive<u8>,
+    pub op: TileOp,
+}
+
+/// An operation on all of one layer's features in one tile. Variants are declared in the order they run.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TileOp {
+    /// Joins the lines of a group whose ends meet, where exactly two ends do, then simplifies them by
+    /// `tolerance`, clips them to the tile and `buffer`, and drops those shorter than `min_length`. Each
+    /// group becomes one line or multi-line feature, or none.
+    MergeLines {
+        /// Pixels of a 256-pixel tile.
+        min_length: f64,
+        /// Pixels of a 256-pixel tile; 0 keeps every vertex.
+        tolerance: f64,
+        /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
+        buffer: Option<f64>,
+    },
+    /// Unions the polygons of a group, clipped to the tile and `buffer`: joined across gaps narrower than
+    /// `distance`, holes smaller than `min_hole_area` filled, polygons smaller than `min_area` dropped.
+    /// Each group becomes one polygon or multi-polygon feature, or none.
+    MergePolygons {
+        /// Square pixels of a 256-pixel tile.
+        min_area: f64,
+        /// Square pixels of a 256-pixel tile.
+        min_hole_area: f64,
+        /// Pixels of a 256-pixel tile; 0 joins only touching or overlapping polygons.
+        distance: f64,
+        /// Pixels of a 256-pixel tile around the tile; the layer's buffer if `None`.
+        buffer: Option<f64>,
+        /// Output attributes that must be equal, a missing one counting as `null`; all of them if `None`.
+        group_by: Option<Vec<String>>,
+    },
+    /// Drops features that an earlier kept feature with the same key crowds out, as `method` says. The key
+    /// is the values of `keys` over the feature's output attributes; without `keys` every feature has the
+    /// same key. A key of only `null`s is never thinned.
+    Thinning {
+        method: ThinningMethod,
+        /// CEL expressions over the feature's output attributes, by output name.
+        keys: Vec<String>,
+    },
+    /// Combines the features of a group and type into one multi-geometry, with the parts in draw order,
+    /// and only the `group_by` attributes.
+    MergeMulti {
+        /// The types to combine; others pass through.
+        geometry: Vec<GeometryType>,
+        /// Output attributes that must be equal, a missing one counting as `null`, and that the merged
+        /// feature keeps.
+        group_by: Vec<String>,
+    },
+    /// Keeps the first `count` features and drops the rest.
+    Limit { count: u32 },
+}
+
+impl TileOp {
+    /// Position in the fixed order operations run in.
+    fn rank(&self) -> u8 {
+        match self {
+            Self::MergeLines { .. } => 1,
+            Self::MergePolygons { .. } => 2,
+            Self::Thinning { .. } => 3,
+            Self::MergeMulti { .. } => 4,
+            Self::Limit { .. } => 5,
+        }
+    }
+}
+
+/// How [`TileOp::Thinning`] decides that an earlier kept feature crowds a feature out.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ThinningMethod {
+    /// Keeps the first points of each square of a world grid; see [`ThinningGrid`]. Lines and polygons
+    /// pass through.
+    Grid {
+        /// Side of a square, in pixels of a 256-pixel tile.
+        size: f64,
+        /// Points kept per square and key.
+        limit: NonZeroU32,
+    },
+    /// Drops a feature within `distance` pixels of a 256-pixel tile of an earlier kept one with its key,
+    /// measured between representative points.
+    Distance { distance: f64 },
+    /// Drops a feature whose key an earlier kept one has anywhere in the tile.
+    Tile,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -163,6 +283,8 @@ pub struct RuleDef {
     /// These replace the layer's attributes of the same name and add the others; each one replaces the
     /// layer's at every zoom, even outside its own zooms.
     pub attributes: Vec<ComputedAttr>,
+    /// Replaces the layer's grid thinning for the features this rule takes; empty turns it off for them.
+    pub thinning: Option<Vec<ThinningGrid>>,
 }
 
 /// `null`, and a failed evaluation, sort before any value; `descending` reverses that too.
@@ -185,6 +307,29 @@ pub enum GeometryType {
     Point,
     Line,
     Polygon,
+}
+
+/// A point computed from a feature's projected geometry, which the layer draws in its place.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DerivedPoint {
+    /// The centroid of the highest dimension the geometry has: area-weighted for polygons,
+    /// length-weighted for lines, the mean for points.
+    Centroid,
+}
+
+impl DerivedPoint {
+    /// The point of `geom`, or `None` when it has none, such as an empty geometry.
+    pub(crate) fn of(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+        let point = match (self, geom) {
+            (Self::Centroid, FeatureGeom::Points([point])) => return Some(*point),
+            (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
+            (Self::Centroid, FeatureGeom::Lines([line])) => line.centroid(),
+            (Self::Centroid, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).centroid(),
+            (Self::Centroid, FeatureGeom::Polygons([polygon])) => polygon.centroid(),
+            (Self::Centroid, FeatureGeom::Polygons(polygons)) => MultiPolygon::new(polygons.to_vec()).centroid(),
+        };
+        point.map(|point| point.0)
+    }
 }
 
 impl GeometryType {
@@ -280,6 +425,7 @@ pub(crate) struct PlannedLayer {
     pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
     pub(crate) geometry: Option<GeometryType>,
+    pub(crate) point: Option<DerivedPoint>,
     /// Indexes into [`Plan::exprs`].
     pub(crate) filter: Option<ExprRef<Filter>>,
     pub(crate) id: PlannedId,
@@ -295,6 +441,20 @@ pub(crate) struct PlannedLayer {
     pub(crate) sort_by: Vec<ExprRef<SortBy>>,
 }
 
+impl PlannedLayer {
+    /// The type of the geometry the layer draws, if it has only one.
+    pub(crate) fn output_geometry(&self) -> Option<GeometryType> {
+        self.point.map_or(self.geometry, |_| Some(GeometryType::Point))
+    }
+
+    /// Whether some of the layer's features are thinned by a grid.
+    pub(crate) fn has_thinning_grid(&self) -> bool {
+        std::iter::once(&self.fallback)
+            .chain(&self.cases)
+            .any(|case| !case.thinning_grid.is_empty())
+    }
+}
+
 /// A rule, with the layer's settings for whatever it does not set.
 #[derive(Debug)]
 pub(crate) struct Case {
@@ -305,6 +465,8 @@ pub(crate) struct Case {
     pub(crate) simplify: PixelThreshold,
     pub(crate) min_size: PixelThreshold,
     pub(crate) attrs: PlannedAttrs,
+    /// Clamped into the layer's zooms.
+    pub(crate) thinning_grid: Vec<ThinningGrid>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -599,6 +761,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         simplify: def.simplify,
         min_size: def.min_size,
         attrs,
+        thinning_grid: clamp_grids(&layer_grids(&def), &def.zooms),
     };
     let cases = def
         .rules
@@ -616,6 +779,8 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
+    check_group_by(&def, &keys, compiler.dynamic_props)?;
+    let per_tile = plan_per_tile(&def, &keys, compiler)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -639,9 +804,11 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
                     .with_spatial_morton_sort(false)
                     .with_spatial_hilbert_sort(false)
             },
+            per_tile,
         },
         zooms: def.zooms,
         geometry: def.geometry,
+        point: def.point,
         filter,
         id,
         attributes: def.attributes,
@@ -651,6 +818,176 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         fallback,
         sort_by,
     })
+}
+
+/// Every `group_by` attribute of the layer's operations is one the layer writes: one of `keys`, or, when
+/// it copies every property of a table with dynamic ones, perhaps one of those.
+fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Result<(), PlanError> {
+    if dynamic_props && def.attributes == AttributesDef::All {
+        return Ok(());
+    }
+    for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
+        let (name, group_by) = match &op.op {
+            TileOp::MergePolygons { group_by, .. } => ("merge_polygons", group_by.as_deref()),
+            TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
+            TileOp::MergeLines { .. } | TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
+        };
+        if let Some(attribute) = group_by.into_iter().flatten().find(|name| !keys.contains(name)) {
+            return Err(PlanError::UnknownGroupBy {
+                layer: def.name.clone(),
+                op: name,
+                attribute: attribute.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// The operation's zooms clamped into the layer's, or `None` when it runs at none of them.
+fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
+    let lo = (*op.zooms.start()).max(*zooms.start());
+    let hi = (*op.zooms.end()).min(*zooms.end());
+    (lo <= hi).then_some(lo..=hi)
+}
+
+/// The layer's operations in the order they run, each clamped into its zooms, without those outside them,
+/// and with `thinning` keys compiled over the layer's output attributes.
+fn plan_per_tile(
+    def: &LayerDef,
+    keys: &[String],
+    compiler: &mut Compiler<'_>,
+) -> Result<Vec<PlannedTileOp>, PlanError> {
+    let output_props = compiler.dynamic_props && def.attributes == AttributesDef::All;
+    let mut ops = Vec::new();
+    for op in &def.per_tile {
+        let Some(zooms) = clamped_zooms(op, &def.zooms) else {
+            continue;
+        };
+        let units = f64::from(def.grid.extent) / TILE_PIXELS;
+        let planned = match &op.op {
+            TileOp::MergeLines {
+                min_length,
+                tolerance,
+                buffer,
+            } => PlannedOp::MergeLines(PlannedMergeLines {
+                min_length: min_length * units,
+                tolerance: tolerance * units,
+                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+            }),
+            TileOp::MergePolygons {
+                min_area,
+                min_hole_area,
+                distance,
+                buffer,
+                group_by,
+            } => PlannedOp::MergePolygons(PlannedMergePolygons {
+                min_area: min_area * units * units,
+                min_hole_area: min_hole_area * units * units,
+                distance: distance * units,
+                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                group_by: group_by.clone(),
+                warned: Arc::default(),
+            }),
+            TileOp::Thinning { method, keys: sources } => PlannedOp::Thinning {
+                keys: sources
+                    .iter()
+                    .map(|source| {
+                        let expr = CompiledExpr::compile(source, keys, output_props).map_err(|error| {
+                            PlanError::LayerExpr {
+                                layer: def.name.clone(),
+                                error,
+                            }
+                        })?;
+                        Ok(compiler.add(source, expr, ThinningKey))
+                    })
+                    .collect::<Result<_, PlanError>>()?,
+                method: match method {
+                    ThinningMethod::Grid { .. } => PlannedThinning::Grid,
+                    ThinningMethod::Distance { distance } => PlannedThinning::Distance(distance * units),
+                    ThinningMethod::Tile => PlannedThinning::Tile,
+                },
+            },
+            TileOp::MergeMulti { geometry, group_by } => PlannedOp::MergeMulti {
+                geometry: geometry.clone(),
+                group_by: group_by.clone(),
+            },
+            TileOp::Limit { count } => PlannedOp::Limit { count: *count },
+        };
+        ops.push((op.op.rank(), PlannedTileOp { zooms, op: planned }));
+    }
+    ops.sort_by_key(|(rank, op)| (*rank, *op.zooms.start()));
+    Ok(ops.into_iter().map(|(_, op)| op).collect())
+}
+
+/// [`TileOp::MergeLines`] with its lengths in tile units.
+#[derive(Clone, Debug)]
+pub(crate) struct PlannedMergeLines {
+    /// Merged lines shorter than this inside the tile and `buffer` are dropped.
+    pub(crate) min_length: f64,
+    /// RDP tolerance for the merged lines; 0 keeps every vertex.
+    pub(crate) tolerance: f64,
+    /// Around the tile, kept after merging.
+    pub(crate) buffer: f64,
+}
+
+/// [`TileOp::MergePolygons`] with its lengths and areas in tile units.
+#[derive(Clone, Debug)]
+pub(crate) struct PlannedMergePolygons {
+    pub(crate) min_area: f64,
+    pub(crate) min_hole_area: f64,
+    pub(crate) distance: f64,
+    pub(crate) buffer: f64,
+    pub(crate) group_by: Option<Vec<String>>,
+    /// Whether a group that could not be merged was logged.
+    pub(crate) warned: Arc<AtomicBool>,
+}
+
+/// A [`TileOpDef`] as the encoder runs it.
+#[derive(Clone, Debug)]
+pub struct PlannedTileOp {
+    pub(crate) zooms: RangeInclusive<u8>,
+    pub(crate) op: PlannedOp,
+}
+
+/// A [`TileOp`] with its expressions compiled and its distances in tile units.
+#[derive(Clone, Debug)]
+pub(crate) enum PlannedOp {
+    MergeLines(PlannedMergeLines),
+    MergePolygons(PlannedMergePolygons),
+    Thinning {
+        keys: Vec<ExprRef<ThinningKey>>,
+        method: PlannedThinning,
+    },
+    MergeMulti {
+        geometry: Vec<GeometryType>,
+        group_by: Vec<String>,
+    },
+    Limit {
+        count: u32,
+    },
+}
+
+impl PlannedOp {
+    /// Which operation this is.
+    pub(crate) const fn kind(&self) -> OpKind {
+        match self {
+            Self::MergeLines(_) => OpKind::MergeLines,
+            Self::MergePolygons(_) => OpKind::MergePolygons,
+            Self::Thinning { .. } => OpKind::Thinning,
+            Self::MergeMulti { .. } => OpKind::MergeMulti,
+            Self::Limit { .. } => OpKind::Limit,
+        }
+    }
+}
+
+/// A [`ThinningMethod`] as the encoder runs it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum PlannedThinning {
+    /// Rendering put each point in its square and gave it its limit.
+    Grid,
+    /// In tile units.
+    Distance(f64),
+    Tile,
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
@@ -753,7 +1090,47 @@ fn plan_case(
         simplify: rule.simplify.unwrap_or(fallback.simplify),
         min_size: rule.min_size.unwrap_or(fallback.min_size),
         attrs,
+        thinning_grid: rule.thinning.as_ref().map_or_else(
+            || fallback.thinning_grid.clone(),
+            |grids| clamp_grids(grids, &def.zooms),
+        ),
     })
+}
+
+/// The grids of the layer's grid thinning.
+fn layer_grids(def: &LayerDef) -> Vec<ThinningGrid> {
+    def.per_tile
+        .iter()
+        .filter_map(|op| {
+            let TileOp::Thinning {
+                method: ThinningMethod::Grid { size, limit },
+                ..
+            } = &op.op
+            else {
+                return None;
+            };
+            Some(ThinningGrid {
+                zooms: op.zooms.clone(),
+                size: *size,
+                limit: *limit,
+            })
+        })
+        .collect()
+}
+
+/// `grids` clamped into `zooms`, without those outside them.
+fn clamp_grids(grids: &[ThinningGrid], zooms: &RangeInclusive<u8>) -> Vec<ThinningGrid> {
+    grids
+        .iter()
+        .filter_map(|grid| {
+            let lo = (*grid.zooms.start()).max(*zooms.start());
+            let hi = (*grid.zooms.end()).min(*zooms.end());
+            (lo <= hi).then(|| ThinningGrid {
+                zooms: lo..=hi,
+                ..grid.clone()
+            })
+        })
+        .collect()
 }
 
 /// A rule's zoom, or the layer's where it sets none or its expression evaluates to `null`.

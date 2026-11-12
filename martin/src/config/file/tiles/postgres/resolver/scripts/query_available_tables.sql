@@ -167,13 +167,18 @@ CROSS JOIN LATERAL (
             '{}'::jsonb
         ) AS column_types,
         coalesce(
-            jsonb_agg(attr.attname) FILTER (WHERE NOT coll.collisdeterministic),
+            jsonb_agg(attr.attname) FILTER (
+                -- compared by a collation that may treat different strings as equal
+                WHERE attr.attcollation IN (
+                    SELECT coll.oid
+                    FROM pg_catalog.pg_collation AS coll
+                    WHERE NOT coll.collisdeterministic
+                )
+            ),
             '[]'::jsonb
         ) AS nondeterministic_columns
     FROM pg_catalog.pg_attribute AS attr
     INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
-    -- the collation a column compares by, which may treat different strings as equal
-    LEFT JOIN pg_catalog.pg_collation AS coll ON attr.attcollation = coll.oid
     WHERE
         attr.attrelid = gc.relid
         AND attr.attnum > 0

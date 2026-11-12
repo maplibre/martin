@@ -131,6 +131,26 @@ pub async fn heap_blocks(conn: &Client, schema: &str, table: &str) -> Result<Opt
     Ok(row.map(|row| u32::try_from(row.get::<_, i64>(0)).unwrap_or(u32::MAX)))
 }
 
+/// The planner's estimate of how many rows `sql` returns, or `None` if its plan names none.
+///
+/// # Errors
+///
+/// Fails if `sql` cannot be planned.
+pub async fn estimated_rows(conn: &Client, sql: &str) -> Result<Option<u64>, PostgresError> {
+    let lines = conn
+        .query(&format!("EXPLAIN {sql}"), &[])
+        .await
+        .map_err(|e| PostgresError::PostgresError(e, "planning a scan"))?;
+    let Some(top) = lines.first() else {
+        return Ok(None);
+    };
+    let plan: &str = top.get(0);
+    Ok(plan
+        .split_once(" rows=")
+        .and_then(|(_, rest)| rest.split(' ').next())
+        .and_then(|rows| rows.parse().ok()))
+}
+
 /// Streams one table's rows as batches, geometries left as WKB for the render workers to decode.
 /// A whole-table scan's `conn` should come from [`open_scan_connection`].
 ///

@@ -35,7 +35,7 @@ describe('Header Component', () => {
     expect(documentationLink).toBeTruthy();
 
     // hidden on mobile, so using a more specific query
-    const aboutUsLink = getByText('About us');
+    const aboutUsLink = getByText('About MapLibre');
     expect(aboutUsLink).toBeTruthy();
     expect(aboutUsLink.closest('a')?.getAttribute('href')).toBe('https://maplibre.org');
   });

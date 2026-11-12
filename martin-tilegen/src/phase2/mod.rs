@@ -3,6 +3,7 @@
 mod assemble;
 mod columns;
 mod encode;
+mod per_tile;
 
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
@@ -11,9 +12,12 @@ use tilejson::{TileJSON, VectorLayer};
 pub use crate::phase2::encode::TileFormat;
 use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
 pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};
+pub(crate) use crate::phase2::per_tile::LayerOpCounts;
+use crate::phase2::per_tile::OutputExprs;
+pub use crate::phase2::per_tile::{OpCounts, OpKind};
 use crate::plan::Plan;
 use crate::props::KeyNames;
-use crate::sort::{Sorter, TileBatches, TileRecords};
+use crate::sort::{TileBatches, TileRecords};
 use crate::{EncodedTile, TileGenResult, TileOrder};
 
 /// The stage types of phase 2, for this crate's benches and stage-level tests only.
@@ -21,10 +25,11 @@ use crate::{EncodedTile, TileGenResult, TileOrder};
 pub(crate) mod internals {
     pub use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
     pub use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
+    pub use crate::phase2::per_tile::TileOps;
 }
 
 /// Encodes grouped tiles of a rendered plan, shared by every encoder thread.
-pub(crate) struct TileEncoding {
+pub(crate) struct TileEncoding<'p> {
     infos: Vec<LayerInfo>,
     /// Only complete once every feature is rendered, since rendering interns new keys.
     names: Vec<KeyNames>,
@@ -33,30 +38,32 @@ pub(crate) struct TileEncoding {
     order: TileOrder,
     mvt_keep_unused_keys: bool,
     dedup: DedupIndex,
+    exprs: OutputExprs<'p>,
 }
 
-impl TileEncoding {
-    /// The encoding of `plan`'s tiles, and the tiles `sorter` holds in batches of `batch_tiles`.
-    /// Taking the sorter means every render worker is done, so every property key has a name.
+impl<'p> TileEncoding<'p> {
+    /// The encoding of `plan`'s tiles, handing `batches` back. Taking the batches means their sorter
+    /// was consumed, so every render worker is done and every property key has a name.
     pub(crate) fn start(
-        plan: &Plan,
-        sorter: Sorter,
+        plan: &'p Plan,
+        batches: TileBatches,
         format: TileFormat,
         encoding: Encoding,
         order: TileOrder,
-        batch_tiles: usize,
         mvt_keep_unused_keys: bool,
-    ) -> TileGenResult<(Self, TileBatches)> {
+    ) -> (Self, TileBatches) {
+        let names = plan.key_names();
         let encoding = Self {
             infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
-            names: plan.key_names(),
+            exprs: OutputExprs::new(plan, &names),
+            names,
             format,
             encoding,
             order,
             mvt_keep_unused_keys,
             dedup: DedupIndex::default(),
         };
-        Ok((encoding, sorter.into_tiles(batch_tiles)?))
+        (encoding, batches)
     }
 
     /// Encodes `batch` with `encoder`, which keeps the layer stats of every tile it encodes.
@@ -68,6 +75,7 @@ impl TileEncoding {
             encoding: self.encoding,
             order: self.order,
             mvt_keep_unused_keys: self.mvt_keep_unused_keys,
+            exprs: Some(&self.exprs),
         };
         encoder.encode_batch(&settings, &self.dedup, batch)
     }

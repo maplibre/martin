@@ -9,5 +9,8 @@
     - [x] Bulk mode in `martin cp`, and PMTiles output
     - [x] Layers with CEL expressions, `rules` and `sort_by`
     - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
-    - [ ] `geometry` other than `point`, `line` and `polygon`
-    - [ ] `tile` operations (`merge_lines`, `merge_polygons`, `merge_multi`, `label_grid`, `dedup_by`, `limit`)
+    - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
+    - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`,
+      `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+    - [x] [Per-tile operations](sources-pg-layers.md#per-tile-operations) (`merge_lines`,
+      `merge_polygons`, `thinning`, `merge_multi`, `limit`)

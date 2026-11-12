@@ -53,7 +53,7 @@ function rebucket(buckets: HistogramBucket[]): RebucketedHistogram[] {
 
     bars.push({
       height: Math.max(height, 10), // Minimum for visibility
-      opacity: 0.2 + (height / 100) * 0.8,
+      opacity: 0.35 + (height / 100) * 0.65,
       ...bucketRanges[i],
     });
   }
@@ -70,7 +70,7 @@ export function MiniHistogram({ histogram, className = '' }: MiniHistogramProps)
           <Tooltip key={bar.timeRange}>
             <TooltipTrigger asChild>
               <div
-                className="flex-1 bg-primary rounded-[1px] cursor-help"
+                className="flex-1 bg-chart-1 rounded-[1px] cursor-help"
                 style={{
                   height: `${bar.height}%`,
                   opacity: bar.opacity,

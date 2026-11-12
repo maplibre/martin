@@ -94,9 +94,9 @@ fn default_dir() -> Option<PathBuf> {
         .or_else(|| env::home_dir().map(|home| home.join(".cache")))
 }
 
-/// Whether Mesa could create its cache under `dir`, probed with an unnamed file in its nearest existing ancestor.
+/// Whether Mesa could create its cache under `dir`, probed with an unnamed file in its nearest existing ancestor, which Mesa rejects unless it is a directory.
 fn is_writable(dir: &Path) -> bool {
     dir.ancestors()
-        .find(|ancestor| ancestor.is_dir())
-        .is_some_and(|ancestor| tempfile::tempfile_in(ancestor).is_ok())
+        .find(|ancestor| ancestor.exists())
+        .is_some_and(|ancestor| ancestor.is_dir() && tempfile::tempfile_in(ancestor).is_ok())
 }

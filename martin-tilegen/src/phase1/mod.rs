@@ -2,18 +2,21 @@
 
 pub mod project;
 mod render;
-mod simplify;
+pub(crate) mod simplify;
+mod thinning_grid;
 mod touch;
 
 use geo_types::Coord;
 use martin_tile_utils::TileRect;
 
+pub(crate) use crate::phase1::render::TILE_PIXELS;
 pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 use crate::phase1::render::{Renderer, SliceErrors};
+use crate::phase2::{LayerOpCounts, OpKind, TileEncoder};
 use crate::plan::{Evaluator, ExprTallies, Plan};
 use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry, WkbError};
-use crate::{LayerSliceErrors, Summary, TileGenError, TileGenResult, TileOrder};
+use crate::{LayerSliceErrors, OpSummary, Summary, TileGenError, TileGenResult, TileOrder};
 
 /// The stage types of phase 1, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]
@@ -111,6 +114,7 @@ impl<'a> RenderWorker<'a> {
             skipped: self.skipped,
             slice_errors: self.renderer.slice_errors,
             exprs: self.evaluator.finish(),
+            ops: Vec::new(),
         })
     }
 }
@@ -123,6 +127,8 @@ pub(crate) struct RenderTotals {
     /// By layer index.
     slice_errors: Vec<SliceErrors>,
     exprs: ExprTallies,
+    /// What the per-tile operations did, by layer index.
+    ops: Vec<LayerOpCounts>,
 }
 
 impl RenderTotals {
@@ -138,6 +144,15 @@ impl RenderTotals {
             total.merge(errors);
         }
         self.exprs.merge(other.exprs);
+        add_op_counts(&mut self.ops, &other.ops);
+    }
+
+    /// Adds what the encoders' per-tile operations did, and their failed evaluations.
+    pub(crate) fn add_encoders<'e>(&mut self, encoders: impl IntoIterator<Item = &'e TileEncoder>) {
+        for encoder in encoders {
+            self.exprs.add(encoder.expr_errors());
+            add_op_counts(&mut self.ops, encoder.op_counts());
+        }
     }
 
     /// The summary of a render of `plan` that produced `tiles`.
@@ -148,6 +163,7 @@ impl RenderTotals {
             tiles,
             slice_errors: layer_slice_errors(plan, &self.slice_errors),
             expr_errors: plan.expr_errors(&self.exprs),
+            per_tile: op_summaries(plan, &self.ops),
         }
     }
 }
@@ -168,6 +184,39 @@ fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErro
                 partition: first.seq.partition(),
                 row: first.seq.row(),
                 error: first.error.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// Adds `counts` to `totals`, both by layer index.
+fn add_op_counts(totals: &mut Vec<LayerOpCounts>, counts: &[LayerOpCounts]) {
+    if totals.len() < counts.len() {
+        totals.resize_with(counts.len(), LayerOpCounts::default);
+    }
+    for (total, counts) in totals.iter_mut().zip(counts) {
+        total.add(counts);
+    }
+}
+
+/// What each operation a layer has did to it, with `totals` by layer index; zero for an operation that never ran.
+fn op_summaries(plan: &Plan, totals: &[LayerOpCounts]) -> Vec<OpSummary> {
+    let none = LayerOpCounts::default();
+    plan.layers
+        .iter()
+        .enumerate()
+        .flat_map(|(index, layer)| {
+            let counts = totals.get(index).unwrap_or(&none);
+            let mut ops: Vec<OpKind> = layer.info.per_tile.iter().map(|op| op.op.kind()).collect();
+            if layer.has_thinning_grid() {
+                ops.push(OpKind::Thinning);
+            }
+            ops.sort_unstable();
+            ops.dedup();
+            ops.into_iter().map(move |op| OpSummary {
+                layer: layer.info.name.clone(),
+                op,
+                counts: *counts.get(op),
             })
         })
         .collect()

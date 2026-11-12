@@ -213,10 +213,13 @@ and the archive still sees every tile in order.
 
 ### Repeated tiles
 
-Each encoder assembles the tile's layers from its records, encodes them as MLT or MVT, and compresses
-the result. It also avoids work and storage for repeated tiles:
+Each encoder assembles the tile's layers from its records, orders each layer's features by `sort_by`,
+runs the layer's [per-tile operations](sources-pg-layers.md#per-tile-operations) on them, encodes
+them as MLT or MVT, and compresses the result. A layer the operations leave empty is left out of the tile.
+It also avoids work and storage for repeated tiles:
 
-- A tile with the same records as the encoder's previous tile reuses its bytes without encoding.
+- A tile with the same records as the encoder's previous tile of the same zoom reuses its bytes without
+  encoding. The operations depend only on the records and the zoom, so the bytes are the same.
   Neighboring tiles in the archive order are often identical, for example the inside of a large
   polygon.
 - A reused tile, and a tile made only of fill records, gets a dedup key from an index shared by all

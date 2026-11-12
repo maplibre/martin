@@ -494,8 +494,8 @@ async fn a_vector_source_is_served_gzipped_from_a_remote_store() {
     martin.stop().await;
     insta::assert_snapshot!(statics.request_log().await, @"
     GET /pmtilestest/world_cities.pmtiles bytes=0-16383
-    GET /pmtilestest/world_cities.pmtiles bytes=16384-17166
-    GET /pmtilestest/world_cities.pmtiles bytes=18294-18444
+    GET /pmtilestest/world_cities.pmtiles bytes=16384-17167
+    GET /pmtilestest/world_cities.pmtiles bytes=18295-18445
     ");
     assert_the_aws_environment_was_overridden(&mut martin);
 }
@@ -850,6 +850,7 @@ async fn an_archive_emptied_while_served_fails_its_uncached_tiles_without_crashi
     assert_eq!(cached.status(), 200);
 
     fs::write(&path, b"").expect("failed to empty the served archive");
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     assert_eq!(martin.get("/served/3/4/2").await.body(), cached.body());
     assert_eq!(martin.get("/served/3/4/3").await.status(), 500);

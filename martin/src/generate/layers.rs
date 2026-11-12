@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef, ValueDef,
-    ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef,
+    ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -17,8 +17,9 @@ use tracing::warn;
 use super::{GenerateError, GenerateResult};
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, Columns, Expr, IdPolicy, Layer, Literal, OutputGeometry, PerFeature, Pixels, PropertySelector,
-    RuleSettings, Rules, Value, ValueSpec, Zoom, ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, MultiGeometry, OutputGeometry, PerFeature,
+    PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value, ValueSpec,
+    Zoom, ZoomRange, ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -125,13 +126,22 @@ fn lower_layer(
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
     };
+    let grid = LayerGrid {
+        extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
+        buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
+    };
+    let grids = GridContext {
+        source: id,
+        layer: name,
+        zooms: min..=max,
+        grid,
+        geometry: layer.geometry,
+    };
+    let (input, point) = layer.geometry.and_then(|g| layer_geometry(g).ok()).unzip();
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
-        grid: LayerGrid {
-            extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
-            buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
-        },
+        grid,
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
         simplify: threshold(
             layer.simplify,
@@ -145,7 +155,8 @@ fn lower_layer(
         ),
         bounds: defaults.bounds,
         encoder: defaults.encoder,
-        geometry: layer.geometry.and_then(|g| geometry_type(g).ok()),
+        geometry: input.flatten(),
+        point: point.flatten(),
         filter: layer.r#where.as_ref().map(|e| e.as_str().to_owned()),
         minzoom_expr: zoom_expr(layer.minzoom.as_ref()),
         maxzoom_expr: zoom_expr(layer.maxzoom.as_ref()),
@@ -160,7 +171,10 @@ fn lower_layer(
             Attributes::AllProperties => AttributesDef::All,
             Attributes::Columns(columns) => computed(columns),
         },
-        rules: layer.rules.as_ref().map_or_else(Vec::new, lower_rules),
+        rules: layer
+            .rules
+            .as_ref()
+            .map_or_else(Vec::new, |rules| lower_rules(rules, &grids)),
         sort_by: layer
             .sort_by
             .iter()
@@ -170,11 +184,94 @@ fn lower_layer(
                 descending: key.descending,
             })
             .collect(),
+        per_tile: lower_per_tile(
+            id,
+            name,
+            &layer.per_tile,
+            &(min..=max),
+            grid,
+            output_geometry(layer.geometry),
+            &grids,
+        ),
     }))
 }
 
+/// What lowering a grid thinning needs to know about its layer, to clamp it and warn about it.
+struct GridContext<'a> {
+    /// The table source's id.
+    source: &'a str,
+    /// The layer's name.
+    layer: &'a str,
+    /// The layer's zooms.
+    zooms: RangeInclusive<u8>,
+    /// The layer's extent and buffer.
+    grid: LayerGrid,
+    /// The layer's `geometry`, if set.
+    geometry: Option<OutputGeometry>,
+}
+
+impl GridContext<'_> {
+    /// A rule's grid `thinning` within the layer's zooms, warning about an entry with none of them, and as
+    /// [`Self::check`] does.
+    fn lower(&self, thinning: &ByZoomRange<Thinning>, key: &str) -> Vec<ThinningGrid> {
+        let Self {
+            source, layer, zooms, ..
+        } = self;
+        let mut lowered = Vec::new();
+        for entry in thinning {
+            let ThinningMethod::Grid { size, limit } = entry.method else {
+                continue;
+            };
+            let range = entry.zooms;
+            let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
+            let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
+            if lo > hi {
+                warn!(
+                    "Skipping `{key}` of layer `{layer}` in source `{source}`: it has no zoom between {} and {}",
+                    zooms.start(),
+                    zooms.end()
+                );
+                continue;
+            }
+            self.check(key, size.get());
+            lowered.push(ThinningGrid {
+                zooms: lo..=hi,
+                size: size.get(),
+                limit,
+            });
+        }
+        lowered
+    }
+
+    /// Warns about a grid of `size` px squares on a layer without points, and about a buffer smaller than
+    /// the square, which neighboring tiles then count differently.
+    fn check(&self, key: &str, size: f64) {
+        let Self {
+            source,
+            layer,
+            grid,
+            geometry,
+            ..
+        } = self;
+        if matches!(geometry, Some(OutputGeometry::Line | OutputGeometry::Polygon)) {
+            warn!(
+                "`{key}` of layer `{layer}` in source `{source}` only thins points by a grid, and the layer has none"
+            );
+        }
+        let buffer = f64::from(grid.buffer) * 256.0 / f64::from(grid.extent);
+        if buffer < size {
+            warn!(
+                "`{key}` of layer `{layer}` in source `{source}` has {size} px squares but a {buffer} px buffer, so \
+                 neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at \
+                 least {} to avoid it",
+                (size * f64::from(grid.extent) / 256.0).ceil()
+            );
+        }
+    }
+}
+
 /// The rules in order, then the catch-all; a rule's `simplify` and `min_size` also apply at the max zoom.
-fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
+fn lower_rules(rules: &Rules, grids: &GridContext<'_>) -> Vec<RuleDef> {
     let lower = |when: Option<&Expr>, settings: &RuleSettings| {
         let zoom = |zoom: Option<&ZoomSetting>| {
             zoom.map(|zoom| match zoom {
@@ -195,6 +292,10 @@ fn lower_rules(rules: &Rules) -> Vec<RuleDef> {
             simplify: threshold(settings.simplify),
             min_size: threshold(settings.min_size),
             attributes: computed_attrs(&settings.attributes),
+            thinning: settings.thinning.as_ref().map(|thinning| match thinning {
+                RuleThinning::Off => Vec::new(),
+                RuleThinning::Grid(thinning) => grids.lower(thinning, "rules[].thinning"),
+            }),
         }
     };
     rules
@@ -236,36 +337,189 @@ fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr>
         .collect()
 }
 
-fn geometry_type(geometry: OutputGeometry) -> Result<GeometryType, &'static str> {
+/// The features `geometry` takes and the point it derives from each, as Planetiler's custommap pairs
+/// them; `Err` names a value the engine cannot derive yet.
+fn layer_geometry(geometry: OutputGeometry) -> Result<(Option<GeometryType>, Option<DerivedPoint>), &'static str> {
     match geometry {
-        OutputGeometry::Point => Ok(GeometryType::Point),
-        OutputGeometry::Line => Ok(GeometryType::Line),
-        OutputGeometry::Polygon => Ok(GeometryType::Polygon),
-        OutputGeometry::LabelPoint => Err("label_point"),
-        OutputGeometry::Centroid => Err("centroid"),
-        OutputGeometry::CentroidIfConvex => Err("centroid_if_convex"),
+        OutputGeometry::Point => Ok((Some(GeometryType::Point), None)),
+        OutputGeometry::Line => Ok((Some(GeometryType::Line), None)),
+        OutputGeometry::Polygon => Ok((Some(GeometryType::Polygon), None)),
+        OutputGeometry::PolygonCentroid => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::Centroid))),
+        OutputGeometry::LineCentroid => Ok((Some(GeometryType::Line), Some(DerivedPoint::Centroid))),
+        OutputGeometry::Centroid => Ok((None, Some(DerivedPoint::Centroid))),
         OutputGeometry::LineMidpoint => Err("line_midpoint"),
+        OutputGeometry::PolygonCentroidIfConvex => Err("polygon_centroid_if_convex"),
+        OutputGeometry::PolygonPointOnSurface => Err("polygon_point_on_surface"),
+        OutputGeometry::PointOnLine => Err("point_on_line"),
         OutputGeometry::InnermostPoint => Err("innermost_point"),
     }
 }
 
+/// The type of the geometry a layer with `geometry` draws, if it has only one.
+fn output_geometry(geometry: Option<OutputGeometry>) -> Option<GeometryType> {
+    match layer_geometry(geometry?).ok()? {
+        (_, Some(_)) => Some(GeometryType::Point),
+        (input, None) => input,
+    }
+}
+
 fn unsupported(layer: &Layer) -> Option<String> {
-    let geometry = layer.geometry.and_then(|g| geometry_type(g).err());
-    let tile = &layer.tile;
-    let tile_op = [
-        ("merge_lines", tile.merge_lines.is_some()),
-        ("merge_polygons", tile.merge_polygons.is_some()),
-        ("merge_multi", tile.merge_multi.is_some()),
-        ("label_grid", tile.label_grid.is_some()),
-        ("dedup_by", tile.dedup_by.is_some()),
-        ("limit", tile.limit.is_some()),
-    ]
-    .into_iter()
-    .find_map(|(op, set)| set.then_some(op));
-    if let Some(geometry) = geometry {
-        Some(format!("`geometry: {geometry}`"))
-    } else {
-        tile_op.map(|op| format!("`tile: {op}`"))
+    let geometry = layer.geometry.and_then(|g| layer_geometry(g).err());
+    geometry.map(|geometry| format!("`geometry: {geometry}`"))
+}
+
+/// The layer's per-tile operations within `zooms`, warning about each one that has none of them, each
+/// one that never acts on the layer's `geometry`, each `buffer` wider than the layer's, which is clamped to
+/// it, and a grid thinning as [`GridContext::check`] does.
+fn lower_per_tile(
+    id: &str,
+    name: &str,
+    per_tile: &PerTile,
+    zooms: &RangeInclusive<u8>,
+    grid: LayerGrid,
+    geometry: Option<GeometryType>,
+    grids: &GridContext<'_>,
+) -> Vec<TileOpDef> {
+    let layer_buffer = f64::from(grid.buffer) * 256.0 / f64::from(grid.extent);
+    let clamp_buffer = |op_name: &str, buffer: Option<Pixels>| {
+        buffer.map(|buffer| {
+            let buffer = buffer.get();
+            if buffer > layer_buffer {
+                warn!(
+                    "`{op_name}` of layer `{name}` in source `{id}`: its {buffer} px buffer is wider than \
+                     the layer's {layer_buffer} px, which already clipped the features, so it uses {layer_buffer} px"
+                );
+            }
+            buffer.min(layer_buffer)
+        })
+    };
+    let mut ops = Vec::new();
+    let mut push = |op_name: &str, range: ZoomRange, op: TileOp| {
+        let lo = range.minzoom().map_or(*zooms.start(), |z| z.get().max(*zooms.start()));
+        let hi = range.maxzoom().map_or(*zooms.end(), |z| z.get().min(*zooms.end()));
+        if lo > hi {
+            warn!(
+                "Skipping `{op_name}` of layer `{name}` in source `{id}`: it has no zoom between {} and {}",
+                zooms.start(),
+                zooms.end()
+            );
+            return false;
+        }
+        ops.push(TileOpDef { zooms: lo..=hi, op });
+        true
+    };
+    for merge in per_tile.merge_lines.iter().flat_map(ByZoomRange::iter) {
+        if let Some(geometry) = geometry.filter(|g| *g != GeometryType::Line) {
+            warn!(
+                "`merge_lines` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_lines",
+            merge.zooms,
+            TileOp::MergeLines {
+                min_length: merge.min_length.map_or(0.0, Pixels::get),
+                tolerance: merge.tolerance.map_or(0.0, Pixels::get),
+                buffer: clamp_buffer("merge_lines", merge.buffer),
+            },
+        );
+    }
+    for merge in per_tile.merge_polygons.iter().flat_map(ByZoomRange::iter) {
+        if let Some(geometry) = geometry.filter(|g| *g != GeometryType::Polygon) {
+            warn!(
+                "`merge_polygons` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_polygons",
+            merge.zooms,
+            TileOp::MergePolygons {
+                min_area: merge.min_area.map_or(0.0, Pixels::get),
+                min_hole_area: merge.min_hole_area.map_or(0.0, Pixels::get),
+                distance: merge.distance.map_or(0.0, Pixels::get),
+                buffer: clamp_buffer("merge_polygons", merge.buffer),
+                group_by: merge.group_by.clone(),
+            },
+        );
+    }
+    for thinning in per_tile.thinning.iter().flat_map(ByZoomRange::iter) {
+        let (op, grid_size) = lower_thinning(thinning);
+        if push("thinning", thinning.zooms, op)
+            && let Some(size) = grid_size
+        {
+            grids.check("thinning", size);
+        }
+    }
+    for merge in per_tile.merge_multi.iter().flat_map(ByZoomRange::iter) {
+        let types: Vec<GeometryType> = merge.geometry.as_ref().map_or_else(
+            || vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
+            |types| types.iter().map(|&g| multi_geometry(g)).collect(),
+        );
+        if let Some(geometry) = geometry.filter(|g| !types.contains(g)) {
+            warn!(
+                "`merge_multi` of layer `{name}` in source `{id}` never acts on its {} features",
+                geometry_name(geometry)
+            );
+        }
+        push(
+            "merge_multi",
+            merge.zooms,
+            TileOp::MergeMulti {
+                geometry: types,
+                group_by: merge.group_by.iter().cloned().collect(),
+            },
+        );
+    }
+    for limit in per_tile.limit.iter().flat_map(ByZoomRange::iter) {
+        push("limit", limit.zooms, TileOp::Limit { count: limit.count });
+    }
+    ops
+}
+
+/// The plan's operation for `thinning`, and the side of its squares if it is a grid.
+fn lower_thinning(thinning: &Thinning) -> (TileOp, Option<f64>) {
+    let (method, grid_size) = match thinning.method {
+        ThinningMethod::Grid { size, limit } => (
+            PlanThinning::Grid {
+                size: size.get(),
+                limit,
+            },
+            Some(size.get()),
+        ),
+        ThinningMethod::Distance { distance } => (
+            PlanThinning::Distance {
+                distance: distance.get(),
+            },
+            None,
+        ),
+        ThinningMethod::Tile => (PlanThinning::Tile, None),
+    };
+    let keys = thinning
+        .keys
+        .iter()
+        .flat_map(|keys| keys.iter())
+        .map(|key| key.as_str().to_owned())
+        .collect();
+    (TileOp::Thinning { method, keys }, grid_size)
+}
+
+/// The plan's geometry type for a `merge_multi` `geometry` entry.
+fn multi_geometry(geometry: MultiGeometry) -> GeometryType {
+    match geometry {
+        MultiGeometry::Point => GeometryType::Point,
+        MultiGeometry::Line => GeometryType::Line,
+        MultiGeometry::Polygon => GeometryType::Polygon,
+    }
+}
+
+/// The config's name of a geometry type, as `geometry` writes it.
+fn geometry_name(geometry: GeometryType) -> &'static str {
+    match geometry {
+        GeometryType::Point => "point",
+        GeometryType::Line => "line",
+        GeometryType::Polygon => "polygon",
     }
 }
 
@@ -389,6 +643,7 @@ mod tests {
                     ),
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -396,6 +651,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -441,6 +697,7 @@ mod tests {
                     bounds: None,
                     encoder: EncoderConfig { .. },
                     geometry: None,
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -448,6 +705,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -538,6 +796,7 @@ mod tests {
                     geometry: Some(
                         Line,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -545,6 +804,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -567,6 +827,7 @@ mod tests {
                     geometry: Some(
                         Point,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -574,6 +835,7 @@ mod tests {
                     attributes: None,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -596,6 +858,7 @@ mod tests {
                     geometry: Some(
                         Polygon,
                     ),
+                    point: None,
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -603,6 +866,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    per_tile: [],
                 },
             ],
         }
@@ -966,6 +1230,7 @@ mod tests {
                         zooms: 6..=27,
                     },
                 ],
+                thinning: None,
             },
             RuleDef {
                 when: Some(
@@ -981,6 +1246,7 @@ mod tests {
                     },
                 ),
                 attributes: [],
+                thinning: None,
             },
             RuleDef {
                 when: None,
@@ -993,6 +1259,7 @@ mod tests {
                 simplify: None,
                 min_size: None,
                 attributes: [],
+                thinning: None,
             },
         ]
         "#);
@@ -1034,12 +1301,97 @@ mod tests {
     }
 
     #[test]
+    fn a_centroid_geometry_takes_the_features_planetiler_takes_and_draws_their_centroid() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks: { geometry: polygon_centroid }
+                  roads: { geometry: line_centroid }
+                  everything: { geometry: centroid }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let geometries: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| (layer.name.as_str(), layer.geometry, layer.point))
+            .collect();
+        insta::assert_debug_snapshot!(geometries, @r#"
+        [
+            (
+                "parks",
+                Some(
+                    Polygon,
+                ),
+                Some(
+                    Centroid,
+                ),
+            ),
+            (
+                "roads",
+                Some(
+                    Line,
+                ),
+                Some(
+                    Centroid,
+                ),
+            ),
+            (
+                "everything",
+                None,
+                Some(
+                    Centroid,
+                ),
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn a_merge_on_a_centroid_layer_warns_that_it_only_has_points() {
+        lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks:
+                    geometry: polygon_centroid
+                    merge_polygons: {}
+            "},
+            0..=14,
+        )
+        .expect("lowers");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_polygons` of layer `parks` in source `roads_source` never acts on its point features");
+            Ok(())
+        });
+    }
+
+    #[test]
     fn unsupported_settings_are_rejected() {
         let layers = [
-            "roads: { geometry: centroid }",
-            "roads: { geometry: label_point }",
-            "roads: { tile: { merge_lines: { by: [class] } } }",
-            "roads: { tile: { limit: 100 } }",
+            "roads: { geometry: line_midpoint }",
+            "roads: { geometry: polygon_centroid_if_convex }",
+            "roads: { geometry: polygon_point_on_surface }",
+            "roads: { geometry: point_on_line }",
+            "roads: { geometry: innermost_point }",
         ];
         let errors: Vec<String> = layers
             .iter()
@@ -1050,10 +1402,484 @@ mod tests {
             })
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
-        layer `roads`: `geometry: centroid` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: label_point` is not supported by `--mode bulk` yet
-        layer `roads`: `tile: merge_lines` is not supported by `--mode bulk` yet
-        layer `roads`: `tile: limit` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: line_midpoint` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: polygon_centroid_if_convex` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: polygon_point_on_surface` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: point_on_line` is not supported by `--mode bulk` yet
+        layer `roads`: `geometry: innermost_point` is not supported by `--mode bulk` yet
         ");
+    }
+
+    #[test]
+    fn per_tile_limits_are_clamped_into_the_layer_zooms() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    minzoom: 4
+                    limit:
+                      - { maxzoom: 2, count: 10 }
+                      - { minzoom: 3, maxzoom: 8, count: 50 }
+                      - { minzoom: 9, count: 0 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 4..=8,
+                op: Limit {
+                    count: 50,
+                },
+            },
+            TileOpDef {
+                zooms: 9..=12,
+                op: Limit {
+                    count: 0,
+                },
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn grid_thinning_lowers_for_the_layer_and_its_rules() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                buffer: 32
+                layers:
+                  pois:
+                    minzoom: 4
+                    thinning:
+                      - { maxzoom: 2, method: grid, size: 64, limit: 1 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2, keys: [kind] }
+                    rules:
+                      - where: \"kind == 'city'\"
+                        thinning: { method: grid, size: 1, limit: 1 }
+                      - where: \"kind == 'capital'\"
+                        thinning: null
+                      - minzoom: 6
+                  roads:
+                    geometry: line
+                    thinning: { method: grid, size: 1, limit: 1 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let grids: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| {
+                let rules: Vec<_> = layer.rules.iter().map(|rule| rule.thinning.clone()).collect();
+                (layer.name.clone(), layer.per_tile.clone(), rules)
+            })
+            .collect();
+        insta::assert_debug_snapshot!(grids, @r#"
+        [
+            (
+                "pois",
+                [
+                    TileOpDef {
+                        zooms: 4..=10,
+                        op: Thinning {
+                            method: Grid {
+                                size: 64.0,
+                                limit: 2,
+                            },
+                            keys: [
+                                "kind",
+                            ],
+                        },
+                    },
+                ],
+                [
+                    Some(
+                        [
+                            ThinningGrid {
+                                zooms: 4..=12,
+                                size: 1.0,
+                                limit: 1,
+                            },
+                        ],
+                    ),
+                    Some(
+                        [],
+                    ),
+                    None,
+                ],
+            ),
+            (
+                "roads",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: Thinning {
+                            method: Grid {
+                                size: 1.0,
+                                limit: 1,
+                            },
+                            keys: [],
+                        },
+                    },
+                ],
+                [],
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn grid_thinning_warns_about_missed_zooms_narrow_buffers_and_layers_without_points() {
+        lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                buffer: 32
+                layers:
+                  pois:
+                    minzoom: 4
+                    thinning:
+                      - { maxzoom: 2, method: grid, size: 64, limit: 1 }
+                      - { minzoom: 3, maxzoom: 10, method: grid, size: 64, limit: 2, keys: [kind] }
+                    rules:
+                      - where: \"kind == 'city'\"
+                        thinning: { method: grid, size: 1, limit: 1 }
+                      - where: \"kind == 'capital'\"
+                        thinning: null
+                      - minzoom: 6
+                  roads:
+                    geometry: line
+                    thinning: { method: grid, size: 1, limit: 1 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"
+            Skipping `thinning` of layer `pois` in source `roads_source`: it has no zoom between 4 and 12
+            `thinning` of layer `pois` in source `roads_source` has 64 px squares but a 2 px buffer, so neighboring tiles may keep different points of a square crossing their edge; set `buffer` to at least 1024 to avoid it
+            `thinning` of layer `roads` in source `roads_source` only thins points by a grid, and the layer has none
+            ");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_multi_lowers_with_all_types_by_default() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: pois
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  pois:
+                    geometry: point
+                    merge_multi: { geometry: [line], group_by: [kind] }
+                  everything:
+                    merge_multi: { group_by: [kind] }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let ops: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| (layer.name.clone(), layer.per_tile.clone()))
+            .collect();
+        insta::assert_debug_snapshot!(ops, @r#"
+        [
+            (
+                "pois",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: MergeMulti {
+                            geometry: [
+                                Line,
+                            ],
+                            group_by: [
+                                "kind",
+                            ],
+                        },
+                    },
+                ],
+            ),
+            (
+                "everything",
+                [
+                    TileOpDef {
+                        zooms: 0..=12,
+                        op: MergeMulti {
+                            geometry: [
+                                Point,
+                                Line,
+                                Polygon,
+                            ],
+                            group_by: [
+                                "kind",
+                            ],
+                        },
+                    },
+                ],
+            ),
+        ]
+        "#);
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_multi` of layer `pois` in source `roads_source` never acts on its point features");
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn distance_thinning_lowers_its_keys_and_distance() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  road_labels:
+                    thinning: { method: distance, keys: [name, \"ref + '!'\"], distance: 64 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: Thinning {
+                    method: Distance {
+                        distance: 64.0,
+                    },
+                    keys: [
+                        "name",
+                        "ref + '!'",
+                    ],
+                },
+            },
+        ]
+        "#);
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_lines_clamps_a_buffer_wider_than_the_layers() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    buffer: 64
+                    merge_lines: { buffer: 8 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: Some(
+                        4.0,
+                    ),
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_lines` of layer `roads` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_lines_lowers_per_zoom_range_with_zero_defaults() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    merge_lines:
+                      - { maxzoom: 10, min_length: 1, tolerance: 0.5, buffer: 4 }
+                      - { minzoom: 11 }
+                  areas:
+                    geometry: polygon
+                    merge_lines: {}
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=10,
+                op: MergeLines {
+                    min_length: 1.0,
+                    tolerance: 0.5,
+                    buffer: Some(
+                        4.0,
+                    ),
+                },
+            },
+            TileOpDef {
+                zooms: 11..=12,
+                op: MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_lines` of layer `areas` in source `roads_source` never acts on its polygon features");
+            Ok(())
+        });
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn merge_polygons_clamps_a_buffer_wider_than_the_layers() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: parks
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  parks:
+                    buffer: 64
+                    merge_polygons: { buffer: 8 }
+            "},
+            0..=12,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergePolygons {
+                    min_area: 0.0,
+                    min_hole_area: 0.0,
+                    distance: 0.0,
+                    buffer: Some(
+                        4.0,
+                    ),
+                    group_by: None,
+                },
+            },
+        ]
+        ");
+        logs_assert(|lines: &[&str]| {
+            let warnings: Vec<_> = lines
+                .iter()
+                .filter_map(|line| {
+                    line.split_once("martin::generate::layers: ")
+                        .map(|(_, message)| message)
+                })
+                .collect();
+            insta::assert_snapshot!(warnings.join("\n"), @"`merge_polygons` of layer `parks` in source `roads_source`: its 8 px buffer is wider than the layer's 4 px, which already clipped the features, so it uses 4 px");
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn merge_polygons_lowers_with_zero_defaults() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: landuse
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  landuse:
+                    merge_polygons: { maxzoom: 12, min_area: 4, distance: 0.5, group_by: [kind] }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].per_tile, @r#"
+        [
+            TileOpDef {
+                zooms: 0..=12,
+                op: MergePolygons {
+                    min_area: 4.0,
+                    min_hole_area: 0.0,
+                    distance: 0.5,
+                    buffer: None,
+                    group_by: Some(
+                        [
+                            "kind",
+                        ],
+                    ),
+                },
+            },
+        ]
+        "#);
     }
 }

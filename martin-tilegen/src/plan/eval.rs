@@ -29,6 +29,16 @@ pub struct ExprErrors {
 pub struct ExprTallies(Vec<u64>);
 
 impl ExprTallies {
+    /// Adds failed evaluations counted by plan expression index.
+    pub(crate) fn add(&mut self, errors: &[u64]) {
+        if self.0.len() < errors.len() {
+            self.0.resize(errors.len(), 0);
+        }
+        for (total, errors) in self.0.iter_mut().zip(errors) {
+            *total += errors;
+        }
+    }
+
     pub fn merge(&mut self, other: Self) {
         if self.0.len() < other.0.len() {
             self.0.resize(other.0.len(), 0);
@@ -120,7 +130,12 @@ impl Plan {
     }
 
     /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
-    fn eval<R: Role>(&self, expr: &ExprRef<R>, view: &FeatureView<'_, SourceStr>, errors: &mut [u64]) -> R::Out {
+    pub(crate) fn eval<R: Role, S: AsRef<str> + Debug + Send + Sync>(
+        &self,
+        expr: &ExprRef<R>,
+        view: &FeatureView<'_, S>,
+        errors: &mut [u64],
+    ) -> R::Out {
         let index = expr.index;
         let planned = &self.exprs[index];
         match planned.expr.eval(view).and_then(|v| expr.role.coerce(v)) {
@@ -311,6 +326,17 @@ impl Evaluator<'_> {
             if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
                 continue;
             }
+            let derived;
+            let geom = match layer.point {
+                Some(point) => {
+                    let Some(coord) = point.of(geom) else {
+                        continue;
+                    };
+                    derived = coord;
+                    FeatureGeom::Points(std::slice::from_ref(&derived))
+                }
+                None => geom,
+            };
             let (zooms, case) = match view {
                 Some(view) => match plan.feature_case(layer, view, errors) {
                     Some(matched) => matched,
@@ -357,6 +383,7 @@ impl Evaluator<'_> {
                     zooms,
                     simplify: case.simplify,
                     min_size: case.min_size,
+                    thinning_grid: &case.thinning_grid,
                 },
             })?;
         }
@@ -400,6 +427,7 @@ impl Debug for LayerFeature<'_> {
             zooms,
             simplify,
             min_size,
+            thinning_grid: _,
         } = &self.feature;
         let bands: Vec<_> = bands
             .iter()

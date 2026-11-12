@@ -669,6 +669,7 @@ async fn a_file_renamed_over_the_source_reloads_to_the_new_contents() {
     let staged = dir.path().join("source.pmtiles.new");
     std::fs::copy(fixtures_dir().join("png.pmtiles"), &staged).expect("stage the second archive");
     std::fs::rename(&staged, &path).expect("rename over the source");
+    sleep(Duration::from_secs(1)).await;
 
     let err = source
         .get_tile(coord, None)
@@ -710,6 +711,7 @@ async fn a_file_rewritten_in_place_reloads_to_the_new_contents() {
     let smaller = std::fs::read(fixtures_dir().parent().unwrap().join("pmtiles2").join("webp2.pmtiles"))
         .expect("read the smaller archive");
     std::fs::write(&path, smaller).expect("rewrite the source in place");
+    sleep(Duration::from_secs(1)).await;
 
     let err = source
         .get_tile(coord, None)

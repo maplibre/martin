@@ -465,7 +465,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.6 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.7 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -565,17 +565,42 @@ package-assets target:
     set -euo pipefail
     mkdir -p target/files
     cd target/{{target}}
-    if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
-        cp ../../martin.spdx.json .
-        7z a ../files/martin-{{target}}.zip martin.exe mbtiles.exe martin.spdx.json
-    elif [[ '{{target}}' == 'debian-x86_64' ]]; then
+    if [[ '{{target}}' == 'debian-x86_64' ]]; then
         mv *.deb ../files/
-    else
-        chmod +x martin mbtiles
-        cp ../../martin.spdx.json .
-        tar czvf ../files/martin-{{target}}.tar.gz martin mbtiles martin.spdx.json
+        exit 0
     fi
-    cd ../..
+    # `-full` only changes martin, its mbtiles is the one packaged for the plain target
+    bins=(martin)
+    if [[ '{{target}}' != *-full ]]; then
+        bins+=(mbtiles)
+    fi
+    cp ../../martin.spdx.json martin.spdx.json
+    for bin in "${bins[@]}"; do
+        if [[ "$bin" == mbtiles ]]; then
+            {{just}} sbom-mbtiles '{{target}}'
+            mv ../mbtiles-{{target}}.spdx.json mbtiles.spdx.json
+        fi
+        if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
+            7z a "../files/$bin-{{target}}.zip" "$bin.exe" "$bin.spdx.json"
+        else
+            chmod +x "$bin"
+            tar czvf "../files/$bin-{{target}}.tar.gz" "$bin" "$bin.spdx.json"
+        fi
+    done
+
+# Write the SPDX SBOM of the mbtiles binary of a release target to target/mbtiles-<target>.spdx.json. Needs `syft`.
+sbom-mbtiles target: (cargo-install 'cargo-cyclonedx')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    name=mbtiles-{{target}}
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    # cargo-cyclonedx writes one file into every workspace member, only the mbtiles one is kept
+    cargo cyclonedx --manifest-path mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
+    mv "mbtiles/$name.json" "$tmp/sbom.cdx.json"
+    rm -f */"$name.json"
+    syft convert "$tmp/sbom.cdx.json" --output "spdx-json=$tmp/sbom.spdx.json"
+    jq --compact-output --arg name "$name" '.name = $name' "$tmp/sbom.spdx.json" > "target/$name.spdx.json"
 
 # Run pg_dump utility against the test database
 pg_dump *args:
