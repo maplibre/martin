@@ -292,7 +292,7 @@ type TileSourceInfo = NonNullable<Catalog['tiles']>[string];
 function tileFacts(zooms: ZoomRange | undefined, layerCount: number | null | undefined) {
   const facts: string[] = [];
   if (zooms) {
-    facts.push(zooms.min === zooms.max ? `zoom ${zooms.min}` : `zoom ${zooms.min}–${zooms.max}`);
+    facts.push(zooms.min === zooms.max ? `zoom ${zooms.min}` : `zoom ${zooms.min}-${zooms.max}`);
     facts.push(zooms.worldwide ? 'worldwide' : 'regional');
   }
   if (layerCount) facts.push(`${layerCount} ${layerCount === 1 ? 'layer' : 'layers'}`);
