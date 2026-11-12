@@ -1604,6 +1604,46 @@ async fn refuses_a_source_on_another_tile_grid() {
 }
 
 #[tokio::test]
+async fn refuses_a_source_on_the_connection_tile_grid() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            tile_grids:
+              WGS84Square:
+                crs: EPSG:4326
+                origin: [-180, 90]
+                extent_at_zoom0: 360
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tile_grid: WGS84Square
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Source `points1` uses tile grid `WGS84Square`; `--mode bulk` supports Web Mercator only");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
 async fn refuses_sources_from_two_databases() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
