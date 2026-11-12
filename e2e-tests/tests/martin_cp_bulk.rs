@@ -1422,6 +1422,61 @@ async fn sort_by_sets_the_draw_order() {
 }
 
 #[tokio::test]
+async fn order_by_sets_the_draw_order_of_a_table_without_layers() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-desc
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let order: Vec<String> = tiles(&output)
+        .await
+        .iter()
+        .flat_map(|(z, x, y, data)| {
+            mlt_layers(data).into_iter().map(move |layer| {
+                let ids: Vec<String> = layer
+                    .features()
+                    .iter()
+                    .map(|feature| feature.id().map_or("-".to_owned(), |id| id.to_string()))
+                    .collect();
+                format!("{z}/{x}/{y} {} {}", layer.name(), ids.join(" "))
+            })
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @"0/0/0 table_source 28 27 26 25 24 23 22 21 20 19 18 17 16 15 13 12 11 10 9 8 7 6 5 4 3 2 1");
+}
+
+#[tokio::test]
 async fn encodes_with_the_configured_convert_to_mlt_settings() {
     let dir = temp_dir();
     let default_config = dir.path().join("default.yaml");

@@ -62,7 +62,8 @@ This renders the sources `roads` and `shops` into `tileset.mbtiles`, at zooms 0 
 
 Each source becomes one layer, named by its `layer_id` or its source id. A source with
 [`layers`](sources-pg-layers.md) feeds several layers from one read instead, each with its own
-features, zooms, attributes and draw order.
+features, zooms, attributes and draw order. A source without `layers` keeps its `id_column` order when
+the connection sets `order_by`, as in tile mode.
 
 The same data and options give the same tiles, however many threads are used.
 

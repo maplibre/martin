@@ -9,7 +9,7 @@ use std::time::Duration;
 use geo::CoordsIter as _;
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, decode_gzip};
-use martin_tilegen::plan::{AttributesDef, ColumnDef, IdDef, LayerDef, Plan, SortDef, TableDef};
+use martin_tilegen::plan::{AttributesDef, ColumnDef, IdDef, IdOrder, LayerDef, Plan, SortDef, TableDef};
 use martin_tilegen::props::{KeyId, KeyInterner, Prop};
 use martin_tilegen::source::{
     Crs, FeatureBatch, FeatureSource, Geometry, MemorySource, SourceError, SourceFeature, SourceResult,
@@ -570,6 +570,60 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
             "ascending [Some(2), Some(5), Some(1), Some(3), Some(4)]",
             "descending [Some(4), Some(1), Some(3), Some(5), Some(2)]",
             "source [Some(1), Some(2), Some(3), Some(4), Some(5)]",
+        ]
+    );
+}
+
+#[test]
+fn id_order_orders_each_layer_by_source_id_with_missing_ids_last() {
+    let point = |id| SourceFeature {
+        id,
+        geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+        props: vec![(KeyId::new(0), Prop::I64(0))],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(Some(3)),
+                point(None),
+                point(Some(1)),
+                point(Some(4)),
+                point(Some(2)),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                id_order: Some(IdOrder::Ascending),
+                ..LayerDef::new("ascending", 0..=0, GRID)
+            },
+            LayerDef {
+                id_order: Some(IdOrder::Descending),
+                ..LayerDef::new("descending", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, rows, _) = run(&source, &plan, dir.path(), 2);
+    let layers: Vec<_> = decode(&rows[0].3)
+        .iter()
+        .map(|layer| {
+            let ids: Vec<_> = layer.features().iter().map(mlt_core::TileFeature::id).collect();
+            format!("{} {ids:?}", layer.name())
+        })
+        .collect();
+    assert_eq!(
+        layers,
+        [
+            "ascending [Some(1), Some(2), Some(3), Some(4), None]",
+            "descending [Some(4), Some(3), Some(2), Some(1), None]",
         ]
     );
 }

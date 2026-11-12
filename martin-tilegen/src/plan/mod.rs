@@ -137,6 +137,9 @@ pub struct LayerDef {
     /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
     /// Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
+    /// Orders features that tie on `sort_by` by their source id, those without one last.
+    /// Turns off the sort trials of `encoder`.
+    pub id_order: Option<IdOrder>,
     /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
     /// Zoom ranges of one kind of operation must not overlap.
     pub per_tile: Vec<TileOpDef>,
@@ -165,6 +168,7 @@ impl LayerDef {
             attributes: AttributesDef::All,
             rules: Vec::new(),
             sort_by: Vec::new(),
+            id_order: None,
             per_tile: Vec::new(),
         }
     }
@@ -292,6 +296,15 @@ pub struct RuleDef {
 pub struct SortDef {
     pub expr: String,
     pub descending: bool,
+}
+
+/// The direction [`LayerDef::id_order`] orders source ids in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdOrder {
+    /// Smallest id first.
+    Ascending,
+    /// Largest id first.
+    Descending,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -439,6 +452,7 @@ pub(crate) struct PlannedLayer {
     /// The layer's own settings, for features matching no case.
     pub(crate) fallback: Case,
     pub(crate) sort_by: Vec<ExprRef<SortBy>>,
+    pub(crate) id_order: Option<IdOrder>,
 }
 
 impl PlannedLayer {
@@ -796,7 +810,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         info: LayerInfo {
             name: def.name,
             grid: def.grid,
-            encoder: if def.sort_by.is_empty() {
+            encoder: if def.sort_by.is_empty() && def.id_order.is_none() {
                 def.encoder
             } else {
                 def.encoder
@@ -817,6 +831,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         cases,
         fallback,
         sort_by,
+        id_order: def.id_order,
     })
 }
 
