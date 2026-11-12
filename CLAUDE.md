@@ -1,6 +1,6 @@
 # Project Overview
 
-Martin is a high-performance tile server serving vector/raster tiles from PostGIS, PMTiles, and MBTiles.
+Martin is a high-performance tile server serving vector/raster tiles from PostGIS, PMTiles, MBTiles, COGs, and other sources.
 Also serves fonts, sprites, and styles.
 Includes `martin cp` (bulk tile copier subcommand) and the `mbtiles` (MBTiles CLI) binary.
 
@@ -33,15 +33,18 @@ just bless
 
 ## Workspace Structure
 
-4-crate workspace:
+Workspace crates:
 
 - **`martin`** - HTTP server, CLI (including `martin cp`), configuration, routing. Binary: `martin`
-- **`martin-core`** - Core source logic `src/tiles/{postgres,mbtiles,pmtiles,cog}/` and `src/resources/{fonts,sprites,styles}/`
+- **`martin-core`** - Core source logic, one directory per source under `src/tiles/` (postgres, mbtiles, pmtiles, cog, duckdb, geojson, ...), and `src/resources/{fonts,sprites,styles}/`
   All code that is likely useful for others is here.
 - **`martin-tile-utils`** - Tile format detection, compression/decompression
 - **`martin-ui`** - React frontend, published as a crate embedding its `dist/` (`just ui::build`; a placeholder page without it)
 - **`mbtiles`** - MBTiles library + CLI
+- **`martin-tilegen`** - Bulk vector tile generation: renders features per zoom, external-sorts the pieces, assembles MLT/MVT tilesets
 - **`map-tile-toolkit`** - Clips integer geometries into per-tile pieces (used by `martin-tilegen`); `just toolkit::` for its fuzz/hotpath/fixture recipes
+- **`cog-tiles`** - Reads tiles from Cloud Optimized GeoTIFFs in local files or object stores; **`cog-tiles-py`** - its Python bindings
+- **`martin-config-macros`** - Derive macros for the configuration types
 
 ## Key Rules
 
