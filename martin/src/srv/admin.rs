@@ -98,11 +98,6 @@ pub async fn get_catalog(
     HttpResponse::Ok().json(catalog)
 }
 
-#[cfg(all(feature = "webui", not(docsrs)))]
-pub mod webui {
-    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
-}
-
 /// Root path in case web front is disabled.
 #[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]

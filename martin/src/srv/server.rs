@@ -25,7 +25,7 @@ use crate::srv::ServerStartError;
 use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
 #[cfg(all(feature = "webui", not(docsrs)))]
-use crate::srv::admin::{get_index_ui_disabled, webui};
+use crate::srv::admin::get_index_ui_disabled;
 #[cfg(feature = "resources")]
 use crate::srv::fonts;
 #[cfg(feature = "ogcapi")]
@@ -266,7 +266,7 @@ fn register_services(
 fn webui_scope() -> actix_web::Scope {
     use actix_web_static_files::ResourceFiles;
 
-    let mut files = webui::generate();
+    let mut files = martin_ui::assets();
     let index = files.remove_entry("index.html").into_iter().collect::<HashMap<_, _>>();
     let assets = files
         .into_iter()

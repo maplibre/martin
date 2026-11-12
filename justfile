@@ -242,7 +242,7 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Pass true as the second argument for optimized native Linux Docker binaries.
-build-release target pgo='false': fetch
+build-release target pgo='false': fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     pgo={{quote(pgo)}}
@@ -283,7 +283,7 @@ pgo-install target:
 # Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
 # Run `just pgo-install <target>` first and provide an initialized DATABASE_URL.
 [linux]
-pgo-build target: fetch prepare-mbtiles
+pgo-build target: fetch ui::build prepare-mbtiles
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
@@ -331,7 +331,7 @@ pgo-train binary:
     trap - EXIT
 
 # Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
-build-release-full target: fetch
+build-release-full target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
@@ -342,7 +342,7 @@ build-release-full target: fetch
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
-build-deb output: fetch (cargo-install 'cargo-deb')
+build-deb output: fetch ui::build (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
@@ -351,7 +351,7 @@ build-deb output: fetch (cargo-install 'cargo-deb')
 # Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for these targets.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
-build-release-zig target: fetch
+build-release-zig target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
@@ -679,11 +679,11 @@ restart:
     {{just}} start
 
 # Start Martin server
-run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch
+run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build
     cargo run -p martin -- {{args}}
 
 # Start release-compiled Martin server and a test database
-run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch start
+run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build start
     cargo run -p martin --release -- {{args}}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`

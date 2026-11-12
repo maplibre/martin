@@ -1,0 +1,26 @@
+[package]
+name = "martin-ui"
+version = "2.0.0-beta.7"
+authors = ["Frank Elsinga <fr.elsinga+martin@gmail.com>", "MapLibre contributors"]
+description = "Prebuilt web UI of the Martin tile server, embedded as static files"
+keywords = ["maps", "tiles", "martin", "webui"]
+categories = ["science::geo", "web-programming::http-server"]
+# Only the built bundle is published, so crates.io users need no Node.js toolchain.
+include = ["/Cargo.toml", "/build.rs", "/lib.rs", "/dist/**"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+static-files.workspace = true
+
+[build-dependencies]
+static-files.workspace = true
+
+[lints]
+workspace = true

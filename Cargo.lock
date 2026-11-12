@@ -5813,6 +5813,7 @@ dependencies = [
  "martin-core",
  "martin-tile-utils",
  "martin-tilegen",
+ "martin-ui",
  "mbtiles",
  "miette",
  "mlt-core",
@@ -5834,7 +5835,6 @@ dependencies = [
  "serde_with",
  "similar 3.2.1",
  "smallvec",
- "static-files 0.2.5",
  "strum 0.28.0",
  "tempfile",
  "testcontainers-modules",
@@ -6045,6 +6045,13 @@ dependencies = [
  "wkb",
  "wkt 0.14.0",
  "xxhash-rust",
+]
+
+[[package]]
+name = "martin-ui"
+version = "2.0.0-beta.7"
+dependencies = [
+ "static-files 0.2.5",
 ]
 
 [[package]]

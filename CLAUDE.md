@@ -36,7 +36,7 @@ just bless
 4-crate workspace:
 
 - **`martin`** - HTTP server, CLI (including `martin cp`), configuration, routing. Binary: `martin`
-  - `martin-ui/` - React frontend, embedded at build time
+  - `martin-ui/` - React frontend, and the `martin-ui` crate that embeds its `dist/` (`just ui::build`; a placeholder page without it)
 - **`martin-core`** - Core source logic `src/tiles/{postgres,mbtiles,pmtiles,cog}/` and `src/resources/{fonts,sprites,styles}/`
   All code that is likely useful for others is here.
 - **`martin-tile-utils`** - Tile format detection, compression/decompression

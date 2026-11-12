@@ -998,6 +998,11 @@ jobs:
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,cargo-binstall', rendering: true }
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 26 }
+      - name: Build the web UI bundle that martin-ui publishes
+        run: just ui::build
       - name: Test packaging
         run: cargo publish --workspace --dry-run
       - name: Test cargo-binstall metadata
