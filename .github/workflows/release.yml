@@ -153,7 +153,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true }
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 26 }
@@ -250,5 +249,3 @@ jobs:
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
-          MLN_PRECOMPILE: 1

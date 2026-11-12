@@ -89,7 +89,6 @@ async fn render_map_tile(
                 .response(
                     image,
                     Viewport::tile(&WEB_MERCATOR_QUAD, z, col, row, MAP_TILE_PIXELS),
-                    None,
                     styles.image_quality(),
                 )
                 .await;

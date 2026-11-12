@@ -1,5 +1,5 @@
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-use maplibre_native::{RenderingError, StyleLoadError};
+use std::time::Duration;
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::overlay::ApplyError;
@@ -12,15 +12,36 @@ pub enum StyleError {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
 
-    /// `maplibre-native` failed to load the style.
+    /// `MapLibre` failed to load the style.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    #[error(transparent)]
-    StyleLoadError(#[from] StyleLoadError),
+    #[error("Failed to load style: {message}")]
+    StyleLoadError {
+        /// `MapLibre`'s reason.
+        message: String,
+    },
 
-    /// `maplibre-native` failed to produce a frame.
+    /// `MapLibre` failed to produce a frame.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
-    RenderingError(#[from] RenderingError),
+    RenderingError(#[from] maplibre_native_ffi::Error),
+
+    /// `MapLibre` did not answer a call within the time it is given.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("MapLibre did not answer within {timeout:?}: {call}")]
+    Timeout {
+        /// The call that went unanswered.
+        call: &'static str,
+        /// How long it was waited for.
+        timeout: Duration,
+    },
+
+    /// No graphics device can be created, so no renderer can be created.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error("No graphics device can render styles: {reason}")]
+    GraphicsUnavailable {
+        /// `MapLibre`'s reason.
+        reason: String,
+    },
 
     /// Overlay application against the renderer's style failed.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
