@@ -1514,6 +1514,41 @@ async fn encodes_with_the_configured_convert_to_mlt_settings() {
 }
 
 #[tokio::test]
+async fn refuses_mlt_output_for_a_source_with_mlt_conversion_disabled() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  convert_to_mlt: disabled
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Source `points1` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
 async fn rejects_function_sources() {
     let dir = temp_dir();
     let log = MartinCp::bulk()
