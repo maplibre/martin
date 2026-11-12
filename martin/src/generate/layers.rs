@@ -18,9 +18,9 @@ use super::{GenerateError, GenerateResult};
 use crate::config::args::OrderByType;
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, MultiGeometry, OutputGeometry, PerFeature,
-    PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value, ValueSpec,
-    Zoom, ZoomRange, ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Layers, Literal, MultiGeometry, OutputGeometry,
+    PerFeature, PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value,
+    ValueSpec, Zoom, ZoomRange, ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -34,7 +34,8 @@ pub struct LowerOptions {
     pub bounds: Option<Bounds>,
     /// MLT encoder settings, if not the layer default.
     pub encoder: Option<EncoderConfig>,
-    /// The connection's `order_by`, which orders the features of a table without `layers` by its `id_column`.
+    /// The connection's `order_by`, which orders the features of a source without `layers` by their ids. `None`
+    /// for a source without ids.
     pub order_by: Option<OrderByType>,
 }
 
@@ -45,49 +46,92 @@ pub struct LowerOptions {
 ///
 /// Fails when a layer uses a setting `--mode bulk` does not support yet.
 pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> GenerateResult<Option<ScanTable>> {
-    let (cli_min, cli_max) = (*options.zooms.start(), *options.zooms.end());
-    let min = info.minzoom.unwrap_or(0).max(cli_min);
-    let max = info.maxzoom.unwrap_or(u8::MAX).min(cli_max);
-    if min > max {
-        warn!("Skipping source `{id}`: it has no zoom between {cli_min} and {cli_max}");
-        return Ok(None);
-    }
-    let mut defaults = LayerDef {
-        clip_mode: info.clip_geom.map_or(ClipMode::Clipped, clip_mode),
-        bounds: options.bounds,
-        ..LayerDef::new(
-            String::new(),
-            min..=max,
-            LayerGrid {
-                extent: info.extent.map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
-                buffer: info.buffer.unwrap_or(DEFAULT_BUFFER),
-            },
-        )
-    };
-    if let Some(encoder) = options.encoder {
-        defaults.encoder = encoder;
-    }
     let columns: Vec<ColumnDef> = info
         .properties
         .iter()
         .flatten()
         .filter_map(|(column, _)| Some(column_def(column.clone(), info.property_type(column)?)))
         .collect();
+    let source = SourceSettings {
+        minzoom: info.minzoom,
+        maxzoom: info.maxzoom,
+        extent: info.extent,
+        buffer: info.buffer,
+        clip_geom: info.clip_geom,
+        layer_id: info.layer_id.as_deref(),
+        layers: info.layers.as_deref(),
+    };
+    let options = LowerOptions {
+        order_by: options.order_by.filter(|_| info.id_column.is_some()),
+        ..options.clone()
+    };
+    let Some(def) = lower_source(id, &source, columns, &options)? else {
+        return Ok(None);
+    };
+    Ok(Some(ScanTable {
+        id: id.to_owned(),
+        info,
+        def,
+    }))
+}
+
+/// The source settings that layers take their defaults from.
+pub struct SourceSettings<'a> {
+    pub minzoom: Option<u8>,
+    pub maxzoom: Option<u8>,
+    pub extent: Option<std::num::NonZeroU32>,
+    pub buffer: Option<u32>,
+    pub clip_geom: Option<bool>,
+    /// The name of the one layer of a source without `layers`.
+    pub layer_id: Option<&'a str>,
+    pub layers: Option<&'a Layers>,
+}
+
+/// The source's layers over `columns`, as [`lower_table`] lowers them for any kind of source.
+///
+/// # Errors
+///
+/// Fails when a layer uses a setting `--mode bulk` does not support yet.
+pub fn lower_source(
+    id: &str,
+    source: &SourceSettings<'_>,
+    columns: Vec<ColumnDef>,
+    options: &LowerOptions,
+) -> GenerateResult<Option<TableDef>> {
+    let (cli_min, cli_max) = (*options.zooms.start(), *options.zooms.end());
+    let min = source.minzoom.unwrap_or(0).max(cli_min);
+    let max = source.maxzoom.unwrap_or(u8::MAX).min(cli_max);
+    if min > max {
+        warn!("Skipping source `{id}`: it has no zoom between {cli_min} and {cli_max}");
+        return Ok(None);
+    }
+    let mut defaults = LayerDef {
+        clip_mode: source.clip_geom.map_or(ClipMode::Clipped, clip_mode),
+        bounds: options.bounds,
+        ..LayerDef::new(
+            String::new(),
+            min..=max,
+            LayerGrid {
+                extent: source.extent.map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
+                buffer: source.buffer.unwrap_or(DEFAULT_BUFFER),
+            },
+        )
+    };
+    if let Some(encoder) = options.encoder {
+        defaults.encoder = encoder;
+    }
     let static_columns: Vec<&str> = columns
         .iter()
         .filter(|column| !matches!(column, ColumnDef::Keys(_)))
         .map(ColumnDef::name)
         .collect();
-    let layers = match info.layers.as_deref() {
+    let layers = match source.layers {
         None => vec![LayerDef {
-            name: info.layer_id.clone().unwrap_or_else(|| id.to_owned()),
-            id_order: options
-                .order_by
-                .filter(|_| info.id_column.is_some())
-                .map(|order| match order {
-                    OrderByType::IdAsc => IdOrder::Ascending,
-                    OrderByType::IdDesc => IdOrder::Descending,
-                }),
+            name: source.layer_id.unwrap_or(id).to_owned(),
+            id_order: options.order_by.map(|order| match order {
+                OrderByType::IdAsc => IdOrder::Ascending,
+                OrderByType::IdDesc => IdOrder::Descending,
+            }),
             ..defaults
         }],
         Some(layers) => {
@@ -103,12 +147,7 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
     if layers.is_empty() {
         return Ok(None);
     }
-    let def = TableDef { columns, layers };
-    Ok(Some(ScanTable {
-        id: id.to_owned(),
-        info,
-        def,
-    }))
+    Ok(Some(TableDef { columns, layers }))
 }
 
 fn lower_layer(

@@ -297,7 +297,7 @@ fn key_partitions(sql: &str, id: &str) -> Vec<String> {
 
 /// The union of the tiles each layer's bounds touch at its lowest zoom, grown by their buffer;
 /// `None` if any layer is unbounded.
-fn scan_bbox(layers: &[LayerDef]) -> Option<Bounds> {
+pub(crate) fn scan_bbox(layers: &[LayerDef]) -> Option<Bounds> {
     layers
         .iter()
         .map(|layer| layer.bounds.map(|b| covered_tiles(b, layer.grid, *layer.zooms.start())))

@@ -2,6 +2,8 @@
 
 pub mod layers;
 mod metadata;
+#[cfg(feature = "unstable-osm")]
+mod osm;
 pub mod postgres;
 mod progress;
 pub mod serve;
@@ -16,7 +18,8 @@ use std::time::Instant;
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
-use martin_tilegen::plan::Untranslatable;
+use martin_tilegen::plan::{Plan, Untranslatable};
+use martin_tilegen::source::FeatureSource;
 use martin_tilegen::source::WkbError;
 use martin_tilegen::{
     GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
@@ -233,6 +236,16 @@ pub enum GenerateError {
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
+    #[cfg(feature = "unstable-osm")]
+    #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
+    MixedSources,
+    #[cfg(feature = "unstable-osm")]
+    #[error("Cannot read OSM file {}: {error}", path.display())]
+    OsmFile {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
     #[error("Sources come from more than one database; generate them separately")]
     MultipleDatabases,
     #[error("No table sources to generate")]
@@ -345,27 +358,102 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
+    #[cfg(feature = "unstable-osm")]
+    if let Some(tables) = osm::select_sources(&config, &options)? {
+        monitor.set_tables(tables.len());
+        let partition_bytes = osm::partition_bytes(&tables, options.threads);
+        let source =
+            tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
+        let check = |source: &martin_tilegen::osm::OsmSource| {
+            source
+                .check_string_tables()
+                .map_err(|err| GenerateError::TileGen(err.into()))
+        };
+        let metadata = bulk_metadata(&options, options.bbox, Vec::new());
+        return run(source, options, metadata, progress, monitor, started, Vec::new(), check).await;
+    }
+
     let (pool, scans, bounds) = select_sources(&config, &options).await?;
     monitor.set_tables(scans.len());
     let geometry_finders: Vec<(String, String)> = scans
         .iter()
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
         .collect::<GenerateResult<_>>()?;
-    let metadata = BulkMetadata {
+    let metadata = bulk_metadata(
+        &options,
+        bounds,
+        scans
+            .iter()
+            .map(|scan| scan.info.discovered.tilejson.as_ref())
+            .collect(),
+    );
+    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    run(
+        source,
+        options,
+        metadata,
+        progress,
+        monitor,
+        started,
+        geometry_finders,
+        |_| Ok(()),
+    )
+    .await
+}
+
+/// A source of `martin cp --mode bulk`, with the plan it was made for.
+trait PlannedSource: FeatureSource + Send + 'static {
+    /// The plan the source reads its tables for.
+    fn source_plan(&self) -> &Plan;
+}
+
+impl PlannedSource for PgScanSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+#[cfg(feature = "unstable-osm")]
+impl PlannedSource for martin_tilegen::osm::OsmSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+/// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
+fn bulk_metadata(
+    options: &GenerateOptions,
+    bounds: Option<Bounds>,
+    comments: Vec<Option<&serde_json::Value>>,
+) -> tilejson::TileJSON {
+    BulkMetadata {
         name: options
             .output_file
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned()),
         bounds,
         compression: (!is_pmtiles(&options.output_file)).then_some(options.encoding),
-        comments: scans
-            .iter()
-            .map(|scan| scan.info.discovered.tilejson.as_ref())
-            .collect(),
+        comments,
         generator: format!("martin cp v{VERSION} (bulk)"),
     }
-    .into_tilejson();
-    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    .into_tilejson()
+}
+
+/// Renders `source` into the output file with `metadata`; `check` runs on the source after a run that succeeded.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "each argument is a value `start` built for this one run"
+)]
+async fn run<S: PlannedSource>(
+    source: S,
+    options: GenerateOptions,
+    metadata: tilejson::TileJSON,
+    progress: Arc<Progress>,
+    monitor: Monitor,
+    started: Instant,
+    geometry_finders: Vec<(String, String)>,
+    check: impl FnOnce(&S) -> GenerateResult<()> + Send + 'static,
+) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
     let output = options.output_file;
@@ -377,7 +465,11 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
 
     let task = tokio::task::spawn_blocking({
         let progress = Arc::clone(&progress);
-        move || -> GenerateResult<Summary> { Ok(sink.generate(&source, &generate_config, metadata, &progress)?) }
+        move || -> GenerateResult<Summary> {
+            let summary = sink.generate(&source, &generate_config, metadata, &progress)?;
+            check(&source)?;
+            Ok(summary)
+        }
     });
     let result = tokio::select! {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),
@@ -494,16 +586,16 @@ impl Output {
         }
     }
 
-    fn generate(
+    fn generate<S: PlannedSource>(
         self,
-        source: &PgScanSource,
+        source: &S,
         config: &GenerateConfig,
         metadata: tilejson::TileJSON,
         progress: &Progress,
     ) -> TileGenResult<Summary> {
         match self {
-            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
-            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Mbtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
         }
     }
 }

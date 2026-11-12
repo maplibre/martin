@@ -26,6 +26,8 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
+#[cfg(feature = "unstable-osm")]
+use crate::config::file::osm::OsmConfig;
 #[cfg(feature = "passthrough")]
 use crate::config::file::passthrough::PassthroughConfig;
 #[cfg(feature = "pmtiles")]
@@ -199,6 +201,12 @@ pub struct Config {
     #[cfg(feature = "unstable-duckdb")]
     #[serde(default, skip_serializing_if = "DuckDbConfig::is_empty")]
     pub duckdb: DuckDbConfig,
+
+    /// OpenStreetMap PBF files, which only `martin cp --mode bulk` renders (unstable)
+    #[cfg(feature = "unstable-osm")]
+    #[serde(default, skip_serializing_if = "OsmConfig::is_empty")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub osm: OsmConfig,
 
     /// Publish `GeoJSON` files as vector tile sources
     #[cfg(feature = "processing")]

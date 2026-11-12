@@ -196,7 +196,7 @@ bless:
     done
 
     echo "Blessing end-to-end tests"
-    for target in bless-e2e bless-cog bless-duckdb {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
+    for target in bless-e2e bless-cog bless-duckdb bless-osm {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
       echo "::group::just $target"
       {{just}} $target
       echo "::endgroup::"
@@ -229,6 +229,12 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
     {{insta_test}} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
+
+# Bless the OpenStreetMap PBF tests, including the end-to-end ones
+bless-osm: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{insta_test}} -p martin-tilegen --features osm --test osm
+    cargo build -p martin -p mbtiles --features martin/unstable-osm
+    {{insta_test}} --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
 # Bless the style rendering tests end-to-end
 [linux]
@@ -379,7 +385,7 @@ move-artifacts target:
 
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_object_store,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_object_store,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-osm,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
@@ -398,7 +404,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-osm,martin-tilegen/osm{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -732,6 +738,12 @@ test-cog-py:
     cd cog-tiles-py && uv sync --group dev --no-install-project
     cd cog-tiles-py && uv run --no-sync maturin develop
     cd cog-tiles-py && uv run --no-sync pytest
+
+# Run the OpenStreetMap PBF tests, including the end-to-end ones
+test-osm: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run -p martin-tilegen --features osm --test osm
+    cargo build -p martin -p mbtiles --features martin/unstable-osm
+    cargo nextest run --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')
