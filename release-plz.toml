@@ -38,8 +38,16 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", "cog-tiles", ".github", "tests", "docs", "debian"]
+version_group = "martin" # martin-ui's bundle is typed against this version's OpenAPI spec
+changelog_include = ["martin", "martin-ui", "martin-core", "martin-tile-utils", "mbtiles", "cog-tiles", ".github", "tests", "docs", "debian"]
 semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
+
+[[package]]
+name = "martin-ui"
+version_group = "martin"
+changelog_update = false # its changes land in martin's changelog
+git_release_enable = false
+semver_check = false # no Rust API beyond the embedded files
 
 [[package]]
 name = "martin-tilegen"

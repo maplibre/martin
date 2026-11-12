@@ -14,7 +14,7 @@ use crate::config::args::BoundsCalcType;
 #[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
 use crate::config::args::OrderByType;
 use crate::config::args::PreferredEncoding;
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use crate::config::args::WebUiMode;
 #[cfg(feature = "cog")]
 use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
@@ -202,7 +202,7 @@ impl_empty_collect_unrecognized!(RetryTimeout, Srid, FunctionIdFormat);
 #[cfg(feature = "unstable-duckdb")]
 impl_empty_collect_unrecognized!(MacroIdFormat);
 
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 impl_empty_collect_unrecognized!(WebUiMode);
 #[cfg(feature = "rendering")]
 impl_empty_collect_unrecognized!(martin_core::styles::TileSize, martin_core::styles::PixelRatios);

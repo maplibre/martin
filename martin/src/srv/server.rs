@@ -1,10 +1,10 @@
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use actix_web::guard::fn_guard;
 use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
 use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
@@ -15,17 +15,17 @@ use futures::TryFutureExt as _;
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use tracing_actix_web::TracingLogger;
 
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig};
 use crate::srv::ServerStartError;
-#[cfg(any(not(feature = "webui"), docsrs))]
+#[cfg(not(feature = "webui"))]
 use crate::srv::admin::get_index_no_ui;
+#[cfg(feature = "webui")]
+use crate::srv::admin::get_index_ui_disabled;
 use crate::srv::admin::{Catalog, get_catalog};
-#[cfg(all(feature = "webui", not(docsrs)))]
-use crate::srv::admin::{get_index_ui_disabled, webui};
 #[cfg(feature = "resources")]
 use crate::srv::fonts;
 #[cfg(feature = "ogcapi")]
@@ -151,7 +151,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
         cfg.service(web::scope(prefix).configure(|cfg| {
             register_services(
                 cfg,
-                #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))]
+                #[cfg(any(feature = "webui", feature = "_tiles"))]
                 usr_cfg,
             );
         }));
@@ -159,7 +159,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     } else {
         register_services(
             cfg,
-            #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))]
+            #[cfg(any(feature = "webui", feature = "_tiles"))]
             usr_cfg,
         );
     }
@@ -168,7 +168,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
 /// Helper function to register all services
 fn register_services(
     cfg: &mut web::ServiceConfig,
-    #[cfg(any(all(feature = "webui", not(docsrs)), feature = "_tiles"))] usr_cfg: &SrvConfig,
+    #[cfg(any(feature = "webui", feature = "_tiles"))] usr_cfg: &SrvConfig,
 ) {
     cfg.service(get_health).service(get_catalog);
 
@@ -244,7 +244,7 @@ fn register_services(
         .service(styles_rendering::redirect_tile_jpeg)
         .service(styles_rendering::get_rendered_tile_style);
 
-    #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg(feature = "webui")]
     match usr_cfg.web_ui.unwrap_or_default() {
         WebUiMode::EnableForAll => {
             cfg.service(webui_scope());
@@ -258,15 +258,15 @@ fn register_services(
         }
     }
 
-    #[cfg(any(not(feature = "webui"), docsrs))]
+    #[cfg(not(feature = "webui"))]
     cfg.service(get_index_no_ui);
 }
 
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 fn webui_scope() -> actix_web::Scope {
     use actix_web_static_files::ResourceFiles;
 
-    let mut files = webui::generate();
+    let mut files = martin_ui::assets();
     let index = files.remove_entry("index.html").into_iter().collect::<HashMap<_, _>>();
     let assets = files
         .into_iter()

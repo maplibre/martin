@@ -153,6 +153,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 26 }
+      # martin-ui publishes the built bundle, and its build.rs refuses a package without one.
+      - name: Build the web UI bundle
+        run: just ui::build
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
@@ -210,11 +216,6 @@ jobs:
         uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
-        name: Setup Node.js
-        continue-on-error: true
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: 26 }
-      - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Check out main's head for the release PR
         run: git fetch origin main && git reset --hard FETCH_HEAD
       # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
@@ -232,9 +233,9 @@ jobs:
           uvx prek@0.5.5 run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
           just fmt-toml
           npm --prefix demo/frontend install --package-lock-only --no-fund
-          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+          npm --prefix martin-ui install --package-lock-only --no-fund
           just gen-schemas
-          uvx prek@0.5.5 run --files schemas/config.json martin/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          uvx prek@0.5.5 run --files schemas/config.json martin/openapi.json martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
           just update-lockfile

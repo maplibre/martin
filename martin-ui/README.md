@@ -43,7 +43,7 @@ npm run dev
 Common development tasks can be run with [just](https://github.com/casey/just):
 
 ```bash
-# From within this directory (martin/martin-ui/)
+# From within this directory (martin-ui/)
 just            # list all available recipes
 just test       # run frontend tests
 just biome      # run BiomeJS formatter and linter

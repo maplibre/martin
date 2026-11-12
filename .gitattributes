@@ -1,4 +1,4 @@
-martin/martin-ui/src/lib/types.gen.ts linguist-generated=true
+martin-ui/src/lib/types.gen.ts linguist-generated=true
 schemas/config.json linguist-generated=true
 martin/openapi.json linguist-generated=true
 *.sql text eol=lf

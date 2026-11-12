@@ -153,7 +153,7 @@ postgres = [
 ]
 processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
-webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+webui = ["dep:actix-web-static-files", "dep:martin-ui"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
@@ -227,6 +227,7 @@ martin-config-macros.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 martin-tilegen = { workspace = true, optional = true }
+martin-ui = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
 mlt-core.workspace = true
@@ -247,7 +248,6 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 serde_with.workspace = true
 similar = { workspace = true, optional = true }
 smallvec = { version = "1.15", features = ["const_new", "union"] }
-static-files = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
@@ -277,11 +277,6 @@ walkdir = { workspace = true, optional = true }
 webp = { workspace = true, optional = true }
 wkt = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
-
-[build-dependencies]
-static-files = { workspace = true, optional = true }
-walkdir = { workspace = true, optional = true }
-wkt = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true

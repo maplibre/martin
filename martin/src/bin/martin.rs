@@ -17,7 +17,7 @@ use martin::StartupResult;
 use martin::config::args::Args;
 #[cfg(feature = "mbtiles")]
 use martin::config::args::Command;
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use martin::config::args::WebUiMode;
 #[cfg(any(
     feature = "mbtiles",
@@ -122,7 +122,7 @@ async fn start(args: Args, #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Da
         )),
     };
 
-    #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg(feature = "webui")]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
     let route_prefix = config.srv.route_prefix.clone();
@@ -148,7 +148,7 @@ async fn start(args: Args, #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Da
     let Some(server) = serve_while_loading(server, loading).await? else {
         return Ok(());
     };
-    #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg(feature = "webui")]
     match web_ui_mode {
         WebUiMode::EnableForAll => info!(server.url = %base_url, "Martin server is now active"),
         WebUiMode::Enable => {
@@ -167,7 +167,7 @@ async fn start(args: Args, #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Da
             );
         }
     }
-    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    #[cfg(not(feature = "webui"))]
     info!(
         server.url = %base_url,
         "Martin server is now active. See /catalog for available services"

@@ -4,13 +4,13 @@
 
 **Project:** Martin Tile Server
 **Primary Language:** Rust (Backend)
-**Frontend:** TypeScript / React (`martin/martin-ui`)
+**Frontend:** TypeScript / React (`martin-ui`)
 
 **Major Components:**
 
 * `martin` / `martin-core`: Rust backend & business logic
 * `mbtiles`: Utility CLI
-* `martin/martin-ui`: React-based Web UI (isolated frontend)
+* `martin-ui`: React-based Web UI (isolated frontend)
 
 ---
 
@@ -46,7 +46,7 @@ You **MUST** correctly determine scope **before** running commands.
 
 #### Frontend-only scope (UI / React)
 
-* Allowed area: `martin/martin-ui/**`
+* Allowed area: `martin-ui/**`
 * **PROHIBITED:**
 
   * `cargo build`
@@ -69,7 +69,7 @@ You **MUST** correctly determine scope **before** running commands.
 
 Steps:
 
-1. `cd martin/martin-ui`
+1. `cd martin-ui`
 2. `npm clean-install --no-fund`
 3. `just test-frontend`
 4. (Optional) `npm run lint`
@@ -166,7 +166,7 @@ cargo run --bin mbtiles -- --help
 
 ## 8. Directory Rules
 
-* `martin/martin-ui/` -> **Frontend-only zone**
+* `martin-ui/` -> **Frontend-only zone**
 * `martin/` -> Rust CLI entry
 * `martin-core/` -> Core logic
 * `tests/fixtures/` -> Shared test fixtures

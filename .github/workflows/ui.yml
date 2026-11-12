@@ -25,7 +25,7 @@ jobs:
       - uses: $/.github/actions/setup-rust
         with: { toolchain: none }
       - run: npm clean-install --no-fund
-        working-directory: martin/martin-ui
+        working-directory: martin-ui
       - run: just ui::biome
       - run: just ui::test
       - run: just ui::type-check
