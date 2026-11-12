@@ -9,7 +9,7 @@ mod demo 'demo/justfile'
 mod toolkit 'map-tile-toolkit/justfile'
 
 # Import martin-ui sub-justfile as a module
-mod ui 'martin/martin-ui/justfile'
+mod ui 'martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
 stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,passthrough,pmtiles,postgres,processing,resources,tui,webui'
@@ -110,11 +110,11 @@ gen-schemas: fetch
     "$gen" --target config-doc  > docs/content/files/generated_config.md
     # Inside the crate, which embeds it to serve at `/ogc/api`.
     "$gen" --target openapi     > martin/openapi.json
-    # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
+    # Regenerate `martin-ui/src/lib/types.gen.ts` from the freshly
     # written `martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
+    martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
