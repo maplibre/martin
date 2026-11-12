@@ -223,6 +223,10 @@ pub enum GenerateError {
     CaseWithoutId(String),
     #[error("Source `{0}` is a function source; only tables and views can be scanned")]
     FunctionSource(String),
+    #[error(
+        "Source `{source_id}` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`"
+    )]
+    MltDisabled { source_id: String },
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
@@ -617,6 +621,9 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         };
         let encoder = match ProcessConfig::layered(&global, &connections[*pool_idx], &per_table).convert_to_mlt {
             Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
+            Some(MltProcessConfig::Disabled) if matches!(options.format, TileFormat::Mlt) => {
+                return Err(GenerateError::MltDisabled { source_id: id });
+            }
             _ => None,
         };
         scans.extend(lower_table(
