@@ -45,6 +45,7 @@ Workspace crates:
 - **`map-tile-toolkit`** - Clips integer geometries into per-tile pieces (used by `martin-tilegen`); `just toolkit::` for its fuzz/hotpath/fixture recipes
 - **`cog-tiles`** - Reads tiles from Cloud Optimized GeoTIFFs in local files or object stores; **`cog-tiles-py`** - its Python bindings
 - **`martin-config-macros`** - Derive macros for the configuration types
+- **`e2e-tests`** (`martin-e2e-tests`) - End-to-end tests, see below
 
 ## Key Rules
 
