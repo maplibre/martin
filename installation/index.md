@@ -22,7 +22,7 @@ docker run -p 3000:3000 \
 
 > [!NOTE]
 >
-> The default image is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`. It is larger because it bundles the `maplibre_native` runtime libraries.
+> The default image is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`. It is larger because it bundles the EGL and Mesa libraries rendering needs.
 
 ### From Binary Distributions Manually
 
@@ -144,7 +144,7 @@ cargo install martin --locked --features=unstable-duckdb
 
 The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
 
-Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. You will need its build dependencies first (`just install-dependencies`).
+Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. Building it needs nothing extra, but running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
 
 ```bash
 cargo install martin --locked --features rendering
@@ -162,4 +162,4 @@ cargo install martin --locked --features fips
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](<https://github.com/maplibre/maplibre-native-rs>).
+- **`rendering`**: This feature is **not available on Windows**. Martin only renders on Linux so far. For updates, see [`maplibre/maplibre-native-ffi`](<https://github.com/maplibre/maplibre-native-ffi>).

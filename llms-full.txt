@@ -175,7 +175,7 @@ docker run -p 3000:3000 \
 
 > [!NOTE]
 >
-> The default image is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`. It is larger because it bundles the `maplibre_native` runtime libraries.
+> The default image is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). If you need it, use the batteries-included `-full` image variant instead, tagged `:latest-full` or `:<version>-full`. It is larger because it bundles the EGL and Mesa libraries rendering needs.
 
 ### From Binary Distributions Manually
 
@@ -297,7 +297,7 @@ cargo install martin --locked --features=unstable-duckdb
 
 The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
 
-Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. You will need its build dependencies first (`just install-dependencies`).
+Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. Building it needs nothing extra, but running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
 
 ```bash
 cargo install martin --locked --features rendering
@@ -315,7 +315,7 @@ cargo install martin --locked --features fips
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](<https://github.com/maplibre/maplibre-native-rs>).
+- **`rendering`**: This feature is **not available on Windows**. Martin only renders on Linux so far. For updates, see [`maplibre/maplibre-native-ffi`](<https://github.com/maplibre/maplibre-native-ffi>).
 
 # Running
 
@@ -490,7 +490,7 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](<https://ghcr.io/m
 >
 > **Image variants**
 >
-> The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the `maplibre_native` runtime libraries and enables rendering. Use `-full` only if you need rendering; it is a larger image.
+> The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the EGL and Mesa libraries rendering needs and enables it. Use `-full` only if you need rendering; it is a larger image.
 
 ### Using Non-Local PostgreSQL
 
@@ -5141,7 +5141,7 @@ Martin can render a [style](<https://maplibre.org/martin/sources-styles/index.md
 
 > [!WARNING]
 >
-> Rendering is **not** part of the default build. It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements. We only ship it where we control the runtime environment. You get it by either:
+> Rendering is **not** part of the default build. It relies on [MapLibre Native](<https://github.com/maplibre/maplibre-native-ffi>), which needs EGL and OpenGL ES at runtime. It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise. We only ship it where we control the runtime environment. You get it by either:
 >
 > - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
 > - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
@@ -5150,7 +5150,7 @@ Martin can render a [style](<https://maplibre.org/martin/sources-styles/index.md
 >
 > Limitations of our current implementation:
 >
-> - Rendering support is currently only available on Linux. To add support for macOS/Windows, please see [https://github.com/maplibre/maplibre-native-rs](<https://github.com/maplibre/maplibre-native-rs>).
+> - Rendering support is currently only available on Linux. To add support for macOS/Windows, please see [https://github.com/maplibre/maplibre-native-ffi](<https://github.com/maplibre/maplibre-native-ffi>).
 > - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
@@ -5251,9 +5251,9 @@ In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png
 
 ### Renderers per worker
 
-Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured). Beyond that, the least recently used one is dropped, and loaded again the next time it is needed. With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
+Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured). Beyond that, the least recently used one is dropped, and loaded again the next time it is needed. A renderer that does not answer within a minute is dropped too, so the next request for its style starts from a fresh map. With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
-Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve. Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve. Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage. A worker renders one image at a time, so its renderers take turns in one graphics context instead of holding one each.
 
 ### Ambient cache
 
@@ -5261,7 +5261,7 @@ MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the
 
 ### Shader cache
 
-On the CPU, Mesa (`lavapipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`. Without that cache, creating a renderer, at startup or after one was [dropped](<#renderers-per-worker>), takes several times longer.
+On the CPU, Mesa (`llvmpipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`. Without that cache, creating a renderer, at startup or after one was [dropped](<#renderers-per-worker>), takes several times longer.
 
 When neither directory is writable, as in a read-only container, Martin caches shaders in a private directory under `$TMPDIR` (`/tmp` unless set) until it exits, and logs that it did. If that is read-only too, it logs a warning and Mesa compiles shaders again for every renderer. For a read-only container, mount a small `tmpfs` at `/tmp` (the cache stays under a few MB), or set `MESA_SHADER_CACHE_DIR` to a writable volume to keep the cache across restarts:
 
@@ -5270,6 +5270,10 @@ docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.7-ful
 ```
 
 Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
+
+## Logs
+
+MapLibre logs its own messages under the `maplibre_native` target, which Martin's default log filter hides. `RUST_LOG=martin=info,maplibre_native=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
 
 ## Static images
 
@@ -8080,7 +8084,7 @@ Martin can be used as a standalone server, or as a library in your own Rust appl
 - `fonts` - enable font sources
 - `sprites` - enable sprite sources
 - `styles` - enable style sources
-- `rendering` - enable server-side raster tile rendering of styles (Linux only, not in the default build; pulls in the `maplibre_native` native dependencies)
+- `rendering` - enable server-side raster tile rendering of styles (Linux only, not in the default build; needs EGL and OpenGL ES at runtime)
 - `lambda` - add specialized support for running in serverless functions
 
 If you are missing a part of Martin functionality in the [public `martin` API](<https://docs.rs/martin>), we would love to hear from you. Please open an issue on our GitHub repository or directly open a pull request.

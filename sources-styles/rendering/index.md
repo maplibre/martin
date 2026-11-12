@@ -4,7 +4,7 @@ Martin can render a [style](<https://maplibre.org/martin/sources-styles/index.md
 
 > [!WARNING]
 >
-> Rendering is **not** part of the default build. It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements. We only ship it where we control the runtime environment. You get it by either:
+> Rendering is **not** part of the default build. It relies on [MapLibre Native](<https://github.com/maplibre/maplibre-native-ffi>), which needs EGL and OpenGL ES at runtime. It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise. We only ship it where we control the runtime environment. You get it by either:
 >
 > - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
 > - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
@@ -13,7 +13,7 @@ Martin can render a [style](<https://maplibre.org/martin/sources-styles/index.md
 >
 > Limitations of our current implementation:
 >
-> - Rendering support is currently only available on Linux. To add support for macOS/Windows, please see [https://github.com/maplibre/maplibre-native-rs](<https://github.com/maplibre/maplibre-native-rs>).
+> - Rendering support is currently only available on Linux. To add support for macOS/Windows, please see [https://github.com/maplibre/maplibre-native-ffi](<https://github.com/maplibre/maplibre-native-ffi>).
 > - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
@@ -114,9 +114,9 @@ In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png
 
 ### Renderers per worker
 
-Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured). Beyond that, the least recently used one is dropped, and loaded again the next time it is needed. With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
+Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured). Beyond that, the least recently used one is dropped, and loaded again the next time it is needed. A renderer that does not answer within a minute is dropped too, so the next request for its style starts from a fresh map. With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
-Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve. Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve. Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage. A worker renders one image at a time, so its renderers take turns in one graphics context instead of holding one each.
 
 ### Ambient cache
 
@@ -124,7 +124,7 @@ MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the
 
 ### Shader cache
 
-On the CPU, Mesa (`lavapipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`. Without that cache, creating a renderer, at startup or after one was [dropped](<#renderers-per-worker>), takes several times longer.
+On the CPU, Mesa (`llvmpipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`. Without that cache, creating a renderer, at startup or after one was [dropped](<#renderers-per-worker>), takes several times longer.
 
 When neither directory is writable, as in a read-only container, Martin caches shaders in a private directory under `$TMPDIR` (`/tmp` unless set) until it exits, and logs that it did. If that is read-only too, it logs a warning and Mesa compiles shaders again for every renderer. For a read-only container, mount a small `tmpfs` at `/tmp` (the cache stays under a few MB), or set `MESA_SHADER_CACHE_DIR` to a writable volume to keep the cache across restarts:
 
@@ -133,6 +133,10 @@ docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.7-ful
 ```
 
 Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
+
+## Logs
+
+MapLibre logs its own messages under the `maplibre_native` target, which Martin's default log filter hides. `RUST_LOG=martin=info,maplibre_native=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
 
 ## Static images
 
