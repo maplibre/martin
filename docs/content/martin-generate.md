@@ -37,7 +37,9 @@ The default `--mode auto` still picks `tile`. Once bulk mode covers enough, it w
 it can.
 
 It renders points, lines and polygons, single or multi, and skips empty geometries.
-Any other geometry, such as a geometry collection, a triangle or a TIN, stops the run with an error.
+Any other geometry, such as a geometry collection or a TIN, stops the run with an error. A triangle does
+not stop it yet: it is misread as one point ([georust/wkb#104](https://github.com/georust/wkb/pull/104),
+not yet released), so filter triangles out of the source.
 
 ## Usage
 
