@@ -2,7 +2,7 @@ FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce
 
 ARG TARGETPLATFORM
 
-# The `-full` build passes the maplibre_native rendering runtime libraries here.
+# The `-full` build passes the EGL and Mesa libraries rendering needs here.
 ARG EXTRA_PACKAGES=""
 
 LABEL org.opencontainers.image.source="https://github.com/maplibre/martin"

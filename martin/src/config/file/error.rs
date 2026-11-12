@@ -125,7 +125,7 @@ pub enum ConfigFileError {
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
-    RendererPoolSpawnFailed(#[source] std::io::Error),
+    RendererPoolSpawnFailed(#[source] martin_core::styles::StyleError),
 
     #[cfg(feature = "_tiles")]
     #[error("Tile grid {0} is built in, refer to it by name without defining it, or pick another name")]
@@ -881,7 +881,7 @@ mod tests {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[test]
     fn renderer_pool_spawn_failed() {
-        let err = ConfigFileError::RendererPoolSpawnFailed(std::io::Error::other("boom"));
+        let err = ConfigFileError::RendererPoolSpawnFailed(std::io::Error::other("boom").into());
         insta::assert_snapshot!(describe(&err), @"
         message: Failed to start style render pool: boom
         code: martin::config::styles::render_pool_spawn
