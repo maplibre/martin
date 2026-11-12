@@ -1,0 +1,277 @@
+osm:
+  sources:
+    shortbread:
+      path: berlin-latest.osm.pbf
+      maxzoom: 14
+      tags:
+        - name
+        - "name:en"
+        - "name:de"
+        - ref
+        - layer
+        - tunnel
+        - bridge
+        - covered
+        - area
+        - natural
+        - water
+        - waterway
+        - landuse
+        - leisure
+        - amenity
+        - military
+        - building
+        - highway
+        - railway
+        - service
+        - surface
+        - tracktype
+        - oneway
+        - aerialway
+        - route
+        - man_made
+        - public_transport
+        - tourism
+        - shop
+        - historic
+        - emergency
+        - office
+        - sport
+        - place
+        - population
+        - capital
+        - boundary
+        - admin_level
+        - maritime
+        - "addr:housenumber"
+      layers:
+        water_polygons:
+          geometry: polygon
+          minzoom: 4
+          where: >-
+            natural in ['water', 'bay', 'strait'] ||
+            waterway in ['riverbank', 'dock', 'canal'] ||
+            landuse in ['reservoir', 'basin'] ||
+            leisure == 'swimming_pool'
+          attributes:
+            kind: >-
+              leisure == 'swimming_pool' ? 'swimming_pool' :
+              landuse != null ? landuse :
+              waterway != null ? (waterway == 'riverbank' ? 'river' : waterway) :
+              water == 'river' ? 'river' : 'water'
+        water_polygons_labels:
+          geometry: polygon_centroid
+          minzoom: 14
+          where: "name != null && (natural == 'water' || landuse in ['reservoir', 'basin'])"
+          attributes:
+            kind: "landuse != null ? landuse : 'water'"
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+        water_lines:
+          geometry: line
+          min_size: 0
+          minzoom: 9
+          where: "waterway in ['river', 'canal', 'stream', 'ditch', 'drain']"
+          attributes:
+            kind: waterway
+            tunnel: "tunnel != null && tunnel != 'no'"
+            bridge: "bridge != null && bridge != 'no'"
+          rules:
+            - where: "waterway in ['stream', 'ditch', 'drain']"
+              minzoom: 14
+        water_lines_labels:
+          geometry: line
+          minzoom: 12
+          where: "name != null && waterway in ['river', 'canal', 'stream']"
+          attributes:
+            kind: waterway
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+          merge_lines: {}
+        land:
+          geometry: polygon
+          where: >-
+            landuse in ['allotments', 'brownfield', 'cemetery', 'commercial', 'farmland', 'farmyard', 'forest',
+              'grass', 'greenfield', 'industrial', 'meadow', 'orchard', 'quarry', 'railway', 'recreation_ground',
+              'residential', 'retail', 'village_green', 'vineyard', 'garages'] ||
+            natural in ['bare_rock', 'beach', 'heath', 'sand', 'scree', 'scrub', 'shingle', 'wetland', 'wood',
+              'grassland'] ||
+            leisure in ['garden', 'golf_course', 'park', 'playground', 'pitch', 'dog_park', 'nature_reserve'] ||
+            amenity == 'grave_yard'
+          minzoom: >-
+            landuse == 'forest' || natural == 'wood' ? 7 :
+            landuse in ['residential', 'industrial', 'commercial', 'retail', 'farmland'] ? 10 :
+            11
+          attributes:
+            kind: >-
+              amenity == 'grave_yard' ? 'cemetery' :
+              natural == 'wood' ? 'forest' :
+              landuse != null ? landuse :
+              leisure != null ? leisure : natural
+          sort_by: [layer]
+        sites:
+          geometry: polygon
+          minzoom: 14
+          where: >-
+            amenity in ['university', 'school', 'college', 'hospital', 'prison', 'parking', 'bicycle_parking',
+              'kindergarten'] ||
+            military == 'danger_area' || landuse == 'construction'
+          attributes:
+            kind: "amenity != null ? amenity : military != null ? military : landuse"
+        buildings:
+          geometry: polygon
+          minzoom: 14
+          where: "building != null && building != 'no'"
+          attributes:
+            dummy: 1
+        bridges:
+          geometry: polygon
+          minzoom: 12
+          where: "man_made == 'bridge'"
+          attributes:
+            kind: "'bridge'"
+        streets:
+          geometry: line
+          min_size: 0
+          where: >-
+            highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary',
+              'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'living_street',
+              'pedestrian', 'service', 'track', 'footway', 'steps', 'path', 'cycleway', 'bridleway', 'busway'] ||
+            railway in ['rail', 'light_rail', 'subway', 'tram', 'narrow_gauge', 'funicular', 'monorail']
+          minzoom: >-
+            highway in ['motorway', 'motorway_link'] ? 5 :
+            highway in ['trunk', 'trunk_link'] ? 6 :
+            highway in ['primary', 'primary_link'] ? 8 :
+            highway in ['secondary', 'secondary_link'] ? 9 :
+            highway in ['tertiary', 'tertiary_link'] ? 10 :
+            railway == 'rail' ? 8 :
+            highway in ['unclassified', 'residential', 'living_street', 'pedestrian', 'busway'] ? 12 :
+            railway != null ? 11 :
+            highway in ['service', 'track'] ? 13 : 14
+          attributes:
+            kind: "highway != null ? highway.replace('_link', '') : railway"
+            link: "highway != null && highway.endsWith('_link')"
+            rail: "railway != null"
+            tunnel: "(tunnel != null && tunnel != 'no') || covered == 'yes'"
+            bridge: "bridge != null && bridge != 'no'"
+            service: service
+            surface: surface
+            tracktype: tracktype
+            oneway: "oneway == 'yes'"
+            oneway_reverse: "oneway == '-1'"
+          sort_by: ["layer != null ? int(layer) : 0"]
+          merge_lines:
+            maxzoom: 13
+        street_polygons:
+          geometry: polygon
+          minzoom: 14
+          where: "highway in ['pedestrian', 'service', 'footway'] && area == 'yes'"
+          attributes:
+            kind: highway
+            tunnel: "tunnel != null && tunnel != 'no'"
+            bridge: "bridge != null && bridge != 'no'"
+        street_labels:
+          geometry: line
+          where: >-
+            (name != null || ref != null) &&
+            highway in ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential',
+              'living_street', 'pedestrian']
+          minzoom: >-
+            highway in ['motorway', 'trunk', 'primary'] ? 10 :
+            highway in ['secondary', 'tertiary'] ? 12 : 14
+          attributes:
+            kind: highway
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+            ref: ref
+            tunnel: "tunnel != null && tunnel != 'no'"
+          merge_lines: {}
+        aerialways:
+          geometry: line
+          minzoom: 12
+          where: "aerialway in ['cable_car', 'gondola', 'chair_lift', 'drag_lift', 't-bar', 'j-bar', 'platter', 'rope_tow']"
+          attributes:
+            kind: aerialway
+        ferries:
+          geometry: line
+          minzoom: 10
+          where: "route == 'ferry'"
+          attributes:
+            kind: "'ferry'"
+            name: name
+        public_transport:
+          geometry: point
+          where: >-
+            railway in ['station', 'halt', 'tram_stop'] ||
+            highway == 'bus_stop' || aerialway == 'station' || amenity == 'ferry_terminal'
+          minzoom: "railway == 'station' ? 11 : railway == 'halt' ? 13 : 14"
+          attributes:
+            kind: >-
+              railway != null ? railway : highway == 'bus_stop' ? 'bus_stop' :
+              aerialway != null ? 'aerialway_station' : 'ferry_terminal'
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+        place_labels:
+          geometry: point
+          where: "name != null && place in ['city', 'town', 'village', 'hamlet', 'suburb', 'quarter', 'neighbourhood', 'locality', 'island']"
+          minzoom: >-
+            place == 'city' ? (capital == 'yes' ? 4 : 6) :
+            place == 'town' ? 8 :
+            place == 'suburb' ? 11 :
+            place == 'village' ? 11 :
+            place in ['quarter', 'island'] ? 13 : 14
+          attributes:
+            kind: "place == 'city' && capital == 'yes' ? 'capital' : place"
+            population: "population != null ? int(population) : null"
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+          sort_by:
+            - "place == 'city' ? 0 : place == 'town' ? 1 : place == 'suburb' ? 2 : place == 'village' ? 3 : 4"
+        boundaries:
+          geometry: polygon
+          minzoom: 4
+          where: "boundary == 'administrative' && admin_level in ['2', '4']"
+          simplify: 1
+          attributes:
+            admin_level: "int(admin_level)"
+            maritime: "maritime == 'yes'"
+        pois:
+          geometry: centroid
+          minzoom: 14
+          where: >-
+            name != null && (
+              amenity in ['restaurant', 'cafe', 'fast_food', 'bar', 'pub', 'biergarten', 'ice_cream', 'pharmacy',
+                'hospital', 'school', 'university', 'library', 'theatre', 'cinema', 'place_of_worship', 'police',
+                'fire_station', 'post_office', 'townhall', 'bank', 'atm', 'fuel', 'toilets', 'kindergarten',
+                'marketplace', 'arts_centre', 'community_centre', 'courthouse', 'embassy', 'nightclub'] ||
+              shop != null || tourism in ['museum', 'hotel', 'hostel', 'attraction', 'viewpoint', 'zoo',
+                'artwork', 'gallery', 'information', 'theme_park'] ||
+              leisure in ['sports_centre', 'stadium', 'water_park', 'swimming_pool'] ||
+              historic in ['monument', 'memorial', 'castle', 'ruins'] ||
+              man_made in ['lighthouse', 'tower', 'windmill'])
+          attributes:
+            amenity: amenity
+            shop: shop
+            tourism: tourism
+            leisure: leisure
+            historic: historic
+            man_made: man_made
+            emergency: emergency
+            office: office
+            sport: sport
+            name: name
+            name_en: "feature['name:en']"
+            name_de: "feature['name:de']"
+            housenumber: "feature['addr:housenumber']"
+        addresses:
+          geometry: centroid
+          minzoom: 14
+          where: "feature['addr:housenumber'] != null"
+          attributes:
+            housenumber: "feature['addr:housenumber']"
+            name: "building != null ? null : name"

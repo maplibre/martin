@@ -5,6 +5,8 @@ mod block;
 mod error;
 mod expr;
 mod generate;
+#[cfg(feature = "osm")]
+pub mod osm;
 mod phase1;
 mod phase2;
 mod pipeline;

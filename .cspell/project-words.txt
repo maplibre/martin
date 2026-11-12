@@ -198,3 +198,7 @@ zstd
 zune
 ctid
 quadkey
+landuse
+openstreetmap
+osmflow
+versatiles
