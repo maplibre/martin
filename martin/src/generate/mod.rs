@@ -599,7 +599,12 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
                 tables.keys().cloned().collect::<Vec<_>>().join(", "),
             ));
         };
-        if let Some(grid) = info.tile_grid.as_deref().filter(|g| *g != "WebMercatorQuad") {
+        if let Some(grid) = info
+            .tile_grid
+            .as_deref()
+            .or(config.postgres[*pool_idx].tile_grid.as_deref())
+            .filter(|g| *g != "WebMercatorQuad")
+        {
             return Err(GenerateError::UnsupportedGrid(id, grid.to_owned()));
         }
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
