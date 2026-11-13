@@ -26,7 +26,7 @@ use crate::config::file::fonts::FontConfig;
 use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
-#[cfg(feature = "unstable-osm")]
+#[cfg(feature = "osm")]
 use crate::config::file::osm::OsmConfig;
 #[cfg(feature = "passthrough")]
 use crate::config::file::passthrough::PassthroughConfig;
@@ -203,7 +203,7 @@ pub struct Config {
     pub duckdb: DuckDbConfig,
 
     /// OpenStreetMap PBF files, which only `martin cp --mode bulk` renders (unstable)
-    #[cfg(feature = "unstable-osm")]
+    #[cfg(feature = "osm")]
     #[serde(default, skip_serializing_if = "OsmConfig::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub osm: OsmConfig,

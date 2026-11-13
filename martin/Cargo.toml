@@ -91,6 +91,7 @@ default = [
     "mbtiles",
     "metrics",
     "ogcapi",
+    "osm",
     "passthrough",
     "pmtiles",
     "postgres",
@@ -125,6 +126,8 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 ogcapi = ["_tiles"]
+# OpenStreetMap PBF files as `martin cp --mode bulk` sources
+osm = ["postgres", "martin-tilegen/osm"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",
@@ -155,8 +158,6 @@ processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-# OpenStreetMap PBF files as `martin cp --mode bulk` sources
-unstable-osm = ["postgres", "martin-tilegen/osm"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
 _tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
 _catalog = []

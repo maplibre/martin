@@ -236,7 +236,7 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
 # Bless the OpenStreetMap PBF tests, including the end-to-end ones
 bless-osm: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     {{insta_test}} -p martin-tilegen --features osm --test osm --test osm_edge_cases
-    cargo build -p martin -p mbtiles --features martin/unstable-osm
+    cargo build -p martin -p mbtiles
     {{insta_test}} --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
 # Bless the style rendering tests end-to-end
@@ -407,7 +407,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/unstable-osm,martin-tilegen/osm {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -766,7 +766,7 @@ test-cog-py:
 # Run the OpenStreetMap PBF tests, including the end-to-end ones
 test-osm: fetch (cargo-install 'cargo-nextest')
     cargo nextest run -p martin-tilegen --features osm --test osm --test osm_edge_cases
-    cargo build -p martin -p mbtiles --features martin/unstable-osm
+    cargo build -p martin -p mbtiles
     cargo nextest run --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones

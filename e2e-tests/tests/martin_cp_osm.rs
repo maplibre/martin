@@ -1,6 +1,4 @@
 //! `martin cp --mode bulk` reading an OpenStreetMap PBF file from the config's `osm` section.
-//!
-//! The binary has to be built with `unstable-osm`.
 #![cfg(feature = "test-osm")]
 
 use std::fs;

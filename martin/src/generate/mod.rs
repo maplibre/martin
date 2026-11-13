@@ -1,7 +1,7 @@
 //! `martin cp --mode bulk`: bulk tile generation from whole-table scans.
 
 pub mod layers;
-#[cfg(feature = "unstable-osm")]
+#[cfg(feature = "osm")]
 mod osm;
 pub mod postgres;
 mod progress;
@@ -230,10 +230,10 @@ pub enum GenerateError {
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
-    #[cfg(feature = "unstable-osm")]
+    #[cfg(feature = "osm")]
     #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
     MixedSources,
-    #[cfg(feature = "unstable-osm")]
+    #[cfg(feature = "osm")]
     #[error("Cannot read OSM file {}: {error}", path.display())]
     OsmFile {
         path: PathBuf,
@@ -352,7 +352,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
-    #[cfg(feature = "unstable-osm")]
+    #[cfg(feature = "osm")]
     if let Some(tables) = osm::select_sources(&config, &options)? {
         monitor.set_tables(tables.len());
         let partition_bytes = osm::partition_bytes(&tables, options.threads);
@@ -383,7 +383,7 @@ impl PlannedSource for PgScanSource {
     }
 }
 
-#[cfg(feature = "unstable-osm")]
+#[cfg(feature = "osm")]
 impl PlannedSource for martin_tilegen::osm::OsmSource {
     fn source_plan(&self) -> &Plan {
         self.plan()
