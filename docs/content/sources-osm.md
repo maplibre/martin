@@ -9,14 +9,7 @@ tags:
 
 # OpenStreetMap PBF Sources
 
-!!! warning
-    This feature is unstable and not in the default build. Its configuration may change in patch releases.
-    Build Martin with it:
-
-    ```bash
-    cargo install martin --locked --features=unstable-osm
-    ```
-
+!!! note
     Only the [bulk mode](martin-generate.md) of `martin cp` reads these sources; the tile server does not serve them.
 
 An `osm` source is one `.osm.pbf` file and the [layers](sources-pg-layers.md) made from it. Martin reads the file

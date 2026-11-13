@@ -11,8 +11,8 @@ tags:
 
 This builds a basemap tileset from an [OpenStreetMap](https://www.openstreetmap.org/) extract, with the layers and
 attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
-[VersaTiles styles](https://github.com/versatiles-org/versatiles-style) draw it. It needs Martin built with
-`unstable-osm`, see [OpenStreetMap PBF Sources](sources-osm.md).
+[VersaTiles styles](https://github.com/versatiles-org/versatiles-style) draw it. The `osm` section is described in
+[OpenStreetMap PBF Sources](sources-osm.md).
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/):
 

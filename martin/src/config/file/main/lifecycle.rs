@@ -165,7 +165,7 @@ impl Config {
         #[cfg(feature = "unstable-duckdb")]
         let is_empty = is_empty && self.duckdb.is_empty();
 
-        #[cfg(feature = "unstable-osm")]
+        #[cfg(feature = "osm")]
         let is_empty = is_empty && self.osm.is_empty();
 
         #[cfg(feature = "processing")]
