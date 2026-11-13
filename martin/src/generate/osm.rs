@@ -30,10 +30,11 @@ pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateRes
         options.sources.iter().map(String::as_str).collect()
     };
     let (ours, others): (Vec<&str>, Vec<&str>) = requested.into_iter().partition(|id| osm.contains_key(*id));
-    match (ours.is_empty(), others.is_empty()) {
-        (true, _) => return Ok(None),
-        (false, false) => return Err(GenerateError::MixedSources),
-        (false, true) => {}
+    if ours.is_empty() {
+        return Ok(None);
+    }
+    if !others.is_empty() {
+        return Err(GenerateError::MixedSources);
     }
     let lower = LowerOptions {
         zooms: options.zooms.clone(),
