@@ -358,12 +358,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         let partition_bytes = osm::partition_bytes(&tables, options.threads);
         let source =
             tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
-        let check = |source: &martin_tilegen::osm::OsmSource| {
-            source
-                .check_string_tables()
-                .map_err(|err| GenerateError::TileGen(err.into()))
-        };
-        return run(source, options, progress, monitor, started, Vec::new(), check).await;
+        return run(source, options, progress, monitor, started, Vec::new()).await;
     }
 
     let (pool, scans) = select_sources(&config, &options).await?;
@@ -373,16 +368,7 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
         .collect::<GenerateResult<_>>()?;
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
-    run(
-        source,
-        options,
-        progress,
-        monitor,
-        started,
-        geometry_finders,
-        |_| Ok(()),
-    )
-    .await
+    run(source, options, progress, monitor, started, geometry_finders).await
 }
 
 /// A source of `martin cp --mode bulk`, with the plan it was made for.
@@ -404,7 +390,7 @@ impl PlannedSource for martin_tilegen::osm::OsmSource {
     }
 }
 
-/// Renders `source` into the output file; `check` runs on the source after a run that succeeded.
+/// Renders `source` into the output file.
 async fn run<S: PlannedSource>(
     source: S,
     options: GenerateOptions,
@@ -412,7 +398,6 @@ async fn run<S: PlannedSource>(
     monitor: Monitor,
     started: Instant,
     geometry_finders: Vec<(String, String)>,
-    check: impl FnOnce(&S) -> GenerateResult<()> + Send + 'static,
 ) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
@@ -426,11 +411,7 @@ async fn run<S: PlannedSource>(
 
     let task = tokio::task::spawn_blocking({
         let progress = Arc::clone(&progress);
-        move || -> GenerateResult<Summary> {
-            let summary = sink.generate(&source, &generate_config, metadata, &progress)?;
-            check(&source)?;
-            Ok(summary)
-        }
+        move || -> GenerateResult<Summary> { Ok(sink.generate(&source, &generate_config, metadata, &progress)?) }
     });
     let result = tokio::select! {
         result = task => result.map_err(GenerateError::from).and_then(|r| r),

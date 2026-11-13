@@ -162,8 +162,7 @@ notify = "8.2.0"
 num_cpus = "1"
 numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
-# TODO: switch to a release once nyurik/osmflow#61 and #62 are published
-osmflow = { git = "https://github.com/CommanderStorm/osmflow", branch = "multipolygons", version = "0.14.0", default-features = false, features = ["geometry"] }
+osmflow = { version = "0.15.0", default-features = false, features = ["geometry"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 perf-event2 = "0.7.4"
 pmtiles = { version = "0.28.0", default-features = false }

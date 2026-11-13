@@ -69,13 +69,19 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
 
 /// The source settings that layers take their defaults from.
 pub struct SourceSettings<'a> {
+    /// The lowest zoom of its layers, if set.
     pub minzoom: Option<u8>,
+    /// The highest zoom of its layers, if set.
     pub maxzoom: Option<u8>,
+    /// The tile extent of its layers, if set.
     pub extent: Option<std::num::NonZeroU32>,
+    /// The tile buffer of its layers, if set.
     pub buffer: Option<u32>,
+    /// Whether its layers clip geometries to the tile, if set.
     pub clip_geom: Option<bool>,
     /// The name of the one layer of a source without `layers`.
     pub layer_id: Option<&'a str>,
+    /// Its layers, if it has more than the one default layer.
     pub layers: Option<&'a Layers>,
 }
 

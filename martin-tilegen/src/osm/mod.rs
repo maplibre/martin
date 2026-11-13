@@ -9,15 +9,15 @@ mod condition;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Mutex, PoisonError};
 
 use bytes::BytesMut;
-use geo_types::{Coord, LineString, Polygon};
-use osmflow::nodes::{FileStore as _, MemoryReader, MemoryStore, NodeRead as _, PagedReader, PagedStore};
+use geo::{BoundingRect as _, Intersects as _};
+use geo_types::{Coord, Polygon, Rect};
+use osmflow::nodes::{FileStore as _, MemoryReader, MemoryStore, NodeRead as _, NodeReader, PagedReader, PagedStore};
 use osmflow::{
-    AreaRules, BlobRange, Block, GeometryError, Locator, MemberType, PbfError, PbfReader, Select, TagKey, Way,
+    AreaRules, BlobRange, Block, GeometryError, Location, Locator, MemberType, PbfError, PbfReader, Select, TagKey,
 };
 use tilejson::Bounds;
 use tracing::{debug, info};
@@ -135,7 +135,7 @@ pub struct OsmSource {
     plan: Plan,
     scans: Vec<Scan>,
     /// Each partition's scan and what it reads, in order.
-    partitions: Vec<(usize, Partition)>,
+    partitions: Vec<(u16, Partition)>,
 }
 
 /// What one partition reads.
@@ -151,7 +151,6 @@ enum Partition {
 const RELATIONS_PER_PARTITION: usize = 256;
 
 /// A relation some layer may take, with what its area is made of.
-#[derive(Debug)]
 struct Relation {
     id: i64,
     /// The value of each scanned column, by position.
@@ -162,7 +161,6 @@ struct Relation {
 
 /// One table's file, and what to read from it.
 struct Scan {
-    table: u16,
     path: PathBuf,
     file: PbfReader,
     select: Select,
@@ -170,9 +168,10 @@ struct Scan {
     condition: Option<Condition>,
     /// The scanned columns: [`OSM_TYPE`] or a tag key, by position.
     columns: Vec<String>,
-    bounds: Option<Bounds>,
-    store: Option<Arc<Store>>,
-    areas: Arc<AreaRules>,
+    /// Only objects touching this box, if set.
+    bounds: Option<Rect>,
+    store: Option<Store>,
+    areas: AreaRules,
     /// The `multipolygon` and `boundary` relations some layer may take, by id.
     relations: Vec<Relation>,
     /// The node ids of the relations' member ways, by way id.
@@ -190,15 +189,6 @@ enum Store {
     },
 }
 
-impl fmt::Debug for Store {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Memory(_) => "Store::Memory",
-            Self::Paged { .. } => "Store::Paged",
-        })
-    }
-}
-
 impl OsmSource {
     /// Plans `tables` and opens each table's file, splitting it into partitions of about `partition_bytes`; loads
     /// the node locations of each file whose ways some layer takes.
@@ -213,10 +203,8 @@ impl OsmSource {
         let mut partitions = Vec::new();
         for ((index, table), types) in osm.into_iter().enumerate().zip(types) {
             let scan = Scan::open(&plan, index, table, &types)?;
-            let ranges = scan
-                .file
-                .split(partition_bytes)
-                .map_err(|error| scan.read_error(error))?;
+            let index = u16::try_from(index).expect("the plan has fewer than 2^16 tables");
+            let ranges = scan.file.split(partition_bytes).map_err(read_error(&scan.path))?;
             partitions.extend(ranges.into_iter().map(|range| (index, Partition::Blocks(range))));
             for start in (0..scan.relations.len()).step_by(RELATIONS_PER_PARTITION) {
                 let end = (start + RELATIONS_PER_PARTITION).min(scan.relations.len());
@@ -236,33 +224,12 @@ impl OsmSource {
     pub fn plan(&self) -> &Plan {
         &self.plan
     }
-
-    /// Fails if a read found blocks whose string table goes on after their first group, which may have made the
-    /// block filters skip objects a layer takes.
-    ///
-    /// # Errors
-    /// If any read found such a block.
-    pub fn check_string_tables(&self) -> Result<(), OsmError> {
-        for scan in &self.scans {
-            let blocks = scan.file.split_string_tables();
-            if blocks > 0 {
-                return Err(OsmError::SplitStringTables {
-                    path: scan.path.clone(),
-                    blocks,
-                });
-            }
-        }
-        Ok(())
-    }
 }
 
 impl Scan {
     /// Opens table `index` of `plan`: its pushdown, its relations, and its node store if it reads ways or relations.
     fn open(plan: &Plan, index: usize, table: OsmTable, layer_types: &[GeometryType]) -> Result<Self, OsmError> {
-        let read_error = |error| OsmError::Read {
-            path: table.path.clone(),
-            error,
-        };
+        let read_error = read_error(&table.path);
         let condition = match plan.row_filter(index, 0..=MAX_ZOOM) {
             RowFilter::Matching(condition) => Some(condition),
             RowFilter::All | RowFilter::Untranslatable(_) => None,
@@ -307,7 +274,7 @@ impl Scan {
             (Vec::new(), HashMap::new())
         };
         let store = if ways || !relations.is_empty() {
-            Some(Arc::new(load_nodes(&base, &table)?))
+            Some(load_nodes(&base, &table)?)
         } else {
             None
         };
@@ -320,40 +287,55 @@ impl Scan {
             "Reading OSM file"
         );
         Ok(Self {
-            table: u16::try_from(index).expect("the plan has fewer than 2^16 tables"),
             path: table.path,
             file,
             select,
             condition,
             columns,
-            bounds: table.bounds,
+            bounds: table.bounds.map(|b| Rect::new((b.left, b.bottom), (b.right, b.top))),
             store,
-            areas: Arc::new(AreaRules::default()),
+            areas: AreaRules::default(),
             relations,
             member_ways,
         })
     }
 
-    /// `error` naming the scan's file.
-    fn read_error(&self, error: PbfError) -> OsmError {
-        OsmError::Read {
-            path: self.path.clone(),
-            error,
-        }
+    /// Whether `condition` takes the object of type `kind` whose scanned columns `tag` gives by position, with
+    /// a geometry of type `geometry`; every object if the scan has no condition.
+    fn takes<'t>(&self, kind: Kind, geometry: GeometryType, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
+        self.condition.as_ref().is_none_or(|condition| {
+            let row = ObjectRow {
+                columns: &self.columns,
+                kind,
+                tag,
+                geometry,
+            };
+            matches(condition, &row)
+        })
     }
+}
+
+/// A function turning a [`PbfError`] into an [`OsmError`] naming the file at `path`.
+fn read_error(path: &Path) -> impl Fn(PbfError) -> OsmError + Copy + '_ {
+    |error| OsmError::Read {
+        path: path.to_path_buf(),
+        error,
+    }
+}
+
+/// The key of each of `columns` in `block`, by position; `None` if no object of the block has that tag.
+fn column_keys<'b>(block: &'b Block, columns: &[String]) -> Vec<Option<TagKey<'b>>> {
+    columns.iter().map(|c| block.tag_key(c)).collect()
 }
 
 /// The geometry types some layer of `table` takes, whatever its `where`.
 fn layer_types(table: &crate::plan::TableDef) -> Vec<GeometryType> {
-    const ALL: [GeometryType; 3] = [GeometryType::Point, GeometryType::Line, GeometryType::Polygon];
-    let mut types = Vec::new();
-    for layer in &table.layers {
-        match layer.geometry {
-            Some(kind) => types.push(kind),
-            None => return ALL.to_vec(),
-        }
-    }
-    types
+    table
+        .layers
+        .iter()
+        .map(|layer| layer.geometry)
+        .collect::<Option<Vec<_>>>()
+        .unwrap_or_else(|| vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon])
 }
 
 /// The `multipolygon` and `boundary` relations of `file` that `condition` may take as polygons, by id.
@@ -365,7 +347,7 @@ fn read_relations(
     let found = Mutex::new(Vec::new());
     let select = Select::all().without_nodes().without_ways().without_metadata();
     file.par_unordered(select, |block| {
-        let keys: Vec<Option<TagKey<'_>>> = columns.iter().map(|c| block.tag_key(c)).collect();
+        let keys = column_keys(&block, columns);
         let mut kept = Vec::new();
         for relation in block.relations() {
             let area = relation
@@ -378,9 +360,8 @@ fn read_relations(
             if let Some(condition) = condition {
                 let row = ObjectRow {
                     columns,
-                    values: PhantomData,
-                    osm_type: "relation",
-                    tag,
+                    kind: Kind::Relation,
+                    tag: &tag,
                     geometry: GeometryType::Polygon,
                 };
                 if !matches(condition, &row) {
@@ -431,18 +412,12 @@ fn member_ways(file: &PbfReader, relations: &[Relation]) -> Result<HashMap<i64, 
 
 /// Loads the locations of every node of the file into the store `table` asks for.
 fn load_nodes(file: &PbfReader, table: &OsmTable) -> Result<Store, OsmError> {
-    let store_error = |error| OsmError::NodeStore {
-        path: table.path.clone(),
-        error,
-    };
+    let read_error = read_error(&table.path);
     let started = std::time::Instant::now();
     let (store, count) = match &table.node_store {
         NodeStore::Memory => {
             let mut store = MemoryStore::new();
-            let count = file.load_nodes(&mut store).map_err(|error| OsmError::Read {
-                path: table.path.clone(),
-                error,
-            })?;
+            let count = file.load_nodes(&mut store).map_err(read_error)?;
             (Store::Memory(store), count)
         }
         NodeStore::Paged(dir) => {
@@ -453,11 +428,11 @@ fn load_nodes(file: &PbfReader, table: &OsmTable) -> Result<Store, OsmError> {
                     dir: dir.clone(),
                     error,
                 })?;
-            let mut store = PagedStore::open(temp.path().join("nodes")).map_err(store_error)?;
-            let count = file.load_nodes(&mut store).map_err(|error| OsmError::Read {
+            let mut store = PagedStore::open(temp.path().join("nodes")).map_err(|error| OsmError::NodeStore {
                 path: table.path.clone(),
                 error,
             })?;
+            let count = file.load_nodes(&mut store).map_err(read_error)?;
             (
                 Store::Paged {
                     store: Box::new(store),
@@ -495,39 +470,43 @@ impl FeatureSource for OsmSource {
             .map(|_| Box::new(OsmReader::new(self)) as Box<dyn FeatureReader + '_>)
             .collect())
     }
+
+    /// Fails if a read found blocks whose string table goes on after their first group, which may have made the
+    /// block filters skip objects a layer takes.
+    fn finish(&self) -> SourceResult<()> {
+        for scan in &self.scans {
+            let blocks = scan.file.split_string_tables();
+            if blocks > 0 {
+                return Err(OsmError::SplitStringTables {
+                    path: scan.path.clone(),
+                    blocks,
+                }
+                .into());
+            }
+        }
+        Ok(())
+    }
 }
 
 /// One reader thread: the node lookups of each scan it reads ways of, kept from partition to partition.
 struct OsmReader<'a> {
     source: &'a OsmSource,
-    locators: Vec<Option<Lookup<'a>>>,
+    locators: Vec<Option<Locator<StoreReader<'a>>>>,
 }
 
-/// A thread's node lookups in one store.
-enum Lookup<'a> {
-    /// Lookups in a [`MemoryStore`].
-    Memory(Locator<MemoryReader<'a>>),
-    /// Lookups in a [`PagedStore`].
-    Paged(Locator<PagedReader<'a>>),
+/// A thread's reader of one [`Store`].
+enum StoreReader<'a> {
+    /// Reads a [`MemoryStore`].
+    Memory(MemoryReader<'a>),
+    /// Reads a [`PagedStore`].
+    Paged(PagedReader<'a>),
 }
 
-impl Lookup<'_> {
-    /// The way as a line, from its nodes' locations.
-    fn line_string(&mut self, way: &Way<'_>) -> Result<LineString<f64>, GeometryError> {
+impl NodeReader for StoreReader<'_> {
+    fn get(&mut self, id: u64) -> Option<Location> {
         match self {
-            Self::Memory(locator) => locator.line_string(way),
-            Self::Paged(locator) => locator.line_string(way),
-        }
-    }
-
-    /// The area that ways with these node ids make.
-    fn multi_polygon<'w>(
-        &mut self,
-        ways: impl IntoIterator<Item = &'w [i64]>,
-    ) -> Result<geo_types::MultiPolygon<f64>, GeometryError> {
-        match self {
-            Self::Memory(locator) => locator.multi_polygon(ways),
-            Self::Paged(locator) => locator.multi_polygon(ways),
+            Self::Memory(reader) => reader.get(id),
+            Self::Paged(reader) => reader.get(id),
         }
     }
 }
@@ -539,9 +518,11 @@ impl<'a> OsmReader<'a> {
             .scans
             .iter()
             .map(|scan| {
-                scan.store.as_deref().map(|store| match store {
-                    Store::Memory(store) => Lookup::Memory(Locator::new(store.reader())),
-                    Store::Paged { store, .. } => Lookup::Paged(Locator::new(store.reader())),
+                scan.store.as_ref().map(|store| {
+                    Locator::new(match store {
+                        Store::Memory(store) => StoreReader::Memory(store.reader()),
+                        Store::Paged { store, .. } => StoreReader::Paged(store.reader()),
+                    })
                 })
             })
             .collect();
@@ -562,9 +543,9 @@ impl FeatureReader for OsmReader<'_> {
             .get(partition as usize)
             .ok_or(SourceError::UnknownPartition(partition))?;
         let (index, part) = (*index, part.clone());
-        let scan = &self.source.scans[index];
+        let scan = &self.source.scans[usize::from(index)];
         let mut out = Batches {
-            table: scan.table,
+            table: index,
             partition,
             next_row: 0,
             batch: Vec::with_capacity(BATCH_FEATURES),
@@ -575,7 +556,7 @@ impl FeatureReader for OsmReader<'_> {
         let range = match part {
             Partition::Blocks(range) => range,
             Partition::Relations(relations) => {
-                let lookup = self.locators[index]
+                let lookup = self.locators[usize::from(index)]
                     .as_mut()
                     .expect("a scan with relations has a node store");
                 read_relations_of(scan, &scan.relations[relations], lookup, &mut out)?;
@@ -585,12 +566,12 @@ impl FeatureReader for OsmReader<'_> {
         let blocks = scan
             .file
             .blocks_in(range, scan.select)
-            .map_err(|e| scan.read_error(e))?;
+            .map_err(read_error(&scan.path))?;
         for block in blocks {
-            let block = block.map_err(|e| scan.read_error(e))?;
-            let keys: Vec<Option<TagKey<'_>>> = scan.columns.iter().map(|c| block.tag_key(c)).collect();
+            let block = block.map_err(read_error(&scan.path))?;
+            let keys = column_keys(&block, &scan.columns);
             read_nodes(scan, &block, &keys, &mut out)?;
-            if let Some(lookup) = &mut self.locators[index] {
+            if let Some(lookup) = &mut self.locators[usize::from(index)] {
                 missing += read_ways(scan, &block, &keys, lookup, &mut out)?;
             }
         }
@@ -655,14 +636,14 @@ impl Batches<'_> {
     /// The scanned columns of an object as properties.
     fn props<'t>(
         &mut self,
-        osm_type: &'static str,
+        kind: Kind,
         columns: &[String],
         value: impl Fn(usize) -> Option<&'t str>,
     ) -> Vec<(KeyId, Prop<SourceStr>)> {
         let mut props = Vec::with_capacity(columns.len());
         for (pos, column) in (0u32..).zip(columns) {
             let text = if column == OSM_TYPE {
-                Some(SourceStr::from_static(osm_type))
+                Some(SourceStr::from_static(kind.name()))
             } else {
                 value(pos as usize).map(|text| self.str(text))
             };
@@ -674,20 +655,52 @@ impl Batches<'_> {
     }
 }
 
+/// What an OSM object is.
+#[derive(Clone, Copy)]
+enum Kind {
+    /// A node, read as a point.
+    Node,
+    /// A way, read as a line or an area.
+    Way,
+    /// A relation, read as an area.
+    Relation,
+}
+
+impl Kind {
+    /// Its value in the [`OSM_TYPE`] column.
+    fn name(self) -> &'static str {
+        match self {
+            Self::Node => "node",
+            Self::Way => "way",
+            Self::Relation => "relation",
+        }
+    }
+
+    /// The feature id of the object of this kind with OSM id `id`: the id times 10, plus 1 for a node, 2 for a way
+    /// and 3 for a relation.
+    fn feature_id(self, id: i64) -> Option<u64> {
+        let suffix = match self {
+            Self::Node => 1,
+            Self::Way => 2,
+            Self::Relation => 3,
+        };
+        u64::try_from(id).ok()?.checked_mul(10)?.checked_add(suffix)
+    }
+}
+
 /// An object's tags as a [`Row`], through its block's keys of the scanned columns.
-struct ObjectRow<'s, 't, F> {
+struct ObjectRow<'s, 't> {
     columns: &'s [String],
-    /// The tags `tag` gives live this long.
-    values: PhantomData<&'t str>,
-    osm_type: &'static str,
-    tag: F,
+    kind: Kind,
+    /// The value of each scanned column, by position.
+    tag: &'s dyn Fn(usize) -> Option<&'t str>,
     geometry: GeometryType,
 }
 
-impl<'t, F: Fn(usize) -> Option<&'t str>> Row for ObjectRow<'_, 't, F> {
+impl Row for ObjectRow<'_, '_> {
     fn column(&self, name: &str) -> Option<&str> {
         if name == OSM_TYPE {
-            return Some(self.osm_type);
+            return Some(self.kind.name());
         }
         let pos = self.columns.iter().position(|c| c == name)?;
         (self.tag)(pos)
@@ -698,11 +711,6 @@ impl<'t, F: Fn(usize) -> Option<&'t str>> Row for ObjectRow<'_, 't, F> {
     }
 }
 
-/// The feature id of an OSM object: its id times 10, plus 1 for a node, 2 for a way and 3 for a relation.
-fn feature_id(id: i64, kind: u64) -> Option<u64> {
-    u64::try_from(id).ok()?.checked_mul(10)?.checked_add(kind)
-}
-
 /// Reads the block's tagged nodes that the scan's condition takes, as points.
 fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut Batches<'_>) -> SourceResult<()> {
     for node in block.nodes() {
@@ -710,28 +718,19 @@ fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut
             continue;
         }
         let tag = |pos: usize| node.tag(keys[pos]?);
-        if let Some(condition) = &scan.condition {
-            let row = ObjectRow {
-                columns: &scan.columns,
-                values: PhantomData,
-                osm_type: "node",
-                tag: &tag,
-                geometry: GeometryType::Point,
-            };
-            if !matches(condition, &row) {
-                continue;
-            }
+        if !scan.takes(Kind::Node, GeometryType::Point, &tag) {
+            continue;
         }
         let coord = Coord {
             x: f64::from(node.decimicro_lon()) / 1e7,
             y: f64::from(node.decimicro_lat()) / 1e7,
         };
-        if scan.bounds.is_some_and(|b| !contains(b, coord)) {
+        if scan.bounds.is_some_and(|b| !b.intersects(&coord)) {
             continue;
         }
-        let props = out.props("node", &scan.columns, tag);
+        let props = out.props(Kind::Node, &scan.columns, tag);
         out.push(SourceFeature {
-            id: feature_id(node.id(), 1),
+            id: Kind::Node.feature_id(node.id()),
             geometry: Geometry::Point(coord),
             props,
         })?;
@@ -744,7 +743,7 @@ fn read_ways(
     scan: &Scan,
     block: &Block,
     keys: &[Option<TagKey<'_>>],
-    lookup: &mut Lookup<'_>,
+    lookup: &mut Locator<StoreReader<'_>>,
     out: &mut Batches<'_>,
 ) -> SourceResult<u64> {
     let mut missing = 0;
@@ -752,11 +751,10 @@ fn read_ways(
         if way.tags().len() == 0 {
             continue;
         }
-        let refs = way.refs();
+        let mut refs = way.refs();
         let count = refs.len();
-        let mut ends = way.refs();
-        let first = ends.next();
-        let last = ends.last().or(first);
+        let first = refs.next();
+        let last = refs.last().or(first);
         let area = count >= 4 && first == last && scan.areas.is_area(way.tags());
         let geometry = if area {
             GeometryType::Polygon
@@ -764,17 +762,8 @@ fn read_ways(
             GeometryType::Line
         };
         let tag = |pos: usize| way.tag(keys[pos]?);
-        if let Some(condition) = &scan.condition {
-            let row = ObjectRow {
-                columns: &scan.columns,
-                values: PhantomData,
-                osm_type: "way",
-                tag: &tag,
-                geometry,
-            };
-            if !matches(condition, &row) {
-                continue;
-            }
+        if !scan.takes(Kind::Way, geometry, &tag) {
+            continue;
         }
         let line = match lookup.line_string(&way) {
             Ok(line) => line,
@@ -785,19 +774,18 @@ fn read_ways(
             Err(GeometryError::TooFewNodes | GeometryError::NotClosed | GeometryError::NoRing) => continue,
         };
         if let Some(bounds) = scan.bounds
-            && !line.0.iter().any(|c| contains(bounds, *c))
-            && !crosses(bounds, &line.0)
+            && !line.bounding_rect().is_some_and(|r| r.intersects(&bounds))
         {
             continue;
         }
-        let geometry = if area && line.0.first() == line.0.last() {
+        let geometry = if area && line.is_closed() {
             Geometry::Polygon(Polygon::new(line, Vec::new()))
         } else {
             Geometry::Line(line)
         };
-        let props = out.props("way", &scan.columns, tag);
+        let props = out.props(Kind::Way, &scan.columns, tag);
         out.push(SourceFeature {
-            id: feature_id(way.id(), 2),
+            id: Kind::Way.feature_id(way.id()),
             geometry,
             props,
         })?;
@@ -810,7 +798,7 @@ fn read_ways(
 fn read_relations_of(
     scan: &Scan,
     relations: &[Relation],
-    lookup: &mut Lookup<'_>,
+    lookup: &mut Locator<StoreReader<'_>>,
     out: &mut Batches<'_>,
 ) -> SourceResult<()> {
     let (mut incomplete, mut failed) = (0u64, 0u64);
@@ -829,7 +817,7 @@ fn read_relations_of(
             continue;
         };
         if let Some(bounds) = scan.bounds
-            && !crosses(bounds, area.0.iter().flat_map(|p| &p.exterior().0))
+            && !area.bounding_rect().is_some_and(|r| r.intersects(&bounds))
         {
             continue;
         }
@@ -839,9 +827,9 @@ fn read_relations_of(
         } else {
             Geometry::Polygons(polygons)
         };
-        let props = out.props("relation", &scan.columns, |pos| relation.values[pos].as_deref());
+        let props = out.props(Kind::Relation, &scan.columns, |pos| relation.values[pos].as_deref());
         out.push(SourceFeature {
-            id: feature_id(relation.id, 3),
+            id: Kind::Relation.feature_id(relation.id),
             geometry,
             props,
         })?;
@@ -856,29 +844,6 @@ fn read_relations_of(
         debug!(osm.relations = failed, "Skipped relations whose ways make no area");
     }
     Ok(())
-}
-
-/// Whether `c` is within `bounds`, edges included.
-fn contains(bounds: Bounds, c: Coord<f64>) -> bool {
-    (bounds.left..=bounds.right).contains(&c.x) && (bounds.bottom..=bounds.top).contains(&c.y)
-}
-
-/// Whether the bounding box of `coords` overlaps `bounds`, for geometries with no node inside them.
-fn crosses<'c>(bounds: Bounds, coords: impl IntoIterator<Item = &'c Coord<f64>>) -> bool {
-    let (mut min, mut max) = (
-        Coord {
-            x: f64::MAX,
-            y: f64::MAX,
-        },
-        Coord {
-            x: f64::MIN,
-            y: f64::MIN,
-        },
-    );
-    for c in coords {
-        (min.x, min.y, max.x, max.y) = (min.x.min(c.x), min.y.min(c.y), max.x.max(c.x), max.y.max(c.y));
-    }
-    min.x <= bounds.right && max.x >= bounds.left && min.y <= bounds.top && max.y >= bounds.bottom
 }
 
 impl fmt::Debug for OsmSource {

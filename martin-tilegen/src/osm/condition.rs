@@ -216,22 +216,31 @@ fn value<'a>(term: &'a Term, row: &'a impl Row) -> Result<Option<Value<'a>>, Unk
     Ok(match term {
         Term::Column(name) => row.column(name).map(|text| Value::Str(text.into())),
         Term::Literal(literal) => Some(literal_value(literal)),
-        Term::Length(inner) => match value(inner, row)? {
-            Some(Value::Str(text)) => Some(Value::Int(
+        Term::Length(inner) => string_function(inner, row, |text| {
+            Ok(Value::Int(
                 i64::try_from(text.chars().count()).map_err(|_too_long| Unknown)?,
-            )),
-            None => None,
-            Some(_) => return Err(Unknown),
-        },
-        Term::LowerAscii(inner) | Term::UpperAscii(inner) => match value(inner, row)? {
-            Some(Value::Str(text)) if matches!(term, Term::LowerAscii(_)) => {
-                Some(Value::Str(text.to_ascii_lowercase().into()))
-            }
-            Some(Value::Str(text)) => Some(Value::Str(text.to_ascii_uppercase().into())),
-            None => None,
-            Some(_) => return Err(Unknown),
-        },
+            ))
+        })?,
+        Term::LowerAscii(inner) => {
+            string_function(inner, row, |text| Ok(Value::Str(text.to_ascii_lowercase().into())))?
+        }
+        Term::UpperAscii(inner) => {
+            string_function(inner, row, |text| Ok(Value::Str(text.to_ascii_uppercase().into())))?
+        }
     })
+}
+
+/// The value of `f` applied to the text of `inner` in `row`, `None` for null; unknown if `inner` is not text.
+fn string_function<'a>(
+    inner: &'a Term,
+    row: &'a impl Row,
+    f: impl FnOnce(&str) -> Result<Value<'a>, Unknown>,
+) -> Result<Option<Value<'a>>, Unknown> {
+    match value(inner, row)? {
+        Some(Value::Str(text)) => f(&text).map(Some),
+        None => Ok(None),
+        Some(_) => Err(Unknown),
+    }
 }
 
 /// The value of a literal; an unsigned integer too large for `i64` is NaN, which compares as unknown.

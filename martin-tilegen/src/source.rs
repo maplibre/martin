@@ -231,6 +231,15 @@ pub trait FeatureSource: Sync {
             .map(|_| Box::new(Stateless(self)) as Box<dyn FeatureReader + '_>)
             .collect())
     }
+
+    /// Called once every partition is read, before any tile is written: fails if the reads may have left
+    /// features out.
+    ///
+    /// # Errors
+    /// If the source cannot vouch for what it read.
+    fn finish(&self) -> SourceResult<()> {
+        Ok(())
+    }
 }
 
 /// What one reader thread reads partitions through; see [`FeatureSource::open_readers`].

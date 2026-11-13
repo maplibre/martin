@@ -235,7 +235,7 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
 
 # Bless the OpenStreetMap PBF tests, including the end-to-end ones
 bless-osm: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} -p martin-tilegen --features osm --test osm
+    {{insta_test}} -p martin-tilegen --features osm --test osm --test osm_edge_cases
     cargo build -p martin -p mbtiles --features martin/unstable-osm
     {{insta_test}} --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
@@ -765,7 +765,7 @@ test-cog-py:
 
 # Run the OpenStreetMap PBF tests, including the end-to-end ones
 test-osm: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run -p martin-tilegen --features osm --test osm
+    cargo nextest run -p martin-tilegen --features osm --test osm --test osm_edge_cases
     cargo build -p martin -p mbtiles --features martin/unstable-osm
     cargo nextest run --package martin-e2e-tests --features test-osm --test martin_cp_osm
 
