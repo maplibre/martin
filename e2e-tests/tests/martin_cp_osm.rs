@@ -135,3 +135,33 @@ async fn osm_and_database_sources_in_one_run_are_refused() {
         .await;
     insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR `--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`");
 }
+
+#[tokio::test]
+async fn a_file_with_node_ids_out_of_order_is_refused() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    let path = fixture("osm/unsorted.osm.pbf");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                unsorted:
+                  path: {path}
+                  layers:
+                    everything: {{}}
+        ", path = path.display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let stderr = MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    let last = stderr.lines().last().unwrap_or_default();
+    insta::assert_snapshot!(last.replace(&path.display().to_string(), "unsorted.osm.pbf"), @"ERROR Cannot read unsorted.osm.pbf: node IDs must be loaded in ascending order: 1 after 2");
+    assert!(!output.exists());
+}

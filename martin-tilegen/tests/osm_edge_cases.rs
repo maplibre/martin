@@ -176,11 +176,11 @@ fn block(text: &str) -> Vec<u8> {
     out.0
 }
 
-fn write_pbf(path: &Path, sorted: bool, opl: &str) {
+fn write_pbf(path: &Path, optional_features: &[&str], opl: &str) {
     let mut header = Pb::default();
     header.bytes(4, b"OsmSchema-V0.6");
-    if sorted {
-        header.bytes(5, b"Sort.Type_then_ID");
+    for feature in optional_features {
+        header.bytes(5, feature.as_bytes());
     }
     let mut file = Vec::new();
     blob(&mut file, "OSMHeader", &header.0);
@@ -200,9 +200,22 @@ fn wkt(geometry: Geometry) -> String {
     }
 }
 
-fn read_with(path: &Path, node_store: NodeStore) -> String {
+#[derive(Clone, Copy)]
+enum Store {
+    Memory,
+    Paged,
+}
+
+fn read(store: Store, optional_features: &[&str], opl: &str) -> Result<String, String> {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(&path, optional_features, opl);
+    let node_store = match store {
+        Store::Memory => NodeStore::Memory,
+        Store::Paged => NodeStore::Paged(dir.path().to_path_buf()),
+    };
     let table = OsmTable {
-        path: path.to_path_buf(),
+        path: path.clone(),
         node_store,
         bounds: None,
     };
@@ -210,10 +223,8 @@ fn read_with(path: &Path, node_store: NodeStore) -> String {
         columns: columns(&["name".to_owned()]),
         layers: vec![LayerDef::new("layer", 0..=14, GRID)],
     };
-    let source = match OsmSource::new(vec![(def, table)], 1) {
-        Ok(source) => source,
-        Err(error) => return format!("{error}").replace(&path.display().to_string(), "test.osm.pbf"),
-    };
+    let source = OsmSource::new(vec![(def, table)], 1)
+        .map_err(|error| error.to_string().replace(&path.display().to_string(), "test.osm.pbf"))?;
     let mut out = String::new();
     for partition in 0..source.partitions() {
         source
@@ -227,17 +238,15 @@ fn read_with(path: &Path, node_store: NodeStore) -> String {
             })
             .unwrap();
     }
-    out
+    Ok(out)
 }
 
-fn features(sorted: bool, opl: &str) -> String {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.osm.pbf");
-    write_pbf(&path, sorted, opl);
-    let memory = read_with(&path, NodeStore::Memory);
-    let paged = read_with(&path, NodeStore::Paged(dir.path().to_path_buf()));
-    assert_eq!(memory, paged);
-    memory
+fn features(store: Store, optional_features: &[&str], opl: &str) -> String {
+    read(store, optional_features, opl).unwrap()
+}
+
+fn read_error(store: Store, optional_features: &[&str], opl: &str) -> String {
+    read(store, optional_features, opl).unwrap_err()
 }
 
 #[test]
@@ -251,7 +260,21 @@ fn way_between_the_blocks_of_its_nodes() {
         n3 x1 y1
         n4 x0 y1
     "};
-    insta::assert_snapshot!(features(false, opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
+    insta::assert_snapshot!(features(Store::Memory, &[], opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
+}
+
+#[test]
+fn way_between_the_blocks_of_its_nodes_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=road Nn1,n2,n3,n4
+        ---
+        n3 x1 y1
+        n4 x0 y1
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &[], opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
 }
 
 #[test]
@@ -265,7 +288,21 @@ fn way_between_the_blocks_of_its_nodes_in_a_file_declared_sorted() {
         n3 x1 y1
         n4 x0 y1
     "};
-    insta::assert_snapshot!(features(true, opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
+}
+
+#[test]
+fn way_between_the_blocks_of_its_nodes_in_a_file_declared_sorted_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=road Nn1,n2,n3,n4
+        ---
+        n3 x1 y1
+        n4 x0 y1
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &["Sort.Type_then_ID"], opl), @"w10 LINESTRING(0 0,1 0,1 1,0 1)");
 }
 
 #[test]
@@ -275,7 +312,17 @@ fn way_before_its_nodes_in_one_block() {
         n1 x0 y0
         n2 x1 y0
     "};
-    insta::assert_snapshot!(features(false, opl), @"w10 LINESTRING(0 0,1 0)");
+    insta::assert_snapshot!(features(Store::Memory, &[], opl), @"w10 LINESTRING(0 0,1 0)");
+}
+
+#[test]
+fn way_before_its_nodes_in_one_block_in_the_paged_node_store() {
+    let opl = indoc! {"
+        w10 Tname=road Nn1,n2
+        n1 x0 y0
+        n2 x1 y0
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &[], opl), @"w10 LINESTRING(0 0,1 0)");
 }
 
 #[test]
@@ -289,7 +336,21 @@ fn relations_then_ways_then_nodes() {
         n2 x1 y0
         n3 x1 y1
     "};
-    insta::assert_snapshot!(features(false, opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &[], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+}
+
+#[test]
+fn relations_then_ways_then_nodes_in_the_paged_node_store() {
+    let opl = indoc! {"
+        r100 Ttype=multipolygon,name=area Mw10@outer
+        ---
+        w10 Nn1,n2,n3,n1
+        ---
+        n1 x0 y0
+        n2 x1 y0
+        n3 x1 y1
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &[], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -303,7 +364,21 @@ fn node_ids_out_of_order_fail_the_read() {
         n1 x0 y0
         n2 x1 y0
     "};
-    insta::assert_snapshot!(features(false, opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 4");
+    insta::assert_snapshot!(read_error(Store::Memory, &[], opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 4");
+}
+
+#[test]
+fn node_ids_out_of_order_fail_the_read_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n3 x1 y1
+        n4 x0 y1
+        ---
+        w10 Tname=road Nn1,n2,n3,n4
+        ---
+        n1 x0 y0
+        n2 x1 y0
+    "};
+    insta::assert_snapshot!(read_error(Store::Paged, &[], opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 4");
 }
 
 #[test]
@@ -313,7 +388,17 @@ fn node_twice_fails_the_read() {
         ---
         n1 x1 y1 Tname=b
     "};
-    insta::assert_snapshot!(features(false, opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 1");
+    insta::assert_snapshot!(read_error(Store::Memory, &[], opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 1");
+}
+
+#[test]
+fn node_twice_fails_the_read_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n1 x0 y0 Tname=a
+        ---
+        n1 x1 y1 Tname=b
+    "};
+    insta::assert_snapshot!(read_error(Store::Paged, &[], opl), @"Cannot read test.osm.pbf: node IDs must be loaded in ascending order: 1 after 1");
 }
 
 #[test]
@@ -327,7 +412,7 @@ fn relation_that_is_its_own_member() {
         ---
         r100 Ttype=multipolygon,name=self Mw10@outer,r100@
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -344,7 +429,7 @@ fn relations_that_are_members_of_each_other() {
         r100 Ttype=multipolygon,name=a Mw10@outer,r101@
         r101 Ttype=multipolygon,name=b Mw11@outer,r100@
     "};
-    insta::assert_snapshot!(features(true, opl), @"
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"
     r100 POLYGON((1 1,0 0,1 0,1 1))
     r101 POLYGON((0 1,0 0,1 1,0 1))
     ");
@@ -362,7 +447,7 @@ fn boundary_of_only_subareas_is_left_out() {
         r100 Ttype=boundary,name=sub Mw10@outer
         r101 Ttype=boundary,name=super Mr100@subarea,r101@subarea
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -376,7 +461,7 @@ fn closed_way_listed_twice_counts_once() {
         ---
         r100 Ttype=multipolygon,name=twice Mw10@outer,w10@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -391,7 +476,7 @@ fn open_way_listed_twice_counts_once() {
         ---
         r100 Ttype=multipolygon,name=twice Mw10@outer,w11@outer,w10@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -409,7 +494,7 @@ fn ring_of_open_ways_in_any_order_and_direction() {
         ---
         r100 Ttype=multipolygon,name=rev Mw11@outer,w13@outer,w10@outer,w12@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((0 1,0 0,1 0,1 1,0 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((0 1,0 0,1 0,1 1,0 1))");
 }
 
 #[test]
@@ -428,7 +513,7 @@ fn rings_touching_at_a_node_become_two_polygons() {
         ---
         r100 Ttype=multipolygon,name=eight Mw10@outer,w12@outer,w11@outer,w13@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 MULTIPOLYGON(((1 1,0 0,1 0,1 1)),((2 2,1 1,2 1,2 2)))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 MULTIPOLYGON(((1 1,0 0,1 0,1 1)),((2 2,1 1,2 1,2 2)))");
 }
 
 #[test]
@@ -447,7 +532,7 @@ fn inner_ring_is_a_hole() {
         ---
         r100 Ttype=multipolygon,name=hole Mw11@inner,w10@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r100 POLYGON((0 4,0 0,4 0,4 4,0 4),(1 1,2 2,2 1,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r100 POLYGON((0 4,0 0,4 0,4 4,0 4),(1 1,2 2,2 1,1 1))");
 }
 
 #[test]
@@ -462,7 +547,7 @@ fn relation_with_a_way_the_file_lacks_is_left_out() {
         r100 Ttype=multipolygon,name=partial Mw10@outer,w99@outer
         r101 Ttype=multipolygon,name=whole Mw10@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -478,7 +563,23 @@ fn relation_with_a_node_the_file_lacks_is_left_out() {
         r100 Ttype=multipolygon,name=lacks Mw10@outer
         r101 Ttype=multipolygon,name=whole Mw11@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
+}
+
+#[test]
+fn relation_with_a_node_the_file_lacks_is_left_out_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        n3 x1 y1
+        ---
+        w10 Nn1,n2,n99,n1
+        w11 Nn1,n2,n3,n1
+        ---
+        r100 Ttype=multipolygon,name=lacks Mw10@outer
+        r101 Ttype=multipolygon,name=whole Mw11@outer
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &["Sort.Type_then_ID"], opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -494,7 +595,7 @@ fn relation_whose_ways_do_not_close_is_left_out() {
         r100 Ttype=multipolygon,name=open Mw10@outer
         r101 Ttype=multipolygon,name=whole Mw11@outer
     "};
-    insta::assert_snapshot!(features(true, opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"r101 POLYGON((1 1,0 0,1 0,1 1))");
 }
 
 #[test]
@@ -506,7 +607,19 @@ fn way_with_a_node_the_file_lacks_is_left_out() {
         w10 Tname=road Nn1,n99
         w11 Tname=road Nn1,n2
     "};
-    insta::assert_snapshot!(features(true, opl), @"w11 LINESTRING(0 0,1 0)");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"w11 LINESTRING(0 0,1 0)");
+}
+
+#[test]
+fn way_with_a_node_the_file_lacks_is_left_out_in_the_paged_node_store() {
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=road Nn1,n99
+        w11 Tname=road Nn1,n2
+    "};
+    insta::assert_snapshot!(features(Store::Paged, &["Sort.Type_then_ID"], opl), @"w11 LINESTRING(0 0,1 0)");
 }
 
 #[test]
@@ -518,7 +631,7 @@ fn way_of_one_node_is_left_out() {
         w10 Tname=road Nn1
         w11 Tname=road Nn1,n2
     "};
-    insta::assert_snapshot!(features(true, opl), @"w11 LINESTRING(0 0,1 0)");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"w11 LINESTRING(0 0,1 0)");
 }
 
 #[test]
@@ -530,5 +643,5 @@ fn way_that_revisits_its_nodes_keeps_them() {
         ---
         w10 Tname=road Nn1,n2,n1,n2,n3
     "};
-    insta::assert_snapshot!(features(true, opl), @"w10 LINESTRING(0 0,1 0,0 0,1 0,1 1)");
+    insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"w10 LINESTRING(0 0,1 0,0 0,1 0,1 1)");
 }
