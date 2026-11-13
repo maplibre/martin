@@ -12,7 +12,7 @@ use crate::config::file::postgres::auto_publish::{
 };
 use crate::config::file::postgres::resolver::{
     SqlFuncInfoMapMap, SqlTableInfoMapMapMap, query_available_function, query_available_tables, query_schemas,
-    table_to_query,
+    resolve_bounds, table_to_query,
 };
 use crate::config::file::postgres::utils::{find_info, find_schema_info};
 use crate::config::file::postgres::{
@@ -215,6 +215,16 @@ impl PostgresAutoDiscoveryBuilder {
     #[must_use]
     pub const fn auto_bounds(&self) -> BoundsCalcType {
         self.auto_bounds
+    }
+
+    /// Fills in the bounds of table source `id` without configured ones, as this connection's `auto_bounds` says.
+    ///
+    /// # Errors
+    ///
+    /// If querying the table's SRID or extent fails.
+    pub async fn resolve_bounds(&self, id: &str, info: &mut TableInfo) -> PostgresResult<()> {
+        let grid = self.tile_grid_for(info.tile_grid.as_deref());
+        resolve_bounds(id, info, &self.pool, self.auto_bounds, grid).await
     }
 
     #[must_use]

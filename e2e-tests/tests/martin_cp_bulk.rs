@@ -782,6 +782,7 @@ async fn writes_the_mbtiles_type_and_metadata_edits() {
         .run()
         .await;
     insta::assert_snapshot!(metadata_listing(&output).await, @r#"
+    bounds = -179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
     format = mlt
     json = {
       "vector_layers": [
@@ -1105,6 +1106,7 @@ async fn logs_each_finished_stage_without_a_terminal() {
     ] }, {
         insta::assert_snapshot!(log, @"
         INFO Starting Martin tile generator martin.version=[VERSION]
+        INFO No bbox specified, using source bounds bounds=-179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
         INFO Prepared partitions partitions=1 elapsed=[ELAPSED]
         INFO Rendered features features=30 sort.runs=1 sort.spilled=4.7 KiB elapsed=[ELAPSED]
         INFO Wrote tiles tiles=38 tiles.bytes=2.6 KiB elapsed=[ELAPSED]
@@ -1160,6 +1162,7 @@ async fn skips_a_source_with_no_zoom_in_range() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!(metadata, @r#"
         agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
+        bounds = -179.2731475830078,-80.46177673339844,179.11187744140625,84.93092346191406
         format = mlt
         generator = martin cp v[VERSION] (bulk)
         hash_algorithm = md5
@@ -1816,6 +1819,125 @@ async fn refuses_zooms_no_layer_has() {
 }
 
 #[tokio::test]
+async fn renders_the_union_of_the_source_bounds_without_a_bbox() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  bounds: [0, 0, 10, 10]
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  bounds: [20, 20, 30, 30]
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let bounds: Vec<String> = metadata_listing(&output)
+        .await
+        .lines()
+        .filter(|line| line.starts_with("bounds"))
+        .map(str::to_owned)
+        .collect();
+    let listing = format!("{}\n{}", bounds.join("\n"), tile_listing(&output).await);
+    insta::assert_snapshot!(listing, @"
+    bounds = 0,0,30,30
+    0/0/0 299 bytes
+    1/1/0 105 bytes
+    1/1/1 140 bytes
+    2/2/1 81 bytes
+    2/2/2 79 bytes
+    3/4/3 33 bytes
+    3/4/4 60 bytes
+    ");
+}
+
+#[tokio::test]
+async fn renders_the_computed_bounds_of_a_table_without_a_bbox() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              auto_bounds: calc
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("2")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let bounds: Vec<String> = metadata_listing(&output)
+        .await
+        .lines()
+        .filter(|line| line.starts_with("bounds"))
+        .map(str::to_owned)
+        .collect();
+    let listing = format!("{}\n{}", bounds.join("\n"), tile_listing(&output).await);
+    insta::assert_snapshot!(listing, @"
+    bounds = -2,-1,142.84131509869133,45
+    0/0/0 412 bytes
+    1/0/0 174 bytes
+    1/0/1 192 bytes
+    1/1/0 182 bytes
+    1/1/1 454 bytes
+    2/1/1 165 bytes
+    2/1/2 216 bytes
+    2/2/1 172 bytes
+    2/2/2 473 bytes
+    2/3/2 59 bytes
+    ");
+}
+
+#[tokio::test]
 async fn bbox_tiles_keep_every_feature_they_cover() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
@@ -2041,6 +2163,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
             postgres:
               connection_string: ${DATABASE_URL}
               auto_publish: false
+              auto_bounds: skip
               tables:
                 table_source:
                   schema: public
@@ -2155,11 +2278,11 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3951 features.output=3834
-    INFO Ran `merge_polygons` layer.id=merged tiles=1182 features.input=3834 features.output=2840
-    INFO Ran `thinning` layer.id=merged tiles=91 features.input=618 features.output=481
-    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
-    INFO Ran `limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
+    INFO Ran `merge_lines` layer.id=merged tiles=1167 features.input=3927 features.output=3810
+    INFO Ran `merge_polygons` layer.id=merged tiles=1167 features.input=3810 features.output=2821
+    INFO Ran `thinning` layer.id=merged tiles=90 features.input=608 features.output=479
+    INFO Ran `merge_multi` layer.id=merged tiles=1167 features.input=2692 features.output=2630
+    INFO Ran `limit` layer.id=merged tiles=1167 features.input=2630 features.output=2596
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2258,8 +2381,8 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
         "multi-line": 99,
         "multi-point": 35,
         "multi-polygon": 61,
-        "point": 130,
-        "polygon": 1845,
+        "point": 128,
+        "polygon": 1836,
     }
     "#);
 }

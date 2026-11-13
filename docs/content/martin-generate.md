@@ -123,7 +123,7 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 | `--min-zoom`    | `0`                                                               | Lowest zoom, raised by a source's `minzoom`                                                           |
 | `--max-zoom`    | `14`                                                              | Highest zoom, lowered by a source's `maxzoom`                                                         |
 | `--zoom-levels` |                                                                   | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7`                |
-| `--bbox`        | whole world                                                       | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
+| `--bbox`        | the sources' `bounds`, else whole world                           | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
 | `--memory`      | `2GiB`                                                            | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                    |
 | `--temp-dir`    | system temp dir                                                   | Where sorted runs go, repeatable to spread them over several disks                                    |
 | `--threads`     | CPU count                                                         | Worker threads                                                                                        |
@@ -137,7 +137,8 @@ for `.mbtiles` output only. Bulk mode refuses `--url-query`, `--on-duplicate`, `
 workers are `--threads`), `--save-config`, and `max_feature_count` in the config or as
 `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
-`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
+`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. Without it, one box
+holding the `bounds` of every source picks them, or the whole world if a source has none.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count.
 For a small box, raise `--min-zoom` to keep the scan close to it.
