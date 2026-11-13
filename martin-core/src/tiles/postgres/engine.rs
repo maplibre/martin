@@ -40,7 +40,7 @@ impl PostgresEngineInfo {
     ) -> PostgresResult<TileData> {
         let block = TileRect::new(xyz.z(), xyz.x(), xyz.y(), xyz.x(), xyz.y());
         let tiles = self.render(pool, source_id, xyz, block).await?;
-        Ok(tiles.into_iter().next().map(|(_, data)| data).unwrap_or_default())
+        Ok(tiles.into_iter().next().map_or_default(|(_, data)| data))
     }
 
     /// Every tile of the [`prefetch`](Self::prefetch) block holding `xyz`, empty ones included, or
