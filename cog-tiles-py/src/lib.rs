@@ -11,7 +11,7 @@ use pyo3_stub_gen::{define_stub_info_gatherer, module_variable};
 
 /// Web map tiles and stitched rasters from tile-aligned Cloud Optimized `GeoTIFFs`.
 #[pymodule(name = "cog_tiles")]
-fn _cog_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn cog_tiles_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py::open, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_mosaic, m)?)?;
     m.add_function(wrap_pyfunction!(py::open_async, m)?)?;
