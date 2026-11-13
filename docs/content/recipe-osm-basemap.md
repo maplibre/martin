@@ -20,7 +20,13 @@ attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
     curl -LO https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
     ```
 
-2. Save the configuration below as `basemap.yaml`, next to the extract.
+2. Save this as `basemap.yaml`, next to the extract:
+
+    ??? example "basemap.yaml"
+
+        ```yaml
+        --8<-- "osm-basemap.yaml"
+        ```
 
 3. Generate the tileset:
 
@@ -40,12 +46,6 @@ attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
 | Germany, 2026-11-11         | 4.9 GB   | 71,888,220 | 241,142 | 3m 15s | 9.5 GB  |
 
 Measured on 24 threads, with the extract in the page cache.
-
-## Configuration
-
-```yaml
---8<-- "osm-basemap.yaml"
-```
 
 ## What it leaves out
 
