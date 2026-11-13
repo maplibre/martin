@@ -80,7 +80,8 @@ impl<'p> TileEncoding<'p> {
         encoder.encode_batch(&settings, &self.dedup, batch)
     }
 
-    /// Fills `metadata` with the zooms, format and `vector_layers` that `encoders` produced.
+    /// Fills `metadata` with the zooms, format and `vector_layers` that `encoders` produced. A layer
+    /// `metadata` already lists keeps that entry, and listed layers no encoder produced stay listed.
     pub(crate) fn complete_metadata(&self, metadata: &mut TileJSON, encoders: &[TileEncoder]) {
         let mut stats = vec![LayerStats::default(); self.infos.len()];
         for encoder in encoders {
@@ -93,22 +94,27 @@ impl<'p> TileEncoding<'p> {
         metadata.maxzoom = zooms.map(|z| z.1).max();
         let format = Format::from(self.format).metadata_format_value();
         metadata.other.insert("format".to_owned(), format.into());
-        metadata.vector_layers = Some(
-            self.infos
-                .iter()
-                .zip(&stats)
-                .filter(|(_, stats)| stats.zooms.is_some())
-                .map(|(info, stats)| {
-                    let fields = stats
-                        .fields
-                        .iter()
-                        .map(|(name, &kind)| (name.clone(), field_type(kind).to_owned()));
-                    let mut layer = VectorLayer::new(info.name.clone(), fields.collect());
-                    (layer.minzoom, layer.maxzoom) = stats.zooms.unzip();
-                    layer
-                })
-                .collect(),
-        );
+        let mut given = metadata.vector_layers.take().unwrap_or_default();
+        let mut layers: Vec<VectorLayer> = self
+            .infos
+            .iter()
+            .zip(&stats)
+            .filter(|(_, stats)| stats.zooms.is_some())
+            .map(|(info, stats)| {
+                if let Some(index) = given.iter().position(|layer| layer.id == info.name) {
+                    return given.remove(index);
+                }
+                let fields = stats
+                    .fields
+                    .iter()
+                    .map(|(name, &kind)| (name.clone(), field_type(kind).to_owned()));
+                let mut layer = VectorLayer::new(info.name.clone(), fields.collect());
+                (layer.minzoom, layer.maxzoom) = stats.zooms.unzip();
+                layer
+            })
+            .collect();
+        layers.append(&mut given);
+        metadata.vector_layers = Some(layers);
     }
 }
 
