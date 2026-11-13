@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, LayerDef, RuleDef, SortDef, TableDef,
-    ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, IdOrder, LayerDef, RuleDef, SortDef,
+    TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -15,6 +15,7 @@ use tilejson::Bounds;
 use tracing::warn;
 
 use super::{GenerateError, GenerateResult};
+use crate::config::args::OrderByType;
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
     Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Literal, MultiGeometry, OutputGeometry, PerFeature,
@@ -33,6 +34,8 @@ pub struct LowerOptions {
     pub bounds: Option<Bounds>,
     /// MLT encoder settings, if not the layer default.
     pub encoder: Option<EncoderConfig>,
+    /// The connection's `order_by`, which orders the features of a table without `layers` by its `id_column`.
+    pub order_by: Option<OrderByType>,
 }
 
 /// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when the
@@ -78,6 +81,13 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
     let layers = match info.layers.as_deref() {
         None => vec![LayerDef {
             name: info.layer_id.clone().unwrap_or_else(|| id.to_owned()),
+            id_order: options
+                .order_by
+                .filter(|_| info.id_column.is_some())
+                .map(|order| match order {
+                    OrderByType::IdAsc => IdOrder::Ascending,
+                    OrderByType::IdDesc => IdOrder::Descending,
+                }),
             ..defaults
         }],
         Some(layers) => {
@@ -184,6 +194,7 @@ fn lower_layer(
                 descending: key.descending,
             })
             .collect(),
+        id_order: None,
         per_tile: lower_per_tile(
             id,
             name,
@@ -568,6 +579,7 @@ mod tests {
                 zooms,
                 bounds: None,
                 encoder: None,
+                order_by: None,
             },
         )
     }
@@ -593,6 +605,7 @@ mod tests {
             zooms: 0..=8,
             bounds: Some(Bounds::new(-10.0, -5.0, 10.0, 5.0)),
             encoder: None,
+            order_by: None,
         };
         let scan = lower_table("roads_source", info, &options)
             .expect("lowers")
@@ -651,6 +664,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    id_order: None,
                     per_tile: [],
                 },
             ],
@@ -705,6 +719,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    id_order: None,
                     per_tile: [],
                 },
             ],
@@ -804,6 +819,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    id_order: None,
                     per_tile: [],
                 },
                 LayerDef {
@@ -835,6 +851,7 @@ mod tests {
                     attributes: None,
                     rules: [],
                     sort_by: [],
+                    id_order: None,
                     per_tile: [],
                 },
                 LayerDef {
@@ -866,6 +883,7 @@ mod tests {
                     attributes: All,
                     rules: [],
                     sort_by: [],
+                    id_order: None,
                     per_tile: [],
                 },
             ],

@@ -590,6 +590,7 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         zooms: options.zooms.clone(),
         bounds: options.bbox,
         encoder: None,
+        order_by: None,
     };
     let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;
@@ -631,6 +632,7 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
             info.clone(),
             &LowerOptions {
                 encoder,
+                order_by: config.postgres[*pool_idx].order_by,
                 ..lower.clone()
             },
         )?);

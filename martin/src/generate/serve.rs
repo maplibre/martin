@@ -39,6 +39,7 @@ pub fn engine_info(
         zooms: 0..=MAX_ZOOM,
         bounds: None,
         encoder: None,
+        order_by: None,
     };
     let table =
         lower_table(id, info.clone(), &options)?.ok_or(GenerateError::NoLayers(info.minzoom.unwrap_or(0), max_zoom))?;
