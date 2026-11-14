@@ -31,6 +31,8 @@ exceptions = [
     { crate = "target-lexicon", allow = ["Apache-2.0 WITH LLVM-exception"] },
     # cog-tiles-py -> pyo3-stub-gen -> rustpython-parser, only used to write the Python stub
     { crate = "unicode_names2", allow = ["Unicode-DFS-2016"] },
+    # martin-core -> mln-rs; text shaping ported from FreeType, HarfBuzz and ICU, under their permissive licenses
+    { crate = "mln-rs-text", allow = ["FTL", "MIT-Modern-Variant", "ICU"] },
     # martin `fips` feature -> rustls -> aws-lc-rs; the FIPS-validated AWS-LC module keeps the OpenSSL licence
     { crate = "aws-lc-fips-sys", allow = ["OpenSSL"] },
 ]
@@ -90,7 +92,8 @@ unknown-registry = "deny"
 unknown-git = "deny"
 
 # If git deps are ever needed, they must be explicitly allowed here
-allow-git = []
+# mln-rs, until a release accepts rusqlite 0.39 (louwers/mln-rs#456)
+allow-git = ["https://github.com/CommanderStorm/maplibre-native-next"]
 
 [graph]
 targets = [

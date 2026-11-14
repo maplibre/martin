@@ -147,9 +147,14 @@ async fn mesa_caches_shaders_in_a_private_directory_when_its_default_is_read_onl
 
 #[tokio::test]
 async fn maplibre_logs_under_its_own_target() {
-    let cassette = Cassette::serving(UPSTREAMS).await;
-    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
-    let maplibre_demo = maplibre_demo.display();
+    let styles = tempfile::tempdir().expect("failed to create a temp dir");
+    let version_7 = styles.path().join("version_7.json");
+    std::fs::write(
+        &version_7,
+        r##"{"version": 7, "sources": {}, "layers": [{"id": "land", "type": "background", "paint": {"background-color": "#88aa66"}}]}"##,
+    )
+    .expect("failed to write the style");
+    let version_7 = version_7.display();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
             styles:
@@ -157,30 +162,17 @@ async fn maplibre_logs_under_its_own_target() {
                 enabled: true
                 workers: 1
               sources:
-                maplibre_demo: {maplibre_demo}
+                version_7: {version_7}
         "})
         .env("RUST_LOG", "martin=info,maplibre_native=info")
         .start()
         .await
         .expect("failed to start martin");
 
-    for path in [
-        "/style/maplibre_demo/static/0,0,0/200x200.png",
-        "/style/maplibre_demo/0/0/0.png",
-        "/style/maplibre_demo/3/4/2.png",
-    ] {
-        assert_eq!(martin.get(path).await.status(), 200, "{path}");
-    }
+    assert_eq!(martin.get("/style/version_7/0/0/0.png").await.status(), 200);
 
     martin.stop().await;
-    insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
-        insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
-        INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
-        ");
-    });
-    cassette.assert_no_misses();
+    insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @" WARN current renderer implementation only supports style spec version 8; using an outdated style will cause rendering errors maplibre.event=ParseStyle maplibre.code=-1");
 }
 
 #[tokio::test]
@@ -1608,7 +1600,7 @@ async fn assert_overlay_matches_its_reference(scenario: &Path, camera: &str, gro
         .and_then(std::ffi::OsStr::to_str)
         .expect("a scenario file has a name");
     assert_image_matches(
-        fixture("static_overlays").join(group).join(format!("{name}.png")),
+        reference("static_overlays", &format!("{group}/{name}.png")),
         response.body(),
     );
 

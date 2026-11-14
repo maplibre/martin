@@ -90,7 +90,7 @@ overlay = ["dep:geojson", "dep:strum"]
 rendering = [
     "resources",
     "overlay",
-    "dep:maplibre-native-ffi",
+    "dep:mln-rs",
     "dep:flume",
     "dep:image",
     "dep:serde_json",
@@ -128,7 +128,7 @@ test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-maplibre-native-ffi = { workspace = true, optional = true, features = ["opengl"] }
+mln-rs = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
@@ -212,6 +212,10 @@ testcontainers-modules.workspace = true
 tokio.workspace = true
 url.workspace = true
 wiremock.workspace = true
+
+[[example]]
+name = "render-bench"
+required-features = ["rendering"]
 
 [[example]]
 name = "pmtiles-tileserver"

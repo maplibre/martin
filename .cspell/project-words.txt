@@ -198,3 +198,5 @@ zstd
 zune
 ctid
 quadkey
+libvulkan
+webgpu

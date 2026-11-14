@@ -96,15 +96,6 @@
       enabled: false,
     },
     {
-      // The rendering jobs stay on ubuntu-24.04 (#3852): on 26.04 the prebuilt
-      // maplibre_native amalgam segfaults in libuv 1.51. Drop this once rendering
-      // goes through maplibre-native-ffi (#3849).
-      matchDatasources: ['github-runners'],
-      matchPackageNames: ['ubuntu'],
-      matchCurrentValue: '24.04',
-      enabled: false,
-    },
-    {
       // Pinned to an unreleased Node 24 commit after v2.0.0, which renovate reads as a
       // v2.0.0 prerelease and tries to "update" back to the Node 20 tag.
       matchManagers: ['github-actions'],

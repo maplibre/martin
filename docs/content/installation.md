@@ -208,4 +208,4 @@ cargo install martin --locked --features fips
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`rendering`**: This feature is **not available on Windows**. Martin only renders on Linux so far. For updates, see [`maplibre/maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi).
+- **`rendering`**: This feature is **not available on Windows**. Martin only renders on Linux so far.

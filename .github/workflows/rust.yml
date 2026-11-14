@@ -141,8 +141,7 @@ jobs:
     name: Style rendering tests
     permissions:
       contents: read
-    # TODO: 26.04 once rendering moves to maplibre-native-ffi; the prebuilt maplibre_native amalgam segfaults in libuv 1.51
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs:
       - lint-rust
@@ -184,8 +183,7 @@ jobs:
     name: OGC API - Maps conformance
     permissions:
       contents: read
-    # TODO: 26.04 once rendering moves to maplibre-native-ffi; the prebuilt maplibre_native amalgam segfaults in libuv 1.51
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     needs:
       - lint-rust
