@@ -14,7 +14,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     Rendering is **not** part of the default build.
-    It relies on [MapLibre Native](https://github.com/maplibre/maplibre-native-ffi), which needs EGL and OpenGL ES at runtime.
+    It renders with [mln-rs](https://github.com/louwers/mln-rs), a Rust port of MapLibre Native, which needs EGL and OpenGL ES at runtime.
     It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise.
     We only ship it where we control the runtime environment.
     You get it by either:
@@ -27,7 +27,6 @@ as XYZ tiles, or as a single static image at a chosen camera.
     Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
-      To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-ffi>.
     - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
@@ -160,6 +159,13 @@ Every fetched resource is compressed and stored there, and every fetch looks it 
 A cached resource spares a request only while its `Cache-Control` says it is fresh, and Martin sends none unless `cache_control` is set in the [configuration file](../config-file/index.md).
 When the style's sources are Martin's own, the tiles are already a local read away, so `ambient_cache_size_mb: 0` saves that work.
 Keep it for styles that fetch from other servers.
+
+### Graphics backend
+
+Renderers draw through OpenGL ES by default.
+Set `MARTIN_MLN_BACKEND` to `vulkan` or `webgpu` to draw through Vulkan or WebGPU instead.
+Vulkan needs a Vulkan loader and driver (`libvulkan1` and `mesa-vulkan-drivers` on Debian and Ubuntu).
+On a GPU with several workers, Vulkan renders many times more tiles per second than OpenGL ES.
 
 ### Shader cache
 

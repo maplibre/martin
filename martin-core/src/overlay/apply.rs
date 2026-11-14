@@ -1,12 +1,11 @@
 //! [`OverlaySpec`] -> sources and layers added to a renderer's map.
 
 use geojson::{Geometry, GeometryValue};
-use maplibre_native_ffi::MapHandle;
 use serde_json::{Map, Value, json};
 
 use crate::overlay::{ApplyError, Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec};
 use crate::resources::styles::StyleError;
-use crate::resources::styles::renderer::Renderer;
+use crate::resources::styles::renderer::{self, MapHandle, Renderer};
 
 /// Prefix prepended to every synthetic source/layer id before it reaches maplibre.
 /// Guarantees overlay ids cannot collide with the base style.
@@ -35,10 +34,10 @@ impl AppliedOverlay {
 /// removal only leaves an id that the next overlay replaces, so failures are not awaited.
 fn remove(map: &MapHandle, layer_ids: Vec<String>, source_ids: Vec<String>) {
     for id in layer_ids.into_iter().rev() {
-        let _ = map.discarding().remove_style_layer(&id);
+        renderer::remove_layer(map, &id);
     }
     for id in source_ids.into_iter().rev() {
-        let _ = map.discarding().remove_style_source(&id);
+        renderer::remove_source(map, &id);
     }
 }
 
@@ -136,7 +135,7 @@ impl<'r> OverlayGuard<'r> {
         let source = json!({"type": "geojson", "data": geometry});
         let map = self.renderer.map();
         self.renderer
-            .command(map.add_style_source_json(&source_id, &source.to_string()))
+            .command(renderer::add_source_json(map, &source_id, &source.to_string()))
             .map_err(|e| match e {
                 StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError {
                     id: format!("f{index}"),
@@ -150,7 +149,7 @@ impl<'r> OverlayGuard<'r> {
             let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
             let layer = layer_json(kind, &layer_id, &source_id, &props);
             self.renderer
-                .command(map.add_style_layer_json(&layer.to_string(), ""))
+                .command(renderer::add_layer_json(map, &layer.to_string()))
                 .map_err(|e| match e {
                     StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError {
                         id: format!("f{index}-{kind}"),

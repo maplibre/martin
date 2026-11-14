@@ -220,6 +220,13 @@ Rendering is stable as of 2.0. The configuration is unchanged. Set `styles.rende
 
 See [Server-side raster tile rendering](sources-styles/rendering.md) and [Installation](installation.md).
 
+### Static images follow the style's projection
+
+Martin 2.0 renders with [mln-rs](https://github.com/louwers/mln-rs) instead of MapLibre Native's C++ core.
+Static images now draw a style's `"projection": {"type": "globe"}` as a globe, as MapLibre GL JS does; 1.x drew them flat.
+To keep flat static images, remove `projection` from the style or set it to `{"type": "mercator"}`.
+Rendered tiles are unchanged.
+
 ### x86_64 binaries require an x86-64-v3 CPU
 
 The prebuilt x86_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).

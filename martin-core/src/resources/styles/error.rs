@@ -3,6 +3,8 @@ use std::time::Duration;
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::overlay::ApplyError;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::resources::styles::renderer::EngineError;
 
 /// Errors that can occur during style processing.
 #[derive(thiserror::Error, Debug)]
@@ -23,7 +25,7 @@ pub enum StyleError {
     /// `MapLibre` failed to produce a frame.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
-    RenderingError(#[from] maplibre_native_ffi::Error),
+    RenderingError(#[from] EngineError),
 
     /// `MapLibre` did not answer a call within the time it is given.
     #[cfg(all(feature = "rendering", target_os = "linux"))]

@@ -6,12 +6,11 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use image::RgbaImage as Image;
-use maplibre_native_ffi::{CameraOptions, LatLng, MapMode};
 use tokio::sync::oneshot;
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::renderer::{Renderer, Runtime, WorkerDevice};
+use crate::resources::styles::renderer::{CameraOptions, LatLng, MapMode, Renderer, Runtime, WorkerDevice, lat_lng};
 use crate::resources::styles::{StyleError, TileSize};
 
 /// A style to render: a file, or a style document already in memory.
@@ -440,7 +439,7 @@ fn tile_center(z: u8, x: u32, y: u32) -> LatLng {
     let n = f64::from(1_u32 << z);
     let lng = (f64::from(x) + 0.5) / n * 360.0 - 180.0;
     let lat = (PI * (1.0 - 2.0 * (f64::from(y) + 0.5) / n)).sinh().atan().to_degrees();
-    LatLng::new(lat, lng)
+    lat_lng(lat, lng)
 }
 
 /// How many renderers a tile worker keeps loaded when none is configured.
@@ -640,7 +639,7 @@ impl StaticRenderer {
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
         load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
         let camera = CameraOptions {
-            center: Some(LatLng::new(params.lat, params.lon)),
+            center: Some(lat_lng(params.lat, params.lon)),
             zoom: Some(params.zoom),
             bearing: Some(params.bearing),
             pitch: Some(params.pitch),
