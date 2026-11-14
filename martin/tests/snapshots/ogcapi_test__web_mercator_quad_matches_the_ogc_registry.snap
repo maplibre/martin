@@ -105,7 +105,7 @@ expression: tile_matrix_set
     {
       "id": "7",
       "scaleDenominator": 4367830.187724359,
-      "cellSize": 1222.9924525628203,
+      "cellSize": 1222.9924525628205,
       "pointOfOrigin": [
         -20037508.34278925,
         20037508.34278925

@@ -148,7 +148,6 @@ lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
 map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
-maplibre-native-ffi = "0.202610.3"
 martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
 martin-core = { path = "./martin-core", version = "0.17.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
@@ -158,6 +157,7 @@ mbtiles = { path = "./mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
+mln-rs = { git = "https://github.com/CommanderStorm/maplibre-native-next", branch = "rusqlite-range" }
 mlt-core = { version = "0.22.1", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
@@ -201,7 +201,7 @@ schemars = { version = "1.2", default-features = false, features = ["chrono04", 
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", features = ["miette", "properties"] }
-serde_json = "1"
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "preserve_order"] }
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 similar = "3.0.0"
 size_format = "1.0.2"
