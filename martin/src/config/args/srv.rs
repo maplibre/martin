@@ -48,7 +48,7 @@ pub struct SrvArgs {
     pub preferred_encoding: Option<PreferredEncoding>,
     /// Control Martin web UI. [DEFAULT: enable]
     #[arg(short = 'u', long = "webui")]
-    #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
     /// If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
     /// will be embedded in the TileJSON `tiles` URL, with the set identifier.
@@ -80,7 +80,7 @@ pub(crate) fn parse_byte_size(s: &str) -> Result<u64, String> {
     s.parse::<bytesize::ByteSize>().map(|size| size.as_u64())
 }
 
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
@@ -132,7 +132,7 @@ impl SrvArgs {
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
-        #[cfg(all(feature = "webui", not(docsrs)))]
+        #[cfg(feature = "webui")]
         if self.web_ui.is_some() {
             srv_config.web_ui = self.web_ui;
         }

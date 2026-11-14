@@ -800,7 +800,8 @@ impl TileIterator {
 
     /// The coroutine `__anext__` returns, since `pyo3` cannot make `__anext__` itself `async`.
     #[gen_stub(skip)]
-    async fn _anext(&self) -> PyResult<TileItem> {
+    #[pyo3(name = "_anext")]
+    async fn anext_coroutine(&self) -> PyResult<TileItem> {
         let next = self.receiver.lock().await.recv().await;
         let item = next.ok_or_else(|| PyStopAsyncIteration::new_err(()))?;
         Python::attach(|py| to_tile_item(py, item))

@@ -6,7 +6,7 @@ use actix_web::http::header::{CacheDirective, HeaderValue, from_comma_delimited}
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 
 use crate::config::args::PreferredEncoding;
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 use crate::config::args::WebUiMode;
 #[cfg(any(feature = "metrics", feature = "_tiles"))]
 use crate::config::file::UnrecognizedValues;
@@ -123,7 +123,7 @@ pub struct SrvConfig {
     /// - `disable` turns the web UI off.
     ///
     /// Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.
-    #[cfg(all(feature = "webui", not(docsrs)))]
+    #[cfg(feature = "webui")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &"disable"))]
     pub web_ui: Option<WebUiMode>,
     /// Optional endpoints, each off unless enabled here.

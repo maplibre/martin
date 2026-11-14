@@ -3,9 +3,6 @@
 //! A pre-validated `GeoJSON` `FeatureCollection`: the `martin` crate builds these
 //! types from a request body, so martin-core only ever sees already-valid input.
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-use maplibre_native::{Color as MlnColor, LineCap as MlnLineCap, LineJoin as MlnLineJoin};
-
 /// Boundary IR: a `GeoJSON` `FeatureCollection` of pre-validated overlay
 /// features. Built by the application layer from the request body; by the time
 /// it reaches martin-core every value is already valid.
@@ -110,33 +107,4 @@ pub enum LineJoin {
     Bevel,
     /// Rounded join.
     Round,
-}
-
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-impl From<Color> for MlnColor {
-    fn from(c: Color) -> Self {
-        Self::rgba(c.r, c.g, c.b, c.a)
-    }
-}
-
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-impl From<LineCap> for MlnLineCap {
-    fn from(cap: LineCap) -> Self {
-        match cap {
-            LineCap::Butt => Self::Butt,
-            LineCap::Round => Self::Round,
-            LineCap::Square => Self::Square,
-        }
-    }
-}
-
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-impl From<LineJoin> for MlnLineJoin {
-    fn from(join: LineJoin) -> Self {
-        match join {
-            LineJoin::Miter => Self::Miter,
-            LineJoin::Bevel => Self::Bevel,
-            LineJoin::Round => Self::Round,
-        }
-    }
 }

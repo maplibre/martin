@@ -10,6 +10,7 @@ shift 3
 
 workspace=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 tmp=${TMPDIR:-/tmp}
+mkdir -p "$tmp/mesa-shader-cache"
 
 terminal=()
 if [[ -t 0 ]]; then
@@ -17,6 +18,6 @@ if [[ -t 0 ]]; then
 fi
 
 exec docker run --rm --net host --platform "$platform" --user "$(id -u):$(id -g)" \
-  -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e HOME="$tmp" \
+  -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e HOME="$tmp" -e MESA_SHADER_CACHE_DIR="$tmp/mesa-shader-cache" \
   -v "$workspace:$workspace" -v "$tmp:$tmp" -w "$PWD" "${terminal[@]}" \
   --entrypoint "$binary" "$image" "$@"

@@ -22,8 +22,8 @@ _npm-install:
 bless: _npm-install
     npm run test:update-snapshots
 
-# Build the production bundle that martin's build.rs embeds into the server
-build:
+# Build the production bundle `dist/` that the martin-ui crate embeds
+build: _npm-install
     npm run build
 
 # Clean build artifacts

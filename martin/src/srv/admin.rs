@@ -98,13 +98,8 @@ pub async fn get_catalog(
     HttpResponse::Ok().json(catalog)
 }
 
-#[cfg(all(feature = "webui", not(docsrs)))]
-pub mod webui {
-    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
-}
-
 /// Root path in case web front is disabled.
-#[cfg(any(not(feature = "webui"), docsrs))]
+#[cfg(not(feature = "webui"))]
 #[route("/", method = "GET", method = "HEAD")]
 async fn get_index_no_ui() -> &'static str {
     "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
@@ -113,7 +108,7 @@ async fn get_index_no_ui() -> &'static str {
 }
 
 /// Root path in case web front is disabled and the `webui` feature is enabled.
-#[cfg(all(feature = "webui", not(docsrs)))]
+#[cfg(feature = "webui")]
 #[route("/", method = "GET", method = "HEAD")]
 async fn get_index_ui_disabled() -> &'static str {
     "Martin server is running.\n\n\

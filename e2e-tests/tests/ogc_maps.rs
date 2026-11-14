@@ -43,7 +43,6 @@ async fn a_style_map_shows_the_whole_world_by_default() {
     Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -77,7 +76,6 @@ async fn a_style_map_frames_the_bbox_it_is_asked_for() {
     ");
     assert_image_matches(fixture("ogc_maps/europe.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -110,7 +108,6 @@ async fn a_style_map_centers_on_a_point_at_a_scale() {
     Content-Bbox: -2092318.823370133,5099041.723891589,5075681.176629866,8683041.723891588
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -161,7 +158,6 @@ async fn a_style_map_is_a_geotiff_placed_at_its_area() {
     GeoKeyDirectory: [1, 1, 0, 3, 1024, 0, 1, 1, 1025, 0, 1, 1, 3072, 0, 1, 3857]
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -194,10 +190,9 @@ async fn a_style_map_skips_tiff_when_accept_refuses_it() {
     Png (256, 256)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -226,7 +221,6 @@ async fn a_style_map_png_has_an_alpha_channel() {
         .expect("a PNG");
     insta::assert_snapshot!(format!("{:?} {:?}", png.info().color_type, png.info().bit_depth), @"Rgba Eight");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -256,16 +250,15 @@ async fn a_style_map_is_a_jpeg_when_accept_asks_for_one() {
     Jpeg (256, 256)
     Content-Type: image/jpeg
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     insta::assert_snapshot!(response.header("vary").unwrap_or("-"), @"accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
 #[tokio::test]
-async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
+async fn a_style_map_smaller_than_zoom_0_shows_the_center_of_the_world_at_zoom_0() {
     let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
     let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
     let maplibre_demo = maplibre_demo.display();
@@ -288,11 +281,10 @@ async fn a_style_map_smaller_than_zoom_0_still_shows_the_whole_world() {
     Png (256, 256)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
-    assert_image_matches(fixture("ogc_maps/small_world.png"), response.body());
+    assert_image_matches(fixture("ogc_maps/world_center_at_zoom_0.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -325,10 +317,9 @@ async fn a_style_map_skips_the_formats_accept_refuses() {
     Png (256, 256)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -361,10 +352,9 @@ async fn a_style_map_is_the_format_accept_weighs_highest() {
     Jpeg (256, 256)
     Content-Type: image/jpeg
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20037508.34278928,-20037508.34278928,20037508.34278928,20037508.34278928
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
     ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -392,7 +382,6 @@ async fn a_style_map_in_no_format_accept_allows_is_not_acceptable() {
     assert_eq!(response.status(), 406);
     insta::assert_snapshot!(response.text(), @"Accept header does not contain any supported map format");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -416,11 +405,13 @@ async fn a_scale_too_small_to_show_any_area_is_a_bad_request() {
     assert_eq!(response.status(), 400);
     insta::assert_snapshot!(response.text(), @"Parameter scale-denominator has the invalid value 1e-300");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
-async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
+async fn a_map_wider_than_zoom_0_shows_its_center_at_zoom_0() {
+    let cassette = Cassette::serving(&["demotiles.maplibre.org"]).await;
+    let maplibre_demo = cassette.style(fixture("styles/maplibre_demo.json"));
+    let maplibre_demo = maplibre_demo.display();
     let mut martin = Martin::builder()
         .config(&formatdoc! {"
             styles:
@@ -429,7 +420,7 @@ async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
                 workers: 1
               sources:
                 maplibre_demo: {maplibre_demo}
-        ", maplibre_demo = fixture("styles/maplibre_demo.json").display()})
+        "})
         .start()
         .await
         .expect("martin starts");
@@ -439,10 +430,15 @@ async fn a_map_of_more_than_four_worlds_is_a_bad_request() {
             "/ogc/styles/maplibre_demo/map?bbox=-100000000,-100000000,100000000,100000000&bbox-crs=EPSG:3857&width=256",
         )
         .await;
-    assert_eq!(response.status(), 400);
-    insta::assert_snapshot!(response.text(), @"The map area is too large, at most four times the world's width and height can be drawn");
+    assert_eq!(response.status(), 200, "{}", response.text());
+    insta::assert_snapshot!(map_description(&response), @"
+    Png (256, 256)
+    Content-Type: image/png
+    Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
+    Content-Bbox: -10018754.171394626,-10018754.171394626,10018754.171394626,10018754.171394626
+    ");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
+    cassette.assert_no_misses();
 }
 
 #[tokio::test]
@@ -466,7 +462,6 @@ async fn a_bbox_with_a_scale_denominator_and_a_width_is_a_bad_request() {
     assert_eq!(response.status(), 400);
     insta::assert_snapshot!(response.text(), @"Parameters scale-denominator and width or height can't be used together");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -490,7 +485,6 @@ async fn a_bbox_in_an_unsupported_crs_is_a_bad_request() {
     assert_eq!(response.status(), 400);
     insta::assert_snapshot!(response.text(), @"CRS http://www.opengis.net/def/crs/EPSG/0/2056 is not supported, only CRS84, EPSG:4326 and EPSG:3857 are");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -511,7 +505,6 @@ async fn an_unknown_style_has_no_map() {
     let response = martin.get("/ogc/styles/unknown/map").await;
     assert_eq!(response.status(), 404);
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -576,7 +569,6 @@ async fn the_styles_link_their_maps() {
     }
     "#);
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -599,7 +591,6 @@ async fn the_api_definition_describes_the_style_map_when_rendering() {
     let definition = response.json();
     insta::assert_json_snapshot!(definition["paths"]["/styles/{style_id}/map"]["get"]["operationId"], @r#""ogc.dataset.style.getMap""#);
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -647,7 +638,6 @@ async fn the_conformance_declares_maps_when_rendering() {
     }
     "#);
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -672,7 +662,6 @@ async fn a_vector_collection_has_no_map() {
     assert_eq!(response.status(), 404);
     insta::assert_snapshot!(response.text(), @"Collection world_cities has no map");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -697,11 +686,10 @@ async fn a_raster_collection_map_draws_its_tiles() {
     Png (512, 510)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -728,7 +716,6 @@ async fn a_raster_collection_on_another_grid_has_no_map() {
     assert_eq!(response.status(), 404);
     insta::assert_snapshot!(response.text(), @"Collection geography has no map");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -807,7 +794,6 @@ async fn a_raster_collection_gives_its_storage_crs_and_links_its_map() {
     }
     "#);
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -840,11 +826,10 @@ async fn a_dataset_map_draws_every_raster_collection() {
     Png (512, 510)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -873,11 +858,10 @@ async fn a_dataset_map_draws_only_the_collections_asked_for() {
     Png (512, 510)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -914,7 +898,6 @@ async fn a_dataset_map_draws_a_later_collection_over_an_earlier_one() {
     ");
     assert_image_matches(fixture("ogc_maps/naip_over_toner.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -951,7 +934,6 @@ async fn a_dataset_map_draws_an_earlier_collection_under_a_later_one() {
     ");
     assert_image_matches(fixture("ogc_maps/toner_over_naip.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -977,7 +959,6 @@ async fn a_dataset_map_of_more_collections_than_a_composite_tile_is_a_bad_reques
     assert_eq!(response.status(), 400);
     insta::assert_snapshot!(response.text(), @"Requested 129 source ids, but at most 128 are allowed per request");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1007,11 +988,10 @@ async fn a_dataset_map_takes_collections_by_url() {
     Png (512, 510)
     Content-Type: image/png
     Content-Crs: http://www.opengis.net/def/crs/EPSG/0/3857
-    Content-Bbox: -20050189.934841555,-19971868.88040858,20050189.934841555,19971868.88040858
+    Content-Bbox: -20037508.34278925,-19959236.82582523,20037508.34278925,19959236.82582523
     ");
     assert_image_matches(fixture("ogc_maps/toner.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1036,7 +1016,6 @@ async fn a_dataset_map_of_a_collection_without_a_map_is_a_bad_request() {
     assert_eq!(response.status(), 400);
     insta::assert_snapshot!(response.text(), @"Collection world_cities does not exist or has no map");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1061,7 +1040,6 @@ async fn the_landing_page_links_the_dataset_map_and_gives_its_extent() {
     assert_eq!(response.status(), 200);
     insta::assert_json_snapshot!(martin.redacted_json(&response));
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1094,7 +1072,6 @@ async fn a_style_map_tile_is_256_pixels() {
     ");
     assert_image_matches(fixture("ogc_maps/maplibre_demo_tile_2_1_2.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
     cassette.assert_no_misses();
 }
 
@@ -1118,7 +1095,6 @@ async fn the_dataset_map_tileset_templates_its_tiles() {
     assert_eq!(response.status(), 200);
     insta::assert_json_snapshot!(martin.redacted_json(&response));
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1153,7 +1129,6 @@ async fn a_dataset_map_tile_draws_the_collections_in_id_order() {
     ");
     assert_image_matches(fixture("ogc_maps/dataset_tile_naip_over_basemap.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1188,7 +1163,6 @@ async fn a_dataset_map_tile_draws_a_collection_later_in_id_order_on_top() {
     ");
     assert_image_matches(fixture("ogc_maps/dataset_tile_toner_over_naip.png"), response.body());
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1213,7 +1187,6 @@ async fn map_tiles_are_only_on_web_mercator_quad() {
     assert_eq!(response.status(), 404);
     insta::assert_snapshot!(response.text(), @"Maps are only tiled on WebMercatorQuad, not on WorldCRS84Quad");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]
@@ -1238,7 +1211,6 @@ async fn a_map_tile_outside_the_grid_is_not_found() {
     assert_eq!(response.status(), 404);
     insta::assert_snapshot!(response.text(), @"Map tile 1/2/0 is outside WebMercatorQuad");
     martin.stop().await;
-    martin.take_log_lines("[Render]");
 }
 
 #[tokio::test]

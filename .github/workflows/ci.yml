@@ -86,8 +86,8 @@ jobs:
               - '**/Cargo.toml'
               - 'deny.toml'
             npm-manifests: &npm-manifests
-              - 'martin/martin-ui/package.json'
-              - 'martin/martin-ui/package-lock.json'
+              - 'martin-ui/package.json'
+              - 'martin-ui/package-lock.json'
               - 'demo/frontend/package.json'
               - 'demo/frontend/package-lock.json'
             rust:
@@ -103,7 +103,11 @@ jobs:
               - 'cog-tiles-py/**'
               - 'map-tile-toolkit/**'
               - 'mbtiles/**'
-              - 'martin-*/**'
+              - 'martin-config-macros/**'
+              - 'martin-core/**'
+              - 'martin-tile-utils/**'
+              - 'martin-tilegen/**'
+              - 'martin-ui/*.rs' # the bundle itself is covered by the ui filter
               - 'martin/*'
               - 'martin/benches/**'
               - 'martin/src/**'
@@ -120,7 +124,7 @@ jobs:
             ui:
               - *shared
               - 'biome.json'
-              - 'martin/martin-ui/**'
+              - 'martin-ui/**'
             docs:
               - *shared
               - '**/*.md'

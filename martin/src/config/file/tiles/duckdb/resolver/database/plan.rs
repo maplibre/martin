@@ -133,7 +133,7 @@ impl AutoPublish {
                 .and_then(|cfg| cfg.source_id_format.as_ref())
                 .map_or("{table}", IdFormat::as_str)
                 .to_owned(),
-            id_columns: table_cfg.map(|cfg| cfg.id_columns.clone()).unwrap_or_default(),
+            id_columns: table_cfg.map_or_default(|cfg| cfg.id_columns.clone()),
             clip_geom: table_cfg.and_then(|cfg| cfg.clip_geom),
             buffer: table_cfg.and_then(|cfg| cfg.buffer),
             extent: table_cfg.and_then(|cfg| cfg.extent),

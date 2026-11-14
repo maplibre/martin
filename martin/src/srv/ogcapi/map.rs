@@ -18,7 +18,7 @@ use crate::config::file::srv::SrvConfig;
 use crate::source::{MAX_SOURCE_IDS_PER_REQUEST, SourceEntry};
 use crate::srv::error::TileError;
 use crate::srv::server::map_error;
-use crate::srv::styles_rendering::{ImageFormatRequest, encode_response, encode_scaled_image_response};
+use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response, encode_response};
 use crate::tile_source_manager::TileSourceManager;
 
 /// The OGC URI of web mercator, the CRS every map is rendered in.
@@ -156,6 +156,8 @@ impl Viewport {
     }
 
     /// The viewport `query` asks for, showing `default_bounds` in longitude and latitude unless it asks for another area.
+    ///
+    /// A map wider than zoom 0 shows at its size is narrowed to zoom 0 around its center, as the renderer draws it.
     fn of(query: &MapQuery, default_bounds: [f64; 4]) -> Result<Self, OgcApiError> {
         let viewport = Self::requested(query, default_bounds)?;
         let [min_x, min_y, max_x, max_y] = viewport.bounds;
@@ -165,9 +167,10 @@ impl Viewport {
                 value: format!("{:?}", query.scale_denominator.unwrap_or_default()),
             });
         }
-        let (render_width, render_height) = viewport.render_size();
-        if render_width > MAX_SIDE || render_height > MAX_SIDE {
-            return Err(OgcApiError::MapAreaTooLarge);
+        let zoom_0_resolution = EARTH_CIRCUMFERENCE / RENDER_WORLD_PIXELS;
+        if (max_x - min_x) / f64::from(viewport.width) > zoom_0_resolution {
+            let center = [f64::midpoint(min_x, max_x), f64::midpoint(min_y, max_y)];
+            return Ok(Self::around(center, zoom_0_resolution, viewport.width, viewport.height));
         }
         Ok(viewport)
     }
@@ -261,26 +264,11 @@ impl Viewport {
         }
     }
 
-    /// The size to render at: the map's own, or larger by as much as its metres per pixel exceed the renderer's zoom 0.
-    fn render_size(&self) -> (u32, u32) {
-        let [min_x, _, max_x, _] = self.bounds;
-        let resolution = (max_x - min_x) / f64::from(self.width);
-        let scale = (resolution * RENDER_WORLD_PIXELS / EARTH_CIRCUMFERENCE).max(1.0);
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "saturates, and callers check the result against MAX_SIDE"
-        )]
-        let scaled = |side: u32| (f64::from(side) * scale).round() as u32;
-        (scaled(self.width), scaled(self.height))
-    }
-
-    /// Longitude and latitude of the center, and the renderer's zoom at the render size.
+    /// Longitude and latitude of the center, and the renderer's zoom.
     fn camera(&self) -> (f64, f64, f64) {
         let [min_x, min_y, max_x, max_y] = self.bounds;
         let (lon, lat) = webmercator_to_wgs84(f64::midpoint(min_x, max_x), f64::midpoint(min_y, max_y));
-        let (render_width, _) = self.render_size();
-        let resolution = (max_x - min_x) / f64::from(render_width);
+        let resolution = (max_x - min_x) / f64::from(self.width);
         (
             lon,
             lat,
@@ -437,32 +425,17 @@ impl MapFormat {
             .ok_or_else(|| ErrorNotAcceptable("Accept header does not contain any supported map format"))
     }
 
-    /// `image` of `viewport`, scaled down to `size` when given, encoded in this format at `quality`, in a response with its media type.
+    /// `image` of `viewport`, encoded in this format at `quality`, in a response with its media type.
     pub(super) async fn response(
         self,
         image: martin_core::styles::StaticImage,
         viewport: Viewport,
-        size: Option<(u32, u32)>,
         quality: ImageQualities,
     ) -> HttpResponse {
         match self {
-            Self::Png => encode_scaled_image_response(image, size, ImageFormatRequest::Png, None, quality).await,
-            Self::Jpeg => encode_scaled_image_response(image, size, ImageFormatRequest::Jpeg, None, quality).await,
-            Self::Tiff => {
-                encode_response(GEOTIFF, move || match size {
-                    Some((width, height)) => geotiff(
-                        &image::imageops::resize(
-                            image.as_image(),
-                            width,
-                            height,
-                            image::imageops::FilterType::Triangle,
-                        ),
-                        &viewport,
-                    ),
-                    None => geotiff(image.as_image(), &viewport),
-                })
-                .await
-            }
+            Self::Png => encode_image_response(image, ImageFormatRequest::Png, None, quality).await,
+            Self::Jpeg => encode_image_response(image, ImageFormatRequest::Jpeg, None, quality).await,
+            Self::Tiff => encode_response(GEOTIFF, move || geotiff(&image, &viewport)).await,
         }
     }
 }
@@ -522,15 +495,12 @@ pub(super) async fn render_map(
     let format = MapFormat::of(req)?;
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
-    let (render_width, render_height) = viewport.render_size();
-    let params = RenderParams::new(style, lat, lon, zoom).with_size(render_width, render_height, NonZeroU8::MIN);
+    let params = RenderParams::new(style, lat, lon, zoom).with_size(viewport.width, viewport.height, NonZeroU8::MIN);
     let image = match styles.render_static(params).await {
         Ok(image) => image,
         Err(e) => return Ok(render_failure(&e)),
     };
-    let size = ((render_width, render_height) != (viewport.width, viewport.height))
-        .then_some((viewport.width, viewport.height));
-    let mut response = format.response(image, viewport, size, styles.image_quality()).await;
+    let mut response = format.response(image, viewport, styles.image_quality()).await;
     response.head_mut().set_camel_case_headers(true);
     response.headers_mut().append(VARY, HeaderValue::from_static("accept"));
     if response.status().is_success() {

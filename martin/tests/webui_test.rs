@@ -1,4 +1,4 @@
-#![cfg(all(feature = "webui", not(docsrs)))]
+#![cfg(feature = "webui")]
 
 use std::net::SocketAddr;
 
