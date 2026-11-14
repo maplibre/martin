@@ -156,11 +156,22 @@ resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:martin-ui"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
-_tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str", "dep:mlt-core", "dep:notify"]
+_tiles = [
+    "martin-core/_tiles",
+    "_catalog",
+    "dep:compact_str",
+    "dep:mlt-core",
+    "dep:notify",
+]
 _catalog = ["dep:dashmap", "dep:itertools"]
 _file_kinds = []
 # Remote object-store settings shared by pmtiles, cog and duckdb sources
-_object_store = ["dep:async-trait", "dep:aws-config", "dep:aws-credential-types", "dep:object_store"]
+_object_store = [
+    "dep:async-trait",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+]
 unstable-schemas = [
     "dep:schemars",
     "schemars/indexmap2",
