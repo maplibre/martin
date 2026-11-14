@@ -156,11 +156,22 @@ resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:martin-ui"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
 unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
-_tiles = ["martin-core/_tiles", "_catalog", "dep:compact_str"]
-_catalog = []
+_tiles = [
+    "martin-core/_tiles",
+    "_catalog",
+    "dep:compact_str",
+    "dep:mlt-core",
+    "dep:notify",
+]
+_catalog = ["dep:dashmap", "dep:itertools"]
 _file_kinds = []
 # Remote object-store settings shared by pmtiles, cog and duckdb sources
-_object_store = ["dep:aws-config", "dep:aws-credential-types", "dep:object_store"]
+_object_store = [
+    "dep:async-trait",
+    "dep:aws-config",
+    "dep:aws-credential-types",
+    "dep:object_store",
+]
 unstable-schemas = [
     "dep:schemars",
     "schemars/indexmap2",
@@ -198,7 +209,7 @@ actix-rt.workspace = true
 actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
-async-trait.workspace = true
+async-trait = { workspace = true, optional = true }
 aws-config = { workspace = true, optional = true }
 aws-credential-types = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
@@ -209,7 +220,7 @@ compact_str = { workspace = true, optional = true }
 cql2 = { workspace = true, optional = true }
 crossterm = { workspace = true, optional = true }
 csscolorparser = { workspace = true, optional = true }
-dashmap.workspace = true
+dashmap = { workspace = true, optional = true }
 duckdb = { workspace = true, optional = true }
 fnv = { workspace = true, optional = true }
 futures.workspace = true
@@ -219,7 +230,7 @@ humantime-serde.workspace = true
 image = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 indicatif.workspace = true
-itertools.workspace = true
+itertools = { workspace = true, optional = true }
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
@@ -230,8 +241,8 @@ martin-tilegen = { workspace = true, optional = true }
 martin-ui = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
-mlt-core.workspace = true
-notify = { workspace = true }
+mlt-core = { workspace = true, optional = true }
+notify = { workspace = true, optional = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
