@@ -228,7 +228,7 @@ We did this to primarily motivated to counteract the [DOS related security issue
 
 Static images now draw a style's `"projection": {"type": "globe"}` as a globe (like MapLibre GL JS does).
 `martin@1.x` always drew them using the `mercator` projection.
-To keep this behaviour, remove `projection` from the style or set it to `{"type": "mercator"}`.
+To keep this behavior, remove `projection` from the style or set it to `{"type": "mercator"}`.
 
 ### x86_64 binaries require an x86-64-v3 CPU
 
