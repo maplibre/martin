@@ -11,15 +11,44 @@ use std::time::{Duration, Instant};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle, GraphicsDeviceOptions,
-    GraphicsDeviceTextureDescriptor, LogHandler, LogSeverity, LogicalExtent, MapHandle, MapMode, MapOptions,
-    NativeFuture, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag,
+    CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle, GraphicsDeviceOptions,
+    GraphicsDeviceTextureDescriptor, LogHandler, LogSeverity, LogicalExtent, MapOptions, NativeFuture,
+    RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag,
     RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult, set_log_callback,
 };
 
+pub use maplibre_native_ffi::{CameraOptions, Error as EngineError, LatLng, MapHandle, MapMode};
 use tracing::{error, info, warn};
 
 use crate::resources::styles::StyleError;
+
+/// A map command's outcome, as the overlay code sends it.
+pub type Command = maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>;
+
+/// The WGS84 point at `lat`, `lon`.
+pub fn lat_lng(lat: f64, lon: f64) -> LatLng {
+    LatLng::new(lat, lon)
+}
+
+/// Adds the source `id` from its JSON.
+pub fn add_source_json(map: &MapHandle, id: &str, json: &str) -> Command {
+    map.add_style_source_json(id, json)
+}
+
+/// Adds the layer of `json` above every other.
+pub fn add_layer_json(map: &MapHandle, json: &str) -> Command {
+    map.add_style_layer_json(json, "")
+}
+
+/// Queues the removal of layer `id` without waiting for it.
+pub fn remove_layer(map: &MapHandle, id: &str) {
+    let _ = map.discarding().remove_style_layer(id);
+}
+
+/// Queues the removal of source `id` without waiting for it.
+pub fn remove_source(map: &MapHandle, id: &str) {
+    let _ = map.discarding().remove_style_source(id);
+}
 
 /// How long a call into `MapLibre` may take before its renderer is given up on.
 const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -335,10 +364,7 @@ impl Renderer {
     }
 
     /// Waits for the outcome of a style command, failing if `MapLibre` rejected it or did not answer in time.
-    pub fn command(
-        &self,
-        command: maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
-    ) -> Result<(), StyleError> {
+    pub fn command(&self, command: Command) -> Result<(), StyleError> {
         block_on(&self.signal, command?, "style command")?;
         Ok(())
     }
