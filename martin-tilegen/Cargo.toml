@@ -35,10 +35,12 @@ name = "sort"
 harness = false
 
 [features]
-default = ["mbtiles", "pmtiles"]
+default = ["mbtiles", "osm", "pmtiles"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
 internals = []
+# Reading OpenStreetMap PBF files as a feature source
+osm = ["dep:osmflow"]
 
 [dependencies]
 bytes.workspace = true
@@ -55,6 +57,7 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 memmap2.workspace = true
 mlt-core.workspace = true
+osmflow = { workspace = true, optional = true }
 pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
@@ -75,6 +78,7 @@ rustix = { workspace = true, features = ["process", "std"] }
 [dev-dependencies]
 approx.workspace = true
 criterion.workspace = true
+indoc.workspace = true
 insta.workspace = true
 martin-tilegen = { path = ".", features = ["internals"] }
 rstest.workspace = true
@@ -82,3 +86,11 @@ wkt.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "osm"
+required-features = ["osm"]
+
+[[test]]
+name = "osm_edge_cases"
+required-features = ["osm"]

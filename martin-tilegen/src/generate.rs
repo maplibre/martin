@@ -102,6 +102,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
         wagyu_ring_starts,
         progress,
     )?;
+    source.finish()?;
 
     let batches = sorter.into_tiles(config.batch_tiles, progress)?;
     let (encoding, mut batches) = TileEncoding::start(

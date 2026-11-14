@@ -1,0 +1,11 @@
+---
+source: e2e-tests/tests/martin_cp_osm.rs
+expression: tile_listing(&output).await
+---
+10/533/650 2391 bytes
+11/1066/1301 4317 bytes
+12/2132/2602 6690 bytes
+13/4264/5204 34032 bytes
+13/4264/5205 6145 bytes
+13/4265/5204 2664 bytes
+13/4265/5205 13932 bytes
