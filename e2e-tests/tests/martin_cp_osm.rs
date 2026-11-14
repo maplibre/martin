@@ -1,5 +1,4 @@
 //! `martin cp --mode bulk` reading an OpenStreetMap PBF file from the config's `osm` section.
-#![cfg(feature = "test-osm")]
 
 use std::fs;
 

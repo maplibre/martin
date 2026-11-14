@@ -35,7 +35,7 @@ name = "sort"
 harness = false
 
 [features]
-default = ["mbtiles", "pmtiles"]
+default = ["mbtiles", "osm", "pmtiles"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
 internals = []
