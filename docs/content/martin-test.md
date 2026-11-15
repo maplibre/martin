@@ -29,7 +29,7 @@ martin test run --config config.yaml roads.spec.yaml
 ```
 
 Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section, or the
-[`osm` sources](sources-osm.md) of a configuration without one.
+[`shapefile`](sources-shapefile.md) and [`osm`](sources-osm.md) sources of a configuration without one.
 
 ```yaml
 postgres:
@@ -76,6 +76,12 @@ osm:
           where: "highway in ['primary', 'residential']"
           attributes: [highway, name]
 ```
+
+### Shapefile sources
+
+A case of a `shapefile` source is one record of its file, with its record number, counting from 1, as `record` in its
+input, so a file cannot have a field `record`. `generate` finds rows by a sweep of the file, so a shapefile with more
+records than `--sweep-rows` may leave paths without a row. A zip file is unpacked once per run.
 
 ## Paths
 
