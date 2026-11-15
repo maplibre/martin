@@ -9,7 +9,7 @@ use geo::BoundingRect;
 use geo_types::{Coord, Rect};
 
 use crate::error::TileGenResult;
-use crate::expr::{Cel, FEATURE, FeatureView, condition_of, eval_part, feature_key};
+use crate::expr::{AREA, Cel, FEATURE, FeatureView, condition_of, eval_part, feature_key};
 use crate::phase1::project_geometry;
 use crate::plan::{
     Case, ColumnDef, CompareOp, Condition, ExprRef, Filter, GeometryType, Literal, Plan, PlannedAttrs, PlannedExpr,
@@ -150,7 +150,7 @@ impl Plan {
             return Ok(Vec::new());
         };
         let mut errors = vec![0; self.exprs.len()];
-        Ok(self.with_view(usize::from(table), feature, |view| {
+        Ok(self.with_view(usize::from(table), feature, Some(geom), |view| {
             paths
                 .into_iter()
                 .filter(|path| path.test.passes(self, view, geom, &mut errors))
@@ -668,11 +668,12 @@ impl<'a> LayerPaths<'a, '_> {
             .any(|column| self.known.iter().any(|k| k.column == *column) && self.decided_by(expr, column))
     }
 
-    /// Whether `expr` reads `column` and otherwise only columns with one known value, so a value of `column` decides
-    /// it.
+    /// Whether `expr` reads `column` and otherwise only columns with one known value, and no geometry, so a value of
+    /// `column` decides it.
     fn decided_by(&self, expr: &IdedExpr, column: &str) -> bool {
         let read = read_columns(expr);
-        read.iter().any(|c| c == column)
+        !measures_area(expr)
+            && read.iter().any(|c| c == column)
             && read
                 .iter()
                 .all(|c| c == column || self.known.iter().any(|k| k.column == *c && k.single().is_some()))
@@ -692,7 +693,8 @@ impl<'a> LayerPaths<'a, '_> {
             geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
             props,
         };
-        self.plan.with_view(self.table, &feature, |view| eval_part(expr, view))
+        self.plan
+            .with_view(self.table, &feature, None, |view| eval_part(expr, view))
     }
 
     /// For the rules of each `min_size`, lines and polygons kept only at the layer's max zoom, those too small for
@@ -1158,6 +1160,16 @@ fn read_columns(expr: &IdedExpr) -> Vec<String> {
         false
     });
     out
+}
+
+/// Whether `expr` calls `area`, so its value depends on the geometry too.
+fn measures_area(expr: &IdedExpr) -> bool {
+    let mut found = false;
+    walk(expr, &mut |e| {
+        found |= matches!(&e.expr, Expr::Call(call) if call.func_name == AREA);
+        !found
+    });
+    found
 }
 
 /// A place where an expression picks one of several values, `root` when it is the whole expression.

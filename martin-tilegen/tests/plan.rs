@@ -3,9 +3,10 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter, RuleDef,
-    SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter,
+    RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
+use martin_tilegen::project::from_lonlat;
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, PixelThreshold};
@@ -1830,4 +1831,108 @@ fn a_choice_chain_sets_the_minzoom_of_each_feature() {
     LayerFeature { layer: "boundaries", id: Some(2), zooms: 3..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
     LayerFeature { layer: "boundaries", id: Some(3), zooms: 8..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
     "#);
+}
+
+#[test]
+fn rejects_a_thinning_key_measuring_area() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Tile,
+                    keys: vec!["area('m2') > 5.0".to_owned()],
+                },
+            }],
+            ..LayerDef::new("lakes", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layer `lakes`: thinning key `area('m2') > 5.0` calls `area`, which measures a feature before it is cut into tiles");
+}
+
+#[test]
+fn a_where_measuring_area_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("highway".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            filter: Some("highway != null && area('m2') > 5".to_owned()),
+            ..LayerDef::new("squares", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "squares",
+            expr: "highway != null && area('m2') > 5",
+            reason: Function(
+                "area",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_minzoom_measuring_area_picks_each_polygons_zooms() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            minzoom_expr: Some("area('km2') >= 100000 ? 4 : 5".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("countries", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let square = |id, side: f64| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Polygons(vec![Polygon::new(
+            [(0.0, 0.0), (side, 0.0), (side, side), (0.0, side), (0.0, 0.0)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+            vec![],
+        )]),
+        props: vec![],
+    };
+    let features = [square(1, 1.0), square(2, 4.0)];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "countries", id: Some(1), zooms: 5..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "countries", id: Some(2), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    "#);
+}
+
+#[test]
+fn a_derived_point_measures_the_polygon_it_comes_from() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::Centroid),
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "way_area".to_owned(),
+                    value: ValueDef::Expr("area('ha')".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("lake_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let lake = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Polygons(vec![Polygon::new(
+            [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5), (-0.5, -0.5)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+            vec![],
+        )]),
+        props: vec![],
+    };
+    insta::assert_snapshot!(evaluate(&plan, &[lake]), @r#"LayerFeature { layer: "lake_labels", id: Some(1), zooms: 0..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"way_area": F64(1236418.8935609078)}, bands: [], sort: None }"#);
 }
