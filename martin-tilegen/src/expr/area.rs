@@ -51,7 +51,8 @@ pub(super) struct AreaUnit {
     multiplier: f64,
 }
 
-/// Each unit's normalized labels, base and multiplier, as Planetiler's `Unit.Area` builds them.
+/// Each unit's normalized labels, base and multiplier, as Planetiler's `Unit.Area` builds them, except square z0
+/// pixels, which Planetiler divides by 65536 where 65536 of them make a z0 tile.
 const UNITS: [(&[&str], AreaBase, f64); 11] = [
     (
         &[
@@ -139,7 +140,7 @@ const UNITS: [(&[&str], AreaBase, f64); 11] = [
             "zpx",
         ],
         AreaBase::Z0Tiles,
-        1.0 / 65536.0,
+        65536.0,
     ),
     (
         &[

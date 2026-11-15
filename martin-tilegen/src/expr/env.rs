@@ -138,7 +138,7 @@ mod tests {
     #[case::spelled_out("area('Square Metres')", 12_364_188_935.608_72)]
     #[case::square_feet("area('sq ft')", 133_087_022_078.165_85)]
     #[case::z0_tiles("area('z0 tiles')", 7.716_147_319_707_872e-6)]
-    #[case::z0_pixels_as_planetiler_divides("area('z0 px2')", 1.177_390_643_265_971_7e-10)]
+    #[case::z0_pixels("area('z0 px2')", 0.505_685_430_744_375_1)]
     fn area_measures_a_polygon_as_planetiler_does(#[case] source: &str, #[case] expected: f64) {
         let ring = [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5), (-0.5, -0.5)];
         let polygons = [Polygon::new(
