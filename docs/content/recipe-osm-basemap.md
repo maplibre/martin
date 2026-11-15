@@ -14,7 +14,7 @@ attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
 [VersaTiles styles](https://github.com/versatiles-org/versatiles-style) draw it. The configuration is a port of
 Planetiler's [`shortbread.yml`](https://github.com/onthegomap/planetiler/blob/main/planetiler-custommap/src/main/resources/samples/shortbread.yml),
 and Martin's tests render the 66 OpenStreetMap examples of its `shortbread.spec.yml`: 59 match, the others are
-below. The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md).
+below. They also run a [`martin test`](martin-test.md) spec of it on Monaco. The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md).
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/):
 

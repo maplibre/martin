@@ -6,7 +6,8 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 
 use martin::generate::spec::backend::TestBackend as _;
-use martin::generate::spec::file::{Attribute, Output};
+use martin::generate::spec::check;
+use martin::generate::spec::file::{Attribute, Output, read_spec};
 use martin::generate::spec::osm::Osm;
 use martin::generate::spec::render::{outputs, render_bulk};
 use serde::Deserialize;
@@ -208,4 +209,40 @@ async fn shortbread_snippet_renders_planetiler_examples() {
       boundary_labels.way_area 492066726.2278699, got none
     59 of 66 examples match
     ");
+}
+
+#[tokio::test]
+async fn shortbread_snippet_passes_its_monaco_spec() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/monaco.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let spec = read_spec(format!("{fixtures}/shortbread-monaco.spec.yaml").as_ref()).unwrap();
+    let tables = backend.tables(spec.max_zoom).unwrap();
+    let mut report = String::new();
+    let mut passed = 0;
+    for case in &spec.cases {
+        let outcome = check(&backend, &tables, case).await.unwrap();
+        if outcome.row.is_none() && outcome.output.is_none() {
+            passed += 1;
+            continue;
+        }
+        writeln!(report, "{} {:?}: {}", case.input["id"], outcome.status(), case.path()).unwrap();
+        if let Some(output) = outcome.output {
+            writeln!(
+                report,
+                "{}",
+                similar::TextDiff::from_lines(&output.old, &output.new).unified_diff()
+            )
+            .unwrap();
+        }
+    }
+    writeln!(report, "{passed} of {} cases pass", spec.cases.len()).unwrap();
+    insta::assert_snapshot!(report, @"51 of 51 cases pass");
 }
