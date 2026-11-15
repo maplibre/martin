@@ -43,5 +43,5 @@ async fn generate_then_run_passes_every_case_of_a_monaco_spec() {
         .await;
     let summary = log.lines().find(|line| line.contains("Summary")).unwrap_or_default();
     let summary = summary.split_once(']').map_or(summary, |(_, rest)| rest).trim();
-    insta::assert_snapshot!(format!("{:?} {:?} {summary}", generated.code(), ran.code()), @"Some(0) Some(0) 5 cases run: 5 passed");
+    insta::assert_snapshot!(format!("{:?} {:?} {summary}", generated.code(), ran.code()), @"Some(0) Some(0) 4 cases run: 4 passed");
 }

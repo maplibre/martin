@@ -51,7 +51,7 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
 
 | Extract                     | PBF      | Features   | Tiles   | Time   | Memory  |
 |-----------------------------|----------|------------|---------|--------|---------|
-| Berlin, 2026-11-11          | 100 MB   | 1,631,630  | 914     | 3.1 s  | 2.7 GB  |
-| Germany, 2026-11-11         | 4.9 GB   | 75,134,826 | 228,018 | 3m 9s  | 18.2 GB |
+| Berlin, 2026-11-11          | 100 MB   | 1,632,485  | 914     | 3.0 s  | 2.7 GB  |
+| Germany, 2026-11-11         | 4.9 GB   | 75,160,842 | 228,018 | 3m 8s  | 17.7 GB |
 
 Measured on 24 threads, with the extract in the page cache.
