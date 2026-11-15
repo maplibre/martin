@@ -405,7 +405,7 @@ fn layer_geometry(geometry: OutputGeometry) -> Result<(Option<GeometryType>, Opt
         OutputGeometry::Centroid => Ok((None, Some(DerivedPoint::Centroid))),
         OutputGeometry::LineMidpoint => Err("line_midpoint"),
         OutputGeometry::PolygonCentroidIfConvex => Err("polygon_centroid_if_convex"),
-        OutputGeometry::PolygonPointOnSurface => Err("polygon_point_on_surface"),
+        OutputGeometry::PolygonPointOnSurface => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::PointOnSurface))),
         OutputGeometry::PointOnLine => Err("point_on_line"),
         OutputGeometry::InnermostPoint => Err("innermost_point"),
     }
@@ -1418,6 +1418,34 @@ mod tests {
     }
 
     #[test]
+    fn a_point_on_surface_geometry_takes_polygons_and_draws_a_point_on_their_surface() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  labels: { geometry: polygon_point_on_surface }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let layer = &scan.def.layers[0];
+        insta::assert_debug_snapshot!((layer.geometry, layer.point), @"
+        (
+            Some(
+                Polygon,
+            ),
+            Some(
+                PointOnSurface,
+            ),
+        )
+        ");
+    }
+
+    #[test]
     #[tracing_test::traced_test]
     fn a_merge_on_a_centroid_layer_warns_that_it_only_has_points() {
         lower(
@@ -1452,7 +1480,6 @@ mod tests {
         let layers = [
             "roads: { geometry: line_midpoint }",
             "roads: { geometry: polygon_centroid_if_convex }",
-            "roads: { geometry: polygon_point_on_surface }",
             "roads: { geometry: point_on_line }",
             "roads: { geometry: innermost_point }",
         ];
@@ -1467,7 +1494,6 @@ mod tests {
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: line_midpoint` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: polygon_centroid_if_convex` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: polygon_point_on_surface` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: point_on_line` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: innermost_point` is not supported by `--mode bulk` yet
         ");

@@ -81,6 +81,140 @@ fn a_centroid_of_a_concave_polygon_can_lie_outside_it() {
 }
 
 #[test]
+fn a_point_on_surface_of_a_concave_polygon_lies_inside_it() {
+    let u_shape = LineString::from(vec![
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+        (-500.0 * UNIT, -1000.0 * UNIT),
+        (-500.0 * UNIT, 500.0 * UNIT),
+        (500.0 * UNIT, 500.0 * UNIT),
+        (500.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+    ]);
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(u_shape, vec![])]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::PointOnSurface),
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1298 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn a_point_on_surface_of_a_multi_polygon_lies_in_its_widest_part() {
+    let square = |w: f64, s: f64, e: f64, n: f64| {
+        Polygon::new(
+            LineString::from(vec![
+                (w * UNIT, s * UNIT),
+                (e * UNIT, s * UNIT),
+                (e * UNIT, n * UNIT),
+                (w * UNIT, n * UNIT),
+                (w * UNIT, s * UNIT),
+            ]),
+            vec![],
+        )
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![
+                square(-1000.0, -100.0, -800.0, 100.0),
+                square(200.0, -400.0, 1000.0, 400.0),
+            ]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::PointOnSurface),
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(2648 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_centroid_of_a_multi_polygon_weighs_each_part_by_its_area() {
     let square = |w: f64, s: f64, e: f64, n: f64| {
         Polygon::new(
