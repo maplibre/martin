@@ -19,6 +19,8 @@
   under the [Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE).
 - `shortbread-examples.osm.pbf`: one OSM object per example of `shortbread.spec.yml`, written by
   `uv run --with osmium --with pyyaml python tests/fixtures/osm/shortbread_examples.py`.
+- `shortbread-positions.osm.pbf`: three ways whose point in a Shortbread point layer depends on their shape,
+  written by `uv run --with osmium python tests/fixtures/osm/shortbread_positions.py`.
 - `shortbread-monaco.spec.yaml`: the [`martin test`](../../../docs/content/martin-test.md) spec of
   `docs/snippets/shortbread.yaml` on `monaco.osm.pbf`, written from the workspace root by
 

@@ -12,6 +12,7 @@ use martin::generate::spec::osm::Osm;
 use martin::generate::spec::render::{outputs, render_bulk};
 use serde::Deserialize;
 use serde_json::Value;
+use wkt::ToWkt as _;
 
 #[derive(Deserialize)]
 struct Spec {
@@ -257,4 +258,83 @@ async fn shortbread_snippet_passes_its_monaco_spec() {
     }
     writeln!(report, "{passed} of {} cases pass", spec.cases.len()).unwrap();
     insta::assert_snapshot!(report, @"51 of 51 cases pass");
+}
+
+#[tokio::test]
+async fn shortbread_addresses_of_a_concave_building_lie_on_its_surface() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 12).await.unwrap();
+    let features: Vec<String> = tiles
+        .iter()
+        .filter(|(coord, _)| coord.z() == 14)
+        .flat_map(|(coord, features)| {
+            features
+                .iter()
+                .map(move |f| format!("{coord} {}: {}", f.layer, f.geometry.wkt_string()))
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "14,8237,8146 buildings: POLYGON((2094 1993,2094 1247,2280 1247,2280 1807,2839 1807,2839 1993,2094 1993))",
+        "14,8237,8146 addresses: POINT(2187 1620)",
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn shortbread_pois_of_a_concave_area_lie_on_its_surface() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 32).await.unwrap();
+    let features: Vec<String> = tiles
+        .iter()
+        .filter(|(coord, _)| coord.z() == 14)
+        .flat_map(|(coord, features)| {
+            features
+                .iter()
+                .map(move |f| format!("{coord} {}: {}", f.layer, f.geometry.wkt_string()))
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "14,8238,8146 pois: POINT(1819 1620)",
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn shortbread_pois_leave_out_a_line() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 22).await.unwrap();
+    let layers: Vec<String> = outputs(&tiles).into_iter().map(|output| output.layer).collect();
+    insta::assert_debug_snapshot!(layers, @"[]");
 }
