@@ -1,5 +1,17 @@
 max_zoom: 14
 cases:
+- source: ocean
+  paths:
+  - "ocean: every feature"
+  - "ocean: crosses a z14 tile edge"
+  input:
+    geometry: POLYGON((-3000000 0,-3000000 1252344.2714243277,-1747655.7285756723 1252344.2714243277,-1747655.7285756723 0,-3000000 0))
+    record: 1
+  output:
+  - layer: ocean
+    id: 1
+    geometry: polygon
+    zooms: 0-14
 - source: shortbread
   paths:
   - "water_polygons: kept by `where`"
