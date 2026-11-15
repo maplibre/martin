@@ -13,7 +13,7 @@ use geo_types::MultiPolygon;
 use indoc::indoc;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
-use martin_tilegen::plan::{LayerDef, TableDef};
+use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
 use martin_tilegen::source::{FeatureSource as _, Geometry};
 use wkt::ToWkt as _;
 
@@ -196,6 +196,7 @@ fn wkt(geometry: Geometry) -> String {
         Geometry::Line(l) => l.wkt_string(),
         Geometry::Polygon(p) => p.wkt_string(),
         Geometry::Polygons(ps) => MultiPolygon(ps).wkt_string(),
+        Geometry::Outline(l) => format!("outline {}", l.wkt_string()),
         other @ (Geometry::Points(_) | Geometry::Lines(_) | Geometry::Wkb(_)) => format!("{other:?}"),
     }
 }
@@ -690,4 +691,511 @@ fn empty_tag_value_reads_as_null() {
             .unwrap();
     }
     insta::assert_snapshot!(out, @r#"11 0=Str("node") 2=Str("cafe")"#);
+}
+
+#[test]
+fn closed_way_is_a_polygon_and_its_outline() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Tname=square Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"
+    102 POLYGON((0 0,1 0,1 1,0 1,0 0))
+    102 outline LINESTRING(0 0,1 0,1 1,0 1,0 0)
+    ");
+}
+
+#[test]
+fn closed_building_is_a_polygon_and_its_outline() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Tbuilding=yes Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"
+    102 POLYGON((0 0,1 0,1 1,0 1,0 0))
+    102 outline LINESTRING(0 0,1 0,1 1,0 1,0 0)
+    ");
+}
+
+#[test]
+fn closed_way_with_area_yes_is_only_a_polygon() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Thighway=pedestrian,area=yes Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"102 POLYGON((0 0,1 0,1 1,0 1,0 0))");
+}
+
+#[test]
+fn closed_way_with_area_no_is_only_a_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Tbuilding=yes,area=no Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"102 LINESTRING(0 0,1 0,1 1,0 1,0 0)");
+}
+
+#[test]
+fn closed_way_with_another_area_value_is_a_polygon_and_its_outline() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Tname=square,area=Yes Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"
+    102 POLYGON((0 0,1 0,1 1,0 1,0 0))
+    102 outline LINESTRING(0 0,1 0,1 1,0 1,0 0)
+    ");
+}
+
+#[test]
+fn closed_way_of_three_nodes_is_only_a_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            ---
+            w10 Tbuilding=yes Nn1,n2,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"102 LINESTRING(0 0,1 0,0 0)");
+}
+
+#[test]
+fn open_way_with_area_yes_is_a_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            ---
+            w10 Tname=open,area=yes Nn1,n2,n3
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"102 LINESTRING(0 0,1 0,1 1)");
+}
+
+#[test]
+fn layer_of_lines_reads_closed_ways_as_outlines() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Thighway=pedestrian Nn1,n2,n3,n4,n1
+            w11 Thighway=pedestrian,area=yes Nn1,n2,n3,n4,n1
+            w12 Thighway=pedestrian,area=no Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["highway".to_owned()]),
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            filter: Some("highway == 'pedestrian'".to_owned()),
+            ..LayerDef::new("streets", 0..=14, GRID)
+        }],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"
+    102 outline LINESTRING(0 0,1 0,1 1,0 1,0 0)
+    122 LINESTRING(0 0,1 0,1 1,0 1,0 0)
+    ");
+}
+
+#[test]
+fn layer_of_polygons_reads_no_outlines() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Thighway=pedestrian Nn1,n2,n3,n4,n1
+            w11 Thighway=pedestrian,area=yes Nn1,n2,n3,n4,n1
+            w12 Thighway=pedestrian,area=no Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["highway".to_owned()]),
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            filter: Some("highway == 'pedestrian'".to_owned()),
+            ..LayerDef::new("street_polygons", 0..=14, GRID)
+        }],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"
+    102 POLYGON((0 0,1 0,1 1,0 1,0 0))
+    112 POLYGON((0 0,1 0,1 1,0 1,0 0))
+    ");
+}
+
+#[test]
+fn layer_of_any_geometry_with_a_where_reads_no_outlines() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            n3 x1 y1
+            n4 x0 y1
+            ---
+            w10 Tamenity=school Nn1,n2,n3,n4,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["amenity".to_owned(), "highway".to_owned()]),
+        layers: vec![
+            LayerDef {
+                filter: Some("amenity == 'school'".to_owned()),
+                ..LayerDef::new("pois", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                filter: Some("highway == 'pedestrian'".to_owned()),
+                ..LayerDef::new("streets", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"102 POLYGON((0 0,1 0,1 1,0 1,0 0))");
 }

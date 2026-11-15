@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
-use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon};
+use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
@@ -25,6 +25,7 @@ pub use crate::plan::filter::{
     CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
 };
 use crate::props::{KeyId, Prop};
+use crate::source::Geometry;
 use crate::{FeatureGeom, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
 #[derive(thiserror::Error, Debug)]
@@ -337,8 +338,17 @@ pub enum DerivedPoint {
 }
 
 impl DerivedPoint {
-    /// The point of `geom`, or `None` when it has none, such as an empty geometry.
-    pub(crate) fn of(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+    /// The point of a feature with `geometry`, projected as `geom`, or `None` when it has none, such as an empty
+    /// geometry; that of the polygon of an [`Geometry::Outline`], as Planetiler derives it from a closed way that is
+    /// also an area.
+    pub(crate) fn of(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+        let area;
+        let geom = if let Geometry::Outline(ring) = geometry {
+            area = Polygon::new(ring.clone(), Vec::new());
+            FeatureGeom::Polygons(std::slice::from_ref(&area))
+        } else {
+            geom
+        };
         let point = match (self, geom) {
             (Self::Centroid, FeatureGeom::Points([point])) => return Some(*point),
             (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
@@ -465,6 +475,15 @@ impl PlannedLayer {
     /// The type of the geometry the layer draws, if it has only one.
     pub(crate) fn output_geometry(&self) -> Option<GeometryType> {
         self.point.map_or(self.geometry, |_| Some(GeometryType::Point))
+    }
+
+    /// Whether the layer draws a feature with `geometry`, projected as `geom`: one of its geometry type, or any but an
+    /// [`Geometry::Outline`], whose polygon it draws instead.
+    pub(crate) fn draws(&self, geometry: &Geometry, geom: FeatureGeom<'_>) -> bool {
+        match self.geometry {
+            Some(kind) => kind.matches(geom),
+            None => !matches!(geometry, Geometry::Outline(_)),
+        }
     }
 
     /// Whether some of the layer's features are thinned by a grid.
@@ -641,10 +660,31 @@ impl Plan {
     /// If the plan has no table `table`.
     #[must_use]
     pub fn row_filter(&self, table: usize, zooms: RangeInclusive<u8>) -> RowFilter {
+        self.layers_row_filter(table, zooms, |_| true)
+    }
+
+    /// The rows of table `table` that some layer of only `geometry` takes at one of `zooms`, leaving out the layers
+    /// of any geometry, for its source to filter readings on that only such layers draw.
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[must_use]
+    pub fn typed_row_filter(&self, table: usize, zooms: RangeInclusive<u8>, geometry: GeometryType) -> RowFilter {
+        self.layers_row_filter(table, zooms, |layer| layer.geometry == Some(geometry))
+    }
+
+    /// The rows of table `table` that some layer for which `of` holds takes at one of `zooms`.
+    fn layers_row_filter(
+        &self,
+        table: usize,
+        zooms: RangeInclusive<u8>,
+        of: impl Fn(&PlannedLayer) -> bool,
+    ) -> RowFilter {
         let table = &self.tables[table];
         let mut conditions = Vec::new();
         for (layer, rows) in self.layers[table.layers.clone()].iter().zip(&table.rows) {
-            if layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
+            if !of(layer) || layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
                 continue;
             }
             match rows {

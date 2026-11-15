@@ -1,5 +1,8 @@
-//! An OpenStreetMap PBF file as a [`FeatureSource`]: tagged nodes as points, tagged ways as lines, or as polygons
-//! where they are closed and their tags make them areas, and `multipolygon` and `boundary` relations as polygons.
+//! An OpenStreetMap PBF file as a [`FeatureSource`]: tagged nodes as points, tagged ways as lines, closed ways also
+//! as polygons, and `multipolygon` and `boundary` relations as polygons.
+//!
+//! A closed way is read as Planetiler reads it: as a polygon and as its [`Geometry::Outline`], both with the way's
+//! feature id, unless `area=yes` makes it only a polygon or `area=no` only a line. Its tags do not decide it.
 //!
 //! Each table of the plan reads the file in byte ranges of whole blocks, one partition each. A table's row filter is
 //! pushed down three ways: object types no layer takes are not decoded, blocks whose strings cannot hold a match are
@@ -16,9 +19,7 @@ use bytes::BytesMut;
 use geo::{BoundingRect as _, Intersects as _};
 use geo_types::{Coord, Polygon, Rect};
 use osmflow::nodes::{FileStore as _, MemoryReader, MemoryStore, NodeRead as _, NodeReader, PagedReader, PagedStore};
-use osmflow::{
-    AreaRules, BlobRange, Block, GeometryError, Location, Locator, MemberType, PbfError, PbfReader, Select, TagKey,
-};
+use osmflow::{BlobRange, Block, GeometryError, Location, Locator, MemberType, PbfError, PbfReader, Select, TagKey};
 use tilejson::Bounds;
 use tracing::{debug, info};
 
@@ -250,7 +251,9 @@ struct Scan {
     /// Only objects touching this box, if set.
     bounds: Option<Rect>,
     store: Option<Arc<Store>>,
-    areas: AreaRules,
+    /// The closed ways also read as outlines, by their tags as lines, if not every one: none without a layer of
+    /// lines, else those one takes.
+    outlines: Option<Condition>,
     /// The `multipolygon` and `boundary` relations some layer may take, by id.
     relations: Vec<Relation>,
     /// The node ids of the relations' member ways, by way id.
@@ -310,6 +313,17 @@ impl Scan {
     fn open(plan: &Plan, index: usize, table: OsmTable, layer_types: &[GeometryType]) -> Result<Self, OsmError> {
         let read_error = read_error(&table.path);
         let condition = match (&table.objects, plan.row_filter(index, 0..=MAX_ZOOM)) {
+            (Objects::Taken, RowFilter::Matching(condition)) => Some(condition),
+            (Objects::Matching(condition), _) => Some(condition.clone()),
+            (Objects::Taken, RowFilter::All | RowFilter::Untranslatable(_)) | (Objects::Every | Objects::One(_), _) => {
+                None
+            }
+        };
+        let outlines = match (
+            &table.objects,
+            plan.typed_row_filter(index, 0..=MAX_ZOOM, GeometryType::Line),
+        ) {
+            (_, RowFilter::Matching(Condition::Const(false))) => Some(Condition::Const(false)),
             (Objects::Taken, RowFilter::Matching(condition)) => Some(condition),
             (Objects::Matching(condition), _) => Some(condition.clone()),
             (Objects::Taken, RowFilter::All | RowFilter::Untranslatable(_)) | (Objects::Every | Objects::One(_), _) => {
@@ -384,9 +398,22 @@ impl Scan {
             columns,
             bounds: table.bounds.map(|b| Rect::new((b.left, b.bottom), (b.right, b.top))),
             store,
-            areas: AreaRules::default(),
+            outlines,
             relations,
             member_ways,
+        })
+    }
+
+    /// Whether the closed way whose scanned columns `tag` gives by position is read as an outline too.
+    fn takes_outline<'t>(&self, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
+        self.outlines.as_ref().is_none_or(|condition| {
+            let row = ObjectRow {
+                columns: &self.columns,
+                kind: Kind::Way,
+                tag,
+                geometry: GeometryType::Line,
+            };
+            matches(condition, &row)
         })
     }
 
@@ -849,7 +876,8 @@ fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut
     Ok(())
 }
 
-/// Reads the block's ways; returns how many were skipped for nodes missing from the file.
+/// Reads the block's ways, each closed one as Planetiler does: a polygon unless `area=no`, and its outline unless
+/// `area=yes`; returns how many were skipped for nodes missing from the file.
 fn read_ways(
     scan: &Scan,
     block: &Block,
@@ -858,6 +886,7 @@ fn read_ways(
     out: &mut Batches<'_>,
 ) -> SourceResult<u64> {
     let mut missing = 0;
+    let area_key = block.tag_key("area");
     for way in block.ways() {
         if way.tags().len() == 0 || !scan.wants(Kind::Way, way.id()) {
             continue;
@@ -866,18 +895,23 @@ fn read_ways(
         let count = refs.len();
         let first = refs.next();
         let last = refs.last().or(first);
-        let area = count >= 4 && first == last && scan.areas.is_area(way.tags());
-        let geometry = if area {
-            GeometryType::Polygon
-        } else {
-            GeometryType::Line
-        };
+        let closed = count > 1 && first == last;
+        let area = area_key.and_then(|key| way.tag(key));
+        let can_be_line = (!closed || area != Some("yes")) && count >= 2;
+        let can_be_polygon = closed && area != Some("no") && count >= 4;
         let tag = |pos: usize| way.tag(keys[pos]?).filter(|v| !v.is_empty());
-        if !scan.takes(Kind::Way, geometry, &tag) {
+        let polygon = can_be_polygon && scan.takes(Kind::Way, GeometryType::Polygon, &tag);
+        let line = can_be_line
+            && if can_be_polygon {
+                scan.takes_outline(&tag)
+            } else {
+                scan.takes(Kind::Way, GeometryType::Line, &tag)
+            };
+        if !polygon && !line {
             continue;
         }
-        let line = match lookup.line_string(&way) {
-            Ok(line) => line,
+        let ring = match lookup.line_string(&way) {
+            Ok(ring) => ring,
             Err(GeometryError::MissingNode(_)) => {
                 missing += 1;
                 continue;
@@ -885,21 +919,42 @@ fn read_ways(
             Err(GeometryError::TooFewNodes | GeometryError::NotClosed | GeometryError::NoRing) => continue,
         };
         if let Some(bounds) = scan.bounds
-            && !line.bounding_rect().is_some_and(|r| r.intersects(&bounds))
+            && !ring.bounding_rect().is_some_and(|r| r.intersects(&bounds))
         {
             continue;
         }
-        let geometry = if area && line.is_closed() {
-            Geometry::Polygon(Polygon::new(line, Vec::new()))
-        } else {
-            Geometry::Line(line)
-        };
+        let id = Kind::Way.feature_id(way.id());
         let props = out.props(Kind::Way, &scan.columns, tag);
-        out.push(SourceFeature {
-            id: Kind::Way.feature_id(way.id()),
-            geometry,
-            props,
-        })?;
+        match (polygon && ring.is_closed(), line) {
+            (true, true) => {
+                let area = Geometry::Polygon(Polygon::new(ring.clone(), Vec::new()));
+                out.push(SourceFeature {
+                    id,
+                    geometry: area,
+                    props: props.clone(),
+                })?;
+                out.push(SourceFeature {
+                    id,
+                    geometry: Geometry::Outline(ring),
+                    props,
+                })?;
+            }
+            (true, false) => out.push(SourceFeature {
+                id,
+                geometry: Geometry::Polygon(Polygon::new(ring, Vec::new())),
+                props,
+            })?,
+            (false, true) => out.push(SourceFeature {
+                id,
+                geometry: if can_be_polygon {
+                    Geometry::Outline(ring)
+                } else {
+                    Geometry::Line(ring)
+                },
+                props,
+            })?,
+            (false, false) => {}
+        }
     }
     Ok(missing)
 }

@@ -50,6 +50,9 @@ pub enum Geometry {
     Points(Vec<Coord<f64>>),
     Lines(Vec<LineString<f64>>),
     Polygons(Vec<Polygon<f64>>),
+    /// The ring of an area the source also reads as a polygon with the same id: layers of lines draw it, and layers
+    /// of any geometry draw the polygon instead, as Planetiler reads a closed OSM way as both.
+    Outline(LineString<f64>),
     /// Well-known binary, decoded by [`Geometry::decode_wkb`] on the render workers.
     Wkb(Bytes),
 }
@@ -79,7 +82,7 @@ impl Geometry {
     pub fn feature_geom(&self) -> Option<FeatureGeom<'_>> {
         Some(match self {
             Self::Point(point) => FeatureGeom::Points(std::slice::from_ref(point)),
-            Self::Line(line) => FeatureGeom::Lines(std::slice::from_ref(line)),
+            Self::Line(line) | Self::Outline(line) => FeatureGeom::Lines(std::slice::from_ref(line)),
             Self::Polygon(polygon) => FeatureGeom::Polygons(std::slice::from_ref(polygon)),
             Self::Points(points) => FeatureGeom::Points(points),
             Self::Lines(lines) => FeatureGeom::Lines(lines),
