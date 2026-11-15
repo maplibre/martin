@@ -17,6 +17,8 @@ pub mod passthrough;
 pub mod pmtiles;
 #[cfg(feature = "postgres")]
 pub mod postgres;
+#[cfg(feature = "shapefile")]
+pub mod shapefile;
 
 #[cfg(feature = "_tiles")]
 pub mod discovery;

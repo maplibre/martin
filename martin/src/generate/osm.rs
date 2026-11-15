@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use martin_tilegen::osm::{NodeStore, Objects, OsmTable, columns};
+use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::TableDef;
 
 use super::layers::{LowerOptions, SourceSettings, lower_source};
@@ -14,35 +14,23 @@ use crate::config::file::osm::OsmSourceConfig;
 /// The smallest and largest partition of a file, in bytes.
 const PARTITION_BYTES: std::ops::RangeInclusive<u64> = (1 << 20)..=(64 << 20);
 
-/// The requested OSM sources as tables, or `None` if the run asks for no OSM source.
+/// The OSM sources among `ids` as one source with the tables it reads, or `None` if none of them has a layer with a
+/// zoom in `options`.
 ///
 /// # Errors
 ///
-/// If it asks for OSM and other sources together, a layer is not supported, or a file cannot be read.
-pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<Option<Vec<(TableDef, OsmTable)>>> {
-    let osm = &config.osm.sources;
-    if osm.is_empty() {
-        return Ok(None);
-    }
-    let requested: Vec<&str> = if options.sources.is_empty() {
-        if !config.postgres.is_empty() {
-            return Err(GenerateError::MixedSources);
-        }
-        osm.keys().map(String::as_str).collect()
-    } else {
-        options.sources.iter().map(String::as_str).collect()
-    };
-    let (ours, others): (Vec<&str>, Vec<&str>) = requested.into_iter().partition(|id| osm.contains_key(*id));
-    if ours.is_empty() {
-        return Ok(None);
-    }
-    if !others.is_empty() {
-        return Err(GenerateError::MixedSources);
-    }
+/// If a layer is not supported, or a file cannot be read.
+pub async fn source(
+    config: &Config,
+    options: &GenerateOptions,
+    ids: &[String],
+) -> GenerateResult<Option<(OsmSource, Vec<TableDef>)>> {
     let temp_dir = options.temp_dirs.first().cloned().unwrap_or_else(std::env::temp_dir);
-    let mut tables = Vec::with_capacity(ours.len());
-    for id in ours {
-        let source = &osm[id];
+    let mut tables = Vec::new();
+    for id in ids {
+        let Some(source) = config.osm.sources.get(id) else {
+            continue;
+        };
         let lower_options = LowerOptions {
             zooms: options.zooms.clone(),
             bounds: options.bbox,
@@ -56,9 +44,12 @@ pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateRes
         tables.push((def, table));
     }
     if tables.is_empty() {
-        return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
+        return Ok(None);
     }
-    Ok(Some(tables))
+    let defs = tables.iter().map(|(def, _)| def.clone()).collect();
+    let partition_bytes = partition_bytes(&tables, options.threads);
+    let source = tokio::task::spawn_blocking(move || OsmSource::new(tables, partition_bytes)).await??;
+    Ok(Some((source, defs)))
 }
 
 /// Source `id` as a table of the plan, or `None` if none of its layers has a zoom in `options`.

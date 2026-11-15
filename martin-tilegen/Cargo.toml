@@ -35,12 +35,14 @@ name = "sort"
 harness = false
 
 [features]
-default = ["mbtiles", "osm", "pmtiles"]
+default = ["mbtiles", "osm", "pmtiles", "shapefile"]
 mbtiles = ["dep:mbtiles", "dep:tokio"]
 pmtiles = ["pmtiles/write", "dep:serde_json"]
 internals = []
 # Reading OpenStreetMap PBF files as a feature source
 osm = ["dep:osmflow"]
+# Reading ESRI shapefiles, plain or zipped, as a feature source
+shapefile = ["dep:shapefile", "dep:zip"]
 
 [dependencies]
 bytes.workspace = true
@@ -62,6 +64,7 @@ pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
 serde_json = { workspace = true, optional = true }
+shapefile = { workspace = true, optional = true }
 strum.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
@@ -71,6 +74,7 @@ tracing.workspace = true
 wincode = { workspace = true, features = ["derive"] }
 wkb.workspace = true
 xxhash-rust.workspace = true
+zip = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dev-dependencies]
 rustix = { workspace = true, features = ["process", "std"] }
@@ -94,3 +98,7 @@ required-features = ["osm"]
 [[test]]
 name = "osm_edge_cases"
 required-features = ["osm"]
+
+[[test]]
+name = "shapefile"
+required-features = ["shapefile"]

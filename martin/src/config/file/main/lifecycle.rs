@@ -168,6 +168,9 @@ impl Config {
         #[cfg(feature = "osm")]
         let is_empty = is_empty && self.osm.is_empty();
 
+        #[cfg(feature = "shapefile")]
+        let is_empty = is_empty && self.shapefile.is_empty();
+
         #[cfg(feature = "processing")]
         let is_empty = is_empty && self.geojson.is_empty();
 
