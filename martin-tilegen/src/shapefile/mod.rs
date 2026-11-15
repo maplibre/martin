@@ -786,7 +786,7 @@ fn geometry(shape: Shape) -> Option<Geometry> {
         Geometry::Points(points) => points.is_empty(),
         Geometry::Lines(lines) => lines.is_empty(),
         Geometry::Polygons(polygons) => polygons.is_empty(),
-        Geometry::Line(_) | Geometry::Polygon(_) | Geometry::Wkb(_) => false,
+        Geometry::Line(_) | Geometry::Outline(_) | Geometry::Polygon(_) | Geometry::Wkb(_) => false,
     };
     (!empty).then_some(geometry)
 }
@@ -864,7 +864,7 @@ fn geometry_rect(geometry: &Geometry) -> Option<Rect> {
     };
     match geometry {
         Geometry::Point(p) => Some(Rect::new(*p, *p)),
-        Geometry::Line(line) => line.bounding_rect(),
+        Geometry::Line(line) | Geometry::Outline(line) => line.bounding_rect(),
         Geometry::Polygon(polygon) => polygon.bounding_rect(),
         Geometry::Points(points) => points.iter().map(|p| Rect::new(*p, *p)).reduce(union),
         Geometry::Lines(lines) => lines.iter().filter_map(LineString::bounding_rect).reduce(union),

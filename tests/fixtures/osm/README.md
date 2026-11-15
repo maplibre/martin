@@ -25,6 +25,7 @@
   `docs/snippets/shortbread.yaml` on `monaco.osm.pbf`, written from the workspace root by
 
   ```bash
-  sed 's#berlin-latest.osm.pbf#tests/fixtures/osm/monaco.osm.pbf#' docs/snippets/shortbread.yaml > /tmp/shortbread.yaml
+  sed -e 's#berlin-latest.osm.pbf#tests/fixtures/osm/monaco.osm.pbf#' \
+    -e 's#water-polygons-split-3857.zip#tests/fixtures/shapefile/ocean.zip#' docs/snippets/shortbread.yaml > /tmp/shortbread.yaml
   martin test generate --config /tmp/shortbread.yaml --output tests/fixtures/osm/shortbread-monaco.spec.yaml
   ```
