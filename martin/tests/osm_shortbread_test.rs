@@ -69,6 +69,13 @@ fn attributes_at(output: &Output, zoom: Option<u8>) -> BTreeMap<String, Value> {
         .collect()
 }
 
+fn same_value(expected: &Value, actual: &Value) -> bool {
+    match (expected.as_f64(), actual.as_f64()) {
+        (Some(want), Some(got)) if expected.is_f64() => (want - got).abs() <= want.abs() * 1e-12,
+        _ => expected == actual,
+    }
+}
+
 fn proximity(expected: &Expected, output: &Output) -> usize {
     let attributes = attributes_at(output, expected.at_zoom);
     let tags = expected.tags.iter().flatten();
@@ -76,7 +83,7 @@ fn proximity(expected: &Expected, output: &Output) -> usize {
         + usize::from(expected.geometry.as_ref() == Some(&output.geometry.to_string()))
         + tags
             .map(|(key, value)| match attributes.get(key) {
-                Some(actual) if actual == value => 2,
+                Some(actual) if same_value(value, actual) => 2,
                 Some(_) => 1,
                 None => 0,
             })
@@ -144,7 +151,7 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
         let mut attributes = attributes_at(&got, want.at_zoom);
         for (key, value) in want.tags.iter().flatten() {
             match attributes.remove(key) {
-                Some(actual) if actual == *value => {}
+                Some(actual) if same_value(value, &actual) => {}
                 Some(actual) => issues.push(format!("{layer}.{key} {value}, got {actual}")),
                 None => issues.push(format!("{layer}.{key} {value}, got none")),
             }
@@ -207,8 +214,6 @@ async fn shortbread_snippet_renders_planetiler_examples() {
     }
     writeln!(report, "{matched} of {osm} examples match").unwrap();
     insta::assert_snapshot!(report, @"
-    waterway=dock:
-      water_polygons.way_area 12364188935.60872, got none
     pedestrian polygon without area=yes gets also interpreted as an polygon:
       layer street_polygons, got streets
       street_polygons geometry polygon, got line
@@ -219,21 +224,7 @@ async fn shortbread_snippet_renders_planetiler_examples() {
       layer streets_polygons_labels, got street_labels
       streets_polygons_labels geometry point, got line
       streets_polygons_labels.tunnel not expected, got false
-    boundary_labels:
-      boundary_labels.way_area 1236418.8935608722, got none
-    boundary_labels admin_level=2 z4:
-      boundary_labels min_zoom 4, got 5
-      boundary_labels.way_area 11126640.16653054, got none
-    boundary_labels admin_level=2 z3:
-      boundary_labels min_zoom 3, got 5
-      boundary_labels.way_area 79067549.40857396, got none
-    boundary_labels admin_level=2 z2:
-      boundary_labels min_zoom 2, got 5
-      boundary_labels.way_area 492066726.2278699, got none
-    boundary_labels admin_level=4 z3:
-      boundary_labels min_zoom 3, got 5
-      boundary_labels.way_area 492066726.2278699, got none
-    59 of 66 examples match
+    65 of 66 examples match
     ");
 }
 
