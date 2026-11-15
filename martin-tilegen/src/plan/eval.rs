@@ -398,13 +398,13 @@ impl Evaluator<'_> {
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];
-            if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+            if !layer.draws(&feature.geometry, geom) {
                 continue;
             }
             let derived;
             let geom = match layer.point {
                 Some(point) => {
-                    let Some(coord) = point.of(geom) else {
+                    let Some(coord) = point.of(&feature.geometry, geom) else {
                         continue;
                     };
                     derived = coord;

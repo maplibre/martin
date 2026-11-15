@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
-use martin_tilegen::source::{FeatureSource as _, SourceFeature};
+use martin_tilegen::source::{FeatureSource as _, Geometry, SourceFeature};
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -50,14 +50,14 @@ fn read_all(source: &OsmSource) -> Vec<SourceFeature> {
     features
 }
 
-fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<i64> {
+fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<(i64, bool)> {
     let mut evaluator = source.plan().evaluator();
     let mut taken = BTreeSet::new();
     for feature in features {
         let geom = feature.geometry.feature_geom().unwrap();
         evaluator
             .evaluate(0, feature, geom, |_| {
-                taken.insert(feature.id.unwrap());
+                taken.insert((feature.id.unwrap(), matches!(feature.geometry, Geometry::Outline(_))));
                 Ok(())
             })
             .unwrap();
@@ -65,13 +65,30 @@ fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<i64> {
     taken
 }
 
-fn ids(features: &[SourceFeature]) -> BTreeSet<i64> {
-    features.iter().map(|f| f.id.unwrap()).collect()
+fn ids(features: &[SourceFeature]) -> BTreeSet<(i64, bool)> {
+    features
+        .iter()
+        .map(|f| (f.id.unwrap(), matches!(f.geometry, Geometry::Outline(_))))
+        .collect()
 }
 
 #[track_caller]
 fn assert_pushdown_exact(filter: &str, geometry: Option<GeometryType>) {
-    let everything = read_all(&source(None, None));
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Every,
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let everything = read_all(&OsmSource::new(vec![(def, table)], 16 << 10).unwrap());
     let pushed = source(Some(filter), geometry);
     let expected = taken_by(&pushed, &everything);
     assert!(!expected.is_empty(), "`{filter}` takes no object of Monaco");
@@ -133,7 +150,7 @@ fn untranslatable_where_reads_every_node_and_nothing_else() {
         Some("name != null && size(name.split(' ')) > 1"),
         Some(GeometryType::Point),
     );
-    let nodes: BTreeSet<i64> = ids(&everything).into_iter().filter(|id| id % 10 == 1).collect();
+    let nodes: BTreeSet<(i64, bool)> = ids(&everything).into_iter().filter(|(id, _)| id % 10 == 1).collect();
     assert!(!taken_by(&pushed, &everything).is_empty());
     assert_eq!(ids(&read_all(&pushed)), nodes);
 }

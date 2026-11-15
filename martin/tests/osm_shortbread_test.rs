@@ -202,7 +202,11 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             OneOrMany::One(one) => std::slice::from_ref(one),
             OneOrMany::Many(many) => many.as_slice(),
         };
-        let issues = issues(expected, outputs(&tiles));
+        let mut actual = outputs(&tiles);
+        if example.input.geometry == "polygon" || example.input.geometry.starts_with("POLYGON") {
+            actual.retain(|output| output.geometry.to_string() != "line");
+        }
+        let issues = issues(expected, actual);
         if issues.is_empty() {
             matched += 1;
         } else {
@@ -214,17 +218,7 @@ async fn shortbread_snippet_renders_planetiler_examples() {
     }
     writeln!(report, "{matched} of {osm} examples match").unwrap();
     insta::assert_snapshot!(report, @"
-    pedestrian polygon without area=yes gets also interpreted as an polygon:
-      layer street_polygons, got streets
-      street_polygons geometry polygon, got line
-      street_polygons min_zoom 14, got 13
-      street_polygons.link not expected, got false
-      street_polygons.oneway not expected, got false
-      street_polygons.oneway_reverse not expected, got false
-      layer streets_polygons_labels, got street_labels
-      streets_polygons_labels geometry point, got line
-      streets_polygons_labels.tunnel not expected, got false
-    65 of 66 examples match
+    66 of 66 examples match
     ");
 }
 

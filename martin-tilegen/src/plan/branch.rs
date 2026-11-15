@@ -153,7 +153,7 @@ impl Plan {
         Ok(self.with_view(usize::from(table), feature, Some(geom), |view| {
             paths
                 .into_iter()
-                .filter(|path| path.test.passes(self, view, geom, &mut errors))
+                .filter(|path| path.test.passes(self, view, &geometry, geom, &mut errors))
                 .map(|path| path.branch)
                 .collect()
         }))
@@ -228,16 +228,17 @@ struct Test<'p> {
 }
 
 impl Test<'_> {
-    /// Whether the feature seen through `view`, with the projected geometry `geom`, meets the test.
+    /// Whether the feature seen through `view`, with `geometry`, projected as `geom`, meets the test.
     fn passes(
         &self,
         plan: &Plan,
         view: &FeatureView<'_, SourceStr>,
+        geometry: &Geometry,
         geom: FeatureGeom<'_>,
         errors: &mut [u64],
     ) -> bool {
         let layer = self.layer;
-        if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+        if !layer.draws(geometry, geom) {
             return false;
         }
         let reached = match &self.reach {

@@ -52,14 +52,28 @@ A run renders either `osm` sources or database sources, not both.
 
 ## Supported Features and handling
 
-| OSM object                                           | Feature                                                 | `osm_type` | Feature id  |
-|------------------------------------------------------|---------------------------------------------------------|------------|-------------|
-| Node with tags                                       | point                                                   | `node`     | id * 10 + 1 |
-| Way with tags                                        | line, or polygon if closed and its tags make it an area | `way`      | id * 10 + 2 |
-| Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon                                 | `relation` | id * 10 + 3 |
+| OSM object                                           | Feature                      | `osm_type` | Feature id  |
+|------------------------------------------------------|------------------------------|------------|-------------|
+| Node with tags                                       | point                        | `node`     | id * 10 + 1 |
+| Way with tags                                        | line, polygon or both, below | `way`      | id * 10 + 2 |
+| Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon      | `relation` | id * 10 + 3 |
 
 Martin leaves out objects without tags, and other relations.
-Whether a closed way is an area follows [osmflow's `AreaRules`](https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on).
+A way is read as Planetiler reads it, whatever its other tags:
+
+| Way                                     | Polygon | Line |
+|-----------------------------------------|---------|------|
+| Not closed                              | no      | yes  |
+| Closed, no `area` tag or another value  | yes     | yes  |
+| Closed, `area=yes`                      | yes     | no   |
+| Closed, `area=no`                       | no      | yes  |
+| Closed, fewer than 4 nodes              | no      | yes  |
+
+Layers of polygons take the polygon and layers of lines the line, both with the way's feature id.
+A closed `highway=pedestrian` way can be both a street and a street area.
+Layers of any geometry, such as `geometry: centroid`, take the polygon only.
+`line_centroid` is the centroid of the polygon, as in Planetiler.
+
 A relation's member ways are joined into rings.
 A ring inside an odd number of others is a hole, whatever its role.
 A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
@@ -79,6 +93,7 @@ sources:
 2. A block of the file whose strings cannot hold a match, such as one without the string `highway` for
    `highway == 'primary'`, is skipped before it is decompressed in full.
 3. Each object's tags are checked before the locations of a way's nodes are looked up.
+4. A closed way is read as a line only if a layer with `geometry: line` may take it.
 
 This needs the same equivalent of `where` as [table sources](sources-pg-layers.md#features) do. Without one, Martin
 reads every tagged object and checks `where` itself, with the same result.
