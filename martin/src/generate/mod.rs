@@ -7,6 +7,8 @@ mod osm;
 pub mod postgres;
 mod progress;
 pub mod serve;
+#[cfg(feature = "shapefile")]
+mod shapefile;
 pub mod spec;
 
 use std::collections::{BTreeMap, HashSet};
@@ -255,12 +257,18 @@ pub enum GenerateError {
         entry: &'static str,
         geometry: String,
     },
-    #[cfg(feature = "osm")]
-    #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
+    #[error(
+        "`--mode bulk` renders file sources (`osm`, `shapefile`) or database sources in one run, not both; pick them with `--source`"
+    )]
     MixedSources,
-    #[cfg(feature = "osm")]
-    #[error("`martin test` tests OSM sources or database sources, not both; put them in separate configuration files")]
+    #[cfg(any(feature = "osm", feature = "shapefile"))]
+    #[error(
+        "`martin test` tests file sources (`osm`, `shapefile`) or database sources, not both; put them in separate configuration files"
+    )]
     MixedTestSources,
+    #[cfg(feature = "shapefile")]
+    #[error("Source `{source_id}` has a field `{field}`, which `martin test` keeps the record number in")]
+    ShapefileRecordField { source_id: String, field: String },
     #[cfg(feature = "osm")]
     #[error("Source `{source_id}` reads the tag `{tag}`, which `martin test` reserves in each case's input")]
     OsmReservedTag { source_id: String, tag: String },
@@ -385,22 +393,13 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
 
     let mut sources: Vec<(Box<dyn FeatureSource + Send>, Vec<TableDef>)> = Vec::new();
     let mut geometry_finders = Vec::new();
-    let mut metadata = bulk_metadata(&options, options.bbox, Vec::new());
-    #[cfg(feature = "osm")]
-    if let Some(tables) = osm::select_sources(&config, &options)? {
-        let defs: Vec<TableDef> = tables.iter().map(|(def, _)| def.clone()).collect();
-        let partition_bytes = osm::partition_bytes(&tables, options.threads);
-        let source =
-            tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
-        geometry_finders.extend(defs.iter().map(|_| None));
-        sources.push((Box::new(source), defs));
-    }
-    if sources.is_empty() {
+    let files = file_sources(&config, &options)?;
+    let metadata = if files.is_empty() {
         let (pool, scans, bounds) = select_sources(&config, &options).await?;
         for scan in &scans {
             geometry_finders.push(Some((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)));
         }
-        metadata = bulk_metadata(
+        let metadata = bulk_metadata(
             &options,
             bounds,
             scans
@@ -411,10 +410,58 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         let defs = scans.iter().map(|scan| scan.def.clone()).collect();
         let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
         sources.push((Box::new(source), defs));
-    }
+        metadata
+    } else {
+        #[cfg(feature = "shapefile")]
+        if let Some((source, defs)) = shapefile::source(&config, &options, &files).await? {
+            geometry_finders.extend(defs.iter().map(|_| None));
+            sources.push((Box::new(source), defs));
+        }
+        #[cfg(feature = "osm")]
+        if let Some((source, defs)) = osm::source(&config, &options, &files).await? {
+            geometry_finders.extend(defs.iter().map(|_| None));
+            sources.push((Box::new(source), defs));
+        }
+        if sources.is_empty() {
+            return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
+        }
+        bulk_metadata(&options, options.bbox, Vec::new())
+    };
     monitor.set_tables(geometry_finders.len());
     let source = SourceChain::new(sources).map_err(TileGenError::from)?;
     run(source, options, metadata, progress, monitor, started, geometry_finders).await
+}
+
+/// The ids of the file sources the run renders, shapefile and OSM sources, in the order `--source` names them; empty
+/// if it renders database sources.
+///
+/// # Errors
+///
+/// If the run asks for file sources and database sources together.
+fn file_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<Vec<String>> {
+    #[cfg_attr(
+        not(any(feature = "osm", feature = "shapefile")),
+        expect(unused_mut, reason = "this build reads no kind of file source")
+    )]
+    let mut files: Vec<&String> = Vec::new();
+    #[cfg(feature = "shapefile")]
+    files.extend(config.shapefile.sources.keys());
+    #[cfg(feature = "osm")]
+    files.extend(config.osm.sources.keys());
+    if files.is_empty() {
+        return Ok(Vec::new());
+    }
+    if options.sources.is_empty() {
+        if !config.postgres.is_empty() {
+            return Err(GenerateError::MixedSources);
+        }
+        return Ok(files.into_iter().cloned().collect());
+    }
+    let (ours, others): (Vec<&String>, Vec<&String>) = options.sources.iter().partition(|id| files.contains(id));
+    if !ours.is_empty() && !others.is_empty() {
+        return Err(GenerateError::MixedSources);
+    }
+    Ok(ours.into_iter().cloned().collect())
 }
 
 /// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.

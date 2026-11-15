@@ -13,6 +13,8 @@ mod pipeline;
 pub mod plan;
 mod progress;
 pub mod props;
+#[cfg(feature = "shapefile")]
+pub mod shapefile;
 mod sink;
 mod sort;
 pub mod source;
