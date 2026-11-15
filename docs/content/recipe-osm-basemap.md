@@ -19,9 +19,6 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
     These are known missing features currently, but are planned:
 
     - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
-    - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid.
-      `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon.
-      Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/):
 
