@@ -14,3 +14,8 @@
   allows. Block 1 holds one group with node 1 (`amenity=cafe`), its two strings after the group. Block 2 holds the
   strings `amenity` and `cafe`, two groups with the untagged nodes 3 and 4, then the string `x`. A read filtering on
   `amenity == 'cafe'` skips block 1 by the strings before its group and counts block 2.
+- `shortbread.spec.yml`: Planetiler's examples of its Shortbread profile, unchanged
+  (`planetiler-custommap/src/main/resources/samples/shortbread.spec.yml`, commit `ee9f808cf726b7e57a0017320a107e95087a85a9`),
+  under the [Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE).
+- `shortbread-examples.osm.pbf`: one OSM object per example of `shortbread.spec.yml`, written by
+  `uv run --with osmium --with pyyaml python tests/fixtures/osm/shortbread_examples.py`.

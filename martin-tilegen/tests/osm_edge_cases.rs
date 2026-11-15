@@ -646,3 +646,48 @@ fn way_that_revisits_its_nodes_keeps_them() {
     "};
     insta::assert_snapshot!(features(Store::Memory, &["Sort.Type_then_ID"], opl), @"w10 LINESTRING(0 0,1 0,0 0,1 0,1 1)");
 }
+
+#[test]
+fn empty_tag_value_reads_as_null() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 Tname=,amenity=cafe x0 y0
+            n2 Tname=Berlin,amenity=cafe x1 y0
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned(), "amenity".to_owned()]),
+        layers: vec![LayerDef {
+            filter: Some("name == null || name == ''".to_owned()),
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    let props: Vec<String> = feature
+                        .props
+                        .iter()
+                        .map(|(key, value)| format!("{}={value:?}", key.index()))
+                        .collect();
+                    writeln!(out, "{} {}", feature.id.unwrap(), props.join(" ")).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @r#"11 0=Str("node") 2=Str("cafe")"#);
+}

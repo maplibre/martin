@@ -64,7 +64,7 @@ A relation's member ways are joined into rings.
 A ring inside an odd number of others is a hole, whatever its role.
 A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
 
-Each key in `tags` is a string property, `null` where the object does not have the tag.
+Each key in `tags` is a string property, `null` where the object does not have the tag or its value is empty.
 `osm_type` is always one.
 An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with
 `feature['name:en']`.
