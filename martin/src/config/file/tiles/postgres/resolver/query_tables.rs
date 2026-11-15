@@ -757,7 +757,7 @@ fn grid_sql(
         };
         return GridSql {
             geometry,
-            envelope: format!("(SELECT ST_TileEnvelope({TILE}))"),
+            envelope: format!("(SELECT ST_TileEnvelope({TILE})::box2d)"),
             bbox_search: format!("(SELECT {bbox_search})"),
         };
     }
@@ -808,7 +808,7 @@ fn grid_sql(
     };
     GridSql {
         geometry,
-        envelope: format!("(SELECT {envelope})"),
+        envelope: format!("(SELECT {envelope}::box2d)"),
         bbox_search,
     }
 }
@@ -1042,7 +1042,7 @@ mod tests {
         assert_eq!(sql.geometry, geometry);
         assert_eq!(
             sql.envelope,
-            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer))"
+            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer)::box2d)"
         );
         assert_eq!(sql.bbox_search, format!("(SELECT {bbox_search})"));
     }
@@ -1058,7 +1058,7 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer))");
     }
 
@@ -1095,7 +1095,7 @@ mod tests {
     fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
         let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
         let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, None);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer))");
     }
 
@@ -1111,7 +1111,7 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
     }
 
