@@ -524,11 +524,11 @@ mod tests {
                 geometry: point
                 where: population > 1000
         "}), @r#"
-        places: kept by `where: population > 1000`
+        places: kept by `where`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" > 1000
-        places: dropped, `where: population > 1000` is false
+        places: dropped, `where` is false
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" <= 1000
-        places: dropped, `population` is null in `where: population > 1000`
+        places: dropped, `population` is null in `where`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" IS NULL
         "#);
     }

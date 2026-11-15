@@ -544,7 +544,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
@@ -553,7 +553,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -562,7 +562,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -771,14 +771,14 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Selected {
                     rows: "TRUE",
                     key: 1,
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -790,7 +790,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -1038,13 +1038,16 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
-                Kept(
-                    3,
-                ),
+                "places: kept by `where`",
+                Swept {
+                    key: 1,
+                    because: [
+                        BackendCannotSelect,
+                    ],
+                },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -1053,7 +1056,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 3,
                     because: [
@@ -1113,19 +1116,16 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
-                        SpecRowOffPath(
-                            3,
-                        ),
                         BackendCannotSelect,
                     ],
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 3,
                     because: [
@@ -1134,7 +1134,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -1193,19 +1193,16 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
-                        SpecRowGone(
-                            9,
-                        ),
                         BackendCannotSelect,
                     ],
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -1214,7 +1211,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 1,
                     because: [

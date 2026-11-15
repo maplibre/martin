@@ -85,7 +85,8 @@ Paths are the distinct, interesting cases this configuration can produce.
 
 ![martin test generate finds a row for 6 of 10 paths, renders 3 new cases, and writes the spec](images/generate/test-generate.gif)
 
-A row on several paths is one case. `NO ROW`: no row takes the path.
+A path takes the first row found for an earlier path that is on it, else a row of its own, so a row on several
+paths is one case, and `generate` finds the cases of its own spec again. `NO ROW`: no row takes the path.
 
 ## Spec file
 
@@ -94,7 +95,7 @@ max_zoom: 14
 cases:
 - source: roads
   paths:
-  - "road_labels: dropped, `where: name != null` is false"
+  - "road_labels: dropped, `where` is false"
   - "roads: class 'residential' -> minzoom 12"
   input: # (1)!
     class: residential

@@ -42,25 +42,24 @@ async fn osm_selects_an_object_on_each_path_of_a_where() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "cafes: kept by `where: amenity == 'cafe'`",
+            "cafes: kept by `where`",
             Selected {
                 rows: "geometry is a Point AND amenity = 'cafe'",
                 key: 9179787631,
             },
         ),
         (
-            "cafes: dropped, `where: amenity == 'cafe'` is false",
+            "cafes: dropped, `where` is false",
             Selected {
                 rows: "geometry is a Point AND amenity IS DISTINCT FROM 'cafe'",
                 key: 219118861,
             },
         ),
         (
-            "cafes: dropped, `amenity` is null in `where: amenity == 'cafe'`",
-            Selected {
-                rows: "geometry is a Point AND amenity IS NULL",
-                key: 219118861,
-            },
+            "cafes: dropped, `amenity` is null in `where`",
+            Shared(
+                219118861,
+            ),
         ),
     ]
     "#);
@@ -88,7 +87,7 @@ async fn osm_generate_writes_a_case_per_object_found() {
     cases:
     - source: monaco
       paths:
-      - "roads: kept by `where: highway in ['primary', 'residential']`"
+      - "roads: kept by `where`"
       - "roads: minzoom 10, `highway == 'primary'` is true"
       - "roads: crosses a z14 tile edge"
       input:
@@ -106,7 +105,7 @@ async fn osm_generate_writes_a_case_per_object_found() {
           name: Avenue Princesse Alice
     - source: monaco
       paths:
-      - "roads: dropped, `where: highway in ['primary', 'residential']` is false"
+      - "roads: dropped, `where` is false"
       input:
         geometry: LINESTRING(7.4135618 43.7315191,7.4137377 43.7315542,7.4137378 43.7315543,7.4137977 43.7316116,7.4137109 43.7317658,7.4136638 43.7318296,7.4136169 43.7318931,7.4134669 43.7319786)
         highway: service
@@ -115,8 +114,8 @@ async fn osm_generate_writes_a_case_per_object_found() {
       output: []
     - source: monaco
       paths:
-      - "roads: dropped, `highway` is null in `where: highway in ['primary', 'residential']`"
-      - "roads: dropped, `where: highway in ['primary', 'residential']` is false"
+      - "roads: dropped, `highway` is null in `where`"
+      - "roads: dropped, `where` is false"
       input:
         geometry: LINESTRING(7.4207674 43.7389522,7.4214405 43.7396529,7.4222294 43.7404886,7.4229198 43.7413755,7.4259985 43.7450076,7.4271042 43.7461353,7.4296806 43.7483461,7.4311279 43.7494288,7.4332498 43.750677,7.4350394 43.7515102,7.4361839 43.7518194,7.4368175 43.7519639,7.4377083 43.752058,7.4382402 43.7520705,7.4400577 43.7521133,7.4410334 43.7522008,7.4448047 43.7529662,7.4454096 43.753126,7.4460965 43.7533658,7.4466395 43.7536054,7.4480063 43.7543341)
         highway: null
@@ -126,7 +125,7 @@ async fn osm_generate_writes_a_case_per_object_found() {
     - source: monaco
       paths:
       - "roads: minzoom 14, `highway == 'primary'` is false"
-      - "roads: kept by `where: highway in ['primary', 'residential']`"
+      - "roads: kept by `where`"
       input:
         geometry: LINESTRING(7.4174924 43.7296303,7.4174638 43.7296727,7.4174191 43.7297138,7.4173286 43.7297725,7.4172044 43.7298528)
         highway: residential
@@ -143,7 +142,7 @@ async fn osm_generate_writes_a_case_per_object_found() {
     - source: monaco
       paths:
       - "roads: kept only at z14 (`min_size_at_maxzoom`)"
-      - "roads: kept by `where: highway in ['primary', 'residential']`"
+      - "roads: kept by `where`"
       - "roads: minzoom 10, `highway == 'primary'` is true"
       input:
         geometry: LINESTRING(7.4229689 43.7323358,7.4229781 43.7323174,7.4229897 43.7322588)

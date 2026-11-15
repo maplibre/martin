@@ -27,6 +27,8 @@ pub enum RowSearch {
     NoKey,
     /// Row `0` of the spec's case on the path still takes it.
     Kept(RowKey),
+    /// Row `0`, found for an earlier path, takes this one too.
+    Shared(RowKey),
     /// The backend selected the rows on the path, and row `key` of them takes it.
     Selected { rows: String, key: RowKey },
     /// The backend selected the rows on the path, and there are none.
@@ -81,7 +83,7 @@ impl RowSearch {
     #[must_use]
     pub const fn key(&self) -> Option<RowKey> {
         match self {
-            Self::Kept(key) | Self::Selected { key, .. } | Self::Swept { key, .. } => Some(*key),
+            Self::Kept(key) | Self::Shared(key) | Self::Selected { key, .. } | Self::Swept { key, .. } => Some(*key),
             Self::NoKey | Self::NoneSelected { .. } | Self::NoneSwept { .. } => None,
         }
     }
@@ -92,7 +94,7 @@ impl Status for RowSearch {
 
     fn look(&self) -> Look {
         match self {
-            Self::Kept(_) | Self::Selected { .. } | Self::Swept { .. } => Self::FOUND,
+            Self::Kept(_) | Self::Shared(_) | Self::Selected { .. } | Self::Swept { .. } => Self::FOUND,
             Self::NoneSelected { .. } | Self::NoneSwept { .. } => Self::NO_ROW,
             Self::NoKey => Self::NO_KEY,
         }
@@ -113,6 +115,7 @@ impl Display for Found {
         match &self.row {
             RowSearch::NoKey => write!(f, "{branch}  the source has no key column"),
             RowSearch::Kept(key) => write!(f, "{branch}  row {key}, as in the spec"),
+            RowSearch::Shared(key) => write!(f, "{branch}  row {key}, found for an earlier path"),
             RowSearch::Selected { key, .. } => write!(f, "{branch}  row {key}"),
             RowSearch::NoneSelected { .. } => branch.fmt(f),
             RowSearch::Swept { key, .. } => write!(f, "{branch}  row {key}, swept"),
@@ -144,9 +147,12 @@ pub struct Search {
     pub rows: IndexMap<(String, RowKey), ReadRow>,
 }
 
-/// Finds a row on each path through the layers of `tables`: the row of `old`'s case on it while it still takes the
-/// path, else one the backend selects that takes it, else the first of a sweep over at most `sweep_rows` rows.
-/// Each row lists the paths it was found for first.
+/// Finds a row on each path through the layers of `tables`: the first row found so far that takes it, else the row
+/// of `old`'s case on it while it still takes the path, else one the backend selects that takes it, else the first of
+/// a sweep over at most `sweep_rows` rows. Each row lists the paths it was found for first.
+///
+/// A spec written from the rows found is found again as it is, as the first of its cases on each path is the row
+/// found for it.
 ///
 /// # Errors
 ///
@@ -170,7 +176,9 @@ pub async fn find_rows<B: TestBackend>(
             report.working(format_args!("{source} {branch}"));
             let started = Instant::now();
             let kept = case_on(old, source, &branch).and_then(|case| case.id(&ids));
-            let (row, read) = if table.key.is_none() {
+            let (row, read) = if let Some(key) = first_on(&search.rows, source, &branch) {
+                (Ok(RowSearch::Shared(key)), None)
+            } else if table.key.is_none() {
                 (Ok(RowSearch::NoKey), None)
             } else {
                 search_row(backend, table, &branch, kept).await?
@@ -202,6 +210,15 @@ pub async fn find_rows<B: TestBackend>(
             };
             search.found.push(found);
         }
+        swept.retain(|(i, _)| {
+            let found = &mut search.found[*i];
+            let Some(key) = first_on(&search.rows, source, &found.branch) else {
+                return true;
+            };
+            found.row = RowSearch::Shared(key);
+            report.line(&found.row, None, source, &*found);
+            false
+        });
         if swept.is_empty() {
             continue;
         }
@@ -285,6 +302,14 @@ pub fn id_columns(tables: &[TestTable]) -> IdColumns {
 }
 
 /// The case of `old` on `source`'s `branch`.
+/// The first row of `source` in `rows` that takes `branch`.
+fn first_on(rows: &IndexMap<(String, RowKey), ReadRow>, source: &str, branch: &Branch) -> Option<RowKey> {
+    let path = branch.to_string();
+    rows.iter()
+        .find(|((s, _), row)| s == source && row.paths.contains(&path))
+        .map(|((_, key), _)| *key)
+}
+
 fn case_on<'a>(old: Option<&'a Spec>, source: &str, branch: &Branch) -> Option<&'a Case> {
     let path = branch.to_string();
     old?.cases
