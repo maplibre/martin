@@ -4,6 +4,8 @@ pub mod backend;
 mod catalog;
 pub mod file;
 pub mod memory;
+#[cfg(feature = "osm")]
+pub mod osm;
 pub mod postgres;
 pub mod render;
 pub mod report;
@@ -84,9 +86,24 @@ pub struct RunArgs {
 ///
 /// If the configuration, the database or the spec cannot be read.
 pub async fn start(args: TestArgs) -> GenerateResult<bool> {
-    match args.action {
-        TestAction::Generate(args) => generate_spec(args).await,
-        TestAction::Run(args) => run_spec(args).await,
+    let started = Instant::now();
+    let config = match &args.action {
+        TestAction::Generate(args) => &args.config,
+        TestAction::Run(args) => &args.config,
+    };
+    #[cfg(feature = "osm")]
+    if let Some(backend) = osm::Osm::load(config)? {
+        return run_action(&backend, args.action, started).await;
+    }
+    let backend = Postgres::load(config).await?;
+    run_action(&backend, args.action, started).await
+}
+
+/// Runs `action` on the sources of `backend`, timed from `started`.
+async fn run_action<B: TestBackend>(backend: &B, action: TestAction, started: Instant) -> GenerateResult<bool> {
+    match action {
+        TestAction::Generate(args) => generate_spec(backend, args, started).await,
+        TestAction::Run(args) => run_spec(backend, args, started).await,
     }
 }
 
@@ -166,8 +183,7 @@ pub async fn review<B: TestBackend>(
 }
 
 /// `martin test generate`.
-async fn generate_spec(args: GenerateArgs) -> GenerateResult<bool> {
-    let started = Instant::now();
+async fn generate_spec<B: TestBackend>(backend: &B, args: GenerateArgs, started: Instant) -> GenerateResult<bool> {
     let report = Reporter::new();
     let output = &args.output;
     let old = output.exists().then(|| read_spec(output)).transpose()?;
@@ -175,8 +191,7 @@ async fn generate_spec(args: GenerateArgs) -> GenerateResult<bool> {
         .max_zoom
         .or(old.as_ref().map(|s| s.max_zoom))
         .unwrap_or(DEFAULT_MAX_ZOOM);
-    let backend = Postgres::load(&args.config).await?;
-    let mut review = review(&backend, max_zoom, old.as_ref(), args.sweep_rows, &report).await?;
+    let mut review = review(backend, max_zoom, old.as_ref(), args.sweep_rows, &report).await?;
     report.summary(started.elapsed(), review.summary());
     let pending = review.pending().count();
     #[cfg(feature = "tui")]
@@ -300,10 +315,8 @@ pub async fn check<B: TestBackend>(backend: &B, tables: &[TestTable], case: &Cas
 }
 
 /// `martin test run`.
-async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
-    let started = Instant::now();
+async fn run_spec<B: TestBackend>(backend: &B, args: RunArgs, started: Instant) -> GenerateResult<bool> {
     let report = Reporter::new();
-    let backend = Postgres::load(&args.config).await?;
     let spec = read_spec(&args.spec)?;
     let tables = backend.tables(spec.max_zoom)?;
     report.start(
@@ -323,7 +336,7 @@ async fn run_spec(args: RunArgs) -> GenerateResult<bool> {
         let name = CaseName(case, &ids).to_string();
         report.working(&name);
         let case_started = Instant::now();
-        let outcome = check(&backend, &tables, case).await?;
+        let outcome = check(backend, &tables, case).await?;
         let status = outcome.status();
         report.line(&status, Some(case_started.elapsed()), &name, case.path());
         if let Some(change) = &outcome.row {

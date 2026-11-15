@@ -17,7 +17,7 @@ use crate::plan::{
     key_id,
 };
 use crate::props::{Prop, SourceStr};
-use crate::source::{Crs, Geometry, SourceFeature};
+use crate::source::{Crs, Geometry, SourceFeature, WkbError};
 use crate::{FeatureGeom, PixelThreshold, TileGenError};
 
 /// One path through a layer.
@@ -58,6 +58,20 @@ pub struct SizeBand {
 }
 
 impl Shape {
+    /// Whether `geometry`, in `crs`, has this shape, as a path through the layers tests it.
+    ///
+    /// # Errors
+    /// If the geometry cannot be decoded.
+    pub fn fits(self, crs: Crs, geometry: &Geometry) -> Result<bool, WkbError> {
+        let mut geometry = geometry.clone();
+        if !project_geometry(crs, &mut geometry)? {
+            return Ok(false);
+        }
+        Ok(geometry.feature_geom().is_some_and(|geom| {
+            !matches!(geom, FeatureGeom::Points(_)) && bounding_box(geom).is_some_and(|bbox| self.holds(bbox))
+        }))
+    }
+
     /// Whether a geometry with the bounding box `bbox`, in the renderer's unit square, has this shape.
     fn holds(self, bbox: Rect<f64>) -> bool {
         let scale = |zoom: u8| f64::from(1u32 << zoom);

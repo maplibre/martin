@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use martin_tilegen::LayerGrid;
-use martin_tilegen::osm::{NodeStore, OsmSource, OsmTable, columns};
+use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
 use martin_tilegen::source::{FeatureSource as _, SourceFeature};
 
@@ -28,6 +28,7 @@ fn source(filter: Option<&str>, geometry: Option<GeometryType>) -> OsmSource {
         path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
         node_store: NodeStore::Memory,
         bounds: None,
+        objects: Objects::Taken,
     };
     let def = TableDef {
         columns: columns(&tags),
@@ -155,6 +156,7 @@ fn partition_size_changes_neither_the_features_nor_their_order() {
             path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
             node_store: NodeStore::Memory,
             bounds: None,
+            objects: Objects::Taken,
         };
         let def = TableDef {
             columns: columns(&tags),
@@ -166,4 +168,67 @@ fn partition_size_changes_neither_the_features_nor_their_order() {
     let whole = open(u64::MAX);
     assert!(per_blob.partitions() > whole.partitions() + 3);
     assert_eq!(read_all(&per_blob), read_all(&whole));
+}
+
+#[test]
+fn every_object_reads_what_no_layer_takes() {
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Every,
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            filter: Some("highway == 'primary'".to_owned()),
+            geometry: Some(GeometryType::Point),
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let every = OsmSource::new(vec![(def, table)], 16 << 10).unwrap();
+    assert_eq!(read_all(&every), read_all(&source(None, None)));
+}
+
+#[rstest::rstest]
+#[case::node(1)]
+#[case::way(2)]
+#[case::relation(3)]
+fn one_object_reads_only_that_object(#[case] kind: u64) {
+    let everything = read_all(&source(None, None));
+    let wanted = everything.iter().find(|f| f.id.unwrap() % 10 == kind).unwrap();
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::One(wanted.id.unwrap()),
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            filter: Some("false".to_owned()),
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let one = OsmSource::new(vec![(def, table)], 16 << 10).unwrap();
+    assert_eq!(read_all(&one), vec![wanted.clone()]);
+}
+
+#[test]
+fn one_object_with_an_id_of_no_object_type_is_refused() {
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::One(40),
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef::new("layer", 0..=14, GRID)],
+    };
+    let error = OsmSource::new(vec![(def, table)], 16 << 10).unwrap_err();
+    insta::assert_snapshot!(error, @"40 is not the feature id of an OSM object, which ends in 1 for a node, 2 for a way and 3 for a relation");
 }
