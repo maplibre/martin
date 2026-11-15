@@ -1,5 +1,7 @@
 //! What a data source hands the generator: partitions of features streamed in batches.
 
+mod chain;
+
 use bytes::Bytes;
 use geo_traits::to_geo::{ToGeoCoord as _, ToGeoGeometry as _, ToGeoLineString, ToGeoPolygon};
 use geo_traits::{
@@ -11,6 +13,7 @@ use wkb::reader::Wkb;
 
 use crate::FeatureGeom;
 use crate::props::{KeyId, KeyInterner, Prop, SourceStr};
+pub use crate::source::chain::SourceChain;
 
 /// Result of reading a [`FeatureSource`].
 pub type SourceResult<T> = Result<T, SourceError>;
@@ -227,10 +230,7 @@ pub trait FeatureSource: Sync {
     ///
     /// # Errors
     /// If opening the readers fails.
-    fn open_readers(&self, count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>>
-    where
-        Self: Sized,
-    {
+    fn open_readers(&self, count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>> {
         Ok((0..count)
             .map(|_| Box::new(Stateless(self)) as Box<dyn FeatureReader + '_>)
             .collect())
@@ -260,9 +260,10 @@ pub trait FeatureReader: Send {
     ) -> SourceResult<()>;
 }
 
-struct Stateless<'a, S>(&'a S);
+/// Reads every partition through [`FeatureSource::read`].
+struct Stateless<'a, S: ?Sized>(&'a S);
 
-impl<S: FeatureSource> FeatureReader for Stateless<'_, S> {
+impl<S: FeatureSource + ?Sized> FeatureReader for Stateless<'_, S> {
     fn read(
         &mut self,
         partition: u32,

@@ -18,9 +18,8 @@ use std::time::Instant;
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
-use martin_tilegen::plan::{Plan, Untranslatable};
-use martin_tilegen::source::FeatureSource;
-use martin_tilegen::source::WkbError;
+use martin_tilegen::plan::{TableDef, Untranslatable};
+use martin_tilegen::source::{FeatureSource, SourceChain, WkbError};
 use martin_tilegen::{
     GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
     TileGenResult, generate,
@@ -384,51 +383,38 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
+    let mut sources: Vec<(Box<dyn FeatureSource + Send>, Vec<TableDef>)> = Vec::new();
+    let mut geometry_finders = Vec::new();
+    let mut metadata = bulk_metadata(&options, options.bbox, Vec::new());
     #[cfg(feature = "osm")]
     if let Some(tables) = osm::select_sources(&config, &options)? {
-        monitor.set_tables(tables.len());
+        let defs: Vec<TableDef> = tables.iter().map(|(def, _)| def.clone()).collect();
         let partition_bytes = osm::partition_bytes(&tables, options.threads);
         let source =
             tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
-        let metadata = bulk_metadata(&options, options.bbox, Vec::new());
-        return run(source, options, metadata, progress, monitor, started, Vec::new()).await;
+        geometry_finders.extend(defs.iter().map(|_| None));
+        sources.push((Box::new(source), defs));
     }
-
-    let (pool, scans, bounds) = select_sources(&config, &options).await?;
-    monitor.set_tables(scans.len());
-    let geometry_finders: Vec<(String, String)> = scans
-        .iter()
-        .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
-        .collect::<GenerateResult<_>>()?;
-    let metadata = bulk_metadata(
-        &options,
-        bounds,
-        scans
-            .iter()
-            .map(|scan| scan.info.discovered.tilejson.as_ref())
-            .collect(),
-    );
-    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    if sources.is_empty() {
+        let (pool, scans, bounds) = select_sources(&config, &options).await?;
+        for scan in &scans {
+            geometry_finders.push(Some((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)));
+        }
+        metadata = bulk_metadata(
+            &options,
+            bounds,
+            scans
+                .iter()
+                .map(|scan| scan.info.discovered.tilejson.as_ref())
+                .collect(),
+        );
+        let defs = scans.iter().map(|scan| scan.def.clone()).collect();
+        let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+        sources.push((Box::new(source), defs));
+    }
+    monitor.set_tables(geometry_finders.len());
+    let source = SourceChain::new(sources).map_err(TileGenError::from)?;
     run(source, options, metadata, progress, monitor, started, geometry_finders).await
-}
-
-/// A source of `martin cp --mode bulk`, with the plan it was made for.
-trait PlannedSource: FeatureSource + Send + 'static {
-    /// The plan the source reads its tables for.
-    fn source_plan(&self) -> &Plan;
-}
-
-impl PlannedSource for PgScanSource {
-    fn source_plan(&self) -> &Plan {
-        self.plan()
-    }
-}
-
-#[cfg(feature = "osm")]
-impl PlannedSource for martin_tilegen::osm::OsmSource {
-    fn source_plan(&self) -> &Plan {
-        self.plan()
-    }
 }
 
 /// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
@@ -451,14 +437,14 @@ fn bulk_metadata(
 }
 
 /// Renders `source` into the output file with `metadata`.
-async fn run<S: PlannedSource>(
-    source: S,
+async fn run(
+    source: SourceChain,
     options: GenerateOptions,
     metadata: tilejson::TileJSON,
     progress: Arc<Progress>,
     monitor: Monitor,
     started: Instant,
-    geometry_finders: Vec<(String, String)>,
+    geometry_finders: Vec<Option<(String, String)>>,
 ) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
     let format = generate_config.format;
@@ -560,15 +546,15 @@ fn log_summary(summary: &Summary, format: TileFormat) {
 }
 
 /// `err` naming the source of a feature whose geometry stopped the run, with `finders` by table:
-/// the source id and a query counting the rows of each geometry type it cannot render.
-fn explain_feature_geometry(err: GenerateError, finders: &[(String, String)]) -> GenerateError {
+/// the source id and a query counting the rows of each geometry type it cannot render, for database tables.
+fn explain_feature_geometry(err: GenerateError, finders: &[Option<(String, String)>]) -> GenerateError {
     let GenerateError::TileGen(err) = err else {
         return err;
     };
     let (TileGenError::FeatureWkb { table, .. } | TileGenError::RowWkb { table, .. }) = &err else {
         return GenerateError::TileGen(err);
     };
-    let Some((source_id, sql)) = finders.get(usize::from(*table)) else {
+    let Some(Some((source_id, sql))) = finders.get(usize::from(*table)) else {
         return GenerateError::TileGen(err);
     };
     GenerateError::FeatureGeometry {
@@ -605,16 +591,16 @@ impl Output {
         }
     }
 
-    fn generate<S: PlannedSource>(
+    fn generate(
         self,
-        source: &S,
+        source: &SourceChain,
         config: &GenerateConfig,
         metadata: tilejson::TileJSON,
         progress: &Progress,
     ) -> TileGenResult<Summary> {
         match self {
-            Self::Mbtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
-            Self::Pmtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
+            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
         }
     }
 }
