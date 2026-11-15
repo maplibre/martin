@@ -2,7 +2,7 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tile_utils::{Encoding, TileRect};
-use martin_tilegen::plan::{DerivedPoint, GeometryType, LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{DerivedPoint, GeometryDef, GeometryType, LayerDef, Plan, TableDef};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, TileFormat, render_block};
 use mlt_core::{Decoder, Parser};
@@ -42,8 +42,10 @@ fn a_centroid_of_a_concave_polygon_can_lie_outside_it() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::Centroid),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -107,8 +109,10 @@ fn a_point_on_surface_of_a_concave_polygon_lies_inside_it() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::PointOnSurface),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::PointOnSurface),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -176,8 +180,10 @@ fn a_point_on_surface_of_a_multi_polygon_lies_in_its_widest_part() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::PointOnSurface),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::PointOnSurface),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -238,8 +244,10 @@ fn a_centroid_if_convex_of_a_convex_polygon_is_its_centroid() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::CentroidIfConvex),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::CentroidIfConvex),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -301,8 +309,10 @@ fn a_centroid_if_convex_counts_a_dent_below_a_thousandth_of_a_turn_as_convex() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::CentroidIfConvex),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::CentroidIfConvex),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -396,8 +406,10 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::CentroidIfConvex),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::CentroidIfConvex),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -608,8 +620,10 @@ fn a_centroid_of_a_multi_polygon_weighs_each_part_by_its_area() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::Centroid),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -666,8 +680,10 @@ fn a_centroid_of_a_line_weighs_each_segment_by_its_length() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Line),
+                point: Some(DerivedPoint::Centroid),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
@@ -752,17 +768,24 @@ fn a_derived_point_layer_takes_only_the_features_of_its_geometry_type() {
         columns: vec![],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
-                point: Some(DerivedPoint::Centroid),
+                geometry: vec![GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::Centroid),
+                }],
                 ..LayerDef::new("polygon_centroid", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
-                point: Some(DerivedPoint::Centroid),
+                geometry: vec![GeometryDef {
+                    takes: Some(GeometryType::Line),
+                    point: Some(DerivedPoint::Centroid),
+                }],
                 ..LayerDef::new("line_centroid", 0..=0, GRID)
             },
             LayerDef {
-                point: Some(DerivedPoint::Centroid),
+                geometry: vec![GeometryDef {
+                    takes: None,
+                    point: Some(DerivedPoint::Centroid),
+                }],
                 ..LayerDef::new("centroid", 0..=0, GRID)
             },
         ],
@@ -831,6 +854,193 @@ fn a_derived_point_layer_takes_only_the_features_of_its_geometry_type() {
 }
 
 #[test]
+fn a_layer_with_several_geometries_leaves_out_the_types_none_of_them_takes() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Point(Coord {
+                    x: -1200.0 * UNIT,
+                    y: 1200.0 * UNIT,
+                }),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![
+                    (0.0, 1200.0 * UNIT),
+                    (400.0 * UNIT, 1200.0 * UNIT),
+                ])]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                    ]),
+                    vec![],
+                )]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Point.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+            ],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(848 848)",
+        ),
+        (
+            Some(
+                3,
+            ),
+            "POINT(1298 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn the_first_geometry_entry_taking_a_features_type_draws_it() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![
+                    (0.0, 1200.0 * UNIT),
+                    (400.0 * UNIT, 1200.0 * UNIT),
+                ])]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                    ]),
+                    vec![],
+                )]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+                GeometryDef {
+                    takes: None,
+                    point: Some(DerivedPoint::Centroid),
+                },
+            ],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                2,
+            ),
+            "POINT(2248 848)",
+        ),
+        (
+            Some(
+                3,
+            ),
+            "POINT(1298 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_derived_point_is_drawn_only_in_the_tiles_its_point_reaches() {
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -856,12 +1066,14 @@ fn a_derived_point_is_drawn_only_in_the_tiles_its_point_reaches() {
         columns: vec![],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("parks", 1..=1, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
-                point: Some(DerivedPoint::Centroid),
+                geometry: vec![GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::Centroid),
+                }],
                 ..LayerDef::new("labels", 1..=1, GRID)
             },
         ],
