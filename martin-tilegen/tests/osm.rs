@@ -5,10 +5,10 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use martin_tilegen::LayerGrid;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
-use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
+use martin_tilegen::plan::{DerivedPoint, GeometryDef, GeometryType, LayerDef, TableDef};
 use martin_tilegen::source::{FeatureSource as _, Geometry, SourceFeature};
+use martin_tilegen::{FeatureGeom, LayerGrid};
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -21,7 +21,7 @@ fn source(filter: Option<&str>, geometry: Option<GeometryType>) -> OsmSource {
     let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
     let layer = LayerDef {
         filter: filter.map(str::to_owned),
-        geometry,
+        geometry: geometry.map(GeometryDef::from).into_iter().collect(),
         ..LayerDef::new("layer", 0..=14, GRID)
     };
     let table = OsmTable {
@@ -84,7 +84,7 @@ fn assert_pushdown_exact(filter: &str, geometry: Option<GeometryType>) {
     let def = TableDef {
         columns: columns(&tags),
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             ..LayerDef::new("layer", 0..=14, GRID)
         }],
     };
@@ -188,6 +188,46 @@ fn partition_size_changes_neither_the_features_nor_their_order() {
 }
 
 #[test]
+fn a_layer_of_point_and_polygon_geometries_reads_no_lines() {
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Point.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+            ],
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let source = OsmSource::new(vec![(def, table)], 16 << 10).unwrap();
+    let mut kinds = std::collections::BTreeMap::new();
+    for feature in read_all(&source) {
+        let kind = match feature.geometry.feature_geom().unwrap() {
+            FeatureGeom::Points(_) => "points",
+            FeatureGeom::Lines(_) => "lines",
+            FeatureGeom::Polygons(_) => "polygons",
+        };
+        *kinds.entry(kind).or_insert(0) += 1;
+    }
+    insta::assert_debug_snapshot!(kinds, @r#"
+    {
+        "points": 2427,
+        "polygons": 1547,
+    }
+    "#);
+}
+
+#[test]
 fn every_object_reads_what_no_layer_takes() {
     let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
     let table = OsmTable {
@@ -200,7 +240,7 @@ fn every_object_reads_what_no_layer_takes() {
         columns: columns(&tags),
         layers: vec![LayerDef {
             filter: Some("highway == 'primary'".to_owned()),
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             ..LayerDef::new("layer", 0..=14, GRID)
         }],
     };

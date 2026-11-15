@@ -243,6 +243,19 @@ pub enum GenerateError {
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
+    #[error(
+        "layer `{layer}`: `geometry: [{geometry}]` mixes geometry types; the entries of a list must all draw points"
+    )]
+    MixedGeometry { layer: String, geometry: String },
+    #[error(
+        "layer `{layer}`: `{entry}` in `geometry: [{geometry}]` takes no feature, as the entries before it take all of \
+         its types"
+    )]
+    UnreachableGeometry {
+        layer: String,
+        entry: &'static str,
+        geometry: String,
+    },
     #[cfg(feature = "osm")]
     #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
     MixedSources,
