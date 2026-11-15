@@ -215,6 +215,238 @@ fn a_point_on_surface_of_a_multi_polygon_lies_in_its_widest_part() {
 }
 
 #[test]
+fn a_centroid_if_convex_of_a_convex_polygon_is_its_centroid() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![
+                    (-600.0 * UNIT, -600.0 * UNIT),
+                    (600.0 * UNIT, -600.0 * UNIT),
+                    (-600.0 * UNIT, 600.0 * UNIT),
+                    (-600.0 * UNIT, -600.0 * UNIT),
+                ]),
+                vec![],
+            )]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::CentroidIfConvex),
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1848 2248)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+fn a_centroid_if_convex_counts_a_dent_below_a_thousandth_of_a_turn_as_convex() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(
+                LineString::from(vec![
+                    (-600.0 * UNIT, -600.0 * UNIT),
+                    (600.0 * UNIT, -600.0 * UNIT),
+                    (-0.25 * UNIT, -0.25 * UNIT),
+                    (-600.0 * UNIT, 600.0 * UNIT),
+                    (-600.0 * UNIT, -600.0 * UNIT),
+                ]),
+                vec![],
+            )]),
+            props: vec![],
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::CentroidIfConvex),
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1848 2248)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
+#[expect(clippy::too_many_lines)]
+fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_surface() {
+    let square = |w: f64, s: f64, e: f64, n: f64| {
+        LineString::from(vec![
+            (w * UNIT, s * UNIT),
+            (e * UNIT, s * UNIT),
+            (e * UNIT, n * UNIT),
+            (w * UNIT, n * UNIT),
+            (w * UNIT, s * UNIT),
+        ])
+    };
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    LineString::from(vec![
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, -1000.0 * UNIT),
+                        (-500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, 500.0 * UNIT),
+                        (500.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, -1000.0 * UNIT),
+                        (1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, 1000.0 * UNIT),
+                        (-1000.0 * UNIT, -1000.0 * UNIT),
+                    ]),
+                    vec![],
+                )]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Polygons(vec![Polygon::new(
+                    square(-1000.0, -1000.0, 1000.0, 1000.0),
+                    vec![square(-500.0, -500.0, 500.0, 500.0)],
+                )]),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Polygons(vec![
+                    Polygon::new(square(-1000.0, -200.0, -600.0, 200.0), vec![]),
+                    Polygon::new(square(600.0, -100.0, 800.0, 100.0), vec![]),
+                ]),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            point: Some(DerivedPoint::CentroidIfConvex),
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1298 2048)",
+        ),
+        (
+            Some(
+                2,
+            ),
+            "POINT(1298 2048)",
+        ),
+        (
+            Some(
+                3,
+            ),
+            "POINT(1248 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_centroid_of_a_multi_polygon_weighs_each_part_by_its_area() {
     let square = |w: f64, s: f64, e: f64, n: f64| {
         Polygon::new(
