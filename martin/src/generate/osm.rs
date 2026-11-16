@@ -5,7 +5,9 @@ use std::path::Path;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::TableDef;
 
-use super::layers::{LowerOptions, SourceSettings, lower_source};
+use std::sync::Arc;
+
+use super::layers::{LowerOptions, OutputLayers, SourceSettings, lower_source};
 use super::postgres::scan_bbox;
 use super::{GenerateError, GenerateOptions, GenerateResult, mlt_encoder};
 use crate::config::file::Config;
@@ -15,7 +17,7 @@ use crate::config::file::osm::OsmSourceConfig;
 const PARTITION_BYTES: std::ops::RangeInclusive<u64> = (1 << 20)..=(64 << 20);
 
 /// The OSM sources among `ids` as one source with the tables it reads, or `None` if none of them has a layer with a
-/// zoom in `options`.
+/// zoom in `options`. `outputs` holds the output layers of every source of the run.
 ///
 /// # Errors
 ///
@@ -24,6 +26,7 @@ pub async fn source(
     config: &Config,
     options: &GenerateOptions,
     ids: &[String],
+    outputs: &Arc<OutputLayers>,
 ) -> GenerateResult<Option<(OsmSource, Vec<TableDef>)>> {
     let temp_dir = options.temp_dirs.first().cloned().unwrap_or_else(std::env::temp_dir);
     let mut tables = Vec::new();
@@ -37,7 +40,7 @@ pub async fn source(
             encoder: mlt_encoder(config.convert_to_mlt.clone(), options.copy_format, options.encoding, id)?,
             order_by: None,
         };
-        let Some(def) = lower(id, source, &lower_options)? else {
+        let Some(def) = lower_with(id, source, &lower_options, outputs)? else {
             continue;
         };
         let table = table(source, &def, &temp_dir, Objects::Taken)?;
@@ -52,13 +55,35 @@ pub async fn source(
     Ok(Some((source, defs)))
 }
 
-/// Source `id` as a table of the plan, or `None` if none of its layers has a zoom in `options`.
+/// Source `id` as the only table of a plan, or `None` if none of its layers has a zoom in `options`.
+///
+/// # Errors
+///
+/// If a layer is not supported, or layers writing into one output layer disagree on a setting it has once.
+pub fn lower(id: &str, source: &OsmSourceConfig, options: &LowerOptions) -> GenerateResult<Option<TableDef>> {
+    let outputs = OutputLayers::new([(id, settings(source))], &options.zooms)?;
+    lower_with(id, source, options, &outputs)
+}
+
+/// Source `id` as a table of a plan with the output layers `outputs`, or `None` if none of its layers has a zoom in
+/// `options`.
 ///
 /// # Errors
 ///
 /// If a layer is not supported.
-pub fn lower(id: &str, source: &OsmSourceConfig, options: &LowerOptions) -> GenerateResult<Option<TableDef>> {
-    let settings = SourceSettings {
+fn lower_with(
+    id: &str,
+    source: &OsmSourceConfig,
+    options: &LowerOptions,
+    outputs: &OutputLayers,
+) -> GenerateResult<Option<TableDef>> {
+    lower_source(id, &settings(source), columns(&source.tags), options, outputs)
+}
+
+/// The settings of `source` that its layers take their defaults from.
+#[must_use]
+pub fn settings(source: &OsmSourceConfig) -> SourceSettings<'_> {
+    SourceSettings {
         minzoom: source.minzoom,
         maxzoom: source.maxzoom,
         extent: source.extent,
@@ -66,8 +91,7 @@ pub fn lower(id: &str, source: &OsmSourceConfig, options: &LowerOptions) -> Gene
         clip_geom: source.clip_geom,
         layer_id: None,
         layers: Some(&source.layers),
-    };
-    lower_source(id, &settings, columns(&source.tags), options)
+    }
 }
 
 /// The file of `source`, lowered to `def`, reading `objects` with its node store in `temp_dir` if it needs one.
