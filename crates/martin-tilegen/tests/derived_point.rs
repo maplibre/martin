@@ -556,6 +556,7 @@ fn a_centroid_if_convex_of_a_multi_polygon_of_one_convex_part_is_a_point_on_its_
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
