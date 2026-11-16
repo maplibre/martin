@@ -10,7 +10,8 @@ This directory contains examples demonstrating how to use `martin-core` to build
 ## render-bench
 
 `render-bench` times one case per run, with `workers` render threads per pool (default 1).
-Set `MARTIN_MLN_BACKEND` to `gl`, `vulkan` or `webgpu` to time that graphics backend, and `BENCH_SAVE=<dir>` to also write every rendered image there as PNG.
+Set `MARTIN_MLN_BACKEND` to `gl`, `vulkan` or `webgpu` to time that graphics backend.
+Set `BENCH_SAVE=<dir>` to also write rendered images there as PNG: every image of `sweep`, `lowzoom` and `static`, and one image of `cold-tile` and `overlay`. The other cases write none.
 
 | Case                             | Times                                                                 |
 |----------------------------------|-----------------------------------------------------------------------|

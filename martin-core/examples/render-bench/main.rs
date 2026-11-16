@@ -1,7 +1,7 @@
 //! Times Martin's render pools on the operations Martin serves; one case per process.
 //!
 //! `render-bench <case> <style.json> [workers]`, printing one JSON line.
-//! Set `BENCH_SAVE=<dir>` to also write every rendered image there as PNG.
+//! Set `BENCH_SAVE=<dir>` to also write rendered images there as PNG; `examples/README.md` lists which cases save.
 
 #[cfg(target_os = "linux")]
 mod bench;
