@@ -222,9 +222,9 @@ See [Server-side raster tile rendering](sources-styles/rendering.md) and [Instal
 
 ### Static images follow the style's projection
 
-Martin 2.0 renders with an rust rewrite [mln-rs](https://github.com/louwers/mln-rs) instead of MapLibre Native's C++ core.
-This brings static rendering to more platform, improves performance/memory usage and most importantly memory-safety/stability.
-We did this to primarily motivated to counteract the [DOS related security issue coming from this component](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j)
+Martin 2.0 renders with a Rust rewrite [mln-rs](https://github.com/louwers/mln-rs) instead of MapLibre Native's C++ core.
+This brings static rendering to more platforms, improves performance/memory usage and most importantly memory-safety/stability.
+We did this primarily to counteract the [DOS related security issue coming from this component](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j)
 
 Static images now draw a style's `"projection": {"type": "globe"}` as a globe (like MapLibre GL JS does).
 `martin@1.x` always drew them using the `mercator` projection.
