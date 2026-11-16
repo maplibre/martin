@@ -31,11 +31,13 @@ fn a_layer_of_any_geometry_draws_the_polygon_of_an_area_and_not_its_outline() {
                 id: Some(12),
                 geometry: Geometry::Polygon(Polygon::new(ring.clone(), vec![])),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(12),
                 geometry: Geometry::Outline(ring),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -91,11 +93,13 @@ fn a_layer_of_lines_draws_the_outline_of_an_area_and_a_layer_of_polygons_its_pol
                 id: Some(12),
                 geometry: Geometry::Polygon(Polygon::new(ring.clone(), vec![])),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(12),
                 geometry: Geometry::Outline(ring),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -164,6 +168,7 @@ fn a_line_centroid_of_an_outline_is_the_centroid_of_its_area() {
             id: Some(12),
             geometry: Geometry::Outline(u_shape),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {

@@ -22,6 +22,7 @@ use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, Sta
 use crate::config::file::postgres::Srid;
 #[cfg(feature = "_tiles")]
 use crate::config::file::{MltNetwork, MltProfile, MltTessellate};
+use crate::config::file::tiling::Expr;
 use crate::config::file::{OnInvalid, UnrecognizedKeys};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::FunctionIdFormat;
@@ -203,6 +204,8 @@ impl_empty_collect_unrecognized!(RetryTimeout, Srid, FunctionIdFormat);
 
 #[cfg(feature = "_tiles")]
 impl_empty_collect_unrecognized!(MltProfile, MltNetwork, MltTessellate);
+
+impl_empty_collect_unrecognized!(Expr);
 
 #[cfg(feature = "unstable-duckdb")]
 impl_empty_collect_unrecognized!(MacroIdFormat);

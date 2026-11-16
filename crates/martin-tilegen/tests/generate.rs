@@ -56,6 +56,7 @@ fn source() -> MemorySource {
                             (KeyId::new(0), Prop::Str(format!("f{p}-{i}").into())),
                             (KeyId::new(1), Prop::I64(i64::from(i))),
                         ],
+                        relations: Vec::new(),
                     }
                 })
                 .collect();
@@ -85,6 +86,7 @@ fn source() -> MemorySource {
                 id: Some(id),
                 geometry: Geometry::Polygons(vec![polygon]),
                 props: vec![(KeyId::new(0), Prop::Str(format!("park {id}").into()))],
+                relations: Vec::new(),
             })
             .collect(),
     });
@@ -361,6 +363,7 @@ fn one_table_feeds_layers_with_their_own_settings() {
                         (KeyId::new(1), Prop::Str("primary".into())),
                         (KeyId::new(2), Prop::I64(4)),
                     ],
+                    relations: Vec::new(),
                 },
                 SourceFeature {
                     id: Some(11),
@@ -370,6 +373,7 @@ fn one_table_feeds_layers_with_their_own_settings() {
                         (KeyId::new(1), Prop::Str("service".into())),
                         (KeyId::new(2), Prop::I64(1)),
                     ],
+                    relations: Vec::new(),
                 },
             ],
         }],
@@ -466,6 +470,7 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
                             (KeyId::new(1), Prop::I64(i64::from(i))),
                             (keys[0].intern(&format!("tag{}", i % 3)), Prop::Bool(true)),
                         ],
+                        relations: Vec::new(),
                     }
                 })
                 .collect();
@@ -523,6 +528,7 @@ fn sort_by_orders_each_layer_ascending_or_descending() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -637,6 +643,7 @@ fn sort_by_compares_its_keys_in_order() {
             (KeyId::new(0), Prop::Str(class.into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -689,6 +696,7 @@ fn null_and_failing_sort_keys_sort_first() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props,
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -741,6 +749,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
         id: Some(id),
         geometry,
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -820,6 +829,7 @@ fn sort_by_wins_over_the_encoders_own_sorts() {
             y: 10.0,
         }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
