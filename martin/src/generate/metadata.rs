@@ -2,9 +2,18 @@
 
 use itertools::Itertools as _;
 use martin_tile_utils::Encoding;
+use mbtiles::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HASH_ALGORITHM};
 use tilejson::{Bounds, TileJSON, tilejson};
 
 use crate::config::file::postgres::utils::patch_json;
+
+/// Keys that describe how the writer hashed the tiles, which a table comment cannot set.
+const WRITER_KEYS: [&str; 4] = [
+    AGG_TILES_HASH,
+    AGG_TILES_HASH_BEFORE_APPLY,
+    AGG_TILES_HASH_AFTER_APPLY,
+    HASH_ALGORITHM,
+];
 
 /// What a bulk tileset says about itself, before the generator adds zooms, format and the `vector_layers` it
 /// computed.
@@ -24,7 +33,7 @@ pub struct BulkMetadata<'a> {
 impl BulkMetadata<'_> {
     /// Merges the table comments as tile mode merges its sources: attributions, descriptions and names deduplicated
     /// and joined, the first center, and `vector_layers` that win over computed ones of the same id. Other keys
-    /// keep the first table's value.
+    /// keep the first table's value, except the hash keys the writer owns.
     #[must_use]
     pub fn into_tilejson(self) -> TileJSON {
         let mut metadata = tilejson! { tiles: vec![] };
@@ -44,7 +53,9 @@ impl BulkMetadata<'_> {
                 metadata.vector_layers.get_or_insert_default().extend(layers);
             }
             for (key, value) in comment.other {
-                metadata.other.entry(key).or_insert(value);
+                if !WRITER_KEYS.contains(&key.as_str()) {
+                    metadata.other.entry(key).or_insert(value);
+                }
             }
         }
         metadata.attribution = (!attributions.is_empty()).then(|| attributions.into_iter().join("\n"));

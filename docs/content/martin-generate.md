@@ -178,6 +178,7 @@ To change the output's metadata, you can use a table comment [TileJSON](sources-
 This can be useful to set items such as `attribution`, `center` and `description`.
 Its `vector_layers` entries replace the computed
 entry of the same layer.
+Its `hash_algorithm` and `agg_tiles_hash*` keys are ignored, since the writer sets them.
 The `name` defaults to the output's file stem, and `MBTiles` output records its
 `compression`.
 
