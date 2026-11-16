@@ -1891,10 +1891,10 @@ osm:
               feature['addr:housenumber'].contains(';') &&
               size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) > 0 ?
               (feature['addr:housenumber'].matches('[^0-9;]') ?
-              feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '-' +
+              feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '\u2013' +
               feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s !=
               '')[size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) - 1] :
-              string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s, int(s)).min()) + '-'
+              string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s, int(s)).min()) + '\u2013'
               + string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s, int(s)).max())) :
               feature['addr:housenumber']
             _partition:
@@ -1903,11 +1903,11 @@ osm:
                 (feature['addr:housenumber'].contains(';') &&
                 size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) > 0 ?
                 (feature['addr:housenumber'].matches('[^0-9;]') ?
-                feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '-' +
+                feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '\u2013' +
                 feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s !=
                 '')[size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) -
                 1] : string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s,
-                int(s)).min()) + '-' + string(feature['addr:housenumber'].split(';').filter(s, s !=
+                int(s)).min()) + '\u2013' + string(feature['addr:housenumber'].split(';').filter(s, s !=
                 '').map(s, int(s)).max())) : feature['addr:housenumber'])
               hidden: true
           sort_by: ["name != null"]
