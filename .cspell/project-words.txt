@@ -64,6 +64,7 @@ healthchecks
 hillshade
 hillshading
 hotpath
+housenumber
 httpfs
 icount
 impls
@@ -115,6 +116,7 @@ NZTM
 ogcapi
 ogrinfo
 oklch
+oneway
 onthegomap
 openlayers
 openmaptiles
