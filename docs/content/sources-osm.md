@@ -13,7 +13,7 @@ tags:
     Only the [bulk mode](martin-generate.md) of `martin cp` can process these sources.
     The tile serving mode can only serve them after they are brought into a more suitable format.
 
-This source allows reading one `.osm.pbf` file using [layers](sources-pg-layers.md).
+Martin reads one `.osm.pbf` file per source, using [layers](sources-pg-layers.md).
 
 ```yaml
 osm:
@@ -58,7 +58,7 @@ A run renders either `osm` sources or database sources, not both.
 | Way with tags                                        | line, or polygon if closed and its tags make it an area | `way`      | id * 10 + 2 |
 | Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon                                 | `relation` | id * 10 + 3 |
 
-We drop objects without tags or other relations.
+Martin leaves out objects without tags, and other relations.
 Whether a closed way is an area follows [osmflow's `AreaRules`](https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on).
 A relation's member ways are joined into rings.
 A ring inside an odd number of others is a hole, whatever its role.
