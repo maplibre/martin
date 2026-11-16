@@ -135,7 +135,7 @@ In layer expressions, `relations.<set>` is a list with one map per relation of t
   empty list. `min(a, b)` and `max(a, b)` compare their arguments.
 - A set's `tags` cannot be `id` or `role`.
 
-The relations of the sets, and which nodes and ways are their members, are found while the relations are read
+Martin finds the relations of the sets, and the nodes and ways that are their members, while it reads the relations
 before the nodes and ways, in the same pass that reads the `multipolygon` and `boundary` relations. Memory grows with
 the number of members: about 16 bytes per membership.
 

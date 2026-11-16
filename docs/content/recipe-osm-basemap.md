@@ -15,7 +15,7 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
 !!! important "More information on the config used"
     The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), the `shapefile` section in [Shapefile Sources](sources-shapefile.md).
 
-Martin goes beyond Planetiler in one layer: `boundaries` also takes the member ways of `admin_level` 2 and 4
+One layer differs from Planetiler's: `boundaries` also takes the member ways of `admin_level` 2 and 4
 boundary relations, many of which have no tags of their own, with the lowest `admin_level` of the way and its
 relations. Planetiler's `shortbread.yml` reads only tagged ways and leaves this as a TODO. The configuration reads
 the relations through [relation membership](sources-osm.md#relation-membership).
