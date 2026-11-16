@@ -174,6 +174,24 @@ The highest zoom is 27. The tile grid can lower it further, since `extent × 2^z
 
 A failed or interrupted run removes the output file. Temporary files are always removed.
 
+### Metadata
+
+To set metadata such as `attribution`, `center` or `description`, add it to the
+[TileJSON in the table comment](sources-pg-tables.md#tilejson-in-sql-comments) of a rendered source.
+Bulk mode merges the comments of all rendered sources, in `--source` order or else by source id, and
+sets the computed keys itself:
+
+| Key                                                                                             | Value in the output                                                                                                            |
+|-------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `name`                                                                                          | The comments' names, without repeats, joined by `,`. Without one, the output's file stem, e.g. `tileset` for `tileset.mbtiles` |
+| `attribution`, `description`                                                                    | The comments' values, without repeats, one per line                                                                            |
+| `vector_layers`                                                                                 | One computed entry per layer with features. A comment entry with the same `id` replaces it, other comment entries are added    |
+| `bounds`                                                                                        | `--bbox`, or else the union of the sources' `bounds`, see [Options](#options)                                                  |
+| `minzoom`, `maxzoom`, `format`, `generator`                                                     | Computed. `generator` is `martin cp v<version> (bulk)`                                                                         |
+| `compression`                                                                                   | MBTiles only: `gzip`, `deflate` for `--encoding zlib`, or none for `--encoding none`                                           |
+| `hash_algorithm`, `agg_tiles_hash`, `agg_tiles_hash_before_apply`, `agg_tiles_hash_after_apply` | Set by the MBTiles writer only, never by a comment. Pick the algorithm with `--set-meta hash_algorithm=xxh3`                   |
+| `center`, `version`, `legend`, `template` and custom keys                                       | The value of the first comment that sets it                                                                                    |
+
 ### MVT quirks
 
 Each `--mvt-quirk` changes how MVT tiles are encoded, so it needs `--format mvt`:

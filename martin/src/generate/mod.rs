@@ -1,6 +1,7 @@
 //! `martin cp --mode bulk`: bulk tile generation from whole-table scans.
 
 pub mod layers;
+mod metadata;
 pub mod postgres;
 mod progress;
 pub mod serve;
@@ -24,7 +25,7 @@ use martin_tilegen::{
 use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
 use mlt_core::encoder::EncoderConfig;
 use postgres_protocol::escape::escape_identifier;
-use tilejson::{Bounds, tilejson};
+use tilejson::Bounds;
 #[cfg(unix)]
 use tokio::signal::unix::{Signal, SignalKind, signal};
 #[cfg(windows)]
@@ -41,6 +42,7 @@ use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
 use crate::generate::layers::{LowerOptions, lower_table};
+use crate::generate::metadata::BulkMetadata;
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::generate::progress::Monitor;
 use crate::logging::LogFormat;
@@ -349,10 +351,23 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         .iter()
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
         .collect::<GenerateResult<_>>()?;
+    let metadata = BulkMetadata {
+        name: options
+            .output_file
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned()),
+        bounds,
+        compression: (!is_pmtiles(&options.output_file)).then_some(options.encoding),
+        comments: scans
+            .iter()
+            .map(|scan| scan.info.discovered.tilejson.as_ref())
+            .collect(),
+        generator: format!("martin cp v{VERSION} (bulk)"),
+    }
+    .into_tilejson();
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
-    let metadata = metadata(&options, bounds);
     let output = options.output_file;
     let mut interrupt = Interrupt::register()?;
     let sink = {
@@ -528,20 +543,6 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
         mvt_preserve_ring_start: options.mvt_preserve_ring_start,
         mvt_keep_unused_keys: options.mvt_keep_unused_keys,
     }
-}
-
-/// What the tileset within `bounds` says about itself; the generator adds zooms, format and `vector_layers`.
-fn metadata(options: &GenerateOptions, bounds: Option<Bounds>) -> tilejson::TileJSON {
-    let mut metadata = tilejson! { tiles: vec![] };
-    metadata.name = options
-        .output_file
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned());
-    metadata.bounds = bounds;
-    metadata
-        .other
-        .insert("generator".to_owned(), format!("martin cp v{VERSION} (bulk)").into());
-    metadata
 }
 
 /// The sources discovered on every PostgreSQL connection of a config.
