@@ -109,7 +109,7 @@ postgres:
       tile_grid: DutchRD
 ```
 
-We support these settings:
+Martin supports these settings:
 
 | key               | default  | meaning                                                                                                  |
 |-------------------|----------|----------------------------------------------------------------------------------------------------------|

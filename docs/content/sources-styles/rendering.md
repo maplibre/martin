@@ -122,7 +122,7 @@ styles:
 
 ## Rendered XYZ tiles
 
-We support generating a rasterized image for an XYZ tile of a given style.
+Martin supports generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
@@ -184,7 +184,7 @@ MapLibre logs its own messages under the `maplibre_native` target, which Martin'
 ## Static images
 
 !!! info
-    We currently do not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
+    Martin currently does not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
     We are working on adding this feature and are very open to contributions if you want to help!
 
 !!! warning
