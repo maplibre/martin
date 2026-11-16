@@ -8,7 +8,8 @@
     - [x] The PostgreSQL source with partitioned whole-table scans
     - [x] Bulk mode in `martin cp`, and PMTiles output
     - [x] Layers with CEL expressions, `rules` and `sort_by`
-    - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+    - [x] [OSM PBF files](sources-osm.md) as sources
+    - [ ] Shapefile, GeoPackage and CSV files as sources
     - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
     - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`,
       `polygon_point_on_surface`, `point_on_line` and `innermost_point`

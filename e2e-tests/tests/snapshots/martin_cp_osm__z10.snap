@@ -1,0 +1,404 @@
+---
+source: e2e-tests/tests/martin_cp_osm.rs
+expression: "mvt_dump(&tiles[0].3)"
+---
+layer: 0
+  name: roads
+  version: 2
+  extent: 4096
+  feature: 0
+    id: 40981972
+    geometry: LINESTRING[count=4](551 1430,569 1410,571 1402,575 1399)
+    properties:
+      highway = "primary"
+  feature: 1
+    id: 42295362
+    geometry: LINESTRING[count=2](497 1570,515 1567)
+    properties:
+      highway = "primary"
+  feature: 2
+    id: 42300812
+    geometry: LINESTRING[count=2](632 1365,646 1344)
+    properties:
+      highway = "primary"
+  feature: 3
+    id: 42301132
+    geometry: LINESTRING[count=8](575 1398,566 1393,562 1394,566 1406,562 1413,560 1411,562 1404,558 1401)
+    properties:
+      highway = "secondary"
+  feature: 4
+    id: 42301142
+    geometry: LINESTRING[count=6](558 1401,556 1389,558 1384,562 1382,572 1383,585 1375)
+    properties:
+      highway = "secondary"
+  feature: 5
+    id: 42301862
+    geometry: LINESTRING[count=3](533 1468,526 1472,522 1486)
+    properties:
+      highway = "primary"
+  feature: 6
+    id: 42308912
+    geometry: LINESTRING[count=4](526 1562,539 1553,548 1542,554 1519)
+    properties:
+      highway = "primary"
+  feature: 7
+    id: 83522462
+    geometry: LINESTRING[count=3](447 1578,416 1618,420 1646)
+    properties:
+      highway = "primary"
+  feature: 8
+    id: 246681732
+    geometry: LINESTRING[count=4](505 1489,512 1482,515 1474,524 1466)
+    properties:
+      highway = "secondary"
+  feature: 9
+    id: 250827412
+    geometry: LINESTRING[count=2](470 1574,497 1570)
+    properties:
+      highway = "primary"
+  feature: 10
+    id: 505018972
+    geometry: LINESTRING[count=3](613 1390,606 1401,596 1408)
+    properties:
+      highway = "primary"
+  feature: 11
+    id: 505018992
+    geometry: LINESTRING[count=3](607 1400,614 1391,633 1380)
+    properties:
+      highway = "primary"
+  feature: 12
+    id: 781498272
+    geometry: LINESTRING[count=2](494 1567,477 1565)
+    properties:
+      highway = "primary"
+  feature: 13
+    id: 803778172
+    geometry: LINESTRING[count=4](395 1654,390 1663,389 1669,385 1674)
+    properties:
+      highway = "primary"
+  feature: 14
+    id: 803784862
+    geometry: LINESTRING[count=2](450 1657,399 1661)
+    properties:
+      highway = "primary"
+  feature: 15
+    id: 926274052
+    geometry: LINESTRING[count=2](549 1517,547 1481)
+    properties:
+      highway = "primary"
+  feature: 16
+    id: 930913142
+    geometry: LINESTRING[count=3](414 1656,433 1655,441 1652)
+    properties:
+      highway = "primary"
+  feature: 17
+    id: 931375582
+    geometry: LINESTRING[count=2](573 1421,602 1397)
+    properties:
+      highway = "primary"
+  feature: 18
+    id: 932072912
+    geometry: LINESTRING[count=2](643 1345,632 1365)
+    properties:
+      highway = "primary"
+  feature: 19
+    id: 1200626612
+    geometry: LINESTRING[count=2](424 1593,439 1575)
+    properties:
+      highway = "primary"
+  feature: 20
+    id: 1201131572
+    geometry: LINESTRING[count=4](438 1558,438 1547,426 1540,420 1542)
+    properties:
+      highway = "secondary"
+  feature: 21
+    id: 1201141082
+    geometry: LINESTRING[count=3](399 1648,408 1630,411 1617)
+    properties:
+      highway = "primary"
+  feature: 22
+    id: 1550851092
+    geometry: LINESTRING[count=2](357 1655,359 1633)
+    properties:
+      highway = "primary"
+  feature: 23
+    id: 1577196442
+    geometry: LINESTRING[count=2](458 1574,480 1568)
+    properties:
+      highway = "primary"
+  feature: 24
+    id: 1577196532
+    geometry: LINESTRING[count=3](546 1533,537 1551,526 1559)
+    properties:
+      highway = "primary"
+  feature: 25
+    id: 1591704582
+    geometry: LINESTRING[count=3](400 1640,404 1629,401 1618)
+    properties:
+      highway = "secondary"
+  feature: 26
+    id: 1591704922
+    geometry: LINESTRING[count=4](402 1571,401 1575,396 1578,394 1592)
+    properties:
+      highway = "secondary"
+  feature: 27
+    id: 1591705402
+    geometry: LINESTRING[count=5](428 1577,435 1571,437 1572,413 1598,412 1604)
+    properties:
+      highway = "secondary"
+  feature: 28
+    id: 1643382362
+    geometry: LINESTRING[count=3](433 1545,440 1553,453 1552)
+    properties:
+      highway = "secondary"
+  feature: 29
+    id: 1656360382
+    geometry: LINESTRING[count=2](430 1648,447 1653)
+    properties:
+      highway = "primary"
+  feature: 30
+    id: 1656360462
+    geometry: LINESTRING[count=2](499 1516,512 1500)
+    properties:
+      highway = "primary"
+  feature: 31
+    id: 1660097922
+    geometry: LINESTRING[count=3](478 1527,439 1545,433 1545)
+    properties:
+      highway = "primary"
+  feature: 32
+    id: 1660097942
+    geometry: LINESTRING[count=3](513 1499,525 1488,533 1468)
+    properties:
+      highway = "primary"
+  feature: 33
+    id: 1661495422
+    geometry: LINESTRING[count=6](401 1618,400 1606,403 1598,408 1592,419 1587,435 1569)
+    properties:
+      highway = "primary"
+  feature: 34
+    id: 1663994792
+    geometry: LINESTRING[count=3](454 1633,448 1606,450 1581)
+    properties:
+      highway = "primary"
+  feature: 35
+    id: 1666240502
+    geometry: LINESTRING[count=2](493 1566,509 1560)
+    properties:
+      highway = "primary"
+  feature: 36
+    id: 1666434102
+    geometry: LINESTRING[count=3](411 1616,405 1635,395 1654)
+    properties:
+      highway = "primary"
+  feature: 37
+    id: 1676257422
+    geometry: LINESTRING[count=2](534 1429,528 1451)
+    properties:
+      highway = "secondary"
+  feature: 38
+    id: 1763210502
+    geometry: LINESTRING[count=3](470 1550,481 1544,487 1544)
+    properties:
+      highway = "secondary"
+  feature: 39
+    id: 1763333072
+    geometry: LINESTRING[count=2](533 1468,541 1447)
+    properties:
+      highway = "primary"
+  feature: 40
+    id: 1763344422
+    geometry: LINESTRING[count=3](577 1398,583 1397,604 1380)
+    properties:
+      highway = "primary"
+  feature: 41
+    id: 1763953962
+    geometry: LINESTRING[count=3](396 1663,373 1669,366 1680)
+    properties:
+      highway = "primary"
+  feature: 42
+    id: 1764773402
+    geometry: LINESTRING[count=3](477 1558,469 1561,457 1561)
+    properties:
+      highway = "secondary"
+  feature: 43
+    id: 1765774602
+    geometry: LINESTRING[count=3](368 1703,360 1694,385 1674)
+    properties:
+      highway = "tertiary"
+  feature: 44
+    id: 1767601172
+    geometry: LINESTRING[count=3](625 1381,644 1373,650 1365)
+    properties:
+      highway = "primary"
+  feature: 45
+    id: 1773803852
+    geometry: LINESTRING[count=2](380 1673,400 1663)
+    properties:
+      highway = "primary"
+  feature: 46
+    id: 1814797712
+    geometry: LINESTRING[count=4](374 1619,389 1596,391 1578,397 1572)
+    properties:
+      highway = "primary"
+  feature: 47
+    id: 1827000022
+    geometry: LINESTRING[count=3](582 1422,573 1435,556 1480)
+    properties:
+      highway = "primary"
+  feature: 48
+    id: 2395925732
+    geometry: LINESTRING[count=14](333 1667,338 1661,338 1650,335 1640,310 1605,300 1599,290 1597,278 1599,270 1607,265 1615,263 1624,265 1636,269 1645,277 1653)
+    properties:
+      highway = "primary"
+  feature: 49
+    id: 4492812202
+    geometry: LINESTRING[count=6](277 1653,298 1660,326 1659,335 1661,346 1673,349 1692)
+    properties:
+      highway = "primary"
+  feature: 50
+    id: 5032305072
+    geometry: LINESTRING[count=4](384 1664,352 1616,335 1601,322 1600)
+    properties:
+      highway = "primary"
+  feature: 51
+    id: 5034624642
+    geometry: LINESTRING[count=2](556 1480,553 1496)
+    properties:
+      highway = "primary"
+  feature: 52
+    id: 5034624652
+    geometry: LINESTRING[count=2](555 1500,557 1480)
+    properties:
+      highway = "primary"
+  feature: 53
+    id: 5036330342
+    geometry: LINESTRING[count=2](634 1378,613 1390)
+    properties:
+      highway = "primary"
+  feature: 54
+    id: 6992180062
+    geometry: LINESTRING[count=2](454 1576,470 1574)
+    properties:
+      highway = "primary"
+  feature: 55
+    id: 8502616122
+    geometry: LINESTRING[count=2](560 1472,571 1445)
+    properties:
+      highway = "primary"
+  feature: 56
+    id: 8502616132
+    geometry: LINESTRING[count=3](571 1443,578 1429,589 1417)
+    properties:
+      highway = "primary"
+  feature: 57
+    id: 8517926632
+    geometry: LINESTRING[count=3](604 1380,620 1379,629 1370)
+    properties:
+      highway = "primary"
+=============================================================
+layer: 1
+  name: cafes
+  version: 2
+  extent: 4096
+  feature: 0
+    id: 9179787631
+    geometry: POINT(453,1668)
+    properties:
+      name = "Snack Bar La Pampa"
+  feature: 1
+    id: 13060340431
+    geometry: POINT(446,1575)
+    properties:
+      name = "La Gelateria"
+  feature: 2
+    id: 17044624231
+    geometry: POINT(453,1723)
+    properties:
+      name = "Gerhard's Café"
+  feature: 3
+    id: 17900483631
+    geometry: POINT(393,1688)
+    properties:
+      name = "Giudi's"
+  feature: 4
+    id: 26227519351
+    geometry: POINT(402,1655)
+    properties:
+      name = "Emilie's Cookies"
+  feature: 5
+    id: 26227519371
+    geometry: POINT(406,1648)
+    properties:
+      name = "Snowflake"
+  feature: 6
+    id: 26227519381
+    geometry: POINT(407,1645)
+    properties:
+      name = "Starbuck"
+  feature: 7
+    id: 30874685431
+    geometry: POINT(489,1539)
+    properties:
+      name = "Le Palace Café"
+  feature: 8
+    id: 30874686101
+    geometry: POINT(471,1532)
+    properties:
+      name = "Richmond Bar"
+  feature: 9
+    id: 40201249451
+    geometry: POINT(404,1677)
+    properties:
+      name = "Le kiosque"
+  feature: 10
+    id: 43167675311
+    geometry: POINT(523,1530)
+    properties:
+      name = "Café de Paris"
+  feature: 11
+    id: 43441617901
+    geometry: POINT(552,1512)
+    properties:
+      name = "Starbucks"
+  feature: 12
+    id: 55179530211
+    geometry: POINT(434,1645)
+    properties:
+      name = "Le Corner"
+  feature: 13
+    id: 56634484251
+    geometry: POINT(434,1648)
+    properties:
+      name = "Costa"
+  feature: 14
+    id: 64310872921
+    geometry: POINT(592,1420)
+    properties:
+      name = "Da Caterina"
+  feature: 15
+    id: 68661254561
+    geometry: POINT(411,1625)
+    properties:
+      name = "Sweet Therapy"
+  feature: 16
+    id: 77783396781
+    geometry: POINT(485,1645)
+    properties:
+      name = "Bistrot des Pêcheurs"
+  feature: 17
+    id: 78221436871
+    geometry: POINT(510,1489)
+    properties:
+      name = "Costa"
+=============================================================
+layer: 2
+  name: water
+  version: 2
+  extent: 4096
+  feature: 0
+    id: 22545063
+    geometry: RING[count=26](608 1408,614 1412,615 1409,621 1416,605 1416,599 1420,596 1428,585 1433,582 1442,584 1450,579 1449,581 1445,578 1445,579 1438,584 1432,586 1425,590 1422,595 1426,594 1424,599 1415,600 1417,604 1415,603 1412,605 1410,607 1412,608 1408)[OUTER]
+    properties:
+      osm_type = "relation"
+      natural = "beach"

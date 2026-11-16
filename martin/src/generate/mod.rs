@@ -2,6 +2,8 @@
 
 pub mod layers;
 mod metadata;
+#[cfg(feature = "osm")]
+mod osm;
 pub mod postgres;
 mod progress;
 pub mod serve;
@@ -16,7 +18,8 @@ use std::time::Instant;
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
-use martin_tilegen::plan::Untranslatable;
+use martin_tilegen::plan::{Plan, Untranslatable};
+use martin_tilegen::source::FeatureSource;
 use martin_tilegen::source::WkbError;
 use martin_tilegen::{
     GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
@@ -233,6 +236,16 @@ pub enum GenerateError {
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
+    #[cfg(feature = "osm")]
+    #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
+    MixedSources,
+    #[cfg(feature = "osm")]
+    #[error("Cannot read OSM file {}: {error}", path.display())]
+    OsmFile {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
     #[error("Sources come from more than one database; generate them separately")]
     MultipleDatabases,
     #[error("No table sources to generate")]
@@ -345,27 +358,82 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
+    #[cfg(feature = "osm")]
+    if let Some(tables) = osm::select_sources(&config, &options)? {
+        monitor.set_tables(tables.len());
+        let partition_bytes = osm::partition_bytes(&tables, options.threads);
+        let source =
+            tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
+        let metadata = bulk_metadata(&options, options.bbox, Vec::new());
+        return run(source, options, metadata, progress, monitor, started, Vec::new()).await;
+    }
+
     let (pool, scans, bounds) = select_sources(&config, &options).await?;
     monitor.set_tables(scans.len());
     let geometry_finders: Vec<(String, String)> = scans
         .iter()
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
         .collect::<GenerateResult<_>>()?;
-    let metadata = BulkMetadata {
+    let metadata = bulk_metadata(
+        &options,
+        bounds,
+        scans
+            .iter()
+            .map(|scan| scan.info.discovered.tilejson.as_ref())
+            .collect(),
+    );
+    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    run(source, options, metadata, progress, monitor, started, geometry_finders).await
+}
+
+/// A source of `martin cp --mode bulk`, with the plan it was made for.
+trait PlannedSource: FeatureSource + Send + 'static {
+    /// The plan the source reads its tables for.
+    fn source_plan(&self) -> &Plan;
+}
+
+impl PlannedSource for PgScanSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+#[cfg(feature = "osm")]
+impl PlannedSource for martin_tilegen::osm::OsmSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+/// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
+fn bulk_metadata(
+    options: &GenerateOptions,
+    bounds: Option<Bounds>,
+    comments: Vec<Option<&serde_json::Value>>,
+) -> tilejson::TileJSON {
+    BulkMetadata {
         name: options
             .output_file
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned()),
         bounds,
         compression: (!is_pmtiles(&options.output_file)).then_some(options.encoding),
-        comments: scans
-            .iter()
-            .map(|scan| scan.info.discovered.tilejson.as_ref())
-            .collect(),
+        comments,
         generator: format!("martin cp v{VERSION} (bulk)"),
     }
-    .into_tilejson();
-    let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    .into_tilejson()
+}
+
+/// Renders `source` into the output file with `metadata`.
+async fn run<S: PlannedSource>(
+    source: S,
+    options: GenerateOptions,
+    metadata: tilejson::TileJSON,
+    progress: Arc<Progress>,
+    monitor: Monitor,
+    started: Instant,
+    geometry_finders: Vec<(String, String)>,
+) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
     let output = options.output_file;
@@ -494,16 +562,16 @@ impl Output {
         }
     }
 
-    fn generate(
+    fn generate<S: PlannedSource>(
         self,
-        source: &PgScanSource,
+        source: &S,
         config: &GenerateConfig,
         metadata: tilejson::TileJSON,
         progress: &Progress,
     ) -> TileGenResult<Summary> {
         match self {
-            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
-            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Mbtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
         }
     }
 }
@@ -646,13 +714,8 @@ async fn select_sources(
             convert_to_mvt: info.convert_to_mvt.clone(),
             ..ProcessConfig::default()
         };
-        let encoder = match ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt {
-            Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
-            Some(MltProcessConfig::Disabled) if matches!(options.format, TileFormat::Mlt) => {
-                return Err(GenerateError::MltDisabled { source_id: id });
-            }
-            _ => None,
-        };
+        let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
+        let encoder = mlt_encoder(convert, options.format, &id)?;
         scans.extend(lower_table(
             &id,
             info.clone(),
@@ -703,6 +766,25 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
         info!(bounds = %bounds, "No bbox specified, using source bounds");
     }
     union
+}
+
+/// The MLT encoder settings of a source's `convert_to_mlt`, or `None` for the defaults.
+///
+/// # Errors
+///
+/// If MLT conversion is disabled for a source that is written as MLT.
+fn mlt_encoder(
+    convert: Option<MltProcessConfig>,
+    format: TileFormat,
+    source_id: &str,
+) -> GenerateResult<Option<EncoderConfig>> {
+    match convert {
+        Some(MltProcessConfig::Explicit(cfg)) => Ok(Some(EncoderConfig::from(cfg))),
+        Some(MltProcessConfig::Disabled) if matches!(format, TileFormat::Mlt) => Err(GenerateError::MltDisabled {
+            source_id: source_id.to_owned(),
+        }),
+        _ => Ok(None),
+    }
 }
 
 /// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.
