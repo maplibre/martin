@@ -190,6 +190,7 @@ fn lower_layer(
     };
     Ok(Some(LayerDef {
         name: name.to_owned(),
+        output: None,
         zooms: min..=max,
         grid,
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
@@ -688,6 +689,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads",
+                    output: None,
                     zooms: 2..=8,
                     grid: LayerGrid {
                         extent: 512,
@@ -749,6 +751,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads_source",
+                    output: None,
                     zooms: 0..=14,
                     grid: LayerGrid {
                         extent: 4096,
@@ -846,6 +849,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads",
+                    output: None,
                     zooms: 4..=12,
                     grid: LayerGrid {
                         extent: 4096,
@@ -882,6 +886,7 @@ mod tests {
                 },
                 LayerDef {
                     name: "road_points",
+                    output: None,
                     zooms: 1..=6,
                     grid: LayerGrid {
                         extent: 1024,
@@ -918,6 +923,7 @@ mod tests {
                 },
                 LayerDef {
                     name: "areas",
+                    output: None,
                     zooms: 1..=12,
                     grid: LayerGrid {
                         extent: 1024,

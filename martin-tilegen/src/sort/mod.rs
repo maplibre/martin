@@ -17,7 +17,9 @@ use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, Paral
 use run::{Run, RunWriter, SpillFile};
 
 use crate::progress::{Progress, Stage};
-pub use crate::sort::group::{LayerRecordRef, TileBatches, TileGrouper, TileRecords};
+#[cfg(feature = "internals")]
+pub use crate::sort::group::LayerRecordRef;
+pub use crate::sort::group::{TileBatches, TileGrouper, TileRecords};
 pub use crate::sort::key::{LayerId, Seq, SortKey};
 pub use crate::sort::merge::Merger;
 use crate::{TileGenError, TileGenResult};

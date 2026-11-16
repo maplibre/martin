@@ -130,11 +130,11 @@ pub(crate) struct RenderTotals {
     /// By layer index.
     slice_errors: Vec<SliceErrors>,
     exprs: ExprTallies,
-    /// What the per-tile operations did, by layer index.
+    /// What the per-tile operations did, by output layer index.
     ops: Vec<LayerOpCounts>,
-    /// The kinds of the values each layer's keys took.
+    /// The kinds of the values each output layer's keys took.
     kinds: LayerKinds,
-    /// The integers float columns rounded, by layer index.
+    /// The integers float columns rounded, by output layer index.
     rounded: Vec<Rounded>,
 }
 
@@ -185,7 +185,7 @@ impl RenderTotals {
     }
 }
 
-/// The first slice error of every layer that had any, by layer name.
+/// The first slice error of every layer definition that had any, by its name.
 fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErrors> {
     plan.layers
         .iter()
@@ -194,7 +194,7 @@ fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErro
             let errors = totals.get(index)?;
             let first = errors.first.as_ref()?;
             Some(LayerSliceErrors {
-                layer: layer.info.name.clone(),
+                layer: layer.name.clone(),
                 errors: errors.count,
                 zoom: first.zoom,
                 id: first.id,
@@ -206,7 +206,7 @@ fn layer_slice_errors(plan: &Plan, totals: &[SliceErrors]) -> Vec<LayerSliceErro
         .collect()
 }
 
-/// Adds `counts` to `totals`, both by layer index.
+/// Adds `counts` to `totals`, both by output layer index.
 fn add_op_counts(totals: &mut Vec<LayerOpCounts>, counts: &[LayerOpCounts]) {
     if totals.len() < counts.len() {
         totals.resize_with(counts.len(), LayerOpCounts::default);
@@ -216,7 +216,7 @@ fn add_op_counts(totals: &mut Vec<LayerOpCounts>, counts: &[LayerOpCounts]) {
     }
 }
 
-/// Adds `rounded` to `totals`, both by layer index.
+/// Adds `rounded` to `totals`, both by output layer index.
 fn add_rounded(totals: &mut Vec<Rounded>, rounded: &[Rounded]) {
     if totals.len() < rounded.len() {
         totals.resize_with(rounded.len(), Rounded::default);
@@ -226,22 +226,27 @@ fn add_rounded(totals: &mut Vec<Rounded>, rounded: &[Rounded]) {
     }
 }
 
-/// What each operation a layer has did to it, with `totals` by layer index; zero for an operation that never ran.
+/// What each operation an output layer has did to it, with `totals` by output layer index; zero for an operation
+/// that never ran.
 fn op_summaries(plan: &Plan, totals: &[LayerOpCounts]) -> Vec<OpSummary> {
     let none = LayerOpCounts::default();
-    plan.layers
+    plan.outputs
         .iter()
         .enumerate()
-        .flat_map(|(index, layer)| {
+        .flat_map(|(index, output)| {
             let counts = totals.get(index).unwrap_or(&none);
-            let mut ops: Vec<OpKind> = layer.info.per_tile.iter().map(|op| op.op.kind()).collect();
-            if layer.has_thinning_grid() {
+            let mut ops: Vec<OpKind> = output.info.per_tile.iter().map(|op| op.op.kind()).collect();
+            if output
+                .layers
+                .iter()
+                .any(|&layer| plan.layers[layer].has_thinning_grid())
+            {
                 ops.push(OpKind::Thinning);
             }
             ops.sort_unstable();
             ops.dedup();
             ops.into_iter().map(move |op| OpSummary {
-                layer: layer.info.name.clone(),
+                layer: output.info.name.clone(),
                 op,
                 counts: *counts.get(op),
             })

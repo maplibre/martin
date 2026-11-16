@@ -37,8 +37,17 @@ pub enum PlanError {
     #[error("{0} tables exceed the 65536 a feature batch can address")]
     TooManyTables(usize),
 
-    #[error("layer name `{0}` is used more than once")]
-    DuplicateLayer(String),
+    /// Two definitions writing into one output layer that disagree on a setting it has once.
+    #[error(
+        "layers `{first}` and `{second}` both write into layer `{output}` but with different `{setting}`; it must be \
+         equal wherever it is set"
+    )]
+    OutputMismatch {
+        output: String,
+        first: String,
+        second: String,
+        setting: &'static str,
+    },
 
     #[error("layer `{layer}`: zoom {zoom} is above {MAX_ZOOM}")]
     ZoomTooHigh { layer: String, zoom: u8 },
@@ -119,7 +128,14 @@ pub struct LayerGrid {
 /// Expressions are CEL over the feature's properties (see [`expr`](crate::expr)), compiled by [`Plan::new`].
 #[derive(Clone, Debug)]
 pub struct LayerDef {
+    /// Names the definition in errors and paths, and the output layer unless [`Self::output`] does.
     pub name: String,
+    /// The output layer it writes into, which other definitions may share; [`Self::name`] when `None`.
+    ///
+    /// Definitions sharing one are merged in each tile, each keeping its own features, zooms, grid buffer,
+    /// simplification, attributes and rules. They must have equal extents and encoders, and equal `sort_by`
+    /// and operations of each kind in `per_tile` wherever those are not empty; the output layer uses them.
+    pub output: Option<String>,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
     /// Whether each tile gets only its part of a line or polygon, or the whole geometry.
@@ -143,14 +159,14 @@ pub struct LayerDef {
     pub attributes: AttributesDef,
     /// The first rule a feature matches overrides the layer's settings for it.
     pub rules: Vec<RuleDef>,
-    /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
-    /// Turns off the sort trials of `encoder`.
+    /// Orders the output layer's features in each tile, ties in definition order, then source order; empty keeps
+    /// that order. Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
-    /// Orders features that tie on `sort_by` by their source id, those without one last.
-    /// Turns off the sort trials of `encoder`.
+    /// Orders the output layer's features that tie on `sort_by` by their source id, those without one last. Turns off
+    /// the sort trials of `encoder`.
     pub id_order: Option<IdOrder>,
-    /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
-    /// Zoom ranges of one kind of operation must not overlap.
+    /// Run on the output layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order
+    /// here, clamped into the zooms of all its definitions. Zoom ranges of one kind of operation must not overlap.
     pub per_tile: Vec<TileOpDef>,
 }
 
@@ -161,6 +177,7 @@ impl LayerDef {
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
         Self {
             name: name.into(),
+            output: None,
             zooms,
             grid,
             clip_mode: ClipMode::Clipped,
@@ -262,6 +279,20 @@ impl TileOp {
             Self::Thinning { .. } => 3,
             Self::MergeMulti { .. } => 4,
             Self::Limit { .. } => 5,
+        }
+    }
+
+    /// The names of the operations, in the order they run.
+    const KEYS: [&str; 5] = ["merge_lines", "merge_polygons", "thinning", "merge_multi", "limit"];
+
+    /// The operation's name as configurations write it.
+    const fn key(&self) -> &'static str {
+        match self {
+            Self::MergeLines { .. } => "merge_lines",
+            Self::MergePolygons { .. } => "merge_polygons",
+            Self::Thinning { .. } => "thinning",
+            Self::MergeMulti { .. } => "merge_multi",
+            Self::Limit { .. } => "limit",
         }
     }
 }
@@ -532,18 +563,30 @@ pub enum ValueDef {
     Expr(String),
 }
 
-/// Validated [`TableDef`]s, with output layers numbered table by table, then in declaration order: that
-/// number is the layer byte of the sort key, and so the layer's order inside each tile.
+/// Validated [`TableDef`]s, with layer definitions numbered table by table, then in declaration order: that
+/// number is the layer byte of the sort key. Output layers are numbered in the order their first definition comes
+/// in, which is their order inside each tile.
 ///
 /// A plan serves one run: it interns the property keys its sources and layers find.
 #[derive(Debug)]
 pub struct Plan {
     pub(crate) tables: Vec<PlannedTable>,
     pub(crate) layers: Vec<PlannedLayer>,
+    pub(crate) outputs: Vec<PlannedOutput>,
     pub(crate) exprs: Vec<PlannedExpr>,
     keys: Keys,
     /// Whether an expression has logged its first failure.
     warned: Vec<AtomicBool>,
+}
+
+/// An output layer: the definitions writing into it, and what it has once for all of them.
+#[derive(Debug)]
+pub(crate) struct PlannedOutput {
+    pub(crate) info: LayerInfo,
+    /// Indexes into [`Plan::layers`] of its definitions, in plan order.
+    pub(crate) layers: Vec<usize>,
+    /// Its known keys: those of each of its definitions in turn, including those only rules add.
+    pub(crate) keys: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -568,10 +611,14 @@ pub(crate) struct PlannedExpr {
     pub(crate) layer: usize,
 }
 
+/// A layer definition, as it takes features and renders them for its output layer.
 #[derive(Debug)]
 pub(crate) struct PlannedLayer {
+    /// The definition's name.
+    pub(crate) name: String,
+    /// Index into [`Plan::outputs`] of the output layer it writes into.
+    pub(crate) output: usize,
     pub(crate) render: RenderLayer,
-    pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
     /// The entries of [`LayerDef::geometry`], never empty.
     pub(crate) geometry: Vec<GeometryDef>,
@@ -579,8 +626,6 @@ pub(crate) struct PlannedLayer {
     pub(crate) filter: Option<ExprRef<Filter>>,
     pub(crate) id: PlannedId,
     pub(crate) attributes: AttributesDef,
-    /// The output layer's known keys, including those only rules add.
-    pub(crate) keys: Vec<String>,
     /// Output key by table column.
     pub(crate) copy: Vec<Option<KeyId>>,
     /// The layer's rules, in order.
@@ -699,9 +744,10 @@ impl Plan {
         if u16::try_from(tables.len()).is_err() {
             return Err(PlanError::TooManyTables(tables.len()));
         }
-        let mut names = HashSet::new();
+        let drafts = OutputDraft::all(&tables)?;
         let mut planned_tables = Vec::with_capacity(tables.len());
         let mut layers = Vec::with_capacity(total);
+        let mut own_keys = Vec::with_capacity(total);
         let mut exprs = Vec::new();
         for table in tables {
             let start = layers.len();
@@ -711,9 +757,6 @@ impl Plan {
             let mut rules = false;
             for def in table.layers {
                 rules |= !def.rules.is_empty();
-                if !names.insert(def.name.clone()) {
-                    return Err(PlanError::DuplicateLayer(def.name));
-                }
                 if *def.zooms.end() > MAX_ZOOM {
                     return Err(PlanError::ZoomTooHigh {
                         layer: def.name,
@@ -721,6 +764,10 @@ impl Plan {
                     });
                 }
                 let index = u8::try_from(layers.len()).expect("at most 256 layers");
+                let output = drafts
+                    .iter()
+                    .position(|draft| draft.layers.contains(&layers.len()))
+                    .expect("every definition writes into an output layer");
                 let mut compiler = Compiler {
                     exprs: &mut exprs,
                     columns: &table.columns,
@@ -730,7 +777,9 @@ impl Plan {
                     layer: layers.len(),
                     name: def.name.clone(),
                 };
-                layers.push(plan_layer(index, def, &mut compiler)?);
+                let (layer, keys) = plan_layer(index, def, output, &drafts[output], &mut compiler)?;
+                own_keys.push((keys, compiler.dynamic_props && layer.attributes == AttributesDef::All));
+                layers.push(layer);
             }
             let table_layers = &mut layers[start..];
             let all_keys = exprs[first_expr..].iter().any(|planned| planned.expr.needs_all_keys());
@@ -774,11 +823,16 @@ impl Plan {
                 evaluates: rules || exprs.len() > first_expr,
             });
         }
+        let outputs = drafts
+            .into_iter()
+            .map(|draft| draft.plan(&mut layers, &own_keys, &mut exprs))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
-            keys: Keys::new(&planned_tables, &layers),
+            keys: Keys::new(&planned_tables, &outputs),
             warned: exprs.iter().map(|_| AtomicBool::new(false)).collect(),
             tables: planned_tables,
             layers,
+            outputs,
             exprs,
         })
     }
@@ -845,6 +899,23 @@ impl Plan {
 }
 
 impl PlannedLayer {
+    /// From the definition's own output keys to those of its output layer, `keys[i]` being that of its key `i`.
+    fn rekey(&mut self, keys: &[KeyId]) {
+        for key in self.copy.iter_mut().flatten() {
+            *key = keys[key.index()];
+        }
+        for case in std::iter::once(&mut self.fallback).chain(&mut self.cases) {
+            let attrs = &mut case.attrs;
+            for key in &mut attrs.overrides {
+                *key = keys[key.index()];
+            }
+            attrs.overrides.sort_unstable();
+            for attr in attrs.computed.iter_mut().chain(&mut attrs.banded) {
+                attr.key = keys[attr.key.index()];
+            }
+        }
+    }
+
     /// From candidate column positions to the scanned ones in `renumbered`.
     fn renumber(&mut self, renumbered: &[Option<KeyId>]) {
         self.copy = self
@@ -922,18 +993,179 @@ fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]
         None => planned.expr.condition(columns),
     };
     let condition = condition.map_err(|reason| Untranslatable {
-        layer: layer.info.name.clone(),
+        layer: layer.name.clone(),
         expr: planned.source.clone(),
         reason,
     })?;
     Ok(Condition::and(geometry.into_iter().chain([condition])))
 }
 
+/// What the definitions writing into one output layer share, gathered before any of them is planned.
+struct OutputDraft {
+    /// The output layer's name.
+    name: String,
+    /// The name of its first definition.
+    first: String,
+    /// Indexes of its definitions in plan order.
+    layers: Vec<usize>,
+    /// The zooms of all its definitions.
+    zooms: RangeInclusive<u8>,
+    /// Their extent, and the widest of their buffers.
+    grid: LayerGrid,
+    /// Their encoder, which they share.
+    encoder: EncoderConfig,
+    /// The `sort_by` of the definitions that set one, and the name of the first of them.
+    sort_by: Option<(Vec<SortDef>, String)>,
+    /// The `id_order` of the definitions that set one, and the name of the first of them.
+    id_order: Option<(IdOrder, String)>,
+    /// Each operation, with the name and index of the definition it was taken from.
+    per_tile: Vec<(TileOpDef, String, usize)>,
+}
+
+impl OutputDraft {
+    /// The output layers of `tables`, in the order their first definitions come in.
+    ///
+    /// # Errors
+    ///
+    /// If two definitions of one output layer disagree on a setting it has once.
+    fn all(tables: &[TableDef]) -> Result<Vec<Self>, PlanError> {
+        let mut drafts: Vec<Self> = Vec::new();
+        for (index, def) in tables.iter().flat_map(|table| &table.layers).enumerate() {
+            let name = def.output.as_ref().unwrap_or(&def.name);
+            let Some(draft) = drafts.iter_mut().find(|draft| draft.name == *name) else {
+                drafts.push(Self {
+                    name: name.clone(),
+                    first: def.name.clone(),
+                    layers: vec![index],
+                    zooms: def.zooms.clone(),
+                    grid: def.grid,
+                    encoder: def.encoder,
+                    sort_by: (!def.sort_by.is_empty()).then(|| (def.sort_by.clone(), def.name.clone())),
+                    id_order: def.id_order.map(|order| (order, def.name.clone())),
+                    per_tile: def
+                        .per_tile
+                        .iter()
+                        .map(|op| (op.clone(), def.name.clone(), index))
+                        .collect(),
+                });
+                continue;
+            };
+            draft.add(index, def)?;
+        }
+        Ok(drafts)
+    }
+
+    /// Adds definition `def`, number `index` in the plan.
+    ///
+    /// # Errors
+    ///
+    /// If it disagrees with the definitions before it on a setting the output layer has once.
+    fn add(&mut self, index: usize, def: &LayerDef) -> Result<(), PlanError> {
+        let mismatch = |first: &str, setting| PlanError::OutputMismatch {
+            output: self.name.clone(),
+            first: first.to_owned(),
+            second: def.name.clone(),
+            setting,
+        };
+        if def.grid.extent != self.grid.extent {
+            return Err(mismatch(&self.first, "extent"));
+        }
+        if def.encoder != self.encoder {
+            return Err(mismatch(&self.first, "encoder"));
+        }
+        match &self.sort_by {
+            Some((sort_by, by)) if !def.sort_by.is_empty() && *sort_by != def.sort_by => {
+                return Err(mismatch(by, "sort_by"));
+            }
+            None if !def.sort_by.is_empty() => self.sort_by = Some((def.sort_by.clone(), def.name.clone())),
+            _ => {}
+        }
+        match (&self.id_order, def.id_order) {
+            (Some((order, by)), Some(other)) if *order != other => return Err(mismatch(by, "id_order")),
+            (None, Some(order)) => self.id_order = Some((order, def.name.clone())),
+            _ => {}
+        }
+        for key in TileOp::KEYS {
+            let ops: Vec<&TileOpDef> = def.per_tile.iter().filter(|op| op.op.key() == key).collect();
+            if ops.is_empty() {
+                continue;
+            }
+            let mut known = self.per_tile.iter().filter(|(op, ..)| op.op.key() == key).peekable();
+            if let Some((_, by, _)) = known.peek() {
+                let by = by.clone();
+                if !known.map(|(op, ..)| op).eq(ops) {
+                    return Err(mismatch(&by, key));
+                }
+            } else {
+                let added = ops.into_iter().map(|op| (op.clone(), def.name.clone(), index));
+                self.per_tile.extend(added);
+            }
+        }
+        self.layers.push(index);
+        self.zooms = (*self.zooms.start()).min(*def.zooms.start())..=(*self.zooms.end()).max(*def.zooms.end());
+        self.grid.buffer = self.grid.buffer.max(def.grid.buffer);
+        Ok(())
+    }
+
+    /// The output layer of `layers`, numbering the output keys of its definitions in the output layer's, and
+    /// planning its operations over them. `own_keys` holds each definition's own output keys, and whether it copies
+    /// every property of a table with dynamic ones.
+    fn plan(
+        self,
+        layers: &mut [PlannedLayer],
+        own_keys: &[(Vec<String>, bool)],
+        exprs: &mut Vec<PlannedExpr>,
+    ) -> Result<PlannedOutput, PlanError> {
+        let mut keys: Vec<String> = Vec::new();
+        for &layer in &self.layers {
+            let map: Vec<KeyId> = own_keys[layer]
+                .0
+                .iter()
+                .map(|name| {
+                    let pos = keys.iter().position(|key| key == name).unwrap_or_else(|| {
+                        keys.push(name.clone());
+                        keys.len() - 1
+                    });
+                    key_id(pos)
+                })
+                .collect();
+            layers[layer].rekey(&map);
+        }
+        let output_props = self.layers.iter().any(|&layer| own_keys[layer].1);
+        check_group_by(&self, &keys, output_props)?;
+        let per_tile = plan_per_tile(&self, &keys, output_props, exprs)?;
+        Ok(PlannedOutput {
+            info: LayerInfo {
+                encoder: if self.sort_by.is_none() && self.id_order.is_none() {
+                    self.encoder
+                } else {
+                    self.encoder
+                        .with_id_sort(false)
+                        .with_spatial_morton_sort(false)
+                        .with_spatial_hilbert_sort(false)
+                },
+                name: self.name,
+                grid: self.grid,
+                per_tile,
+            },
+            layers: self.layers,
+            keys,
+        })
+    }
+}
+
 fn key_id(pos: usize) -> KeyId {
     KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys"))
 }
 
-fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<PlannedLayer, PlanError> {
+/// The definition as it takes features for output layer `output`, which `draft` describes, and its own output keys.
+fn plan_layer(
+    index: u8,
+    def: LayerDef,
+    output: usize,
+    draft: &OutputDraft,
+    compiler: &mut Compiler<'_>,
+) -> Result<(PlannedLayer, Vec<String>), PlanError> {
     let geometry = if def.geometry.is_empty() {
         vec![GeometryDef::ANY]
     } else {
@@ -972,16 +1204,17 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         simplify: def.simplify,
         min_size: def.min_size,
         attrs,
-        thinning_grid: clamp_grids(&layer_grids(&def), &def.zooms),
+        thinning_grid: clamp_grids(&layer_grids(draft), &def.zooms),
     };
     let cases = def
         .rules
         .iter()
         .map(|rule| plan_case(&def, rule, compiler, &mut keys, &fallback))
         .collect::<Result<_, PlanError>>()?;
-    let sort_by = def
+    let sort_by = draft
         .sort_by
         .iter()
+        .flat_map(|(keys, _)| keys)
         .map(|key| {
             let expr = compiler.compile(&key.expr)?;
             let role = SortBy {
@@ -990,8 +1223,6 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
-    check_group_by(&def, &keys, compiler.dynamic_props)?;
-    let per_tile = plan_per_tile(&def, &keys, compiler)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -1002,51 +1233,44 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         Some(bounds) => render.with_bounds(bounds),
         None => render,
     };
-    Ok(PlannedLayer {
+    let layer = PlannedLayer {
+        name: def.name,
+        output,
         render,
-        info: LayerInfo {
-            name: def.name,
-            grid: def.grid,
-            encoder: if def.sort_by.is_empty() && def.id_order.is_none() {
-                def.encoder
-            } else {
-                def.encoder
-                    .with_id_sort(false)
-                    .with_spatial_morton_sort(false)
-                    .with_spatial_hilbert_sort(false)
-            },
-            per_tile,
-        },
         zooms: def.zooms,
         geometry,
         filter,
         id,
         attributes: def.attributes,
-        keys,
         copy,
         cases,
         fallback,
         sort_by,
-        id_order: def.id_order,
-    })
+        id_order: draft.id_order.as_ref().map(|(order, _)| *order),
+    };
+    Ok((layer, keys))
 }
 
-/// Every `group_by` attribute of the layer's operations is one the layer writes: one of `keys`, or, when
-/// it copies every property of a table with dynamic ones, perhaps one of those.
-fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Result<(), PlanError> {
-    if dynamic_props && def.attributes == AttributesDef::All {
+/// Every `group_by` attribute of the output layer's operations is one it writes: one of `keys`, or, when a
+/// definition copies every property of a table with dynamic ones (`output_props`), perhaps one of those.
+fn check_group_by(draft: &OutputDraft, keys: &[String], output_props: bool) -> Result<(), PlanError> {
+    if output_props {
         return Ok(());
     }
-    for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
-        let (name, group_by) = match &op.op {
-            TileOp::MergePolygons { group_by, .. } => ("merge_polygons", group_by.as_deref()),
-            TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
+    for (op, layer, _) in draft
+        .per_tile
+        .iter()
+        .filter(|(op, ..)| clamped_zooms(op, &draft.zooms).is_some())
+    {
+        let group_by = match &op.op {
+            TileOp::MergePolygons { group_by, .. } => group_by.as_deref(),
+            TileOp::MergeMulti { group_by, .. } => Some(group_by.as_slice()),
             TileOp::MergeLines { .. } | TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
         };
         if let Some(attribute) = group_by.into_iter().flatten().find(|name| !keys.contains(name)) {
             return Err(PlanError::UnknownGroupBy {
-                layer: def.name.clone(),
-                op: name,
+                layer: layer.clone(),
+                op: op.op.key(),
                 attribute: attribute.clone(),
             });
         }
@@ -1061,41 +1285,42 @@ fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeIncl
     (lo <= hi).then_some(lo..=hi)
 }
 
-/// The layer's operations in the order they run, each clamped into its zooms, without those outside them,
-/// and with `thinning` keys compiled over the layer's output attributes.
+/// The output layer's operations in the order they run, each clamped into its zooms, without those outside them,
+/// and with `thinning` keys compiled over its output attributes `keys` into `exprs`.
 fn plan_per_tile(
-    def: &LayerDef,
+    draft: &OutputDraft,
     keys: &[String],
-    compiler: &mut Compiler<'_>,
+    output_props: bool,
+    exprs: &mut Vec<PlannedExpr>,
 ) -> Result<Vec<PlannedTileOp>, PlanError> {
-    let output_props = compiler.dynamic_props && def.attributes == AttributesDef::All;
     let mut ops = Vec::new();
-    for op in &def.per_tile {
-        let Some(zooms) = clamped_zooms(op, &def.zooms) else {
+    for (op, name, layer) in &draft.per_tile {
+        let Some(zooms) = clamped_zooms(op, &draft.zooms) else {
             continue;
         };
-        let units = f64::from(def.grid.extent) / TILE_PIXELS;
+        let units = f64::from(draft.grid.extent) / TILE_PIXELS;
+        let buffer = |buffer: Option<f64>| buffer.map_or(f64::from(draft.grid.buffer), |px| px * units);
         let planned = match &op.op {
             TileOp::MergeLines {
                 min_length,
                 tolerance,
-                buffer,
+                buffer: px,
             } => PlannedOp::MergeLines(PlannedMergeLines {
                 min_length: min_length * units,
                 tolerance: tolerance * units,
-                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                buffer: buffer(*px),
             }),
             TileOp::MergePolygons {
                 min_area,
                 min_hole_area,
                 distance,
-                buffer,
+                buffer: px,
                 group_by,
             } => PlannedOp::MergePolygons(PlannedMergePolygons {
                 min_area: min_area * units * units,
                 min_hole_area: min_hole_area * units * units,
                 distance: distance * units,
-                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                buffer: buffer(*px),
                 group_by: group_by.clone(),
                 warned: Arc::default(),
             }),
@@ -1105,17 +1330,22 @@ fn plan_per_tile(
                     .map(|source| {
                         let expr = CompiledExpr::compile(source, keys, output_props).map_err(|error| {
                             PlanError::LayerExpr {
-                                layer: def.name.clone(),
+                                layer: name.clone(),
                                 error,
                             }
                         })?;
                         if expr.measures_area() {
                             return Err(PlanError::ThinningArea {
-                                layer: def.name.clone(),
+                                layer: name.clone(),
                                 expr: source.clone(),
                             });
                         }
-                        Ok(compiler.add(source, expr, ThinningKey))
+                        exprs.push(PlannedExpr {
+                            expr,
+                            source: source.clone(),
+                            layer: *layer,
+                        });
+                        Ok(ExprRef::new(exprs.len() - 1, ThinningKey))
                     })
                     .collect::<Result<_, PlanError>>()?,
                 method: match method {
@@ -1314,11 +1544,12 @@ fn plan_case(
     })
 }
 
-/// The grids of the layer's grid thinning.
-fn layer_grids(def: &LayerDef) -> Vec<ThinningGrid> {
-    def.per_tile
+/// The grids of the output layer's grid thinning.
+fn layer_grids(draft: &OutputDraft) -> Vec<ThinningGrid> {
+    draft
+        .per_tile
         .iter()
-        .filter_map(|op| {
+        .filter_map(|(op, ..)| {
             let TileOp::Thinning {
                 method: ThinningMethod::Grid { size, limit },
                 ..
