@@ -59,7 +59,7 @@ postgres:
 
 ### OpenStreetMap sources
 
-A case of an `osm` source is one object of its file, with the [feature id](sources-osm.md#features) as `id` in its
+A case of an `osm` source is one object of its file, with the [feature id](sources-osm.md#supported-features-and-handling) as `id` in its
 input, so a source cannot read a tag `id`. `generate` reads the file once per path and takes its first object on
 the path. A source reading ways or relations loads its node locations once per run.
 
