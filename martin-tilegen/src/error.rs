@@ -44,7 +44,7 @@ pub enum TileGenError {
     #[error("feature {id}: {error}")]
     FeatureWkb {
         table: u16,
-        id: u64,
+        id: i64,
         #[source]
         error: crate::source::WkbError,
     },

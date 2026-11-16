@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-    summary, summary_filters, temp_dir, tile_listing, tiles,
+    seed_postgres, summary, summary_filters, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -1419,6 +1419,197 @@ async fn sort_by_sets_the_draw_order() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("sort_by_metadata", metadata);
     });
+}
+
+#[tokio::test]
+async fn order_by_sets_the_draw_order_of_a_table_without_layers() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-desc
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let order: Vec<String> = tiles(&output)
+        .await
+        .iter()
+        .flat_map(|(z, x, y, data)| {
+            mlt_layers(data).into_iter().map(move |layer| {
+                let ids: Vec<String> = layer
+                    .features()
+                    .iter()
+                    .map(|feature| feature.id().map_or("-".to_owned(), |id| id.to_string()))
+                    .collect();
+                format!("{z}/{x}/{y} {} {}", layer.name(), ids.join(" "))
+            })
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @"0/0/0 table_source 28 27 26 25 24 23 22 21 20 19 18 17 16 15 13 12 11 10 9 8 7 6 5 4 3 2 1");
+}
+
+#[tokio::test]
+async fn order_by_id_asc_puts_negative_ids_first_and_null_ids_last() {
+    seed_postgres(indoc! {"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_order_asc CASCADE;
+        CREATE SCHEMA martin_cp_bulk_order_asc;
+        CREATE TABLE martin_cp_bulk_order_asc.places (id int8, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_order_asc.places VALUES
+            (3, 'three', 'SRID=4326;POINT(16.37 48.20)'),
+            (-2, 'minus two', 'SRID=4326;POINT(14.29 48.31)'),
+            (NULL, 'null', 'SRID=4326;POINT(15.44 47.07)'),
+            (1, 'one', 'SRID=4326;POINT(13.04 47.80)'),
+            (-7, 'minus seven', 'SRID=4326;POINT(11.40 47.26)');
+    "})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-asc
+              tables:
+                places:
+                  schema: martin_cp_bulk_order_asc
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    name: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let z0 = tiles(&output).await.into_iter().next().expect("a z0 tile");
+    let order: Vec<String> = mlt_layers(&z0.3)
+        .iter()
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|feature| format!("{:?} {:?}", feature.id(), feature.properties()))
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @r#"
+    None [Str(Some("minus seven"))]
+    None [Str(Some("minus two"))]
+    Some(1) [Str(Some("one"))]
+    Some(3) [Str(Some("three"))]
+    None [Str(Some("null"))]
+    "#);
+}
+
+#[tokio::test]
+async fn order_by_id_desc_puts_negative_ids_after_positive_ones_and_null_ids_last() {
+    seed_postgres(indoc! {"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_order_desc CASCADE;
+        CREATE SCHEMA martin_cp_bulk_order_desc;
+        CREATE TABLE martin_cp_bulk_order_desc.places (id int8, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_order_desc.places VALUES
+            (3, 'three', 'SRID=4326;POINT(16.37 48.20)'),
+            (-2, 'minus two', 'SRID=4326;POINT(14.29 48.31)'),
+            (NULL, 'null', 'SRID=4326;POINT(15.44 47.07)'),
+            (1, 'one', 'SRID=4326;POINT(13.04 47.80)'),
+            (-7, 'minus seven', 'SRID=4326;POINT(11.40 47.26)');
+    "})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-desc
+              tables:
+                places:
+                  schema: martin_cp_bulk_order_desc
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    name: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let z0 = tiles(&output).await.into_iter().next().expect("a z0 tile");
+    let order: Vec<String> = mlt_layers(&z0.3)
+        .iter()
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|feature| format!("{:?} {:?}", feature.id(), feature.properties()))
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @r#"
+    Some(3) [Str(Some("three"))]
+    Some(1) [Str(Some("one"))]
+    None [Str(Some("minus two"))]
+    None [Str(Some("minus seven"))]
+    None [Str(Some("null"))]
+    "#);
 }
 
 #[tokio::test]

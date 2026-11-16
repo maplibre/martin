@@ -59,6 +59,7 @@ fn lower(name: &str, info: TableInfo) -> ScanTable {
         zooms: 0..=6,
         bounds: None,
         encoder: None,
+        order_by: None,
     };
     lower_table(name, info, &options).unwrap().unwrap()
 }
@@ -571,6 +572,7 @@ async fn a_world_bbox_keeps_every_feature_of_a_projected_table() {
         zooms: 0..=0,
         bounds: Some(Bounds::MAX_TILED),
         encoder: None,
+        order_by: None,
     };
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
@@ -601,6 +603,7 @@ async fn a_bbox_over_a_projected_table_keeps_every_feature_of_its_tiles() {
         zooms: 6..=6,
         bounds: Some(Bounds::new(174.0, -42.0, 175.5, -36.0)),
         encoder: None,
+        order_by: None,
     };
     let table = lower_table("nz_points", table_info(&specs, "nz_points"), &options)
         .unwrap()
@@ -638,6 +641,7 @@ async fn a_bbox_over_a_web_mercator_table_keeps_every_feature_of_its_tile_at_the
         zooms: 1..=1,
         bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
         encoder: None,
+        order_by: None,
     };
     let table = lower_table("points3857", table_info(&specs, "points3857"), &options)
         .unwrap()
@@ -671,6 +675,7 @@ async fn a_bbox_over_a_web_mercator_table_keeps_the_features_near_the_antimeridi
         zooms: 0..=0,
         bounds: Some(Bounds::new(5.87, 47.27, 15.04, 55.06)),
         encoder: None,
+        order_by: None,
     };
     let info = TableInfo {
         buffer: Some(512),

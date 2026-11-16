@@ -66,6 +66,25 @@ features, zooms, attributes and draw order.
 
 The same data and options give the same tiles, however many threads are used.
 
+### Draw order
+
+A source with `layers` orders the features of each layer by its [`sort_by`](sources-pg-layers.md#draw-order)
+and ignores `order_by`.
+A source without `layers` follows `order_by` (`--order-by` on the command line) of its PostgreSQL
+connection, as tile mode does, when the source has an `id_column`. Each tile then lists its features by id:
+
+| `order_by` | Order of the ids `3`, `-2`, `NULL`, `1`, `-7` in each tile |
+|------------|------------------------------------------------------------|
+| `id-asc`   | `-7`, `-2`, `1`, `3`, `NULL`                               |
+| `id-desc`  | `3`, `1`, `-2`, `-7`, `NULL`                               |
+
+- Features without an id come last with either value.
+- Features with equal ids keep the order the source reads them in.
+- A tile drops a negative id, as `ST_AsMVT` does. The feature keeps its place, without an id.
+
+Without `order_by`, or without an `id_column`, the features keep the
+[order the source reads them in](sources-pg-layers.md#draw-order).
+
 ## Configuration file
 
 The configuration file only describes the sources. The options of a run are command-line arguments,

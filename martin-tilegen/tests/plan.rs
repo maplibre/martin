@@ -831,7 +831,7 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
     }])
     .unwrap();
     let keys = &plan.table_keys()[0];
-    let features: Vec<_> = (0..4u64)
+    let features: Vec<_> = (0..4i64)
         .map(|i| SourceFeature {
             id: Some(i),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),

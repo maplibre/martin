@@ -46,13 +46,14 @@ impl TestBackend for Memory {
         let plan = table.plan()?;
         let columns = plan.columns(0);
         let row_key = |row: &BTreeMap<String, Value>| row.get(table.key.as_deref()?)?.as_u64();
+        let row_id = |row: &BTreeMap<String, Value>| row.get(table.key.as_deref()?)?.as_i64();
         let features = memory
             .rows
             .iter()
             .filter(|row| key.is_none() || row_key(row) == key)
             .filter_map(|row| {
                 Some(SourceFeature {
-                    id: row_key(row),
+                    id: row_id(row),
                     geometry: geometry(row.get("geometry")?.as_str()?)?,
                     props: (0..)
                         .zip(columns)

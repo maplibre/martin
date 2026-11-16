@@ -175,7 +175,8 @@ impl TryFrom<GeoGeometry<f64>> for Geometry {
 #[derive(Clone, Debug, PartialEq)]
 #[expect(missing_docs)]
 pub struct SourceFeature {
-    pub id: Option<u64>,
+    /// The source id, which orders features by `id_order`; tiles drop a negative one, as `ST_AsMVT` does.
+    pub id: Option<i64>,
     pub geometry: Geometry,
     pub props: Vec<(KeyId, Prop<SourceStr>)>,
 }

@@ -73,7 +73,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
         layers.push((table, features));
     };
     let feature = |id: u32, geometry, props| SourceFeature {
-        id: Some(u64::from(id)),
+        id: Some(i64::from(id)),
         geometry,
         props,
     };
