@@ -83,7 +83,7 @@ jobs:
         run: rustc --version && cargo --version
       - name: Install PGO tooling
         if: inputs.pgo
-        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with: { tool: oha@1.16.0 }
       - name: Install cargo-pgo and LLVM tooling
         if: inputs.pgo

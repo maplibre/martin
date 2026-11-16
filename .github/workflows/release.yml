@@ -54,13 +54,13 @@ jobs:
         with: { tools: 'just,cargo-cyclonedx' }
       - name: Download syft
         id: syft
-        uses: anchore/sbom-action/download-syft@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
       - name: Put syft on the PATH
         env:
           SYFT_CMD: ${{ steps.syft.outputs.cmd }}
         run: dirname "$SYFT_CMD" >> "$GITHUB_PATH"
       - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           output-file: martin.spdx.json
@@ -171,7 +171,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         id: release
         with: { command: release }
         env:
@@ -213,7 +213,7 @@ jobs:
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Check out main's head for the release PR
@@ -245,7 +245,7 @@ jobs:
         run: git reset --hard && git clean -fd
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
