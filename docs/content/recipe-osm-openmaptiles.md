@@ -118,11 +118,11 @@ centerlines and Wikidata, and runs code that `martin cp` has no equivalent for y
 | all                   | `min_size` compares the square root of a polygon's area and a line's length                           | Compares the larger side of the bounding box, so more thin polygons and lines stay                                                                       |
 | `landuse`             | Residential areas closer than 0.2 px joined at z9-12                                                  | Closer than 0.1 px, as larger distances could not make a valid union in Berlin                                                                           |
 
-The configuration uses a few constructs worth knowing when changing it:
+These constructs of the configuration matter when you change it:
 
 - A `minzoom` above a layer's zooms is clamped, so zoom bands are separate layers writing into one output layer
   with [`layer`](sources-pg-layers.md#combining-layers), each with its own `min_size` and `buffer`.
 - A `where` with no equivalent for the PBF read, such as one calling `area()` or a regular expression, makes Martin
-  read every object. Such conditions are a `minzoom` that returns 14 and a `maxzoom` that returns 0 instead, which
-  leaves the feature out.
+  read every object. Such a condition goes into a `minzoom` or `maxzoom` expression instead: a feature whose
+  `minzoom` ends up above its `maxzoom`, such as a lake below 25 km² with a `maxzoom` of 0, is left out.
 - A hidden `_unmerged: osm_id` keeps a feature out of a merge, as Planetiler's selective merges do.

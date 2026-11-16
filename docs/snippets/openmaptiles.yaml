@@ -728,7 +728,7 @@ osm:
           attributes:
             <<: *names
             class: *park_class
-        # boundary: the member ways of administrative boundary relations, from z0 as Planetiler's `boundary_osm_only`
+        # boundary: the member ways of administrative boundary relations, from z0 as Planetiler's `--boundary-osm-only`
         boundary:
           geometry: line
           buffer: 64
