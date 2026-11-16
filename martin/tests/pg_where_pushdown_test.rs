@@ -23,9 +23,9 @@ async fn connect(rows: &str) -> PostgresPool {
 /// The ids of the rows a table's layer keeps.
 struct Kept {
     /// The rows the SQL condition keeps.
-    by_sql: BTreeSet<u64>,
+    by_sql: BTreeSet<i64>,
     /// The rows the plan's layer takes from an unfiltered scan.
-    by_plan: BTreeSet<u64>,
+    by_plan: BTreeSet<i64>,
 }
 
 /// The rows the SQL condition and the plan keep of the table `yaml` configures.
@@ -66,7 +66,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
         .await
         .unwrap()
         .iter()
-        .map(|row| u64::try_from(row.get::<_, i64>(1)).unwrap())
+        .map(|row| row.get::<_, i64>(1))
         .collect();
 
     let all = scan_sql(&info, plan.columns(0), None, None).unwrap();
