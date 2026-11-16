@@ -111,7 +111,7 @@ Each GeoParquet source supports:
 Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override the top-level values for that source.
 
 !!! tip
-    See [our tile sources explanation](sources-tiles/index.md) for a more detailed explanation on the difference between our available data sources.
+    See [the tile sources explanation](sources-tiles/index.md) for a more detailed explanation on the difference between the available data sources.
     DuckDB sources can be combined with other sources via [Composite Sources](sources-composite.md).
 
 !!! note
@@ -119,7 +119,7 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
     If the file has more than one geometry column, set `geometry_column` explicitly.
 
 !!! tip "Row-group pruning"
-    To reduce the IO necessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
+    To reduce the IO necessary on large duckdb queries, Martin uses the [GeoParquet 1.1 `covering`](https://geoparquet.org/releases/v1.1.0/#covering) declaration out of the file's `geo` metadata on startup and honors `bbox.{x,y}{min,max}` structs.
 
     Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
 

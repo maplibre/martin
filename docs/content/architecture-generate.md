@@ -17,7 +17,7 @@ next through a bounded queue, so the whole run needs a fixed amount of memory, w
 
 --8<-- "images/generate/overview.svg"
 
-We implement this via two traits:
+Martin implements this via two traits:
 
 - a `FeatureSource` streams features from partitions that can be read in parallel, and
 - a `TileSink` writes finished tiles in the order it asks for.
