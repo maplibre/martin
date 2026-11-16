@@ -19,7 +19,7 @@ use mln_rs::{
     MapId, MapOptions, RenderSession, RenderTarget, RuntimeEvent, RuntimeEventKind, RuntimeOptions,
 };
 pub use mln_rs::{Error as EngineError, Map as MapHandle};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::resources::styles::StyleError;
 
@@ -154,7 +154,10 @@ fn forward_logs() {
     impl Observer for Forwarder {
         fn on_record(&self, severity: EventSeverity, event: Event, code: i64, message: &str) -> bool {
             match severity {
-                EventSeverity::Debug | EventSeverity::Info => {
+                EventSeverity::Debug => {
+                    debug!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
+                }
+                EventSeverity::Info => {
                     info!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
                 }
                 EventSeverity::Warning => {
