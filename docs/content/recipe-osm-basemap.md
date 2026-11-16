@@ -55,9 +55,10 @@ Measured on 24 threads, with the extract in the page cache.
 - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every
   `boundary_label` starts at zoom 5, where Planetiler starts the largest at zoom 2 to 4: expressions cannot read
   a feature's area.
-- A closed way is a line or a polygon, as its tags make it an [area](sources-osm.md#features). Planetiler reads it
-  as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian`
-  ways, and `area:aeroway` ways, which are lines in no layer here.
+- A closed way is a line or a polygon, as its tags make it an
+  [area](sources-osm.md#supported-features-and-handling). Planetiler reads it as both unless it has `area=yes` or
+  `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which
+  are lines in no layer here.
 - `boundary_labels` and `streets_polygons_labels` are at each polygon's centroid, and `pois`, `public_transport`
   and `addresses` at the centroid of each point, line or polygon. Planetiler takes points and a point on the
   surface of polygons, or for `addresses` the centroid of convex ones, and leaves lines out.
