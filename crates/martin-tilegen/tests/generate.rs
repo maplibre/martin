@@ -586,6 +586,7 @@ fn id_order_orders_each_layer_by_source_id_with_missing_ids_last() {
         id,
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(0))],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
