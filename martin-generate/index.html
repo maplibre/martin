@@ -1587,6 +1587,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#draw-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Draw order
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1611,6 +1628,17 @@
   
     <nav class="md-nav" aria-label="Options">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Metadata
+      </span>
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#mvt-quirks" class="md-nav__link">
@@ -2254,6 +2282,36 @@ PostgreSQL connection.</p>
 <a href="../sources-pg-layers/"><code>layers</code></a> feeds several layers from one read instead, each with its own
 features, zooms, attributes and draw order.</p>
 <p>The same data and options give the same tiles, however many threads are used.</p>
+<h3 id="draw-order">Draw order</h3>
+<p>A source with <code>layers</code> orders the features of each layer by its <a href="../sources-pg-layers/#draw-order"><code>sort_by</code></a>
+and ignores <code>order_by</code>.
+A source without <code>layers</code> follows <code>order_by</code> (<code>--order-by</code> on the command line) of its PostgreSQL
+connection, as tile mode does, when the source has an <code>id_column</code>. Each tile then lists its features by id:</p>
+<table>
+<thead>
+<tr>
+<th><code>order_by</code></th>
+<th>Order of the ids <code>3</code>, <code>-2</code>, <code>NULL</code>, <code>1</code>, <code>-7</code> in each tile</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id-asc</code></td>
+<td><code>-7</code>, <code>-2</code>, <code>1</code>, <code>3</code>, <code>NULL</code></td>
+</tr>
+<tr>
+<td><code>id-desc</code></td>
+<td><code>3</code>, <code>1</code>, <code>-2</code>, <code>-7</code>, <code>NULL</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Features without an id come last with either value.</li>
+<li>Features with equal ids keep the order the source reads them in.</li>
+<li>A tile drops a negative id, as <code>ST_AsMVT</code> does. The feature keeps its place, without an id.</li>
+</ul>
+<p>Without <code>order_by</code>, or without an <code>id_column</code>, the features keep the
+<a href="../sources-pg-layers/#draw-order">order the source reads them in</a>.</p>
 <h2 id="configuration-file">Configuration file</h2>
 <p>The configuration file only describes the sources. The options of a run are command-line arguments,
 and the file has no section for <code>martin cp</code>.</p>
@@ -2343,7 +2401,7 @@ serving, such as caching, are ignored.</p>
 </tr>
 <tr>
 <td><code>--bbox</code></td>
-<td>whole world</td>
+<td>the sources' <code>bounds</code>, else whole world</td>
 <td>Only tiles touching <code>min_lon,min_lat,max_lon,max_lat</code>, at most once</td>
 </tr>
 <tr>
@@ -2375,12 +2433,68 @@ for <code>.mbtiles</code> output only. Bulk mode refuses <code>--url-query</code
 workers are <code>--threads</code>), <code>--save-config</code>, and <code>max_feature_count</code> in the config or as
 <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code>, <code>--threads</code> and <code>--mvt-quirk</code>.</p>
 <p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
-The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.
+Without <code>--bbox</code>, bulk mode picks the tiles touching the union of the <code>bounds</code> of every selected source
+that renders at least one zoom of the run, clamped to latitudes ±85.0511°, as tile mode does:</p>
+<ul>
+<li>A source's <code>bounds</code> is the one its TileJSON shows: the configured <code>bounds</code>, else what the connection's
+  <code>auto_bounds</code> computes. A <code>bounds</code> in the table comment replaces either.</li>
+<li>If one of these sources has no <code>bounds</code>, for example with <code>auto_bounds: skip</code> or when <code>auto_bounds: quick</code>
+  stops after 5 seconds, bulk mode renders the whole world.</li>
+<li>The output records <code>--bbox</code>, or else this union, as its <code>bounds</code> metadata.</li>
+</ul>
+<p>The scan reads everything the tiles of the lowest zoom cover, so with <code>--min-zoom 0</code> it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below <code>--min-zoom</code> do not count.
 For a small box, raise <code>--min-zoom</code> to keep the scan close to it.</p>
 <p>The highest zoom is 27. The tile grid can lower it further, since <code>extent × 2^zoom</code> must not exceed
 <code>2^30</code>. With the default extent of 4096, that is zoom 18.</p>
 <p>A failed or interrupted run removes the output file. Temporary files are always removed.</p>
+<h3 id="metadata">Metadata</h3>
+<p>To set metadata such as <code>attribution</code>, <code>center</code> or <code>description</code>, add it to the
+<a href="../sources-pg-tables/#tilejson-in-sql-comments">TileJSON in the table comment</a> of a rendered source.
+Bulk mode merges the comments of all rendered sources, in <code>--source</code> order or else by source id, and
+sets the computed keys itself:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Value in the output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>The comments' names, without repeats, joined by <code>,</code>. Without one, the output's file stem, e.g. <code>tileset</code> for <code>tileset.mbtiles</code></td>
+</tr>
+<tr>
+<td><code>attribution</code>, <code>description</code></td>
+<td>The comments' values, without repeats, one per line</td>
+</tr>
+<tr>
+<td><code>vector_layers</code></td>
+<td>One computed entry per layer with features. A comment entry with the same <code>id</code> replaces it, other comment entries are added</td>
+</tr>
+<tr>
+<td><code>bounds</code></td>
+<td><code>--bbox</code>, or else the union of the sources' <code>bounds</code>, see <a href="#options">Options</a></td>
+</tr>
+<tr>
+<td><code>minzoom</code>, <code>maxzoom</code>, <code>format</code>, <code>generator</code></td>
+<td>Computed. <code>generator</code> is <code>martin cp v&lt;version&gt; (bulk)</code></td>
+</tr>
+<tr>
+<td><code>compression</code></td>
+<td>MBTiles only: <code>gzip</code>, <code>deflate</code> for <code>--encoding zlib</code>, or none for <code>--encoding none</code></td>
+</tr>
+<tr>
+<td><code>hash_algorithm</code>, <code>agg_tiles_hash</code>, <code>agg_tiles_hash_before_apply</code>, <code>agg_tiles_hash_after_apply</code></td>
+<td>Set by the MBTiles writer only, never by a comment. Pick the algorithm with <code>--set-meta hash_algorithm=xxh3</code></td>
+</tr>
+<tr>
+<td><code>center</code>, <code>version</code>, <code>legend</code>, <code>template</code> and custom keys</td>
+<td>The value of the first comment that sets it</td>
+</tr>
+</tbody>
+</table>
 <h3 id="mvt-quirks">MVT quirks</h3>
 <p>Each <code>--mvt-quirk</code> changes how MVT tiles are encoded, so it needs <code>--format mvt</code>:</p>
 <table>
