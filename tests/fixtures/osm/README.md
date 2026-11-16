@@ -10,3 +10,7 @@
   n2 x7.4200 y43.7300 Tname=second
   n1 x7.4100 y43.7300 Tname=first
   ```
+- `split-string-table.osm.pbf`: two zlib blocks whose string tables go on after their first group, which the PBF
+  format allows and no known writer does. Block 1 holds one group with node 1 (`amenity=cafe`), its two strings after
+  the group. Block 2 holds the strings `amenity` and `cafe`, two groups with the untagged nodes 3 and 4, then the string
+  `x`. A read filtering on `amenity == 'cafe'` skips block 1 by the strings before its group and counts block 2.

@@ -112,10 +112,11 @@ impl Osm {
                 });
                 match read {
                     Ok(()) => {}
-                    Err(SourceError::Stopped) => break,
+                    Err(SourceError::Stopped) => return Ok(found),
                     Err(err) => return Err(TileGenError::from(err).into()),
                 }
             }
+            scan.finish().map_err(TileGenError::from)?;
             Ok(found)
         })
         .await?

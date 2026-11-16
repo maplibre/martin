@@ -234,3 +234,32 @@ fn osm_and_database_sources_together_are_refused() {
     let error = Osm::load(file.path()).err().unwrap();
     insta::assert_snapshot!(error, @"`martin test` tests OSM sources or database sources, not both; put them in separate configuration files");
 }
+
+#[tokio::test]
+async fn osm_a_search_misled_by_a_split_string_table_fails_the_review() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../tests/fixtures/osm/split-string-table.osm.pbf"
+    );
+    let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    write!(
+        file,
+        indoc! {"
+            osm:
+              sources:
+                split:
+                  path: {path}
+                  tags: [amenity]
+                  layers:
+                    cafes:
+                      geometry: point
+                      where: amenity == 'cafe'
+                      attributes: []
+        "},
+        path = path
+    )
+    .unwrap();
+    let backend = Osm::load(file.path()).unwrap().unwrap();
+    let error = review(&backend, 14, None, 100, &Reporter::new()).await.err().unwrap();
+    insta::assert_snapshot!(error.to_string().replace(path, "split-string-table.osm.pbf"), @"Cannot read split-string-table.osm.pbf: 2 blocks continue their string table after their first group; please report it at https://github.com/nyurik/osmflow/issues");
+}
