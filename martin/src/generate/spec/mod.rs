@@ -405,6 +405,32 @@ mod tests {
         }
     }
 
+    struct SelectsFor {
+        memory: Memory,
+        selects: Vec<(&'static str, RowKey)>,
+    }
+
+    impl TestBackend for SelectsFor {
+        type Scan = MemorySource;
+
+        fn tables(&self, max_zoom: u8) -> GenerateResult<Vec<TestTable>> {
+            self.memory.tables(max_zoom)
+        }
+
+        async fn scan(&self, table: &TestTable, key: Option<RowKey>, rows: Rows) -> GenerateResult<MemorySource> {
+            self.memory.scan(table, key, rows).await
+        }
+
+        #[expect(clippy::unused_async_trait_impl, reason = "the answer is fixed, a real search waits")]
+        async fn find(&self, _table: &TestTable, rows: &Condition, _shape: Option<Shape>) -> Find {
+            let rows = rows.to_string();
+            match self.selects.iter().find(|(selects, _)| *selects == rows) {
+                Some((_, key)) => Find::Searched { rows, key: Some(*key) },
+                None => Find::Unsupported,
+            }
+        }
+    }
+
     /// The status of `outcome` and its diffs, as `martin test run` prints them.
     fn shown(outcome: &Outcome) -> String {
         let report = Reporter::new();
@@ -544,7 +570,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
@@ -553,7 +579,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -562,7 +588,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -771,14 +797,14 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Selected {
                     rows: "TRUE",
                     key: 1,
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -790,7 +816,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -1022,7 +1048,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: kept by `where: population > 1000`']
+                paths: ['places: kept by `where`']
                 input: { id: 3 }
                 output: []
         "})
@@ -1038,13 +1064,13 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Kept(
                     3,
                 ),
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 2,
                     because: [
@@ -1053,7 +1079,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 3,
                     because: [
@@ -1097,7 +1123,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: kept by `where: population > 1000`']
+                paths: ['places: kept by `where`']
                 input: { id: 3 }
                 output: []
         "})
@@ -1113,7 +1139,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
@@ -1125,7 +1151,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 Swept {
                     key: 3,
                     because: [
@@ -1134,7 +1160,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 2,
                     because: [
@@ -1177,7 +1203,7 @@ mod tests {
             max_zoom: 14
             cases:
               - source: places
-                paths: ['places: kept by `where: population > 1000`']
+                paths: ['places: kept by `where`']
                 input: { id: 9 }
                 output: []
         "})
@@ -1193,7 +1219,7 @@ mod tests {
         insta::assert_debug_snapshot!(found, @r#"
         [
             (
-                "places: kept by `where: population > 1000`",
+                "places: kept by `where`",
                 Swept {
                     key: 1,
                     because: [
@@ -1205,7 +1231,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `where: population > 1000` is false",
+                "places: dropped, `where` is false",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -1214,7 +1240,7 @@ mod tests {
                 },
             ),
             (
-                "places: dropped, `population` is null in `where: population > 1000`",
+                "places: dropped, `population` is null in `where`",
                 NoneSwept {
                     rows: 1,
                     because: [
@@ -1224,6 +1250,54 @@ mod tests {
             ),
         ]
         "#);
+    }
+
+    #[tokio::test]
+    async fn generate_again_keeps_a_selected_row_whose_paths_a_later_swept_row_also_takes() {
+        let info: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: places
+            srid: 4326
+            geometry_column: geom
+            geometry_type: POINT
+            id_column: id
+            properties:
+              id: int8
+              kind: text
+              name: text
+            layers:
+              prater:
+                where: name == 'Prater'
+                attributes: []
+              parks:
+                where: kind == 'park'
+                attributes: []
+        "})
+        .expect("parses");
+        let rows = serde_saphyr::from_str(indoc! {"
+            - { id: 1, kind: park, name: Prater, geometry: 'POINT(16.37 48.20)' }
+            - { id: 2, kind: park, name: Stadtpark, geometry: 'POINT(16.38 48.21)' }
+            - { id: 3, kind: shop, name: Billa, geometry: 'POINT(16.39 48.22)' }
+        "})
+        .expect("parses");
+        let backend = SelectsFor {
+            memory: Memory {
+                tables: vec![MemoryTable {
+                    table: test_table("places", &info, 14).expect("lowers").expect("has zooms"),
+                    rows,
+                }],
+            },
+            selects: vec![("name IS DISTINCT FROM 'Prater'", 3), ("kind = 'park'", 2)],
+        };
+        let mut first = review(&backend, 14, None, 100, &Reporter::new())
+            .await
+            .expect("reviews");
+        first.accept_all();
+        let spec = first.spec();
+        let again = review(&backend, 14, Some(&spec), 100, &Reporter::new())
+            .await
+            .expect("reviews");
+        insta::assert_snapshot!(format!("{}\n{}\n{}", yaml(&spec), first.summary(), again.summary()));
     }
 
     #[tokio::test]

@@ -9,10 +9,23 @@ tags:
 
 # Building a basemap from OpenStreetMap
 
-This builds a basemap tileset from an [OpenStreetMap](https://www.openstreetmap.org/) extract, with the layers and
-attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
-[VersaTiles styles](https://github.com/versatiles-org/versatiles-style) draw it. The `osm` section is described in
-[OpenStreetMap PBF Sources](sources-osm.md).
+This builds a basemap tileset from an [OpenStreetMap](https://www.openstreetmap.org/) extract, with the layers and attributes using the [Shortbread](https://shortbread-tiles.org/) schema, so that [VersaTiles styles](https://github.com/versatiles-org/versatiles-style) can draw them.
+The configuration is a port of Planetiler's [`shortbread.yml`](https://github.com/onthegomap/planetiler/blob/main/planetiler-custommap/src/main/resources/samples/shortbread.yml), and Martin's tests use the 66 OpenStreetMap examples of its `shortbread.spec.yml`.
+
+!!! important "More information on the config used"
+    The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md).
+
+!!! warning "Feature is currently not fully implemented"
+    These are known missing features currently, but are planned:
+
+    - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
+    - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5.
+      This is because expressions cannot currently read a feature's area.
+    - A closed way is a line or a polygon, as its tags make it an [area](sources-osm.md#supported-features-and-handling).
+      Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
+    - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid.
+      `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon.
+      Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/):
 
@@ -20,18 +33,18 @@ attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
     curl -LO https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
     ```
 
-2. Save this as `basemap.yaml`, next to the extract:
+2. Save this as `shortbread.yaml`, next to the extract:
 
-    ??? example "basemap.yaml"
+    ??? example "shortbread.yaml"
 
         ```yaml
-        --8<-- "osm-basemap.yaml"
+        --8<-- "shortbread.yaml"
         ```
 
 3. Generate the tileset:
 
     ```bash
-    martin cp --mode bulk --config basemap.yaml --output-file berlin.mbtiles --format mvt --max-zoom 14
+    martin cp --mode bulk --config shortbread.yaml --output-file berlin.mbtiles --format mvt --max-zoom 14
     ```
 
 4. Serve it, and point a style's `versatiles-shortbread` source at `http://localhost:3000/berlin`:
@@ -42,15 +55,7 @@ attributes of the [Shortbread](https://shortbread-tiles.org/) schema, so that
 
 | Extract                     | PBF      | Features   | Tiles   | Time   | Memory  |
 |-----------------------------|----------|------------|---------|--------|---------|
-| Berlin, 2026-11-11          | 100 MB   | 1,530,231  | 915     | 4.3 s  | 2.2 GB  |
-| Germany, 2026-11-11         | 4.9 GB   | 71,888,220 | 241,142 | 3m 15s | 9.5 GB  |
+| Berlin, 2026-11-11          | 100 MB   | 1,631,630  | 914     | 3.1 s  | 2.7 GB  |
+| Germany, 2026-11-11         | 4.9 GB   | 75,134,826 | 228,018 | 3m 9s  | 18.2 GB |
 
 Measured on 24 threads, with the extract in the page cache.
-
-## What it leaves out
-
-- `ocean`, which Shortbread takes from coastline data outside OpenStreetMap, and the `boundary_labels`,
-  `dam_*`, `pier_*`, `street_labels_points` and `streets_polygons_labels` layers.
-- `boundaries` are the outlines of `type=boundary` relations as polygons, which line layers of a style draw, rather
-  than Shortbread's lines with the lowest `admin_level` of the relations each way is in.
-- Route relations, and tags of a relation copied to its member ways.

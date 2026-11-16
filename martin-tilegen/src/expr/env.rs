@@ -7,6 +7,8 @@ use cel::{Context, Env, ExecutionError, FunctionContext, extensions};
 use super::NULL;
 
 const COALESCE: &str = "coalesce";
+/// The largest of its arguments, or of the one list it is given.
+const MAX: &str = "max";
 
 type Function =
     Box<dyn for<'c, 'v> Fn(&mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> + Send + Sync>;
@@ -27,11 +29,14 @@ impl Shared {
         let mut root = Context::with_env(Arc::clone(&env));
         root.add_function(COALESCE, Box::new(coalesce) as Function)
             .expect("the standard library has no coalesce");
+        root.add_function(MAX, cel::functions::max)
+            .expect("the standard library has no max");
         Self { env, root }
     }
 
     pub(super) fn is_function(&self, name: &str) -> bool {
         name == COALESCE
+            || name == MAX
             || Context::with_env(Arc::clone(&self.env))
                 .add_function(name, Box::new(coalesce) as Function)
                 .is_err()
@@ -75,6 +80,19 @@ mod tests {
             (KeyId::new(0), Prop::Str("München".to_owned())),
             (KeyId::new(1), Prop::Str("Munich".to_owned())),
         ];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        assert_eq!(expr.eval(&view).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::of_a_list("max(ref.split(';').map(r, size(r)))", Value::Int(5))]
+    #[case::of_arguments("max(size(ref), 3)", Value::Int(10))]
+    fn max_returns_the_largest(#[case] source: &str, #[case] expected: Value) {
+        let columns = ["ref"];
+        let expr = CompiledExpr::compile(source, &columns, false).unwrap();
+        let keys = ExprKeys::columns(&columns);
+        let props = vec![(KeyId::new(0), Prop::Str("B 39;B 39A".to_owned()))];
         let mut slots = PropSlots::default();
         let view = slots.bind(&keys, &props);
         assert_eq!(expr.eval(&view).unwrap(), expected);

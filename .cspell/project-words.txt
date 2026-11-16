@@ -202,3 +202,5 @@ landuse
 openstreetmap
 osmflow
 versatiles
+aeroway
+pois

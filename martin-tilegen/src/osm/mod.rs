@@ -456,7 +456,7 @@ fn read_relations(
             if !area {
                 continue;
             }
-            let tag = |pos: usize| relation.tag(keys[pos]?);
+            let tag = |pos: usize| relation.tag(keys[pos]?).filter(|v| !v.is_empty());
             if let Some(condition) = condition {
                 let row = ObjectRow {
                     columns,
@@ -828,7 +828,7 @@ fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut
         if node.tags().len() == 0 || !scan.wants(Kind::Node, node.id()) {
             continue;
         }
-        let tag = |pos: usize| node.tag(keys[pos]?);
+        let tag = |pos: usize| node.tag(keys[pos]?).filter(|v| !v.is_empty());
         if !scan.takes(Kind::Node, GeometryType::Point, &tag) {
             continue;
         }
@@ -872,7 +872,7 @@ fn read_ways(
         } else {
             GeometryType::Line
         };
-        let tag = |pos: usize| way.tag(keys[pos]?);
+        let tag = |pos: usize| way.tag(keys[pos]?).filter(|v| !v.is_empty());
         if !scan.takes(Kind::Way, geometry, &tag) {
             continue;
         }

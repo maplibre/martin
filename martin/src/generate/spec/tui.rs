@@ -262,7 +262,10 @@ impl Screen<'_> {
                     RowSearch::NoneSwept { rows, because } => std::iter::once(format!("none of {rows} rows swept"))
                         .chain(because.iter().map(ToString::to_string))
                         .collect(),
-                    RowSearch::Kept(_) | RowSearch::Selected { .. } | RowSearch::Swept { .. } => Vec::new(),
+                    RowSearch::Kept(_)
+                    | RowSearch::Shared(_)
+                    | RowSearch::Selected { .. }
+                    | RowSearch::Swept { .. } => Vec::new(),
                 };
                 for why in why {
                     lines.push(Line::from(vec![Span::raw("     "), dim(why)]));

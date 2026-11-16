@@ -589,6 +589,8 @@ expression in YAML, for example `where: "kind == 'park'"`.
 Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
+- `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as
+  `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
 
 Regular expressions (`matches`) and timestamps are not available.
 

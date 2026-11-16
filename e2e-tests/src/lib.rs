@@ -10,6 +10,7 @@ mod cog;
 mod images;
 mod martin;
 mod martin_cp;
+mod martin_test;
 mod martin_test_generate;
 mod mbtiles;
 mod pmtiles;
@@ -35,6 +36,7 @@ pub use crate::martin::{
     Martin, MartinBuilder, StartError, TestResponse, mlt_dump, mlt_layers, mvt_dump, rings_from_smallest_vertex,
 };
 pub use crate::martin_cp::MartinCp;
+pub use crate::martin_test::MartinTest;
 pub use crate::martin_test_generate::{MartinTestReview, seed_postgres};
 pub use crate::mbtiles::{
     GZIP_MAGIC, MbtilesCli, PatchTile, Tile, gunzip, mbtiles_from_sql, metadata, metadata_listing, open_read_only,
